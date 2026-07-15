@@ -505,9 +505,9 @@ pub use realm::{
 };
 #[cfg(feature = "full-surface")]
 pub use receipts::{
-    ReadMarker, ReadReceipt, ReadReceiptDisclosure, ReadReceiptPolicy,
-    ReadReceiptPolicyChildViolation, ReadReceiptPreferences, ReadReceiptVisibility,
-    ReceiptDecision, ReceiptManager, ScopePref, should_send_receipt,
+    ReadReceipt, ReadReceiptDisclosure, ReadReceiptPolicy, ReadReceiptPolicyChildViolation,
+    ReadReceiptPreferences, ReadReceiptVisibility, ReceiptDecision, ReceiptManager, ScopePref,
+    should_send_receipt,
 };
 #[cfg(feature = "full-surface")]
 pub use resolver::{

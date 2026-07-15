@@ -361,7 +361,7 @@ pub struct EventsQueryOutcome {
 pub struct EventsRangeCompleteness {
     pub attestation_refs: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub attestations: Vec<EventEnvelope>,
+    pub attestations: Vec<Event>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1521,8 +1521,8 @@ pub struct AppletThirdPartyLocationList {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = ServerDescription)))]
-pub struct ServerDescribeOutcome(pub ServerDescription);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = ServiceDescribe)))]
+pub struct ServerDescribeOutcome(pub ServiceDescribe);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -1561,8 +1561,8 @@ pub struct AccountSubscribeRequestBody(pub SyncRequestBody);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectoryDescription)))]
-pub struct DirectoryDescribeOutcome(pub DirectoryDescription);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = ServiceDescribe)))]
+pub struct DirectoryDescribeOutcome(pub ServiceDescribe);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

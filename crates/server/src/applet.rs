@@ -20,7 +20,7 @@ use std::sync::Arc;
 
 use arkret_core::{
     AppletActorView, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
-    AppletTransactionOutcome, AppletTransactionRequestBody, Error, Hash, Result, ServerDescription,
+    AppletTransactionOutcome, AppletTransactionRequestBody, Error, Hash, Result, ServiceDescribe,
 };
 use arkret_signatures::VerificationMethodDocument;
 
@@ -98,7 +98,7 @@ pub trait AppletHandler: Send + Sync + 'static {
     /// `GET /_arkret/edge/applet/ping`
     fn ping(&self) -> Result<AppletPingOutcome>;
     /// `GET /_arkret/edge/applet/describe`
-    fn describe(&self) -> Result<ServerDescription>;
+    fn describe(&self) -> Result<ServiceDescribe>;
     /// `POST /_arkret/edge/applet/transactions`
     ///
     /// The [`router`] factory only dispatches here **after** it has
@@ -700,8 +700,8 @@ mod tests {
                 protocol_version: "1.0".to_owned(),
             })
         }
-        fn describe(&self) -> Result<ServerDescription> {
-            let mut description = ServerDescription::development(
+        fn describe(&self) -> Result<ServiceDescribe> {
+            let mut description = ServiceDescribe::development(
                 Did::new("did:webvh:QmSvc:svc.example").unwrap(),
                 TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
                 "applet_service",

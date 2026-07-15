@@ -3,11 +3,7 @@
 use super::*;
 
 /// Counterpart for `spec/v1/artifacts/schemas/calendar-event.schema.json`.
-pub type CalendarEvent = CalendarEventFields;
-
 /// Counterpart for `spec/v1/artifacts/schemas/calendar-event.schema.json#/$defs/attendee`.
-pub type Attendee = CalendarAttendee;
-
 /// Counterpart for `spec/v1/artifacts/schemas/common-ids.schema.json`.
 pub type CommonIds = BTreeMap<String, Value>;
 
@@ -190,6 +186,3 @@ pub type SourceRefs = Vec<EventId>;
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/subscription_id`.
 pub type SubscriptionId = String;
-
-/// Counterpart for `spec/v1/artifacts/schemas/list-handles-for-subject-response.schema.json`.
-pub type ListHandlesForSubjectOutcome = DirectorySubjectHandleList;

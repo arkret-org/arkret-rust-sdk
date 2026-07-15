@@ -274,13 +274,11 @@ pub fn validate_selection_within_ceiling(
 /// (`PUT /_arkret/self/agents/{agent_id}/participation`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AgentParticipationSetRequestBody {
+pub struct AgentParticipationReplaceRequestBody {
     #[serde(rename = "participation_scope")]
     pub scope: AgentParticipationScope,
     pub selection: AgentParticipation,
 }
-
-pub type AgentParticipationReplaceRequestBody = AgentParticipationSetRequestBody;
 
 /// One resolved per-scope participation entry: the controller-set
 /// selection, the governance ceiling, and their effective intersection.

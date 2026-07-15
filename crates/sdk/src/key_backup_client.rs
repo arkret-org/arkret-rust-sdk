@@ -35,7 +35,7 @@ impl KeyBackupClient {
         &self,
         backup_id: &str,
         record: &KeyBackup,
-    ) -> SdkResult<arkret_core::KeysBackupsPutOutcome> {
+    ) -> SdkResult<arkret_core::KeysBackupsReplaceOutcome> {
         let path = format!("/_arkret/self/keys/backups/{backup_id}");
         self.client.put(&path, record).await
     }
@@ -205,13 +205,13 @@ mod tests {
     fn key_backup_put_response_round_trips() {
         let record = backup_record();
         let backup_id = record.backup_id.clone();
-        let response = arkret_core::KeysBackupsPutOutcome {
+        let response = arkret_core::KeysBackupsReplaceOutcome {
             status: arkret_core::KeyBackupPutStatus::Accepted,
             backup_id: backup_id.clone(),
             ciphertext_digest: record.ciphertext_digest,
         };
         let json = serde_json::to_value(&response).unwrap();
-        let back: arkret_core::KeysBackupsPutOutcome = serde_json::from_value(json).unwrap();
+        let back: arkret_core::KeysBackupsReplaceOutcome = serde_json::from_value(json).unwrap();
         assert_eq!(back.backup_id, backup_id);
         assert_eq!(back.status, arkret_core::KeyBackupPutStatus::Accepted);
     }

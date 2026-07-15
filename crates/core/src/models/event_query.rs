@@ -7,7 +7,7 @@ pub struct EventsQueryPostRequestBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub realms: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub actors: Vec<ActorDid>,
+    pub actors: Vec<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub before: Option<Cursor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

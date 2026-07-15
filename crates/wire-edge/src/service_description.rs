@@ -105,30 +105,19 @@ pub struct PrivacyDerivation {
     pub push_target_id: Option<PushTargetPrivacyDerivation>,
 }
 
-/// Round 4 (2026-05-20, spec a77b995) — `ServiceDescribe` v2 has 17
-/// REQUIRED top-level fields plus a discriminated `rate_limit`. The
-/// pre-round-4 sparse-default surface is wire-broken; receivers MUST
-/// reject describe responses missing any required field with
-/// `schema_violation`.
-///
-/// The 17 required fields (matches `service-describe.schema.json`):
-/// `service_id`, `trust_domain`, `service_type`, `protocol_version`,
-/// `supported_profiles`, `supported_operations`, `supported_bindings`,
-/// `supported_features`, `auth_metadata`, `limits`,
-/// `plaintext_visibility`, `implemented_features`, `claimed_profiles`,
-/// `verified_profiles`, `experimental_features`, `compat_surfaces`,
-/// `development_mode`.
+/// Canonical service description defined by `service-describe.schema.json`.
+/// Receivers reject responses missing required fields with `schema_violation`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-pub struct ServerDescription {
+pub struct ServiceDescribe {
     pub service_id: Did,
-    /// Round 4 — REQUIRED trust domain. Receivers MUST refuse to
+    /// Required trust domain. Receivers MUST refuse to
     /// register a peer whose `trust_domain` disagrees with the
     /// expected deployment scope.
     pub trust_domain: TypedTrustDomainId,
     pub service_type: String,
     pub protocol_version: String,
-    /// Round 4 — REQUIRED (no longer defaulted): profiles the service
+    /// Profiles the service
     /// declares conformance to. Empty array is valid; missing is not.
     pub supported_profiles: Vec<String>,
     pub supported_operations: Vec<String>,
@@ -136,7 +125,7 @@ pub struct ServerDescription {
     pub supported_features: Vec<String>,
     pub auth_metadata: AuthMetadata,
     pub limits: ServerLimits,
-    /// Round 4 — plaintext visibility advertisement. Receivers MUST
+    /// Plaintext visibility advertisement. Receivers MUST
     /// treat a missing value as `untrusted` (fail-closed for the
     /// mention-redirect / late-recovery paths). Wire shape per
     /// `service-describe.schema.json#plaintext_visibility`.
@@ -149,31 +138,31 @@ pub struct ServerDescription {
     pub privacy_derivation: Option<PrivacyDerivation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub receive_policy_constraints: Option<ReceivePolicyConstraints>,
-    /// Round 4 — features the service has actually implemented (subset
+    /// Features the service has actually implemented (subset
     /// of `supported_features`). Tracks the difference between
     /// announce and run-time implementation.
     pub implemented_features: Vec<String>,
-    /// Round 4 — profiles the service claims (self-declared). Wire
+    /// Profiles the service claims (self-declared). Wire
     /// shape per
     /// `service-describe.schema.json#/properties/claimed_profiles`:
     /// every entry MUST be an object with `profile_id` +
     /// `claim_kind = "self_claimed"`; verified-only assertions live in
     /// [`Self::verified_profiles`].
     pub claimed_profiles: Vec<ClaimedProfileEntry>,
-    /// Round 4 — profiles a third party has verified the service
+    /// Profiles a third party has verified the service
     /// against. MUST be empty when `development_mode == true`. Wire
     /// shape per
     /// `service-describe.schema.json#/properties/verified_profiles`.
     pub verified_profiles: Vec<VerifiedProfileEntry>,
-    /// Round 4 — non-final extension features. Treated as opt-in by
+    /// Non-final extension features. Treated as opt-in by
     /// peers.
     pub experimental_features: Vec<String>,
-    /// Round 4 — back-compat / external-interop surfaces this service
+    /// External-interop surfaces this service
     /// exposes outside its claimed v1 conformance (e.g. MIMI/Matrix
     /// passthrough). Wire shape per
     /// `service-describe.schema.json#/properties/compat_surfaces`.
     pub compat_surfaces: Vec<CompatSurfaceEntry>,
-    /// Round 4 — REQUIRED. When `true` the service is in development
+    /// When `true` the service is in development
     /// mode; receivers MUST refuse to advertise `verified_profiles`
     /// and SHOULD warn on connection.
     pub development_mode: bool,
@@ -263,7 +252,7 @@ pub struct ServerDescription {
     pub last_materialized_at: Option<DateTime<Utc>>,
 }
 
-impl ServerDescription {
+impl ServiceDescribe {
     /// Build a complete development-mode description for a service surface.
     pub fn development(
         service_id: Did,
@@ -315,7 +304,7 @@ impl ServerDescription {
         }
     }
 
-    /// Round 4 — validate the cross-field invariants:
+    /// Validate the cross-field invariants:
     /// - `verified_profiles` MUST be empty when `development_mode = true`.
     /// - the describe `anyOf` requires `rate_limit_policy` or `rate_limit_policy_id`.
     pub fn validate(&self) -> Result<()> {
@@ -403,7 +392,7 @@ fn is_valid_directory_did_method(value: &str) -> bool {
     })
 }
 
-impl ServerDescription {
+impl ServiceDescribe {
     pub fn supports_arkret_v1(&self) -> bool {
         self.protocol_version == PROTOCOL_VERSION
     }
@@ -418,8 +407,8 @@ mod tests {
         Did, PROFILE_DIRECTORY_SERVICE, PROTOCOL_VERSION, RateLimitPolicy, TypedTrustDomainId,
     };
 
-    fn directory_description() -> ServerDescription {
-        ServerDescription {
+    fn directory_description() -> ServiceDescribe {
+        ServiceDescribe {
             service_id: Did::new("did:webvh:z6mkfixture:directory.example").unwrap(),
             trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_type: "directory_service".to_owned(),
@@ -603,11 +592,6 @@ pub struct AuthGrantExchange {
     pub proof_kind: SessionGrantProofKind,
 }
 
-pub type ActorDid = Did;
-pub type ServiceId = Did;
-pub type AccountId = String;
-pub type ServiceDescribe = ServerDescription;
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -744,7 +728,7 @@ pub enum DirectoryAcceptPolicyKind {
 }
 
 /// Round 4 — wire-level entry in
-/// [`ServerDescription::claimed_profiles`]. Mirrors
+/// [`ServiceDescribe::claimed_profiles`]. Mirrors
 /// `service-describe.schema.json#/properties/claimed_profiles/items`:
 /// `profile_id` + `claim_kind = "self_claimed"` are required, the rest
 /// is optional + open (`additionalProperties: true`) so receivers can
@@ -787,7 +771,7 @@ pub enum SelfClaimedKind {
 }
 
 /// Round 4 — wire-level entry in
-/// [`ServerDescription::verified_profiles`]. Mirrors
+/// [`ServiceDescribe::verified_profiles`]. Mirrors
 /// `service-describe.schema.json#/properties/verified_profiles/items`:
 /// requires a verification run id, artifact hash, artifact reference,
 /// verifier DID, issuer signature, and timestamp so consumers can pin the
@@ -821,7 +805,7 @@ pub enum ConformanceVerifiedKind {
 }
 
 /// Round 4 — wire-level entry in
-/// [`ServerDescription::compat_surfaces`]. Mirrors
+/// [`ServiceDescribe::compat_surfaces`]. Mirrors
 /// `service-describe.schema.json#/properties/compat_surfaces/items`:
 /// `name` + `kind` are required and `kind` is restricted to a closed
 /// enum so receivers can fast-path the dispatch.
@@ -892,7 +876,7 @@ pub enum CompatSurfaceKind {
     ExternalInterop,
 }
 
-/// Strongly-typed entry of [`ServerDescription::supported_bindings`].
+/// Strongly-typed entry of [`ServiceDescribe::supported_bindings`].
 /// Mirrors `service-describe.schema.json#/properties/supported_bindings/items`:
 /// `kind` is required, `base_url` optional, and the item is
 /// `additionalProperties: true` so the `extra` flatten round-trips any
@@ -928,7 +912,7 @@ impl SupportedBinding {
     }
 }
 
-/// Strongly-typed [`ServerDescription::plaintext_visibility`]. Mirrors
+/// Strongly-typed [`ServiceDescribe::plaintext_visibility`]. Mirrors
 /// `service-describe.schema.json#/properties/plaintext_visibility`: the
 /// object is closed (`additionalProperties: false`) apart from `x_*`
 /// extensions, which the `extra` flatten captures. An all-empty value
@@ -976,7 +960,7 @@ pub enum PlaintextMaxVisibility {
     PrivatePlaintext,
 }
 
-/// Strongly-typed [`ServerDescription::rate_limit_policy`]. Mirrors
+/// Strongly-typed [`ServiceDescribe::rate_limit_policy`]. Mirrors
 /// `service-describe.schema.json#/properties/rate_limit_policy`
 /// (`additionalProperties: true`).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

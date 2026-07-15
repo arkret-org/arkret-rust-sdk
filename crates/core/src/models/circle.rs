@@ -343,7 +343,7 @@ pub struct CircleMembershipOutcome {
 #[serde(deny_unknown_fields)]
 pub struct CircleScopeRotateRequestBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub events: Vec<EventEnvelope>,
+    pub events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
 }

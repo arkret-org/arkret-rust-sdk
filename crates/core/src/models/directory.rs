@@ -1,9 +1,5 @@
 use super::*;
 
-/// `ak.find.directory.query.describe` returns the shared ServiceDescribe
-/// contract with the registered directory-service overlay fields populated.
-pub type DirectoryDescription = ServiceDescribe;
-
 pub const DIRECTORY_RESTRICTED_CLAIM_PRESENTATION_KIND: &str =
     "ak.directory.restricted_claim_presentation.v1";
 

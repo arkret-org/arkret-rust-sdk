@@ -179,11 +179,8 @@ impl OperationEnvelope {
     ///
     /// Operation envelopes are not Arkret v1 wire facts. Callers must choose
     /// the event causal/auth references during conversion, then submit the
-    /// returned [`EventEnvelope`] to network, sync, federation or reducers.
-    pub fn into_event_envelope(
-        self,
-        conversion: OperationEventConversion,
-    ) -> Result<EventEnvelope> {
+    /// returned [`Event`] to network, sync, federation or reducers.
+    pub fn into_event_envelope(self, conversion: OperationEventConversion) -> Result<Event> {
         let mut event = Event::new(
             self.kind.clone(),
             self.realm_id,
@@ -1361,8 +1358,6 @@ impl ReadCursor {
         Ok(canonical::from_canonical_json_slice(bytes)?)
     }
 }
-
-pub type ReadMarker = ReadCursor;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

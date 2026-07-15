@@ -183,7 +183,6 @@ pub use space::*;
 pub use strand::*;
 pub use sync::*;
 
-pub type EventSubmitEnvelope = Event;
 pub type FacetName = Facet;
 pub type ObjectRef = String;
 pub type BooleanFilter = Filter;

@@ -310,9 +310,6 @@ pub struct Share {
     pub revocation_reason_code: Option<String>,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/recovery-session.schema.json`.
-pub type RecoverySession = RecoverySessionState;
-
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/challenge`.
 pub type Challenge = String;
 

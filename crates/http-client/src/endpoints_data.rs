@@ -8,9 +8,9 @@ use arkret_core::{
     KeyPackagesClaimRequestBody, KeyPackagesConsumeOutcome, KeyPackagesConsumeRequestBody,
     KeyPackagesRevokeOutcome, KeyPackagesRevokeRequestBody, KeyPackagesUploadOutcome,
     KeyPackagesUploadRequestBody, KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody,
-    KeysBackupsList, KeysBackupsPutOutcome, KeysBackupsUnlockRequestBody, KeysClaimOutcome,
+    KeysBackupsList, KeysBackupsReplaceOutcome, KeysBackupsUnlockRequestBody, KeysClaimOutcome,
     KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody, KeysUploadOutcome,
-    KeysUploadRequestBody, Result, ServerDescription, base64_standard_encode,
+    KeysUploadRequestBody, Result, ServiceDescribe, base64_standard_encode,
 };
 use reqwest::Method;
 use reqwest::header::{HeaderMap, RANGE};
@@ -74,7 +74,7 @@ impl BlobResumableUploadOptions {
     }
 }
 
-pub fn blob_resumable_upload_base_url(description: &ServerDescription) -> Option<Url> {
+pub fn blob_resumable_upload_base_url(description: &ServiceDescribe) -> Option<Url> {
     if !description
         .supported_features
         .iter()
@@ -494,7 +494,7 @@ impl Client {
         &self,
         backup_id: &BackupId,
         body: &KeyBackup,
-    ) -> Result<KeysBackupsPutOutcome> {
+    ) -> Result<KeysBackupsReplaceOutcome> {
         let path = format!("/_arkret/self/keys/backups/{}", backup_id.as_str());
         self.put(&path, body).await
     }
@@ -621,7 +621,7 @@ mod tests {
 
     #[test]
     fn resumable_upload_base_url_requires_feature_and_operation() {
-        let mut description: ServerDescription = serde_json::from_value(json!({
+        let mut description: ServiceDescribe = serde_json::from_value(json!({
             "protocol_version": "1.0",
             "service_type": "principal_server",
             "service_id": "did:web:server.local",

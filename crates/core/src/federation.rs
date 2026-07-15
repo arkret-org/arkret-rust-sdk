@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 pub use crate::HttpMessageSignature;
 use crate::{
-    BlobRef, Did, Error, EventEnvelope, EventId, EventsSubmitRejectedItem,
+    BlobRef, Did, Error, Event, EventId, EventsSubmitRejectedItem,
     FederationTransactionRequestBody, Hash, Operation, OperationId, RealmId, Result,
     TypedTrustDomainId, canonical,
 };
@@ -306,11 +306,11 @@ impl FederationBackfillQuery {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FederationBackfillOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub events: Vec<EventEnvelope>,
+    pub events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub state_events: Vec<EventEnvelope>,
+    pub state_events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub auth_events: Vec<EventEnvelope>,
+    pub auth_events: Vec<Event>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
 }
@@ -324,7 +324,7 @@ pub struct FederationEventAuthQuery {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FederationEventAuthOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub auth_chain: Vec<EventEnvelope>,
+    pub auth_chain: Vec<Event>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_digest: Option<Hash>,
 }

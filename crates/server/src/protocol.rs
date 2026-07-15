@@ -117,7 +117,7 @@ pub enum ServerRequestBody {
 #[derive(Clone, Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum ServerOutcome {
-    ServerDescription(Box<ServerDescription>),
+    ServerDescribe(Box<ServiceDescribe>),
     IdentityDescription(IdentityDescription),
     IdentityResolve(IdentityResolveOutcome),
     IdentityDocument(IdentityDocumentView),
@@ -133,7 +133,7 @@ pub enum ServerOutcome {
     FederationPullOperations(FederationPullOperationsOutcome),
     FederationRealmMembers(FederationRealmMemberList),
     FederationVerifyActor(FederationVerifyActorOutcome),
-    DirectoryDescription(DirectoryDescription),
+    DirectoryDescribe(ServiceDescribe),
     DirectorySearchRealms(DirectoryRealmSearchOutcome),
     DirectoryResolveRealm(DirectoryRealmResolutionOutcome),
     DirectorySearchOrganizations(DirectoryOrganizationSearchOutcome),
@@ -160,7 +160,7 @@ pub enum ServerOutcome {
     MediaIceConfig(MediaIceConfigOutcome),
     ModerationReport(ModerationReportOutcome),
     AppletPing(AppletPingOutcome),
-    ServiceDescription(ServerDescription),
+    AppletDescribe(ServiceDescribe),
     AppletTransaction(AppletTransactionOutcome),
     AppletActor(AppletActorView),
     AppletRealm(AppletRealmView),

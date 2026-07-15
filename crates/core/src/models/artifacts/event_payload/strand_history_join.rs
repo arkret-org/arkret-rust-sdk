@@ -242,8 +242,6 @@ pub struct KeyBackupActiveSeries {
     pub frontier_ref: KeyBackupActiveSeriesFrontierRef,
     pub issued_at: DateTime<Utc>,
     pub auth_data: KeyBackupActiveSeriesAuthData,
-    #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
-    pub extra: XExtensionMap,
 }
 
 pub type KeyBackupActiveSeriesPayload = KeyBackupActiveSeries;

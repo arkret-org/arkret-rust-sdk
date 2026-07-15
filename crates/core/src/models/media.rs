@@ -69,8 +69,6 @@ pub struct MediaIceServer {
     pub credential: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub credential_type: Option<MediaIceCredentialType>,
-    #[serde(default, flatten)]
-    pub extensions: XExtensionMap,
 }
 
 impl MediaIceServer {

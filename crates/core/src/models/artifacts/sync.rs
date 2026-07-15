@@ -197,6 +197,4 @@ pub struct Snapshot {
     pub created_at: DateTime<Utc>,
     pub authority_binding: SnapshotAuthorityBinding,
     pub signature: PayloadProof,
-    #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
-    pub extra: XExtensionMap,
 }

@@ -12,7 +12,7 @@ use arkret_core::{
     BlobMetadata, BlobUploadMetadata, BlobUploadOutcome, DeviceMessagesAckOutcome,
     DeviceMessagesAckRequestBody, DeviceMessagesGetOutcome, DeviceMessagesSendOutcome,
     DeviceMessagesSendRequestBody, DidOperationSubmitOutcome, DidOperationSubmitRequestBody,
-    DirectoryActorSearchOutcome, DirectoryDescription, DirectoryHandleResolutionOutcome,
+    DirectoryActorSearchOutcome, DirectoryHandleResolutionOutcome,
     DirectoryOrganizationResolutionOutcome, DirectoryOrganizationSearchOutcome,
     DirectoryRealmResolutionOutcome, DirectoryRealmSearchOutcome,
     DirectoryResolveHandleRequestBody, DirectoryResolveOrganizationRequestBody,
@@ -29,7 +29,7 @@ use arkret_core::{
     MediaIceConfigRequestBody, ModerationReportOutcome, ModerationReportRequestBody, OkOutcome,
     PolicyCheckOutcome, PolicyCheckRequestBody, PushNotifyOutcome, PushNotifyRequestBody,
     PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody,
-    Result, ServerDescription, SyncRequestBody,
+    Result, ServiceDescribe, SyncRequestBody,
 };
 pub use arkret_core::{AccountSubscribeFrame, AccountSubscribeFrameKind, AccountSubscribeRealms};
 pub use arkret_signatures as signatures;

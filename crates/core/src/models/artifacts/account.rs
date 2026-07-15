@@ -16,44 +16,6 @@ pub enum AccountOperations {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/account_registration_audit`.
-pub type AccountRegistrationAuditDto = AccountRegistrationAudit;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/
-/// account_registration_audit_outcome`.
-pub type AccountRegistrationAuditOutcomeDto = AccountRegistrationAuditOutcome;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/
-/// account_registration_evidence_summary`.
-pub type AccountRegistrationEvidenceSummaryDto = AccountRegistrationEvidenceSummary;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/
-/// account_registration_invitation_policy`.
-pub type AccountRegistrationInvitationPolicyDto = AccountRegistrationInvitationPolicy;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/account_registration_policy`.
-pub type AccountRegistrationPolicyDto = AccountRegistrationPolicy;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/
-/// account_registration_policy_evidence`.
-pub type AccountRegistrationPolicyEvidenceDto = AccountRegistrationPolicyEvidence;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/
-/// account_registration_rate_limit_policy`.
-pub type AccountRegistrationRateLimitPolicyDto = AccountRegistrationRateLimitPolicy;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/
-/// account_registration_verification_policy`.
-pub type AccountRegistrationVerificationPolicyDto = AccountRegistrationVerificationPolicy;
-
-/// Counterpart for
 /// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/device_summaries`.
 pub type DeviceSummaries = Vec<DeviceSummary>;
 
@@ -334,7 +296,7 @@ impl DeviceMessageContainer {
 /// `spec/v1/artifacts/schemas/account-subscribe-frame.schema.json#/$defs/event_container`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EventContainer {
-    pub events: Vec<EventEnvelope>,
+    pub events: Vec<Event>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
 }
@@ -351,7 +313,7 @@ pub struct AccountSubscribeDeviceListChanges {
 /// `spec/v1/artifacts/schemas/account-subscribe-frame.schema.json#/$defs/timeline`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Timeline {
-    pub events: Vec<EventEnvelope>,
+    pub events: Vec<Event>,
     pub limited: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prev_cursor: Option<String>,

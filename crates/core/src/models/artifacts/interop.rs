@@ -2,9 +2,6 @@
 
 use super::*;
 
-/// Counterpart for `spec/v1/artifacts/schemas/ice-config-response.schema.json`.
-pub type IceConfigOutcome = MediaIceConfigOutcome;
-
 /// Counterpart for `spec/v1/artifacts/schemas/media-operations.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]

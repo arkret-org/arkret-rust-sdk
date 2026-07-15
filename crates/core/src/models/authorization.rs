@@ -44,13 +44,11 @@ pub struct AuthzCheckOutcome {
     pub obligations: Vec<Value>,
 }
 
-pub type Capability = CapabilityGrant;
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct GrantList {
     #[serde(default)]
-    pub grants: Vec<Capability>,
+    pub grants: Vec<CapabilityGrant>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_digest: Option<Hash>,
     pub evaluated_at: DateTime<Utc>,

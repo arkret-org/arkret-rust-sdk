@@ -1088,13 +1088,13 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/wire-edge/src/service_description.rs::ServerDescription.accept_policy_ref",
+      "rust_field": "crates/wire-edge/src/service_description.rs::ServiceDescribe.accept_policy_ref",
       "spec_pointer": "service-describe.schema.json/properties/accept_policy_ref",
       "classification": "open_json",
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
     {
-      "rust_field": "crates/wire-edge/src/service_description.rs::ServerDescription.rate_limits",
+      "rust_field": "crates/wire-edge/src/service_description.rs::ServiceDescribe.rate_limits",
       "spec_pointer": "service-describe.schema.json/properties/rate_limits",
       "classification": "open_json",
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."

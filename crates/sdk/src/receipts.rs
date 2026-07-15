@@ -24,7 +24,7 @@ use arkret_core::ReadCursorId;
 // manager reuses them instead of keeping `user_id`-shaped local copies.
 pub use arkret_core::{
     READ_CURSOR_SCHEMA, READ_RECEIPT_SCHEMA, READ_RECEIPT_TYPE, ReadCursor, ReadCursorPosition,
-    ReadCursorScope, ReadMarker, ReadReceipt, ReadReceiptScope, ReadScopeKind,
+    ReadCursorScope, ReadReceipt, ReadReceiptScope, ReadScopeKind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -62,7 +62,7 @@ fn receipt_scope_thread_id(read_scope: &ReadReceiptScope) -> Option<String> {
 /// instead of producing a new one.
 #[derive(Clone, Debug)]
 pub struct ReceiptManager {
-    markers: BTreeMap<(RealmId, Did, Option<String>), ReadMarker>,
+    markers: BTreeMap<(RealmId, Did, Option<String>), ReadCursor>,
     receipts: BTreeMap<(RealmId, EventId, Option<String>), Vec<ReadReceipt>>,
     thread_index: BTreeSet<(RealmId, Option<String>)>,
     last_send_at: BTreeMap<(RealmId, Did, Option<String>), DateTime<Utc>>,
@@ -103,7 +103,7 @@ impl ReceiptManager {
         event_id: EventId,
         hlc: Hlc,
         thread_id: Option<String>,
-    ) -> Result<ReadMarker> {
+    ) -> Result<ReadCursor> {
         let marker = ReadCursor {
             id: ReadCursorId::new(format!("ak:read_cursor:{}", uuid::Uuid::now_v7()))?,
             schema: READ_CURSOR_SCHEMA.to_owned(),
@@ -127,7 +127,7 @@ impl ReceiptManager {
         realm_id: &RealmId,
         actor_id: &Did,
         thread_id: Option<&str>,
-    ) -> Option<&ReadMarker> {
+    ) -> Option<&ReadCursor> {
         self.markers.get(&(
             realm_id.clone(),
             actor_id.clone(),

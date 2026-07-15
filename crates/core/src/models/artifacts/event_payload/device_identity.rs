@@ -489,13 +489,6 @@ pub struct DirectConversationBoundPayload {
     pub supersedes_binding_ref: Option<EventRef>,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/encrypted_metadata`.
-pub type EncryptedMetadata = EncryptedEnvelope;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/erasure_receipt_payload`.
-pub type ErasureReceiptPayload = ErasureReceipt;
-
 #[cfg(test)]
 mod tests {
     use serde_json::json;

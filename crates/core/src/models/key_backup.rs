@@ -101,13 +101,11 @@ pub enum KeyBackupPutStatus {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct KeysBackupsPutOutcome {
+pub struct KeysBackupsReplaceOutcome {
     pub status: KeyBackupPutStatus,
     pub backup_id: BackupId,
     pub ciphertext_digest: String,
 }
-
-pub type KeysBackupsReplaceOutcome = KeysBackupsPutOutcome;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

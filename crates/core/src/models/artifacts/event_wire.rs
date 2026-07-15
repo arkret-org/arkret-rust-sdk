@@ -10,9 +10,6 @@ pub enum DisappearingMessages {
     DisappearingPolicy(DisappearingPolicy),
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/draft-sync.schema.json`.
-pub type DraftSync = DraftSyncValue;
-
 /// Counterpart for `spec/v1/artifacts/schemas/encrypted-envelope.schema.json`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

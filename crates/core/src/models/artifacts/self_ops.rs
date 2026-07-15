@@ -148,12 +148,6 @@ pub enum ContentBlockPoll {
     PollResponseBlock(PollResponseBlock),
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/file-transfer.schema.json`.
-pub type FileTransfer = FileTransferRecord;
-
-/// Counterpart for `spec/v1/artifacts/schemas/ice-config-response.schema.json`.
-pub type IceConfigResponse = MediaIceConfigOutcome;
-
 /// Counterpart for `spec/v1/artifacts/schemas/inclusion-list.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -201,7 +195,6 @@ pub struct KeyViewProof {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/list-handles-for-subject-response.schema.json`.
-pub type ListHandlesForSubjectResponse = DirectorySubjectHandleList;
 
 /// Counterpart for `spec/v1/artifacts/schemas/read-cursor-operations.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

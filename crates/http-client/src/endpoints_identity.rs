@@ -2,33 +2,33 @@
 
 use arkret_core::{
     DidOperationSubmitOutcome, DidOperationSubmitRequestBody, DirectoryActorSearchOutcome,
-    DirectoryAgentSelectorResolutionOutcome, DirectoryDescription,
-    DirectoryHandleResolutionOutcome, DirectoryListHandlesForSubjectRequestBody,
-    DirectoryOrganizationResolutionOutcome, DirectoryOrganizationSearchOutcome,
-    DirectoryPrivateContactDiscoveryOutcome, DirectoryPrivateContactDiscoveryRequestBody,
-    DirectoryRealmResolutionOutcome, DirectoryRealmSearchOutcome,
-    DirectoryResolveAgentSelectorRequestBody, DirectoryResolveHandleRequestBody,
-    DirectoryResolveOrganizationRequestBody, DirectoryResolveRealmRequestBody,
-    DirectoryResolveTargetRequestBody, DirectorySearchActorsRequestBody,
-    DirectorySearchOrganizationsRequestBody, DirectorySearchRealmsRequestBody,
-    DirectorySearchUsersRequestBody, DirectorySubjectHandleList, DirectoryTargetResolutionOutcome,
-    DirectoryUserSearchOutcome, IdentityDescription, IdentityDocumentView, IdentityLogListOutcome,
-    IdentityReceiptListOutcome, IdentityResolveOutcome, IdentityResolveRequestBody, Result,
-    ServerDescription, ServiceRequirements,
+    DirectoryAgentSelectorResolutionOutcome, DirectoryHandleResolutionOutcome,
+    DirectoryListHandlesForSubjectRequestBody, DirectoryOrganizationResolutionOutcome,
+    DirectoryOrganizationSearchOutcome, DirectoryPrivateContactDiscoveryOutcome,
+    DirectoryPrivateContactDiscoveryRequestBody, DirectoryRealmResolutionOutcome,
+    DirectoryRealmSearchOutcome, DirectoryResolveAgentSelectorRequestBody,
+    DirectoryResolveHandleRequestBody, DirectoryResolveOrganizationRequestBody,
+    DirectoryResolveRealmRequestBody, DirectoryResolveTargetRequestBody,
+    DirectorySearchActorsRequestBody, DirectorySearchOrganizationsRequestBody,
+    DirectorySearchRealmsRequestBody, DirectorySearchUsersRequestBody, DirectorySubjectHandleList,
+    DirectoryTargetResolutionOutcome, DirectoryUserSearchOutcome, IdentityDescription,
+    IdentityDocumentView, IdentityLogListOutcome, IdentityReceiptListOutcome,
+    IdentityResolveOutcome, IdentityResolveRequestBody, Result, ServiceDescribe,
+    ServiceRequirements,
 };
 use reqwest::Method;
 
 use crate::Client;
 
 impl Client {
-    pub async fn describe(&self) -> Result<ServerDescription> {
+    pub async fn describe(&self) -> Result<ServiceDescribe> {
         self.get("/_arkret/describe").await
     }
 
     pub async fn describe_and_verify(
         &self,
         requirements: &ServiceRequirements,
-    ) -> Result<ServerDescription> {
+    ) -> Result<ServiceDescribe> {
         let description = self.describe().await?;
         requirements.verify(&description)?;
         Ok(description)
@@ -96,7 +96,7 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn directory_describe(&self) -> Result<DirectoryDescription> {
+    pub async fn directory_describe(&self) -> Result<ServiceDescribe> {
         self.get("/_arkret/find/directory/describe").await
     }
 

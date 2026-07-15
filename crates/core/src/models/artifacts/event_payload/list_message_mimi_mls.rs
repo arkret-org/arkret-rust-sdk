@@ -287,7 +287,7 @@ pub struct MessageRevisePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<MessageMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub encrypted_metadata: Option<EncryptedMetadata>,
+    pub encrypted_metadata: Option<EncryptedEnvelope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }
@@ -310,7 +310,7 @@ struct MessageRevisePayloadWire {
     #[serde(default)]
     metadata: Option<MessageMetadata>,
     #[serde(default)]
-    encrypted_metadata: Option<EncryptedMetadata>,
+    encrypted_metadata: Option<EncryptedEnvelope>,
     #[serde(default)]
     reason: Option<String>,
 }

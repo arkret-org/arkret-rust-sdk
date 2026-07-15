@@ -135,8 +135,8 @@ fn framework_independent_handler_shape_can_be_mocked() {
     impl EndpointHandler for MockHandler {
         fn handle(&mut self, request: ServerRequestBody) -> Result<ServerOutcome> {
             match request {
-                ServerRequestBody::ServerDescribe => Ok(ServerOutcome::ServerDescription(
-                    Box::new(ServerDescription {
+                ServerRequestBody::ServerDescribe => {
+                    Ok(ServerOutcome::ServerDescribe(Box::new(ServiceDescribe {
                         service_id: arkret_core::Did::new("did:webvh:z6mkfixture:svc.example")
                             .unwrap(),
                         trust_domain: arkret_core::TypedTrustDomainId::new(
@@ -187,8 +187,8 @@ fn framework_independent_handler_shape_can_be_mocked() {
                         snapshot_frontier: Vec::new(),
                         reducer_profile: None,
                         last_materialized_at: None,
-                    }),
-                )),
+                    })))
+                }
                 _ => Err(arkret_core::Error::Protocol(
                     "mock endpoint not implemented".to_owned(),
                 )),
@@ -198,7 +198,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
 
     let mut handler = MockHandler;
     let response = handler.handle(ServerRequestBody::ServerDescribe).unwrap();
-    let ServerOutcome::ServerDescription(description) = response else {
+    let ServerOutcome::ServerDescribe(description) = response else {
         panic!("unexpected response");
     };
     assert!(

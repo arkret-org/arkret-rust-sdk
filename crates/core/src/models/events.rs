@@ -786,7 +786,6 @@ impl Event {
 }
 
 /// Canonical signed Event Envelope wire model.
-pub type EventEnvelope = Event;
 
 #[cfg(test)]
 mod event_wire_surface_tests {

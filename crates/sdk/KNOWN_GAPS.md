@@ -35,7 +35,7 @@ brought into line:
 - **Install aggregate objects added.** `InstallPreviewRequest`,
   `InstallPlan` (with `seal()` / `compute_plan_digest()`),
   `InstallCommitRequest`, `InstallCommitResponse`, `EffectiveScope`
-  (realm / circle), `ApprovalRequest`, `ApprovedScope`, `ActorPolicy`,
+  (realm / circle), `AppletApprovalRequest`, `ScopeGrant`, `AppletActorPolicy`,
   `InstallE2eePolicy`, `WidgetPolicy`.
 - **`ak.applet.bridge_error` reshaped.** `AppletBridgeErrorBuilder` now
   binds the spec §7 required fields (`realm_id`,

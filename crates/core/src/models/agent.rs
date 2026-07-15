@@ -334,7 +334,7 @@ pub struct AgentPauseRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentResumeRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sidecar_exposure_ack: Option<SidecarExposureAck>,
+    pub sidecar_exposure_ack: Option<AgentSidecarExposureAck>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

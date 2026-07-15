@@ -211,16 +211,6 @@ pub struct EventsSubmitFederationRequestBody {
     pub idempotency_key: Option<String>,
 }
 
-// ── EventsSubscribe NDJSON frame discriminator ──────────────────────────
-
-/// Round 4 — typed `/events/subscribe` NDJSON frame body.
-///
-/// Wire-breaking: replaces the pre-round-4 untyped string frames. The
-/// `Dropped` variant MUST carry a cursor so receivers can resume; an
-/// implementation that emits `Dropped` without cursor MUST downgrade
-/// to `ResyncRequired`.
-pub type EventsSubscribeFrameBody = crate::http::EventsSubscribeFrame;
-
 /// Snapshot acceleration hint returned by event range queries and federation
 /// pulls. The referenced snapshot manifest remains the authoritative signed
 /// object; consumers must verify it before applying any snapshot state.

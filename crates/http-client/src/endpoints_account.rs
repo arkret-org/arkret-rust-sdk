@@ -14,9 +14,9 @@ use arkret_core::{
     ContactRespondRequestBody, ContactTombstone, ContactTombstoneRequestBody,
     DirectConversationResolveOutcome, DirectConversationResolveRequestBody, Error,
     PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST, PATH_SELF_CONTACTS_RESPOND,
-    PATH_SELF_CONTACTS_TOMBSTONE, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, Result,
-    ServerDescription, SessionGrantOutcome, SessionGrantRefreshOutcome,
-    SessionGrantRefreshRequestBody, SessionGrantRequestBody, SyncRequestBody,
+    PATH_SELF_CONTACTS_TOMBSTONE, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, Result, ServiceDescribe,
+    SessionGrantOutcome, SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody,
+    SessionGrantRequestBody, SyncRequestBody,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use reqwest::Response;
@@ -370,7 +370,7 @@ impl Client {
         })
     }
 
-    pub async fn account_describe(&self) -> Result<ServerDescription> {
+    pub async fn account_describe(&self) -> Result<ServiceDescribe> {
         self.get("/_arkret/self/account/describe").await
     }
 

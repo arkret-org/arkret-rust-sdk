@@ -1234,8 +1234,6 @@ pub struct ModerationFrankingProof {
     pub key_ref: Option<String>,
 }
 
-pub type ModerationFrank = ModerationFrankingProof;
-
 /// Verification class returned by federation `verify_actor` (M-19).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

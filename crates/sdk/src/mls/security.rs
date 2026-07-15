@@ -27,8 +27,8 @@ pub fn minimal_metadata_max_epoch_lifetime() -> chrono::Duration {
 /// `aad_visibility=hidden`, per `crypto-media/encryption-and-audit.md` §2.9.
 ///
 /// When `is_minimal_metadata_realm` is true the §2.9 SHOULD on hidden AAD is a
-/// MUST: any visibility other than [`AadVisibility::Hidden`] is rejected with a
-/// [`Error::Protocol`] so message-id exposure cannot widen reaction-frequency
+/// MUST: any visibility other than [`crate::EncryptedEnvelopeAadVisibility::Hidden`]
+/// is rejected with [`Error::Protocol`] so message-id exposure cannot widen reaction-frequency
 /// correlation from per-`target_ref` to per-message. Non-minimal Realms are
 /// unaffected (this helper returns `Ok(())`).
 pub fn enforce_minimal_metadata_aad(

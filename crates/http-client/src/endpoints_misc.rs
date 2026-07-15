@@ -13,7 +13,7 @@ use arkret_core::{
     MimiReportAbuseRequestBody, ModerationReportOutcome, ModerationReportRequestBody, OkOutcome,
     PolicyCheckOutcome, PolicyCheckRequestBody, ProviderDirectory, PushNotifyOutcome,
     PushNotifyRequestBody, PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody,
-    PushUnregisterDeviceRequestBody, Result, ServerDescription, canonical,
+    PushUnregisterDeviceRequestBody, Result, ServiceDescribe, canonical,
 };
 use arkret_signatures::http_signature::{
     Component, ContentDigest, ContentDigestAlgorithm, Ed25519SigningKey, SignedRequestParts,
@@ -121,7 +121,7 @@ impl Client {
         self.get("/_arkret/edge/applet/ping").await
     }
 
-    pub async fn applet_describe(&self) -> Result<ServerDescription> {
+    pub async fn applet_describe(&self) -> Result<ServiceDescribe> {
         self.get("/_arkret/edge/applet/describe").await
     }
 

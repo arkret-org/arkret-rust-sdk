@@ -112,8 +112,6 @@ pub type OpaqueLocalId = String;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/operation_status_outcome`.
-pub type OperationStatusOutcome = AgentLifecycleOutcome;
-
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/
 /// pending_member_reconciliation_item`.
@@ -142,12 +140,8 @@ pub struct PublicKey {
 /// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/runtime_attestation`
 /// (`$ref` to `event-payload.schema.json#/$defs/agent_key_authorize_payload`
 /// `properties/runtime_attestation`).
-pub type RuntimeAttestation = AgentKeyAuthorizePayloadRuntimeAttestation;
-
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/sidecar_exposure_ack`.
-pub type SidecarExposureAck = AgentSidecarExposureAck;
-
 /// Counterpart for `spec/v1/artifacts/schemas/seal.schema.json#/$defs/seal_ref`.
 pub type SealRef = String;
 

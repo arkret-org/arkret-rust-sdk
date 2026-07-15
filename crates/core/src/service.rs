@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use crate::{
     DeviceId, Did, Error, ErrorEnvelope, OperationId, PROTOCOL_VERSION, RealmId, Result,
-    ServerDescription, ServiceType,
+    ServiceDescribe, ServiceType,
 };
 
 /// DID-document `service[].type` value designating a device enrollment
@@ -56,7 +56,7 @@ impl ServiceIdAllowlist {
         self.services.get(service_id)
     }
 
-    pub fn verify_description(&self, description: &ServerDescription) -> Result<()> {
+    pub fn verify_description(&self, description: &ServiceDescribe) -> Result<()> {
         let binding = self.services.get(&description.service_id).ok_or_else(|| {
             Error::Protocol(format!(
                 "service DID {} is not allowlisted",
@@ -233,7 +233,7 @@ impl ServiceRequirements {
         self
     }
 
-    pub fn verify(&self, description: &ServerDescription) -> Result<()> {
+    pub fn verify(&self, description: &ServiceDescribe) -> Result<()> {
         if description.protocol_version != PROTOCOL_VERSION {
             return Err(Error::Protocol(format!(
                 "service protocol_version {} does not match Arkret {PROTOCOL_VERSION}",
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn verifies_required_service_profile_and_operation() {
-        let description = ServerDescription {
+        let description = ServiceDescribe {
             service_id: Did::new("did:webvh:z6mkfixture:svc.example").unwrap(),
             trust_domain: crate::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_type: "directory_service".to_owned(),
@@ -398,7 +398,7 @@ mod tests {
             endpoint: "https://svc.example/_arkret/find/directory".to_owned(),
             operations: vec!["ak.find.directory.query.search_realms".to_owned()],
         });
-        let description = ServerDescription {
+        let description = ServiceDescribe {
             service_id,
             trust_domain: crate::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_type: "directory_service".to_owned(),
