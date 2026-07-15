@@ -221,7 +221,7 @@ pub struct KeyBackupActiveSeriesAuthData {
     pub ssk_generation: u64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupActiveSeriesFrontierRef {
     pub frontier_digest: Hash,
