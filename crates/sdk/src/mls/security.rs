@@ -12,8 +12,7 @@ pub const MINIMAL_METADATA_REALM_PROFILE: &str = "ak.profile.mls.minimal_metadat
 /// For Realms declaring [`MINIMAL_METADATA_REALM_PROFILE`] the §2.9 SHOULD on
 /// epoch lifetime is raised to a MUST: a commit MUST be forced at least every
 /// hour to bound within-epoch reaction-frequency observability. Stored as whole
-/// seconds (3600), matching the core crate's numeric-ceiling convention
-/// (`MEDIA_TOKEN_TTL_MAX_SECS`, `INCEPTION_KEY_MAX_ONLINE_WINDOW_SECS`). An
+/// seconds (3600), matching the core crate's numeric-ceiling convention. An
 /// implementation MAY declare a shorter lifetime, never a longer one.
 pub const MINIMAL_METADATA_MAX_EPOCH_LIFETIME_SECS: i64 = 3600;
 

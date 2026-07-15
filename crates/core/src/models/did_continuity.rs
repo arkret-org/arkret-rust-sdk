@@ -208,56 +208,6 @@ impl DidContinuityProof {
     }
 }
 
-/// SEC-04 — the **protocol hard cap** on how long an inception key may remain
-/// online after bootstrap, per `identity/key-management.md` §5.0.1 step 5.
-///
-/// 24h is a non-configurable ceiling: deployment policy MAY declare a *shorter*
-/// `inception_key_max_online_window`, but a self-reported *longer* window MUST
-/// NOT be honoured by the receiver. The recommended operational window is ≤1h;
-/// this constant only encodes the absolute hard limit the receiver enforces
-/// independently against its local clock.
-///
-/// Stored as whole seconds (matching the `*_SECS` / `*_MS` numeric-ceiling
-/// convention used elsewhere in this crate, e.g. `MEDIA_TOKEN_TTL_MAX_SECS`)
-/// because `chrono::Duration::hours` is not a `const fn`. Use
-/// [`inception_key_max_online_window`] for the [`chrono::Duration`] form.
-pub const INCEPTION_KEY_MAX_ONLINE_WINDOW_SECS: i64 = 24 * 60 * 60;
-
-/// SEC-04 — [`INCEPTION_KEY_MAX_ONLINE_WINDOW_SECS`] as a [`chrono::Duration`].
-pub fn inception_key_max_online_window() -> chrono::Duration {
-    chrono::Duration::seconds(INCEPTION_KEY_MAX_ONLINE_WINDOW_SECS)
-}
-
-/// SEC-04 — receiver-side independent age check for an inception key, per
-/// `identity/key-management.md` §5.0.1 step 5 (receiver independently enforces).
-///
-/// The receiver / Auth Server seals on the verifiable bootstrap timestamp
-/// (`did:webvh` entry-0 / continuity proof) and computes the inception key age
-/// against its **own local clock** (`now`), exactly like the §5.0.5
-/// evidence-age comparison — an RFC3339 wall-clock subtraction with no added
-/// skew tolerance (24h dwarfs ordinary clock skew). Returns `true` when the age
-/// exceeds the [`INCEPTION_KEY_MAX_ONLINE_WINDOW`] hard cap, in which case the
-/// caller MUST reject the `ak.device.authorize` / `ak.session.grant` /
-/// long-lived capability / ordinary DID update signed by that inception key and
-/// assign reason [`crate::REASON_INCEPTION_KEY_WINDOW_EXCEEDED`], regardless of
-/// any longer window the deployment self-reports. The cap is
-/// [`inception_key_max_online_window`] (24h).
-///
-/// **Conservative-reject convention for missing / unparseable evidence:** this
-/// helper takes an already-parsed [`DateTime<Utc>`]. When the caller cannot
-/// parse or is missing the bootstrap timestamp, it MUST treat the inception key
-/// as window-exceeded (fail closed) — i.e. behave as if this function returned
-/// `true` — rather than admitting the key. Do not substitute `now` or a default
-/// timestamp to "pass" the check.
-///
-/// A `bootstrap_ts` in the future (negative age, e.g. seal clock ahead of the
-/// receiver) is *not* treated as exceeded by this function; such anomalies are
-/// a separate validity concern for the caller and are intentionally left to the
-/// bootstrap-evidence validator rather than conflated with the age cap.
-pub fn inception_key_age_exceeded(bootstrap_ts: DateTime<Utc>, now: DateTime<Utc>) -> bool {
-    now.signed_duration_since(bootstrap_ts) > inception_key_max_online_window()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -365,48 +315,5 @@ mod tests {
         }
         let err = proof.validate_minimal().unwrap_err().to_string();
         assert!(err.contains("old_did and new_did links"));
-    }
-
-    #[test]
-    fn inception_key_max_online_window_is_24h_hard_cap() {
-        assert_eq!(INCEPTION_KEY_MAX_ONLINE_WINDOW_SECS, 24 * 60 * 60);
-        assert_eq!(
-            inception_key_max_online_window(),
-            chrono::Duration::hours(24)
-        );
-    }
-
-    #[test]
-    fn inception_key_age_under_24h_does_not_exceed() {
-        let bootstrap: DateTime<Utc> = "2026-04-29T00:00:00Z".parse().unwrap();
-        // 23h59m later — still inside the hard cap.
-        let now = bootstrap + chrono::Duration::hours(23) + chrono::Duration::minutes(59);
-        assert!(!inception_key_age_exceeded(bootstrap, now));
-    }
-
-    #[test]
-    fn inception_key_age_over_24h_exceeds() {
-        let bootstrap: DateTime<Utc> = "2026-04-29T00:00:00Z".parse().unwrap();
-        let now = bootstrap + chrono::Duration::hours(24) + chrono::Duration::seconds(1);
-        assert!(inception_key_age_exceeded(bootstrap, now));
-    }
-
-    #[test]
-    fn inception_key_age_exactly_24h_is_boundary_not_exceeded() {
-        let bootstrap: DateTime<Utc> = "2026-04-29T00:00:00Z".parse().unwrap();
-        // Exactly at the cap is not "exceeded" (strict `>`); one second past is.
-        let at_cap = bootstrap + chrono::Duration::hours(24);
-        assert!(!inception_key_age_exceeded(bootstrap, at_cap));
-        assert!(inception_key_age_exceeded(
-            bootstrap,
-            at_cap + chrono::Duration::seconds(1)
-        ));
-    }
-
-    #[test]
-    fn inception_key_age_future_bootstrap_not_exceeded() {
-        let bootstrap: DateTime<Utc> = "2026-04-29T00:00:00Z".parse().unwrap();
-        let now = bootstrap - chrono::Duration::hours(1);
-        assert!(!inception_key_age_exceeded(bootstrap, now));
     }
 }
