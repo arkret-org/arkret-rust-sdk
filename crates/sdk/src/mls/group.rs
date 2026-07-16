@@ -36,9 +36,9 @@ pub const MLS_EXPORTER_AEAD_CONTENT_SCHEME: &str = "mls-exporter-aead-v1";
 /// AAD / nonce-context `purpose` for the exporter-aead content scheme.
 pub const MLS_EXPORTER_AEAD_CONTENT_PURPOSE: &str = "mls_exporter_aead_content";
 /// MLS exporter label for the per-epoch history secret.
-const HISTORY_SECRET_LABEL: &str = "ak.history-v1";
+const HISTORY_SECRET_LABEL: &str = crate::ExporterLabelId::HISTORY_V1;
 /// HKDF-Expand label deriving the content key from the history secret.
-const CONTENT_KEY_LABEL: &str = "ak.content-v1";
+const CONTENT_KEY_LABEL: &str = crate::ExporterLabelId::CONTENT_V1;
 /// XChaCha20-Poly1305 key length, `AEAD.Nk`.
 const CONTENT_AEAD_KEY_LEN: usize = 32;
 /// XChaCha20-Poly1305 nonce length (24 bytes; §10.1 prefix || counter_be64).
@@ -1611,7 +1611,7 @@ mod content_scheme_anchor_tests {
         let expected_key = case["expected"]["content_key_hex"].as_str().unwrap();
 
         assert_eq!(
-            hex(&mls_kdf_label(32, "ak.content-v1", &[]).unwrap()),
+            hex(&mls_kdf_label(32, crate::ExporterLabelId::CONTENT_V1, &[]).unwrap(),),
             expected_info
         );
         assert_eq!(

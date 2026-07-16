@@ -508,7 +508,8 @@ impl<'de> Deserialize<'de> for KeyVerificationCancellationReason {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/identity-receipt.schema.json`.
-pub const IDENTITY_RECEIPT_PROOF_BINDING_CONTEXT: &str = "ak.identity-receipt-proof-v1";
+pub const IDENTITY_RECEIPT_PROOF_BINDING_CONTEXT: &str =
+    crate::ProofContextId::IDENTITY_RECEIPT_PROOF_V1;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

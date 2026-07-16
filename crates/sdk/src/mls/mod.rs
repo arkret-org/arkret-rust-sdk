@@ -482,10 +482,10 @@ mod tests {
 
         let realm = b"ak:realm:01904100-0000-7000-8000-1ad6479d4a41";
         let a = alice_group
-            .export_secret("arkret-reaction-routing-v1", realm, 32)
+            .export_secret(crate::ExporterLabelId::REACTION_ROUTING_V1, realm, 32)
             .unwrap();
         let b = bob_group
-            .export_secret("arkret-reaction-routing-v1", realm, 32)
+            .export_secret(crate::ExporterLabelId::REACTION_ROUTING_V1, realm, 32)
             .unwrap();
         assert_eq!(a.len(), 32);
         assert_eq!(
@@ -498,14 +498,14 @@ mod tests {
         assert_ne!(
             a,
             alice_group
-                .export_secret("arkret-reaction-routing-v1", other_realm, 32)
+                .export_secret(crate::ExporterLabelId::REACTION_ROUTING_V1, other_realm, 32)
                 .unwrap()
         );
         // Different label MUST diverge.
         assert_ne!(
             a,
             alice_group
-                .export_secret("ak.rtc-frame-key/v1", realm, 32)
+                .export_secret(crate::ExporterLabelId::RTC_FRAME_KEY_V1, realm, 32)
                 .unwrap()
         );
     }

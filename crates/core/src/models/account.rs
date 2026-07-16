@@ -278,8 +278,6 @@ pub struct AccountLifecycleProof {
 pub const ACCOUNT_LIFECYCLE_PROOF_SCHEMA: &str = "ak.schema.account_lifecycle_proof.v1";
 pub const SESSION_REVOKE_LIFECYCLE_PROOF_KIND: &str =
     "ak.account.lifecycle_proof.session_revoke.v1";
-pub const SESSION_REVOKE_OPERATION_ID: &str = "ak.gate.account.command.revoke_session";
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantAppletSelector {
@@ -304,7 +302,7 @@ impl AccountLifecycleProof {
     ) -> Result<Hash> {
         let request = json!({
             "schema": "ak.schema.session_revoke.request.v1",
-            "operation": SESSION_REVOKE_OPERATION_ID,
+            "operation": crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION,
             "actor_id": actor_id,
             "service_id": service_id,
             "session_device_id": session_device_id,

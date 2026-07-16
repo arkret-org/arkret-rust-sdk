@@ -1,4 +1,4 @@
-use crate::ServiceOperationId;
+use crate::{CapabilityActionId, ExporterLabelId, ServiceOperationId};
 
 /// Service operations for which this SDK ships generated route and metadata support.
 pub const SUPPORTED_OPERATION_IDS: &[ServiceOperationId] = ServiceOperationId::ALL;
@@ -93,89 +93,17 @@ pub const CROSS_SIGNING_RESET_SCHEMA: &str = "ak.schema.cross_signing_reset.v1";
 /// `ak.circle.member.manage`, `ak.circle.member.add.others`, and
 /// `ak.circle.audit` declare `required_constraints=["allowed_circle_ids"]`;
 /// unconstrained Realm-wide grants for those actions MUST be rejected.
-pub const CAP_ACTION_CIRCLE_CREATE: &str = "ak.circle.create";
-pub const CAP_ACTION_CIRCLE_MANAGE: &str = "ak.circle.manage";
-pub const CAP_ACTION_CIRCLE_MEMBER_ADD: &str = "ak.circle.member.add";
-pub const CAP_ACTION_CIRCLE_MEMBER_MANAGE: &str = "ak.circle.member.manage";
-pub const CAP_ACTION_CIRCLE_MEMBER_ADD_OTHERS: &str = "ak.circle.member.add.others";
-pub const CAP_ACTION_CIRCLE_AUDIT: &str = "ak.circle.audit";
 
 /// AKP-0007 capability action list (6 actions). Useful for downstream
 /// services that want to iterate the Circle-management surface.
 pub const CIRCLE_CAPABILITY_ACTIONS: &[&str] = &[
-    CAP_ACTION_CIRCLE_CREATE,
-    CAP_ACTION_CIRCLE_MANAGE,
-    CAP_ACTION_CIRCLE_MEMBER_ADD,
-    CAP_ACTION_CIRCLE_MEMBER_MANAGE,
-    CAP_ACTION_CIRCLE_MEMBER_ADD_OTHERS,
-    CAP_ACTION_CIRCLE_AUDIT,
+    CapabilityActionId::CIRCLE_CREATE,
+    CapabilityActionId::CIRCLE_MANAGE,
+    CapabilityActionId::CIRCLE_MEMBER_ADD,
+    CapabilityActionId::CIRCLE_MEMBER_MANAGE,
+    CapabilityActionId::CIRCLE_MEMBER_ADD_OTHERS,
+    CapabilityActionId::CIRCLE_AUDIT,
 ];
-
-/// AKP-0008 / AKP-0009 (spec head 37ce729) — personal-agent capability actions
-/// registered in `capability-action-registry.json`. 14 actions: 8 lifecycle /
-/// runtime actions on the agent itself, plus 3 sidecar-thread actions, plus
-/// 3 aggregate actions that fan out to `target_event_kinds` (publish / write /
-/// ensure trio carries the migration_group metadata in the spec; SDK consumers
-/// MUST consult the registry artifact for the target_event_kinds expansion).
-pub const CAP_ACTION_AGENT_PROVISION: &str = "ak.self.agent.command.provision";
-pub const CAP_ACTION_AGENT_PAUSE: &str = "ak.self.agent.command.pause";
-pub const CAP_ACTION_AGENT_RESUME: &str = "ak.self.agent.command.resume";
-pub const CAP_ACTION_AGENT_DEACTIVATE: &str = "ak.self.agent.command.deactivate";
-pub const CAP_ACTION_AGENT_DRAFT_PROPOSE: &str = "ak.agent.draft.propose";
-pub const CAP_ACTION_AGENT_ACTION_REQUEST: &str = "ak.agent.action_request";
-pub const CAP_ACTION_AGENT_ACTION_APPROVE: &str = "ak.agent.action_approve";
-pub const CAP_ACTION_AGENT_ACTION_REJECT: &str = "ak.agent.action_reject";
-pub const CAP_ACTION_AGENT_SIDECAR_THREAD_ENSURE: &str =
-    "ak.self.agent.sidecar_thread.command.ensure";
-pub const CAP_ACTION_AGENT_SIDECAR_THREAD_WRITE: &str = "ak.agent.sidecar_thread.write";
-pub const CAP_ACTION_AGENT_SIDECAR_THREAD_PUBLISH: &str = "ak.agent.sidecar_thread.publish";
-
-/// AKP-0008 / AKP-0009 — full capability-action list (11 base + 3 aggregate
-/// = 14 entries per `capability-action-registry.json`).
-pub const AGENT_CAPABILITY_ACTIONS: &[&str] = &[
-    CAP_ACTION_AGENT_PROVISION,
-    CAP_ACTION_AGENT_PAUSE,
-    CAP_ACTION_AGENT_RESUME,
-    CAP_ACTION_AGENT_DEACTIVATE,
-    CAP_ACTION_AGENT_DRAFT_PROPOSE,
-    CAP_ACTION_AGENT_ACTION_REQUEST,
-    CAP_ACTION_AGENT_ACTION_APPROVE,
-    CAP_ACTION_AGENT_ACTION_REJECT,
-    CAP_ACTION_AGENT_SIDECAR_THREAD_ENSURE,
-    CAP_ACTION_AGENT_SIDECAR_THREAD_WRITE,
-    CAP_ACTION_AGENT_SIDECAR_THREAD_PUBLISH,
-];
-
-pub const AGENT_SIDECAR_THREAD_ENSURE_TARGET_EVENT_KINDS: &[&str] = &[
-    "ak.circle.create",
-    "ak.circle.member.state",
-    "ak.strand.create",
-    "ak.relation.create",
-];
-pub const AGENT_SIDECAR_THREAD_WRITE_TARGET_EVENT_KINDS: &[&str] = &["ak.message.create"];
-pub const AGENT_SIDECAR_THREAD_PUBLISH_TARGET_EVENT_KINDS: &[&str] = &["ak.message.create"];
-
-pub fn agent_capability_target_event_kinds(action: &str) -> &'static [&'static str] {
-    match action {
-        CAP_ACTION_AGENT_PROVISION => &[
-            "ak.profile.create",
-            "ak.identity.accountability_grant",
-            "ak.agent.key.authorize",
-            "ak.capability.grant",
-        ],
-        CAP_ACTION_AGENT_PAUSE => &["ak.self.agent.pause"],
-        CAP_ACTION_AGENT_RESUME => &["ak.self.agent.resume"],
-        CAP_ACTION_AGENT_DEACTIVATE => &["ak.self.agent.deactivate"],
-        CAP_ACTION_AGENT_DRAFT_PROPOSE => &["ak.agent.draft.propose"],
-        CAP_ACTION_AGENT_ACTION_REQUEST => &["ak.agent.action_request"],
-        CAP_ACTION_AGENT_ACTION_APPROVE => &["ak.agent.action_approve"],
-        CAP_ACTION_AGENT_ACTION_REJECT => &["ak.agent.action_reject"],
-        CAP_ACTION_AGENT_SIDECAR_THREAD_ENSURE => AGENT_SIDECAR_THREAD_ENSURE_TARGET_EVENT_KINDS,
-        CAP_ACTION_AGENT_SIDECAR_THREAD_WRITE => AGENT_SIDECAR_THREAD_WRITE_TARGET_EVENT_KINDS,
-        CAP_ACTION_AGENT_SIDECAR_THREAD_PUBLISH => AGENT_SIDECAR_THREAD_PUBLISH_TARGET_EVENT_KINDS,
-        _ => &[],
-    }
-}
 
 /// AKP-0008 / AKP-0009 — personal-agent operation IDs (registered in
 /// `operation-registry.json`). Used by the RPC dispatch layer; reducer-input
@@ -282,25 +210,12 @@ pub fn agent_sidecar_short_name(controller_agent_circle_key: &str) -> String {
 /// High-risk capability required in addition to `ak.message.create` or
 /// `ak.message.revise` whenever a Message introduces an `audience_mention`
 /// node such as `@all` or v1 `@here` (`audience="strand_engaged"`).
-pub const CAP_ACTION_MESSAGE_MENTION_BROADCAST: &str = "ak.message.mention.broadcast";
-pub const CAP_ACTION_RSVP_SET: &str = "ak.rsvp.set";
-pub const CAP_ACTION_PIN_ADD: &str = "ak.pin.add";
-pub const CAP_ACTION_PIN_REMOVE: &str = "ak.pin.remove";
-pub const CAP_ACTION_PIN_REORDER: &str = "ak.pin.reorder";
-pub const CAP_ACTION_REALM_DISAPPEARING_POLICY: &str = "ak.realm.disappearing_policy";
-pub const CAP_ACTION_REALM_SEARCH_POLICY: &str = "ak.realm.search_policy";
 
 /// Capability constraint shorthand from `capability-action-registry.json`.
 pub const CAP_CONSTRAINT_ALLOWED_WRITE_FIELDS: &str = "allowed_write_fields";
 
 /// Capability-action IDs sampled in `_randmon.md` and promoted to SDK
 /// constants so downstream grant builders do not hard-code raw strings.
-pub const CAP_ACTION_OBJECT_ARCHIVE: &str = "ak.object.archive";
-pub const CAP_ACTION_EVENT_READ: &str = "ak.event.read";
-pub const CAP_ACTION_MODERATION_DECISION_LIFT: &str = "ak.moderation.decision.lift";
-pub const CAP_ACTION_STRAND_UPDATE: &str = "ak.strand.update";
-pub const CAP_ACTION_APPROVAL_VOTE: &str = "ak.approval.vote";
-pub const CAP_ACTION_AUDIT_ACCESSED: &str = "ak.audit.accessed";
 
 /// Membership and invite event kinds.
 
@@ -356,35 +271,24 @@ pub const CAP_ACTION_AUDIT_ACCESSED: &str = "ak.audit.accessed";
 
 // DRIFT-ALLOW: constant declaring the operation-id string, not a payload type.
 
-pub const SERVICE_SCOPE_SELF_EVENTS_QUERY_DESCRIBE: &str =
-    ServiceOperationId::SELF_EVENTS_QUERY_DESCRIBE;
-pub const SERVICE_SCOPE_SELF_EVENTS_QUERY_SCAN: &str = ServiceOperationId::SELF_EVENTS_QUERY_SCAN;
-pub const SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE: &str =
-    ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE;
-pub const SERVICE_SCOPE_SELF_EVENTS_QUERY_FRONTIER: &str =
-    ServiceOperationId::SELF_EVENTS_QUERY_FRONTIER;
-pub const SERVICE_SCOPE_SELF_EVENTS_RESOURCE_GET: &str =
-    ServiceOperationId::SELF_EVENTS_RESOURCE_GET;
-pub const SERVICE_SCOPE_SELF_EVENTS_COMMAND_SUBMIT: &str =
-    ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT;
 pub const PERSONAL_AGENT_RUNTIME_EVENT_SERVICE_SCOPES: &[&str] = &[
-    SERVICE_SCOPE_SELF_EVENTS_QUERY_DESCRIBE,
-    SERVICE_SCOPE_SELF_EVENTS_QUERY_SCAN,
-    SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE,
-    SERVICE_SCOPE_SELF_EVENTS_QUERY_FRONTIER,
-    SERVICE_SCOPE_SELF_EVENTS_RESOURCE_GET,
-    SERVICE_SCOPE_SELF_EVENTS_COMMAND_SUBMIT,
+    ServiceOperationId::SELF_EVENTS_QUERY_DESCRIBE,
+    ServiceOperationId::SELF_EVENTS_QUERY_SCAN,
+    ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE,
+    ServiceOperationId::SELF_EVENTS_QUERY_FRONTIER,
+    ServiceOperationId::SELF_EVENTS_RESOURCE_GET,
+    ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT,
 ];
 
 pub fn is_personal_agent_runtime_event_service_scope(scope: &str) -> bool {
     matches!(
         scope,
-        SERVICE_SCOPE_SELF_EVENTS_QUERY_DESCRIBE
-            | SERVICE_SCOPE_SELF_EVENTS_QUERY_SCAN
-            | SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE
-            | SERVICE_SCOPE_SELF_EVENTS_QUERY_FRONTIER
-            | SERVICE_SCOPE_SELF_EVENTS_RESOURCE_GET
-            | SERVICE_SCOPE_SELF_EVENTS_COMMAND_SUBMIT
+        ServiceOperationId::SELF_EVENTS_QUERY_DESCRIBE
+            | ServiceOperationId::SELF_EVENTS_QUERY_SCAN
+            | ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE
+            | ServiceOperationId::SELF_EVENTS_QUERY_FRONTIER
+            | ServiceOperationId::SELF_EVENTS_RESOURCE_GET
+            | ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT
     )
 }
 
@@ -412,38 +316,30 @@ pub fn is_personal_agent_runtime_event_service_scope(scope: &str) -> bool {
 /// strand. `submit` is low-risk (any member may appeal); `review` is
 /// medium-risk and gates the review / decision / close transitions.
 /// Spec: capability-action-registry.json.
-pub const CAP_ACTION_MODERATION_APPEAL_SUBMIT: &str = "ak.moderation.appeal.submit";
-pub const CAP_ACTION_MODERATION_APPEAL_REVIEW: &str = "ak.moderation.appeal.review";
 
 /// Round 4 (2026-05-20, spec a77b995) — capability action gating Morph
 /// creation. Medium risk; the spec
 /// `capability-action-registry.json` declares `required_constraints=[allowed_morph_types]`.
-pub const CAP_ACTION_MORPH_CREATE: &str = "ak.morph.create";
 
 /// AKP-0010 (R3 spec-sync 2026-05-27, arkret-spec b47ff6ec) — call /
 /// media capability actions registered in
 /// `capability-action-registry.json`. These actions gate the join,
 /// screen-share, recording, transcription, moderation, and signal-send
 /// surfaces of the ak.call.* feature.
-pub const CAP_ACTION_CALL_JOIN: &str = "ak.call.join";
-pub const CAP_ACTION_CALL_SCREEN_SHARE: &str = "ak.call.screen_share";
-pub const CAP_ACTION_CALL_RECORD: &str = "ak.call.record";
-pub const CAP_ACTION_CALL_TRANSCRIBE: &str = "ak.call.transcribe";
-pub const CAP_ACTION_CALL_MODERATE: &str = "ak.call.moderate";
+
 /// `service-http-binding.md` §162 — sending a `ak.call.signal` ephemeral
 /// envelope via `POST /_arkret/self/ephemeral` requires the actor to hold
 /// this realm-scoped capability. Registered in
 /// `capability-action-registry.json`.
-pub const CAP_CALL_SIGNAL_SEND: &str = "ak.call.signal.send";
 
 /// AKP-0010 — full call/media capability-action list.
 pub const CALL_CAPABILITY_ACTIONS: &[&str] = &[
-    CAP_ACTION_CALL_JOIN,
-    CAP_ACTION_CALL_SCREEN_SHARE,
-    CAP_ACTION_CALL_RECORD,
-    CAP_ACTION_CALL_TRANSCRIBE,
-    CAP_ACTION_CALL_MODERATE,
-    CAP_CALL_SIGNAL_SEND,
+    CapabilityActionId::CALL_JOIN,
+    CapabilityActionId::CALL_SCREEN_SHARE,
+    CapabilityActionId::CALL_RECORD,
+    CapabilityActionId::CALL_TRANSCRIBE,
+    CapabilityActionId::CALL_MODERATE,
+    CapabilityActionId::CALL_SIGNAL_SEND,
 ];
 
 /// AKP-0010 — `ak.self.call.media.exchange.issue_token` operation id. HTTP route:
@@ -462,11 +358,11 @@ pub const MEDIA_TOKEN_TTL_SHOULD_SECS: u64 = 300;
 /// MLS exporter label for the per-call recording artifact key
 /// (`call-state.md` §5). Used as the `scheme` of the recording blob's
 /// encryption descriptor.
-pub const EXPORTER_LABEL_RTC_RECORDING_KEY: &str = "ak.rtc-recording-key/v1";
+pub const EXPORTER_LABEL_RTC_RECORDING_KEY: &str = ExporterLabelId::RTC_RECORDING_KEY_V1;
 /// MLS exporter label for the per-call transcription artifact key
 /// (`call-state.md` §5.1). Mirrors the recording-key label for the
 /// transcription pipeline.
-pub const EXPORTER_LABEL_RTC_TRANSCRIPT_KEY: &str = "ak.rtc-transcript-key/v1";
+pub const EXPORTER_LABEL_RTC_TRANSCRIPT_KEY: &str = ExporterLabelId::RTC_TRANSCRIPT_KEY_V1;
 
 /// AKP-0008 / AKP-0009 (R3 spec-sync 2026-05-27) — agent_runtime
 /// surface tier: list of operations that live under the
@@ -561,18 +457,6 @@ pub const HEADER_REQUEST_CANONICAL_DIGEST: &str = "Request-Canonical-Digest";
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn agent_sidecar_actions_expand_to_target_event_kinds() {
-        assert_eq!(
-            agent_capability_target_event_kinds(CAP_ACTION_AGENT_SIDECAR_THREAD_ENSURE),
-            AGENT_SIDECAR_THREAD_ENSURE_TARGET_EVENT_KINDS
-        );
-        assert_eq!(
-            agent_capability_target_event_kinds(CAP_ACTION_AGENT_SIDECAR_THREAD_WRITE),
-            &["ak.message.create"]
-        );
-    }
 
     #[test]
     fn agent_sidecar_home_prefers_context_realm() {

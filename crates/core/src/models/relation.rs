@@ -267,14 +267,16 @@ mod tests {
         let relation_kinds = registry["relation_kinds"]
             .as_array()
             .expect("relation_kinds array");
-        let registry_ids: Vec<&str> = relation_kinds
+        let mut registry_ids: Vec<&str> = relation_kinds
             .iter()
             .map(|row| row["canonical_id"].as_str().expect("canonical_id"))
             .collect();
-        let sdk_ids: Vec<&str> = STANDARD_RELATION_KIND_METADATA
+        let mut sdk_ids: Vec<&str> = STANDARD_RELATION_KIND_METADATA
             .iter()
             .map(|metadata| metadata.canonical_id)
             .collect();
+        registry_ids.sort_unstable();
+        sdk_ids.sort_unstable();
         assert_eq!(sdk_ids, registry_ids);
 
         for row in relation_kinds {

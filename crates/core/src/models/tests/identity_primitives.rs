@@ -111,7 +111,7 @@ fn server_description_checks_protocol_version() {
     let desc = ServiceDescribe {
         service_id: Did::new("did:webvh:z6mkfixture:svc.example").unwrap(),
         trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-        service_type: "principal_server".to_owned(),
+        service_type: ServiceType::PrincipalServer,
         protocol_version: "1.0".to_owned(),
         supported_profiles: vec![],
         supported_features: vec![],

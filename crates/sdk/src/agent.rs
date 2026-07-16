@@ -1162,7 +1162,6 @@ mod tests {
     use crate::{
         AgentKeyApprovalEvidence, AgentKeyApprovalEvidenceKind, AgentKeyScope,
         AgentKeyScopeResource, AgentKeyScopeResourceKind,
-        SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE,
     };
 
     fn did(name: &str) -> Did {
@@ -1230,7 +1229,7 @@ mod tests {
     fn test_scope() -> AgentKeyScope {
         AgentKeyScope {
             actions: vec![
-                SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE.to_owned(),
+                crate::ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE.to_owned(),
                 "ak.message.create".to_owned(),
             ],
             resources: vec![AgentKeyScopeResource {
@@ -1238,7 +1237,7 @@ mod tests {
                 realm_id: None,
                 resource_ref: None,
                 schema_ref: None,
-                operation: Some(SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE.to_owned()),
+                operation: Some(crate::ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE.to_owned()),
                 service_id: None,
             }],
             constraints: Vec::new(),
@@ -1276,7 +1275,7 @@ mod tests {
         );
         assert_eq!(
             body["requested_scope"]["actions"][0],
-            SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE
+            crate::ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE
         );
         assert_eq!(body["requested_scope"]["resources"][0]["kind"], "operation");
 
@@ -1523,7 +1522,7 @@ mod tests {
         assert_eq!(event.payload["agent_id"], agent_id.as_str());
         assert_eq!(
             event.payload["agent_key_scope"]["actions"][0],
-            SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE
+            crate::ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE
         );
         assert_eq!(
             event.payload["verification_method"],
@@ -1603,7 +1602,7 @@ mod tests {
     fn agent_key_proof_request_binds_scope_and_dpop_proof() {
         let principal_id = did("agent");
         let requested_scope = vec![
-            SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE.to_owned(),
+            crate::ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE.to_owned(),
             "ak.message.create".to_owned(),
         ];
         let agent_scope_request = SessionGrantAgentScopeRequest {
@@ -1685,7 +1684,7 @@ mod tests {
             Some("did:webvh:z6mkfixture:agent.example#runtime-key-1")
         );
         assert!(crate::is_personal_agent_runtime_event_service_scope(
-            SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE
+            crate::ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE
         ));
         assert!(!crate::is_personal_agent_runtime_event_service_scope(
             "ak.message.create"

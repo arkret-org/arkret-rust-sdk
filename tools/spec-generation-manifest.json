@@ -82,6 +82,17 @@
     {
       "generator": "registry-types",
       "outputs": [
+        "crates/wire-base/src/generated/capability_actions.rs"
+      ],
+      "owner": "arkret-wire-base",
+      "mode": "enum",
+      "artifacts": [
+        "registry/capability-action-registry.json"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
         "crates/wire-base/src/generated/security_strings.rs"
       ],
       "owner": "arkret-wire-base",

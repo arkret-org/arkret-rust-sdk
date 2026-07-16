@@ -775,19 +775,14 @@ mod tests {
     fn catalog_reports_registered_payload_validators() {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
 
-        assert!(
-            catalog.has_payload_validator(
-                events::arkret_wire_base::events::EventKind::REALM_KEY_SHARE
-            )
-        );
+        assert!(catalog.has_payload_validator(events::EventKind::REALM_KEY_SHARE));
         assert!(!catalog.has_payload_validator("ak.unknown.test"));
     }
 
     #[test]
     fn selector_claim_resolves_to_its_registered_schema() {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
-        let rule =
-            &catalog.rules[events::arkret_wire_base::events::EventKind::AGENT_SELECTOR_CLAIM];
+        let rule = &catalog.rules[events::EventKind::AGENT_SELECTOR_CLAIM];
 
         assert_eq!(
             rule.payload_schema_id,
@@ -801,7 +796,7 @@ mod tests {
         assert!(
             catalog
                 .validate_payload(
-                    events::arkret_wire_base::events::EventKind::AGENT_SELECTOR_CLAIM,
+                    events::EventKind::AGENT_SELECTOR_CLAIM,
                     &json!({"schema": arkret_wire_base::AGENT_SELECTOR_CLAIM_SCHEMA})
                 )
                 .is_err(),

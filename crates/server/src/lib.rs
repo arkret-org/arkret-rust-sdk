@@ -51,8 +51,7 @@ pub use applet::router as applet_router;
 pub use applet::{AppletHandler, AppletService, ServiceRoute, TransactionDispatch, service_routes};
 pub use fixtures::*;
 pub use idempotency::{
-    APPLET_TRANSACTION_OPERATION_ID, IdempotencyClaim, IdempotencyDirection, IdempotencyIdentity,
-    IdempotencyWindow,
+    IdempotencyClaim, IdempotencyDirection, IdempotencyIdentity, IdempotencyWindow,
 };
 pub use protocol::*;
 pub use registry::*;

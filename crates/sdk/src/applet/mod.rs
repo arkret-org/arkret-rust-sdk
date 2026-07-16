@@ -14,7 +14,6 @@ pub use portal::*;
 mod tests {
     use std::collections::BTreeMap;
 
-    use arkret_core::events::EventKind::IDENTITY_ACCOUNTABILITY_GRANT;
     use arkret_core::{
         AppletInstallAppletId, AppletInstallPlan, E2eeEffect, EffectiveScope, WidgetEffect,
     };

@@ -10,6 +10,7 @@
 //! sha256=bccf3c35a9a6be687d22f6691fb1dde2724b660b0d523eb5254bac2e24cec211 Entries: id_kinds=48,
 //! special_forms=9, actions=152, schemas=120, account_data_patterns=22
 
+use arkret_wire_base::CapabilityActionId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -45,7 +46,7 @@ impl CapabilityRiskTier {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CapabilityActionDescriptor {
-    pub action: &'static str,
+    pub action: CapabilityActionId,
     pub category: &'static str,
     pub risk_tier: CapabilityRiskTier,
     pub required_constraints: &'static [&'static str],
@@ -352,7 +353,7 @@ pub const REGISTERED_SPECIAL_FORM_ID_KINDS: &[SpecialFormIdKindDescriptor] = &[
 
 pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
     CapabilityActionDescriptor {
-        action: "ak.agent.action_approve",
+        action: CapabilityActionId::AgentActionApprove,
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -361,7 +362,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.agent.action_reject",
+        action: CapabilityActionId::AgentActionReject,
         category: "management",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -370,7 +371,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.agent.action_request",
+        action: CapabilityActionId::AgentActionRequest,
         category: "general",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -379,7 +380,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.agent.draft.propose",
+        action: CapabilityActionId::AgentDraftPropose,
         category: "general",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -388,7 +389,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.agent.key.authorize",
+        action: CapabilityActionId::AgentKeyAuthorize,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -397,7 +398,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.agent.key.revoke",
+        action: CapabilityActionId::AgentKeyRevoke,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -406,7 +407,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.agent.selector_claim",
+        action: CapabilityActionId::AgentSelectorClaim,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -415,7 +416,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.agent.sidecar_thread.publish",
+        action: CapabilityActionId::AgentSidecarThreadPublish,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &["expires_at", "approval_required"],
@@ -424,7 +425,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
-        action: "ak.agent.sidecar_thread.write",
+        action: CapabilityActionId::AgentSidecarThreadWrite,
         category: "general",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &["allowed_strand_ids"],
@@ -433,7 +434,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
-        action: "ak.approval.vote",
+        action: CapabilityActionId::ApprovalVote,
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -442,7 +443,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.audit.accessed",
+        action: CapabilityActionId::AuditAccessed,
         category: "service",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -451,7 +452,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.audit.applet_binding",
+        action: CapabilityActionId::AuditAppletBinding,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -460,7 +461,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.audit.export",
+        action: CapabilityActionId::AuditExport,
         category: "service",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -469,7 +470,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.audit.query",
+        action: CapabilityActionId::AuditQuery,
         category: "service",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -478,7 +479,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.audit.release",
+        action: CapabilityActionId::AuditRelease,
         category: "service",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -487,7 +488,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.audit.session.authorize",
+        action: CapabilityActionId::AuditSessionAuthorize,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -496,7 +497,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.audit.session.close",
+        action: CapabilityActionId::AuditSessionClose,
         category: "service",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -505,7 +506,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.audit.session.notice",
+        action: CapabilityActionId::AuditSessionNotice,
         category: "service",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -514,7 +515,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.audit.session.request",
+        action: CapabilityActionId::AuditSessionRequest,
         category: "service",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -523,7 +524,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.call.join",
+        action: CapabilityActionId::CallJoin,
         category: "service",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -532,7 +533,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
-        action: "ak.call.moderate",
+        action: CapabilityActionId::CallModerate,
         category: "service",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -541,7 +542,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
-        action: "ak.call.record",
+        action: CapabilityActionId::CallRecord,
         category: "service",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -550,7 +551,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
-        action: "ak.call.screen_share",
+        action: CapabilityActionId::CallScreenShare,
         category: "service",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -559,7 +560,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
-        action: "ak.call.signal.send",
+        action: CapabilityActionId::CallSignalSend,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -568,7 +569,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.call.transcribe",
+        action: CapabilityActionId::CallTranscribe,
         category: "service",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -577,7 +578,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
-        action: "ak.capability.delegate",
+        action: CapabilityActionId::CapabilityDelegate,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &["max_delegation_depth"],
@@ -586,7 +587,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.capability.derived",
+        action: CapabilityActionId::CapabilityDerived,
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -595,7 +596,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.capability.grant",
+        action: CapabilityActionId::CapabilityGrant,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -604,7 +605,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.capability.revoke",
+        action: CapabilityActionId::CapabilityRevoke,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -613,7 +614,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.circle.audit",
+        action: CapabilityActionId::CircleAudit,
         category: "audit",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -622,7 +623,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.circle.create",
+        action: CapabilityActionId::CircleCreate,
         category: "general",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -631,7 +632,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.circle.manage",
+        action: CapabilityActionId::CircleManage,
         category: "general",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &["allowed_circle_ids"],
@@ -645,7 +646,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
-        action: "ak.circle.member.add",
+        action: CapabilityActionId::CircleMemberAdd,
         category: "general",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -654,7 +655,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
-        action: "ak.circle.member.add.others",
+        action: CapabilityActionId::CircleMemberAddOthers,
         category: "audit",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &["allowed_circle_ids"],
@@ -663,7 +664,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
-        action: "ak.circle.member.manage",
+        action: CapabilityActionId::CircleMemberManage,
         category: "general",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &["allowed_circle_ids"],
@@ -672,7 +673,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
-        action: "ak.container.move_item",
+        action: CapabilityActionId::ContainerMoveItem,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -681,7 +682,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.container.rebalance",
+        action: CapabilityActionId::ContainerRebalance,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -690,7 +691,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.event.read",
+        action: CapabilityActionId::EventRead,
         category: "discussion",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -699,7 +700,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.invite.accept",
+        action: CapabilityActionId::InviteAccept,
         category: "personal",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -708,7 +709,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.invite.cancel",
+        action: CapabilityActionId::InviteCancel,
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -717,7 +718,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.invite.claim",
+        action: CapabilityActionId::InviteClaim,
         category: "management",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -726,7 +727,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.invite.create",
+        action: CapabilityActionId::InviteCreate,
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -735,7 +736,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.invite.revoke",
+        action: CapabilityActionId::InviteRevoke,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -744,7 +745,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.invite.third_party",
+        action: CapabilityActionId::InviteThirdParty,
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -753,7 +754,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.message.create",
+        action: CapabilityActionId::MessageCreate,
         category: "discussion",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -762,7 +763,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.message.mention.broadcast",
+        action: CapabilityActionId::MessageMentionBroadcast,
         category: "discussion",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &["max_operations", "period", "constraint_scope"],
@@ -771,7 +772,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
-        action: "ak.message.redact",
+        action: CapabilityActionId::MessageRedact,
         category: "discussion",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -780,7 +781,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "operation_verb",
     },
     CapabilityActionDescriptor {
-        action: "ak.message.redact.own",
+        action: CapabilityActionId::MessageRedactOwn,
         category: "discussion",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &["message_redact_window"],
@@ -789,7 +790,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "operation_verb",
     },
     CapabilityActionDescriptor {
-        action: "ak.message.revise",
+        action: CapabilityActionId::MessageRevise,
         category: "discussion",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -798,7 +799,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.message.revise.own",
+        action: CapabilityActionId::MessageReviseOwn,
         category: "discussion",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &["message_edit_window"],
@@ -807,7 +808,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
-        action: "ak.mls.commit",
+        action: CapabilityActionId::MlsCommit,
         category: "service",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -816,7 +817,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
-        action: "ak.mls.genesis",
+        action: CapabilityActionId::MlsGenesis,
         category: "service",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -825,7 +826,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.mls.keypackage",
+        action: CapabilityActionId::MlsKeypackage,
         category: "service",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -834,7 +835,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.mls.proposal",
+        action: CapabilityActionId::MlsProposal,
         category: "service",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -843,7 +844,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.mls.welcome",
+        action: CapabilityActionId::MlsWelcome,
         category: "service",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -852,7 +853,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.moderation.appeal.review",
+        action: CapabilityActionId::ModerationAppealReview,
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -865,7 +866,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
-        action: "ak.moderation.appeal.submit",
+        action: CapabilityActionId::ModerationAppealSubmit,
         category: "management",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -874,7 +875,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.moderation.decision",
+        action: CapabilityActionId::ModerationDecision,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -883,7 +884,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.moderation.decision.lift",
+        action: CapabilityActionId::ModerationDecisionLift,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -892,7 +893,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.morph.archive",
+        action: CapabilityActionId::MorphArchive,
         category: "morph",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -901,7 +902,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.morph.create",
+        action: CapabilityActionId::MorphCreate,
         category: "morph",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &["allowed_morph_types"],
@@ -910,7 +911,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.morph.read",
+        action: CapabilityActionId::MorphRead,
         category: "morph",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -919,7 +920,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.morph.restore",
+        action: CapabilityActionId::MorphRestore,
         category: "morph",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -928,7 +929,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.morph.schema_migrate",
+        action: CapabilityActionId::MorphSchemaMigrate,
         category: "morph",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -937,7 +938,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.morph.stage.set",
+        action: CapabilityActionId::MorphStageSet,
         category: "morph",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -946,7 +947,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.morph.update",
+        action: CapabilityActionId::MorphUpdate,
         category: "morph",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &["allowed_write_fields"],
@@ -955,7 +956,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.notification.ack",
+        action: CapabilityActionId::NotificationAck,
         category: "personal",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -964,7 +965,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.notification.read",
+        action: CapabilityActionId::NotificationRead,
         category: "personal",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -973,7 +974,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.object.archive",
+        action: CapabilityActionId::ObjectArchive,
         category: "general",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -982,7 +983,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "polymorphic_object",
     },
     CapabilityActionDescriptor {
-        action: "ak.object.read",
+        action: CapabilityActionId::ObjectRead,
         category: "general",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -991,7 +992,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.object.read_content",
+        action: CapabilityActionId::ObjectReadContent,
         category: "general",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1000,7 +1001,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.object.read_history",
+        action: CapabilityActionId::ObjectReadHistory,
         category: "general",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1009,7 +1010,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.object.read_metadata",
+        action: CapabilityActionId::ObjectReadMetadata,
         category: "general",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1018,7 +1019,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.object.restore",
+        action: CapabilityActionId::ObjectRestore,
         category: "general",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1027,7 +1028,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "polymorphic_object",
     },
     CapabilityActionDescriptor {
-        action: "ak.object.stage.set",
+        action: CapabilityActionId::ObjectStageSet,
         category: "general",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1036,7 +1037,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "polymorphic_object",
     },
     CapabilityActionDescriptor {
-        action: "ak.pin.add",
+        action: CapabilityActionId::PinAdd,
         category: "discussion",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1045,7 +1046,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.pin.remove",
+        action: CapabilityActionId::PinRemove,
         category: "discussion",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1054,7 +1055,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.pin.reorder",
+        action: CapabilityActionId::PinReorder,
         category: "discussion",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1063,7 +1064,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.policy.action",
+        action: CapabilityActionId::PolicyAction,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1072,7 +1073,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.policy.manage",
+        action: CapabilityActionId::PolicyManage,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1096,7 +1097,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
-        action: "ak.policy.rule",
+        action: CapabilityActionId::PolicyRule,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1105,7 +1106,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.policy.set",
+        action: CapabilityActionId::PolicySet,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1114,7 +1115,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.presence.broadcast",
+        action: CapabilityActionId::PresenceBroadcast,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1123,7 +1124,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.reaction.add",
+        action: CapabilityActionId::ReactionAdd,
         category: "discussion",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1132,7 +1133,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.reaction.remove",
+        action: CapabilityActionId::ReactionRemove,
         category: "discussion",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1141,7 +1142,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.read_cursor.advance",
+        action: CapabilityActionId::ReadCursorAdvance,
         category: "personal",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1150,7 +1151,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.admin",
+        action: CapabilityActionId::RealmAdmin,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1183,7 +1184,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.archive",
+        action: CapabilityActionId::RealmArchive,
         category: "general",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1192,7 +1193,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.create",
+        action: CapabilityActionId::RealmCreate,
         category: "general",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1201,7 +1202,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.destroy",
+        action: CapabilityActionId::RealmDestroy,
         category: "general",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1210,7 +1211,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.disappearing_policy",
+        action: CapabilityActionId::RealmDisappearingPolicy,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1219,7 +1220,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.discover",
+        action: CapabilityActionId::RealmDiscover,
         category: "general",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1228,7 +1229,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.freeze",
+        action: CapabilityActionId::RealmFreeze,
         category: "general",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1237,7 +1238,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.join.review",
+        action: CapabilityActionId::RealmJoinReview,
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1246,7 +1247,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.link",
+        action: CapabilityActionId::RealmLink,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1255,7 +1256,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.media_service",
+        action: CapabilityActionId::RealmMediaService,
         category: "service",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1264,7 +1265,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.moderation_policy",
+        action: CapabilityActionId::RealmModerationPolicy,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1273,7 +1274,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.notification.audit",
+        action: CapabilityActionId::RealmNotificationAudit,
         category: "governance",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1282,7 +1283,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.plaintext_visible_services",
+        action: CapabilityActionId::RealmPlaintextVisibleServices,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1291,7 +1292,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.preview_policy",
+        action: CapabilityActionId::RealmPreviewPolicy,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1300,7 +1301,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.search_policy",
+        action: CapabilityActionId::RealmSearchPolicy,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1309,7 +1310,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.set_default_strand",
+        action: CapabilityActionId::RealmSetDefaultStrand,
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1318,7 +1319,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.tombstone",
+        action: CapabilityActionId::RealmTombstone,
         category: "general",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1327,7 +1328,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.update",
+        action: CapabilityActionId::RealmUpdate,
         category: "general",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &["allowed_write_fields"],
@@ -1336,7 +1337,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.realm.upgrade",
+        action: CapabilityActionId::RealmUpgrade,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1345,7 +1346,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.receipt.broadcast",
+        action: CapabilityActionId::ReceiptBroadcast,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1354,7 +1355,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.relation.create",
+        action: CapabilityActionId::RelationCreate,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1363,7 +1364,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.relation.tombstone",
+        action: CapabilityActionId::RelationTombstone,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1372,7 +1373,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.relation.update",
+        action: CapabilityActionId::RelationUpdate,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1381,7 +1382,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.rsvp.set",
+        action: CapabilityActionId::RsvpSet,
         category: "discussion",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1390,7 +1391,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.schema.define",
+        action: CapabilityActionId::SchemaDefine,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1399,7 +1400,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.schema.update",
+        action: CapabilityActionId::SchemaUpdate,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1408,7 +1409,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.account.query.describe",
+        action: CapabilityActionId::SelfAccountQueryDescribe,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1417,7 +1418,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.account.stream.subscribe",
+        action: CapabilityActionId::SelfAccountStreamSubscribe,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1426,7 +1427,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.agent.command.deactivate",
+        action: CapabilityActionId::SelfAgentCommandDeactivate,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1435,7 +1436,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "operation_verb",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.agent.command.pause",
+        action: CapabilityActionId::SelfAgentCommandPause,
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1444,7 +1445,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "operation_verb",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.agent.command.provision",
+        action: CapabilityActionId::SelfAgentCommandProvision,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1456,7 +1457,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.agent.command.renew_pairing",
+        action: CapabilityActionId::SelfAgentCommandRenewPairing,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1465,7 +1466,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.agent.command.resume",
+        action: CapabilityActionId::SelfAgentCommandResume,
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1474,7 +1475,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "operation_verb",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.agent.grant.command.attach",
+        action: CapabilityActionId::SelfAgentGrantCommandAttach,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1483,7 +1484,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.agent.grant.resource.delete",
+        action: CapabilityActionId::SelfAgentGrantResourceDelete,
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1492,7 +1493,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.agent.participation.resource.replace",
+        action: CapabilityActionId::SelfAgentParticipationResourceReplace,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1501,7 +1502,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.agent.sidecar_thread.command.ensure",
+        action: CapabilityActionId::SelfAgentSidecarThreadCommandEnsure,
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1515,7 +1516,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.blob.command.presign",
+        action: CapabilityActionId::SelfBlobCommandPresign,
         category: "service",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &["blob_presign_max_ttl_seconds", "blob_presign_scope"],
@@ -1524,7 +1525,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.blob.resource.get",
+        action: CapabilityActionId::SelfBlobResourceGet,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1533,7 +1534,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.blob.resource.head",
+        action: CapabilityActionId::SelfBlobResourceHead,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1542,7 +1543,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.blob.upload.create",
+        action: CapabilityActionId::SelfBlobUploadCreate,
         category: "service",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &["blob_max_bytes"],
@@ -1551,7 +1552,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.events.query.scan",
+        action: CapabilityActionId::SelfEventsQueryScan,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1560,7 +1561,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.events.stream.subscribe",
+        action: CapabilityActionId::SelfEventsStreamSubscribe,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1569,7 +1570,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.self.snapshot.query.manifest_head",
+        action: CapabilityActionId::SelfSnapshotQueryManifestHead,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1578,7 +1579,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.space.archive",
+        action: CapabilityActionId::SpaceArchive,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1587,7 +1588,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.space.create",
+        action: CapabilityActionId::SpaceCreate,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &["allowed_space_kinds"],
@@ -1596,7 +1597,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.space.parent",
+        action: CapabilityActionId::SpaceParent,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1605,7 +1606,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.space.restore",
+        action: CapabilityActionId::SpaceRestore,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1614,7 +1615,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.space.tombstone",
+        action: CapabilityActionId::SpaceTombstone,
         category: "strand",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1623,7 +1624,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.space.update",
+        action: CapabilityActionId::SpaceUpdate,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &["allowed_space_kinds"],
@@ -1632,7 +1633,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.strand.admin",
+        action: CapabilityActionId::StrandAdmin,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1641,7 +1642,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.strand.archive",
+        action: CapabilityActionId::StrandArchive,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1650,7 +1651,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.strand.create",
+        action: CapabilityActionId::StrandCreate,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1659,7 +1660,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.strand.move",
+        action: CapabilityActionId::StrandMove,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1668,7 +1669,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.strand.read",
+        action: CapabilityActionId::StrandRead,
         category: "strand",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1677,7 +1678,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.strand.reorder",
+        action: CapabilityActionId::StrandReorder,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1686,7 +1687,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.strand.restore",
+        action: CapabilityActionId::StrandRestore,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1695,7 +1696,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.strand.stage.set",
+        action: CapabilityActionId::StrandStageSet,
         category: "strand",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1704,7 +1705,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.strand.tracks.update",
+        action: CapabilityActionId::StrandTracksUpdate,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1713,7 +1714,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.strand.update",
+        action: CapabilityActionId::StrandUpdate,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &["allowed_write_fields"],
@@ -1722,7 +1723,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.strand.watch.set",
+        action: CapabilityActionId::StrandWatchSet,
         category: "discussion",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1731,7 +1732,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.strand.watch.set.others",
+        action: CapabilityActionId::StrandWatchSetOthers,
         category: "discussion",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
@@ -1740,7 +1741,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
-        action: "ak.typing.broadcast",
+        action: CapabilityActionId::TypingBroadcast,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -1749,7 +1750,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: "ak.view.create",
+        action: CapabilityActionId::ViewCreate,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1758,7 +1759,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.view.reconcile",
+        action: CapabilityActionId::ViewReconcile,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -1767,7 +1768,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: "ak.view.update",
+        action: CapabilityActionId::ViewUpdate,
         category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
@@ -2396,9 +2397,7 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
 ];
 
 pub fn capability_action(value: &str) -> Option<&'static CapabilityActionDescriptor> {
-    REGISTERED_CAPABILITY_ACTIONS
-        .iter()
-        .find(|row| row.action == value)
+    CapabilityActionId::from_wire(value).map(|id| &REGISTERED_CAPABILITY_ACTIONS[id as usize])
 }
 
 pub fn account_data_pattern(value: &str) -> Option<&'static AccountDataPatternDescriptor> {

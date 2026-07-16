@@ -25,10 +25,6 @@ use std::time::{Duration, Instant};
 
 use arkret_core::Hash;
 
-/// `operation_id` component of the applet transaction idempotency identity
-/// (`operation-registry.json`).
-pub const APPLET_TRANSACTION_OPERATION_ID: &str = "ak.edge.applet.command.transaction";
-
 /// Delivery direction component of the idempotency identity
 /// (`applet-integration.md` §7.3.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -72,7 +68,8 @@ impl IdempotencyIdentity {
         idempotency_key: impl Into<String>,
     ) -> Self {
         Self {
-            operation_id: APPLET_TRANSACTION_OPERATION_ID.to_owned(),
+            operation_id: arkret_core::ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION
+                .to_owned(),
             direction,
             source_service_id: source_service_id.into(),
             destination_service_id: destination_service_id.into(),

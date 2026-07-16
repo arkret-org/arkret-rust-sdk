@@ -16,10 +16,6 @@ use url::Url;
 
 use crate::{Did, Error, KeyStore, Result, ServiceType, canonical};
 
-pub const SERVICE_REGISTRATION_ENSURE_OPERATION: &str =
-    "ak.root.identity.service_registration.command.ensure";
-pub const SERVICE_REGISTRATION_GET_OPERATION: &str =
-    "ak.root.identity.service_registration.resource.get";
 pub const SERVICE_REGISTRATION_ENSURE_PATH: &str =
     "/_arkret/root/identity/service-registrations:ensure";
 pub const SERVICE_REGISTRATION_GET_PATH: &str = "/_arkret/root/identity/service-registrations";

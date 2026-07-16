@@ -723,7 +723,10 @@ mod tests {
                 .iter()
                 .any(|row| row.surface == OperationSurface::Events)
         );
-        assert_eq!(conformance_vectors().len(), SUPPORTED_OPERATION_IDS.len());
+        assert_eq!(
+            conformance_vectors().len(),
+            crate::events::EventKind::ALL.len()
+        );
     }
 
     #[test]

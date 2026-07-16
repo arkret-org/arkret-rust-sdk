@@ -5,8 +5,6 @@ use std::result::Result as StdResult;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub const AGENT_HUMAN_APPROVAL_REASON_CODE: &str = "human_approval_required";
-
 /// Closed details carried by a `claim_required` error when an agent action
 /// needs out-of-band controller approval.
 ///
@@ -37,7 +35,7 @@ impl AgentHumanApprovalErrorDetails {
             return Err(AgentHumanApprovalErrorDetailsError::InvalidApprovalRequestId);
         }
         Ok(Self {
-            reason_code: AGENT_HUMAN_APPROVAL_REASON_CODE,
+            reason_code: crate::ReasonCode::HUMAN_APPROVAL_REQUIRED,
             approval_request_id,
         })
     }
@@ -77,9 +75,10 @@ impl<'de> Deserialize<'de> for AgentHumanApprovalErrorDetails {
         }
 
         let wire = WireDetails::deserialize(deserializer)?;
-        if wire.reason_code != AGENT_HUMAN_APPROVAL_REASON_CODE {
+        if wire.reason_code != crate::ReasonCode::HUMAN_APPROVAL_REQUIRED {
             return Err(serde::de::Error::custom(format!(
-                "reason_code must be {AGENT_HUMAN_APPROVAL_REASON_CODE}"
+                "reason_code must be {}",
+                crate::ReasonCode::HUMAN_APPROVAL_REQUIRED
             )));
         }
         Self::new(wire.approval_request_id).map_err(serde::de::Error::custom)

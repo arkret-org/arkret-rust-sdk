@@ -4,6 +4,7 @@ use serde_json::json;
 
 use super::super::*;
 use super::test_realm_id;
+use crate::events::EventKind;
 
 #[test]
 fn event_new_sets_required_event_id() {
@@ -273,7 +274,7 @@ fn operation_envelope_builder_covers_every_registered_event_kind() {
             index as u64 + 1,
             hlc.clone(),
         );
-        for field in required_fields_for_operation_kind(kind.as_str()) {
+        for field in required_fields_for_event_kind(kind.as_str()) {
             builder = builder.with_payload_field(field, json!("value"));
         }
         let envelope = builder.build(&registry).unwrap();

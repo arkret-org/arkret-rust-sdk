@@ -17,8 +17,237 @@
 //! Entries: proof_contexts=24, exporter_labels=8, digest_suites=3, signature_algorithms=3,
 //! hpke_suites=4, mls_ciphersuites=2, mls_extensions=1
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(usize)]
+pub enum ProofContextId {
+    AccountHandoffAuthenticationProofV1,
+    AccountabilityGrantProofV1,
+    AgentRequestedScopeDisclosureProofV1,
+    AgentSelectorClaimProofV1,
+    AppletPackageProofV1,
+    AttestationEvidenceProofV1,
+    AuditRywReceiptProofV1,
+    CapabilityGrantProofV1,
+    DidContinuityProofV1,
+    DidKeyLogEntryProofV1,
+    DirectoryOperationProofV1,
+    EphemeralProofV1,
+    EventProofV1,
+    HandleClaimProofV1,
+    IdentityCreationControlProofV1,
+    IdentityReceiptProofV1,
+    MemberDeliveryBindingCandidateProofV1,
+    MimiOperationProofV1,
+    PrincipalLocatorProofV1,
+    RangeCompletenessAttestationProofV1,
+    RealmJoinCandidateProofV1,
+    ReceiptProofV1,
+    ServiceRegistrationReceiptProofV1,
+    SnapshotProofV1,
+}
+
+impl ProofContextId {
+    pub const ALL: &'static [Self] = &[
+        Self::AccountHandoffAuthenticationProofV1,
+        Self::AccountabilityGrantProofV1,
+        Self::AgentRequestedScopeDisclosureProofV1,
+        Self::AgentSelectorClaimProofV1,
+        Self::AppletPackageProofV1,
+        Self::AttestationEvidenceProofV1,
+        Self::AuditRywReceiptProofV1,
+        Self::CapabilityGrantProofV1,
+        Self::DidContinuityProofV1,
+        Self::DidKeyLogEntryProofV1,
+        Self::DirectoryOperationProofV1,
+        Self::EphemeralProofV1,
+        Self::EventProofV1,
+        Self::HandleClaimProofV1,
+        Self::IdentityCreationControlProofV1,
+        Self::IdentityReceiptProofV1,
+        Self::MemberDeliveryBindingCandidateProofV1,
+        Self::MimiOperationProofV1,
+        Self::PrincipalLocatorProofV1,
+        Self::RangeCompletenessAttestationProofV1,
+        Self::RealmJoinCandidateProofV1,
+        Self::ReceiptProofV1,
+        Self::ServiceRegistrationReceiptProofV1,
+        Self::SnapshotProofV1,
+    ];
+
+    pub const ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_V1: &'static str =
+        "ak.account-handoff-authentication-proof-v1";
+    pub const ACCOUNTABILITY_GRANT_PROOF_V1: &'static str = "ak.accountability-grant-proof-v1";
+    pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_PROOF_V1: &'static str =
+        "ak.agent-requested-scope-disclosure-proof-v1";
+    pub const AGENT_SELECTOR_CLAIM_PROOF_V1: &'static str = "ak.agent-selector-claim-proof-v1";
+    pub const APPLET_PACKAGE_PROOF_V1: &'static str = "ak.applet-package-proof-v1";
+    pub const ATTESTATION_EVIDENCE_PROOF_V1: &'static str = "ak.attestation-evidence-proof-v1";
+    pub const AUDIT_RYW_RECEIPT_PROOF_V1: &'static str = "ak.audit-ryw-receipt-proof-v1";
+    pub const CAPABILITY_GRANT_PROOF_V1: &'static str = "ak.capability-grant-proof-v1";
+    pub const DID_CONTINUITY_PROOF_V1: &'static str = "ak.did-continuity-proof-v1";
+    pub const DID_KEY_LOG_ENTRY_PROOF_V1: &'static str = "ak.did-key-log-entry-proof-v1";
+    pub const DIRECTORY_OPERATION_PROOF_V1: &'static str = "ak.directory-operation-proof-v1";
+    pub const EPHEMERAL_PROOF_V1: &'static str = "ak.ephemeral-proof-v1";
+    pub const EVENT_PROOF_V1: &'static str = "ak.event-proof-v1";
+    pub const HANDLE_CLAIM_PROOF_V1: &'static str = "ak.handle-claim-proof-v1";
+    pub const IDENTITY_CREATION_CONTROL_PROOF_V1: &'static str =
+        "ak.identity-creation-control-proof-v1";
+    pub const IDENTITY_RECEIPT_PROOF_V1: &'static str = "ak.identity-receipt-proof-v1";
+    pub const MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1: &'static str =
+        "ak.member-delivery-binding-candidate-proof-v1";
+    pub const MIMI_OPERATION_PROOF_V1: &'static str = "ak.mimi-operation-proof-v1";
+    pub const PRINCIPAL_LOCATOR_PROOF_V1: &'static str = "ak.principal-locator-proof-v1";
+    pub const RANGE_COMPLETENESS_ATTESTATION_PROOF_V1: &'static str =
+        "ak.range-completeness-attestation-proof-v1";
+    pub const REALM_JOIN_CANDIDATE_PROOF_V1: &'static str = "ak.realm-join-candidate-proof-v1";
+    pub const RECEIPT_PROOF_V1: &'static str = "ak.receipt-proof-v1";
+    pub const SERVICE_REGISTRATION_RECEIPT_PROOF_V1: &'static str =
+        "ak.service-registration-receipt-proof-v1";
+    pub const SNAPSHOT_PROOF_V1: &'static str = "ak.snapshot-proof-v1";
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::AccountHandoffAuthenticationProofV1 => {
+                "ak.account-handoff-authentication-proof-v1"
+            }
+            Self::AccountabilityGrantProofV1 => "ak.accountability-grant-proof-v1",
+            Self::AgentRequestedScopeDisclosureProofV1 => {
+                "ak.agent-requested-scope-disclosure-proof-v1"
+            }
+            Self::AgentSelectorClaimProofV1 => "ak.agent-selector-claim-proof-v1",
+            Self::AppletPackageProofV1 => "ak.applet-package-proof-v1",
+            Self::AttestationEvidenceProofV1 => "ak.attestation-evidence-proof-v1",
+            Self::AuditRywReceiptProofV1 => "ak.audit-ryw-receipt-proof-v1",
+            Self::CapabilityGrantProofV1 => "ak.capability-grant-proof-v1",
+            Self::DidContinuityProofV1 => "ak.did-continuity-proof-v1",
+            Self::DidKeyLogEntryProofV1 => "ak.did-key-log-entry-proof-v1",
+            Self::DirectoryOperationProofV1 => "ak.directory-operation-proof-v1",
+            Self::EphemeralProofV1 => "ak.ephemeral-proof-v1",
+            Self::EventProofV1 => "ak.event-proof-v1",
+            Self::HandleClaimProofV1 => "ak.handle-claim-proof-v1",
+            Self::IdentityCreationControlProofV1 => "ak.identity-creation-control-proof-v1",
+            Self::IdentityReceiptProofV1 => "ak.identity-receipt-proof-v1",
+            Self::MemberDeliveryBindingCandidateProofV1 => {
+                "ak.member-delivery-binding-candidate-proof-v1"
+            }
+            Self::MimiOperationProofV1 => "ak.mimi-operation-proof-v1",
+            Self::PrincipalLocatorProofV1 => "ak.principal-locator-proof-v1",
+            Self::RangeCompletenessAttestationProofV1 => {
+                "ak.range-completeness-attestation-proof-v1"
+            }
+            Self::RealmJoinCandidateProofV1 => "ak.realm-join-candidate-proof-v1",
+            Self::ReceiptProofV1 => "ak.receipt-proof-v1",
+            Self::ServiceRegistrationReceiptProofV1 => "ak.service-registration-receipt-proof-v1",
+            Self::SnapshotProofV1 => "ak.snapshot-proof-v1",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "ak.account-handoff-authentication-proof-v1" => {
+                Some(Self::AccountHandoffAuthenticationProofV1)
+            }
+            "ak.accountability-grant-proof-v1" => Some(Self::AccountabilityGrantProofV1),
+            "ak.agent-requested-scope-disclosure-proof-v1" => {
+                Some(Self::AgentRequestedScopeDisclosureProofV1)
+            }
+            "ak.agent-selector-claim-proof-v1" => Some(Self::AgentSelectorClaimProofV1),
+            "ak.applet-package-proof-v1" => Some(Self::AppletPackageProofV1),
+            "ak.attestation-evidence-proof-v1" => Some(Self::AttestationEvidenceProofV1),
+            "ak.audit-ryw-receipt-proof-v1" => Some(Self::AuditRywReceiptProofV1),
+            "ak.capability-grant-proof-v1" => Some(Self::CapabilityGrantProofV1),
+            "ak.did-continuity-proof-v1" => Some(Self::DidContinuityProofV1),
+            "ak.did-key-log-entry-proof-v1" => Some(Self::DidKeyLogEntryProofV1),
+            "ak.directory-operation-proof-v1" => Some(Self::DirectoryOperationProofV1),
+            "ak.ephemeral-proof-v1" => Some(Self::EphemeralProofV1),
+            "ak.event-proof-v1" => Some(Self::EventProofV1),
+            "ak.handle-claim-proof-v1" => Some(Self::HandleClaimProofV1),
+            "ak.identity-creation-control-proof-v1" => Some(Self::IdentityCreationControlProofV1),
+            "ak.identity-receipt-proof-v1" => Some(Self::IdentityReceiptProofV1),
+            "ak.member-delivery-binding-candidate-proof-v1" => {
+                Some(Self::MemberDeliveryBindingCandidateProofV1)
+            }
+            "ak.mimi-operation-proof-v1" => Some(Self::MimiOperationProofV1),
+            "ak.principal-locator-proof-v1" => Some(Self::PrincipalLocatorProofV1),
+            "ak.range-completeness-attestation-proof-v1" => {
+                Some(Self::RangeCompletenessAttestationProofV1)
+            }
+            "ak.realm-join-candidate-proof-v1" => Some(Self::RealmJoinCandidateProofV1),
+            "ak.receipt-proof-v1" => Some(Self::ReceiptProofV1),
+            "ak.service-registration-receipt-proof-v1" => {
+                Some(Self::ServiceRegistrationReceiptProofV1)
+            }
+            "ak.snapshot-proof-v1" => Some(Self::SnapshotProofV1),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(usize)]
+pub enum ExporterLabelId {
+    ContentV1,
+    HistoryV1,
+    RtcFrameKeyV1,
+    RtcRecordingKeyV1,
+    RtcTranscriptKeyV1,
+    AeadSenderNoncePrefixV1,
+    MentionRoutingV1,
+    ReactionRoutingV1,
+}
+
+impl ExporterLabelId {
+    pub const ALL: &'static [Self] = &[
+        Self::ContentV1,
+        Self::HistoryV1,
+        Self::RtcFrameKeyV1,
+        Self::RtcRecordingKeyV1,
+        Self::RtcTranscriptKeyV1,
+        Self::AeadSenderNoncePrefixV1,
+        Self::MentionRoutingV1,
+        Self::ReactionRoutingV1,
+    ];
+
+    pub const CONTENT_V1: &'static str = "ak.content-v1";
+    pub const HISTORY_V1: &'static str = "ak.history-v1";
+    pub const RTC_FRAME_KEY_V1: &'static str = "ak.rtc-frame-key/v1";
+    pub const RTC_RECORDING_KEY_V1: &'static str = "ak.rtc-recording-key/v1";
+    pub const RTC_TRANSCRIPT_KEY_V1: &'static str = "ak.rtc-transcript-key/v1";
+    pub const AEAD_SENDER_NONCE_PREFIX_V1: &'static str = "arkret-aead-sender-nonce-prefix-v1";
+    pub const MENTION_ROUTING_V1: &'static str = "arkret-mention-routing-v1";
+    pub const REACTION_ROUTING_V1: &'static str = "arkret-reaction-routing-v1";
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ContentV1 => "ak.content-v1",
+            Self::HistoryV1 => "ak.history-v1",
+            Self::RtcFrameKeyV1 => "ak.rtc-frame-key/v1",
+            Self::RtcRecordingKeyV1 => "ak.rtc-recording-key/v1",
+            Self::RtcTranscriptKeyV1 => "ak.rtc-transcript-key/v1",
+            Self::AeadSenderNoncePrefixV1 => "arkret-aead-sender-nonce-prefix-v1",
+            Self::MentionRoutingV1 => "arkret-mention-routing-v1",
+            Self::ReactionRoutingV1 => "arkret-reaction-routing-v1",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "ak.content-v1" => Some(Self::ContentV1),
+            "ak.history-v1" => Some(Self::HistoryV1),
+            "ak.rtc-frame-key/v1" => Some(Self::RtcFrameKeyV1),
+            "ak.rtc-recording-key/v1" => Some(Self::RtcRecordingKeyV1),
+            "ak.rtc-transcript-key/v1" => Some(Self::RtcTranscriptKeyV1),
+            "arkret-aead-sender-nonce-prefix-v1" => Some(Self::AeadSenderNoncePrefixV1),
+            "arkret-mention-routing-v1" => Some(Self::MentionRoutingV1),
+            "arkret-reaction-routing-v1" => Some(Self::ReactionRoutingV1),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ProofContextDescriptor {
+    pub id: ProofContextId,
     pub context: &'static str,
     pub object_family: &'static str,
     pub binding_fields: &'static [&'static str],
@@ -27,6 +256,7 @@ pub struct ProofContextDescriptor {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ExporterLabelDescriptor {
+    pub id: ExporterLabelId,
     pub label: &'static str,
     pub primitive: Option<&'static str>,
     pub context_fields: &'static [&'static str],
@@ -53,6 +283,7 @@ pub struct MlsExtensionDescriptor {
 
 pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
     ProofContextDescriptor {
+        id: ProofContextId::AccountHandoffAuthenticationProofV1,
         context: "ak.account-handoff-authentication-proof-v1",
         object_family: "account_handoff_authentication",
         binding_fields: &[
@@ -66,6 +297,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/account-operations.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::AccountabilityGrantProofV1,
         context: "ak.accountability-grant-proof-v1",
         object_family: "accountability_grant",
         binding_fields: &[
@@ -80,6 +312,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/accountability-grant.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::AgentRequestedScopeDisclosureProofV1,
         context: "ak.agent-requested-scope-disclosure-proof-v1",
         object_family: "agent_requested_scope_disclosure",
         binding_fields: &[
@@ -94,6 +327,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/agent-requested-scope-disclosure.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::AgentSelectorClaimProofV1,
         context: "ak.agent-selector-claim-proof-v1",
         object_family: "agent_selector_claim",
         binding_fields: &[
@@ -108,6 +342,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/agent-selector-claim.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::AppletPackageProofV1,
         context: "ak.applet-package-proof-v1",
         object_family: "applet_package",
         binding_fields: &[
@@ -122,6 +357,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/applet-package.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::AttestationEvidenceProofV1,
         context: "ak.attestation-evidence-proof-v1",
         object_family: "attestation_evidence",
         binding_fields: &[
@@ -136,6 +372,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/attestation-evidence.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::AuditRywReceiptProofV1,
         context: "ak.audit-ryw-receipt-proof-v1",
         object_family: "audit_ryw_receipt",
         binding_fields: &[
@@ -150,6 +387,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/audit-ryw-receipt.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::CapabilityGrantProofV1,
         context: "ak.capability-grant-proof-v1",
         object_family: "capability_grant",
         binding_fields: &[
@@ -164,6 +402,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/capability-grant.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::DidContinuityProofV1,
         context: "ak.did-continuity-proof-v1",
         object_family: "did_continuity",
         binding_fields: &[
@@ -178,6 +417,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/did-continuity-proof.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::DidKeyLogEntryProofV1,
         context: "ak.did-key-log-entry-proof-v1",
         object_family: "did_key_log_entry",
         binding_fields: &[
@@ -192,6 +432,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/did-key-log-entry.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::DirectoryOperationProofV1,
         context: "ak.directory-operation-proof-v1",
         object_family: "directory_operation",
         binding_fields: &[
@@ -206,6 +447,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/directory-operations.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::EphemeralProofV1,
         context: "ak.ephemeral-proof-v1",
         object_family: "ephemeral_envelope",
         binding_fields: &[
@@ -220,6 +462,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/ephemeral-envelope.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::EventProofV1,
         context: "ak.event-proof-v1",
         object_family: "event_envelope",
         binding_fields: &[
@@ -233,6 +476,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/event-envelope.schema.json#/$defs/event_proof",
     },
     ProofContextDescriptor {
+        id: ProofContextId::HandleClaimProofV1,
         context: "ak.handle-claim-proof-v1",
         object_family: "handle_claim",
         binding_fields: &[
@@ -247,6 +491,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/handle-claim.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::IdentityCreationControlProofV1,
         context: "ak.identity-creation-control-proof-v1",
         object_family: "identity_creation_control",
         binding_fields: &[
@@ -259,6 +504,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/account-operations.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::IdentityReceiptProofV1,
         context: "ak.identity-receipt-proof-v1",
         object_family: "identity_receipt",
         binding_fields: &[
@@ -273,6 +519,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/identity-receipt.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::MemberDeliveryBindingCandidateProofV1,
         context: "ak.member-delivery-binding-candidate-proof-v1",
         object_family: "member_delivery_binding_candidate",
         binding_fields: &[
@@ -287,6 +534,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/member-delivery-binding-candidate.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::MimiOperationProofV1,
         context: "ak.mimi-operation-proof-v1",
         object_family: "mimi_operation",
         binding_fields: &[
@@ -301,6 +549,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/mimi-operations.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::PrincipalLocatorProofV1,
         context: "ak.principal-locator-proof-v1",
         object_family: "principal_locator",
         binding_fields: &[
@@ -315,6 +564,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/principal-locator.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::RangeCompletenessAttestationProofV1,
         context: "ak.range-completeness-attestation-proof-v1",
         object_family: "range_completeness_attestation",
         binding_fields: &[
@@ -329,6 +579,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/range-completeness-attestation.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::RealmJoinCandidateProofV1,
         context: "ak.realm-join-candidate-proof-v1",
         object_family: "realm_join_candidate",
         binding_fields: &[
@@ -343,6 +594,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/realm-join-candidate.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::ReceiptProofV1,
         context: "ak.receipt-proof-v1",
         object_family: "event_batch_receipt",
         binding_fields: &[
@@ -356,6 +608,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/event-batch-receipt.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::ServiceRegistrationReceiptProofV1,
         context: "ak.service-registration-receipt-proof-v1",
         object_family: "service_registration_receipt",
         binding_fields: &[
@@ -370,6 +623,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/ServiceRegistrationReceipt",
     },
     ProofContextDescriptor {
+        id: ProofContextId::SnapshotProofV1,
         context: "ak.snapshot-proof-v1",
         object_family: "snapshot",
         binding_fields: &[
@@ -387,6 +641,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
 
 pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
     ExporterLabelDescriptor {
+        id: ExporterLabelId::ContentV1,
         label: "ak.content-v1",
         primitive: Some("ExpandWithLabel"),
         context_fields: &[],
@@ -400,6 +655,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         ],
     },
     ExporterLabelDescriptor {
+        id: ExporterLabelId::HistoryV1,
         label: "ak.history-v1",
         primitive: Some("MLS-Exporter"),
         context_fields: &["realm_id"],
@@ -413,6 +669,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         ],
     },
     ExporterLabelDescriptor {
+        id: ExporterLabelId::RtcFrameKeyV1,
         label: "ak.rtc-frame-key/v1",
         primitive: None,
         context_fields: &[
@@ -428,6 +685,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         forbid_reuse_with: &["ak.rtc-recording-key/v1", "ak.rtc-transcript-key/v1"],
     },
     ExporterLabelDescriptor {
+        id: ExporterLabelId::RtcRecordingKeyV1,
         label: "ak.rtc-recording-key/v1",
         primitive: None,
         context_fields: &[
@@ -443,6 +701,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         forbid_reuse_with: &["ak.rtc-frame-key/v1", "ak.rtc-transcript-key/v1"],
     },
     ExporterLabelDescriptor {
+        id: ExporterLabelId::RtcTranscriptKeyV1,
         label: "ak.rtc-transcript-key/v1",
         primitive: None,
         context_fields: &[
@@ -458,6 +717,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         forbid_reuse_with: &["ak.rtc-frame-key/v1", "ak.rtc-recording-key/v1"],
     },
     ExporterLabelDescriptor {
+        id: ExporterLabelId::AeadSenderNoncePrefixV1,
         label: "arkret-aead-sender-nonce-prefix-v1",
         primitive: None,
         context_fields: &["key_ref", "epoch", "device_id", "purpose", "aead_profile"],
@@ -466,6 +726,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         forbid_reuse_with: &[],
     },
     ExporterLabelDescriptor {
+        id: ExporterLabelId::MentionRoutingV1,
         label: "arkret-mention-routing-v1",
         primitive: None,
         context_fields: &["realm_id"],
@@ -474,6 +735,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         forbid_reuse_with: &["arkret-reaction-routing-v1"],
     },
     ExporterLabelDescriptor {
+        id: ExporterLabelId::ReactionRoutingV1,
         label: "arkret-reaction-routing-v1",
         primitive: None,
         context_fields: &["realm_id"],
@@ -575,9 +837,17 @@ pub const MLS_EXTENSIONS: &[MlsExtensionDescriptor] = &[MlsExtensionDescriptor {
 }];
 
 pub fn proof_context(value: &str) -> Option<&'static ProofContextDescriptor> {
-    PROOF_CONTEXTS.iter().find(|row| row.context == value)
+    ProofContextId::from_wire(value).map(proof_context_descriptor)
+}
+
+pub const fn proof_context_descriptor(id: ProofContextId) -> &'static ProofContextDescriptor {
+    &PROOF_CONTEXTS[id as usize]
 }
 
 pub fn exporter_label(value: &str) -> Option<&'static ExporterLabelDescriptor> {
-    EXPORTER_LABELS.iter().find(|row| row.label == value)
+    ExporterLabelId::from_wire(value).map(exporter_label_descriptor)
+}
+
+pub const fn exporter_label_descriptor(id: ExporterLabelId) -> &'static ExporterLabelDescriptor {
+    &EXPORTER_LABELS[id as usize]
 }

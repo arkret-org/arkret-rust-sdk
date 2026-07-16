@@ -1051,10 +1051,10 @@ impl PayloadProof {
 /// §2). Included in every [`Proof::binding_object`] so an Event proof
 /// signature is domain-separated from other proof families (receipts,
 /// snapshot witnesses, handle claims, which carry their own context values).
-pub const EVENT_PROOF_BINDING_CONTEXT: &str = "ak.event-proof-v1";
+pub const EVENT_PROOF_BINDING_CONTEXT: &str = ProofContextId::EVENT_PROOF_V1;
 
 /// Fixed signing-context domain tag for ephemeral broadcast proof bindings.
-pub const EPHEMERAL_PROOF_BINDING_CONTEXT: &str = "ak.ephemeral-proof-v1";
+pub const EPHEMERAL_PROOF_BINDING_CONTEXT: &str = ProofContextId::EPHEMERAL_PROOF_V1;
 
 /// Canonical proof kind constants.
 pub mod proof_kind {

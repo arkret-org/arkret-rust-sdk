@@ -44,9 +44,6 @@ pub const REALM_MODERATION_POLICY_FANOUT_SOURCE_ORGANIZATION_POLICY: &str = "org
 
 /// `failed_precondition` reason returned when a Realm moderation policy
 /// override needs organization approval.
-pub const REALM_MODERATION_POLICY_REASON_REQUIRES_ORGANIZATION_APPROVAL: &str =
-    "requires_organization_approval";
-
 /// Canonical link_kind values for `ak.realm.link`. The eight values
 /// enumerate the typed cross-Realm relations the spec recognises after the
 /// Realm/Space boundary split; link payloads MUST carry exactly one of

@@ -27,8 +27,6 @@ use super::*;
 /// confusable / mixed-script discipline (object-addressing.md §3.3). Mirrors
 /// the handle `handle_homograph_forbidden` code and is registered in
 /// `error-code-registry.json`.
-pub const REALM_ALIAS_HOMOGRAPH_FORBIDDEN: &str = "realm_alias_homograph_forbidden";
-
 /// Canonical Arkret realm alias string `<localpart>:<domain>`.
 ///
 /// See the module docs for the namespace / sigil discipline. Construct via
@@ -68,7 +66,10 @@ impl RealmAlias {
         // Shares the handle localpart discipline: rejects zero-width / bidi /
         // confusable / out-of-alphabet, lowercases, bounds length. Carries the
         // realm-alias wire error code on rejection.
-        let localpart = normalize_localpart_with_code(local, REALM_ALIAS_HOMOGRAPH_FORBIDDEN)?;
+        let localpart = normalize_localpart_with_code(
+            local,
+            crate::ReasonCode::REALM_ALIAS_HOMOGRAPH_FORBIDDEN,
+        )?;
         let domain = domain_part.to_ascii_lowercase();
         if !is_valid_domain(&domain) {
             return Err(Error::Protocol(format!(

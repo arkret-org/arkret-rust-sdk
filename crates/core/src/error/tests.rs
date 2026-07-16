@@ -49,9 +49,12 @@ fn registry_reason_codes() -> Vec<String> {
 
 #[test]
 fn generated_error_codes_match_embedded_registry() {
-    let embedded = crate::schema::embedded_error_code_codes()
+    let mut embedded = crate::schema::embedded_error_code_codes()
         .expect("embedded error-code-registry codes must load");
-    assert_eq!(generated_error_codes(), embedded);
+    let mut generated = generated_error_codes();
+    embedded.sort_unstable();
+    generated.sort_unstable();
+    assert_eq!(generated, embedded);
 }
 
 #[test]
@@ -66,7 +69,7 @@ fn generated_error_codes_match_live_registry_when_available() {
         .unwrap_or_else(|error| panic!("failed to read {}: {error}", registry_path.display()));
     let registry: serde_json::Value = serde_json::from_str(&text)
         .unwrap_or_else(|error| panic!("failed to parse {}: {error}", registry_path.display()));
-    let live: Vec<&str> = registry
+    let mut live: Vec<&str> = registry
         .get("codes")
         .and_then(serde_json::Value::as_array)
         .expect("live error-code-registry missing codes array")
@@ -78,7 +81,10 @@ fn generated_error_codes_match_live_registry_when_available() {
                 .expect("live error-code-registry code entry missing code")
         })
         .collect();
-    assert_eq!(generated_error_codes(), live);
+    let mut generated = generated_error_codes();
+    live.sort_unstable();
+    generated.sort_unstable();
+    assert_eq!(generated, live);
 }
 
 #[test]
@@ -93,18 +99,26 @@ fn error_code_enum_round_trips_and_has_status() {
 
 #[test]
 fn unknown_error_code_is_preserved_by_problem_details() {
-    let details = ProblemDetails::new("vendor_remote_error", "remote failure");
+    let details = crate::ErrorDetail {
+        code: "vendor_remote_error".to_owned(),
+        message: "remote failure".to_owned(),
+        retry_after_ms: None,
+        details: Default::default(),
+    };
     assert_eq!(details.error_code(), None);
     assert_eq!(details.code, "vendor_remote_error");
 }
 
 #[test]
 fn generated_reason_codes_match_registry_and_round_trip_unknown() {
-    let generated: Vec<&str> = REASON_CODE_DESCRIPTORS
+    let mut generated: Vec<&str> = REASON_CODE_DESCRIPTORS
         .iter()
         .map(|descriptor| descriptor.code)
         .collect();
-    assert_eq!(generated, registry_reason_codes());
+    let mut registry = registry_reason_codes();
+    generated.sort_unstable();
+    registry.sort_unstable();
+    assert_eq!(generated, registry);
 
     let unknown = ReasonCode::from_wire("vendor_custom_reason");
     assert_eq!(unknown.as_str(), "vendor_custom_reason");

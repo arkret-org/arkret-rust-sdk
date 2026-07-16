@@ -464,7 +464,7 @@ mod salvo_router {
         // pins the covered component set together with `created` / `expires`
         // / `keyid` / `alg`; the explicit fields are repeated for auditability.
         let anchor_tuple = serde_json::json!({
-            "operation_id": crate::idempotency::APPLET_TRANSACTION_OPERATION_ID,
+            "operation_id": arkret_core::ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION,
             "direction": IdempotencyDirection::NodeToApplet.as_str(),
             "source_service_id": body.source_service_id,
             "destination_service_id": parts.destination_service_id,

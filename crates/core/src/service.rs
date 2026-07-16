@@ -323,7 +323,7 @@ mod tests {
         let description = ServiceDescribe {
             service_id: Did::new("did:webvh:z6mkfixture:svc.example").unwrap(),
             trust_domain: crate::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-            service_type: "directory_service".to_owned(),
+            service_type: ServiceType::DirectoryService,
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![crate::PROFILE_DIRECTORY_SERVICE.to_owned()],
             supported_features: vec![],
@@ -400,7 +400,7 @@ mod tests {
         let description = ServiceDescribe {
             service_id,
             trust_domain: crate::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-            service_type: "directory_service".to_owned(),
+            service_type: ServiceType::DirectoryService,
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![crate::PROFILE_DIRECTORY_SERVICE.to_owned()],
             supported_features: vec![],

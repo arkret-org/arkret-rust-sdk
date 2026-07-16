@@ -47,11 +47,11 @@ pub use error_codes::*;
 pub use events::*;
 pub use extension_map::XExtensionMap;
 pub use generated::{
-    AlgorithmSuiteDescriptor, DIGEST_SUITES, EVENT_KIND_COUNT, EXPORTER_LABELS, EventKind,
-    ExporterLabelDescriptor, HPKE_SUITES, MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsExtensionDescriptor,
-    PROOF_CONTEXTS, ProofContextDescriptor, RELATION_KIND_DESCRIPTORS,
-    SERVICE_OPERATION_DESCRIPTORS, SERVICE_TYPE_DESCRIPTORS, SIGNATURE_ALGORITHMS,
-    ServiceOperationDescriptor, ServiceOperationId, ServiceTypeDescriptor,
+    AlgorithmSuiteDescriptor, CapabilityActionId, DIGEST_SUITES, EVENT_KIND_COUNT, EXPORTER_LABELS,
+    EventKind, ExporterLabelDescriptor, ExporterLabelId, HPKE_SUITES, MLS_CIPHERSUITES,
+    MLS_EXTENSIONS, MlsExtensionDescriptor, PROOF_CONTEXTS, ProofContextDescriptor, ProofContextId,
+    RELATION_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS, SERVICE_TYPE_DESCRIPTORS,
+    SIGNATURE_ALGORITHMS, ServiceOperationDescriptor, ServiceOperationId, ServiceTypeDescriptor,
 };
 pub use move_event::{
     Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,

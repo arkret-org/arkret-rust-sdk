@@ -309,14 +309,13 @@ pub use applet::{
     feature = "salvo"
 ))]
 pub use arkret_server::applet_router;
-#[cfg(feature = "server")]
-pub use arkret_server::{
-    APPLET_TRANSACTION_OPERATION_ID, IdempotencyClaim, IdempotencyDirection, IdempotencyIdentity,
-    IdempotencyWindow,
-};
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub use arkret_server::{
     AppletHandler, AppletService, ServiceRoute, TransactionDispatch, service_routes,
+};
+#[cfg(feature = "server")]
+pub use arkret_server::{
+    IdempotencyClaim, IdempotencyDirection, IdempotencyIdentity, IdempotencyWindow,
 };
 #[cfg(feature = "full-surface")]
 pub use auth::{

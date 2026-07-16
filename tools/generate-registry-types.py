@@ -700,6 +700,10 @@ def generate_security_strings(artifacts: Path) -> str:
     ]
     proof = loaded[0][1]["contexts"]
     labels = loaded[1][1]["labels"]
+    proof = sorted(proof, key=lambda row: row["context"])
+    labels = sorted(labels, key=lambda row: row["label"])
+    ensure_unique(proof, "context", ("ak.",))
+    ensure_unique(labels, "label", ("ak.", "arkret-"))
     digests = loaded[2][1]["suites"]
     signatures = loaded[3][1]["algorithms"]
     hpke = loaded[4][1]["suites"]
@@ -714,8 +718,121 @@ def generate_security_strings(artifacts: Path) -> str:
     )
     lines.extend(
         [
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "#[repr(usize)]",
+            "pub enum ProofContextId {",
+        ]
+    )
+    for row in proof:
+        lines.append(f"    {variant(row['context'], ('ak.',))},")
+    lines.extend(
+        [
+            "}",
+            "",
+            "impl ProofContextId {",
+            "    pub const ALL: &'static [Self] = &[",
+        ]
+    )
+    for row in proof:
+        lines.append(f"        Self::{variant(row['context'], ('ak.',))},")
+    lines.extend(["    ];", ""])
+    for row in proof:
+        lines.append(
+            f"    pub const {associated_name(row['context'], ('ak.',))}: &'static str = "
+            f"{rust_string(row['context'])};"
+        )
+    lines.extend(
+        [
+            "",
+            "    pub const fn as_str(self) -> &'static str {",
+            "        match self {",
+        ]
+    )
+    for row in proof:
+        lines.append(
+            f"            Self::{variant(row['context'], ('ak.',))} => "
+            f"{rust_string(row['context'])},"
+        )
+    lines.extend(
+        [
+            "        }",
+            "    }",
+            "",
+            "    pub fn from_wire(value: &str) -> Option<Self> {",
+            "        match value {",
+        ]
+    )
+    for row in proof:
+        lines.append(
+            f"            {rust_string(row['context'])} => "
+            f"Some(Self::{variant(row['context'], ('ak.',))}),"
+        )
+    lines.extend(
+        [
+            "            _ => None,",
+            "        }",
+            "    }",
+            "}",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "#[repr(usize)]",
+            "pub enum ExporterLabelId {",
+        ]
+    )
+    for row in labels:
+        lines.append(f"    {variant(row['label'], ('ak.', 'arkret-'))},")
+    lines.extend(
+        [
+            "}",
+            "",
+            "impl ExporterLabelId {",
+            "    pub const ALL: &'static [Self] = &[",
+        ]
+    )
+    for row in labels:
+        lines.append(f"        Self::{variant(row['label'], ('ak.', 'arkret-'))},")
+    lines.extend(["    ];", ""])
+    for row in labels:
+        lines.append(
+            f"    pub const {associated_name(row['label'], ('ak.', 'arkret-'))}: &'static str = "
+            f"{rust_string(row['label'])};"
+        )
+    lines.extend(
+        [
+            "",
+            "    pub const fn as_str(self) -> &'static str {",
+            "        match self {",
+        ]
+    )
+    for row in labels:
+        lines.append(
+            f"            Self::{variant(row['label'], ('ak.', 'arkret-'))} => "
+            f"{rust_string(row['label'])},"
+        )
+    lines.extend(
+        [
+            "        }",
+            "    }",
+            "",
+            "    pub fn from_wire(value: &str) -> Option<Self> {",
+            "        match value {",
+        ]
+    )
+    for row in labels:
+        lines.append(
+            f"            {rust_string(row['label'])} => "
+            f"Some(Self::{variant(row['label'], ('ak.', 'arkret-'))}),"
+        )
+    lines.extend(
+        [
+            "            _ => None,",
+            "        }",
+            "    }",
+            "}",
+            "",
             "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
             "pub struct ProofContextDescriptor {",
+            "    pub id: ProofContextId,",
             "    pub context: &'static str,",
             "    pub object_family: &'static str,",
             "    pub binding_fields: &'static [&'static str],",
@@ -724,6 +841,7 @@ def generate_security_strings(artifacts: Path) -> str:
             "",
             "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
             "pub struct ExporterLabelDescriptor {",
+            "    pub id: ExporterLabelId,",
             "    pub label: &'static str,",
             "    pub primitive: Option<&'static str>,",
             "    pub context_fields: &'static [&'static str],",
@@ -751,10 +869,11 @@ def generate_security_strings(artifacts: Path) -> str:
             "pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[",
         ]
     )
-    for row in sorted(proof, key=lambda row: row["context"]):
+    for row in proof:
         lines.extend(
             [
                 "    ProofContextDescriptor {",
+                f"        id: ProofContextId::{variant(row['context'], ('ak.',))},",
                 f"        context: {rust_string(row['context'])},",
                 f"        object_family: {rust_string(row['object_family'])},",
                 f"        binding_fields: {rust_slice(row['binding_fields'])},",
@@ -769,10 +888,12 @@ def generate_security_strings(artifacts: Path) -> str:
             "pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[",
         ]
     )
-    for row in sorted(labels, key=lambda row: row["label"]):
+    for row in labels:
         lines.extend(
             [
                 "    ExporterLabelDescriptor {",
+                "        id: ExporterLabelId::"
+                f"{variant(row['label'], ('ak.', 'arkret-'))},",
                 f"        label: {rust_string(row['label'])},",
                 f"        primitive: {rust_option(row.get('primitive'))},",
                 f"        context_fields: {rust_slice(row['context_fields'])},",
@@ -854,11 +975,91 @@ def generate_security_strings(artifacts: Path) -> str:
             "];",
             "",
             "pub fn proof_context(value: &str) -> Option<&'static ProofContextDescriptor> {",
-            "    PROOF_CONTEXTS.iter().find(|row| row.context == value)",
+            "    ProofContextId::from_wire(value).map(proof_context_descriptor)",
+            "}",
+            "",
+            "pub const fn proof_context_descriptor(",
+            "    id: ProofContextId,",
+            ") -> &'static ProofContextDescriptor {",
+            "    &PROOF_CONTEXTS[id as usize]",
             "}",
             "",
             "pub fn exporter_label(value: &str) -> Option<&'static ExporterLabelDescriptor> {",
-            "    EXPORTER_LABELS.iter().find(|row| row.label == value)",
+            "    ExporterLabelId::from_wire(value).map(exporter_label_descriptor)",
+            "}",
+            "",
+            "pub const fn exporter_label_descriptor(",
+            "    id: ExporterLabelId,",
+            ") -> &'static ExporterLabelDescriptor {",
+            "    &EXPORTER_LABELS[id as usize]",
+            "}",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def generate_capability_actions(artifacts: Path) -> str:
+    relative = "registry/capability-action-registry.json"
+    artifact, digest = load(artifacts / relative)
+    rows = sorted(artifact["actions"], key=lambda row: row["action"])
+    ensure_unique(rows, "action", ("ak.",))
+    lines = header([(relative, artifact, digest)], f"registered={len(rows)}")
+    lines.extend(
+        [
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "#[repr(usize)]",
+            "pub enum CapabilityActionId {",
+        ]
+    )
+    for row in rows:
+        lines.append(f"    {variant(row['action'], ('ak.',))},")
+    lines.extend(
+        [
+            "}",
+            "",
+            "impl CapabilityActionId {",
+            "    pub const ALL: &'static [Self] = &[",
+        ]
+    )
+    for row in rows:
+        lines.append(f"        Self::{variant(row['action'], ('ak.',))},")
+    lines.extend(["    ];", ""])
+    for row in rows:
+        lines.append(
+            f"    pub const {associated_name(row['action'], ('ak.',))}: &'static str = "
+            f"{rust_string(row['action'])};"
+        )
+    lines.extend(
+        [
+            "",
+            "    pub const fn as_str(self) -> &'static str {",
+            "        match self {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            Self::{variant(row['action'], ('ak.',))} => "
+            f"{rust_string(row['action'])},"
+        )
+    lines.extend(
+        [
+            "        }",
+            "    }",
+            "",
+            "    pub fn from_wire(value: &str) -> Option<Self> {",
+            "        match value {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            {rust_string(row['action'])} => "
+            f"Some(Self::{variant(row['action'], ('ak.',))}),"
+        )
+    lines.extend(
+        [
+            "            _ => None,",
+            "        }",
+            "    }",
             "}",
         ]
     )
@@ -925,6 +1126,7 @@ def generate_registry_descriptors(artifacts: Path) -> str:
     lines = header(loaded, counts)
     lines.extend(
         [
+            "use arkret_wire_base::CapabilityActionId;",
             "use serde::{Deserialize, Serialize};",
             "",
             "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
@@ -960,7 +1162,7 @@ def generate_registry_descriptors(artifacts: Path) -> str:
             "",
             "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
             "pub struct CapabilityActionDescriptor {",
-            "    pub action: &'static str,",
+            "    pub action: CapabilityActionId,",
             "    pub category: &'static str,",
             "    pub risk_tier: CapabilityRiskTier,",
             "    pub required_constraints: &'static [&'static str],",
@@ -1023,7 +1225,7 @@ def generate_registry_descriptors(artifacts: Path) -> str:
         lines.extend(
             [
                 "    CapabilityActionDescriptor {",
-                f"        action: {rust_string(row['action'])},",
+                f"        action: CapabilityActionId::{variant(row['action'], ('ak.',))},",
                 f"        category: {rust_string(row['category'])},",
                 f"        risk_tier: CapabilityRiskTier::{variant(row['risk_tier'])},",
                 f"        required_constraints: {rust_slice(row['required_constraints'])},",
@@ -1074,9 +1276,8 @@ def generate_registry_descriptors(artifacts: Path) -> str:
             "pub fn capability_action(",
             "    value: &str,",
             ") -> Option<&'static CapabilityActionDescriptor> {",
-            "    REGISTERED_CAPABILITY_ACTIONS",
-            "        .iter()",
-            "        .find(|row| row.action == value)",
+            "    CapabilityActionId::from_wire(value)",
+            "        .map(|id| &REGISTERED_CAPABILITY_ACTIONS[id as usize])",
             "}",
             "",
             "pub fn account_data_pattern(",
@@ -1135,6 +1336,9 @@ GENERATORS = {
     "crates/wire-base/src/generated/relation_kinds.rs": generate_relation_kinds,
     "crates/wire-base/src/generated/security_strings.rs": (
         generate_security_strings
+    ),
+    "crates/wire-base/src/generated/capability_actions.rs": (
+        generate_capability_actions
     ),
     "crates/schema/src/generated/registry_descriptors.rs": (
         generate_registry_descriptors
