@@ -587,7 +587,8 @@ fn lattice_round_trip_cases_execute_against_sdk_lattices() {
     );
 }
 
-/// Inventory gate over the sixteen dual-plane CBA scenario vectors. Their
+/// Inventory gate over the dual-plane CBA scenario vectors plus the actor-chain
+/// Realm-scoping vector carried by the same fixture. Their
 /// full semantics (DataEvent vs control Move planes, seal coverage,
 /// quarantine, notary faults) require the CBA reducer + seal pipeline and
 /// are executed by the cotest state-resolution harness; the SDK pins the
@@ -613,7 +614,8 @@ fn dual_plane_vector_inventory_is_pinned() {
             .as_str()
             .expect("dual-plane vector missing vector_id");
         assert!(
-            vector_id.starts_with("ak.vector.cba_lattice."),
+            vector_id.starts_with("ak.vector.cba_lattice.")
+                || vector_id == "ak.vector.actor_chain.realm_scope.v1",
             "unexpected vector id {vector_id}"
         );
         // Expectations are carried either as a top-level `expected*` block or

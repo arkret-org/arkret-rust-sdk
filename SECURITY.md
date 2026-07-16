@@ -2,17 +2,16 @@
 
 ## Supported versions
 
-The Arkret Rust SDK is in its local `1.0.0` freeze line. Local fixes should
-target the latest `1.0.x` branch; remote publication is outside this readiness
-workflow.
+The Arkret Rust SDK is under active `0.3.x` development. Security fixes should
+target the current `0.3.x` line; no stable release has been published.
 
 | Version | Supported |
 | ------- | --------- |
-| `1.0.x` | Yes       |
-| < `1.0` | No        |
+| `0.3.x` | Yes       |
+| < `0.3` | No        |
 
-After `1.0`, the support window will track the latest stable major plus one
-prior minor; the table here will be updated to reflect that.
+After the first stable release, this table will be updated with the stable
+support window.
 
 ## Reporting a vulnerability
 
@@ -71,10 +70,12 @@ Out of scope:
 
 ## Cryptographic guarantees
 
-The current `1.0.0` local freeze records a security-review packet in
+The historical local-freeze exercise recorded a security-review packet in
 `docs/security-review-1.0.0.md` and real-server interoperability evidence in
-`docs/release-evidence-1.0.0.md`. Treat the cryptographic surface as locally
-reviewed, with external audit claims still out-of-scope for this workflow.
+`docs/release-evidence-1.0.0.md`. Those documents are dated evidence, not a
+published `1.0.0` release or a statement that the current `0.3.x` line has
+received an external audit. Treat the current cryptographic surface as locally
+reviewed, with external audit claims still out of scope for this workflow.
 Production deployments should:
 
 - Back MLS state with a platform key store and durable `CryptoStore`

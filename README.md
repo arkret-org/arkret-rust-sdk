@@ -129,15 +129,12 @@ Headline additions:
 
 ## Project documents
 
-- [Changelog](CHANGELOG.md) — release notes and unreleased changes. The
-  `[Unreleased]` Round R4 / R2 / R3 entries track the most recent
-  spec close-outs (round 4 ranges `2a4d39b..a77b995`; round 2+3 lands
-  4 new event kinds, 3 new schemas, 2 new typed ID kinds, 15 new error
-  codes); see [`../arkret-spec/CHANGELOG.md`](../arkret-spec/CHANGELOG.md)
-  for the normative source.
+- [Changelog](CHANGELOG.md) — release notes and unreleased SDK changes.
+  Normative protocol changes remain sourced from the sibling `arkret-spec`
+  repository and its machine-readable registries.
 - [Security policy](SECURITY.md) — supported versions and how to report
   vulnerabilities responsibly.
-- [Releasing](RELEASING.md) — local package checks for the 10-crate workspace
+- [Releasing](RELEASING.md) — local package checks for the 15-crate workspace
   in topological order.
 - [Contributing](CONTRIBUTING.md) — development checks, API rules, commit
   style.
