@@ -5,17 +5,17 @@
 //! exporter-label-registry.json; version=2026-06-10;
 //! sha256=e119ced0d8bff290880df1e6ecaa31946d6a2a6ffc005d144e60db26a4a01ecd Input: registry/
 //! digest-suite-registry.json; version=2026-06-10;
-//! sha256=a2ec09df95e7115ea2feba454b121cb9095f21e42313422ac6d9b9c9cd5f7573 Input: registry/
+//! sha256=6522a9f899872e285762d46634a8f13a2d9f69437d04287a404cccde42327344 Input: registry/
 //! signature-alg-registry.json; version=2026-07-13;
-//! sha256=717b8de6fb0a51e0d1ab8c9e12ebfbd4c8418be1b86bc52a000429076d299e41 Input: registry/
+//! sha256=5ccd1caf0e223f267b782a5d8bd61310597031f76f71cc49d60eea261b73061f Input: registry/
 //! hpke-suite-registry.json; version=2026-07-13;
 //! sha256=bbb4b335c9d8e33b7c3b378932dedaa7aff019c5dec21225576632d88374a5d2 Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-07-13;
-//! sha256=25cd19e74d91c18a3c1f837c04c8f3d7ad165e52f87421d85c5e778ef8f8a588 Input: registry/
+//! sha256=0fa9193fba7c2b4d1f7e36cc92c669f3dca251272897ac20cdbc70d5d160613b Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
-//! sha256=0fbcc85e00b58715c360aa0ed37acf11d858fd6b1a7d0ceb9b0c82bda99f1614
-//! Entries: proof_contexts=24, exporter_labels=8, digest_suites=3, signature_algorithms=3,
-//! hpke_suites=4, mls_ciphersuites=2, mls_extensions=1
+//! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
+//! Entries: proof_contexts=24, exporter_labels=8, digest_suites=3, signature_algorithms=4,
+//! hpke_suites=4, mls_ciphersuites=3, mls_extensions=1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -780,6 +780,12 @@ pub const SIGNATURE_ALGORITHMS: &[AlgorithmSuiteDescriptor] = &[
         profile_gate: None,
     },
     AlgorithmSuiteDescriptor {
+        canonical_id: "Ed25519+ML-DSA-65",
+        status: "reserved",
+        role: "reserved_hybrid_signature_policy",
+        profile_gate: Some("ak.profile.signature.pqc.v1"),
+    },
+    AlgorithmSuiteDescriptor {
         canonical_id: "ML-DSA-65",
         status: "active",
         role: "v1_profile_gated_pqc",
@@ -820,6 +826,12 @@ pub const MLS_CIPHERSUITES: &[AlgorithmSuiteDescriptor] = &[
         status: "active",
         role: "v1_default_must",
         profile_gate: None,
+    },
+    AlgorithmSuiteDescriptor {
+        canonical_id: "MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519",
+        status: "reserved",
+        role: "reserved_software_friendly_interop",
+        profile_gate: Some("ak.profile.mls_ciphersuite.chacha20poly1305.v1"),
     },
     AlgorithmSuiteDescriptor {
         canonical_id: "MLS_128_MLKEM768X25519_AES128GCM_SHA256_Ed25519",

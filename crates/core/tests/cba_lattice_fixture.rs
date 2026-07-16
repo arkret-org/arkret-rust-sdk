@@ -615,7 +615,8 @@ fn dual_plane_vector_inventory_is_pinned() {
             .expect("dual-plane vector missing vector_id");
         assert!(
             vector_id.starts_with("ak.vector.cba_lattice.")
-                || vector_id == "ak.vector.actor_chain.realm_scope.v1",
+                || vector_id == "ak.vector.actor_chain.realm_scope.v1"
+                || vector_id == "ak.vector.seal.same_batch_bottom_reject_serialization.v1",
             "unexpected vector id {vector_id}"
         );
         // Expectations are carried either as a top-level `expected*` block or
