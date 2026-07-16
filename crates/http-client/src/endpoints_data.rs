@@ -147,7 +147,12 @@ impl BlobDownloadOptions {
 
 impl Client {
     fn tus_request(&self, method: Method, url: Url) -> Result<reqwest::RequestBuilder> {
-        validate_base_url(&url, true)?;
+        validate_base_url(&url, self.allow_insecure_localhost)?;
+        if url.origin() != self.base_url.origin() {
+            return Err(Error::Protocol(
+                "resumable upload URL must have the principal server origin".to_owned(),
+            ));
+        }
         let method_for_auth = method.clone();
         let mut builder = self.http.request(method, url.clone());
         if let Some(user_agent) = &self.user_agent {
@@ -353,6 +358,11 @@ impl Client {
         let upload_url = base_url
             .join(location)
             .map_err(|error| Error::Protocol(format!("unresolvable upload Location: {error}")))?;
+        if upload_url.origin() != base_url.origin() {
+            return Err(Error::Protocol(
+                "resumable upload Location changed origin".to_owned(),
+            ));
+        }
 
         let mut offset: usize = 0;
         let mut retries = 0usize;
@@ -612,6 +622,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+    use crate::ClientBuilder;
 
     #[test]
     fn resumable_metadata_values_use_standard_base64() {
@@ -664,6 +675,42 @@ mod tests {
         assert_eq!(
             finalize_url_for(&upload_url).unwrap().as_str(),
             "https://server.local/uploads/abc/finalize"
+        );
+    }
+
+    #[test]
+    fn resumable_requests_reject_cross_origin_and_unapproved_plaintext_localhost() {
+        let client = ClientBuilder::new(Url::parse("https://server.local/").unwrap())
+            .build()
+            .unwrap();
+        assert!(
+            client
+                .tus_request(
+                    Method::POST,
+                    Url::parse("https://attacker.example/uploads").unwrap(),
+                )
+                .is_err()
+        );
+        assert!(
+            client
+                .tus_request(
+                    Method::POST,
+                    Url::parse("http://127.0.0.1:9999/uploads").unwrap(),
+                )
+                .is_err()
+        );
+
+        let local = ClientBuilder::new(Url::parse("http://127.0.0.1:8787/").unwrap())
+            .allow_insecure_localhost()
+            .build()
+            .unwrap();
+        assert!(
+            local
+                .tus_request(
+                    Method::POST,
+                    Url::parse("http://127.0.0.1:8787/uploads").unwrap(),
+                )
+                .is_ok()
         );
     }
 }

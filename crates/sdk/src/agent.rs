@@ -19,11 +19,11 @@ use crate::{
     AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyAuthorizePayload,
     AgentKeyAuthorizePayloadRuntimeAttestation, AgentKeyPairRequestBody, AgentPairingBootstrap,
     AgentPauseRequestBody, AgentProvisionRequestBody, AgentRenewPairingRequestBody,
-    AgentResumeRequestBody, AgentRuntimeApprovalRequestBody, AgentRuntimeApprovalStatusRequestBody,
-    AgentSidecarThreadEnsureRequestBody, CapabilityGrant, Did, DidUrl, Error, Event, GrantId, Hash,
-    Hlc, NonEmptyJsonObject, NonEmptyString, PublicKey, RealmId, Result,
-    SessionGrantAgentScopeRequest, SessionGrantDpopBindingProof, SessionGrantProofKind,
-    SessionGrantRequestBody, SessionGrantRequestProof,
+    AgentRequestedScopeDisclosure, AgentResumeRequestBody, AgentRuntimeApprovalRequestBody,
+    AgentRuntimeApprovalStatusRequestBody, AgentSidecarThreadEnsureRequestBody, CapabilityGrant,
+    Did, DidUrl, Error, Event, GrantId, Hash, Hlc, NonEmptyJsonObject, NonEmptyString, PublicKey,
+    RealmId, Result, SessionGrantAgentScopeRequest, SessionGrantDpopBindingProof,
+    SessionGrantProofKind, SessionGrantRequestBody, SessionGrantRequestProof,
 };
 
 pub const AGENT_KEY_PROOF_KIND: &str = "agent_key_proof";
@@ -151,8 +151,31 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
 
     pub fn build_key_pair_request(
         &self,
+        requested_scope_disclosure: AgentRequestedScopeDisclosure,
         authorize_event: Event,
     ) -> Result<RuntimeKeyRequest<AgentKeyPairRequestBody>> {
+        requested_scope_disclosure.validate()?;
+        if requested_scope_disclosure.agent_id != self.bootstrap.agent_id
+            || requested_scope_disclosure.verifier_did != self.bootstrap.service_id
+        {
+            return Err(Error::Protocol(
+                "agent requested-scope disclosure is not bound to this pairing".to_owned(),
+            ));
+        }
+        let request_uuid = self
+            .bootstrap
+            .pairing_request_id
+            .strip_prefix("agent_pairing_request:")
+            .ok_or_else(|| Error::Protocol("pairing request id is invalid".to_owned()))?;
+        if requested_scope_disclosure.request_id.as_str() != format!("ak:request:{request_uuid}")
+            || requested_scope_disclosure.challenge.as_str()
+                != self.bootstrap.pairing_request_id.as_str()
+        {
+            return Err(Error::Protocol(
+                "agent requested-scope disclosure request or challenge does not match this pairing"
+                    .to_owned(),
+            ));
+        }
         validate_pairing_authorize_event(&authorize_event, &self.bootstrap.agent_id)?;
         let (public_key, public_key_digest, proof_of_possession) = self.request_material()?;
         Ok(RuntimeKeyRequest {
@@ -164,6 +187,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
                     .map_err(|reason| Error::Protocol(reason.to_owned()))?,
                 public_key,
                 proof_of_possession,
+                requested_scope_disclosure,
                 runtime_attestation: self.runtime_attestation.clone(),
                 authorize_event,
             },
@@ -300,6 +324,7 @@ pub struct AgentKeyPairRequestBuilder {
     verification_method: String,
     public_key: Value,
     proof_of_possession: Value,
+    requested_scope_disclosure: AgentRequestedScopeDisclosure,
     runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
     authorize_event: Event,
 }
@@ -311,6 +336,7 @@ impl AgentKeyPairRequestBuilder {
         verification_method: impl Into<String>,
         public_key: Value,
         proof_of_possession: Value,
+        requested_scope_disclosure: AgentRequestedScopeDisclosure,
         authorize_event: Event,
     ) -> Self {
         Self {
@@ -319,6 +345,7 @@ impl AgentKeyPairRequestBuilder {
             verification_method: verification_method.into(),
             public_key,
             proof_of_possession,
+            requested_scope_disclosure,
             runtime_attestation: None,
             authorize_event,
         }
@@ -344,6 +371,12 @@ impl AgentKeyPairRequestBuilder {
             ));
         }
         validate_pairing_authorize_event(&self.authorize_event, &self.agent_id)?;
+        self.requested_scope_disclosure.validate()?;
+        if self.requested_scope_disclosure.agent_id != self.agent_id {
+            return Err(Error::Protocol(
+                "agent requested-scope disclosure agent_id must match pairing agent_id".to_owned(),
+            ));
+        }
         Ok(AgentKeyPairRequestBody {
             pairing_request_id: NonEmptyString::new(self.pairing_request_id)
                 .map_err(|reason| Error::Protocol(reason.to_owned()))?,
@@ -352,6 +385,7 @@ impl AgentKeyPairRequestBuilder {
                 .map_err(|reason| Error::Protocol(reason.to_owned()))?,
             public_key: serde_json::from_value(self.public_key)?,
             proof_of_possession: serde_json::from_value(self.proof_of_possession)?,
+            requested_scope_disclosure: self.requested_scope_disclosure,
             runtime_attestation: self.runtime_attestation,
             authorize_event: self.authorize_event,
         })
@@ -1161,7 +1195,7 @@ mod tests {
     use super::*;
     use crate::{
         AgentKeyApprovalEvidence, AgentKeyApprovalEvidenceKind, AgentKeyScope,
-        AgentKeyScopeResource, AgentKeyScopeResourceKind,
+        AgentKeyScopeResource, AgentKeyScopeResourceKind, Proof, RequestId,
     };
 
     fn did(name: &str) -> Did {
@@ -1185,6 +1219,50 @@ mod tests {
             arkret_core::events::EventKind::AGENT_KEY_AUTHORIZE,
             actor_id,
         )
+    }
+
+    fn requested_scope_disclosure(agent_id: Did) -> AgentRequestedScopeDisclosure {
+        let controller_id = did("controller");
+        let requested_scope = AgentKeyScope {
+            actions: vec!["ak.message.create".to_owned()],
+            resources: vec![],
+            constraints: vec![],
+        };
+        let requested_scope_digest =
+            arkret_core::agent_requested_scope_digest(&agent_id, &controller_id, &requested_scope)
+                .unwrap();
+        let issued_at = Utc.with_ymd_and_hms(2026, 7, 17, 0, 0, 0).unwrap();
+        let mut disclosure = AgentRequestedScopeDisclosure {
+            schema: arkret_core::AGENT_REQUESTED_SCOPE_DISCLOSURE_SCHEMA.to_owned(),
+            request_id: RequestId::new(
+                "ak:request:01970000-0000-7000-8000-000000000021".to_owned(),
+            )
+            .unwrap(),
+            agent_id,
+            controller_id,
+            requested_scope,
+            requested_scope_digest,
+            verifier_did: did("service"),
+            audience: NonEmptyString::new("ak.gate.account.command.pair_agent_key").unwrap(),
+            challenge: NonEmptyString::new(
+                "agent_pairing_request:01970000-0000-7000-8000-000000000021",
+            )
+            .unwrap(),
+            issued_at,
+            expires_at: issued_at + chrono::Duration::minutes(5),
+            proofs: vec![Proof {
+                kind: "detached_jws".to_owned(),
+                alg: "EdDSA".to_owned(),
+                verification_method: "did:webvh:z6mkfixture:controller.example#key-1".to_owned(),
+                event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                created_at: issued_at,
+                domain: None,
+                audience: None,
+                jws: "eyJhbGciOiJFZERTQSJ9..AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ".to_owned(),
+            }],
+        };
+        disclosure.proofs[0].event_digest = disclosure.payload_digest().unwrap();
+        disclosure
     }
 
     struct StubMoveSigner {
@@ -1318,6 +1396,7 @@ mod tests {
                 "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
             }),
             json!({"challenge": "pairing", "signature": "sig"}),
+            requested_scope_disclosure(agent_id.clone()),
             authorize_event(agent_id.clone()),
         )
         .runtime_attestation(AgentKeyAuthorizePayloadRuntimeAttestation {
@@ -1350,6 +1429,7 @@ mod tests {
             "did:webvh:z6mkfixture:agent2.example#runtime-key-1",
             json!({}),
             json!({}),
+            requested_scope_disclosure(did("agent2")),
             event("ak.message.create", did("agent2")),
         )
         .build()
@@ -1366,14 +1446,18 @@ mod tests {
             arkret_base_url: "https://arkret.example".to_owned(),
             service_id: Did::new("did:webvh:z6mkfixture:service.example".to_owned()).unwrap(),
             agent_id: agent_id.clone(),
-            pairing_request_id: "01970000-0000-7000-8000-000000000021".to_owned(),
+            pairing_request_id: "agent_pairing_request:01970000-0000-7000-8000-000000000021"
+                .to_owned(),
             pairing_code: "12345678".to_owned(),
             pairing_expires_at: expires_at,
         };
         let builder = RuntimeKeyRequestBuilder::new(&signing_key, bootstrap);
         let approval = builder.build_approval_request().unwrap();
         let pairing = builder
-            .build_key_pair_request(authorize_event(agent_id.clone()))
+            .build_key_pair_request(
+                requested_scope_disclosure(agent_id.clone()),
+                authorize_event(agent_id.clone()),
+            )
             .unwrap();
 
         assert_eq!(approval.public_key_digest, pairing.public_key_digest);

@@ -1,6 +1,6 @@
 //! Shared authenticated encryption helpers.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, VecDeque};
 
 pub use arkret_core::EncryptedEnvelopeAad;
 use chacha20poly1305::XChaCha20Poly1305;
@@ -8,7 +8,7 @@ use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use hkdf::Hkdf;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use sha2::Sha256;
+use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 
 use crate::{Error, Result};
@@ -38,9 +38,23 @@ pub struct AeadNonceContext {
 }
 
 /// Receiver-side replay cache for per-sender AEAD counters.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct AeadNonceReplayTracker {
-    seen: BTreeSet<(Vec<u8>, u64)>,
+    scopes: BTreeMap<[u8; 32], ReplayWindow>,
+    lru: VecDeque<[u8; 32]>,
+    max_scopes: usize,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ReplayWindow {
+    highest_counter: u64,
+    bitmap: u128,
+}
+
+impl Default for AeadNonceReplayTracker {
+    fn default() -> Self {
+        Self::with_max_scopes(1_024)
+    }
 }
 
 impl AeadNonceReplayTracker {
@@ -48,14 +62,57 @@ impl AeadNonceReplayTracker {
         Self::default()
     }
 
+    pub fn with_max_scopes(max_scopes: usize) -> Self {
+        Self {
+            scopes: BTreeMap::new(),
+            lru: VecDeque::new(),
+            max_scopes: max_scopes.max(1),
+        }
+    }
+
     pub fn accept_counter(&mut self, context: &AeadNonceContext, counter: u64) -> Result<()> {
-        let scope = aead_sender_nonce_context_bytes(context)?;
-        if !self.seen.insert((scope, counter)) {
+        let scope: [u8; 32] = Sha256::digest(aead_sender_nonce_context_bytes(context)?).into();
+        if !self.scopes.contains_key(&scope) {
+            if self.scopes.len() >= self.max_scopes
+                && let Some(evicted) = self.lru.pop_front()
+            {
+                self.scopes.remove(&evicted);
+            }
+            self.scopes.insert(
+                scope,
+                ReplayWindow {
+                    highest_counter: counter,
+                    bitmap: 1,
+                },
+            );
+            self.lru.push_back(scope);
+            return Ok(());
+        }
+
+        self.lru.retain(|entry| entry != &scope);
+        self.lru.push_back(scope);
+        let window = self
+            .scopes
+            .get_mut(&scope)
+            .expect("scope was checked above");
+        if counter > window.highest_counter {
+            let shift = counter - window.highest_counter;
+            window.bitmap = if shift >= u128::BITS as u64 {
+                1
+            } else {
+                (window.bitmap << shift) | 1
+            };
+            window.highest_counter = counter;
+            return Ok(());
+        }
+        let distance = window.highest_counter - counter;
+        if distance >= u128::BITS as u64 || window.bitmap & (1_u128 << distance) != 0 {
             return Err(protocol_error(
                 arkret_core::error::ReasonCode::AEAD_NONCE_COUNTER_REPLAY,
-                "AEAD nonce counter was already seen for this sender scope",
+                "AEAD nonce counter was replayed or fell outside the receive window",
             ));
         }
+        window.bitmap |= 1_u128 << distance;
         Ok(())
     }
 }
@@ -603,6 +660,21 @@ mod tests {
             random_reject,
             Error::Protocol(message) if message.starts_with(arkret_core::error::ReasonCode::AEAD_NONCE_DERIVATION_INVALID)
         ));
+    }
+
+    #[test]
+    fn aead_replay_tracker_bounds_scopes_and_rejects_old_counters() {
+        let mut tracker = AeadNonceReplayTracker::with_max_scopes(2);
+        let first = fixture_nonce_context("ak:device:01964137-0000-7000-8000-000000000001");
+        let second = fixture_nonce_context("ak:device:01964137-0000-7000-8000-000000000002");
+        let third = fixture_nonce_context("ak:device:01964137-0000-7000-8000-000000000003");
+
+        tracker.accept_counter(&first, 200).unwrap();
+        assert!(tracker.accept_counter(&first, 72).is_err());
+        tracker.accept_counter(&second, 0).unwrap();
+        tracker.accept_counter(&third, 0).unwrap();
+        assert_eq!(tracker.scopes.len(), 2);
+        assert_eq!(tracker.lru.len(), 2);
     }
 
     #[test]

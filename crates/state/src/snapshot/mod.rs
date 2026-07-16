@@ -1,12 +1,11 @@
-//! Snapshot chunk v2 — multi-chunk Merkle output with signed generator
-//! proofs.
+//! Snapshot chunks — multi-chunk Merkle output with signed generator proofs.
 //!
 //! The v1 snapshot wire is a single base64-url JSON blob: fine for small
 //! Spaces, but doesn't scale to multi-megabyte projection dumps and
 //! doesn't let receivers verify a single chunk without trusting the
 //! whole bundle.
 //!
-//! v2 introduces three primitives:
+//! The v1 snapshot model uses three primitives:
 //!
 //! - [`SnapshotChunker`] — deterministically partitions a serialized snapshot blob into fixed-size
 //!   byte ranges, each addressable by an ordinal `chunk_id` starting at 0. Boundaries are at exact
@@ -22,9 +21,9 @@
 //!
 //! Wire shape (round 8): the snapshot manifest endpoint
 //! (`/_arkret/self/snapshot/head`) returns `chunk_count`, `merkle_root`,
-//! and `generator_proof`; the chunk endpoint
-//! (`/_arkret/self/snapshot/chunk?chunk_id=N`) returns the chunk bytes
-//! plus the `audit_path[]` Merkle siblings. Receivers verify per-chunk.
+//! and `generator_proof`. Receivers fetch chunks through the manifest's
+//! `chunks[]` download descriptors and verify each chunk against its
+//! `audit_path[]` Merkle siblings.
 
 mod chunking;
 mod constants;

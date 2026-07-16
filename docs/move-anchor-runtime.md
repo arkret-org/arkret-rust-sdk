@@ -534,7 +534,8 @@ soland 接线。
 - Move / Seal wire schema 字段细节 →
   [`seal.schema.json`](../../arkret-spec/spec/v1/artifacts/schemas/seal.schema.json)
   及 event/auth-state 规范中的 Move 语义。
-- HTTP binding（POST `/_arkret/self/moves`、`/_arkret/self/seals`）→
+- HTTP binding（Move Event Envelope 经 `POST /_arkret/self/events` 提交，
+  Seal 经 `POST /_arkret/self/events/seals` 提交）→
   [`service-http-binding.md`](../../arkret-spec/spec/v1/zh/sync/service-http-binding.md)。
 - Federation Move 广播 + Seal 拉取语义 →
   [`federation.md`](../../arkret-spec/spec/v1/zh/sync/federation.md)。

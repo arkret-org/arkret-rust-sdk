@@ -43,11 +43,15 @@ pub const DEFAULT_HTTP_DID_RESOLVER_OUTAGE_SECS: i64 = 60 * 60 * 24;
 /// Default request timeout (2s) per spec recommendation.
 pub const DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS: u64 = 2_000;
 
+/// Default maximum number of verified DID documents retained in memory.
+pub const DEFAULT_HTTP_DID_RESOLVER_MAX_ENTRIES: usize = 1_024;
+
 /// Cached entry in the HTTP DID resolver.
 #[derive(Clone, Debug)]
 struct CacheEntry {
     document: DidDocument,
     fetched_at: DateTime<Utc>,
+    last_accessed_at: DateTime<Utc>,
 }
 
 type InflightResolution<T> = Arc<OnceCell<std::result::Result<T, String>>>;
@@ -123,6 +127,7 @@ pub struct HttpDidResolver {
     http: HttpClient,
     policy: ResolverPolicy,
     cache: Mutex<BTreeMap<Did, CacheEntry>>,
+    max_cache_entries: usize,
     health_signal: Mutex<HttpDidResolverHealthSignal>,
     runtime: tokio::runtime::Handle,
     single_flight: SingleFlight<DidDocument>,
@@ -169,6 +174,20 @@ impl HttpDidResolver {
 
     /// Build a resolver from a pre-configured [`reqwest::Client`].
     pub fn with_client(http: HttpClient, policy: ResolverPolicy) -> Result<Self> {
+        Self::with_client_and_cache_limit(http, policy, DEFAULT_HTTP_DID_RESOLVER_MAX_ENTRIES)
+    }
+
+    /// Build a resolver with an explicit in-memory cache bound.
+    pub fn with_client_and_cache_limit(
+        http: HttpClient,
+        policy: ResolverPolicy,
+        max_cache_entries: usize,
+    ) -> Result<Self> {
+        if max_cache_entries == 0 {
+            return Err(Error::Protocol(
+                "HttpDidResolver cache limit must be greater than zero".to_owned(),
+            ));
+        }
         let runtime = tokio::runtime::Handle::try_current().map_err(|err| {
             Error::Protocol(format!(
                 "HttpDidResolver requires an active Tokio runtime: {err}"
@@ -178,6 +197,7 @@ impl HttpDidResolver {
             http,
             policy,
             cache: Mutex::new(BTreeMap::new()),
+            max_cache_entries,
             health_signal: Mutex::new(HttpDidResolverHealthSignal::Healthy),
             runtime,
             single_flight: SingleFlight::new(),
@@ -211,6 +231,14 @@ impl HttpDidResolver {
         }
     }
 
+    /// Current verified-document cache size for health/metrics adapters.
+    pub fn cached_document_count(&self) -> usize {
+        self.cache
+            .lock()
+            .map(|cache| cache.len())
+            .unwrap_or_default()
+    }
+
     fn ttl_secs(&self) -> i64 {
         self.policy
             .ttl
@@ -230,12 +258,13 @@ impl HttpDidResolver {
     }
 
     fn cached(&self, did: &Did) -> Option<DidDocument> {
-        let cache = self.cache.lock().ok()?;
-        let entry = cache.get(did)?;
+        let mut cache = self.cache.lock().ok()?;
+        let entry = cache.get_mut(did)?;
         let age = Utc::now()
             .signed_duration_since(entry.fetched_at)
             .num_seconds();
         if age >= 0 && age < self.ttl_secs() {
+            entry.last_accessed_at = Utc::now();
             Some(entry.document.clone())
         } else {
             None
@@ -243,25 +272,43 @@ impl HttpDidResolver {
     }
 
     fn stale_within_outage(&self, did: &Did) -> Option<DidDocument> {
-        let cache = self.cache.lock().ok()?;
-        let entry = cache.get(did)?;
+        let mut cache = self.cache.lock().ok()?;
+        let entry = cache.get_mut(did)?;
         let age = Utc::now()
             .signed_duration_since(entry.fetched_at)
             .num_seconds();
         if age >= 0 && age <= self.max_stale_secs() {
+            entry.last_accessed_at = Utc::now();
             Some(entry.document.clone())
         } else {
+            cache.remove(did);
             None
         }
     }
 
     fn cache_put(&self, did: &Did, document: &DidDocument) {
         if let Ok(mut cache) = self.cache.lock() {
+            let now = Utc::now();
+            let max_stale_secs = self.max_stale_secs();
+            cache.retain(|_, entry| {
+                let age = now.signed_duration_since(entry.fetched_at).num_seconds();
+                age >= 0 && age <= max_stale_secs
+            });
+            if !cache.contains_key(did)
+                && cache.len() >= self.max_cache_entries
+                && let Some(lru_did) = cache
+                    .iter()
+                    .min_by_key(|(_, entry)| entry.last_accessed_at)
+                    .map(|(did, _)| did.clone())
+            {
+                cache.remove(&lru_did);
+            }
             cache.insert(
                 did.clone(),
                 CacheEntry {
                     document: document.clone(),
-                    fetched_at: Utc::now(),
+                    fetched_at: now,
+                    last_accessed_at: now,
                 },
             );
         }
@@ -488,6 +535,16 @@ impl DidResolver for HttpDidResolver {
 mod tests {
     use super::*;
 
+    fn document(did: Did) -> DidDocument {
+        DidDocument {
+            id: did,
+            verification_methods: BTreeMap::new(),
+            also_known_as: Vec::new(),
+            updated_at: None,
+            raw_properties: BTreeMap::new(),
+        }
+    }
+
     #[tokio::test]
     async fn resolver_rejects_unsupported_method() {
         let resolver = HttpDidResolver::with_policy(ResolverPolicy {
@@ -508,6 +565,41 @@ mod tests {
         let did = Did::new("did:web:nonexistent.invalid").unwrap();
         resolver.invalidate(&did);
         resolver.invalidate_all();
+    }
+
+    #[tokio::test]
+    async fn resolver_cache_is_bounded_and_removes_expired_entries() {
+        let resolver = HttpDidResolver::with_client_and_cache_limit(
+            HttpClient::new(),
+            ResolverPolicy::default(),
+            2,
+        )
+        .unwrap();
+        let first = Did::new("did:web:first.example").unwrap();
+        let second = Did::new("did:web:second.example").unwrap();
+        let third = Did::new("did:web:third.example").unwrap();
+        resolver.cache_put(&first, &document(first.clone()));
+        resolver.cache_put(&second, &document(second.clone()));
+        resolver.cache_put(&third, &document(third.clone()));
+        assert_eq!(resolver.cached_document_count(), 2);
+
+        let expired = resolver
+            .cache
+            .lock()
+            .unwrap()
+            .keys()
+            .next()
+            .cloned()
+            .unwrap();
+        resolver
+            .cache
+            .lock()
+            .unwrap()
+            .get_mut(&expired)
+            .unwrap()
+            .fetched_at = Utc::now() - chrono::TimeDelta::days(9);
+        assert!(resolver.stale_within_outage(&expired).is_none());
+        assert_eq!(resolver.cached_document_count(), 1);
     }
 
     #[test]

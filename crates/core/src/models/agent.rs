@@ -1,5 +1,113 @@
 use super::*;
 
+pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_SCHEMA: &str =
+    "ak.schema.agent_requested_scope_disclosure.v1";
+
+/// Controller-signed, verifier-bound private disclosure of an Agent's
+/// immutable requested-scope ceiling.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentRequestedScopeDisclosure {
+    pub schema: String,
+    pub request_id: RequestId,
+    pub agent_id: Did,
+    pub controller_id: Did,
+    pub requested_scope: AgentKeyScope,
+    pub requested_scope_digest: Hash,
+    pub verifier_did: Did,
+    pub audience: NonEmptyString,
+    pub challenge: NonEmptyString,
+    pub issued_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub proofs: Vec<Proof>,
+}
+
+impl AgentRequestedScopeDisclosure {
+    pub fn canonical_bytes_without_proofs(&self) -> Result<Vec<u8>> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .expect("AgentRequestedScopeDisclosure serializes as an object")
+            .remove("proofs");
+        Ok(canonical::canonical_json_bytes(&value)?)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        Hash::new(canonical::sha256_digest(
+            &self.canonical_bytes_without_proofs()?,
+        ))
+        .map_err(|reason| Error::Protocol(reason.to_string()))
+    }
+
+    pub fn canonical_proof_binding_bytes(&self, proof: &Proof) -> Result<Vec<u8>> {
+        let payload_digest = self.payload_digest()?;
+        if proof.event_digest != payload_digest {
+            return Err(Error::Protocol(
+                "agent requested-scope disclosure proof digest mismatch".to_owned(),
+            ));
+        }
+        Ok(canonical::canonical_json_bytes(&serde_json::json!({
+            "context": "ak.agent-requested-scope-disclosure-proof-v1",
+            "payload_digest": payload_digest,
+            "agent_id": self.agent_id,
+            "controller_id": self.controller_id,
+            "verifier_did": self.verifier_did,
+            "audience": self.audience,
+            "challenge": self.challenge,
+            "verification_method": proof.verification_method,
+            "created_at": proof.created_at,
+        }))?)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.schema != AGENT_REQUESTED_SCOPE_DISCLOSURE_SCHEMA {
+            return Err(Error::Protocol(
+                "agent requested-scope disclosure schema is invalid".to_owned(),
+            ));
+        }
+        if self.challenge.as_str().len() < 16 {
+            return Err(Error::Protocol(
+                "agent requested-scope disclosure challenge must contain at least 16 bytes"
+                    .to_owned(),
+            ));
+        }
+        let lifetime = self.expires_at.signed_duration_since(self.issued_at);
+        if lifetime <= chrono::Duration::zero() || lifetime > chrono::Duration::seconds(300) {
+            return Err(Error::Protocol(
+                "agent requested-scope disclosure lifetime must be within 1..=300 seconds"
+                    .to_owned(),
+            ));
+        }
+        if self.proofs.is_empty() {
+            return Err(Error::Protocol(
+                "agent requested-scope disclosure requires a controller proof".to_owned(),
+            ));
+        }
+        let payload_digest = self.payload_digest()?;
+        if self
+            .proofs
+            .iter()
+            .any(|proof| proof.event_digest != payload_digest)
+        {
+            return Err(Error::Protocol(
+                "agent requested-scope disclosure proof digest mismatch".to_owned(),
+            ));
+        }
+        let expected = crate::agent_requested_scope_digest(
+            &self.agent_id,
+            &self.controller_id,
+            &self.requested_scope,
+        )?;
+        if self.requested_scope_digest != expected {
+            return Err(Error::Protocol(
+                "agent requested-scope disclosure digest does not match its scope".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -9,6 +117,7 @@ pub struct AgentKeyPairRequestBody {
     pub verification_method: DidUrl,
     pub public_key: PublicKey,
     pub proof_of_possession: NonEmptyJsonObject,
+    pub requested_scope_disclosure: AgentRequestedScopeDisclosure,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
     pub authorize_event: Event,

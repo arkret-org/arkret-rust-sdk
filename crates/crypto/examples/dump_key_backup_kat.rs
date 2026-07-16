@@ -2,8 +2,8 @@ use std::fs;
 
 use arkret_core::BackupClass;
 use arkret_crypto::backup::{
-    VaultBinding, commitment_digest, derive_subkey, derive_vault_kek_with_salt,
-    encrypt_vault_with_nonce_salt,
+    KeyBackupDomainSeparationAad, VaultBinding, commitment_digest, derive_subkey,
+    derive_vault_kek_with_salt, encrypt_vault_with_nonce_salt,
 };
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
@@ -42,21 +42,25 @@ fn main() {
             serde_json::from_value(binding_json["backup_class"].clone()).unwrap();
         let binding = VaultBinding {
             backup_id: string(binding_json, "backup_id").parse().unwrap(),
-            actor_id: string(binding_json, "actor_id").parse().unwrap(),
-            device_id: binding_json["device_id"]
-                .as_str()
-                .map(|value| value.parse().unwrap()),
-            backup_class,
-            backup_version: string(binding_json, "backup_version").to_owned(),
-            created_at: string(binding_json, "created_at")
-                .parse::<DateTime<Utc>>()
-                .unwrap(),
-            item_types: binding_json["item_types"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|value| value.as_str().unwrap().to_owned())
-                .collect(),
+            aead_aad: KeyBackupDomainSeparationAad {
+                actor_id: string(binding_json, "actor_id").parse().unwrap(),
+                device_id: binding_json["device_id"]
+                    .as_str()
+                    .map(|value| value.parse().unwrap()),
+                backup_class,
+                backup_version: string(binding_json, "backup_version").to_owned(),
+                created_at: string(binding_json, "created_at")
+                    .parse::<DateTime<Utc>>()
+                    .unwrap(),
+                item_types: binding_json["item_types"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|value| value.as_str().unwrap().to_owned())
+                    .collect(),
+                recipient_actor_id: None,
+                extra: Default::default(),
+            },
         };
         let salt: [u8; 16] = unhex(string(&input["argon2id"], "salt_hex"))
             .try_into()

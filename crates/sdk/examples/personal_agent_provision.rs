@@ -38,9 +38,10 @@ use arkret::{
     AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyApprovalEvidence,
     AgentKeyApprovalEvidenceKind, AgentKeyAuthorizePayload, AgentKeyPairRequestBody, AgentKeyScope,
     AgentKeyScopeResource, AgentKeyScopeResourceKind, AgentPauseRequestBody,
-    AgentRenewPairingRequestBody, AgentResumeRequestBody, AgentSidecarContextRef,
-    AgentSidecarThreadEnsureRequestBody, CapabilityGrant, CapabilitySubject, Did, GrantId, Hash,
-    Hlc, NonEmptyString, PayloadProof, PayloadProofPurpose, RealmId, StrandId,
+    AgentRenewPairingRequestBody, AgentRequestedScopeDisclosure, AgentResumeRequestBody,
+    AgentSidecarContextRef, AgentSidecarThreadEnsureRequestBody, CapabilityGrant,
+    CapabilitySubject, Did, GrantId, Hash, Hlc, NonEmptyString, PayloadProof, PayloadProofPurpose,
+    Proof, RealmId, RequestId, StrandId,
 };
 use chrono::Utc;
 use serde::Serialize;
@@ -225,6 +226,37 @@ fn main() -> arkret::Result<()> {
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e")?,
     )?;
+    let disclosure_issued_at = Utc::now();
+    let pairing_request_uuid = pairing_request_id
+        .strip_prefix("agent_pairing_request:")
+        .ok_or("pairing_request_id has an invalid prefix")?;
+    let mut requested_scope_disclosure = AgentRequestedScopeDisclosure {
+        schema: arkret::AGENT_REQUESTED_SCOPE_DISCLOSURE_SCHEMA.to_owned(),
+        request_id: RequestId::new(format!("ak:request:{pairing_request_uuid}"))?,
+        agent_id: agent_id.clone(),
+        controller_id: controller.clone(),
+        requested_scope: requested_scope.clone(),
+        requested_scope_digest: expected_scope_digest,
+        verifier_did: Did::new("did:web:soland.local".to_owned())?,
+        audience: NonEmptyString::new("ak.gate.account.command.pair_agent_key")
+            .map_err(|reason| arkret::Error::Protocol(reason.to_owned()))?,
+        challenge: NonEmptyString::new(pairing_request_id)
+            .map_err(|reason| arkret::Error::Protocol(reason.to_owned()))?,
+        issued_at: disclosure_issued_at,
+        expires_at: disclosure_issued_at + chrono::Duration::minutes(5),
+        proofs: vec![Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: format!("{controller}#key-1"),
+            event_digest: Hash::new(format!("sha256:{}", "0".repeat(64)))?,
+            created_at: disclosure_issued_at,
+            domain: None,
+            audience: None,
+            jws: "eyJhbGciOiJFZERTQSJ9..AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ".to_owned(),
+        }],
+    };
+    requested_scope_disclosure.proofs[0].event_digest =
+        requested_scope_disclosure.payload_digest()?;
     let key_pair_body = AgentKeyPairRequestBody {
         pairing_request_id: NonEmptyString::new(pairing_request_id)
             .map_err(|reason| arkret::Error::Protocol(reason.to_owned()))?,
@@ -239,6 +271,7 @@ fn main() -> arkret::Result<()> {
             "expires_at": provisioned["expires_at"],
             "signature": "ed25519-pop-signature",
         }))?,
+        requested_scope_disclosure,
         runtime_attestation: None,
         // A real client signs this Event with the controller/device key before
         // submitting it. The mock transport below only demonstrates the
