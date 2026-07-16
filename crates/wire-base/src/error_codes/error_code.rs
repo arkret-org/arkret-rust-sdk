@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-10;
-//! sha256=b7aef09871fa58f16e8b12f69b4b8bdeebe3ec950b063b5ce82c36d529e21973 Entries: error_codes=234
+//! sha256=d262adc403ca21f26795946e18a283b59d6ffb84335daa57b80497bd9b74e1d0 Entries: error_codes=242
 
 use serde::{Deserialize, Serialize};
 
@@ -53,8 +53,11 @@ pub enum ErrorCode {
     CausalConflict,
     ClaimRequired,
     Conflict,
+    ConsentRequired,
     ContactRequestExpired,
     ContactRequestNotPending,
+    CredentialExpired,
+    CredentialNotFound,
     CrossSigningStateMissing,
     CursorExpired,
     CursorIntegrityInvalid,
@@ -143,6 +146,7 @@ pub enum ErrorCode {
     NotMember,
     NotaryRecoveryMissing,
     OneTimeKeysExhausted,
+    OverbroadRequest,
     PayloadDigestMismatch,
     PayloadTooLarge,
     PeerUnresolvable,
@@ -222,12 +226,14 @@ pub enum ErrorCode {
     StalePeerStateUnavailable,
     StaleSealRef,
     StateMismatch,
+    StatusUnavailable,
     StreamDropped,
     StreamResyncRequired,
     TakedownInForce,
     TemporarilyUnavailable,
     Timeout,
     TooLarge,
+    TransportPrivacyRequired,
     TtlOutOfRange,
     TurnCredentialExpired,
     Unauthenticated,
@@ -242,8 +248,10 @@ pub enum ErrorCode {
     UnsupportedLatticeType,
     UnsupportedMediaPolicy,
     UnsupportedProfilePatchPath,
+    UnsupportedProofProfile,
     UnsupportedSignatureAlg,
     UpstreamUnavailable,
+    VerifierNotAuthorized,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -300,8 +308,11 @@ impl ErrorCode {
         Self::CausalConflict,
         Self::ClaimRequired,
         Self::Conflict,
+        Self::ConsentRequired,
         Self::ContactRequestExpired,
         Self::ContactRequestNotPending,
+        Self::CredentialExpired,
+        Self::CredentialNotFound,
         Self::CrossSigningStateMissing,
         Self::CursorExpired,
         Self::CursorIntegrityInvalid,
@@ -390,6 +401,7 @@ impl ErrorCode {
         Self::NotMember,
         Self::NotaryRecoveryMissing,
         Self::OneTimeKeysExhausted,
+        Self::OverbroadRequest,
         Self::PayloadDigestMismatch,
         Self::PayloadTooLarge,
         Self::PeerUnresolvable,
@@ -469,12 +481,14 @@ impl ErrorCode {
         Self::StalePeerStateUnavailable,
         Self::StaleSealRef,
         Self::StateMismatch,
+        Self::StatusUnavailable,
         Self::StreamDropped,
         Self::StreamResyncRequired,
         Self::TakedownInForce,
         Self::TemporarilyUnavailable,
         Self::Timeout,
         Self::TooLarge,
+        Self::TransportPrivacyRequired,
         Self::TtlOutOfRange,
         Self::TurnCredentialExpired,
         Self::Unauthenticated,
@@ -489,8 +503,10 @@ impl ErrorCode {
         Self::UnsupportedLatticeType,
         Self::UnsupportedMediaPolicy,
         Self::UnsupportedProfilePatchPath,
+        Self::UnsupportedProofProfile,
         Self::UnsupportedSignatureAlg,
         Self::UpstreamUnavailable,
+        Self::VerifierNotAuthorized,
     ];
 
     pub const AAD_DIGEST_MISMATCH: &'static str = "aad_digest_mismatch";
@@ -541,8 +557,11 @@ impl ErrorCode {
     pub const CAUSAL_CONFLICT: &'static str = "causal_conflict";
     pub const CLAIM_REQUIRED: &'static str = "claim_required";
     pub const CONFLICT: &'static str = "conflict";
+    pub const CONSENT_REQUIRED: &'static str = "consent_required";
     pub const CONTACT_REQUEST_EXPIRED: &'static str = "contact_request_expired";
     pub const CONTACT_REQUEST_NOT_PENDING: &'static str = "contact_request_not_pending";
+    pub const CREDENTIAL_EXPIRED: &'static str = "credential_expired";
+    pub const CREDENTIAL_NOT_FOUND: &'static str = "credential_not_found";
     pub const CROSS_SIGNING_STATE_MISSING: &'static str = "cross_signing_state_missing";
     pub const CURSOR_EXPIRED: &'static str = "cursor_expired";
     pub const CURSOR_INTEGRITY_INVALID: &'static str = "cursor_integrity_invalid";
@@ -637,6 +656,7 @@ impl ErrorCode {
     pub const NOT_MEMBER: &'static str = "not_member";
     pub const NOTARY_RECOVERY_MISSING: &'static str = "notary_recovery_missing";
     pub const ONE_TIME_KEYS_EXHAUSTED: &'static str = "one_time_keys_exhausted";
+    pub const OVERBROAD_REQUEST: &'static str = "overbroad_request";
     pub const PAYLOAD_DIGEST_MISMATCH: &'static str = "payload_digest_mismatch";
     pub const PAYLOAD_TOO_LARGE: &'static str = "payload_too_large";
     pub const PEER_UNRESOLVABLE: &'static str = "peer_unresolvable";
@@ -728,12 +748,14 @@ impl ErrorCode {
     pub const STALE_PEER_STATE_UNAVAILABLE: &'static str = "stale_peer_state_unavailable";
     pub const STALE_SEAL_REF: &'static str = "stale_seal_ref";
     pub const STATE_MISMATCH: &'static str = "state_mismatch";
+    pub const STATUS_UNAVAILABLE: &'static str = "status_unavailable";
     pub const STREAM_DROPPED: &'static str = "stream_dropped";
     pub const STREAM_RESYNC_REQUIRED: &'static str = "stream_resync_required";
     pub const TAKEDOWN_IN_FORCE: &'static str = "takedown_in_force";
     pub const TEMPORARILY_UNAVAILABLE: &'static str = "temporarily_unavailable";
     pub const TIMEOUT: &'static str = "timeout";
     pub const TOO_LARGE: &'static str = "too_large";
+    pub const TRANSPORT_PRIVACY_REQUIRED: &'static str = "transport_privacy_required";
     pub const TTL_OUT_OF_RANGE: &'static str = "ttl_out_of_range";
     pub const TURN_CREDENTIAL_EXPIRED: &'static str = "turn_credential_expired";
     pub const UNAUTHENTICATED: &'static str = "unauthenticated";
@@ -748,8 +770,10 @@ impl ErrorCode {
     pub const UNSUPPORTED_LATTICE_TYPE: &'static str = "unsupported_lattice_type";
     pub const UNSUPPORTED_MEDIA_POLICY: &'static str = "unsupported_media_policy";
     pub const UNSUPPORTED_PROFILE_PATCH_PATH: &'static str = "unsupported_profile_patch_path";
+    pub const UNSUPPORTED_PROOF_PROFILE: &'static str = "unsupported_proof_profile";
     pub const UNSUPPORTED_SIGNATURE_ALG: &'static str = "unsupported_signature_alg";
     pub const UPSTREAM_UNAVAILABLE: &'static str = "upstream_unavailable";
+    pub const VERIFIER_NOT_AUTHORIZED: &'static str = "verifier_not_authorized";
 
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -802,8 +826,11 @@ impl ErrorCode {
             Self::CausalConflict => "causal_conflict",
             Self::ClaimRequired => "claim_required",
             Self::Conflict => "conflict",
+            Self::ConsentRequired => "consent_required",
             Self::ContactRequestExpired => "contact_request_expired",
             Self::ContactRequestNotPending => "contact_request_not_pending",
+            Self::CredentialExpired => "credential_expired",
+            Self::CredentialNotFound => "credential_not_found",
             Self::CrossSigningStateMissing => "cross_signing_state_missing",
             Self::CursorExpired => "cursor_expired",
             Self::CursorIntegrityInvalid => "cursor_integrity_invalid",
@@ -894,6 +921,7 @@ impl ErrorCode {
             Self::NotMember => "not_member",
             Self::NotaryRecoveryMissing => "notary_recovery_missing",
             Self::OneTimeKeysExhausted => "one_time_keys_exhausted",
+            Self::OverbroadRequest => "overbroad_request",
             Self::PayloadDigestMismatch => "payload_digest_mismatch",
             Self::PayloadTooLarge => "payload_too_large",
             Self::PeerUnresolvable => "peer_unresolvable",
@@ -975,12 +1003,14 @@ impl ErrorCode {
             Self::StalePeerStateUnavailable => "stale_peer_state_unavailable",
             Self::StaleSealRef => "stale_seal_ref",
             Self::StateMismatch => "state_mismatch",
+            Self::StatusUnavailable => "status_unavailable",
             Self::StreamDropped => "stream_dropped",
             Self::StreamResyncRequired => "stream_resync_required",
             Self::TakedownInForce => "takedown_in_force",
             Self::TemporarilyUnavailable => "temporarily_unavailable",
             Self::Timeout => "timeout",
             Self::TooLarge => "too_large",
+            Self::TransportPrivacyRequired => "transport_privacy_required",
             Self::TtlOutOfRange => "ttl_out_of_range",
             Self::TurnCredentialExpired => "turn_credential_expired",
             Self::Unauthenticated => "unauthenticated",
@@ -995,8 +1025,10 @@ impl ErrorCode {
             Self::UnsupportedLatticeType => "unsupported_lattice_type",
             Self::UnsupportedMediaPolicy => "unsupported_media_policy",
             Self::UnsupportedProfilePatchPath => "unsupported_profile_patch_path",
+            Self::UnsupportedProofProfile => "unsupported_proof_profile",
             Self::UnsupportedSignatureAlg => "unsupported_signature_alg",
             Self::UpstreamUnavailable => "upstream_unavailable",
+            Self::VerifierNotAuthorized => "verifier_not_authorized",
         }
     }
 
@@ -1051,8 +1083,11 @@ impl ErrorCode {
             "causal_conflict" => Some(Self::CausalConflict),
             "claim_required" => Some(Self::ClaimRequired),
             "conflict" => Some(Self::Conflict),
+            "consent_required" => Some(Self::ConsentRequired),
             "contact_request_expired" => Some(Self::ContactRequestExpired),
             "contact_request_not_pending" => Some(Self::ContactRequestNotPending),
+            "credential_expired" => Some(Self::CredentialExpired),
+            "credential_not_found" => Some(Self::CredentialNotFound),
             "cross_signing_state_missing" => Some(Self::CrossSigningStateMissing),
             "cursor_expired" => Some(Self::CursorExpired),
             "cursor_integrity_invalid" => Some(Self::CursorIntegrityInvalid),
@@ -1149,6 +1184,7 @@ impl ErrorCode {
             "not_member" => Some(Self::NotMember),
             "notary_recovery_missing" => Some(Self::NotaryRecoveryMissing),
             "one_time_keys_exhausted" => Some(Self::OneTimeKeysExhausted),
+            "overbroad_request" => Some(Self::OverbroadRequest),
             "payload_digest_mismatch" => Some(Self::PayloadDigestMismatch),
             "payload_too_large" => Some(Self::PayloadTooLarge),
             "peer_unresolvable" => Some(Self::PeerUnresolvable),
@@ -1244,12 +1280,14 @@ impl ErrorCode {
             "stale_peer_state_unavailable" => Some(Self::StalePeerStateUnavailable),
             "stale_seal_ref" => Some(Self::StaleSealRef),
             "state_mismatch" => Some(Self::StateMismatch),
+            "status_unavailable" => Some(Self::StatusUnavailable),
             "stream_dropped" => Some(Self::StreamDropped),
             "stream_resync_required" => Some(Self::StreamResyncRequired),
             "takedown_in_force" => Some(Self::TakedownInForce),
             "temporarily_unavailable" => Some(Self::TemporarilyUnavailable),
             "timeout" => Some(Self::Timeout),
             "too_large" => Some(Self::TooLarge),
+            "transport_privacy_required" => Some(Self::TransportPrivacyRequired),
             "ttl_out_of_range" => Some(Self::TtlOutOfRange),
             "turn_credential_expired" => Some(Self::TurnCredentialExpired),
             "unauthenticated" => Some(Self::Unauthenticated),
@@ -1264,8 +1302,10 @@ impl ErrorCode {
             "unsupported_lattice_type" => Some(Self::UnsupportedLatticeType),
             "unsupported_media_policy" => Some(Self::UnsupportedMediaPolicy),
             "unsupported_profile_patch_path" => Some(Self::UnsupportedProfilePatchPath),
+            "unsupported_proof_profile" => Some(Self::UnsupportedProofProfile),
             "unsupported_signature_alg" => Some(Self::UnsupportedSignatureAlg),
             "upstream_unavailable" => Some(Self::UpstreamUnavailable),
+            "verifier_not_authorized" => Some(Self::VerifierNotAuthorized),
             _ => None,
         }
     }
@@ -1588,6 +1628,13 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "A generic state conflict occurred.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::ConsentRequired,
+        http_status: 403,
+        scope: "service_call",
+        applies_to: &[],
+        description: "The holder requires explicit user consent before disclosing the requested presentation.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::ContactRequestExpired,
         http_status: 409,
         scope: "both",
@@ -1600,6 +1647,20 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "Sub-reason for failed_precondition when ak.self.contact.command.respond attempts to accept or reject a request that has already been accepted, rejected, tombstoned, withdrawn, or otherwise left the pending state.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::CredentialExpired,
+        http_status: 410,
+        scope: "service_call",
+        applies_to: &[],
+        description: "A credential matching the presentation request exists but is expired.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::CredentialNotFound,
+        http_status: 404,
+        scope: "service_call",
+        applies_to: &[],
+        description: "The holder has no credential matching the authorized presentation request.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CrossSigningStateMissing,
@@ -2218,6 +2279,13 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "No suitable one-time key or KeyPackage remains available for the requested device, principal, cipher suite, or profile.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::OverbroadRequest,
+        http_status: 422,
+        scope: "service_call",
+        applies_to: &[],
+        description: "A presentation request asks for unrelated handles, credential identifiers, or global identifiers beyond its declared purpose.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::PayloadDigestMismatch,
         http_status: 422,
         scope: "both",
@@ -2771,6 +2839,13 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "Encrypted content or MLS epoch is bound to an application state root that cannot be verified against accepted state.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::StatusUnavailable,
+        http_status: 503,
+        scope: "service_call",
+        applies_to: &[],
+        description: "Required credential revocation or status material is temporarily unavailable.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::StreamDropped,
         http_status: 409,
         scope: "endpoint",
@@ -2811,6 +2886,13 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "Generic request, query, batch, or envelope size limit exceeded. More specific blob/push/payload variants may be used when available.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::TransportPrivacyRequired,
+        http_status: 403,
+        scope: "service_call",
+        applies_to: &[],
+        description: "Effective holder policy requires a privacy-preserving transport mode that is unavailable for this presentation exchange.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::TtlOutOfRange,
@@ -2911,6 +2993,13 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "`ak.self.account.command.update_profile` received a patch path outside the account self-service allowlist (`display_name`, `avatar_blob_ref`, `profile_fields.<key>`). Handle, lifecycle, principal, actor_kind, accountability, authorization, and handle-claim paths MUST be rejected instead of silently ignored.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::UnsupportedProofProfile,
+        http_status: 422,
+        scope: "service_call",
+        applies_to: &[],
+        description: "Wallet and verifier have no mutually supported proof profile for the requested presentation.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedSignatureAlg,
         http_status: 422,
         scope: "both",
@@ -2923,5 +3012,12 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "A required upstream dependency is unavailable.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::VerifierNotAuthorized,
+        http_status: 403,
+        scope: "service_call",
+        applies_to: &[],
+        description: "A presentation verifier could not prove authority to represent its claimed organization or relying party.",
     },
 ];

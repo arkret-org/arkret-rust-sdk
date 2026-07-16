@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-10;
-//! sha256=b7aef09871fa58f16e8b12f69b4b8bdeebe3ec950b063b5ce82c36d529e21973
-//! Entries: reason_codes=405
+//! sha256=d262adc403ca21f26795946e18a283b59d6ffb84335daa57b80497bd9b74e1d0
+//! Entries: reason_codes=415
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -60,6 +60,7 @@ pub enum ReasonCode {
     AuditReleaseScopeMismatch,
     AuthIncomplete,
     AuthorizedGrantRevoked,
+    BackendUnavailable,
     BackupFrontierStale,
     BackupPostResetStale,
     BlobRedacted,
@@ -91,6 +92,7 @@ pub enum ReasonCode {
     ClaimRateLimited,
     ConflictingE2eeProfiles,
     ConsentRevoked,
+    ConsentWithdrawn,
     ContentEncryptionFloorDowngrade,
     ContentEncryptionFloorViolation,
     ControllerMembershipEnded,
@@ -185,8 +187,10 @@ pub enum ReasonCode {
     InclusionListViolation,
     InclusionProofFailed,
     InsufficientChallengeSamples,
+    IntegrityFailed,
     InternalError,
     InvalidAckToken,
+    InvalidAppealFsmTransition,
     InvalidCanonicalJson,
     InvalidCursor,
     InvalidEncoding,
@@ -214,10 +218,12 @@ pub enum ReasonCode {
     LateRecoveryShareNotAuthorized,
     LegalHoldActive,
     LiteProfileWritesDisallowedEventKind,
+    MediaNegotiationTimeout,
     MediaPlaintextServiceNotAuthorised,
     MediaPlaintextWarningRequired,
     MediaServiceBindingUncovered,
     MediaServiceFociRequired,
+    MediaSourceUnavailable,
     MemberIdentityProofInvalid,
     MemberIdentityReplacementDigestMismatch,
     MemberIdentityStateMismatch,
@@ -271,10 +277,12 @@ pub enum ReasonCode {
     PatchSelectorAmbiguous,
     PatchSelectorNoMatch,
     PatchUnsetRedactableField,
+    PermissionDenied,
     PlaneCrossWrite,
     PolicyDenied,
     PolicyRecall,
     PolicyRevisionGap,
+    PolicyRevoked,
     PresignExpired,
     PresignInvalid,
     PresignScopeMismatch,
@@ -379,6 +387,7 @@ pub enum ReasonCode {
     Spam,
     StaleBackupTrustGeneration,
     StateMismatch,
+    StorageFailed,
     StrandAlreadyTerminal,
     StrandNotActive,
     StrandNotArchived,
@@ -405,6 +414,7 @@ pub enum ReasonCode {
     UnsupportedSignatureAlg,
     UntrustedBackupSignature,
     VerificationMethodPrincipalMismatch,
+    ViewAlreadyTerminal,
     WatchLevelPublicMustBeSelf,
     WatchMustBeSelf,
     WatchMutedMustBeSelf,
@@ -489,6 +499,7 @@ impl ReasonCode {
     pub const AUDIT_RELEASE_SCOPE_MISMATCH: &'static str = "audit_release_scope_mismatch";
     pub const AUTH_INCOMPLETE: &'static str = "auth_incomplete";
     pub const AUTHORIZED_GRANT_REVOKED: &'static str = "authorized_grant_revoked";
+    pub const BACKEND_UNAVAILABLE: &'static str = "backend_unavailable";
     pub const BACKUP_FRONTIER_STALE: &'static str = "backup_frontier_stale";
     pub const BACKUP_POST_RESET_STALE: &'static str = "backup_post_reset_stale";
     pub const BLOB_REDACTED: &'static str = "blob_redacted";
@@ -523,6 +534,7 @@ impl ReasonCode {
     pub const CLAIM_RATE_LIMITED: &'static str = "claim_rate_limited";
     pub const CONFLICTING_E2EE_PROFILES: &'static str = "conflicting_e2ee_profiles";
     pub const CONSENT_REVOKED: &'static str = "consent_revoked";
+    pub const CONSENT_WITHDRAWN: &'static str = "consent_withdrawn";
     pub const CONTENT_ENCRYPTION_FLOOR_DOWNGRADE: &'static str =
         "content_encryption_floor_downgrade";
     pub const CONTENT_ENCRYPTION_FLOOR_VIOLATION: &'static str =
@@ -649,8 +661,10 @@ impl ReasonCode {
     pub const INCLUSION_LIST_VIOLATION: &'static str = "inclusion_list_violation";
     pub const INCLUSION_PROOF_FAILED: &'static str = "inclusion_proof_failed";
     pub const INSUFFICIENT_CHALLENGE_SAMPLES: &'static str = "insufficient_challenge_samples";
+    pub const INTEGRITY_FAILED: &'static str = "integrity_failed";
     pub const INTERNAL_ERROR: &'static str = "internal_error";
     pub const INVALID_ACK_TOKEN: &'static str = "invalid_ack_token";
+    pub const INVALID_APPEAL_FSM_TRANSITION: &'static str = "invalid_appeal_fsm_transition";
     pub const INVALID_CANONICAL_JSON: &'static str = "invalid_canonical_json";
     pub const INVALID_CURSOR: &'static str = "invalid_cursor";
     pub const INVALID_ENCODING: &'static str = "invalid_encoding";
@@ -682,11 +696,13 @@ impl ReasonCode {
     pub const LEGAL_HOLD_ACTIVE: &'static str = "legal_hold_active";
     pub const LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND: &'static str =
         "lite_profile_writes_disallowed_event_kind";
+    pub const MEDIA_NEGOTIATION_TIMEOUT: &'static str = "media_negotiation_timeout";
     pub const MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED: &'static str =
         "media_plaintext_service_not_authorised";
     pub const MEDIA_PLAINTEXT_WARNING_REQUIRED: &'static str = "media_plaintext_warning_required";
     pub const MEDIA_SERVICE_BINDING_UNCOVERED: &'static str = "media_service_binding_uncovered";
     pub const MEDIA_SERVICE_FOCI_REQUIRED: &'static str = "media_service_foci_required";
+    pub const MEDIA_SOURCE_UNAVAILABLE: &'static str = "media_source_unavailable";
     pub const MEMBER_IDENTITY_PROOF_INVALID: &'static str = "member_identity_proof_invalid";
     pub const MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH: &'static str =
         "member_identity_replacement_digest_mismatch";
@@ -751,10 +767,12 @@ impl ReasonCode {
     pub const PATCH_SELECTOR_AMBIGUOUS: &'static str = "patch_selector_ambiguous";
     pub const PATCH_SELECTOR_NO_MATCH: &'static str = "patch_selector_no_match";
     pub const PATCH_UNSET_REDACTABLE_FIELD: &'static str = "patch_unset_redactable_field";
+    pub const PERMISSION_DENIED: &'static str = "permission_denied";
     pub const PLANE_CROSS_WRITE: &'static str = "plane_cross_write";
     pub const POLICY_DENIED: &'static str = "policy_denied";
     pub const POLICY_RECALL: &'static str = "policy_recall";
     pub const POLICY_REVISION_GAP: &'static str = "policy_revision_gap";
+    pub const POLICY_REVOKED: &'static str = "policy_revoked";
     pub const PRESIGN_EXPIRED: &'static str = "presign_expired";
     pub const PRESIGN_INVALID: &'static str = "presign_invalid";
     pub const PRESIGN_SCOPE_MISMATCH: &'static str = "presign_scope_mismatch";
@@ -875,6 +893,7 @@ impl ReasonCode {
     pub const SPAM: &'static str = "spam";
     pub const STALE_BACKUP_TRUST_GENERATION: &'static str = "stale_backup_trust_generation";
     pub const STATE_MISMATCH: &'static str = "state_mismatch";
+    pub const STORAGE_FAILED: &'static str = "storage_failed";
     pub const STRAND_ALREADY_TERMINAL: &'static str = "strand_already_terminal";
     pub const STRAND_NOT_ACTIVE: &'static str = "strand_not_active";
     pub const STRAND_NOT_ARCHIVED: &'static str = "strand_not_archived";
@@ -903,6 +922,7 @@ impl ReasonCode {
     pub const UNTRUSTED_BACKUP_SIGNATURE: &'static str = "untrusted_backup_signature";
     pub const VERIFICATION_METHOD_PRINCIPAL_MISMATCH: &'static str =
         "verification_method_principal_mismatch";
+    pub const VIEW_ALREADY_TERMINAL: &'static str = "view_already_terminal";
     pub const WATCH_LEVEL_PUBLIC_MUST_BE_SELF: &'static str = "watch_level_public_must_be_self";
     pub const WATCH_MUST_BE_SELF: &'static str = "watch_must_be_self";
     pub const WATCH_MUTED_MUST_BE_SELF: &'static str = "watch_muted_must_be_self";
@@ -978,6 +998,7 @@ impl ReasonCode {
             Self::AuditReleaseScopeMismatch => "audit_release_scope_mismatch",
             Self::AuthIncomplete => "auth_incomplete",
             Self::AuthorizedGrantRevoked => "authorized_grant_revoked",
+            Self::BackendUnavailable => "backend_unavailable",
             Self::BackupFrontierStale => "backup_frontier_stale",
             Self::BackupPostResetStale => "backup_post_reset_stale",
             Self::BlobRedacted => "blob_redacted",
@@ -1009,6 +1030,7 @@ impl ReasonCode {
             Self::ClaimRateLimited => "claim_rate_limited",
             Self::ConflictingE2eeProfiles => "conflicting_e2ee_profiles",
             Self::ConsentRevoked => "consent_revoked",
+            Self::ConsentWithdrawn => "consent_withdrawn",
             Self::ContentEncryptionFloorDowngrade => "content_encryption_floor_downgrade",
             Self::ContentEncryptionFloorViolation => "content_encryption_floor_violation",
             Self::ControllerMembershipEnded => "controller_membership_ended",
@@ -1129,8 +1151,10 @@ impl ReasonCode {
             Self::InclusionListViolation => "inclusion_list_violation",
             Self::InclusionProofFailed => "inclusion_proof_failed",
             Self::InsufficientChallengeSamples => "insufficient_challenge_samples",
+            Self::IntegrityFailed => "integrity_failed",
             Self::InternalError => "internal_error",
             Self::InvalidAckToken => "invalid_ack_token",
+            Self::InvalidAppealFsmTransition => "invalid_appeal_fsm_transition",
             Self::InvalidCanonicalJson => "invalid_canonical_json",
             Self::InvalidCursor => "invalid_cursor",
             Self::InvalidEncoding => "invalid_encoding",
@@ -1160,10 +1184,12 @@ impl ReasonCode {
             Self::LiteProfileWritesDisallowedEventKind => {
                 "lite_profile_writes_disallowed_event_kind"
             }
+            Self::MediaNegotiationTimeout => "media_negotiation_timeout",
             Self::MediaPlaintextServiceNotAuthorised => "media_plaintext_service_not_authorised",
             Self::MediaPlaintextWarningRequired => "media_plaintext_warning_required",
             Self::MediaServiceBindingUncovered => "media_service_binding_uncovered",
             Self::MediaServiceFociRequired => "media_service_foci_required",
+            Self::MediaSourceUnavailable => "media_source_unavailable",
             Self::MemberIdentityProofInvalid => "member_identity_proof_invalid",
             Self::MemberIdentityReplacementDigestMismatch => {
                 "member_identity_replacement_digest_mismatch"
@@ -1229,10 +1255,12 @@ impl ReasonCode {
             Self::PatchSelectorAmbiguous => "patch_selector_ambiguous",
             Self::PatchSelectorNoMatch => "patch_selector_no_match",
             Self::PatchUnsetRedactableField => "patch_unset_redactable_field",
+            Self::PermissionDenied => "permission_denied",
             Self::PlaneCrossWrite => "plane_cross_write",
             Self::PolicyDenied => "policy_denied",
             Self::PolicyRecall => "policy_recall",
             Self::PolicyRevisionGap => "policy_revision_gap",
+            Self::PolicyRevoked => "policy_revoked",
             Self::PresignExpired => "presign_expired",
             Self::PresignInvalid => "presign_invalid",
             Self::PresignScopeMismatch => "presign_scope_mismatch",
@@ -1347,6 +1375,7 @@ impl ReasonCode {
             Self::Spam => "spam",
             Self::StaleBackupTrustGeneration => "stale_backup_trust_generation",
             Self::StateMismatch => "state_mismatch",
+            Self::StorageFailed => "storage_failed",
             Self::StrandAlreadyTerminal => "strand_already_terminal",
             Self::StrandNotActive => "strand_not_active",
             Self::StrandNotArchived => "strand_not_archived",
@@ -1375,6 +1404,7 @@ impl ReasonCode {
             Self::UnsupportedSignatureAlg => "unsupported_signature_alg",
             Self::UntrustedBackupSignature => "untrusted_backup_signature",
             Self::VerificationMethodPrincipalMismatch => "verification_method_principal_mismatch",
+            Self::ViewAlreadyTerminal => "view_already_terminal",
             Self::WatchLevelPublicMustBeSelf => "watch_level_public_must_be_self",
             Self::WatchMustBeSelf => "watch_must_be_self",
             Self::WatchMutedMustBeSelf => "watch_muted_must_be_self",
@@ -1453,6 +1483,7 @@ impl ReasonCode {
             "audit_release_scope_mismatch" => Self::AuditReleaseScopeMismatch,
             "auth_incomplete" => Self::AuthIncomplete,
             "authorized_grant_revoked" => Self::AuthorizedGrantRevoked,
+            "backend_unavailable" => Self::BackendUnavailable,
             "backup_frontier_stale" => Self::BackupFrontierStale,
             "backup_post_reset_stale" => Self::BackupPostResetStale,
             "blob_redacted" => Self::BlobRedacted,
@@ -1484,6 +1515,7 @@ impl ReasonCode {
             "claim_rate_limited" => Self::ClaimRateLimited,
             "conflicting_e2ee_profiles" => Self::ConflictingE2eeProfiles,
             "consent_revoked" => Self::ConsentRevoked,
+            "consent_withdrawn" => Self::ConsentWithdrawn,
             "content_encryption_floor_downgrade" => Self::ContentEncryptionFloorDowngrade,
             "content_encryption_floor_violation" => Self::ContentEncryptionFloorViolation,
             "controller_membership_ended" => Self::ControllerMembershipEnded,
@@ -1604,8 +1636,10 @@ impl ReasonCode {
             "inclusion_list_violation" => Self::InclusionListViolation,
             "inclusion_proof_failed" => Self::InclusionProofFailed,
             "insufficient_challenge_samples" => Self::InsufficientChallengeSamples,
+            "integrity_failed" => Self::IntegrityFailed,
             "internal_error" => Self::InternalError,
             "invalid_ack_token" => Self::InvalidAckToken,
+            "invalid_appeal_fsm_transition" => Self::InvalidAppealFsmTransition,
             "invalid_canonical_json" => Self::InvalidCanonicalJson,
             "invalid_cursor" => Self::InvalidCursor,
             "invalid_encoding" => Self::InvalidEncoding,
@@ -1635,10 +1669,12 @@ impl ReasonCode {
             "lite_profile_writes_disallowed_event_kind" => {
                 Self::LiteProfileWritesDisallowedEventKind
             }
+            "media_negotiation_timeout" => Self::MediaNegotiationTimeout,
             "media_plaintext_service_not_authorised" => Self::MediaPlaintextServiceNotAuthorised,
             "media_plaintext_warning_required" => Self::MediaPlaintextWarningRequired,
             "media_service_binding_uncovered" => Self::MediaServiceBindingUncovered,
             "media_service_foci_required" => Self::MediaServiceFociRequired,
+            "media_source_unavailable" => Self::MediaSourceUnavailable,
             "member_identity_proof_invalid" => Self::MemberIdentityProofInvalid,
             "member_identity_replacement_digest_mismatch" => {
                 Self::MemberIdentityReplacementDigestMismatch
@@ -1704,10 +1740,12 @@ impl ReasonCode {
             "patch_selector_ambiguous" => Self::PatchSelectorAmbiguous,
             "patch_selector_no_match" => Self::PatchSelectorNoMatch,
             "patch_unset_redactable_field" => Self::PatchUnsetRedactableField,
+            "permission_denied" => Self::PermissionDenied,
             "plane_cross_write" => Self::PlaneCrossWrite,
             "policy_denied" => Self::PolicyDenied,
             "policy_recall" => Self::PolicyRecall,
             "policy_revision_gap" => Self::PolicyRevisionGap,
+            "policy_revoked" => Self::PolicyRevoked,
             "presign_expired" => Self::PresignExpired,
             "presign_invalid" => Self::PresignInvalid,
             "presign_scope_mismatch" => Self::PresignScopeMismatch,
@@ -1822,6 +1860,7 @@ impl ReasonCode {
             "spam" => Self::Spam,
             "stale_backup_trust_generation" => Self::StaleBackupTrustGeneration,
             "state_mismatch" => Self::StateMismatch,
+            "storage_failed" => Self::StorageFailed,
             "strand_already_terminal" => Self::StrandAlreadyTerminal,
             "strand_not_active" => Self::StrandNotActive,
             "strand_not_archived" => Self::StrandNotArchived,
@@ -1850,6 +1889,7 @@ impl ReasonCode {
             "unsupported_signature_alg" => Self::UnsupportedSignatureAlg,
             "untrusted_backup_signature" => Self::UntrustedBackupSignature,
             "verification_method_principal_mismatch" => Self::VerificationMethodPrincipalMismatch,
+            "view_already_terminal" => Self::ViewAlreadyTerminal,
             "watch_level_public_must_be_self" => Self::WatchLevelPublicMustBeSelf,
             "watch_must_be_self" => Self::WatchMustBeSelf,
             "watch_muted_must_be_self" => Self::WatchMutedMustBeSelf,
@@ -2143,6 +2183,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "The grant referenced by refs[role=authorized_by] or an ancestor grant in its delegation chain has been revoked, superseded, expired, or tombstoned.",
     },
     ReasonCodeDescriptor {
+        code: "backend_unavailable",
+        applies_to: &["event_envelope", "service_call"],
+        description: "The selected recording or transcription backend was unavailable.",
+    },
+    ReasonCodeDescriptor {
         code: "backup_frontier_stale",
         applies_to: &["device_recovery", "state_resolution"],
         description: "`ak.schema.key_backup.v1.frontier_ref.frontier_digest` does not match the current principal control stream frontier; in A model `ssk_generation` is below the current accepted generation; or in B model `device_generation_ref` does not equal the active `current_device_generation_ref` / the generation is not active. Receivers MUST refuse to use the envelope as the primary recovery source. See zh/identity/key-management.md §7.6.",
@@ -2296,6 +2341,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "consent_revoked",
         applies_to: &["auth_decision"],
         description: "Authorization outcome when a cached consent decision is re-evaluated and the underlying consent has been revoked; the stale cache entry MUST NOT authorize the action. See zh/conformance/conformance-vectors.md §9 (ak.vector.consent.cache_invalidation.v1).",
+    },
+    ReasonCodeDescriptor {
+        code: "consent_withdrawn",
+        applies_to: &["event_envelope", "state_resolution"],
+        description: "Required recording or transcription consent was withdrawn.",
     },
     ReasonCodeDescriptor {
         code: "content_encryption_floor_downgrade",
@@ -2776,6 +2826,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A high-assurance range/challenge attestation does not carry the required minimum number of event_id (or equivalent) samples. The challenge MUST reject. See sync/client-sync.md and fixtures/sync-fixture.json.",
     },
     ReasonCodeDescriptor {
+        code: "integrity_failed",
+        applies_to: &["event_envelope", "service_call"],
+        description: "A recording or transcription artifact failed digest, encryption-context, or integrity verification.",
+    },
+    ReasonCodeDescriptor {
         code: "internal_error",
         applies_to: &["batch_item"],
         description: "Per-event rejection reason in an Applet edge transaction response (rejected[].reason_code) when the receiving applet hit an internal failure while processing that item; mirrors the top-level internal_error endpoint code at batch-item granularity. See zh/extensions/applet-integration.md §7.3.",
@@ -2784,6 +2839,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "invalid_ack_token",
         applies_to: &["service_call"],
         description: "A to-device message ack carried an ack token that does not correspond to a delivered to-device cursor (unknown, malformed, or already-superseded). Carried under invalid_param. See zh/sync/client-sync.md §10.1 and zh/sync/service-http-binding.md device_messages/ack.",
+    },
+    ReasonCodeDescriptor {
+        code: "invalid_appeal_fsm_transition",
+        applies_to: &["event_envelope", "state_resolution"],
+        description: "A moderation appeal Move requested an unlisted, out-of-order, from-state-mismatched, or post-closed transition. The reducer MUST reject it with failed_precondition. See zh/governance/content-moderation.md §5.5.2.",
     },
     ReasonCodeDescriptor {
         code: "invalid_canonical_json",
@@ -2921,6 +2981,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A writer operating under a lite / reduced-surface conformance profile submitted an event kind outside the write surface its declared profile covers. Undeclared profile surface MUST be rejected (unsupported_feature / policy-denied semantics), not silently accepted. See zh/conformance/conformance-profiles.md.",
     },
     ReasonCodeDescriptor {
+        code: "media_negotiation_timeout",
+        applies_to: &["event_envelope", "state_resolution"],
+        description: "Call connection or capture media negotiation exceeded the registered timeout.",
+    },
+    ReasonCodeDescriptor {
         code: "media_plaintext_service_not_authorised",
         applies_to: &["auth_decision"],
         description: "An SFU / MCU attempted to negotiate plaintext-decrypting media role without a matching Realm policy plaintext_visible_services[] entry whose data_classes[] contains media_plaintext, OR without policy_root covering media_service_decrypts=true. Free-text purposes do not grant authority. MUST be rejected; the SFU may still act as opaque RTP relay. See zh/crypto-media/media-service-binding.md §8.2.",
@@ -2939,6 +3004,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "media_service_foci_required",
         applies_to: &["service_call", "schema_validation"],
         description: "`ak.realm.media_service` is missing the required non-empty `foci[]` list. Services MUST reject payloads that do not declare explicit media foci and MUST NOT infer a focus from unrelated endpoint fields. See zh/crypto-media/media-service-binding.md §2.",
+    },
+    ReasonCodeDescriptor {
+        code: "media_source_unavailable",
+        applies_to: &["event_envelope", "service_call"],
+        description: "The source media required for recording or transcription was unavailable.",
     },
     ReasonCodeDescriptor {
         code: "member_identity_proof_invalid",
@@ -3206,6 +3276,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A `ak.patch.v1` `$op=\"unset\"` was used on a redactable content field (e.g. message.content, strand.metadata.summary, encrypted_content / encrypted_metadata). Redaction MUST go through `ak.<kind>.redact` or `ak.redaction` events to enforce redaction-specific capability checks and audit. See zh/models/event-and-patch.md §4.2.4.",
     },
     ReasonCodeDescriptor {
+        code: "permission_denied",
+        applies_to: &["event_envelope", "service_call"],
+        description: "A recording or transcription backend could not obtain the required media permission.",
+    },
+    ReasonCodeDescriptor {
         code: "plane_cross_write",
         applies_to: &["event_envelope", "schema_validation"],
         description: "Sub-reason for schema_violation when a DataEvent's effects[] references a control-plane cell. Data-plane events MUST only write data-plane cell families; the receiver MUST reject the envelope instead of applying a cross-plane write. See zh/authz/event-auth-state-resolution.md §4.",
@@ -3224,6 +3299,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "policy_revision_gap",
         applies_to: &["event_envelope", "state_resolution"],
         description: "A ak.realm.policy_components update skipped one or more monotonic policy_revision values. Reducer MUST reject instead of accepting a discontinuous policy frontier.",
+    },
+    ReasonCodeDescriptor {
+        code: "policy_revoked",
+        applies_to: &["event_envelope", "state_resolution"],
+        description: "The Realm policy authorizing capture was revoked while the capture lifecycle was active.",
     },
     ReasonCodeDescriptor {
         code: "presign_expired",
@@ -3755,6 +3835,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Local state does not match the authoritative frontier; client SHOULD reconcile via backfill or snapshot before continuing.",
     },
     ReasonCodeDescriptor {
+        code: "storage_failed",
+        applies_to: &["event_envelope", "service_call"],
+        description: "Capture artifact persistence or deletion failed in the Arkret blob pipeline.",
+    },
+    ReasonCodeDescriptor {
         code: "strand_already_terminal",
         applies_to: &["event_envelope", "auth_decision"],
         description: "A `ak.redaction` event targeting a Strand is rejected because the target Strand is already in terminal state `redacted`. Strand terminal state is reached via ak.redaction.",
@@ -3883,6 +3968,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "verification_method_principal_mismatch",
         applies_to: &["auth_decision", "service_call"],
         description: "A request supplied a `verification_method` whose DID component does not bit-identically match the target principal id after stripping fragment/query. Surfaces in two places. (1) `ak.gate.account.command.pair_agent_key`: `verification_method` vs `agent_id`. (2) `ak.gate.account.command.issue_session_grant` agent branch (`proof.proof_kind=\"agent_key_proof\"`): `proof.verification_method` vs request `principal_id`. Endpoints MUST fail closed before invoking the proof validator so that mismatch is reported as this code rather than as a generic signature failure. See zh/identity/key-management.md §3.6.1.",
+    },
+    ReasonCodeDescriptor {
+        code: "view_already_terminal",
+        applies_to: &["event_envelope", "state_resolution"],
+        description: "An ak.view.update or ak.view.reconcile targeted a View whose accepted lifecycle state is tombstoned, or attempted to restore that View to active. Tombstoned shared Views are terminal. See zh/models/views.md §3.1.",
     },
     ReasonCodeDescriptor {
         code: "watch_level_public_must_be_self",
