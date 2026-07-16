@@ -469,6 +469,7 @@ pub const REASON_KEYPACKAGE_ROTATED: &str = "keypackage_rotated";
 pub const REASON_KEYPACKAGE_EXPIRED: &str = "keypackage_expired";
 pub const REASON_MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID: &str =
     "minimal_metadata_author_credential_invalid";
+pub const REASON_SERVICE_PREROTATION_INVALID: &str = "service_prerotation_invalid";
 
 /// Canonical subordinate reason codes from error-code-registry.json, in registry order.
 pub const KNOWN_REASON_CODES: &[&str] = &[
@@ -876,4 +877,5 @@ pub const KNOWN_REASON_CODES: &[&str] = &[
     REASON_KEYPACKAGE_ROTATED,
     REASON_KEYPACKAGE_EXPIRED,
     REASON_MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID,
+    REASON_SERVICE_PREROTATION_INVALID,
 ];

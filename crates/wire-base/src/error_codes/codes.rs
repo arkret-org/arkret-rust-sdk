@@ -65,6 +65,8 @@ pub const ERROR_CODE_AAD_DIGEST_MISMATCH: &str = "aad_digest_mismatch";
 pub const ERROR_CODE_PAYLOAD_DIGEST_MISMATCH: &str = "payload_digest_mismatch";
 pub const ERROR_CODE_KEY_UNAVAILABLE: &str = "key_unavailable";
 pub const ERROR_CODE_STATE_MISMATCH: &str = "state_mismatch";
+pub const ERROR_CODE_SEAL_SIGNER_UNAUTHORIZED: &str = "seal_signer_unauthorized";
+pub const ERROR_CODE_SEAL_DEFERRED_FUTURE_SKEW: &str = "seal_deferred_future_skew";
 pub const ERROR_CODE_AUDIT_RECEIPT_INVALIDATED: &str = "audit_receipt_invalidated";
 pub const ERROR_CODE_UNKNOWN_DID: &str = "unknown_did";
 pub const ERROR_CODE_QUOTA_EXCEEDED: &str = "quota_exceeded";
@@ -322,6 +324,8 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_PAYLOAD_DIGEST_MISMATCH,
     ERROR_CODE_KEY_UNAVAILABLE,
     ERROR_CODE_STATE_MISMATCH,
+    ERROR_CODE_SEAL_SIGNER_UNAUTHORIZED,
+    ERROR_CODE_SEAL_DEFERRED_FUTURE_SKEW,
     ERROR_CODE_AUDIT_RECEIPT_INVALIDATED,
     ERROR_CODE_UNKNOWN_DID,
     ERROR_CODE_QUOTA_EXCEEDED,

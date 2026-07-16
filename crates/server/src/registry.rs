@@ -40,6 +40,16 @@ pub(crate) struct ServiceRoute {
 // kept in the registry's own file order.
 const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!(
+        "ak.gate.account.exchange.create_handoff",
+        Post,
+        "/_arkret/gate/account/authentication-handoffs"
+    ),
+    endpoint!(
+        "ak.gate.account.command.issue_identity_binding_challenge",
+        Post,
+        "/_arkret/gate/account/identity-binding-challenges"
+    ),
+    endpoint!(
         "ak.gate.account.command.register",
         Post,
         "/_arkret/gate/account/register"
