@@ -3,6 +3,6 @@ debug = false
 verbose = false
 workspace = true
 exclude-files = [
-    "examples/*",
+    "**/examples/*",
     "**/tests/*",
 ]

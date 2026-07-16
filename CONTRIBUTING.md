@@ -37,7 +37,7 @@ behavior being changed.
 
 ## Breaking changes and the downstream compile gate
 
-The ten workspace crates share a single version (`shared-version = true`) and
+The fifteen workspace crates share a single version (`shared-version = true`) and
 ship breaking changes git-only, with **no compatibility shim** — see the
 "Wire-breaking, no compatibility shim" entries in `CHANGELOG.md`. The
 correctness of that model rests entirely on the "change every consumer in the
