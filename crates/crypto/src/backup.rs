@@ -605,10 +605,12 @@ pub fn build_key_backup_envelope(
         aead_aad: KeyBackupDomainSeparationAad {
             schema: VAULT_SCHEMA_ID.to_owned(),
             actor_id: actor_id.clone(),
+            // Mirrors `VaultBinding::aad()`, which binds a missing device as
+            // `null`: the stored object's canonical JSON *is* the AAD, so an
+            // empty-string stand-in here would make the envelope undecryptable.
             device_id: device_id
                 .as_ref()
-                .map(|device_id| device_id.as_str().to_owned())
-                .unwrap_or_default(),
+                .map(|device_id| device_id.as_str().to_owned()),
             backup_class,
             backup_version: backup_version.to_owned(),
             created_at,
@@ -1113,5 +1115,57 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains("secret_storage_key"));
+    }
+
+    /// key-management.md §7.2: the AEAD AAD *is* the canonical JSON of the
+    /// stored `domain_separation.aead_aad`, and the top-level `device_id` is
+    /// optional. A device-less envelope must therefore bind `device_id: null`
+    /// on both sides; storing `""` while sealing under `null` leaves the
+    /// ciphertext unopenable by any receiver that rebuilds the AAD from the
+    /// envelope, exactly as the spec requires it to.
+    #[test]
+    fn device_less_envelope_stores_null_device_and_matches_the_sealed_aad() {
+        let kek =
+            derive_vault_kek_with_salt(b"correct horse battery staple", &[9u8; VAULT_SALT_LEN])
+                .unwrap();
+        let envelope = build_key_backup_envelope(
+            "ak:backup:01964137-0000-7000-8000-000000000000"
+                .parse()
+                .unwrap(),
+            "did:webvh:alice.example".parse().unwrap(),
+            None,
+            BackupClass::SecretStorage,
+            DEFAULT_BACKUP_VERSION,
+            &kek,
+            b"{\"private_account_state\":\"fixture-plaintext\"}",
+            &[("private_account_state", None)],
+        )
+        .unwrap();
+
+        let stored = &envelope.domain_separation.aead_aad;
+        assert_eq!(
+            stored.device_id, None,
+            "a device-less envelope must bind null, never an empty string"
+        );
+
+        let sealed_aad = VaultBinding {
+            backup_id: envelope.backup_id.clone(),
+            actor_id: envelope.actor_id.clone(),
+            device_id: None,
+            backup_class: envelope.backup_class,
+            backup_version: envelope.backup_version.clone(),
+            created_at: envelope.created_at,
+            item_types: vec!["private_account_state".to_owned()],
+        }
+        .aad()
+        .unwrap();
+        let stored_canonical =
+            canonical_json_bytes(&serde_json::to_value(stored).unwrap()).unwrap();
+
+        assert_eq!(
+            String::from_utf8(stored_canonical).unwrap(),
+            String::from_utf8(sealed_aad).unwrap(),
+            "stored aead_aad must canonicalize to the AAD the ciphertext was sealed under"
+        );
     }
 }

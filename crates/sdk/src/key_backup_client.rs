@@ -121,7 +121,7 @@ mod tests {
                 aead_aad: arkret_core::KeyBackupDomainSeparationAad {
                     schema: "ak.schema.key_backup.v1".to_owned(),
                     actor_id: crate::Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-                    device_id: "ak:device:01964137-0000-7000-8000-000000000000".to_owned(),
+                    device_id: Some("ak:device:01964137-0000-7000-8000-000000000000".to_owned()),
                     backup_class: crate::BackupClass::SecretStorage,
                     backup_version: "kb_1".to_owned(),
                     created_at,
