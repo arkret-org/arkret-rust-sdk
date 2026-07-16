@@ -31,7 +31,7 @@ pub struct AccountDataSetPayload {
     /// Account-data type key (e.g. `ak.account.blocklist`,
     /// `m.push_rules`).
     pub key: NonEmptyString,
-    /// Cleartext body.
+    /// Plaintext body.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<BTreeMap<String, Value>>,
     /// AEAD-wrapped body (preferred at rest for sensitive types).

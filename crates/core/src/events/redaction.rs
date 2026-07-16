@@ -9,7 +9,7 @@
 //! The server message stream (sync timeline / backfill projection) surfaces the
 //! tombstone instead of either dropping the row or leaking the original body, so
 //! a reader that reloads after a redaction renders a tombstone marker rather
-//! than the cleartext.
+//! than the plaintext.
 
 use chrono::{DateTime, Utc};
 use serde_json::{Map, Value, json};

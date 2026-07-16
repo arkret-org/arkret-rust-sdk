@@ -2,8 +2,7 @@
 //!
 //! This module intentionally stays focused on the persistence surfaces the SDK
 //! still consumes today: state snapshots, event cache, account/session data,
-//! blob metadata, audit logs, federation replay records, and a small generic
-//! cache helper.
+//! blob metadata, audit logs, and a small generic cache helper.
 
 use std::collections::{BTreeMap, VecDeque};
 
@@ -56,25 +55,6 @@ pub trait AuditLogStore: Send + Sync {
     fn audit_entries(&self) -> Vec<&AuditEntry>;
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FederationReplayRecord {
-    pub transaction_id: String,
-    pub origin: Did,
-    pub destination: Did,
-    pub request_digest: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub response_digest: Option<String>,
-    pub seen_at: DateTime<Utc>,
-}
-
-pub trait FederationReplayStore: Send + Sync {
-    fn put_federation_replay(&mut self, record: FederationReplayRecord) -> Result<()>;
-    fn federation_replay(&self, transaction_id: &str) -> Option<&FederationReplayRecord>;
-    fn has_federation_replay(&self, transaction_id: &str) -> bool {
-        self.federation_replay(transaction_id).is_some()
-    }
-}
-
 /// Store encryption key derived from a passphrase and salt.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StoreEncryptionKey([u8; 32]);
@@ -104,7 +84,6 @@ pub struct MemoryPersistenceStore {
     account_data: BTreeMap<(Did, String), StoredAccountData>,
     blob_metadata: BTreeMap<BlobRef, (String, BlobMetadata)>,
     audit_entries: Vec<AuditEntry>,
-    federation_replay: BTreeMap<String, FederationReplayRecord>,
 }
 
 impl MemoryPersistenceStore {
@@ -253,24 +232,6 @@ impl AuditLogStore for MemoryPersistenceStore {
 
     fn audit_entries(&self) -> Vec<&AuditEntry> {
         self.audit_entries.iter().collect()
-    }
-}
-
-impl FederationReplayStore for MemoryPersistenceStore {
-    fn put_federation_replay(&mut self, record: FederationReplayRecord) -> Result<()> {
-        match self.federation_replay.get(&record.transaction_id) {
-            Some(existing) if existing == &record => Ok(()),
-            Some(_) => Err(Error::IdempotencyConflict(record.transaction_id)),
-            None => {
-                self.federation_replay
-                    .insert(record.transaction_id.clone(), record);
-                Ok(())
-            }
-        }
-    }
-
-    fn federation_replay(&self, transaction_id: &str) -> Option<&FederationReplayRecord> {
-        self.federation_replay.get(transaction_id)
     }
 }
 
@@ -539,25 +500,12 @@ mod tests {
             .append_audit_entry(AuditEntry {
                 timestamp: Utc::now(),
                 action: AuditAction::KeyBackedUp,
-                actor: Some(principal_id.clone()),
+                actor: Some(principal_id),
                 group_id: Some("group1".to_owned()),
                 detail: "backup".to_owned(),
             })
             .unwrap();
         assert_eq!(store.audit_entries().len(), 1);
-
-        let replay = FederationReplayRecord {
-            transaction_id: "txn-1".to_owned(),
-            origin: principal_id,
-            destination: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            request_digest:
-                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
-            response_digest: None,
-            seen_at: Utc::now(),
-        };
-        store.put_federation_replay(replay.clone()).unwrap();
-        store.put_federation_replay(replay).unwrap();
-        assert!(store.has_federation_replay("txn-1"));
     }
 
     #[test]

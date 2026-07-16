@@ -15,7 +15,7 @@
 //! ChaCha20-Poly1305 (96-bit nonce), via the audited `hpke` crate
 //! (rozbb/rust-hpke). The AEAD nonce is the key-schedule-derived `base_nonce`
 //! (single-shot seq=0), never carried on the wire; the plaintext never appears
-//! on the wire in cleartext. See hpke-suite-registry.json for the suite
+//! on the wire unencrypted. See hpke-suite-registry.json for the suite
 //! vocabulary.
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};

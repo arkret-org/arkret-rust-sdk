@@ -75,8 +75,8 @@ carry Commit, Welcome and encrypted application bytes, but they do not decrypt
 payloads or gain group secrets.
 
 Encrypted payload integrity follows the Arkret envelope rule:
-`sha256(canonical_json(cleartext_metadata) || ciphertext_bytes)`. The SDK does
-not hash plaintext payloads into `payload_digest`.
+`sha256(canonical_json(payload_metadata) || base64url_decode(ciphertext))`. The
+SDK does not hash plaintext payloads into `payload_digest`.
 
 ## Service Profiles
 
