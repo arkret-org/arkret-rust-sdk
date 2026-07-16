@@ -3,10 +3,10 @@
 
 use arkret_core::{
     AuthzCheckOutcome, AuthzCheckRequestBody, AuthzInviteList, CollectionProjectionView,
-    DocumentMorphProjectionOutcome, Error, Event, EventsQueryOutcome, EventsSubmitBatchRequestBody,
-    EventsSubmitOutcome, EventsSubscribeFrame, GrantList, MlsGovernanceProofBundle,
-    MlsGovernanceProofRequest, ProjectionSpaceList, ProjectionStrandList,
-    RealmOrganizationRelationshipList, Result, ServiceDescribe, StreamTraceValidator,
+    DocumentMorphProjectionOutcome, Error, Event, EventSealSubmitOutcome, EventsQueryOutcome,
+    EventsSubmitBatchRequestBody, EventsSubmitOutcome, EventsSubscribeFrame, GrantList,
+    MlsGovernanceProofBundle, MlsGovernanceProofRequest, ProjectionSpaceList, ProjectionStrandList,
+    RealmOrganizationRelationshipList, Result, Seal, ServiceDescribe, StreamTraceValidator,
     ViewProjectionRequestBody,
 };
 use arkret_state::SnapshotManifest;
@@ -415,6 +415,13 @@ impl Client {
         };
         self.post_with_options("/_arkret/self/events", &body, options)
             .await
+    }
+
+    /// Submit a current-device-signed Seal through the registered self Events
+    /// surface. This is the finality step used by B-model principal bootstrap
+    /// and recovery; it is not the implementation-private peer Seal rail.
+    pub async fn events_submit_seal(&self, seal: &Seal) -> Result<EventSealSubmitOutcome> {
+        self.post("/_arkret/self/events/seals", seal).await
     }
 
     pub async fn snapshot_head(&self, realm_id: &str) -> Result<SnapshotManifest> {
