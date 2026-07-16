@@ -2,7 +2,7 @@
 
 > **Spec target**: [arkret-spec @ 074aefee](../arkret-spec) (v1 artifacts 2026-06-23)
 
-[![codecov](https://codecov.io/gh/arkret/arkret-rust-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/arkret/arkret-rust-sdk)
+[![codecov](https://codecov.io/gh/arkret-org/arkret-rust-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/arkret-org/arkret-rust-sdk)
 
 Release status: active Arkret v1 SDK `0.3.x` development line, with workspace
 crates still at `0.3.0` until an explicit release cut. The default `arkret`

@@ -1498,50 +1498,6 @@ pub struct AccountOidcCallbackOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AdminAccountStatusRequestBody {
-    pub status: String,
-    pub moderator: Did,
-    pub proof: Proof,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub notify: bool,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AdminAccountStatusOutcome {
-    pub account_id: String,
-    pub status: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub event_ref: Option<EventId>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AdminRevokeDeviceRequestBody {
-    pub moderator: Did,
-    pub proof: Proof,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub revoke_sessions: bool,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AdminRevokeDeviceOutcome {
-    pub device_id: DeviceId,
-    pub revoked: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub event_ref: Option<EventId>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletThirdPartyUserList {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub actor_id: Option<Did>,

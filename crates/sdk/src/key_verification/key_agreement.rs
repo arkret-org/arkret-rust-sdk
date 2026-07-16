@@ -1,5 +1,7 @@
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
-use sha2::{Digest, Sha256};
+use hkdf::Hkdf;
+use hmac::{Hmac, KeyInit, Mac};
+use sha2::Sha256;
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
 use zeroize::{Zeroize, Zeroizing};
 
@@ -220,15 +222,15 @@ impl ShortAuthenticationString {
 /// expected to encode the canonical info string (transaction id +
 /// per-party DIDs + per-party device ids, joined with `|`) externally.
 ///
-/// HKDF-SHA256 is implemented inline via HMAC-SHA256 (RFC 5869):
-/// `Extract(salt=zeros, IKM=shared_secret) → PRK`; then
-/// `Expand(PRK, info, L=11) → OKM`. The first 6 OKM bytes feed the
+/// HKDF-SHA256 uses an empty salt and expands 11 output bytes. The first
+/// 6 OKM bytes feed the
 /// emoji indices (7 × 6 bits); the next 5 feed the three decimal
 /// digits (3 × 13 bits each, mapped into `[1000, 9999]`).
 pub fn derive_sas_bytes(shared_secret: &[u8], info: &[u8]) -> ShortAuthenticationString {
-    let prk = Zeroizing::new(hmac_sha256(&[0u8; 32], shared_secret));
     let mut okm = Zeroizing::new([0u8; SAS_OUTPUT_LEN]);
-    hkdf_expand_sha256(&prk, info, &mut okm[..]);
+    Hkdf::<Sha256>::new(None, shared_secret)
+        .expand(info, &mut okm[..])
+        .expect("11-byte HKDF-SHA256 output is always valid");
 
     // Emoji indices — 7 × 6-bit values packed big-endian into bytes
     // [0..6) (48 bits = 8 × 6 bits, we take the first seven).
@@ -269,57 +271,16 @@ pub fn derive_sas_bytes(shared_secret: &[u8], info: &[u8]) -> ShortAuthenticatio
     }
 }
 
-/// HMAC-SHA256 (RFC 2104) implemented inline against the SDK's
-/// existing `sha2` dependency so this module does not need a new
-/// `hmac` crate.
 pub(super) fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
-    const BLOCK_SIZE: usize = 64;
-    let mut key_block = Zeroizing::new([0u8; BLOCK_SIZE]);
-    if key.len() > BLOCK_SIZE {
-        let digest = Sha256::digest(key);
-        key_block[..32].copy_from_slice(&digest);
-    } else {
-        key_block[..key.len()].copy_from_slice(key);
-    }
-    let mut ipad = Zeroizing::new([0u8; BLOCK_SIZE]);
-    let mut opad = Zeroizing::new([0u8; BLOCK_SIZE]);
-    for i in 0..BLOCK_SIZE {
-        ipad[i] = key_block[i] ^ 0x36;
-        opad[i] = key_block[i] ^ 0x5c;
-    }
-    let mut inner = Sha256::new();
-    inner.update(ipad);
-    inner.update(message);
-    let inner_digest = inner.finalize();
-    let mut outer = Sha256::new();
-    outer.update(opad);
-    outer.update(inner_digest);
-    let final_digest = outer.finalize();
-    let mut out = [0u8; 32];
-    out.copy_from_slice(&final_digest);
-    out
+    let mut mac =
+        Hmac::<Sha256>::new_from_slice(key).expect("HMAC-SHA256 accepts keys of any length");
+    mac.update(message);
+    mac.finalize().into_bytes().into()
 }
 
-/// HKDF-Expand-SHA256 (RFC 5869 §2.3). Writes `output.len()` bytes
-/// produced by iterating `T(i) = HMAC(prk, T(i-1) || info || i)`.
 pub(super) fn hkdf_expand_sha256(prk: &[u8; 32], info: &[u8], output: &mut [u8]) {
-    let n = output.len().div_ceil(32);
-    debug_assert!(
-        n <= 255,
-        "HKDF-Expand SHA-256 output limited to 255 * 32 bytes"
-    );
-    let mut prev = Zeroizing::new([0u8; 32]);
-    let mut produced = 0usize;
-    for i in 1..=n {
-        let mut buf = Zeroizing::new(Vec::with_capacity(32 + info.len() + 1));
-        if i > 1 {
-            buf.extend_from_slice(&prev[..]);
-        }
-        buf.extend_from_slice(info);
-        buf.push(i as u8);
-        prev = Zeroizing::new(hmac_sha256(prk, &buf));
-        let take = std::cmp::min(32, output.len() - produced);
-        output[produced..produced + take].copy_from_slice(&prev[..take]);
-        produced += take;
-    }
+    Hkdf::<Sha256>::from_prk(prk)
+        .expect("SHA-256 PRK has the required digest length")
+        .expand(info, output)
+        .expect("requested HKDF-SHA256 output is within the RFC 5869 limit");
 }

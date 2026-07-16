@@ -14,7 +14,7 @@ pub use arkret_crypto::{
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 
 use crate::{DeviceId, DeviceVerificationState, Did, Error, Result, canonical};
 

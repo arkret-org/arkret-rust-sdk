@@ -667,10 +667,11 @@ impl ServiceRegistrationOutcome {
 }
 
 pub fn service_registration_idempotency_key(key: &ServiceRegistrationKey) -> Result<String> {
-    let canonical = canonical::canonical_json_bytes(&serde_json::to_value(key)?)?;
     Ok(format!(
         "ak:service-registration:{}",
-        hex::encode(Sha256::digest(canonical))
+        canonical::sha256_hex(canonical::canonical_json_bytes(&serde_json::to_value(
+            key
+        )?)?)
     ))
 }
 
@@ -1083,17 +1084,17 @@ impl IdentityBundleBackend for KeyStoreIdentityBundleBackend {
 }
 
 fn bundle_key_digest(key: &ServiceRegistrationKey) -> Result<String> {
-    let bytes = canonical::canonical_json_bytes(&serde_json::to_value(key)?)?;
-    Ok(hex::encode(Sha256::digest(bytes)))
+    Ok(canonical::sha256_hex(canonical::canonical_json_bytes(
+        &serde_json::to_value(key)?,
+    )?))
 }
 
 fn sha256_canonical(value: &impl Serialize) -> Result<String> {
-    let bytes = canonical::canonical_json_bytes(&serde_json::to_value(value)?)?;
-    Ok(sha256_bytes(&bytes))
+    Ok(canonical::canonical_sha256(&serde_json::to_value(value)?)?)
 }
 
 fn sha256_bytes(bytes: &[u8]) -> String {
-    format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
+    canonical::sha256_digest(bytes)
 }
 
 fn is_sha256_digest(value: &str) -> bool {

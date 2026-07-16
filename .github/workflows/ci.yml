@@ -25,6 +25,10 @@ jobs:
       - run: cargo +nightly fmt --all -- --check
       - name: Guard protocol leaf dependency direction
         run: python tools/check-leaf-dependencies.py
+      - name: Guard weak wire types and closed-schema boundaries
+        run: |
+          python tools/wire_value_audit.py --check
+          python tools/deny_unknown_audit.py --check
       - run: cargo check -p arkret
       - name: Guard default arkret dependency surface
         shell: bash
@@ -75,7 +79,7 @@ jobs:
           path: arkret-rust-sdk
       - uses: actions/checkout@v4
         with:
-          repository: arkret/arkret-spec
+          repository: arkret-org/arkret-spec
           path: arkret-spec
           # Public spec repo; if private, set a PAT under
           # secrets.SPEC_READ_TOKEN and pass `token: ${{ secrets.SPEC_READ_TOKEN }}`.
@@ -193,7 +197,7 @@ jobs:
           path: arkret-rust-sdk
       - uses: actions/checkout@v4
         with:
-          repository: arkret/arkret-spec
+          repository: arkret-org/arkret-spec
           path: arkret-spec
           # Public spec repo; if private, set a PAT under
           # secrets.SPEC_READ_TOKEN and pass `token: ${{ secrets.SPEC_READ_TOKEN }}`.

@@ -1398,7 +1398,7 @@
       "reason": "Prepared principal WebVH rotation material follows the external WebVH format rather than an Arkret wire schema."
     },
     {
-      "rust_field": "crates/signatures/src/webvh/inception.rs::PrincipalRotationInput.previous_entry",
+      "rust_field": "crates/signatures/src/webvh/inception.rs::PrincipalRotationInput.previous_entries",
       "classification": "internal_or_fixture",
       "reason": "Previous WebVH entries follow the external WebVH format and are adapter input rather than an Arkret-defined wire DTO."
     },

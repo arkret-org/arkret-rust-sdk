@@ -483,7 +483,10 @@ class SchemaResolver:
             properties = node.get("properties")
             if additional is True or additional == {}:
                 return "open_map"
-            if additional is None and not properties and not node.get("required"):
+            # JSON Schema permits additional properties by default. A schema
+            # that lists known properties without closing the object is still
+            # an open map at this boundary.
+            if additional is None and node.get("unevaluatedProperties") is not False:
                 return "open_map"
             if isinstance(additional, dict) and not properties and not node.get("required"):
                 value_shape = self.classify_node(path, additional)

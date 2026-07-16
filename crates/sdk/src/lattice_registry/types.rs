@@ -1,3 +1,4 @@
+pub use arkret_core::schema::Criticality;
 use serde_json::Value;
 
 use crate::lattice::LatticeKind as SdkLatticeKind;
@@ -15,19 +16,6 @@ pub enum StateCardinality {
     PerSubject,
     /// Not a state-bearing event — no slot, no subject.
     None,
-}
-
-/// Receiver behaviour when an unknown component_type/version is seen
-/// (matches the `criticality` field in the arkret-spec registry).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Criticality {
-    /// MUST fail closed (schema_violation / soft_fail / quarantine
-    /// depending on context).
-    Required,
-    /// MAY warn and skip; do not advance reducer state for this event.
-    Optional,
-    /// Silently drop; do not advance reducer state.
-    Ignore,
 }
 
 /// Stable identification of the logical cell this [`LatticeKind`] drives.

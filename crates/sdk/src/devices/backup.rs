@@ -1,43 +1,14 @@
 use arkret_core::BackupClass;
+use hkdf::Hkdf;
 
 use super::*;
 
-/// HMAC-SHA256 helper (RFC 2104) used to bootstrap HKDF without a
-/// dedicated dependency.
-fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
-    const BLOCK_SIZE: usize = 64;
-    let mut k_prime = [0u8; BLOCK_SIZE];
-    if key.len() > BLOCK_SIZE {
-        let h = Sha256::digest(key);
-        k_prime[..32].copy_from_slice(&h);
-    } else {
-        k_prime[..key.len()].copy_from_slice(key);
-    }
-    let mut ipad = [0u8; BLOCK_SIZE];
-    let mut opad = [0u8; BLOCK_SIZE];
-    for i in 0..BLOCK_SIZE {
-        ipad[i] = k_prime[i] ^ 0x36;
-        opad[i] = k_prime[i] ^ 0x5c;
-    }
-    let mut inner = Sha256::new();
-    inner.update(ipad);
-    inner.update(data);
-    let inner_digest = inner.finalize();
-    let mut outer = Sha256::new();
-    outer.update(opad);
-    outer.update(inner_digest);
-    let out = outer.finalize();
-    let mut result = [0u8; 32];
-    result.copy_from_slice(&out);
-    result
-}
-
-/// HKDF-Expand (RFC 5869) restricted to 32-byte output (one round).
-fn hkdf_expand_32(prk: &[u8], info: &[u8]) -> [u8; 32] {
-    let mut buf = Vec::with_capacity(info.len() + 1);
-    buf.extend_from_slice(info);
-    buf.push(0x01);
-    hmac_sha256(prk, &buf)
+fn hkdf_sha256_32(input_key_material: &[u8], info: &[u8]) -> [u8; 32] {
+    let mut output = [0u8; 32];
+    Hkdf::<Sha256>::new(None, input_key_material)
+        .expand(info, &mut output)
+        .expect("32-byte HKDF-SHA256 output is always valid");
+    output
 }
 
 /// Recommended `key_commitment` construction
@@ -51,9 +22,7 @@ fn hkdf_expand_32(prk: &[u8], info: &[u8]) -> [u8; 32] {
 /// Used by callers to fail-fast when the user types a wrong passphrase.
 /// The server MUST NOT use this field for authentication.
 pub fn key_backup_commitment(derived_key: &[u8]) -> String {
-    // HKDF-Extract with empty salt: PRK = HMAC-SHA256(zeros, IKM).
-    let prk = hmac_sha256(&[0u8; 32], derived_key);
-    let commitment_key = hkdf_expand_32(&prk, b"arkret-key-backup-commitment-v1");
+    let commitment_key = hkdf_sha256_32(derived_key, b"arkret-key-backup-commitment-v1");
     canonical::sha256_digest(commitment_key)
 }
 
@@ -68,8 +37,7 @@ pub fn key_backup_subdomain_key(
     subdomain: &str,
 ) -> [u8; 32] {
     let info = backup_class.hkdf_info(subdomain);
-    let prk = hmac_sha256(&[0u8; 32], derived_key);
-    hkdf_expand_32(&prk, info.as_bytes())
+    hkdf_sha256_32(derived_key, info.as_bytes())
 }
 
 /// Build the AEAD associated-data (AAD) blob that MUST bind a key-backup
