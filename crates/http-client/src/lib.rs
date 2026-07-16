@@ -1208,6 +1208,52 @@ mod tests {
         }
 
         #[tokio::test]
+        async fn dpop_auth_does_not_authenticate_public_describe() {
+            let canned = r#"{
+                "protocol_version":"1.0",
+                "service_type":"principal_server",
+                "service_id":"did:web:server.local",
+                "trust_domain":"ak:trust_domain:server.local",
+                "supported_profiles":[],
+                "supported_operations":[],
+                "supported_bindings":[],
+                "supported_features":[],
+                "auth_metadata":{"mode":"development","methods":[]},
+                "limits":{},
+                "plaintext_visibility":{"data_classes":[],"max_visibility":"none"},
+                "implemented_features":[],
+                "claimed_profiles":[],
+                "verified_profiles":[],
+                "experimental_features":[],
+                "compat_surfaces":[],
+                "development_mode":false,
+                "rate_limit_policy":{}
+            }"#;
+            let (client, capture) = spawn_capture_server_with(canned, |builder| {
+                builder.auth(Auth::Dpop(DpopAuth::with_access_token(
+                    "session-grant",
+                    |_| Ok("proof.jwt".to_owned()),
+                )))
+            })
+            .await;
+
+            client.describe().await.unwrap();
+
+            let raw = capture.await.unwrap();
+            let (_request_line, headers, _body) = split_request(&raw);
+            assert!(
+                !headers
+                    .lines()
+                    .any(|line| line.to_ascii_lowercase().starts_with("authorization:"))
+            );
+            assert!(
+                !headers
+                    .lines()
+                    .any(|line| line.to_ascii_lowercase().starts_with("dpop:"))
+            );
+        }
+
+        #[tokio::test]
         async fn events_submit_batch_posts_events_array() {
             let canned = r#"{"status":"accepted","accepted":["ak:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
             let (client, capture) = spawn_capture_server(canned).await;

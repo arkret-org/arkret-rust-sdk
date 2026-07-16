@@ -134,7 +134,11 @@ where
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub type BoxSyncFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
+
+#[cfg(target_arch = "wasm32")]
+pub type BoxSyncFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + 'a>>;
 
 /// Async transport abstraction used by [`SyncLoop::step_async`].
 pub trait AsyncSyncTransport {
@@ -145,10 +149,25 @@ pub trait AsyncSyncTransport {
     ) -> BoxSyncFuture<'a, AccountSubscribeBatch>;
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl<F, Fut> AsyncSyncTransport for F
 where
     F: Fn(SyncRequestBody) -> Fut + Send + Sync,
     Fut: Future<Output = Result<AccountSubscribeBatch>> + Send + 'static,
+{
+    fn sync_async<'a>(
+        &'a self,
+        request: SyncRequestBody,
+    ) -> BoxSyncFuture<'a, AccountSubscribeBatch> {
+        Box::pin(self(request))
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl<F, Fut> AsyncSyncTransport for F
+where
+    F: Fn(SyncRequestBody) -> Fut,
+    Fut: Future<Output = Result<AccountSubscribeBatch>> + 'static,
 {
     fn sync_async<'a>(
         &'a self,
@@ -176,15 +195,11 @@ pub trait EventsSubscribeTransport {
     ) -> BoxSyncFuture<'a, Self::EventStream>;
 }
 
-// `BoxSyncFuture` requires `Send`, but on wasm32 reqwest's `Response`
-// (and the futures returned by `Client` methods that touch it) hold
-// `JsValue` / `Closure` / `wasm_bindgen_futures::JsFuture` types that are
-// not `Send`. The browser is single-threaded, so a future-returning
-// transport adapter can sidestep this by carrying an `!Send` future
-// behind a `LocalBoxFuture` — but that's an embedder concern. We simply
-// gate the in-tree adapters out on wasm32 and leave the trait available
-// for downstream impls.
-#[cfg(all(feature = "client", not(target_arch = "wasm32")))]
+// Browser HTTP futures contain `JsValue` and are intentionally `!Send`.
+// `BoxSyncFuture` follows the same native/wasm boundary as the rest of the
+// SDK async surface, so the concrete client remains the canonical transport
+// on both native and single-threaded browser targets.
+#[cfg(feature = "client")]
 impl AsyncSyncTransport for crate::Client {
     fn sync_async<'a>(
         &'a self,
@@ -194,7 +209,7 @@ impl AsyncSyncTransport for crate::Client {
     }
 }
 
-#[cfg(all(feature = "client", not(target_arch = "wasm32")))]
+#[cfg(feature = "client")]
 impl EventsSubscribeTransport for crate::Client {
     type EventStream = crate::http_client::EventsSubscribeFrameStream;
 

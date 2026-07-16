@@ -23,7 +23,8 @@ use crate::Client;
 
 impl Client {
     pub async fn describe(&self) -> Result<ServiceDescribe> {
-        self.get("/_arkret/describe").await
+        let builder = self.public_request(Method::GET, "/_arkret/describe")?;
+        self.send_json(builder).await
     }
 
     pub async fn describe_and_verify(
