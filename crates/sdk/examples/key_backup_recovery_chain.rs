@@ -108,7 +108,7 @@ fn build_envelope(
             aead_aad: KeyBackupDomainSeparationAad {
                 schema: "ak.schema.key_backup.v1".to_owned(),
                 actor_id: actor_id.clone(),
-                device_id: device_id.as_str().to_owned(),
+                device_id: Some(device_id.as_str().to_owned()),
                 backup_class: BackupClass::SecretStorage,
                 backup_version: "kb_1".to_owned(),
                 created_at,

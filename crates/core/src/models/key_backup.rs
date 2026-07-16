@@ -492,7 +492,12 @@ pub struct KeyBackupDomainSeparation {
 pub struct KeyBackupDomainSeparationAad {
     pub schema: String,
     pub actor_id: Did,
-    pub device_id: String,
+    /// The envelope's `device_id`, or `null` when it was sealed without an
+    /// originating device (the top-level `device_id` is optional). The key is
+    /// always present — never skipped, never an empty string — so the AAD
+    /// transcript keeps a fixed field set and sealer/opener reconstruct it
+    /// byte-identically (key-management.md §7.2).
+    pub device_id: Option<String>,
     pub backup_class: BackupClass,
     pub backup_version: String,
     pub created_at: DateTime<Utc>,
