@@ -51,7 +51,7 @@ pub struct MediaIceConfigOutcome {
 #[serde(rename_all = "lowercase")]
 pub enum MediaIceCredentialType {
     Password,
-    Oauth,
+    OAuth,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,9 +1,9 @@
 param(
     [string]$ArtifactsDir = (Join-Path $PSScriptRoot "..\..\arkret-spec\spec\v1\artifacts"),
-    [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\core\src\generated\profiles.rs")
+    [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\policy\src\generated\profiles.rs")
 )
 
-# Emits crates/core/src/generated/profiles.rs from
+# Emits crates/policy/src/generated/profiles.rs from
 # arkret-spec/spec/v1/artifacts/profiles/conformance-profiles.json.
 #
 # Outputs:
