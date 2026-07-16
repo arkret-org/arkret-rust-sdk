@@ -184,13 +184,13 @@ pub fn agent_sidecar_short_name(controller_agent_circle_key: &str) -> String {
 /// Morph event kinds.
 
 /// Space (container) event kinds. Container events use `ak.space.*`; see the
-/// security-boundary OP_REALM_* family for `ak.realm.*` events.
+/// security-boundary `EventKind::REALM_*` family for `ak.realm.*` events.
 
 /// Relation event kinds.
 
 /// View event kinds.
 
-/// Realm event kinds (security boundary). The container-level OP_SPACE_* family
+/// Realm event kinds (security boundary). The container-level `EventKind::SPACE_*` family
 /// lives above.
 
 /// Per-Realm governance of member `delivery_binding`: which `binding_source`
@@ -247,7 +247,7 @@ pub const CAP_CONSTRAINT_ALLOWED_WRITE_FIELDS: &str = "allowed_write_fields";
 // registered under the Arkret protocol namespace; servers expose them on
 // their own negative-space root such as /_soland/admin/*. They were removed
 // from the operation registry (see migration/removed-operation-ids.json) and
-// therefore carry no `OP_ADMIN_*` protocol constants here.
+// therefore carry no separate admin protocol symbol family here.
 
 /// Applet / bridge operations.
 

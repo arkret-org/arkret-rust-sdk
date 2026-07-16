@@ -186,9 +186,27 @@ fn federation_fixture_expected_digest_matches_sdk_canonicalizer() {
                 == Some("reducer_profile_digest_federation_minimal")
         })
         .expect("federation fixture missing reducer_profile_digest_federation_minimal");
-    let canonical_input = case
-        .get("canonical_input")
-        .expect("federation reducer profile fixture missing canonical_input");
+    let source = case
+        .get("resolved_digest_input_source")
+        .expect("federation reducer profile fixture missing resolved_digest_input_source");
+    let profile_id = source
+        .get("profile_id")
+        .and_then(Value::as_str)
+        .expect("federation reducer profile fixture missing profile_id");
+    let registry = embedded_json_artifact("registry/reducer-profile-registry.json")
+        .expect("embedded reducer profile registry");
+    let profile = registry
+        .get("profiles")
+        .and_then(Value::as_array)
+        .and_then(|profiles| {
+            profiles.iter().find(|profile| {
+                profile.get("profile_id").and_then(Value::as_str) == Some(profile_id)
+            })
+        })
+        .expect("federation reducer profile missing from registry");
+    let canonical_input = profile
+        .get("resolved_digest_input")
+        .expect("federation reducer profile missing resolved_digest_input");
     let expected_digest = case
         .get("expected_digest")
         .and_then(Value::as_str)

@@ -11,8 +11,8 @@
 //!
 //! ```rust
 //! use arkret::{
-//!     Did, Hlc, arkret_core::events::EventKind::MESSAGE_CREATE, OperationEnvelopeBuilder, OperationEventConversion,
-//!     OperationId, EventDraftKindRegistry, RealmId,
+//!     Did, Hlc, OperationEnvelopeBuilder, OperationEventConversion, OperationId,
+//!     EventDraftKindRegistry, RealmId, events::EventKind,
 //! };
 //! use serde_json::json;
 //!
@@ -21,7 +21,7 @@
 //!     OperationId::new("ak:operation:01904100-0000-7000-8000-57d7d85564c5")?,
 //!     RealmId::new("ak:realm:01904100-0000-7000-8000-668e2181b41d")?,
 //!     Did::new("did:webvh:z6mkfixture:alice.example")?,
-//!     arkret_core::events::EventKind::MESSAGE_CREATE,
+//!     EventKind::MESSAGE_CREATE,
 //!     1,
 //!     Hlc::new("01970e589d21-0001-a13f9c2e")?,
 //! )

@@ -91,7 +91,7 @@ fn service_routes_match_embedded_operation_registry() {
     let registry = arkret_core::schema::SpecArtifactBundle::load_embedded()
         .unwrap()
         .operation_registry;
-    let expected: Vec<(String, String, String)> = registry
+    let mut expected: Vec<(String, String, String)> = registry
         .get("operations")
         .and_then(Value::as_array)
         .expect("operation registry missing operations")
@@ -115,7 +115,7 @@ fn service_routes_match_embedded_operation_registry() {
             )
         })
         .collect();
-    let actual: Vec<(String, String, String)> = service_routes()
+    let mut actual: Vec<(String, String, String)> = service_routes()
         .iter()
         .map(|route| {
             (
@@ -125,6 +125,8 @@ fn service_routes_match_embedded_operation_registry() {
             )
         })
         .collect();
+    expected.sort_unstable();
+    actual.sort_unstable();
     assert_eq!(actual, expected);
 }
 

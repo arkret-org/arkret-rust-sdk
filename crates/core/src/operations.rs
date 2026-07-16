@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::events::EventKind;
 use crate::*;
 pub use crate::{CausalRef, Operation, OperationSignature, OperationType};
 
@@ -469,9 +470,14 @@ impl OperationSemanticReducer {
 }
 
 pub fn semantic_effect(operation: &OperationEnvelope) -> OperationSemanticEffect {
-    let surface = classify_operation_kind(&operation.kind);
-    let mutation = mutation_for_kind(&operation.kind);
-    let target_id = target_id_for_operation(&operation.kind, &operation.payload);
+    let event_kind = EventKind::from_wire(&operation.kind);
+    let surface = if matches!(event_kind, EventKind::Unknown(_)) {
+        OperationSurface::Custom(operation.kind.clone())
+    } else {
+        OperationSurface::Events
+    };
+    let mutation = mutation_for_event_kind(&event_kind);
+    let target_id = target_id_for_event_draft(operation, &event_kind);
     let requires_authz = !matches!(mutation, OperationMutation::Read);
     OperationSemanticEffect {
         operation_id: operation.operation_id.clone(),
@@ -486,133 +492,49 @@ pub fn reduce_operation_semantics(operations: &[OperationEnvelope]) -> Operation
     OperationSemanticReducer::new().reduce(operations)
 }
 
-fn mutation_for_kind(kind: &str) -> OperationMutation {
+fn mutation_for_event_kind(kind: &EventKind) -> OperationMutation {
     match kind {
-        crate::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE
-        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_REPLACE
-        | crate::ServiceOperationId::SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE
-        | crate::ServiceOperationId::FIND_DIRECTORY_PUSH_COMMAND_REGISTER => OperationMutation::Create,
-        crate::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE | crate::ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_DELETE => OperationMutation::Delete,
-        crate::ServiceOperationId::SERVER_QUERY_DESCRIBE
-        | crate::ServiceOperationId::SELF_ACCOUNT_QUERY_DESCRIBE
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_DESCRIBE
-        | crate::ServiceOperationId::SELF_EVENTS_QUERY_DESCRIBE
-        | crate::ServiceOperationId::SELF_EVENTS_RESOURCE_GET
-        | crate::ServiceOperationId::SELF_EVENTS_QUERY_RESOLVE
-        | crate::ServiceOperationId::SELF_EVENTS_QUERY_FRONTIER
-        | crate::ServiceOperationId::SELF_EVENTS_QUERY_SCAN
-        | crate::ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE
-        | crate::ServiceOperationId::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD
-        | crate::ServiceOperationId::SELF_MORPH_RESOURCE_GET
-        | crate::ServiceOperationId::SELF_VIEWS_COLLECTION_PROJECTION_COMMAND_MATERIALIZE
-        | crate::ServiceOperationId::ROOT_IDENTITY_REGISTRY_QUERY_DESCRIBE
-        | crate::ServiceOperationId::ROOT_IDENTITY_QUERY_RESOLVE
-        | crate::ServiceOperationId::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET
-        | crate::ServiceOperationId::ROOT_IDENTITY_LOG_QUERY_LIST
-        | crate::ServiceOperationId::ROOT_IDENTITY_RECEIPTS_QUERY_LIST
-        | crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET
-        | crate::ServiceOperationId::SELF_BLOB_RESOURCE_HEAD
-        | crate::ServiceOperationId::SELF_BLOB_RESOURCE_GET
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_HANDLE
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_LIST_HANDLES_FOR_SUBJECT
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_ORGANIZATION
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_REALM
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_TARGET
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_ACTORS
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_ORGANIZATIONS
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_REALMS
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_USERS
-        | crate::ServiceOperationId::SELF_AUTHZ_GRANTS_QUERY_EFFECTIVE
-        | crate::ServiceOperationId::SELF_AUTHZ_INVITES_QUERY_LIST
-        | crate::ServiceOperationId::OPEN_INVITE_LOCATOR_QUERY_RESOLVE
-        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_QUERY_LIST
-        // `unlock` is the proof-gated retrieval of a backup (POST wire shape,
-        // read semantics — it returns the stored ak.schema.key_backup.v1
-        // envelope without mutating it).
-        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK
-        | crate::ServiceOperationId::SELF_KEYS_QUERY_LOOKUP
-        | crate::ServiceOperationId::SELF_AUTHZ_QUERY_CHECK => OperationMutation::Read,
-        crate::ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT
-        | crate::ServiceOperationId::SELF_ACCOUNT_STREAM_SUBSCRIBE
-        | crate::ServiceOperationId::SELF_ACCOUNT_COMMAND_REVOKE_CURSOR
-        | crate::ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY
-        | crate::ServiceOperationId::SELF_KEYS_UPLOAD_CREATE
-        | crate::ServiceOperationId::SELF_KEYS_COMMAND_CLAIM
-        | crate::ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND
-        | crate::ServiceOperationId::SELF_DEVICE_MESSAGES_QUERY_LIST
-        | crate::ServiceOperationId::SELF_MEDIA_QUERY_ICE_CONFIG
-        | crate::ServiceOperationId::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY
-        | crate::ServiceOperationId::OPEN_MIMI_QUERY_GROUP_INFO
-        | crate::ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL
-        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_SUBMIT_MESSAGE
-        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_ROOM
-        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_REQUEST_CONSENT
-        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_CONSENT
-        | crate::ServiceOperationId::OPEN_MIMI_QUERY_IDENTIFIERS
-        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_NOTIFY
-        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_REPORT_ABUSE
-        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_PROXY_DOWNLOAD
-        | crate::ServiceOperationId::PEER_INVITES_COMMAND_SUBMIT
-        | crate::ServiceOperationId::SELF_POLICY_QUERY_CHECK => OperationMutation::External,
+        EventKind::SpaceCreate
+        | EventKind::StrandCreate
+        | EventKind::MorphCreate
+        | EventKind::RelationCreate => OperationMutation::Create,
+        EventKind::SpaceTombstone | EventKind::RelationTombstone => OperationMutation::Delete,
+        EventKind::MessageRedact => OperationMutation::Redact,
+        EventKind::Unknown(_) => OperationMutation::External,
         _ => OperationMutation::Update,
     }
 }
 
-fn target_id_for_operation(kind: &str, payload: &Value) -> Option<String> {
+fn target_id_for_event_draft(operation: &OperationEnvelope, kind: &EventKind) -> Option<String> {
+    if let Some(target_ref) = &operation.target_ref {
+        return Some(target_ref.clone());
+    }
     let fields: &[&str] = match kind {
-        crate::ServiceOperationId::SELF_EVENTS_RESOURCE_GET
-        | crate::ServiceOperationId::SELF_EVENTS_QUERY_RESOLVE => &["event_id"],
-        crate::ServiceOperationId::SELF_EVENTS_QUERY_FRONTIER
-        | crate::ServiceOperationId::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD
-        | crate::ServiceOperationId::SELF_AUTHZ_INVITES_QUERY_LIST => &["realm_id"],
-        crate::ServiceOperationId::ROOT_IDENTITY_QUERY_RESOLVE
-        | crate::ServiceOperationId::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET
-        | crate::ServiceOperationId::ROOT_IDENTITY_LOG_QUERY_LIST
-        | crate::ServiceOperationId::ROOT_IDENTITY_RECEIPTS_QUERY_LIST
-        | crate::ServiceOperationId::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION => &["did"],
-        crate::ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_REPLACE
-        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK
-        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_DELETE => &["backup_id"],
-        crate::ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_CLAIM => &["target_principal_id"],
-        crate::ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_CONSUME => &["claim_id"],
-        crate::ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_REVOKE => {
-            &["principal_id", "keypackage_ref"]
-        }
-        crate::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE
-        | crate::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE => &["device_id"],
-        crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_TARGET => &["address"],
-        crate::ServiceOperationId::FIND_DIRECTORY_PUSH_COMMAND_REGISTER => {
-            &["subscriber_did", "webhook_endpoint"]
-        }
-        crate::ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND
-        | crate::ServiceOperationId::SELF_DEVICE_MESSAGES_QUERY_LIST => {
-            &["recipient_principal_id", "recipient_device_id"]
-        }
-        crate::ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK => &["ack_token"],
-        crate::ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION => {
-            &["applet_id", "ghost_actor_id", "external_user_id"]
-        }
-        crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_DEVICE
-        | crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT => &["principal_id"],
-        crate::ServiceOperationId::SELF_MODERATION_COMMAND_REPORT => &["target_ref"],
-        crate::ServiceOperationId::OPEN_INVITE_LOCATOR_QUERY_RESOLVE => &["locator_token"],
-        crate::ServiceOperationId::PEER_INVITES_COMMAND_SUBMIT => &["idempotency_key"],
-        crate::ServiceOperationId::SELF_POLICY_QUERY_CHECK => &["resource"],
-        crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET
-        | crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_COMMAND_PUBLISH => {
-            &["principal_id"]
-        }
-        crate::ServiceOperationId::SELF_MORPH_RESOURCE_GET => &["realm_id", "morph_id"],
-        crate::ServiceOperationId::SELF_VIEWS_COLLECTION_PROJECTION_COMMAND_MATERIALIZE => {
-            &["view_id"]
+        EventKind::SpaceCreate
+        | EventKind::SpaceUpdate
+        | EventKind::SpaceParent
+        | EventKind::SpaceArchive
+        | EventKind::SpaceRestore
+        | EventKind::SpaceTombstone => &["space_id"],
+        EventKind::StrandCreate
+        | EventKind::StrandUpdate
+        | EventKind::StrandArchive
+        | EventKind::StrandRestore => &["strand_id"],
+        EventKind::MorphCreate
+        | EventKind::MorphUpdate
+        | EventKind::MorphArchive
+        | EventKind::MorphRestore => &["morph_id"],
+        EventKind::RelationCreate | EventKind::RelationUpdate | EventKind::RelationTombstone => {
+            &["relation_id"]
         }
         _ => &[],
     };
     fields.iter().find_map(|field| {
-        payload
+        operation
+            .payload
             .get(*field)
             .and_then(Value::as_str)
-            .map(|value| format!("{field}:{value}"))
+            .map(str::to_owned)
     })
 }
 
@@ -679,7 +601,7 @@ mod tests {
     fn envelope(id: &str, deps: Vec<&str>) -> OperationEnvelope {
         envelope_for(
             id,
-            crate::ServiceOperationId::SELF_EVENTS_QUERY_SCAN,
+            crate::events::EventKind::REALM_CREATE,
             json!({}),
             deps,
             false,
@@ -788,27 +710,27 @@ mod tests {
     fn semantic_reducer_rejects_tombstone_mutations_and_missing_authz() {
         let create = envelope_for(
             "ak:operation:01904100-0000-7000-8000-b24c1b0f1a32",
-            crate::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
+            crate::events::EventKind::SPACE_CREATE,
             json!({
-                "device_id": "ak:device:01904100-0000-7000-8000-c89a39a907e5",
-                "endpoint": "https://push.example/device"
+                "object": {},
+                "space_id": "ak:space:01904100-0000-7000-8000-c89a39a907e5"
             }),
             Vec::new(),
             true,
         );
         let delete = envelope_for(
             "ak:operation:01904100-0000-7000-8000-bc16402a117e",
-            crate::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE,
-            json!({"device_id": "ak:device:01904100-0000-7000-8000-c89a39a907e5"}),
+            crate::events::EventKind::SPACE_TOMBSTONE,
+            json!({"space_id": "ak:space:01904100-0000-7000-8000-c89a39a907e5"}),
             vec!["ak:operation:01904100-0000-7000-8000-b24c1b0f1a32"],
             true,
         );
         let update_after_delete = envelope_for(
             "ak:operation:01904100-0000-7000-8000-57ea8fc8ec0b",
-            crate::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
+            crate::events::EventKind::SPACE_CREATE,
             json!({
-                "device_id": "ak:device:01904100-0000-7000-8000-c89a39a907e5",
-                "endpoint": "https://push.example/device"
+                "object": {},
+                "space_id": "ak:space:01904100-0000-7000-8000-c89a39a907e5"
             }),
             vec!["ak:operation:01904100-0000-7000-8000-bc16402a117e"],
             true,
@@ -819,10 +741,10 @@ mod tests {
 
         let missing_authz = envelope_for(
             "ak:operation:01904100-0000-7000-8000-a8e5d315a094",
-            crate::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
+            crate::events::EventKind::SPACE_CREATE,
             json!({
-                "device_id": "ak:device:01904100-0000-7000-8000-9160607cbd81",
-                "endpoint": "https://push.example/other"
+                "object": {},
+                "space_id": "ak:space:01904100-0000-7000-8000-9160607cbd81"
             }),
             Vec::new(),
             false,
@@ -837,7 +759,7 @@ mod tests {
             OperationId::new("ak:operation:01904100-0000-7000-8000-e0d2820b21e0").unwrap(),
             RealmId::new("ak:realm:01904100-0000-7000-8000-6b91994c774d").unwrap(),
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            crate::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
+            crate::events::EventKind::SPACE_CREATE,
             1,
             Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         )

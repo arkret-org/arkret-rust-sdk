@@ -29,7 +29,7 @@ pub const THUMBNAIL_DERIVATION_PROFILE: &str = "ak.profile.media.thumbnail_previ
 
 /// Backend type for a call's media focus. Wire enum mirrors
 /// `ak.realm.media_service.foci[].type`. Receivers MUST fail closed with
-/// [`unknown_focus_type`](arkret_core::error::ERROR_CODE_UNKNOWN_FOCUS_TYPE)
+/// [`ErrorCode::UNKNOWN_FOCUS_TYPE`](arkret_core::ErrorCode::UNKNOWN_FOCUS_TYPE)
 /// on unrecognized variants.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

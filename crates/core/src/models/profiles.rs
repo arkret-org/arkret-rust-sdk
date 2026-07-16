@@ -535,7 +535,7 @@ pub const ABSOLUTE_HARD_CEILING_MS: u32 = 300_000;
 /// `ak.profile.e2ee_relaxed.v1`. False if any of the compliance audit
 /// profiles is present (the two are mutually exclusive — declaring both
 /// MUST be rejected with
-/// `ERROR_CODE_E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE`).
+/// `ErrorCode::E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE`).
 pub fn is_e2ee_relaxed_compatible_with_compliance<S: AsRef<str>>(active_profiles: &[S]) -> bool {
     !active_profiles
         .iter()

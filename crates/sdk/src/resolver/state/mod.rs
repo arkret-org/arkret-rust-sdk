@@ -207,7 +207,7 @@ impl RealmState {
             arkret_core::events::EventKind::VIEW_RECONCILE => self.reconcile_view(event)?,
 
             // Realm lifecycle - generic state reduction. Container-level
-            // (`ak.space.*`) lifecycle is covered by the OP_SPACE_* arms above.
+            // (`ak.space.*`) lifecycle is covered by the `EventKind::SPACE_*` arms above.
             "ak.realm.create"
             | "ak.realm.update"
             | "ak.realm.organization"
