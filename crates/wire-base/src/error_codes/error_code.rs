@@ -71,6 +71,8 @@ pub enum ErrorCode {
     PayloadDigestMismatch,
     KeyUnavailable,
     StateMismatch,
+    SealSignerUnauthorized,
+    SealDeferredFutureSkew,
     AuditReceiptInvalidated,
     UnknownDid,
     QuotaExceeded,
@@ -245,7 +247,7 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
-    pub const ALL: [Self; 232] = [
+    pub const ALL: [Self; 234] = [
         Self::BadJson,
         Self::BadQuery,
         Self::SchemaViolation,
@@ -307,6 +309,8 @@ impl ErrorCode {
         Self::PayloadDigestMismatch,
         Self::KeyUnavailable,
         Self::StateMismatch,
+        Self::SealSignerUnauthorized,
+        Self::SealDeferredFutureSkew,
         Self::AuditReceiptInvalidated,
         Self::UnknownDid,
         Self::QuotaExceeded,
@@ -545,6 +549,8 @@ impl ErrorCode {
             Self::PayloadDigestMismatch => ERROR_CODE_PAYLOAD_DIGEST_MISMATCH,
             Self::KeyUnavailable => ERROR_CODE_KEY_UNAVAILABLE,
             Self::StateMismatch => ERROR_CODE_STATE_MISMATCH,
+            Self::SealSignerUnauthorized => ERROR_CODE_SEAL_SIGNER_UNAUTHORIZED,
+            Self::SealDeferredFutureSkew => ERROR_CODE_SEAL_DEFERRED_FUTURE_SKEW,
             Self::AuditReceiptInvalidated => ERROR_CODE_AUDIT_RECEIPT_INVALIDATED,
             Self::UnknownDid => ERROR_CODE_UNKNOWN_DID,
             Self::QuotaExceeded => ERROR_CODE_QUOTA_EXCEEDED,
@@ -822,6 +828,8 @@ impl ErrorCode {
             ERROR_CODE_PAYLOAD_DIGEST_MISMATCH => Self::PayloadDigestMismatch,
             ERROR_CODE_KEY_UNAVAILABLE => Self::KeyUnavailable,
             ERROR_CODE_STATE_MISMATCH => Self::StateMismatch,
+            ERROR_CODE_SEAL_SIGNER_UNAUTHORIZED => Self::SealSignerUnauthorized,
+            ERROR_CODE_SEAL_DEFERRED_FUTURE_SKEW => Self::SealDeferredFutureSkew,
             ERROR_CODE_AUDIT_RECEIPT_INVALIDATED => Self::AuditReceiptInvalidated,
             ERROR_CODE_UNKNOWN_DID => Self::UnknownDid,
             ERROR_CODE_QUOTA_EXCEEDED => Self::QuotaExceeded,

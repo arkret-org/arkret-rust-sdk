@@ -549,6 +549,12 @@ impl AuthMetadata {
 pub struct AccountAuthority {
     pub origin: String,
     pub gate_account_base: String,
+    /// Deployment-pinned authority delegated to sign B-model first-device
+    /// enrollment. Account-first clients use this value when authoring entry 0
+    /// and MUST NOT learn it from the Account Authority response they are
+    /// about to trust.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enrollment_authority_did: Option<Did>,
 }
 
 /// Mirrors `service-describe.schema.json#/$defs/auth_method`. Describes a
