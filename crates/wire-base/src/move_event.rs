@@ -1,8 +1,7 @@
 //! Arkret Move typed model.
 //!
 //! A Move is the protocol's atomic conditional multi-cell write primitive
-//! introduced by spec 2026-05-08 (`spec/v1/zh/authz/event-auth-state-resolution.md`
-//! §3, schema `move.schema.json`). Each Move:
+//! defined by `spec/v1/zh/authz/event-auth-state-resolution.md` §5. Each Move:
 //!
 //! - is single-signed by its `issuer` (committee / multi-sig / threshold are notary-side concerns,
 //!   not Move-side);
@@ -26,10 +25,10 @@ use serde_json::Value;
 
 use crate::{CellRef, Did, Error, Hash, Hlc, MoveId, RealmId, Result, SealId, canonical};
 
-/// Allowed Move signature algorithms (must match `move.schema.json` `signature.alg`).
+/// Allowed Move signature algorithms for the Control Move proof surface.
 pub const MOVE_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ES384", "ES512"];
 
-/// Top-level Move object as defined by `move.schema.json`.
+/// Top-level Control Move object defined by the event auth/state-resolution spec.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct Move {

@@ -6,7 +6,8 @@ use super::*;
 /// Round 4 — build the canonical signing-transcript fragment for the
 /// three federation trust-domain headers. Callers append this fragment
 /// to the existing RFC 9421 signature base produced by
-/// `crates/sdk/src/federation::rfc9421_http_message_signature_base`.
+/// the RFC 9421 helpers in `crates/signatures/src/http_signature.rs` and
+/// `crates/core/src/http/signature.rs`.
 ///
 /// Wire shape: three lines, each with the header name in lower-case
 /// quoted form per RFC 9421 §2.2.

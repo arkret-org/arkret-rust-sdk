@@ -11,7 +11,7 @@
 //! - [`state_root`] — canonical Merkle compute per spec §4.2 normative.
 //!
 //! Architecture rationale + design tradeoffs live in
-//! `arkret-rust-sdk/docs/move-seal-runtime.md`. Wire / protocol rules
+//! `arkret-rust-sdk/docs/move-anchor-runtime.md`. Wire / protocol rules
 //! live in `arkret-spec/spec/v1/zh/authz/event-auth-state-resolution.md`
 //! §3-§5.
 pub mod compaction;

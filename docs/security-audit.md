@@ -93,7 +93,7 @@ audit attestation.
 
 | Area | Source |
 | --- | --- |
-| Identifiers, canonical JSON and digests | `crates/identifiers/src/lib.rs`, `crates/core/src/canonical.rs`, `model.rs` |
+| Identifiers, canonical JSON and digests | `crates/identifiers/src/lib.rs`, `crates/canonical/src/canonical.rs`, `crates/core/src/models/` |
 | Auth and recovery | `crates/sdk/src/auth.rs`, `identity.rs` |
 | Capability decisions | `crates/sdk/src/authz.rs`, `resolver.rs` |
 | Repo and crypto stores | `crates/sdk/src/store.rs`, `crypto_store.rs` |

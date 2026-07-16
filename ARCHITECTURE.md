@@ -46,7 +46,7 @@ protects canonical digests, authorization bindings or graph endpoint semantics.
 
 ## Canonical Digests
 
-`crates/core/src/canonical.rs` implements deterministic JSON encoding and
+`crates/canonical/src/canonical.rs` implements deterministic JSON encoding and
 digest calculation. Signed payloads must use this module instead of ad-hoc JSON
 formatting so that different clients compute identical hashes.
 

@@ -95,23 +95,23 @@ Test runs are gated through the existing CI matrix on
 
 ## TODO(R3.1) stubs
 
-The following items are explicitly stubbed for the next sync. They compile
-and surface canonical wire types but do not cryptographically validate the
-underlying proofs / payloads. Downstream services (soland, coauth) carry
-the canonical verifiers in R3 and are expected to reject anything the SDK's
+At the R3 evidence snapshot, the following R3.1 hooks and modules were planned
+but not yet implemented. Their names below are historical planning identifiers,
+not current SDK API paths. Downstream services (soland, coauth) carried the
+canonical verifiers in R3 and were expected to reject anything the SDK's
 relaxed validators would have let through.
 
-- `crates/core/src/models/recovery.rs::verify_proof_witnesses` — proof
+- Planned `verify_proof_witnesses` recovery-model hook — proof
   arms (`DeviceQuorum`, `RecoveryUnlock`, `TrustedRecoveryService`,
   `PrincipalSigning`) currently structure-check only. R3.1 will wire the
   per-arm verifier table.
-- `crates/core/src/models/handle.rs::uts39_full_skeleton_table` — minimal
+- Planned `uts39_full_skeleton_table` handle-model hook — minimal
   confusable skeleton ships in R3; full UTS#39 table import deferred.
 - `crates/core/src/models/member_identity.rs` (R3.1) — `ak.member.identity.update`,
   `MemberIdentity` / `VerifiedHandle` shapes, effective-set computation,
   identity_state_digest helper. Tracked under R3.1 items HDLREN-* / MID-*
   in `_arkret-rust-sdk_todos.md`.
-- `crates/core/src/errors.rs::operations_error_mapping_table` —
+- Planned `operations_error_mapping_table` hook —
   per-operation error-code mapping table (`operations-error-mapping.json`
   v2026-05-27) deferred; HTTP-status mapping updated for new codes.
 

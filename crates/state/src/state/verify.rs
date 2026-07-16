@@ -1,6 +1,6 @@
 //! Move verifier pipeline.
 //!
-//! Per `arkret-rust-sdk/docs/move-seal-runtime.md` §4 and spec §3-§4.
+//! Per `arkret-rust-sdk/docs/move-anchor-runtime.md` §4 and spec §3-§4.
 //! Five steps; failure at any step rejects the Move with a typed reason
 //! that maps onto a wire `error_code`:
 //!

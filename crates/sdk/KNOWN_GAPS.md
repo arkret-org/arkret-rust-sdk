@@ -65,7 +65,7 @@ brought into line:
 
 **Status:** **Resolved this release (S-7).**
 
-`spec/v1/zh/applet-integration.md` §8 shows `ak.applet.bridge_event`
+`spec/v1/zh/extensions/applet-integration.md` §8 shows `ak.applet.bridge_event`
 Envelopes carrying top-level `applet_id` and `external_ref`. Prior to
 this release the SDK had no slot for either field; downstream
 integrators (savfox `crates/channels/src/arkret/applet/outbound.rs`)

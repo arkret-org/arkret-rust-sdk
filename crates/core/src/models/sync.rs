@@ -84,7 +84,7 @@ impl AccountSubscribeFrame {
     /// Parse one NDJSON line. Empty / whitespace-only lines return
     /// `Ok(None)` so callers can chunk-read transparently. Mirrors the
     /// existing `EventsSubscribeFrame::from_ndjson_line` API
-    /// (see `crates/sdk/src/sync_client/wire.rs`).
+    /// (see `crates/core/src/http/bodies.rs`).
     pub fn from_ndjson_line(line: &str) -> Result<Option<Self>> {
         let trimmed = line.trim();
         if trimmed.is_empty() {

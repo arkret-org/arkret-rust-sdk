@@ -383,7 +383,7 @@ SDK 实现 MUST 严格遵循。
   与 Move/Seal canonical bytes 同一编码 profile（key 排序、no whitespace、
   integer-only number、UTF-8）。
 - `Bottom` 序列化时 set `bottom.anchor_view = None` 后再 canonical_json，
-  避免自递归。这是 [`bottom.rs`](../crates/core/src/bottom.rs) 已有的
+  避免自递归。这是 [`bottom.rs`](../crates/wire-base/src/bottom.rs) 已有的
   `#[serde(skip_serializing_if = "Option::is_none")]` 行为，无需特殊代码。
 - Merkle 树 SHOULD 用增量算法（只重算受影响 leaf 所在的分支）；wire 上的
   `state_root` 必须 byte-for-byte 等于全量重算结果——以全量重算结果作为
@@ -508,9 +508,9 @@ fn resolve(&self, space_id, cell) -> Result<CellLatticeBinding> {
    测试不依赖 Pg。
 2. **CellRegistry + spec registry 加载器**：消费 event-kind-registry.json 的
    `cell_family` / `lattice` / `bottom` 字段。
-3. **Move verifier**：四步流水线，单元测试用现有
-   [`move-seal-lattice-fixture.json`](../../arkret-spec/spec/v1/artifacts/fixtures/move-seal-lattice-fixture.json)
-   verify_move 期望。
+3. **Move verifier**：四步流水线，单元测试使用现有
+   [`seal-submit-fixture.json`](../../arkret-spec/spec/v1/artifacts/fixtures/seal-submit-fixture.json)
+   的 schema 与 semantic admission cases 固定期望。
 4. **state_root Merkle 计算**：纯函数（按 spec §4.2 normative 编码），可单测。
 5. **`apply_seal` 算法**：把上面 1-4 串起来。
 6. **`effective_seal_view` 纯函数**：多 leaf 收敛 + signed compaction。
@@ -532,8 +532,8 @@ soland 接线。
 ## 12. 不在本文范围
 
 - Move / Seal wire schema 字段细节 →
-  [`move.schema.json`](../../arkret-spec/spec/v1/artifacts/schemas/move.schema.json)
-  / [`seal.schema.json`](../../arkret-spec/spec/v1/artifacts/schemas/seal.schema.json)。
+  [`seal.schema.json`](../../arkret-spec/spec/v1/artifacts/schemas/seal.schema.json)
+  及 event/auth-state 规范中的 Move 语义。
 - HTTP binding（POST `/_arkret/self/moves`、`/_arkret/self/seals`）→
   [`service-http-binding.md`](../../arkret-spec/spec/v1/zh/sync/service-http-binding.md)。
 - Federation Move 广播 + Seal 拉取语义 →

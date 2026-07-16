@@ -23,7 +23,7 @@ cover comparable capability classes while keeping Arkret wire shapes native.
 
 ## Device Key Material & Cross-Signing
 
-The spec-side comparison is in [`arkret-spec/spec/v1/zh/overview/matrix-core-differences.md` §4.5](../../arkret-spec/spec/v1/zh/overview/matrix-core-differences.md); this section tracks what the **SDK in this repo** ships against that spec.
+The spec-side comparison is in [`migrating-from-matrix.md` §4.5](../../arkret-spec/spec/v1/zh/guides/migrating-from-matrix.md); this section tracks what the **SDK in this repo** ships against that spec.
 
 ### Identity keys per device
 
@@ -31,7 +31,7 @@ The spec-side comparison is in [`arkret-spec/spec/v1/zh/overview/matrix-core-dif
 | --- | --- | --- |
 | Ed25519 fingerprint key | [`DeviceKeyBundle.signing_key`](../crates/crypto/src/lib.rs) | Implemented |
 | Curve25519 identity key | [`DeviceKeyBundle.identity_key`](../crates/crypto/src/lib.rs) | Implemented |
-| One-time keys (Curve25519) | `KeysUploadRequestBody.one_time_keys` ([crates/core/src/models/api.rs](../crates/core/src/models/api.rs)) | Wire shape implemented; consumed by Olm-style bootstraps where applicable. MLS bootstrapping uses MLS KeyPackages instead — see below. |
+| One-time keys (Curve25519) | `KeysUploadRequestBody.one_time_keys` ([crates/core/src/models/keys.rs](../crates/core/src/models/keys.rs)) | Wire shape implemented; consumed by Olm-style bootstraps where applicable. MLS bootstrapping uses MLS KeyPackages instead — see below. |
 | Fallback key | `KeysUploadRequestBody.fallback_keys` | Wire shape implemented; SHOULD rotate after first use (spec §8). |
 | Device verify_key on the device record | [`Device.device_public_key`](../crates/sdk/src/devices/mod.rs) | Implemented in v0.7 (was missing in earlier revisions). |
 
@@ -76,7 +76,7 @@ Device authorization has no bootstrap self-authorization escape hatch. A device 
 
 ## Matrix concepts intentionally NOT mirrored
 
-These come straight from `matrix-core-differences.md` §4.5.7–§4.5.9; the SDK does not implement them under their Matrix names:
+These come straight from `migrating-from-matrix.md` §4.5.7–§4.5.9; the SDK does not implement them under their Matrix names:
 
 - **Single "master key"**: replaced by DID-method-rooted PSK (the master signature is the DID-method history entry, not a homeserver-stored key).
 - **`m.cross_signing.master`/`self_signing`/`user_signing` keys-API records**: replaced by the `ak.cross_signing.publish.v1` event envelope on the principal control stream.
