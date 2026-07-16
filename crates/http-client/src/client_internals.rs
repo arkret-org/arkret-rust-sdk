@@ -88,10 +88,35 @@ impl Client {
         Ok(builder)
     }
 
+    /// Build a request for a protocol endpoint that is normatively public.
+    ///
+    /// Public metadata must not inherit the client's bearer, DPoP, device, or
+    /// service authentication. Besides avoiding credential disclosure, this
+    /// keeps browser GETs CORS-simple instead of introducing a DPoP-triggered
+    /// preflight for an endpoint that requires no proof.
+    pub(crate) fn public_request(&self, method: Method, path: &str) -> Result<RequestBuilder> {
+        let builder = self.request_unbounded_inner(method, path, false)?;
+        #[cfg(not(target_arch = "wasm32"))]
+        let builder = match self.default_timeout {
+            Some(timeout) => builder.timeout(timeout),
+            None => builder,
+        };
+        Ok(builder)
+    }
+
     /// Build a request without the per-request default total timeout —
     /// for long-lived NDJSON subscribe streams that stay open by design.
     /// The connect-phase timeout still applies at the transport level.
     pub(crate) fn request_unbounded(&self, method: Method, path: &str) -> Result<RequestBuilder> {
+        self.request_unbounded_inner(method, path, true)
+    }
+
+    fn request_unbounded_inner(
+        &self,
+        method: Method,
+        path: &str,
+        include_auth: bool,
+    ) -> Result<RequestBuilder> {
         reject_absolute_path(path)?;
         let url = self.base_url.join(path.trim_start_matches('/'))?;
         reject_query_auth_in_url(&url)?;
@@ -104,7 +129,11 @@ impl Client {
         if let Some(user_agent) = &self.user_agent {
             builder = builder.header(USER_AGENT, user_agent);
         }
-        self.apply_auth(builder, &method_for_auth, &url_for_auth)
+        if include_auth {
+            self.apply_auth(builder, &method_for_auth, &url_for_auth)
+        } else {
+            Ok(builder)
+        }
     }
 
     pub(crate) fn apply_auth(
