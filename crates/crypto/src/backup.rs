@@ -207,21 +207,16 @@ pub fn derive_vault_kek_with_salt(
 #[derive(Clone, Debug)]
 pub struct VaultBinding {
     pub backup_id: BackupId,
-    pub actor_id: Did,
-    pub device_id: Option<DeviceId>,
-    pub backup_class: BackupClass,
-    pub backup_version: String,
-    pub created_at: chrono::DateTime<Utc>,
-    /// Item types carried by this envelope (`contents[].item_type`),
-    /// bound into the AAD so a ciphertext cannot be relabelled.
-    pub item_types: Vec<String>,
+    /// Exact persisted AAD object. Encryption and decryption canonicalize this
+    /// value directly instead of reconstructing a parallel field set.
+    pub aead_aad: KeyBackupDomainSeparationAad,
 }
 
 impl VaultBinding {
     /// The wire token for this envelope's `backup_class` (the snake_case
     /// value used in the AAD / nonce transcript and the envelope itself).
     fn backup_class_wire(&self) -> &'static str {
-        match self.backup_class {
+        match self.aead_aad.backup_class {
             BackupClass::DidRecovery => "did_recovery",
             BackupClass::SecretStorage => "secret_storage",
             BackupClass::MlsHistory => "mls_history",
@@ -234,7 +229,10 @@ impl VaultBinding {
     /// Public so conformance KAT runners can pin the intermediate bytes
     /// (`key-backup-hardening-fixture.json` passphrase_kdf_kat case).
     pub fn subkey(&self, root: &[u8; VAULT_KDF_OUTPUT_LEN], subdomain: &str) -> [u8; 32] {
-        derive_subkey(root, self.backup_class.hkdf_info(subdomain).as_bytes())
+        derive_subkey(
+            root,
+            self.aead_aad.backup_class.hkdf_info(subdomain).as_bytes(),
+        )
     }
 
     /// Canonical-JSON bytes of the §7.2 deterministic-nonce transcript.
@@ -248,11 +246,11 @@ impl VaultBinding {
         // key so declaration order is irrelevant.
         let transcript = json!({
             "backup_id": self.backup_id.as_str(),
-            "actor_id": self.actor_id.as_str(),
-            "device_id": self.device_id.as_ref().map(|d| d.as_str()),
+            "actor_id": self.aead_aad.actor_id.as_str(),
+            "device_id": self.aead_aad.device_id.as_deref(),
             "backup_class": self.backup_class_wire(),
-            "backup_version": self.backup_version,
-            "created_at": format_timestamp_canonical(self.created_at.trunc_subsecs(0)),
+            "backup_version": self.aead_aad.backup_version.as_str(),
+            "created_at": format_timestamp_canonical(self.aead_aad.created_at.trunc_subsecs(0)),
             "aead": "xchacha20_poly1305",
             "aead_profile": VAULT_AEAD_PROFILE,
             "nonce_salt": nonce_salt_b64,
@@ -286,16 +284,7 @@ impl VaultBinding {
     /// cannot be tampered with post-encryption. Public for conformance
     /// KAT verification.
     pub fn aad(&self) -> Result<Vec<u8>> {
-        let aad = json!({
-            "actor_id": self.actor_id.as_str(),
-            "device_id": self.device_id.as_ref().map(|d| d.as_str()),
-            "backup_class": self.backup_class_wire(),
-            "backup_version": self.backup_version,
-            "item_types": self.item_types,
-            "created_at": format_timestamp_canonical(self.created_at.trunc_subsecs(0)),
-            "schema": VAULT_SCHEMA_ID,
-        });
-        canonical_json_bytes(&aad)
+        canonical_json_bytes(&self.aead_aad)
             .map_err(|err| KeyBackupError::Canonical(format!("aead aad: {err}")))
     }
 }
@@ -543,10 +532,12 @@ pub fn build_key_backup_envelope(
     // Truncate to whole seconds so the binding's canonical timestamp
     // round-trips byte-for-byte through the persisted `created_at`.
     let created_at = Utc::now().trunc_subsecs(0);
-    let binding = VaultBinding {
-        backup_id: backup_id.clone(),
+    let aead_aad = KeyBackupDomainSeparationAad {
+        schema: VAULT_SCHEMA_ID.to_owned(),
         actor_id: actor_id.clone(),
-        device_id: device_id.clone(),
+        device_id: device_id
+            .as_ref()
+            .map(|device_id| device_id.as_str().to_owned()),
         backup_class,
         backup_version: backup_version.to_owned(),
         created_at,
@@ -554,6 +545,14 @@ pub fn build_key_backup_envelope(
             .iter()
             .map(|(item_type, _)| (*item_type).to_owned())
             .collect(),
+        managed_principal_bindings: Vec::new(),
+        recipient_method: None,
+        recipient_key_ref: None,
+        extra: Default::default(),
+    };
+    let binding = VaultBinding {
+        backup_id: backup_id.clone(),
+        aead_aad: aead_aad.clone(),
     };
     let ciphertext = encrypt_vault(kek, &binding, plaintext)?;
 
@@ -602,24 +601,7 @@ pub fn build_key_backup_envelope(
     let domain_separation = KeyBackupDomainSeparation {
         hkdf_info: backup_class.hkdf_info("aead"),
         subdomain: "aead".to_owned(),
-        aead_aad: KeyBackupDomainSeparationAad {
-            schema: VAULT_SCHEMA_ID.to_owned(),
-            actor_id: actor_id.clone(),
-            // Mirrors `VaultBinding::aad()`, which binds a missing device as
-            // `null`: the stored object's canonical JSON *is* the AAD, so an
-            // empty-string stand-in here would make the envelope undecryptable.
-            device_id: device_id
-                .as_ref()
-                .map(|device_id| device_id.as_str().to_owned()),
-            backup_class,
-            backup_version: backup_version.to_owned(),
-            created_at,
-            item_types: binding.item_types,
-            managed_principal_bindings: Vec::new(),
-            recipient_method: None,
-            recipient_key_ref: None,
-            extra: Default::default(),
-        },
+        aead_aad,
         extra: Default::default(),
     };
     let contents: Vec<KeyBackupContentItem> = contents
@@ -789,12 +771,19 @@ mod tests {
             backup_id: "ak:backup:01964137-0000-7000-8000-000000000000"
                 .parse()
                 .unwrap(),
-            actor_id: "did:webvh:alice.example".parse().unwrap(),
-            device_id: None,
-            backup_class: class,
-            backup_version: "kb_1".to_owned(),
-            created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
-            item_types: vec![item.to_owned()],
+            aead_aad: KeyBackupDomainSeparationAad {
+                schema: VAULT_SCHEMA_ID.to_owned(),
+                actor_id: "did:webvh:alice.example".parse().unwrap(),
+                device_id: None,
+                backup_class: class,
+                backup_version: "kb_1".to_owned(),
+                created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+                item_types: vec![item.to_owned()],
+                managed_principal_bindings: vec![],
+                recipient_method: None,
+                recipient_key_ref: None,
+                extra: Default::default(),
+            },
         }
     }
 
@@ -1007,16 +996,7 @@ mod tests {
         let aead = &envelope.encryption.aead;
         let binding = VaultBinding {
             backup_id: envelope.backup_id.clone(),
-            actor_id: envelope.actor_id.clone(),
-            device_id: envelope.device_id.clone(),
-            backup_class: envelope.backup_class,
-            backup_version: envelope.backup_version.clone(),
-            created_at: envelope.created_at,
-            item_types: envelope
-                .contents
-                .iter()
-                .map(|c| c.item_type.clone())
-                .collect(),
+            aead_aad: envelope.domain_separation.aead_aad.clone(),
         };
         let recovered = decrypt_vault(
             b"sesame",
@@ -1150,12 +1130,7 @@ mod tests {
 
         let sealed_aad = VaultBinding {
             backup_id: envelope.backup_id.clone(),
-            actor_id: envelope.actor_id.clone(),
-            device_id: None,
-            backup_class: envelope.backup_class,
-            backup_version: envelope.backup_version.clone(),
-            created_at: envelope.created_at,
-            item_types: vec!["private_account_state".to_owned()],
+            aead_aad: envelope.domain_separation.aead_aad.clone(),
         }
         .aad()
         .unwrap();

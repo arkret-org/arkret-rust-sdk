@@ -136,7 +136,6 @@ where
 
 #[cfg(not(target_arch = "wasm32"))]
 pub type BoxSyncFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
-
 #[cfg(target_arch = "wasm32")]
 pub type BoxSyncFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + 'a>>;
 

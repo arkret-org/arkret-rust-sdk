@@ -166,13 +166,15 @@ pub enum E2eeMessageValidation {
 pub struct E2eeManager {
     groups: BTreeMap<String, E2eeGroup>,
     keys: BTreeMap<String, E2eeKeyRecord>,
-    seen_messages: BTreeSet<String>,
+    seen_messages: BTreeMap<(String, u64), BTreeSet<String>>,
     audit: Vec<AuditEntry>,
     /// Devices revoked from encrypted writes. Key is (principal_id, device_id).
     revoked_devices: BTreeMap<(Did, DeviceId), DateTime<Utc>>,
 }
 
 impl E2eeManager {
+    const MAX_SEEN_MESSAGES_PER_EPOCH: usize = 65_536;
+    const MAX_AUDIT_ENTRIES: usize = 4_096;
     /// Create an empty manager.
     pub fn new() -> Self {
         Self::default()
@@ -215,6 +217,7 @@ impl E2eeManager {
             group.updated_at = Utc::now();
             group.epoch
         };
+        self.prune_seen_messages_for_group(group_id, epoch);
         self.log(
             AuditAction::MemberJoined,
             Some(member),
@@ -233,6 +236,7 @@ impl E2eeManager {
             group.updated_at = Utc::now();
             group.epoch
         };
+        self.prune_seen_messages_for_group(group_id, epoch);
         self.log(
             AuditAction::MemberRemoved,
             Some(member.clone()),
@@ -287,6 +291,7 @@ impl E2eeManager {
             group.updated_at = Utc::now();
             group.epoch
         };
+        self.prune_seen_messages_for_group(group_id, epoch);
         self.log(
             AuditAction::EpochAdvanced,
             Some(actor),
@@ -523,7 +528,16 @@ impl E2eeManager {
                 )));
             }
         }
-        self.seen_messages.insert(message.message_id.clone());
+        let seen = self
+            .seen_messages
+            .entry((message.group_id.clone(), message.epoch))
+            .or_default();
+        if seen.len() >= Self::MAX_SEEN_MESSAGES_PER_EPOCH {
+            return Err(Error::Protocol(
+                "E2EE replay window reached its bounded per-epoch capacity".to_owned(),
+            ));
+        }
+        seen.insert(message.message_id.clone());
         self.log(
             AuditAction::MessageValidated,
             Some(message.sender_actor_id.clone()),
@@ -565,7 +579,11 @@ impl E2eeManager {
                 failure: E2eeMessageValidationFailure::IntegrityMismatch,
             };
         }
-        if self.seen_messages.contains(&message.message_id) {
+        if self
+            .seen_messages
+            .get(&(message.group_id.clone(), message.epoch))
+            .is_some_and(|seen| seen.contains(&message.message_id))
+        {
             return E2eeMessageValidation::Invalid {
                 failure: E2eeMessageValidationFailure::Replay,
             };
@@ -614,6 +632,12 @@ impl E2eeManager {
         &self.audit
     }
 
+    /// Drain audit entries so a host can persist them outside the bounded
+    /// in-memory diagnostic buffer.
+    pub fn drain_audit(&mut self) -> Vec<AuditEntry> {
+        std::mem::take(&mut self.audit)
+    }
+
     /// Export audit entries as JSON.
     pub fn export_audit_json(&self) -> Result<String> {
         serde_json::to_string(&self.audit).map_err(Into::into)
@@ -623,6 +647,11 @@ impl E2eeManager {
         self.groups
             .get_mut(group_id)
             .ok_or_else(|| Error::Protocol("group not found".to_owned()))
+    }
+
+    fn prune_seen_messages_for_group(&mut self, group_id: &str, current_epoch: u64) {
+        self.seen_messages
+            .retain(|(seen_group, epoch), _| seen_group != group_id || *epoch == current_epoch);
     }
 
     fn open_backup_plaintext(
@@ -665,6 +694,9 @@ impl E2eeManager {
         group_id: Option<String>,
         detail: impl Into<String>,
     ) {
+        if self.audit.len() >= Self::MAX_AUDIT_ENTRIES {
+            self.audit.remove(0);
+        }
         self.audit.push(AuditEntry {
             timestamp: Utc::now(),
             action,
@@ -897,5 +929,35 @@ mod tests {
                 .unwrap()
                 .contains("group_created")
         );
+    }
+
+    #[test]
+    fn e2ee_prunes_replay_epochs_and_bounds_audit_history() {
+        let alice = did("alice");
+        let mut manager = E2eeManager::new();
+        manager.create_group("g1", alice.clone(), BTreeSet::new());
+        let message = manager
+            .create_message("m1", "g1", alice.clone(), b"ciphertext".to_vec())
+            .unwrap();
+        manager.validate_message(&message).unwrap();
+        assert_eq!(manager.seen_messages.len(), 1);
+
+        manager.advance_epoch("g1", alice.clone()).unwrap();
+        assert!(manager.seen_messages.is_empty());
+
+        for index in 0..(E2eeManager::MAX_AUDIT_ENTRIES + 10) {
+            manager.log(
+                AuditAction::GroupCreated,
+                Some(alice.clone()),
+                Some(format!("g{index}")),
+                "bounded audit entry",
+            );
+        }
+        assert_eq!(
+            manager.audit_entries().len(),
+            E2eeManager::MAX_AUDIT_ENTRIES
+        );
+        assert_eq!(manager.drain_audit().len(), E2eeManager::MAX_AUDIT_ENTRIES);
+        assert!(manager.audit_entries().is_empty());
     }
 }

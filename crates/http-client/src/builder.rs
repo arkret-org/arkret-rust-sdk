@@ -429,6 +429,7 @@ impl ClientBuilder {
             http,
             auth: self.auth,
             http_message_signer: self.http_message_signer,
+            allow_insecure_localhost: self.allow_insecure_localhost,
             retry: self.retry,
             user_agent: self.user_agent,
             #[cfg(not(target_arch = "wasm32"))]

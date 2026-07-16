@@ -581,6 +581,10 @@ impl ArtifactDriftReport {
 /// Update this constant whenever the SDK adds typed support for a new
 /// schema; the drift report will then enforce that the spec still ships it.
 pub const SUPPORTED_SCHEMA_IDS: &[&str] = &[
+    "ak.schema.account_data_encrypted_value.v1",
+    "ak.schema.agent_requested_scope_disclosure.v1",
+    "ak.schema.device_reanchor.v1",
+    "ak.schema.mls_governance_proof_bundle.v1",
     // Realm/Space schemas: `ak.schema.realm.v1` is the security-boundary
     // schema; `ak.schema.space.v1` is the product container schema.
     "ak.schema.realm.v1",
@@ -742,6 +746,7 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "block",
     "call",
     "capability",
+    "consent",
     "strand",
     "chunk",
     "claim",
@@ -768,6 +773,7 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "request",
     "snapshot",
     "space",
+    "subscription",
     "transaction",
     "view",
     // Spec-sync (id-kind-registry.json) — typed id kinds the registry ships
@@ -795,6 +801,8 @@ pub const SUPPORTED_SPECIAL_FORM_ID_KINDS: &[&str] = &[
     "cursor",
     "mls",
     "pseudonym",
+    "plan",
+    "service_registration_receipt",
     "trust_domain",
 ];
 

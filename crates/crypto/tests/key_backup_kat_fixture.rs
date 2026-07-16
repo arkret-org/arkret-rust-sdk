@@ -83,23 +83,28 @@ fn run_kat(kat: &Value) {
         backup_id: str_field(binding_json, "backup_id")
             .parse()
             .expect("backup_id parses"),
-        actor_id: str_field(binding_json, "actor_id")
-            .parse()
-            .expect("actor_id parses"),
-        device_id: binding_json["device_id"]
-            .as_str()
-            .map(|device| device.parse().expect("device_id parses")),
-        backup_class,
-        backup_version: str_field(binding_json, "backup_version").to_owned(),
-        created_at: str_field(binding_json, "created_at")
-            .parse::<DateTime<Utc>>()
-            .expect("created_at parses"),
-        item_types: binding_json["item_types"]
-            .as_array()
-            .expect("item_types array")
-            .iter()
-            .map(|item| item.as_str().expect("item_type string").to_owned())
-            .collect(),
+        aead_aad: arkret_core::KeyBackupDomainSeparationAad {
+            schema: "ak.schema.key_backup.v1".to_owned(),
+            actor_id: str_field(binding_json, "actor_id")
+                .parse()
+                .expect("actor_id parses"),
+            device_id: binding_json["device_id"].as_str().map(ToOwned::to_owned),
+            backup_class,
+            backup_version: str_field(binding_json, "backup_version").to_owned(),
+            created_at: str_field(binding_json, "created_at")
+                .parse::<DateTime<Utc>>()
+                .expect("created_at parses"),
+            item_types: binding_json["item_types"]
+                .as_array()
+                .expect("item_types array")
+                .iter()
+                .map(|item| item.as_str().expect("item_type string").to_owned())
+                .collect(),
+            managed_principal_bindings: vec![],
+            recipient_method: None,
+            recipient_key_ref: None,
+            extra: Default::default(),
+        },
     };
 
     // Stage 1: Argon2id root key.
