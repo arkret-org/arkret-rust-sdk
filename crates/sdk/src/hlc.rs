@@ -32,10 +32,10 @@ pub const EXPECTED_FUTURE_SKEW_MS: i64 = 30 * 1000;
 pub const HARD_FUTURE_SKEW_MS: i64 = 5 * 60 * 1000;
 
 /// Physical time maximum value (48-bit: 0xffffffffffff ms ≈ 8,925 years)
-const MAX_PHYSICAL: u64 = 0xffffffffffff;
+pub const HLC_MAX_PHYSICAL_MS: u64 = 0xffffffffffff;
 
 /// Logical counter maximum value (16-bit, 4 lowercase hex digits).
-const MAX_LOGICAL: u32 = 0xffff;
+pub const HLC_MAX_LOGICAL: u32 = 0xffff;
 
 /// HLC components
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -164,7 +164,7 @@ impl HlcGenerator {
 
         // If remote HLC has same physical time, ensure we're ahead
         if remote_parts.physical_ms == self.physical && remote_parts.logical >= self.logical {
-            if remote_parts.logical >= MAX_LOGICAL {
+            if remote_parts.logical >= HLC_MAX_LOGICAL {
                 return Err(Error::Protocol(
                     "hlc_logical_overflow: remote HLC saturated the 4-hex logical counter"
                         .to_owned(),
@@ -238,7 +238,7 @@ impl HlcGenerator {
     const OVERFLOW_SPIN_LIMIT: u32 = 1_000;
 
     fn advance_logical_or_wait(&mut self) {
-        if self.logical < MAX_LOGICAL {
+        if self.logical < HLC_MAX_LOGICAL {
             self.logical += 1;
             return;
         }
@@ -271,7 +271,7 @@ impl HlcGenerator {
     }
 
     fn advance_logical_or_error(&mut self) -> Result<()> {
-        if self.logical < MAX_LOGICAL {
+        if self.logical < HLC_MAX_LOGICAL {
             self.logical += 1;
             Ok(())
         } else {
@@ -292,9 +292,9 @@ impl HlcGenerator {
     }
 
     fn clamp_physical(&mut self) {
-        if self.physical > MAX_PHYSICAL {
-            self.physical = MAX_PHYSICAL;
-            self.logical = MAX_LOGICAL;
+        if self.physical > HLC_MAX_PHYSICAL_MS {
+            self.physical = HLC_MAX_PHYSICAL_MS;
+            self.logical = HLC_MAX_LOGICAL;
         }
     }
 }
@@ -497,7 +497,7 @@ mod tests {
             b"test-secret",
             HlcGenerator::current_time_ms() + 60_000,
         );
-        hlc_gen.logical = MAX_LOGICAL;
+        hlc_gen.logical = HLC_MAX_LOGICAL;
 
         let err = hlc_gen.try_generate().unwrap_err();
         assert!(err.to_string().contains("hlc_logical_overflow"));
@@ -511,11 +511,11 @@ mod tests {
             b"test-secret",
             HlcGenerator::current_time_ms() + 60_000,
         );
-        hlc_gen.logical = MAX_LOGICAL - 1;
+        hlc_gen.logical = HLC_MAX_LOGICAL - 1;
 
         let hlc = hlc_gen.try_generate().unwrap();
         let parts = parse_hlc(hlc.as_str()).unwrap();
-        assert_eq!(parts.logical, MAX_LOGICAL);
+        assert_eq!(parts.logical, HLC_MAX_LOGICAL);
     }
 
     #[test]

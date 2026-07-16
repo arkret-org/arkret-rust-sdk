@@ -329,6 +329,52 @@ impl SendQueue {
         self.items.get(transaction_id)
     }
 
+    /// Active items in queue order, excluding terminal history.
+    pub fn active_items(&self) -> Vec<SendQueueItem> {
+        self.order
+            .iter()
+            .filter_map(|transaction_id| self.items.get(transaction_id))
+            .filter(|item| {
+                matches!(
+                    item.status,
+                    SendQueueStatus::Queued | SendQueueStatus::Sending | SendQueueStatus::Failed
+                )
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// Remove old terminal items that are not dependencies of retained work.
+    pub fn prune_terminal_before(&mut self, cutoff: DateTime<Utc>) -> usize {
+        let candidates = self
+            .items
+            .values()
+            .filter(|item| {
+                matches!(
+                    item.status,
+                    SendQueueStatus::Sent | SendQueueStatus::Cancelled
+                ) && item.updated_at < cutoff
+            })
+            .map(|item| item.transaction_id.clone())
+            .collect::<BTreeSet<_>>();
+        let protected = self
+            .items
+            .values()
+            .filter(|item| !candidates.contains(&item.transaction_id))
+            .flat_map(|item| item.depends_on.iter().cloned())
+            .collect::<BTreeSet<_>>();
+        let removable = candidates
+            .difference(&protected)
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        for transaction_id in &removable {
+            self.items.remove(transaction_id);
+        }
+        self.order
+            .retain(|transaction_id| !removable.contains(transaction_id));
+        removable.len()
+    }
+
     /// Mark an item as actively sending.
     pub fn mark_sending(&mut self, transaction_id: &str) -> Result<()> {
         let item = self.item_mut(transaction_id)?;
