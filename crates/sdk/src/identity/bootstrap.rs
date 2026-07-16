@@ -1,12 +1,13 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_core::events::kinds;
 use arkret_core::{
     CellRef, Did, Discoverability, Effect, EncryptionFloor, EncryptionProfile, Event, EventId,
-    EventRef, EventRequirements, EventsSubmitRequestBody, HistoryVisibility, Hlc, JoinRule,
-    LatticeOp, LatticeOpType, NotaryProfile, Realm, RealmCreatePayload, RealmId, SecurityClass,
-    TypedTrustDomainId,
+    EventRef, EventRequirements, EventsSubmitRequestBody, Hash, HistoryVisibility, Hlc, JoinRule,
+    LatticeOp, LatticeOpType, MoveId, MoveSignature, MoveSigner, NotaryProfile, NotarySig, Realm,
+    RealmCreatePayload, RealmId, Seal, SealId, SealKind, SecurityClass, TypedTrustDomainId,
 };
+use arkret_state::{CellRegistry, CellState, SealedOp, compute_state_root, control_event_set_root};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -133,6 +134,195 @@ pub fn self_principal_bootstrap_submit_request(
         event: None,
         events: vec![create, authorize],
     })
+}
+
+/// Build and sign the first principal-control Seal after the closed bootstrap
+/// unit has been accepted. The Seal is rooted (no predecessors), covers both
+/// bootstrap Event digests, and reproduces the receiver's derived Realm
+/// create/member/notary cell state before the authorized device signs it.
+pub fn build_self_principal_bootstrap_seal<S: MoveSigner + ?Sized>(
+    create: &Event,
+    authorize: &Event,
+    hlc: Hlc,
+    signer: &S,
+) -> Result<Seal> {
+    validate_self_principal_bootstrap_unit(create, authorize)?;
+    if signer.signer_did() != &create.actor_id {
+        return Err(Error::Protocol(
+            "bootstrap Seal signer DID must equal the principal DID".to_owned(),
+        ));
+    }
+
+    let create_digest = MoveId::new(create.event_digest()?)?;
+    let authorize_digest = MoveId::new(authorize.event_digest()?)?;
+    let covered = [create_digest, authorize_digest]
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    if covered.len() != 2 {
+        return Err(Error::Protocol(
+            "bootstrap Event digests must be distinct".to_owned(),
+        ));
+    }
+    let delta = covered.iter().cloned().collect::<Vec<_>>();
+    let state_root = self_principal_bootstrap_state_root(create, &delta[0], &delta[1])?;
+    let control_root = control_event_set_root(&covered)
+        .map_err(|error| Error::Protocol(format!("bootstrap Seal coverage root: {error}")))?;
+    let sealed_at = Utc::now();
+    let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
+    let mut seal = Seal {
+        id: SealId::new(format!("ak:seal:sha256:{}", "00".repeat(32)))?,
+        realm_id: create.realm_id.clone(),
+        predecessor_refs: Vec::new(),
+        delta: delta.clone(),
+        control_event_set_root: control_root.clone(),
+        state_root,
+        completeness_root: control_root,
+        notary_seq: 0,
+        data_view_root: None,
+        data_event_set_root: None,
+        availability_root: None,
+        coverage_scope: None,
+        covered_event_digests: delta,
+        previous_state_root: None,
+        previous_digest_algorithm: None,
+        notary_signature: NotarySig::Single(MoveSignature {
+            alg: "EdDSA".to_owned(),
+            verification_method: signer.verification_method_id().to_owned(),
+            payload_digest: zero_hash,
+            created_at: sealed_at,
+            jws: String::new(),
+        }),
+        sealed_at,
+        hlc,
+        kind: SealKind::Normal,
+    };
+    let canonical_bytes = seal.canonical_bytes_for_id()?;
+    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes)?;
+    seal.notary_signature = NotarySig::Single(signer.sign_payload(&canonical_bytes)?);
+    seal.validate_structural()?;
+    seal.validate_id()?;
+    Ok(seal)
+}
+
+fn self_principal_bootstrap_state_root(
+    create: &Event,
+    first_digest: &MoveId,
+    second_digest: &MoveId,
+) -> Result<Hash> {
+    let create_digest = MoveId::new(create.event_digest()?)?;
+    let authorize_digest = if first_digest == &create_digest {
+        second_digest.clone()
+    } else {
+        first_digest.clone()
+    };
+    if create_digest == authorize_digest {
+        return Err(Error::Protocol(
+            "bootstrap Event digests must be distinct".to_owned(),
+        ));
+    }
+    let object = create
+        .payload
+        .get("object")
+        .and_then(Value::as_object)
+        .ok_or_else(|| Error::Protocol("bootstrap Realm object is missing".to_owned()))?;
+    let created_by = object
+        .get("created_by")
+        .and_then(Value::as_str)
+        .ok_or_else(|| Error::Protocol("bootstrap Realm created_by is missing".to_owned()))?;
+    if created_by != create.actor_id.as_str() {
+        return Err(Error::Protocol(
+            "bootstrap Realm created_by differs from actor_id".to_owned(),
+        ));
+    }
+    let notary = object
+        .get("notary")
+        .cloned()
+        .ok_or_else(|| Error::Protocol("bootstrap Realm notary is missing".to_owned()))?;
+    let mut entry = Value::Object(object.clone());
+    entry
+        .as_object_mut()
+        .expect("Realm object remains an object")
+        .insert(
+            "entry_id".to_owned(),
+            Value::String(create.event_id.to_string()),
+        );
+
+    let create_cell = CellRef::new(format!(
+        "ak:cell:ak.component.realm.create.v1:{}",
+        create.realm_id
+    ))?;
+    let member_cell = CellRef::new(format!(
+        "ak:cell:ak.component.member.state.v1:{}",
+        create.actor_id
+    ))?;
+    let notary_cell = CellRef::new(format!(
+        "ak:cell:ak.component.notary.v1:{}",
+        create.realm_id
+    ))?;
+    let mut ops_by_cell = BTreeMap::<CellRef, Vec<SealedOp>>::new();
+    ops_by_cell.insert(
+        create_cell,
+        vec![SealedOp::new(
+            create_digest.clone(),
+            LatticeOp {
+                op_type: LatticeOpType::Append,
+                tag: None,
+                value: Some(entry),
+                from: None,
+                to: None,
+                reason: None,
+                issuer_seq: Some(create.actor_seq),
+            },
+        )],
+    );
+    ops_by_cell.insert(
+        member_cell,
+        vec![SealedOp::new(
+            create_digest.clone(),
+            LatticeOp {
+                op_type: LatticeOpType::Transition,
+                tag: None,
+                value: None,
+                from: Some(serde_json::json!("leave")),
+                to: Some(serde_json::json!("join")),
+                reason: Some("realm_genesis".to_owned()),
+                issuer_seq: None,
+            },
+        )],
+    );
+    ops_by_cell.insert(
+        notary_cell,
+        vec![SealedOp::new(
+            create_digest,
+            LatticeOp {
+                op_type: LatticeOpType::Set,
+                tag: None,
+                value: Some(notary),
+                from: None,
+                to: None,
+                reason: None,
+                issuer_seq: None,
+            },
+        )],
+    );
+
+    let registry = crate::lattice_registry::build_sdk_cell_registry();
+    let mut joined = BTreeMap::new();
+    for (cell, mut ops) in ops_by_cell {
+        ops.sort_by(|left, right| right.move_id.as_str().cmp(left.move_id.as_str()));
+        let binding = registry
+            .resolve(&create.realm_id, &cell)
+            .map_err(|error| Error::Protocol(format!("bootstrap cell registry: {error}")))?;
+        let state = binding.lattice.join(&cell, &ops);
+        if matches!(state, CellState::Bottom(_)) {
+            return Err(Error::Protocol(format!(
+                "bootstrap cell {cell} resolved to Bottom"
+            )));
+        }
+        joined.insert(cell, state);
+    }
+    compute_state_root(&joined)
+        .map_err(|error| Error::Protocol(format!("bootstrap state root: {error}")))
 }
 
 pub fn validate_self_principal_bootstrap_unit(create: &Event, authorize: &Event) -> Result<()> {
@@ -337,8 +527,43 @@ fn payload_map<T: serde::Serialize>(payload: &T) -> Result<BTreeMap<String, Valu
 mod tests {
     use super::*;
 
+    struct FixtureSigner {
+        did: Did,
+        verification_method: String,
+    }
+
+    impl MoveSigner for FixtureSigner {
+        fn sign_move(
+            &self,
+            _unsigned: &arkret_core::UnsignedMove,
+        ) -> std::result::Result<arkret_core::Move, arkret_core::WireError> {
+            unreachable!("bootstrap Seal test does not sign Moves")
+        }
+
+        fn signer_did(&self) -> &Did {
+            &self.did
+        }
+
+        fn verification_method_id(&self) -> &str {
+            &self.verification_method
+        }
+
+        fn sign_payload(
+            &self,
+            canonical_bytes: &[u8],
+        ) -> std::result::Result<MoveSignature, arkret_core::WireError> {
+            Ok(MoveSignature {
+                alg: "EdDSA".to_owned(),
+                verification_method: self.verification_method.clone(),
+                payload_digest: Hash::new(arkret_core::canonical::sha256_digest(canonical_bytes))?,
+                created_at: Utc::now(),
+                jws: "fixture.detached-signature".to_owned(),
+            })
+        }
+    }
+
     fn attach_fixture_proof(event: &mut Event, verification_method: &str) {
-        let digest = arkret_core::Hash::new(event.event_digest().unwrap()).unwrap();
+        let digest = Hash::new(event.event_digest().unwrap()).unwrap();
         event.proofs = vec![arkret_core::Proof {
             kind: arkret_core::proof_kind::DETACHED_JWS.to_owned(),
             alg: "EdDSA".to_owned(),
@@ -448,7 +673,7 @@ mod tests {
         let mut indirect = input();
         indirect.did_inception_ref.proof = Some(arkret_core::SemanticRefProof {
             kind: arkret_core::SemanticRefProofKind::Rfc6962Merkle,
-            leaf_digest: arkret_core::Hash::new(
+            leaf_digest: Hash::new(
                 "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             )
             .unwrap(),
@@ -478,5 +703,33 @@ mod tests {
             EventId::new("ak:event:01904100-0000-7000-8000-000000000099").unwrap(),
         ];
         assert!(validate_self_principal_bootstrap_unit(&create, &unrelated).is_err());
+    }
+
+    #[test]
+    fn first_bootstrap_seal_covers_both_events_and_is_signed_by_device_one() {
+        let (create, authorize) = bootstrap_unit();
+        let device_id = "ak:device:01904100-0000-7000-8000-000000000001";
+        let signer = FixtureSigner {
+            did: create.actor_id.clone(),
+            verification_method: format!("{}#{device_id}", create.actor_id),
+        };
+        let seal = build_self_principal_bootstrap_seal(
+            &create,
+            &authorize,
+            Hlc::new("01970e589d21-0006-a13f9c2e").unwrap(),
+            &signer,
+        )
+        .unwrap();
+
+        assert!(seal.predecessor_refs.is_empty());
+        assert_eq!(seal.notary_seq, 0);
+        assert_eq!(seal.delta.len(), 2);
+        assert_eq!(seal.covered_event_digests, seal.delta);
+        assert_eq!(seal.control_event_set_root, seal.completeness_root);
+        assert_eq!(seal.derive_id().unwrap(), seal.id);
+        let NotarySig::Single(signature) = seal.notary_signature else {
+            panic!("bootstrap Seal must use one device signature")
+        };
+        assert_eq!(signature.verification_method, signer.verification_method);
     }
 }

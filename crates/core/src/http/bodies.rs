@@ -68,6 +68,18 @@ pub struct EventsSubmitOutcome {
     pub original_outcome: Option<Box<EventsSubmitOutcome>>,
 }
 
+/// Result of `ak.self.events.command.submit_seal` after the receiver has
+/// recomputed the Seal body, coverage and post-state.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct EventSealSubmitOutcome {
+    pub seal_id: SealId,
+    #[serde(default)]
+    pub accepted_event_digests: Vec<MoveId>,
+    pub post_state_root: Hash,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventView {
@@ -1409,6 +1421,12 @@ pub struct AccountDeviceEnrollRequestBody {
     /// `ak.device.authorize.payload.algorithms` verbatim (§5.2/§5.4).
     pub algorithms: Vec<String>,
     pub actor_seq: u64,
+    /// Root-signed `ak.realm.create` Event id immediately preceding the
+    /// authority-signed authorize in the atomic first-device bootstrap unit.
+    /// Required exactly when `actor_seq == 1` and copied to the authorize
+    /// Event's sole `prev_refs` entry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bootstrap_create_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub not_before: Option<DateTime<Utc>>,
 }
