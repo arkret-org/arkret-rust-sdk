@@ -110,10 +110,10 @@ pub use agent::{
 pub use applet::*;
 pub use arkret_identifiers as identifiers;
 pub use arkret_wire_base::{
-    DIGEST_SUITES, EvaluationClass, EXPORTER_LABELS, HPKE_SUITES, MLS_CIPHERSUITES,
-    MLS_EXTENSIONS, PROOF_CONTEXTS, RELATION_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS,
-    SERVICE_TYPE_DESCRIPTORS, SIGNATURE_ALGORITHMS, ServiceOperationDescriptor,
-    ServiceOperationId, ServiceType, WireError, XExtensionMap,
+    DIGEST_SUITES, EXPORTER_LABELS, EvaluationClass, HPKE_SUITES, MLS_CIPHERSUITES, MLS_EXTENSIONS,
+    PROOF_CONTEXTS, RELATION_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS,
+    SERVICE_TYPE_DESCRIPTORS, SIGNATURE_ALGORITHMS, ServiceOperationDescriptor, ServiceOperationId,
+    ServiceType, WireError, XExtensionMap,
 };
 pub use authz::*;
 pub use base64url::{

@@ -654,10 +654,7 @@ mod tests {
     fn builder_emits_only_the_closed_unsigned_root_shape() {
         let event = build_self_principal_pcr_create(input()).unwrap();
 
-        assert_eq!(
-            event.kind,
-            arkret_core::events::EventKind::REALM_CREATE
-        );
+        assert_eq!(event.kind, arkret_core::events::EventKind::REALM_CREATE);
         assert_eq!(event.actor_seq, 0);
         assert!(event.prev_refs.is_empty());
         assert!(event.proofs.is_empty());

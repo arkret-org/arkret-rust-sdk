@@ -11,8 +11,6 @@ mod error;
 pub mod generated;
 pub mod protocol;
 
-pub use generated::*;
-
 pub use arkret_wire_base::{
     ACCOUNT_SUBSCRIBE_FRAME_SCHEMA, ANCHOR_SCHEMA, BOTTOM_SCHEMA, CALENDAR_EVENT_SCHEMA,
     CAPABILITY_SCHEMA, CORE_SCHEMA_PROFILE, CURSOR_SCHEMA, DISAPPEARING_MESSAGES_SCHEMA,
@@ -23,6 +21,7 @@ pub use arkret_wire_base::{
     SEARCH_SERVICE_SCHEMA, SNAPSHOT_SCHEMA, SPACE_SCHEMA, STRAND_SCHEMA, VIEW_SCHEMA, events,
 };
 pub use error::{Error, Result, SchemaError};
+pub use generated::*;
 pub use protocol::{
     GeneratedSchemaField, GeneratedSchemaValidator, GeneratedSchemaValueType,
     ProtocolSchemaRegistry, ProtocolSchemaRegistry as Registry,
