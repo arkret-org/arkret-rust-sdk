@@ -28,7 +28,6 @@ tracing = ["dep:tracing"]
 tls-rustls = ["reqwest/rustls"]
 
 [dependencies]
-base64 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 arkret-core = {workspace = true,features = ["client"]}
 arkret-signatures = {workspace = true,features = ["protocol"]}
