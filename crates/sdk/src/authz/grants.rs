@@ -341,14 +341,17 @@ fn resource_is_narrowed(child: &ResourceSelector, parent: &ResourceSelector) -> 
                 realm_id,
                 object_type,
                 object_ref,
+                match_scope,
             },
             ResourceSelector::Object {
                 realm_id: parent_realm,
                 object_type: parent_type,
                 object_ref: parent_id,
+                match_scope: parent_scope,
             },
         ) => {
             realm_narrowed(realm_id, parent_realm)
+                && scope_narrowed(*match_scope, *parent_scope)
                 && option_narrowed(object_type.as_ref(), parent_type.as_ref())
                 && option_narrowed(object_ref.as_ref(), parent_id.as_ref())
         }
@@ -398,13 +401,30 @@ fn resource_is_narrowed(child: &ResourceSelector, parent: &ResourceSelector) -> 
             },
         ) => realm_narrowed(realm_id, parent_realm),
         (
-            ResourceSelector::Space { space_id },
             ResourceSelector::Space {
-                space_id: parent_space,
+                realm_id,
+                space_id,
+                match_scope,
             },
-        ) => realm_narrowed(space_id, parent_space),
+            ResourceSelector::Space {
+                realm_id: parent_realm,
+                space_id: parent_space,
+                match_scope: parent_scope,
+            },
+        ) => {
+            realm_narrowed(realm_id, parent_realm)
+                && scope_narrowed(*match_scope, *parent_scope)
+                && option_narrowed(space_id.as_ref(), parent_space.as_ref())
+        }
         _ => false,
     }
+}
+
+fn scope_narrowed(
+    child: ProtocolResourceSelectorScope,
+    parent: ProtocolResourceSelectorScope,
+) -> bool {
+    parent == ProtocolResourceSelectorScope::RealmWide || child == parent
 }
 
 fn realm_narrowed(child: &str, parent: &str) -> bool {

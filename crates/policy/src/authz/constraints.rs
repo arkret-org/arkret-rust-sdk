@@ -7,7 +7,7 @@ pub enum Resource {
     /// Realm resource.
     Realm { realm_id: String },
     /// Space resource.
-    Space { space_id: String },
+    Space { realm_id: String, space_id: String },
     /// Strand resource
     Strand { realm_id: String, strand_id: String },
     /// Message resource.
@@ -38,6 +38,7 @@ pub enum Resource {
     },
     /// Notification resource (per-actor private channel).
     Notification {
+        realm_id: String,
         actor_id: String,
         notification_id: String,
     },
@@ -52,16 +53,19 @@ pub enum Resource {
     /// Actor resource (account-lifecycle, profile updates).
     Actor { actor_id: String },
     /// Circle resource.
-    Circle { circle_id: crate::CircleId },
+    Circle {
+        realm_id: String,
+        circle_id: crate::CircleId,
+    },
 }
 
 impl Resource {
-    /// Get the Realm ID for this resource. Returns the wildcard string for
-    /// non-Realm-bound resources (Space, Notification, Actor) so callers retain a
-    /// consistent shape.
+    /// Get the Realm ID for this resource. Returns the wildcard string only for
+    /// actor resources, which are not Realm-bound.
     pub fn realm_id(&self) -> &str {
         match self {
             Self::Realm { realm_id } => realm_id,
+            Self::Space { realm_id, .. } => realm_id,
             Self::Strand { realm_id, .. } => realm_id,
             Self::Message { realm_id, .. } => realm_id,
             Self::Relation { realm_id, .. } => realm_id,
@@ -71,12 +75,11 @@ impl Resource {
             Self::Invite { realm_id, .. } => realm_id,
             Self::ReadCursor { realm_id } => realm_id,
             Self::Morph { realm_id, .. } => realm_id,
+            Self::Notification { realm_id, .. } => realm_id,
             Self::Blob { realm_id, .. } => realm_id,
             Self::Event { realm_id, .. } => realm_id,
-            Self::Space { .. }
-            | Self::Notification { .. }
-            | Self::Actor { .. }
-            | Self::Circle { .. } => "*",
+            Self::Circle { realm_id, .. } => realm_id,
+            Self::Actor { .. } => "*",
         }
     }
 }

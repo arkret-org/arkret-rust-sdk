@@ -58,7 +58,11 @@ pub enum ResourceSelector {
     /// Realm selector.
     Realm { realm_id: String },
     /// Space selector.
-    Space { space_id: String },
+    Space {
+        realm_id: String,
+        space_id: Option<String>,
+        match_scope: ProtocolResourceSelectorScope,
+    },
     /// Strand selector (strand_id)
     Strand {
         realm_id: String,
@@ -69,6 +73,7 @@ pub enum ResourceSelector {
         realm_id: String,
         object_type: Option<String>,
         object_ref: Option<String>,
+        match_scope: ProtocolResourceSelectorScope,
     },
     /// Message selector.
     Message {
@@ -108,9 +113,11 @@ pub enum ResourceSelector {
         realm_id: String,
         morph_id: Option<String>,
         morph_type: Option<String>,
+        match_scope: ProtocolResourceSelectorScope,
     },
     /// Notification selector (per-actor private). `actor_id` may be `*`.
     Notification {
+        realm_id: String,
         actor_id: String,
         notification_id: Option<String>,
     },
@@ -131,7 +138,11 @@ pub enum ResourceSelector {
     /// specific Circle by its `ak:circle:<uuid>` identifier. The Circle
     /// is scoped to its parent Realm; cross-Realm selectors MUST be
     /// rejected by the resolver (`circle_realm_mismatch`).
-    Circle { circle_id: crate::CircleId },
+    Circle {
+        realm_id: String,
+        circle_id: Option<crate::CircleId>,
+        match_scope: ProtocolResourceSelectorScope,
+    },
     /// Wildcard selector (all resources)
     Wildcard,
 }
@@ -139,6 +150,13 @@ pub enum ResourceSelector {
 impl ResourceSelector {
     /// Check if this selector matches a target resource.
     pub fn matches(&self, resource: &Resource) -> bool {
+        if let Some(realm_id) = self.realm_id()
+            && realm_id != "*"
+            && resource.realm_id() != realm_id
+        {
+            return false;
+        }
+
         match (self, resource) {
             (
                 Self::Realm { realm_id },
@@ -153,11 +171,23 @@ impl ResourceSelector {
 
             // Space selector
             (
-                Self::Space { space_id },
+                Self::Space {
+                    space_id,
+                    match_scope,
+                    ..
+                },
                 Resource::Space {
                     space_id: target_id,
+                    ..
                 },
-            ) => space_id == target_id || space_id == "*",
+            ) => match match_scope {
+                ProtocolResourceSelectorScope::Exact => {
+                    space_id.as_ref().is_some_and(|id| id == target_id)
+                }
+                ProtocolResourceSelectorScope::RealmWide => true,
+                ProtocolResourceSelectorScope::Children
+                | ProtocolResourceSelectorScope::Subtree => false,
+            },
             (Self::Space { .. }, _) => false,
 
             // Strand selector
@@ -183,6 +213,7 @@ impl ResourceSelector {
                     realm_id,
                     object_type,
                     object_ref,
+                    ..
                 },
                 Resource::Strand {
                     realm_id: target_realm,
@@ -199,6 +230,7 @@ impl ResourceSelector {
                     realm_id,
                     object_type,
                     object_ref,
+                    ..
                 },
                 Resource::Morph {
                     realm_id: target_realm,
@@ -322,6 +354,7 @@ impl ResourceSelector {
                     realm_id,
                     morph_id,
                     morph_type,
+                    ..
                 },
                 Resource::Morph {
                     realm_id: target_realm,
@@ -341,10 +374,12 @@ impl ResourceSelector {
                 Self::Notification {
                     actor_id,
                     notification_id,
+                    ..
                 },
                 Resource::Notification {
                     actor_id: target_actor,
                     notification_id: target_id,
+                    ..
                 },
             ) => {
                 let actor_match = actor_id == target_actor || actor_id == "*";
@@ -398,15 +433,49 @@ impl ResourceSelector {
 
             // Circle selector
             (
-                Self::Circle { circle_id },
+                Self::Circle {
+                    circle_id,
+                    match_scope,
+                    ..
+                },
                 Resource::Circle {
                     circle_id: target_id,
+                    ..
                 },
-            ) => circle_id == target_id,
+            ) => match match_scope {
+                ProtocolResourceSelectorScope::Exact => {
+                    circle_id.as_ref().is_some_and(|id| id == target_id)
+                }
+                ProtocolResourceSelectorScope::RealmWide => true,
+                ProtocolResourceSelectorScope::Children
+                | ProtocolResourceSelectorScope::Subtree => false,
+            },
             (Self::Circle { .. }, _) => false,
 
             // Wildcard matches everything
             (Self::Wildcard, _) => true,
+        }
+    }
+
+    fn realm_id(&self) -> Option<&str> {
+        match self {
+            Self::Realm { realm_id }
+            | Self::Space { realm_id, .. }
+            | Self::Strand { realm_id, .. }
+            | Self::Object { realm_id, .. }
+            | Self::Message { realm_id, .. }
+            | Self::Relation { realm_id, .. }
+            | Self::View { realm_id, .. }
+            | Self::Schema { realm_id, .. }
+            | Self::Policy { realm_id, .. }
+            | Self::Invite { realm_id, .. }
+            | Self::ReadCursor { realm_id }
+            | Self::Morph { realm_id, .. }
+            | Self::Notification { realm_id, .. }
+            | Self::Blob { realm_id, .. }
+            | Self::Event { realm_id, .. }
+            | Self::Circle { realm_id, .. } => Some(realm_id),
+            Self::Actor { .. } | Self::Wildcard => None,
         }
     }
 
@@ -430,20 +499,31 @@ impl ResourceSelector {
         let realm_or_wildcard = || field("realm_id").unwrap_or_else(|| "*".to_owned());
         let kind = field("kind")
             .ok_or_else(|| Error::Protocol("resource selector requires 'kind'".to_owned()))?;
+        let match_scope = parse_match_scope(object)?;
+        validate_match_scope(&kind, match_scope, object.contains_key("realm_id"))?;
         match kind.as_str() {
             "realm" => Ok(Self::Realm {
                 realm_id: realm_or_wildcard(),
             }),
             "space" => Ok(Self::Space {
-                space_id: field("space_id").unwrap_or_else(|| "*".to_owned()),
+                realm_id: field("realm_id").ok_or_else(|| {
+                    Error::Protocol("space selector requires realm_id".to_owned())
+                })?,
+                space_id: field("space_id"),
+                match_scope,
             }),
             "circle" => {
-                let raw = field("circle_id").ok_or_else(|| {
-                    Error::Protocol("circle selector requires circle_id".to_owned())
-                })?;
-                let circle_id = crate::CircleId::new(raw)
+                let circle_id = field("circle_id")
+                    .map(crate::CircleId::new)
+                    .transpose()
                     .map_err(|err| Error::Protocol(format!("invalid circle selector: {err}")))?;
-                Ok(Self::Circle { circle_id })
+                Ok(Self::Circle {
+                    realm_id: field("realm_id").ok_or_else(|| {
+                        Error::Protocol("circle selector requires realm_id".to_owned())
+                    })?,
+                    circle_id,
+                    match_scope,
+                })
             }
             "strand" => Ok(Self::Strand {
                 realm_id: realm_or_wildcard(),
@@ -457,11 +537,13 @@ impl ResourceSelector {
                 realm_id: realm_or_wildcard(),
                 morph_id: field("morph_id"),
                 morph_type: field("morph_type"),
+                match_scope,
             }),
             "object" => Ok(Self::Object {
                 realm_id: realm_or_wildcard(),
                 object_type: field("object_type"),
                 object_ref: field("object_ref"),
+                match_scope,
             }),
             "relation" => Ok(Self::Relation {
                 realm_id: realm_or_wildcard(),
@@ -508,6 +590,9 @@ impl ResourceSelector {
             // object part. The engine notification resource is keyed by
             // actor; absent actor_id means any actor in scope.
             "notification" => Ok(Self::Notification {
+                realm_id: field("realm_id").ok_or_else(|| {
+                    Error::Protocol("notification selector requires realm_id".to_owned())
+                })?,
                 actor_id: field("actor_id").unwrap_or_else(|| "*".to_owned()),
                 notification_id: None,
             }),
@@ -549,15 +634,34 @@ impl ResourceSelector {
                     put("realm_id", realm_id);
                 }
             }
-            Self::Space { space_id } => {
+            Self::Space {
+                realm_id,
+                space_id,
+                match_scope,
+            } => {
                 put("kind", "space");
-                if space_id != "*" {
-                    put("space_id", space_id);
+                put("realm_id", realm_id);
+                put_opt(&mut object, "space_id", space_id);
+                if *match_scope != ProtocolResourceSelectorScope::Exact {
+                    object.insert(
+                        "match_scope".to_owned(),
+                        Value::String(match_scope.as_str().to_owned()),
+                    );
                 }
             }
-            Self::Circle { circle_id } => {
+            Self::Circle {
+                realm_id,
+                circle_id,
+                match_scope,
+            } => {
                 put("kind", "circle");
-                put("circle_id", circle_id.as_ref());
+                put("realm_id", realm_id);
+                if let Some(circle_id) = circle_id {
+                    put("circle_id", circle_id.as_ref());
+                }
+                if *match_scope != ProtocolResourceSelectorScope::Exact {
+                    put("match_scope", match_scope.as_str());
+                }
             }
             Self::Strand {
                 realm_id,
@@ -583,6 +687,7 @@ impl ResourceSelector {
                 realm_id,
                 morph_id,
                 morph_type,
+                match_scope,
             } => {
                 put("kind", "morph");
                 if realm_id != "*" {
@@ -590,11 +695,18 @@ impl ResourceSelector {
                 }
                 put_opt(&mut object, "morph_id", morph_id);
                 put_opt(&mut object, "morph_type", morph_type);
+                if *match_scope != ProtocolResourceSelectorScope::Exact {
+                    object.insert(
+                        "match_scope".to_owned(),
+                        Value::String(match_scope.as_str().to_owned()),
+                    );
+                }
             }
             Self::Object {
                 realm_id,
                 object_type,
                 object_ref,
+                match_scope,
             } => {
                 put("kind", "object");
                 if realm_id != "*" {
@@ -602,6 +714,12 @@ impl ResourceSelector {
                 }
                 put_opt(&mut object, "object_type", object_type);
                 put_opt(&mut object, "object_ref", object_ref);
+                if *match_scope != ProtocolResourceSelectorScope::Exact {
+                    object.insert(
+                        "match_scope".to_owned(),
+                        Value::String(match_scope.as_str().to_owned()),
+                    );
+                }
             }
             Self::Relation {
                 realm_id,
@@ -666,8 +784,11 @@ impl ResourceSelector {
                 }
                 put_opt(&mut object, "invite_id", invite_id);
             }
-            Self::Notification { actor_id, .. } => {
+            Self::Notification {
+                realm_id, actor_id, ..
+            } => {
                 put("kind", "notification");
+                put("realm_id", realm_id);
                 if actor_id != "*" {
                     put("actor_id", actor_id);
                 }
@@ -712,9 +833,10 @@ impl ResourceSelector {
             "realm" => Ok(Self::Realm {
                 realm_id: remainder.to_owned(),
             }),
-            "space" => Ok(Self::Space {
-                space_id: remainder.to_owned(),
-            }),
+            "space" => Err(Error::Protocol(
+                "space shorthand cannot carry required realm_id; use a spec selector object"
+                    .to_owned(),
+            )),
             "strand" => {
                 let (realm_id, strand_id) = split_realm_tail(remainder, selector)?;
                 Ok(Self::Strand {
@@ -736,6 +858,7 @@ impl ResourceSelector {
                     realm_id,
                     object_type,
                     object_ref,
+                    match_scope: ProtocolResourceSelectorScope::Exact,
                 })
             }
             "message" => {
@@ -786,18 +909,10 @@ impl ResourceSelector {
             "read_cursor" => Ok(Self::ReadCursor {
                 realm_id: realm_part(remainder, selector)?,
             }),
-            "circle" => {
-                // Accept either `circle:ak:circle:<uuid>` (typed) or bare
-                // `circle:<uuid>` (parser tail).
-                let raw = if remainder.starts_with("ak:circle:") {
-                    remainder.to_owned()
-                } else {
-                    format!("ak:circle:{remainder}")
-                };
-                let circle_id = crate::CircleId::new(raw)
-                    .map_err(|err| Error::Protocol(format!("invalid circle selector: {err}")))?;
-                Ok(Self::Circle { circle_id })
-            }
+            "circle" => Err(Error::Protocol(
+                "circle shorthand cannot carry required realm_id; use a spec selector object"
+                    .to_owned(),
+            )),
             "*" => Ok(Self::Wildcard),
             _ => Err(Error::Protocol(format!(
                 "unknown selector type: {}",
@@ -836,13 +951,24 @@ pub enum ProtocolResourceSelectorKind {
 }
 
 /// Scope field from `ak.schema.resource_selector.v1`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProtocolResourceSelectorScope {
     Exact,
     Subtree,
     Children,
     RealmWide,
+}
+
+impl ProtocolResourceSelectorScope {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Exact => "exact",
+            Self::Subtree => "subtree",
+            Self::Children => "children",
+            Self::RealmWide => "realm_wide",
+        }
+    }
 }
 
 /// Schema-aligned selector facade used for REST/OpenAPI/scaffold surfaces.
@@ -898,9 +1024,15 @@ impl ProtocolResourceSelector {
                 out.realm_id = Some(realm_id.clone());
                 out
             }
-            ResourceSelector::Space { space_id } => {
+            ResourceSelector::Space {
+                realm_id,
+                space_id,
+                match_scope,
+            } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Space);
-                out.space_id = Some(space_id.clone());
+                out.realm_id = Some(realm_id.clone());
+                out.space_id = space_id.clone();
+                out.match_scope = Some(*match_scope);
                 out
             }
             ResourceSelector::Strand {
@@ -916,11 +1048,13 @@ impl ProtocolResourceSelector {
                 realm_id,
                 object_type,
                 object_ref,
+                match_scope,
             } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Object);
                 out.realm_id = Some(realm_id.clone());
                 out.object_type = object_type.clone();
                 out.object_ref = object_ref.clone();
+                out.match_scope = Some(*match_scope);
                 out
             }
             ResourceSelector::Message {
@@ -983,18 +1117,22 @@ impl ProtocolResourceSelector {
                 realm_id,
                 morph_id,
                 morph_type,
+                match_scope,
             } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Morph);
                 out.realm_id = Some(realm_id.clone());
                 out.morph_id = morph_id.clone();
                 out.morph_type = morph_type.clone();
+                out.match_scope = Some(*match_scope);
                 out
             }
             ResourceSelector::Notification {
+                realm_id,
                 actor_id,
                 notification_id,
             } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Notification);
+                out.realm_id = Some(realm_id.clone());
                 out.actor_id = Some(actor_id.clone());
                 out.object_ref = notification_id.clone();
                 out
@@ -1021,9 +1159,15 @@ impl ProtocolResourceSelector {
                 out.actor_id = Some(actor_id.clone());
                 out
             }
-            ResourceSelector::Circle { circle_id } => {
+            ResourceSelector::Circle {
+                realm_id,
+                circle_id,
+                match_scope,
+            } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Circle);
-                out.circle_id = Some(circle_id.to_string());
+                out.realm_id = Some(realm_id.clone());
+                out.circle_id = circle_id.as_ref().map(ToString::to_string);
+                out.match_scope = Some(*match_scope);
                 out
             }
             ResourceSelector::Wildcard => Self::empty(ProtocolResourceSelectorKind::Wildcard),
@@ -1181,7 +1325,85 @@ fn validate_spec_selector_object(object: &serde_json::Map<String, Value>) -> Res
             "selector_governance_wildcard_forbidden".to_owned(),
         ));
     }
+    if let Some(kind) = object.get("kind").and_then(Value::as_str) {
+        let realm_scoped = matches!(
+            kind,
+            "space"
+                | "circle"
+                | "strand"
+                | "message"
+                | "morph"
+                | "object"
+                | "relation"
+                | "view"
+                | "event"
+                | "policy"
+                | "invite"
+                | "notification"
+                | "read_cursor"
+        );
+        if realm_scoped && object.get("realm_id").and_then(Value::as_str).is_none() {
+            return Err(Error::Protocol(format!(
+                "{kind} selector requires realm_id"
+            )));
+        }
+        if kind == "actor" && object.get("actor_id").and_then(Value::as_str).is_none() {
+            return Err(Error::Protocol(
+                "actor selector requires actor_id".to_owned(),
+            ));
+        }
+    }
     Ok(())
+}
+
+fn parse_match_scope(
+    object: &serde_json::Map<String, Value>,
+) -> Result<ProtocolResourceSelectorScope> {
+    match object.get("match_scope") {
+        None => Ok(ProtocolResourceSelectorScope::Exact),
+        Some(Value::String(value)) => match value.as_str() {
+            "exact" => Ok(ProtocolResourceSelectorScope::Exact),
+            "children" => Ok(ProtocolResourceSelectorScope::Children),
+            "subtree" => Ok(ProtocolResourceSelectorScope::Subtree),
+            "realm_wide" => Ok(ProtocolResourceSelectorScope::RealmWide),
+            _ => Err(Error::Protocol("unknown match_scope".to_owned())),
+        },
+        Some(_) => Err(Error::Protocol("match_scope must be a string".to_owned())),
+    }
+}
+
+fn validate_match_scope(
+    kind: &str,
+    match_scope: ProtocolResourceSelectorScope,
+    has_realm_id: bool,
+) -> Result<()> {
+    match match_scope {
+        ProtocolResourceSelectorScope::Exact => Ok(()),
+        ProtocolResourceSelectorScope::Children | ProtocolResourceSelectorScope::Subtree => {
+            if kind != "space" {
+                return Err(Error::Protocol(
+                    "children/subtree match_scope only valid for space".to_owned(),
+                ));
+            }
+            Err(Error::Protocol(
+                "space children/subtree matching requires a CBA-anchored parent resolver"
+                    .to_owned(),
+            ))
+        }
+        ProtocolResourceSelectorScope::RealmWide => {
+            if !has_realm_id {
+                return Err(Error::Protocol(
+                    "realm_wide selector requires realm_id".to_owned(),
+                ));
+            }
+            if !matches!(kind, "space" | "circle" | "object" | "morph") {
+                return Err(Error::Protocol(
+                    "realm_wide match_scope only valid for space/circle/object/morph".to_owned(),
+                ));
+            }
+            Ok(())
+        }
+    }
 }
 
 fn validate_spec_selector_field_value(value: &Value) -> Result<()> {
@@ -1302,6 +1524,7 @@ mod spec_selector_tests {
                 realm_id: "ak:realm:01904100-0000-7000-8000-65c7feb295d7".to_owned(),
                 object_type: Some("strand".to_owned()),
                 object_ref: None,
+                match_scope: ProtocolResourceSelectorScope::Exact,
             }
         );
         assert_eq!(selector.to_spec_value(), spec);
@@ -1395,5 +1618,105 @@ mod spec_selector_tests {
         ))
         .unwrap_err();
         assert!(format!("{err}").contains("resource selector must be an object"));
+    }
+
+    #[test]
+    fn space_selector_never_crosses_realm_boundaries() {
+        let realm_a = "ak:realm:01904100-0000-7000-8000-65c7feb295d7";
+        let realm_b = "ak:realm:01904100-0000-7000-8000-75c7feb295d7";
+        let space_id = "ak:space:01904100-0000-7000-8000-85c7feb295d7";
+        let selector = ResourceSelector::from_spec_value(&json!({
+            "kind": "space",
+            "realm_id": realm_a,
+            "space_id": space_id
+        }))
+        .unwrap();
+
+        assert!(selector.matches(&Resource::Space {
+            realm_id: realm_a.to_owned(),
+            space_id: space_id.to_owned(),
+        }));
+        assert!(!selector.matches(&Resource::Space {
+            realm_id: realm_b.to_owned(),
+            space_id: space_id.to_owned(),
+        }));
+        assert_eq!(
+            selector.to_spec_value(),
+            json!({"kind": "space", "realm_id": realm_a, "space_id": space_id})
+        );
+    }
+
+    #[test]
+    fn exact_space_without_space_id_matches_nothing() {
+        let realm_id = "ak:realm:01904100-0000-7000-8000-65c7feb295d7";
+        let selector = ResourceSelector::from_spec_value(&json!({
+            "kind": "space",
+            "realm_id": realm_id
+        }))
+        .unwrap();
+        assert!(!selector.matches(&Resource::Space {
+            realm_id: realm_id.to_owned(),
+            space_id: "ak:space:01904100-0000-7000-8000-85c7feb295d7".to_owned(),
+        }));
+    }
+
+    #[test]
+    fn realm_wide_space_is_limited_to_its_realm() {
+        let realm_a = "ak:realm:01904100-0000-7000-8000-65c7feb295d7";
+        let realm_b = "ak:realm:01904100-0000-7000-8000-75c7feb295d7";
+        let selector = ResourceSelector::from_spec_value(&json!({
+            "kind": "space",
+            "realm_id": realm_a,
+            "match_scope": "realm_wide"
+        }))
+        .unwrap();
+
+        assert!(selector.matches(&Resource::Space {
+            realm_id: realm_a.to_owned(),
+            space_id: "ak:space:01904100-0000-7000-8000-85c7feb295d7".to_owned(),
+        }));
+        assert!(!selector.matches(&Resource::Space {
+            realm_id: realm_b.to_owned(),
+            space_id: "ak:space:01904100-0000-7000-8000-95c7feb295d7".to_owned(),
+        }));
+        assert_eq!(
+            selector.to_spec_value(),
+            json!({"kind": "space", "realm_id": realm_a, "match_scope": "realm_wide"})
+        );
+    }
+
+    #[test]
+    fn notification_selector_never_crosses_realm_boundaries() {
+        let realm_a = "ak:realm:01904100-0000-7000-8000-65c7feb295d7";
+        let realm_b = "ak:realm:01904100-0000-7000-8000-75c7feb295d7";
+        let selector = ResourceSelector::from_spec_value(&json!({
+            "kind": "notification",
+            "realm_id": realm_a
+        }))
+        .unwrap();
+        let notification = |realm_id: &str| Resource::Notification {
+            realm_id: realm_id.to_owned(),
+            actor_id: "did:webvh:z6mkfixture:alice.example".to_owned(),
+            notification_id: "ak:notify:01JS0NT000000000000000000".to_owned(),
+        };
+
+        assert!(selector.matches(&notification(realm_a)));
+        assert!(!selector.matches(&notification(realm_b)));
+        assert_eq!(
+            selector.to_spec_value(),
+            json!({"kind": "notification", "realm_id": realm_a})
+        );
+    }
+
+    #[test]
+    fn unsupported_hierarchical_scope_fails_closed() {
+        let err = ResourceSelector::from_spec_value(&json!({
+            "kind": "space",
+            "realm_id": "ak:realm:01904100-0000-7000-8000-65c7feb295d7",
+            "space_id": "ak:space:01904100-0000-7000-8000-85c7feb295d7",
+            "match_scope": "subtree"
+        }))
+        .unwrap_err();
+        assert!(format!("{err}").contains("CBA-anchored parent resolver"));
     }
 }

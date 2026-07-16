@@ -446,6 +446,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_arkret/self/events"
     ),
     endpoint!(
+        "ak.self.events.command.submit_seal",
+        Post,
+        "/_arkret/self/events/seals"
+    ),
+    endpoint!(
         "ak.peer.events.query.describe",
         Get,
         "/_arkret/peer/events/describe"
