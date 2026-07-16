@@ -487,6 +487,11 @@ pub enum AccountHandoffBinding {
 #[serde(deny_unknown_fields)]
 pub struct AccountHandoffOutcome {
     pub request_id: RequestId,
+    /// Canonical handle of the authenticated service account.
+    ///
+    /// This unsigned value is a UX hint for display and local artifact
+    /// naming only. It is not principal identity evidence or authorization.
+    pub account_handle: Handle,
     pub account_handoff_grant: String,
     pub expires_at: DateTime<Utc>,
     pub allowed_operations: [AccountHandoffAllowedOperation; 3],
@@ -788,6 +793,7 @@ mod account_handoff_tests {
     fn account_handoff_outcome_enforces_canonical_allowlist() {
         let mut outcome = AccountHandoffOutcome {
             request_id: handoff_request().request_id,
+            account_handle: Handle::parse("alice:example.com").unwrap(),
             account_handoff_grant: "g".repeat(32),
             expires_at: Utc::now(),
             allowed_operations: ACCOUNT_HANDOFF_ALLOWED_OPERATIONS,
@@ -807,5 +813,26 @@ mod account_handoff_tests {
             .unwrap()
             .insert("recovery_secret".to_owned(), json!("must-not-pass"));
         assert!(serde_json::from_value::<AccountHandoffRequestBody>(value).is_err());
+    }
+
+    #[test]
+    fn account_handoff_outcome_requires_canonical_account_handle() {
+        let outcome = AccountHandoffOutcome {
+            request_id: handoff_request().request_id,
+            account_handle: Handle::parse("alice:example.com").unwrap(),
+            account_handoff_grant: "g".repeat(32),
+            expires_at: Utc::now(),
+            allowed_operations: ACCOUNT_HANDOFF_ALLOWED_OPERATIONS,
+            binding: AccountHandoffBinding::IdentityCreationBusy { retry_after_ms: 1 },
+        };
+        let mut value = serde_json::to_value(outcome).unwrap();
+        value.as_object_mut().unwrap().remove("account_handle");
+        assert!(serde_json::from_value::<AccountHandoffOutcome>(value.clone()).is_err());
+
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("account_handle".to_owned(), json!("not-a-canonical-handle"));
+        assert!(serde_json::from_value::<AccountHandoffOutcome>(value).is_err());
     }
 }
