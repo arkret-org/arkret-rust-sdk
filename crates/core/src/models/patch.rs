@@ -303,14 +303,14 @@ pub fn validate_patch_semantic_safety(patch: &Patch) -> Result<()> {
     for (path, op) in patch.iter() {
         if patch_path_targets_reducer_managed(path) {
             return Err(Error::Protocol(
-                crate::error::REASON_PATCH_PATH_REDUCER_MANAGED.to_owned(),
+                crate::error::ReasonCode::PATCH_PATH_REDUCER_MANAGED.to_owned(),
             ));
         }
         if matches!(op.op(), PatchOpKind::Unset | PatchOpKind::Remove)
             && patch_path_targets_redactable_unset(path)
         {
             return Err(Error::Protocol(
-                crate::error::REASON_PATCH_UNSET_REDACTABLE_FIELD.to_owned(),
+                crate::error::ReasonCode::PATCH_UNSET_REDACTABLE_FIELD.to_owned(),
             ));
         }
     }
@@ -667,7 +667,7 @@ mod tests {
                 .unwrap_err();
         assert!(
             err.to_string()
-                .contains(crate::error::REASON_PATCH_PATH_REDUCER_MANAGED)
+                .contains(crate::error::ReasonCode::PATCH_PATH_REDUCER_MANAGED)
         );
     }
 
@@ -685,7 +685,7 @@ mod tests {
         .unwrap_err();
         assert!(
             err.to_string()
-                .contains(crate::error::REASON_PATCH_UNSET_REDACTABLE_FIELD)
+                .contains(crate::error::ReasonCode::PATCH_UNSET_REDACTABLE_FIELD)
         );
     }
 

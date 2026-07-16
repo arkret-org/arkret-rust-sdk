@@ -6,11 +6,6 @@ use std::sync::OnceLock;
 use regex::Regex;
 
 use super::*;
-use crate::error::{
-    ERROR_CODE_PROFILE_UNSUPPORTED, ERROR_CODE_SCHEMA_VIOLATION, ERROR_CODE_STATE_MISMATCH,
-    REASON_MLS_GOVERNANCE_BINDING_STALE, REASON_REDUCER_PROFILE_MISMATCH,
-};
-use crate::events::MLS_COMMIT;
 use crate::{base64url_decode, base64url_encode};
 
 pub const MLS_GOVERNANCE_BINDING_VERSION: u8 = 1;
@@ -65,7 +60,7 @@ impl MlsGovernanceBindingPayload {
             effective_scope: EffectiveScope::Realm { realm_id },
             mls_group_id: MlsGroupId::new(mls_group_id.into()).map_err(|err| {
                 Error::Protocol(format!(
-                    "mls_governance_binding.mls_group_id is invalid: {err} ({ERROR_CODE_SCHEMA_VIOLATION})"
+                    "mls_governance_binding.mls_group_id is invalid: {err} (schema_violation)"
                 ))
             })?,
             previous_epoch,
@@ -106,7 +101,7 @@ impl MlsGovernanceBindingPayload {
             },
             mls_group_id: MlsGroupId::new(mls_group_id.into()).map_err(|err| {
                 Error::Protocol(format!(
-                    "mls_governance_binding.mls_group_id is invalid: {err} ({ERROR_CODE_SCHEMA_VIOLATION})"
+                    "mls_governance_binding.mls_group_id is invalid: {err} (schema_violation)"
                 ))
             })?,
             previous_epoch,
@@ -147,17 +142,17 @@ impl MlsGovernanceBindingPayload {
     pub fn validate(&self) -> Result<()> {
         if self.binding_version != MLS_GOVERNANCE_BINDING_VERSION {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.binding_version must be {MLS_GOVERNANCE_BINDING_VERSION} ({ERROR_CODE_SCHEMA_VIOLATION})"
+                "mls_governance_binding.binding_version must be {MLS_GOVERNANCE_BINDING_VERSION} (schema_violation)"
             )));
         }
         if self.encoding_profile != MLS_GOVERNANCE_BINDING_ENCODING_PROFILE {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.encoding_profile must be {MLS_GOVERNANCE_BINDING_ENCODING_PROFILE} ({ERROR_CODE_SCHEMA_VIOLATION})"
+                "mls_governance_binding.encoding_profile must be {MLS_GOVERNANCE_BINDING_ENCODING_PROFILE} (schema_violation)"
             )));
         }
         if self.membership_frontier.is_empty() {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.membership_frontier must be non-empty ({ERROR_CODE_SCHEMA_VIOLATION})"
+                "mls_governance_binding.membership_frontier must be non-empty (schema_violation)"
             )));
         }
         validate_profile_id(
@@ -167,25 +162,25 @@ impl MlsGovernanceBindingPayload {
         if self.binding_profile == MLS_GOVERNANCE_BINDING_FULL_PROFILE {
             if self.capability_root.is_none() {
                 return Err(Error::Protocol(format!(
-                    "full mls_governance_binding requires capability_root ({ERROR_CODE_SCHEMA_VIOLATION})"
+                    "full mls_governance_binding requires capability_root (schema_violation)"
                 )));
             }
             if self.discussion_metadata_digest.is_none() {
                 return Err(Error::Protocol(format!(
-                    "full mls_governance_binding requires discussion_metadata_digest ({ERROR_CODE_SCHEMA_VIOLATION})"
+                    "full mls_governance_binding requires discussion_metadata_digest (schema_violation)"
                 )));
             }
         }
         if self.reducer_profile.is_empty() {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.reducer_profile must be non-empty ({ERROR_CODE_SCHEMA_VIOLATION})"
+                "mls_governance_binding.reducer_profile must be non-empty (schema_violation)"
             )));
         }
         match &self.effective_scope {
             EffectiveScope::Realm { realm_id } => {
                 if realm_id != &self.realm_id || self.circle_id.is_some() {
                     return Err(Error::Protocol(format!(
-                        "mls_governance_binding realm effective_scope mismatch ({ERROR_CODE_SCHEMA_VIOLATION})"
+                        "mls_governance_binding realm effective_scope mismatch (schema_violation)"
                     )));
                 }
             }
@@ -195,7 +190,7 @@ impl MlsGovernanceBindingPayload {
             } => {
                 if realm_id != &self.realm_id || self.circle_id.as_ref() != Some(circle_id) {
                     return Err(Error::Protocol(format!(
-                        "mls_governance_binding circle effective_scope mismatch ({ERROR_CODE_SCHEMA_VIOLATION})"
+                        "mls_governance_binding circle effective_scope mismatch (schema_violation)"
                     )));
                 }
             }
@@ -210,24 +205,24 @@ impl MlsGovernanceBindingPayload {
         self.validate()?;
         if self.mls_group_id.as_str() != expected.mls_group_id {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.mls_group_id does not match expected commit group ({ERROR_CODE_STATE_MISMATCH})"
+                "mls_governance_binding.mls_group_id does not match expected commit group (state_mismatch)"
             )));
         }
         if self.previous_epoch != expected.previous_epoch || self.next_epoch != expected.next_epoch
         {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding epoch does not match expected commit epoch ({ERROR_CODE_STATE_MISMATCH})"
+                "mls_governance_binding epoch does not match expected commit epoch (state_mismatch)"
             )));
         }
         if self.binding_profile != expected.binding_profile {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.binding_profile mismatch: expected {} got {} ({ERROR_CODE_PROFILE_UNSUPPORTED})",
+                "mls_governance_binding.binding_profile mismatch: expected {} got {} (profile_unsupported)",
                 expected.binding_profile, self.binding_profile
             )));
         }
         if self.reducer_profile != expected.reducer_profile {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.reducer_profile mismatch: expected {} got {} ({REASON_REDUCER_PROFILE_MISMATCH})",
+                "mls_governance_binding.reducer_profile mismatch: expected {} got {} (reducer_profile_mismatch)",
                 expected.reducer_profile, self.reducer_profile
             )));
         }
@@ -235,35 +230,35 @@ impl MlsGovernanceBindingPayload {
             && &self.effective_scope != scope
         {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.effective_scope mismatch ({ERROR_CODE_STATE_MISMATCH})"
+                "mls_governance_binding.effective_scope mismatch (state_mismatch)"
             )));
         }
         if let Some(frontier) = expected.membership_frontier
             && self.membership_frontier.as_slice() != frontier
         {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.membership_frontier is stale ({REASON_MLS_GOVERNANCE_BINDING_STALE})"
+                "mls_governance_binding.membership_frontier is stale (mls_governance_binding_stale)"
             )));
         }
         if let Some(policy_root) = expected.policy_root
             && &self.policy_root != policy_root
         {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.policy_root is stale ({REASON_MLS_GOVERNANCE_BINDING_STALE})"
+                "mls_governance_binding.policy_root is stale (mls_governance_binding_stale)"
             )));
         }
         if let Some(capability_root) = expected.capability_root
             && self.capability_root.as_ref() != Some(capability_root)
         {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.capability_root is stale ({REASON_MLS_GOVERNANCE_BINDING_STALE})"
+                "mls_governance_binding.capability_root is stale (mls_governance_binding_stale)"
             )));
         }
         if let Some(digest) = expected.discussion_metadata_digest
             && self.discussion_metadata_digest.as_ref() != Some(digest)
         {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.discussion_metadata_digest is stale ({REASON_MLS_GOVERNANCE_BINDING_STALE})"
+                "mls_governance_binding.discussion_metadata_digest is stale (mls_governance_binding_stale)"
             )));
         }
         Ok(())
@@ -307,7 +302,7 @@ impl MlsGovernanceBindingPayload {
         cbor_put_tstr(&mut out, "mls_group_id");
         cbor_put_bstr(&mut out, &base64url_decode(self.mls_group_id.as_str()).map_err(|err| {
             Error::Protocol(format!(
-                "mls_governance_binding.mls_group_id must be base64url for CBOR bstr encoding: {err} ({ERROR_CODE_SCHEMA_VIOLATION})"
+                "mls_governance_binding.mls_group_id must be base64url for CBOR bstr encoding: {err} (schema_violation)"
             ))
         })?);
         cbor_put_tstr(&mut out, "next_epoch");
@@ -334,7 +329,7 @@ impl MlsGovernanceBindingPayload {
         let canonical = payload.to_deterministic_cbor()?;
         if canonical != bytes {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding CBOR is not deterministic canonical encoding ({ERROR_CODE_SCHEMA_VIOLATION})"
+                "mls_governance_binding CBOR is not deterministic canonical encoding (schema_violation)"
             )));
         }
         Ok(payload)
@@ -579,7 +574,7 @@ pub fn decode_mls_governance_binding_extension(
 ) -> Result<MlsGovernanceBindingPayload> {
     if extension_type != MLS_GOVERNANCE_BINDING_EXTENSION_TYPE {
         return Err(Error::Protocol(format!(
-            "expected {MLS_GOVERNANCE_BINDING_EXTENSION_NAME} GroupContext extension codepoint 0x{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE:04X}, got 0x{extension_type:04X} ({ERROR_CODE_PROFILE_UNSUPPORTED})"
+            "expected {MLS_GOVERNANCE_BINDING_EXTENSION_NAME} GroupContext extension codepoint 0x{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE:04X}, got 0x{extension_type:04X} (profile_unsupported)"
         )));
     }
     MlsGovernanceBindingPayload::from_deterministic_cbor(extension_data)
@@ -591,7 +586,7 @@ pub fn verify_mls_governance_binding_extension(
 ) -> Result<MlsGovernanceBindingPayload> {
     let extension = extension.ok_or_else(|| {
         Error::Protocol(format!(
-            "missing {MLS_GOVERNANCE_BINDING_EXTENSION_NAME} GroupContext extension 0x{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE:04X} ({ERROR_CODE_PROFILE_UNSUPPORTED})"
+            "missing {MLS_GOVERNANCE_BINDING_EXTENSION_NAME} GroupContext extension 0x{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE:04X} (profile_unsupported)"
         ))
     })?;
     let payload = extension.decode_payload()?;
@@ -662,7 +657,7 @@ impl MlsCommitPayload {
         let payload = Self {
             mls_group_id: MlsGroupId::new(mls_group_id.into()).map_err(|err| {
                 Error::Protocol(format!(
-                    "mls_commit_payload.mls_group_id is invalid: {err} ({ERROR_CODE_SCHEMA_VIOLATION})"
+                    "mls_commit_payload.mls_group_id is invalid: {err} (schema_violation)"
                 ))
             })?,
             base_epoch,
@@ -689,7 +684,7 @@ impl MlsCommitPayload {
     pub fn validate(&self) -> Result<()> {
         if self.base_epoch.checked_add(1) != Some(self.next_epoch) {
             return Err(Error::Protocol(format!(
-                "mls_commit_payload.next_epoch must equal base_epoch + 1 ({ERROR_CODE_SCHEMA_VIOLATION})"
+                "mls_commit_payload.next_epoch must equal base_epoch + 1 (schema_violation)"
             )));
         }
         validate_object_ref("mls_commit_payload.base_epoch_ref", &self.base_epoch_ref)?;
@@ -700,28 +695,28 @@ impl MlsCommitPayload {
         for proposal_ref in &self.proposal_refs {
             if !seen.insert(proposal_ref.to_string()) {
                 return Err(Error::Protocol(format!(
-                    "mls_commit_payload.proposal_refs must be unique ({ERROR_CODE_SCHEMA_VIOLATION})"
+                    "mls_commit_payload.proposal_refs must be unique (schema_violation)"
                 )));
             }
         }
         self.governance_binding.validate()?;
         if self.governance_binding.mls_group_id() != self.mls_group_id.as_str() {
             return Err(Error::Protocol(format!(
-                "mls_commit_payload.governance_binding.mls_group_id mismatch ({ERROR_CODE_SCHEMA_VIOLATION})"
+                "mls_commit_payload.governance_binding.mls_group_id mismatch (schema_violation)"
             )));
         }
         if self.governance_binding.previous_epoch() != self.base_epoch
             || self.governance_binding.next_epoch() != self.next_epoch
         {
             return Err(Error::Protocol(format!(
-                "mls_commit_payload.governance_binding epoch mismatch ({ERROR_CODE_SCHEMA_VIOLATION})"
+                "mls_commit_payload.governance_binding epoch mismatch (schema_violation)"
             )));
         }
         Ok(())
     }
 
     pub fn event_kind(&self) -> &'static str {
-        MLS_COMMIT
+        crate::events::EventKind::MLS_COMMIT
     }
 
     pub fn mls_group_id(&self) -> &str {
@@ -840,7 +835,7 @@ pub fn derive_media_decrypt_metadata_digest(value: &MediaDecryptPolicyValue) -> 
 /// local policy view disagrees with what the binding attests, so per
 /// §10.5.1 rule 5 the member MUST treat the binding as stale and refuse media
 /// negotiation. The mismatch returns [`Error::Protocol`] tagged with
-/// [`REASON_MLS_GOVERNANCE_BINDING_STALE`].
+/// [`crate::error::ReasonCode::MLS_GOVERNANCE_BINDING_STALE`].
 pub fn verify_media_decrypt_metadata(
     binding_covered_digest: &Hash,
     recomputed: &Hash,
@@ -850,7 +845,7 @@ pub fn verify_media_decrypt_metadata(
     } else {
         Err(Error::Protocol(format!(
             "media_service_decrypts metadata digest does not match governance binding; \
-             refusing media negotiation ({REASON_MLS_GOVERNANCE_BINDING_STALE})"
+             refusing media negotiation (mls_governance_binding_stale)"
         )))
     }
 }
@@ -878,7 +873,7 @@ fn validate_object_ref(field: &str, value: &str) -> Result<()> {
         Ok(())
     } else {
         Err(Error::Protocol(format!(
-            "{field} must match event-payload.schema.json#/$defs/object_ref ({ERROR_CODE_SCHEMA_VIOLATION})"
+            "{field} must match event-payload.schema.json#/$defs/object_ref (schema_violation)"
         )))
     }
 }
@@ -888,7 +883,7 @@ fn validate_profile_id(field: &str, value: &str) -> Result<()> {
         Ok(())
     } else {
         Err(Error::Protocol(format!(
-            "{field} must match event-payload.schema.json#/$defs/mls_governance_binding.binding_profile ({ERROR_CODE_SCHEMA_VIOLATION})"
+            "{field} must match event-payload.schema.json#/$defs/mls_governance_binding.binding_profile (schema_violation)"
         )))
     }
 }
@@ -1234,17 +1229,17 @@ fn take_effective_scope(fields: &mut BTreeMap<String, CborValue>) -> Result<Effe
 fn hash_digest_bytes(field: &str, hash: &Hash) -> Result<Vec<u8>> {
     let Some(hex_value) = hash.as_str().strip_prefix("sha256:") else {
         return Err(Error::Protocol(format!(
-            "mls_governance_binding.{field} must be sha256:<hex> ({ERROR_CODE_SCHEMA_VIOLATION})"
+            "mls_governance_binding.{field} must be sha256:<hex> (schema_violation)"
         )));
     };
     let bytes = hex::decode(hex_value).map_err(|err| {
         Error::Protocol(format!(
-            "mls_governance_binding.{field} hash is not hex: {err} ({ERROR_CODE_SCHEMA_VIOLATION})"
+            "mls_governance_binding.{field} hash is not hex: {err} (schema_violation)"
         ))
     })?;
     if bytes.len() != 32 {
         return Err(Error::Protocol(format!(
-            "mls_governance_binding.{field} hash must be 32 bytes ({ERROR_CODE_SCHEMA_VIOLATION})"
+            "mls_governance_binding.{field} hash must be 32 bytes (schema_violation)"
         )));
     }
     Ok(bytes)
@@ -1269,7 +1264,7 @@ fn cbor_error(message: &str) -> Error {
 
 fn cbor_error_message(message: String) -> Error {
     Error::Protocol(format!(
-        "mls_governance_binding CBOR decode failed: {message} ({ERROR_CODE_SCHEMA_VIOLATION})"
+        "mls_governance_binding CBOR decode failed: {message} (schema_violation)"
     ))
 }
 
@@ -1465,14 +1460,21 @@ mod tests {
         expected.policy_root = Some(binding.policy_root());
 
         let missing = verify_mls_governance_binding_extension(None, &expected).unwrap_err();
-        assert!(missing.to_string().contains(ERROR_CODE_PROFILE_UNSUPPORTED));
+        assert!(
+            missing
+                .to_string()
+                .contains(crate::error::ErrorCode::PROFILE_UNSUPPORTED)
+        );
 
         let wrong = MlsGovernanceBindingExtension {
             extension_type: MLS_GOVERNANCE_BINDING_EXTENSION_TYPE + 1,
             extension_data: binding.to_deterministic_cbor().unwrap(),
         };
         let err = verify_mls_governance_binding_extension(Some(&wrong), &expected).unwrap_err();
-        assert!(err.to_string().contains(ERROR_CODE_PROFILE_UNSUPPORTED));
+        assert!(
+            err.to_string()
+                .contains(crate::error::ErrorCode::PROFILE_UNSUPPORTED)
+        );
     }
 
     #[test]
@@ -1490,7 +1492,10 @@ mod tests {
         let extension = relaxed.to_group_context_extension().unwrap();
         let err = verify_mls_governance_binding_extension(Some(&extension), &expected).unwrap_err();
 
-        assert!(err.to_string().contains(ERROR_CODE_PROFILE_UNSUPPORTED));
+        assert!(
+            err.to_string()
+                .contains(crate::error::ErrorCode::PROFILE_UNSUPPORTED)
+        );
     }
 
     #[test]
@@ -1510,7 +1515,7 @@ mod tests {
 
         assert!(
             err.to_string()
-                .contains(REASON_MLS_GOVERNANCE_BINDING_STALE)
+                .contains(crate::error::ReasonCode::MLS_GOVERNANCE_BINDING_STALE)
         );
     }
 
@@ -1567,7 +1572,10 @@ mod tests {
 
         let err = MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes).unwrap_err();
 
-        assert!(err.to_string().contains(ERROR_CODE_SCHEMA_VIOLATION));
+        assert!(
+            err.to_string()
+                .contains(crate::error::ErrorCode::SCHEMA_VIOLATION)
+        );
     }
 
     #[test]
@@ -1655,7 +1663,7 @@ mod tests {
         let err = verify_media_decrypt_metadata(&digest, &recomputed).unwrap_err();
         assert!(
             err.to_string()
-                .contains(REASON_MLS_GOVERNANCE_BINDING_STALE)
+                .contains(crate::error::ReasonCode::MLS_GOVERNANCE_BINDING_STALE)
         );
     }
 }

@@ -1,12 +1,6 @@
 //! Moderation appeal event payloads.
 
 use super::*;
-use crate::ERROR_CODE_SCHEMA_VIOLATION;
-use crate::events::{
-    MODERATION_APPEAL_CLOSE, MODERATION_APPEAL_DECISION, MODERATION_APPEAL_REVIEW,
-    MODERATION_APPEAL_SUBMIT,
-};
-
 /// Verdict on a moderation appeal (decision payload).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -108,10 +102,16 @@ impl ModerationAppealPayload {
     /// Companion event kind this payload variant is submitted on.
     pub fn event_kind(&self) -> &'static str {
         match self {
-            ModerationAppealPayload::Submit(_) => MODERATION_APPEAL_SUBMIT,
-            ModerationAppealPayload::Review(_) => MODERATION_APPEAL_REVIEW,
-            ModerationAppealPayload::Decision(_) => MODERATION_APPEAL_DECISION,
-            ModerationAppealPayload::Close(_) => MODERATION_APPEAL_CLOSE,
+            ModerationAppealPayload::Submit(_) => {
+                crate::events::EventKind::MODERATION_APPEAL_SUBMIT
+            }
+            ModerationAppealPayload::Review(_) => {
+                crate::events::EventKind::MODERATION_APPEAL_REVIEW
+            }
+            ModerationAppealPayload::Decision(_) => {
+                crate::events::EventKind::MODERATION_APPEAL_DECISION
+            }
+            ModerationAppealPayload::Close(_) => crate::events::EventKind::MODERATION_APPEAL_CLOSE,
         }
     }
 
@@ -133,13 +133,13 @@ impl ModerationAppealPayload {
                 (AppealVerdict::Modify, None) => {
                     return Err(Error::Protocol(format!(
                         "moderation appeal decision verdict=modify requires modify_decision_ref \
-                         ({ERROR_CODE_SCHEMA_VIOLATION})"
+                         (schema_violation)"
                     )));
                 }
                 (AppealVerdict::Uphold | AppealVerdict::Overturn, Some(_)) => {
                     return Err(Error::Protocol(format!(
                         "moderation appeal decision verdict={:?} MUST NOT include \
-                         modify_decision_ref ({ERROR_CODE_SCHEMA_VIOLATION})",
+                         modify_decision_ref (schema_violation)",
                         p.verdict
                     )));
                 }

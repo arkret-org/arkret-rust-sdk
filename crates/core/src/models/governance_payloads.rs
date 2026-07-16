@@ -40,7 +40,7 @@ impl ConsentRevokePayload {
         if self.observed_dots.is_empty() {
             return Err(Error::Protocol(format!(
                 "ak.consent.revoke MUST carry non-empty observed_dots ({})",
-                crate::ERROR_CODE_SCHEMA_VIOLATION
+                crate::ErrorCode::SCHEMA_VIOLATION
             )));
         }
 

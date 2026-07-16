@@ -21,11 +21,7 @@ use crate::{
     AgentPauseRequestBody, AgentProvisionRequestBody, AgentRenewPairingRequestBody,
     AgentResumeRequestBody, AgentRuntimeApprovalRequestBody, AgentRuntimeApprovalStatusRequestBody,
     AgentSidecarThreadEnsureRequestBody, CapabilityGrant, Did, DidUrl, Error, Event, GrantId, Hash,
-    Hlc, NonEmptyJsonObject, NonEmptyString, OP_ACCOUNT_AGENT_KEY_PAIR, OP_AGENT_DEACTIVATE,
-    OP_AGENT_GET, OP_AGENT_GRANT_ATTACH, OP_AGENT_GRANT_DETACH, OP_AGENT_KEY_AUTHORIZE,
-    OP_AGENT_LIST, OP_AGENT_PAUSE, OP_AGENT_PROVISION, OP_AGENT_RENEW_PAIRING, OP_AGENT_RESUME,
-    OP_AGENT_SIDECAR_THREAD_ENSURE, OP_OPEN_AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS,
-    OP_OPEN_AGENT_PAIRING_SUBMIT_RUNTIME_KEY_REQUEST, PublicKey, RealmId, Result,
+    Hlc, NonEmptyJsonObject, NonEmptyString, PublicKey, RealmId, Result,
     SessionGrantAgentScopeRequest, SessionGrantDpopBindingProof, SessionGrantProofKind,
     SessionGrantRequestBody, SessionGrantRequestProof,
 };
@@ -363,7 +359,7 @@ impl AgentKeyPairRequestBuilder {
 }
 
 fn validate_pairing_authorize_event(authorize_event: &Event, agent_id: &Did) -> Result<()> {
-    if authorize_event.kind.as_str() != OP_AGENT_KEY_AUTHORIZE {
+    if authorize_event.kind.as_str() != arkret_core::events::EventKind::AGENT_KEY_AUTHORIZE {
         return Err(Error::Protocol(
             "agent authorize_event.kind must be ak.agent.key.authorize".to_owned(),
         ));
@@ -571,7 +567,7 @@ pub fn build_agent_key_authorize_event(
     hlc: Hlc,
 ) -> Result<Event> {
     let mut event = Event::new(
-        OP_AGENT_KEY_AUTHORIZE,
+        arkret_core::events::EventKind::AGENT_KEY_AUTHORIZE,
         realm_id,
         agent_actor_id,
         actor_seq,
@@ -803,7 +799,7 @@ pub fn plan_agent_key_pair(
     body: AgentKeyPairRequestBody,
 ) -> AgentRequestPlan<AgentKeyPairRequestBody> {
     AgentRequestPlan::with_body(
-        OP_ACCOUNT_AGENT_KEY_PAIR,
+        arkret_core::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
         AgentHttpMethod::Post,
         AGENT_KEY_PAIR_PATH,
         body,
@@ -814,7 +810,7 @@ pub fn plan_agent_runtime_approval_request(
     body: AgentRuntimeApprovalRequestBody,
 ) -> AgentRequestPlan<AgentRuntimeApprovalRequestBody> {
     AgentRequestPlan::with_body(
-        OP_OPEN_AGENT_PAIRING_SUBMIT_RUNTIME_KEY_REQUEST,
+        arkret_core::ServiceOperationId::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST,
         AgentHttpMethod::Post,
         AGENT_PAIRING_RUNTIME_KEY_REQUESTS_PATH,
         body,
@@ -825,7 +821,7 @@ pub fn plan_agent_runtime_approval_status(
     body: AgentRuntimeApprovalStatusRequestBody,
 ) -> AgentRequestPlan<AgentRuntimeApprovalStatusRequestBody> {
     AgentRequestPlan::with_body(
-        OP_OPEN_AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS,
+        arkret_core::ServiceOperationId::OPEN_AGENT_PAIRING_QUERY_RUNTIME_KEY_REQUEST_STATUS,
         AgentHttpMethod::Post,
         AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH,
         body,
@@ -835,7 +831,12 @@ pub fn plan_agent_runtime_approval_status(
 pub fn plan_agent_provision(
     body: AgentProvisionRequestBody,
 ) -> AgentRequestPlan<AgentProvisionRequestBody> {
-    AgentRequestPlan::with_body(OP_AGENT_PROVISION, AgentHttpMethod::Post, AGENTS_PATH, body)
+    AgentRequestPlan::with_body(
+        arkret_core::ServiceOperationId::SELF_AGENT_COMMAND_PROVISION,
+        AgentHttpMethod::Post,
+        AGENTS_PATH,
+        body,
+    )
 }
 
 pub fn plan_agent_renew_pairing(
@@ -843,7 +844,7 @@ pub fn plan_agent_renew_pairing(
     body: AgentRenewPairingRequestBody,
 ) -> AgentRequestPlan<AgentRenewPairingRequestBody> {
     AgentRequestPlan::with_body(
-        OP_AGENT_RENEW_PAIRING,
+        arkret_core::ServiceOperationId::SELF_AGENT_COMMAND_RENEW_PAIRING,
         AgentHttpMethod::Post,
         format!(
             "{}/{}/renew-pairing",
@@ -855,12 +856,16 @@ pub fn plan_agent_renew_pairing(
 }
 
 pub fn plan_agent_list() -> AgentRequestPlan<()> {
-    AgentRequestPlan::without_body(OP_AGENT_LIST, AgentHttpMethod::Get, AGENTS_PATH)
+    AgentRequestPlan::without_body(
+        arkret_core::ServiceOperationId::SELF_AGENT_QUERY_LIST,
+        AgentHttpMethod::Get,
+        AGENTS_PATH,
+    )
 }
 
 pub fn plan_agent_get(agent_id: &str) -> AgentRequestPlan<()> {
     AgentRequestPlan::without_body(
-        OP_AGENT_GET,
+        arkret_core::ServiceOperationId::SELF_AGENT_RESOURCE_GET,
         AgentHttpMethod::Get,
         format!("{}/{}", AGENTS_PATH, agent_path_component(agent_id)),
     )
@@ -871,7 +876,7 @@ pub fn plan_agent_pause(
     body: AgentPauseRequestBody,
 ) -> AgentRequestPlan<AgentPauseRequestBody> {
     AgentRequestPlan::with_body(
-        OP_AGENT_PAUSE,
+        arkret_core::ServiceOperationId::SELF_AGENT_COMMAND_PAUSE,
         AgentHttpMethod::Post,
         format!("{}/{}/pause", AGENTS_PATH, agent_path_component(agent_id)),
         body,
@@ -883,7 +888,7 @@ pub fn plan_agent_resume(
     body: AgentResumeRequestBody,
 ) -> AgentRequestPlan<AgentResumeRequestBody> {
     AgentRequestPlan::with_body(
-        OP_AGENT_RESUME,
+        arkret_core::ServiceOperationId::SELF_AGENT_COMMAND_RESUME,
         AgentHttpMethod::Post,
         format!("{}/{}/resume", AGENTS_PATH, agent_path_component(agent_id)),
         body,
@@ -895,7 +900,7 @@ pub fn plan_agent_deactivate(
     body: AgentDeactivateRequestBody,
 ) -> AgentRequestPlan<AgentDeactivateRequestBody> {
     AgentRequestPlan::with_body(
-        OP_AGENT_DEACTIVATE,
+        arkret_core::ServiceOperationId::SELF_AGENT_COMMAND_DEACTIVATE,
         AgentHttpMethod::Post,
         format!(
             "{}/{}/deactivate",
@@ -911,7 +916,7 @@ pub fn plan_agent_grant_attach(
     body: AgentGrantAttachRequestBody,
 ) -> AgentRequestPlan<AgentGrantAttachRequestBody> {
     AgentRequestPlan::with_body(
-        OP_AGENT_GRANT_ATTACH,
+        arkret_core::ServiceOperationId::SELF_AGENT_GRANT_COMMAND_ATTACH,
         AgentHttpMethod::Post,
         format!("{}/{}/grants", AGENTS_PATH, agent_path_component(agent_id)),
         body,
@@ -920,7 +925,7 @@ pub fn plan_agent_grant_attach(
 
 pub fn plan_agent_grant_detach(agent_id: &str, grant_id: &GrantId) -> AgentRequestPlan<()> {
     AgentRequestPlan::without_body(
-        OP_AGENT_GRANT_DETACH,
+        arkret_core::ServiceOperationId::SELF_AGENT_GRANT_RESOURCE_DELETE,
         AgentHttpMethod::Delete,
         format!(
             "{}/{}/grants/{}",
@@ -935,7 +940,7 @@ pub fn plan_agent_sidecar_thread_ensure(
     body: AgentSidecarThreadEnsureRequestBody,
 ) -> AgentRequestPlan<AgentSidecarThreadEnsureRequestBody> {
     AgentRequestPlan::with_body(
-        OP_AGENT_SIDECAR_THREAD_ENSURE,
+        arkret_core::ServiceOperationId::SELF_AGENT_SIDECAR_THREAD_COMMAND_ENSURE,
         AgentHttpMethod::Post,
         AGENT_SIDECAR_THREAD_ENSURE_PATH,
         body,
@@ -1177,7 +1182,10 @@ mod tests {
     }
 
     fn authorize_event(actor_id: Did) -> Event {
-        event(OP_AGENT_KEY_AUTHORIZE, actor_id)
+        event(
+            arkret_core::events::EventKind::AGENT_KEY_AUTHORIZE,
+            actor_id,
+        )
     }
 
     struct StubMoveSigner {
@@ -1250,7 +1258,10 @@ mod tests {
             )
             .build();
         let plan = plan_agent_provision(provision);
-        assert_eq!(plan.operation_id, OP_AGENT_PROVISION);
+        assert_eq!(
+            plan.operation_id,
+            arkret_core::ServiceOperationId::SELF_AGENT_COMMAND_PROVISION
+        );
         assert_eq!(plan.method.as_str(), "POST");
         assert_eq!(plan.path, "/_arkret/self/agents");
         let body = plan.body_value().unwrap().unwrap();
@@ -1270,7 +1281,10 @@ mod tests {
         assert_eq!(body["requested_scope"]["resources"][0]["kind"], "operation");
 
         let get = plan_agent_get("did:webvh:z6mkfixture:agent.example");
-        assert_eq!(get.operation_id, OP_AGENT_GET);
+        assert_eq!(
+            get.operation_id,
+            arkret_core::ServiceOperationId::SELF_AGENT_RESOURCE_GET
+        );
         assert_eq!(get.method.as_str(), "GET");
         assert_eq!(
             get.path,
@@ -1280,7 +1294,10 @@ mod tests {
         let grant_id =
             GrantId::new("ak:grant:01964137-0000-7000-8000-000000000010".to_owned()).unwrap();
         let detach = plan_agent_grant_detach("did:webvh:z6mkfixture:agent.example", &grant_id);
-        assert_eq!(detach.operation_id, OP_AGENT_GRANT_DETACH);
+        assert_eq!(
+            detach.operation_id,
+            arkret_core::ServiceOperationId::SELF_AGENT_GRANT_RESOURCE_DELETE
+        );
         assert_eq!(detach.method.as_str(), "DELETE");
         assert_eq!(
             detach.path,
@@ -1319,7 +1336,10 @@ mod tests {
             "01970000-0000-7000-8000-000000000020"
         );
         assert_eq!(body.agent_id, agent_id);
-        assert_eq!(body.authorize_event.kind.as_str(), OP_AGENT_KEY_AUTHORIZE);
+        assert_eq!(
+            body.authorize_event.kind.as_str(),
+            arkret_core::events::EventKind::AGENT_KEY_AUTHORIZE
+        );
         assert_eq!(
             body.runtime_attestation.as_ref().unwrap().kind,
             AgentKeyRuntimeAttestationKind::SelfAsserted
@@ -1489,7 +1509,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(event.kind.as_str(), OP_AGENT_KEY_AUTHORIZE);
+        assert_eq!(
+            event.kind.as_str(),
+            arkret_core::events::EventKind::AGENT_KEY_AUTHORIZE
+        );
         assert_eq!(event.actor_id, agent_id);
         assert_eq!(event.executed_by, Some(controller_id));
         assert_eq!(
@@ -1556,7 +1579,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(event.kind.as_str(), OP_AGENT_KEY_AUTHORIZE);
+        assert_eq!(
+            event.kind.as_str(),
+            arkret_core::events::EventKind::AGENT_KEY_AUTHORIZE
+        );
         assert_eq!(event.actor_id, agent_id);
         assert_eq!(event.executed_by, Some(controller_id));
         assert_eq!(event.proofs.len(), 1);

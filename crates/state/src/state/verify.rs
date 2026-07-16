@@ -58,17 +58,17 @@ impl From<StoreError> for MoveReject {
 /// (from `arkret-spec` `error-code-registry.json`).
 pub fn reject_to_error_code(r: &MoveReject) -> &'static str {
     match r {
-        MoveReject::SchemaViolation(_) => crate::ERROR_CODE_SCHEMA_VIOLATION,
-        MoveReject::InvalidSignature(_) => crate::ERROR_CODE_INVALID_SIGNATURE,
-        MoveReject::CapabilityDenied(_) => crate::ERROR_CODE_CAPABILITY_DENIED,
-        MoveReject::FailedPrecondition { .. } => crate::ERROR_CODE_STATE_MISMATCH,
+        MoveReject::SchemaViolation(_) => crate::ErrorCode::SCHEMA_VIOLATION,
+        MoveReject::InvalidSignature(_) => crate::ErrorCode::INVALID_SIGNATURE,
+        MoveReject::CapabilityDenied(_) => crate::ErrorCode::CAPABILITY_DENIED,
+        MoveReject::FailedPrecondition { .. } => crate::ErrorCode::STATE_MISMATCH,
         // A precondition that reads a ⊥ cell fails closed. The registry has no
         // top-level `failed_bottom` code; the bottom semantics are a
         // `failed_precondition` sub-reason (`cell_in_bottom_state`). Surface the
         // registered top-level `state_mismatch` code (same family as
         // `FailedPrecondition`); the reason carries the ⊥ detail.
-        MoveReject::FailedBottom { .. } => crate::ERROR_CODE_STATE_MISMATCH,
-        MoveReject::Registry(_) => crate::ERROR_CODE_INTERNAL_ERROR,
+        MoveReject::FailedBottom { .. } => crate::ErrorCode::STATE_MISMATCH,
+        MoveReject::Registry(_) => crate::ErrorCode::INTERNAL_ERROR,
     }
 }
 
@@ -618,7 +618,7 @@ mod tests {
         assert!(matches!(err, MoveReject::CapabilityDenied(_)));
         assert_eq!(
             reject_to_error_code(&err),
-            crate::ERROR_CODE_CAPABILITY_DENIED
+            crate::ErrorCode::CAPABILITY_DENIED
         );
     }
 
@@ -741,7 +741,7 @@ mod tests {
         let r = MoveReject::CapabilityDenied("test".into());
         assert_eq!(
             reject_to_error_code(&r),
-            crate::ERROR_CODE_CAPABILITY_DENIED
+            crate::ErrorCode::CAPABILITY_DENIED
         );
     }
 
@@ -749,29 +749,29 @@ mod tests {
     fn reject_to_error_code_full_mapping() {
         assert_eq!(
             reject_to_error_code(&MoveReject::SchemaViolation("x".into())),
-            crate::ERROR_CODE_SCHEMA_VIOLATION
+            crate::ErrorCode::SCHEMA_VIOLATION
         );
         assert_eq!(
             reject_to_error_code(&MoveReject::InvalidSignature("x".into())),
-            crate::ERROR_CODE_INVALID_SIGNATURE
+            crate::ErrorCode::INVALID_SIGNATURE
         );
         assert_eq!(
             reject_to_error_code(&MoveReject::FailedPrecondition {
                 cell: "x".into(),
                 reason: "y".into()
             }),
-            crate::ERROR_CODE_STATE_MISMATCH
+            crate::ErrorCode::STATE_MISMATCH
         );
         assert_eq!(
             reject_to_error_code(&MoveReject::FailedBottom {
                 cell: "x".into(),
                 kind: BottomKind::Conflict
             }),
-            crate::ERROR_CODE_STATE_MISMATCH
+            crate::ErrorCode::STATE_MISMATCH
         );
         assert_eq!(
             reject_to_error_code(&MoveReject::Registry("x".into())),
-            crate::ERROR_CODE_INTERNAL_ERROR
+            crate::ErrorCode::INTERNAL_ERROR
         );
     }
 }

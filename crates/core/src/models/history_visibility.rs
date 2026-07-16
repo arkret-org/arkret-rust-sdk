@@ -16,7 +16,7 @@ pub fn validate_history_visibility_content_scheme(
     if history_visibility.admits_pre_join_history()
         && !content_scheme_is_history_capable(content_scheme)
     {
-        return Err(crate::error::REASON_HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME);
+        return Err(crate::error::ReasonCode::HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME);
     }
     Ok(())
 }
@@ -860,7 +860,7 @@ mod tests {
                 HistoryVisibility::Shared,
                 Some("mls-rfc9420")
             ),
-            Err(crate::error::REASON_HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME)
+            Err(crate::error::ReasonCode::HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME)
         );
         assert!(
             validate_history_visibility_content_scheme(

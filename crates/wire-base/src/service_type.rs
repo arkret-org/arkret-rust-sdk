@@ -1,60 +1,20 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum ServiceType {
-    PrincipalServer,
-    IdentityRegistry,
-    AuthServer,
-    SyncNode,
-    BlobNode,
-    DirectoryService,
-    DeviceKeyService,
-    AuthzService,
-    PolicyServer,
-    PushGateway,
-    AppletService,
-    AgentRuntime,
-    MediaService,
-    SfuService,
-    TurnService,
-    ModerationService,
-    Notary,
-    SearchService,
-    ArchiveNode,
-    KeyRecoveryService,
-    RecoveryService,
+pub use crate::generated::service_types::{
+    SERVICE_TYPE_DESCRIPTORS, ServiceType, ServiceTypeDescriptor,
+};
+
+impl std::fmt::Display for ServiceType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 impl ServiceType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::PrincipalServer => "principal_server",
-            Self::IdentityRegistry => "identity_registry",
-            Self::AuthServer => "auth_server",
-            Self::SyncNode => "sync_node",
-            Self::BlobNode => "blob_node",
-            Self::DirectoryService => "directory_service",
-            Self::DeviceKeyService => "device_key_service",
-            Self::AuthzService => "authz_service",
-            Self::PolicyServer => "policy_server",
-            Self::PushGateway => "push_gateway",
-            Self::AppletService => "applet_service",
-            Self::AgentRuntime => "agent_runtime",
-            Self::MediaService => "media_service",
-            Self::SfuService => "sfu_service",
-            Self::TurnService => "turn_service",
-            Self::ModerationService => "moderation_service",
-            Self::Notary => "notary",
-            Self::SearchService => "search_service",
-            Self::ArchiveNode => "archive_node",
-            Self::KeyRecoveryService => "key_recovery_service",
-            Self::RecoveryService => "recovery_service",
-        }
-    }
-
-    pub fn allowed_operation_prefixes(&self) -> &'static [&'static str] {
+    /// Product policy projection for operations this deployed role may advertise.
+    ///
+    /// This is intentionally separate from registry context metadata.
+    pub fn allowed_operation_prefixes(self) -> &'static [&'static str] {
         match self {
             Self::PrincipalServer => &[
                 "ak.self.account.",
@@ -76,6 +36,7 @@ impl ServiceType {
             Self::SyncNode => &["ak.self.events.", "ak.self.account.", "ak.self.snapshot."],
             Self::BlobNode => &["ak.self.blob."],
             Self::MediaService => &["ak.self.media.", "ak.self.call.media."],
+            Self::MimiProviderFacade => &["ak.open.mimi."],
             Self::DirectoryService => &["ak.find.directory."],
             Self::DeviceKeyService => &["ak.self.keys."],
             Self::AuthzService => &["ak.self.authz.", "ak.self.policy.", "ak.policy."],
@@ -86,15 +47,12 @@ impl ServiceType {
             Self::SfuService => &["ak.self.call.media.", "ak.self.media."],
             Self::TurnService => &["ak.self.media.query.ice_config"],
             Self::ModerationService => &["ak.self.moderation."],
-            Self::Notary => &[],
-            Self::SearchService => &[],
-            Self::ArchiveNode => &[],
-            Self::KeyRecoveryService => &["ak.root.identity.recovery_"],
-            Self::RecoveryService => &["ak.root.identity.recovery_"],
+            Self::Notary | Self::SearchService | Self::ArchiveNode => &[],
+            Self::KeyRecoveryService | Self::RecoveryService => &["ak.root.identity.recovery_"],
         }
     }
 
-    pub fn permits_operation(&self, operation_kind: &str) -> bool {
+    pub fn permits_operation(self, operation_kind: &str) -> bool {
         let prefixes = self.allowed_operation_prefixes();
         if prefixes.is_empty() {
             return true;

@@ -47,7 +47,7 @@ pub struct OperationCatalogReport {
 
 impl OperationCatalogReport {
     pub fn validate(&self) -> Result<()> {
-        if self.total != BUILT_IN_OPERATION_KINDS.len() {
+        if self.total != SUPPORTED_OPERATION_IDS.len() {
             return Err(Error::Protocol(
                 "operation catalog does not cover built-ins".to_owned(),
             ));
@@ -64,122 +64,127 @@ impl OperationCatalogReport {
 
 pub fn classify_operation_kind(kind: &str) -> OperationSurface {
     match kind {
-        OP_ACCOUNT_DEVICE_PAIR
-        | OP_ACCOUNT_ISSUE_SESSION_GRANT
-        | OP_ACCOUNT_OIDC_CALLBACK
-        | OP_ACCOUNT_REGISTER
-        | OP_ACCOUNT_SESSION_REVOKE
-        | OP_ACCOUNT_UPDATE_PROFILE
-        | OP_ACCOUNT_VIEWER => OperationSurface::Account,
-        OP_APPLET_DESCRIBE
-        | OP_APPLET_PING
-        | OP_APPLET_PROTOCOL_METADATA
-        | OP_APPLET_RESOLVE_ACTOR
-        | OP_APPLET_RESOLVE_REALM
-        | OP_APPLET_THIRD_PARTY_LOCATIONS
-        | OP_APPLET_THIRD_PARTY_USERS
-        | OP_APPLET_TRANSACTION
-        | OP_APPLET_INSTALL
-        | OP_APPLET_INSTALL_PREVIEW
-        | OP_APPLET_GHOST_PROVISION
-        | OP_APPLET_REVOKE => OperationSurface::Applet,
-        OP_AUTHZ_CHECK | OP_AUTHZ_GET_EFFECTIVE_GRANTS | OP_AUTHZ_GET_INVITES => {
-            OperationSurface::Authz
-        }
-        OP_BLOB_UPLOAD | OP_BLOB_HEAD | OP_BLOB_GET => OperationSurface::Blob,
-        OP_DEVICE_MESSAGES_PUT | OP_DEVICE_MESSAGES_GET | OP_DEVICE_MESSAGES_ACK => {
+        crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_DEVICE
+        | crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT
+        | crate::ServiceOperationId::GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC
+        | crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_REGISTER
+        | crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION
+        | crate::ServiceOperationId::SELF_ACCOUNT_COMMAND_UPDATE_PROFILE
+        | crate::ServiceOperationId::SELF_ACCOUNT_QUERY_VIEWER => OperationSurface::Account,
+        crate::ServiceOperationId::EDGE_APPLET_QUERY_DESCRIBE
+        | crate::ServiceOperationId::EDGE_APPLET_QUERY_PING
+        | crate::ServiceOperationId::EDGE_APPLET_QUERY_PROTOCOL_METADATA
+        | crate::ServiceOperationId::EDGE_APPLET_ACTOR_QUERY_RESOLVE
+        | crate::ServiceOperationId::EDGE_APPLET_REALM_QUERY_RESOLVE
+        | crate::ServiceOperationId::EDGE_APPLET_THIRD_PARTY_LOCATIONS_QUERY_LIST
+        | crate::ServiceOperationId::EDGE_APPLET_THIRD_PARTY_USERS_QUERY_LIST
+        | crate::ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION
+        | crate::ServiceOperationId::SELF_APPLET_COMMAND_INSTALL
+        | crate::ServiceOperationId::SELF_APPLET_INSTALL_COMMAND_PREVIEW
+        | crate::ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION
+        | crate::ServiceOperationId::SELF_APPLET_COMMAND_REVOKE => OperationSurface::Applet,
+        crate::ServiceOperationId::SELF_AUTHZ_QUERY_CHECK
+        | crate::ServiceOperationId::SELF_AUTHZ_GRANTS_QUERY_EFFECTIVE
+        | crate::ServiceOperationId::SELF_AUTHZ_INVITES_QUERY_LIST => OperationSurface::Authz,
+        crate::ServiceOperationId::SELF_BLOB_UPLOAD_CREATE
+        | crate::ServiceOperationId::SELF_BLOB_RESOURCE_HEAD
+        | crate::ServiceOperationId::SELF_BLOB_RESOURCE_GET => OperationSurface::Blob,
+        crate::ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND
+        | crate::ServiceOperationId::SELF_DEVICE_MESSAGES_QUERY_LIST
+        | crate::ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK => {
             OperationSurface::DeviceMessages
         }
-        OP_DIRECTORY_ANNOUNCE
-        | OP_DIRECTORY_DESCRIBE
-        | OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY
-        | OP_DIRECTORY_RESOLVE_HANDLE
-        | OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT
-        | OP_DIRECTORY_RESOLVE_ORGANIZATION
-        | OP_DIRECTORY_RESOLVE_REALM
-        | OP_DIRECTORY_RESOLVE_TARGET
-        | OP_DIRECTORY_SEARCH_ACTORS
-        | OP_DIRECTORY_SEARCH_ORGANIZATIONS
-        | OP_DIRECTORY_SEARCH_REALMS
-        | OP_DIRECTORY_SEARCH_USERS
-        | OP_DIRECTORY_PUSH_REGISTER
-        | OP_DIRECTORY_WITHDRAW => OperationSurface::Directory,
-        OP_EVENTS_DESCRIBE
-        | OP_EVENTS_FRONTIER
-        | OP_EVENTS_GET
-        | OP_EVENTS_QUERY
-        | OP_EVENTS_RESOLVE
-        | OP_EVENTS_SUBSCRIBE
-        | OP_EVENTS_SUBMIT
-        | OP_PEER_EVENTS_DESCRIBE
-        | OP_PEER_EVENTS_FRONTIER
-        | OP_PEER_EVENTS_QUERY
-        | OP_PEER_EVENTS_QUERY_POST
-        | OP_PEER_EVENTS_RESOLVE
-        | OP_PEER_EVENTS_SUBMIT => OperationSurface::Events,
-        OP_IDENTITY_DESCRIBE_REGISTRY
-        | OP_IDENTITY_GET_DOCUMENT
-        | OP_IDENTITY_GET_LOG
-        | OP_IDENTITY_GET_RECEIPTS
-        | OP_IDENTITY_RECOVERY_POLICY_GET
-        | OP_IDENTITY_RECOVERY_POLICY_PUT
-        | OP_IDENTITY_RESOLVE
-        | OP_IDENTITY_SUBMIT_DID_OPERATION
-        | OP_RECOVERY_SESSION_CREATE
-        | OP_RECOVERY_SESSION_GET
-        | OP_RECOVERY_SESSION_SUBMIT_PROOF
-        | OP_RECOVERY_SESSION_COMPLETE => OperationSurface::Identity,
-        OP_KEYS_UPLOAD
-        | OP_KEYS_QUERY
-        | OP_KEYS_CLAIM
-        | OP_KEYS_KEYPACKAGES_UPLOAD
-        | OP_KEYS_KEYPACKAGES_CLAIM
-        | OP_KEYS_KEYPACKAGES_CONSUME
-        | OP_KEYS_KEYPACKAGES_REVOKE
-        | OP_KEYS_BACKUPS_PUT
-        | OP_KEYS_BACKUPS_LIST
-        | OP_KEYS_BACKUPS_UNLOCK
-        | OP_KEYS_BACKUPS_DELETE => OperationSurface::Keys,
-        OP_MEDIA_ICE_CONFIG => OperationSurface::Media,
-        OP_MIMI_GROUP_INFO
-        | OP_MIMI_IDENTIFIER_QUERY
-        | OP_MIMI_KEY_MATERIAL
-        | OP_MIMI_NOTIFY
-        | OP_MIMI_PROVIDER_DIRECTORY
-        | OP_MIMI_PROXY_DOWNLOAD
-        | OP_MIMI_REPORT_ABUSE
-        | OP_MIMI_REQUEST_CONSENT
-        | OP_MIMI_ROOM_UPDATE
-        | OP_MIMI_SUBMIT_MESSAGE
-        | OP_MIMI_UPDATE_CONSENT => OperationSurface::Mimi,
-        OP_MODERATION_REPORT => OperationSurface::Moderation,
-        OP_POLICY_CHECK => OperationSurface::Policy,
-        OP_PUSH_NOTIFY | OP_PUSH_REGISTER_DEVICE | OP_PUSH_UNREGISTER_DEVICE => {
-            OperationSurface::Push
+        crate::ServiceOperationId::FIND_DIRECTORY_COMMAND_ANNOUNCE
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_DESCRIBE
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_PRIVATE_CONTACT_DISCOVERY
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_HANDLE
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_LIST_HANDLES_FOR_SUBJECT
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_ORGANIZATION
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_REALM
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_TARGET
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_ACTORS
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_ORGANIZATIONS
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_REALMS
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_USERS
+        | crate::ServiceOperationId::FIND_DIRECTORY_PUSH_COMMAND_REGISTER
+        | crate::ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW => OperationSurface::Directory,
+        crate::ServiceOperationId::SELF_EVENTS_QUERY_DESCRIBE
+        | crate::ServiceOperationId::SELF_EVENTS_QUERY_FRONTIER
+        | crate::ServiceOperationId::SELF_EVENTS_RESOURCE_GET
+        | crate::ServiceOperationId::SELF_EVENTS_QUERY_SCAN
+        | crate::ServiceOperationId::SELF_EVENTS_QUERY_RESOLVE
+        | crate::ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE
+        | crate::ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT
+        | crate::ServiceOperationId::PEER_EVENTS_QUERY_DESCRIBE
+        | crate::ServiceOperationId::PEER_EVENTS_QUERY_FRONTIER
+        | crate::ServiceOperationId::PEER_EVENTS_QUERY_SCAN
+        | crate::ServiceOperationId::PEER_EVENTS_QUERY_SCAN_BODY
+        | crate::ServiceOperationId::PEER_EVENTS_QUERY_RESOLVE
+        | crate::ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT => OperationSurface::Events,
+        crate::ServiceOperationId::ROOT_IDENTITY_REGISTRY_QUERY_DESCRIBE
+        | crate::ServiceOperationId::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET
+        | crate::ServiceOperationId::ROOT_IDENTITY_LOG_QUERY_LIST
+        | crate::ServiceOperationId::ROOT_IDENTITY_RECEIPTS_QUERY_LIST
+        | crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET
+        | crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_COMMAND_PUBLISH
+        | crate::ServiceOperationId::ROOT_IDENTITY_QUERY_RESOLVE
+        | crate::ServiceOperationId::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION
+        | crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE
+        | crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET
+        | crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF
+        | crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_COMPLETE => {
+            OperationSurface::Identity
         }
-        OP_SERVER_DESCRIBE => OperationSurface::Server,
-        OP_ACCOUNT_DESCRIBE
-        | OP_ACCOUNT_SUBSCRIBE
-        | OP_ACCOUNT_CURSOR_REVOKE
-        | OP_SNAPSHOT_HEAD
-        | OP_PEER_SNAPSHOT_HEAD => OperationSurface::AccountStream,
+        crate::ServiceOperationId::SELF_KEYS_UPLOAD_CREATE
+        | crate::ServiceOperationId::SELF_KEYS_QUERY_LOOKUP
+        | crate::ServiceOperationId::SELF_KEYS_COMMAND_CLAIM
+        | crate::ServiceOperationId::SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE
+        | crate::ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_CLAIM
+        | crate::ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_CONSUME
+        | crate::ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_REVOKE
+        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_REPLACE
+        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_QUERY_LIST
+        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK
+        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_DELETE => OperationSurface::Keys,
+        crate::ServiceOperationId::SELF_MEDIA_QUERY_ICE_CONFIG => OperationSurface::Media,
+        crate::ServiceOperationId::OPEN_MIMI_QUERY_GROUP_INFO
+        | crate::ServiceOperationId::OPEN_MIMI_QUERY_IDENTIFIERS
+        | crate::ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL
+        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_NOTIFY
+        | crate::ServiceOperationId::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY
+        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_PROXY_DOWNLOAD
+        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_REPORT_ABUSE
+        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_REQUEST_CONSENT
+        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_ROOM
+        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_SUBMIT_MESSAGE
+        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_CONSENT => OperationSurface::Mimi,
+        crate::ServiceOperationId::SELF_MODERATION_COMMAND_REPORT => OperationSurface::Moderation,
+        crate::ServiceOperationId::SELF_POLICY_QUERY_CHECK => OperationSurface::Policy,
+        crate::ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY
+        | crate::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE
+        | crate::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE => OperationSurface::Push,
+        crate::ServiceOperationId::SERVER_QUERY_DESCRIBE => OperationSurface::Server,
+        crate::ServiceOperationId::SELF_ACCOUNT_QUERY_DESCRIBE
+        | crate::ServiceOperationId::SELF_ACCOUNT_STREAM_SUBSCRIBE
+        | crate::ServiceOperationId::SELF_ACCOUNT_COMMAND_REVOKE_CURSOR
+        | crate::ServiceOperationId::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD
+        | crate::ServiceOperationId::PEER_SNAPSHOT_QUERY_MANIFEST_HEAD => {
+            OperationSurface::AccountStream
+        }
         _ => OperationSurface::Custom(kind.to_owned()),
     }
 }
 
 pub fn operation_catalog() -> OperationCatalogReport {
-    let registry = OperationKindRegistry::default();
-    let rows = BUILT_IN_OPERATION_KINDS
+    let rows = SUPPORTED_OPERATION_IDS
         .iter()
         .map(|kind| {
-            let spec = registry
-                .spec(kind)
-                .expect("built-in operation kind is registered");
+            let descriptor = kind.descriptor();
             OperationCatalogRow {
-                kind: (*kind).to_owned(),
-                surface: classify_operation_kind(kind),
-                schema: spec.schema.clone(),
-                required_content_fields: spec.required_content_fields.clone(),
+                kind: kind.as_str().to_owned(),
+                surface: classify_operation_kind(kind.as_str()),
+                schema: descriptor.request_schema_ref.unwrap_or_default().to_owned(),
+                required_content_fields: Vec::new(),
             }
         })
         .collect::<Vec<_>>();
@@ -483,105 +488,124 @@ pub fn reduce_operation_semantics(operations: &[OperationEnvelope]) -> Operation
 
 fn mutation_for_kind(kind: &str) -> OperationMutation {
     match kind {
-        OP_PUSH_REGISTER_DEVICE
-        | OP_KEYS_BACKUPS_PUT
-        | OP_KEYS_KEYPACKAGES_UPLOAD
-        | OP_DIRECTORY_PUSH_REGISTER => OperationMutation::Create,
-        OP_PUSH_UNREGISTER_DEVICE | OP_KEYS_BACKUPS_DELETE => OperationMutation::Delete,
-        OP_SERVER_DESCRIBE
-        | OP_ACCOUNT_DESCRIBE
-        | OP_DIRECTORY_DESCRIBE
-        | OP_EVENTS_DESCRIBE
-        | OP_EVENTS_GET
-        | OP_EVENTS_RESOLVE
-        | OP_EVENTS_FRONTIER
-        | OP_EVENTS_QUERY
-        | OP_EVENTS_SUBSCRIBE
-        | OP_SNAPSHOT_HEAD
-        | OP_MORPH_RESOURCE_GET
-        | OP_VIEW_COLLECTION_PROJECTION
-        | OP_IDENTITY_DESCRIBE_REGISTRY
-        | OP_IDENTITY_RESOLVE
-        | OP_IDENTITY_GET_DOCUMENT
-        | OP_IDENTITY_GET_LOG
-        | OP_IDENTITY_GET_RECEIPTS
-        | OP_IDENTITY_RECOVERY_POLICY_GET
-        | OP_BLOB_HEAD
-        | OP_BLOB_GET
-        | OP_DIRECTORY_RESOLVE_HANDLE
-        | OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT
-        | OP_DIRECTORY_RESOLVE_ORGANIZATION
-        | OP_DIRECTORY_RESOLVE_REALM
-        | OP_DIRECTORY_RESOLVE_TARGET
-        | OP_DIRECTORY_SEARCH_ACTORS
-        | OP_DIRECTORY_SEARCH_ORGANIZATIONS
-        | OP_DIRECTORY_SEARCH_REALMS
-        | OP_DIRECTORY_SEARCH_USERS
-        | OP_AUTHZ_GET_EFFECTIVE_GRANTS
-        | OP_AUTHZ_GET_INVITES
-        | OP_OPEN_INVITE_LOCATOR_RESOLVE
-        | OP_KEYS_BACKUPS_LIST
+        crate::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE
+        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_REPLACE
+        | crate::ServiceOperationId::SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE
+        | crate::ServiceOperationId::FIND_DIRECTORY_PUSH_COMMAND_REGISTER => OperationMutation::Create,
+        crate::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE | crate::ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_DELETE => OperationMutation::Delete,
+        crate::ServiceOperationId::SERVER_QUERY_DESCRIBE
+        | crate::ServiceOperationId::SELF_ACCOUNT_QUERY_DESCRIBE
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_DESCRIBE
+        | crate::ServiceOperationId::SELF_EVENTS_QUERY_DESCRIBE
+        | crate::ServiceOperationId::SELF_EVENTS_RESOURCE_GET
+        | crate::ServiceOperationId::SELF_EVENTS_QUERY_RESOLVE
+        | crate::ServiceOperationId::SELF_EVENTS_QUERY_FRONTIER
+        | crate::ServiceOperationId::SELF_EVENTS_QUERY_SCAN
+        | crate::ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE
+        | crate::ServiceOperationId::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD
+        | crate::ServiceOperationId::SELF_MORPH_RESOURCE_GET
+        | crate::ServiceOperationId::SELF_VIEWS_COLLECTION_PROJECTION_COMMAND_MATERIALIZE
+        | crate::ServiceOperationId::ROOT_IDENTITY_REGISTRY_QUERY_DESCRIBE
+        | crate::ServiceOperationId::ROOT_IDENTITY_QUERY_RESOLVE
+        | crate::ServiceOperationId::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET
+        | crate::ServiceOperationId::ROOT_IDENTITY_LOG_QUERY_LIST
+        | crate::ServiceOperationId::ROOT_IDENTITY_RECEIPTS_QUERY_LIST
+        | crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET
+        | crate::ServiceOperationId::SELF_BLOB_RESOURCE_HEAD
+        | crate::ServiceOperationId::SELF_BLOB_RESOURCE_GET
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_HANDLE
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_LIST_HANDLES_FOR_SUBJECT
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_ORGANIZATION
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_REALM
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_TARGET
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_ACTORS
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_ORGANIZATIONS
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_REALMS
+        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_USERS
+        | crate::ServiceOperationId::SELF_AUTHZ_GRANTS_QUERY_EFFECTIVE
+        | crate::ServiceOperationId::SELF_AUTHZ_INVITES_QUERY_LIST
+        | crate::ServiceOperationId::OPEN_INVITE_LOCATOR_QUERY_RESOLVE
+        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_QUERY_LIST
         // `unlock` is the proof-gated retrieval of a backup (POST wire shape,
         // read semantics — it returns the stored ak.schema.key_backup.v1
         // envelope without mutating it).
-        | OP_KEYS_BACKUPS_UNLOCK
-        | OP_KEYS_QUERY
-        | OP_AUTHZ_CHECK => OperationMutation::Read,
-        OP_EVENTS_SUBMIT
-        | OP_ACCOUNT_SUBSCRIBE
-        | OP_ACCOUNT_CURSOR_REVOKE
-        | OP_PUSH_NOTIFY
-        | OP_KEYS_UPLOAD
-        | OP_KEYS_CLAIM
-        | OP_DEVICE_MESSAGES_PUT
-        | OP_DEVICE_MESSAGES_GET
-        | OP_MEDIA_ICE_CONFIG
-        | OP_MIMI_PROVIDER_DIRECTORY
-        | OP_MIMI_GROUP_INFO
-        | OP_MIMI_KEY_MATERIAL
-        | OP_MIMI_SUBMIT_MESSAGE
-        | OP_MIMI_ROOM_UPDATE
-        | OP_MIMI_REQUEST_CONSENT
-        | OP_MIMI_UPDATE_CONSENT
-        | OP_MIMI_IDENTIFIER_QUERY
-        | OP_MIMI_NOTIFY
-        | OP_MIMI_REPORT_ABUSE
-        | OP_MIMI_PROXY_DOWNLOAD
-        | OP_PEER_INVITES_SUBMIT
-        | OP_POLICY_CHECK => OperationMutation::External,
+        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK
+        | crate::ServiceOperationId::SELF_KEYS_QUERY_LOOKUP
+        | crate::ServiceOperationId::SELF_AUTHZ_QUERY_CHECK => OperationMutation::Read,
+        crate::ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT
+        | crate::ServiceOperationId::SELF_ACCOUNT_STREAM_SUBSCRIBE
+        | crate::ServiceOperationId::SELF_ACCOUNT_COMMAND_REVOKE_CURSOR
+        | crate::ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY
+        | crate::ServiceOperationId::SELF_KEYS_UPLOAD_CREATE
+        | crate::ServiceOperationId::SELF_KEYS_COMMAND_CLAIM
+        | crate::ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND
+        | crate::ServiceOperationId::SELF_DEVICE_MESSAGES_QUERY_LIST
+        | crate::ServiceOperationId::SELF_MEDIA_QUERY_ICE_CONFIG
+        | crate::ServiceOperationId::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY
+        | crate::ServiceOperationId::OPEN_MIMI_QUERY_GROUP_INFO
+        | crate::ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL
+        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_SUBMIT_MESSAGE
+        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_ROOM
+        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_REQUEST_CONSENT
+        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_CONSENT
+        | crate::ServiceOperationId::OPEN_MIMI_QUERY_IDENTIFIERS
+        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_NOTIFY
+        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_REPORT_ABUSE
+        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_PROXY_DOWNLOAD
+        | crate::ServiceOperationId::PEER_INVITES_COMMAND_SUBMIT
+        | crate::ServiceOperationId::SELF_POLICY_QUERY_CHECK => OperationMutation::External,
         _ => OperationMutation::Update,
     }
 }
 
 fn target_id_for_operation(kind: &str, payload: &Value) -> Option<String> {
     let fields: &[&str] = match kind {
-        OP_EVENTS_GET | OP_EVENTS_RESOLVE => &["event_id"],
-        OP_EVENTS_FRONTIER | OP_SNAPSHOT_HEAD | OP_AUTHZ_GET_INVITES => &["realm_id"],
-        OP_IDENTITY_RESOLVE
-        | OP_IDENTITY_GET_DOCUMENT
-        | OP_IDENTITY_GET_LOG
-        | OP_IDENTITY_GET_RECEIPTS
-        | OP_IDENTITY_SUBMIT_DID_OPERATION => &["did"],
-        OP_KEYS_BACKUPS_PUT | OP_KEYS_BACKUPS_UNLOCK | OP_KEYS_BACKUPS_DELETE => &["backup_id"],
-        OP_KEYS_KEYPACKAGES_CLAIM => &["target_principal_id"],
-        OP_KEYS_KEYPACKAGES_CONSUME => &["claim_id"],
-        OP_KEYS_KEYPACKAGES_REVOKE => &["principal_id", "keypackage_ref"],
-        OP_PUSH_REGISTER_DEVICE | OP_PUSH_UNREGISTER_DEVICE => &["device_id"],
-        OP_DIRECTORY_RESOLVE_TARGET => &["address"],
-        OP_DIRECTORY_PUSH_REGISTER => &["subscriber_did", "webhook_endpoint"],
-        OP_DEVICE_MESSAGES_PUT | OP_DEVICE_MESSAGES_GET => {
+        crate::ServiceOperationId::SELF_EVENTS_RESOURCE_GET
+        | crate::ServiceOperationId::SELF_EVENTS_QUERY_RESOLVE => &["event_id"],
+        crate::ServiceOperationId::SELF_EVENTS_QUERY_FRONTIER
+        | crate::ServiceOperationId::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD
+        | crate::ServiceOperationId::SELF_AUTHZ_INVITES_QUERY_LIST => &["realm_id"],
+        crate::ServiceOperationId::ROOT_IDENTITY_QUERY_RESOLVE
+        | crate::ServiceOperationId::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET
+        | crate::ServiceOperationId::ROOT_IDENTITY_LOG_QUERY_LIST
+        | crate::ServiceOperationId::ROOT_IDENTITY_RECEIPTS_QUERY_LIST
+        | crate::ServiceOperationId::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION => &["did"],
+        crate::ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_REPLACE
+        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK
+        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_DELETE => &["backup_id"],
+        crate::ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_CLAIM => &["target_principal_id"],
+        crate::ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_CONSUME => &["claim_id"],
+        crate::ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_REVOKE => {
+            &["principal_id", "keypackage_ref"]
+        }
+        crate::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE
+        | crate::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE => &["device_id"],
+        crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_TARGET => &["address"],
+        crate::ServiceOperationId::FIND_DIRECTORY_PUSH_COMMAND_REGISTER => {
+            &["subscriber_did", "webhook_endpoint"]
+        }
+        crate::ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND
+        | crate::ServiceOperationId::SELF_DEVICE_MESSAGES_QUERY_LIST => {
             &["recipient_principal_id", "recipient_device_id"]
         }
-        OP_DEVICE_MESSAGES_ACK => &["ack_token"],
-        OP_APPLET_GHOST_PROVISION => &["applet_id", "ghost_actor_id", "external_user_id"],
-        OP_ACCOUNT_DEVICE_PAIR | OP_ACCOUNT_ISSUE_SESSION_GRANT => &["principal_id"],
-        OP_MODERATION_REPORT => &["target_ref"],
-        OP_OPEN_INVITE_LOCATOR_RESOLVE => &["locator_token"],
-        OP_PEER_INVITES_SUBMIT => &["idempotency_key"],
-        OP_POLICY_CHECK => &["resource"],
-        OP_IDENTITY_RECOVERY_POLICY_GET | OP_IDENTITY_RECOVERY_POLICY_PUT => &["principal_id"],
-        OP_MORPH_RESOURCE_GET => &["realm_id", "morph_id"],
-        OP_VIEW_COLLECTION_PROJECTION => &["view_id"],
+        crate::ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK => &["ack_token"],
+        crate::ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION => {
+            &["applet_id", "ghost_actor_id", "external_user_id"]
+        }
+        crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_DEVICE
+        | crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT => &["principal_id"],
+        crate::ServiceOperationId::SELF_MODERATION_COMMAND_REPORT => &["target_ref"],
+        crate::ServiceOperationId::OPEN_INVITE_LOCATOR_QUERY_RESOLVE => &["locator_token"],
+        crate::ServiceOperationId::PEER_INVITES_COMMAND_SUBMIT => &["idempotency_key"],
+        crate::ServiceOperationId::SELF_POLICY_QUERY_CHECK => &["resource"],
+        crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET
+        | crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_COMMAND_PUBLISH => {
+            &["principal_id"]
+        }
+        crate::ServiceOperationId::SELF_MORPH_RESOURCE_GET => &["realm_id", "morph_id"],
+        crate::ServiceOperationId::SELF_VIEWS_COLLECTION_PROJECTION_COMMAND_MATERIALIZE => {
+            &["view_id"]
+        }
         _ => &[],
     };
     fields.iter().find_map(|field| {
@@ -633,14 +657,15 @@ pub fn negative_dag_vectors() -> Vec<OperationDagNegativeVector> {
     ]
 }
 
-pub fn conformance_vectors() -> Vec<OperationKindConformanceVector> {
-    operation_kind_conformance_vectors()
+pub fn conformance_vectors() -> Vec<EventDraftKindConformanceVector> {
+    event_draft_kind_conformance_vectors()
 }
 
 pub mod protocol {
     pub use crate::{
-        Operation, OperationEnvelope, OperationEnvelopeBuilder, OperationKindConformanceVector,
-        OperationKindRegistry, OperationKindSpec, OperationKindValidation, OperationType,
+        EventDraftKindConformanceVector, EventDraftKindRegistry, EventDraftKindSpec,
+        EventDraftKindValidation, Operation, OperationEnvelope, OperationEnvelopeBuilder,
+        OperationType,
     };
 }
 
@@ -649,13 +674,16 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        Did, GrantId, Hlc, OP_EVENTS_QUERY, OP_PUSH_REGISTER_DEVICE, OP_PUSH_UNREGISTER_DEVICE,
-        OperationEnvelopeBuilder,
-    };
+    use crate::{Did, GrantId, Hlc, OperationEnvelopeBuilder};
 
     fn envelope(id: &str, deps: Vec<&str>) -> OperationEnvelope {
-        envelope_for(id, OP_EVENTS_QUERY, json!({}), deps, false)
+        envelope_for(
+            id,
+            crate::ServiceOperationId::SELF_EVENTS_QUERY_SCAN,
+            json!({}),
+            deps,
+            false,
+        )
     }
 
     fn envelope_for(
@@ -682,7 +710,7 @@ mod tests {
                 GrantId::new("ak:grant:01904100-0000-7000-8000-e78463d5d984").unwrap(),
             );
         }
-        builder.build(&OperationKindRegistry::default()).unwrap()
+        builder.build(&EventDraftKindRegistry::default()).unwrap()
     }
 
     #[test]
@@ -695,7 +723,7 @@ mod tests {
                 .iter()
                 .any(|row| row.surface == OperationSurface::Events)
         );
-        assert_eq!(conformance_vectors().len(), BUILT_IN_OPERATION_KINDS.len());
+        assert_eq!(conformance_vectors().len(), SUPPORTED_OPERATION_IDS.len());
     }
 
     #[test]
@@ -757,7 +785,7 @@ mod tests {
     fn semantic_reducer_rejects_tombstone_mutations_and_missing_authz() {
         let create = envelope_for(
             "ak:operation:01904100-0000-7000-8000-b24c1b0f1a32",
-            OP_PUSH_REGISTER_DEVICE,
+            crate::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
             json!({
                 "device_id": "ak:device:01904100-0000-7000-8000-c89a39a907e5",
                 "endpoint": "https://push.example/device"
@@ -767,14 +795,14 @@ mod tests {
         );
         let delete = envelope_for(
             "ak:operation:01904100-0000-7000-8000-bc16402a117e",
-            OP_PUSH_UNREGISTER_DEVICE,
+            crate::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE,
             json!({"device_id": "ak:device:01904100-0000-7000-8000-c89a39a907e5"}),
             vec!["ak:operation:01904100-0000-7000-8000-b24c1b0f1a32"],
             true,
         );
         let update_after_delete = envelope_for(
             "ak:operation:01904100-0000-7000-8000-57ea8fc8ec0b",
-            OP_PUSH_REGISTER_DEVICE,
+            crate::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
             json!({
                 "device_id": "ak:device:01904100-0000-7000-8000-c89a39a907e5",
                 "endpoint": "https://push.example/device"
@@ -788,7 +816,7 @@ mod tests {
 
         let missing_authz = envelope_for(
             "ak:operation:01904100-0000-7000-8000-a8e5d315a094",
-            OP_PUSH_REGISTER_DEVICE,
+            crate::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
             json!({
                 "device_id": "ak:device:01904100-0000-7000-8000-9160607cbd81",
                 "endpoint": "https://push.example/other"
@@ -806,12 +834,12 @@ mod tests {
             OperationId::new("ak:operation:01904100-0000-7000-8000-e0d2820b21e0").unwrap(),
             RealmId::new("ak:realm:01904100-0000-7000-8000-6b91994c774d").unwrap(),
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            OP_PUSH_REGISTER_DEVICE,
+            crate::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
             1,
             Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         )
         .with_payload(json!({}))
-        .build(&OperationKindRegistry::default());
+        .build(&EventDraftKindRegistry::default());
         assert!(matches!(result, Err(Error::Protocol(_))));
     }
 }

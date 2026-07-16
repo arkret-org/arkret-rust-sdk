@@ -283,8 +283,8 @@ impl RealmLinkTransitionError {
     /// Stable reason code required by the protocol error mapping.
     pub const fn reason_code(self) -> &'static str {
         match self {
-            Self::SelfReference => crate::REASON_REALM_LINK_SELF_REFERENCE,
-            Self::InvalidTransition { .. } => crate::REASON_REALM_LINK_INVALID_TRANSITION,
+            Self::SelfReference => crate::ReasonCode::REALM_LINK_SELF_REFERENCE,
+            Self::InvalidTransition { .. } => crate::ReasonCode::REALM_LINK_INVALID_TRANSITION,
         }
     }
 }
@@ -879,7 +879,7 @@ mod tests {
         assert_eq!(error.error_code(), crate::ErrorCode::FailedPrecondition);
         assert_eq!(
             error.reason_code(),
-            crate::REASON_REALM_LINK_INVALID_TRANSITION
+            crate::ReasonCode::REALM_LINK_INVALID_TRANSITION
         );
     }
 
@@ -914,7 +914,10 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(error.error_code(), crate::ErrorCode::SchemaViolation);
-        assert_eq!(error.reason_code(), crate::REASON_REALM_LINK_SELF_REFERENCE);
+        assert_eq!(
+            error.reason_code(),
+            crate::ReasonCode::REALM_LINK_SELF_REFERENCE
+        );
     }
 
     #[test]
@@ -1064,7 +1067,7 @@ where
     if &payload.realm_id != expected_realm_id {
         return Err(Error::Protocol(format!(
             "ak.realm.organization realm_id must equal Event.realm_id ({})",
-            crate::ERROR_CODE_SCHEMA_VIOLATION
+            crate::ErrorCode::SCHEMA_VIOLATION
         )));
     }
 
@@ -1076,7 +1079,7 @@ where
     if !proof_ok {
         return Err(Error::Protocol(format!(
             "ak.realm.organization authorization.proof must be present ({})",
-            crate::ERROR_CODE_INVALID_SIGNATURE
+            crate::ErrorCode::INVALID_SIGNATURE
         )));
     }
 
@@ -1089,13 +1092,13 @@ where
         (true, None) => {
             return Err(Error::Protocol(format!(
                 "ak.realm.organization issuer_role requires delegation_ref ({})",
-                crate::ERROR_CODE_SCHEMA_VIOLATION
+                crate::ErrorCode::SCHEMA_VIOLATION
             )));
         }
         (false, Some(_)) => {
             return Err(Error::Protocol(format!(
                 "ak.realm.organization delegation_ref only valid for delegated issuer_role ({})",
-                crate::ERROR_CODE_SCHEMA_VIOLATION
+                crate::ErrorCode::SCHEMA_VIOLATION
             )));
         }
         (true, Some(delegation_ref)) => {
@@ -1104,19 +1107,19 @@ where
                 .ok_or_else(|| {
                     Error::Protocol(format!(
                         "ak.realm.organization delegation_ref did not resolve ({})",
-                        crate::REASON_GRANT_REVOKED_UPSTREAM
+                        crate::ReasonCode::GRANT_REVOKED_UPSTREAM
                     ))
                 })?;
             if !delegation.is_live {
                 return Err(Error::Protocol(format!(
                     "ak.realm.organization delegation is not live ({})",
-                    crate::REASON_GRANT_REVOKED_UPSTREAM
+                    crate::ReasonCode::GRANT_REVOKED_UPSTREAM
                 )));
             }
             if delegation.organization_id != payload.organization_id {
                 return Err(Error::Protocol(format!(
                     "ak.realm.organization delegation anchored to a different organization ({})",
-                    crate::REASON_GRANT_EXCEEDS_ISSUER_AUTHORITY
+                    crate::ReasonCode::GRANT_EXCEEDS_ISSUER_AUTHORITY
                 )));
             }
             if !delegation
@@ -1125,7 +1128,7 @@ where
             {
                 return Err(Error::Protocol(format!(
                     "ak.realm.organization delegation does not cover relationship ({})",
-                    crate::REASON_GRANT_EXCEEDS_ISSUER_AUTHORITY
+                    crate::ReasonCode::GRANT_EXCEEDS_ISSUER_AUTHORITY
                 )));
             }
             if !payload
@@ -1135,7 +1138,7 @@ where
             {
                 return Err(Error::Protocol(format!(
                     "ak.realm.organization delegation does not cover all control_scopes ({})",
-                    crate::REASON_GRANT_EXCEEDS_ISSUER_AUTHORITY
+                    crate::ReasonCode::GRANT_EXCEEDS_ISSUER_AUTHORITY
                 )));
             }
         }
@@ -1146,13 +1149,13 @@ where
     if payload.is_not_yet_valid(now) {
         return Err(Error::Protocol(format!(
             "ak.realm.organization statement is not yet valid ({})",
-            crate::ERROR_CODE_FAILED_PRECONDITION
+            crate::ErrorCode::FAILED_PRECONDITION
         )));
     }
     if payload.is_expired(now) {
         return Err(Error::Protocol(format!(
             "ak.realm.organization statement is expired ({})",
-            crate::REASON_TTL_EXPIRED
+            crate::ReasonCode::TTL_EXPIRED
         )));
     }
 
@@ -1161,13 +1164,13 @@ where
         RealmOrganizationStatus::Revoked if payload.revokes_statement_id.is_none() => {
             Err(Error::Protocol(format!(
                 "ak.realm.organization revoked status requires revokes_statement_id ({})",
-                crate::ERROR_CODE_SCHEMA_VIOLATION
+                crate::ErrorCode::SCHEMA_VIOLATION
             )))
         }
         RealmOrganizationStatus::Active if payload.revokes_statement_id.is_some() => {
             Err(Error::Protocol(format!(
                 "ak.realm.organization active status must not carry revokes_statement_id ({})",
-                crate::ERROR_CODE_SCHEMA_VIOLATION
+                crate::ErrorCode::SCHEMA_VIOLATION
             )))
         }
         _ => Ok(()),

@@ -94,7 +94,7 @@ pub fn build_self_principal_pcr_create(input: SelfPrincipalPcrCreateInput) -> Re
     };
     let event = Event {
         event_id: input.event_id,
-        kind: kinds::REALM_CREATE.into(),
+        kind: arkret_core::events::EventKind::REALM_CREATE.into(),
         realm_id: input.realm_id,
         actor_id: input.principal_id,
         actor_seq: 0,
@@ -327,7 +327,7 @@ fn self_principal_bootstrap_state_root(
 
 pub fn validate_self_principal_bootstrap_unit(create: &Event, authorize: &Event) -> Result<()> {
     validate_self_principal_pcr_create(create, true)?;
-    if authorize.kind != kinds::DEVICE_AUTHORIZE
+    if authorize.kind != arkret_core::events::EventKind::DEVICE_AUTHORIZE
         || authorize.realm_id != create.realm_id
         || authorize.actor_id != create.actor_id
         || authorize.actor_seq != 1
@@ -358,7 +358,7 @@ pub fn validate_self_principal_bootstrap_unit(create: &Event, authorize: &Event)
     }
     validate_event_proof_digests(authorize)?;
     let payload: arkret_core::DeviceAuthorizePayload =
-        authorize.typed_payload(kinds::DEVICE_AUTHORIZE)?;
+        authorize.typed_payload(arkret_core::events::EventKind::DEVICE_AUTHORIZE)?;
     if payload.principal_id != create.actor_id
         || payload.cross_signing_binding.is_some()
         || payload.enrollment_authority_binding.is_none()
@@ -395,7 +395,7 @@ pub fn validate_self_principal_bootstrap_unit(create: &Event, authorize: &Event)
 
 fn validate_self_principal_pcr_create(event: &Event, require_proof: bool) -> Result<()> {
     let expected_realm_id = RealmId::new(arkret_core::principal_control_realm_id(&event.actor_id))?;
-    if event.kind != kinds::REALM_CREATE
+    if event.kind != arkret_core::events::EventKind::REALM_CREATE
         || event.realm_id != expected_realm_id
         || event.actor_seq != 0
         || !event.prev_refs.is_empty()
@@ -614,7 +614,7 @@ mod tests {
             recovery_session_id: None,
         };
         let mut authorize = Event::new(
-            kinds::DEVICE_AUTHORIZE,
+            arkret_core::events::EventKind::DEVICE_AUTHORIZE,
             create.realm_id.clone(),
             create.actor_id.clone(),
             1,
@@ -654,7 +654,10 @@ mod tests {
     fn builder_emits_only_the_closed_unsigned_root_shape() {
         let event = build_self_principal_pcr_create(input()).unwrap();
 
-        assert_eq!(event.kind, kinds::REALM_CREATE);
+        assert_eq!(
+            event.kind,
+            arkret_core::events::EventKind::REALM_CREATE
+        );
         assert_eq!(event.actor_seq, 0);
         assert!(event.prev_refs.is_empty());
         assert!(event.proofs.is_empty());

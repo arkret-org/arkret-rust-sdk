@@ -567,7 +567,7 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
         OperationId::new("ak:operation:01904100-0000-7000-8000-9c5aa4740640").unwrap(),
         test_realm_id(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        OP_MESSAGE_CREATE,
+        crate::events::EventKind::MESSAGE_CREATE,
         7,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     )
@@ -576,7 +576,7 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
         "track_name": "discussion",
         "content": {"kind": "ak.content.text", "body": "hello"}
     }))
-    .build(&OperationKindRegistry::default())
+    .build(&EventDraftKindRegistry::default())
     .unwrap();
     let digest = operation.operation_digest().unwrap();
     operation.proofs = vec![Proof {
@@ -694,7 +694,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
         OperationId::new("ak:operation:01904100-0000-7000-8000-9c5aa474063f").unwrap(),
         test_realm_id(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        OP_MESSAGE_CREATE,
+        crate::events::EventKind::MESSAGE_CREATE,
         7,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     )
@@ -703,13 +703,13 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
         "track_name": "discussion",
         "content": {"kind": "ak.content.text", "body": "hello"}
     }))
-    .build(&OperationKindRegistry::default())
+    .build(&EventDraftKindRegistry::default())
     .unwrap();
 
     let event = operation
         .into_event_envelope(OperationEventConversion::default())
         .unwrap();
-    assert_eq!(event.kind, OP_MESSAGE_CREATE);
+    assert_eq!(event.kind, crate::events::EventKind::MESSAGE_CREATE);
     assert_eq!(event.actor_seq, 7);
     assert_eq!(
         serde_json::to_value(&event.payload).unwrap(),

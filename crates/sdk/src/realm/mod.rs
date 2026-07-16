@@ -18,15 +18,12 @@ use crate::models::{
     BlobRef, ContentBlock, DeliveryStatus, Did, EventId, FieldFilter, Filter, FilterOp, Hash,
     InviteCreatePayload, InviteDeliveryTarget, InviteId, MemberDeliveryBinding, MembershipPayload,
     MembershipPayloadState, MessageCreatePayload, MessageId, MessageRedactPayload,
-    MessageRevisePayload, Morph, MorphId, MorphUpdatePayload, NullsOrder, OP_INVITE_CREATE,
-    OP_MEMBER_STATE, OP_MESSAGE_CREATE, OP_MESSAGE_REDACT, OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE,
-    OP_MORPH_CREATE, OP_MORPH_UPDATE, OP_RELATION_CREATE, OP_RELATION_TOMBSTONE,
-    ObjectCreatePayload, ObjectLifecyclePayload, ObjectMetadata, ObjectState, Operation,
-    OperationId, OperationType, Patch, Relation, RelationCreatePayload, RelationId, RelationKind,
-    RelationState, SortDirection, SortSpec, Space, SpaceObjectTombstonePayload, SpaceParentPayload,
-    SpacePatchPayload, SpaceStateTransitionPayload, Strand, StrandCreateObject,
-    StrandMoveExpectedPosition, StrandMovePayload, StrandPatchPayload,
-    StrandReorderExpectedPosition, StrandReorderPayload,
+    MessageRevisePayload, Morph, MorphId, MorphUpdatePayload, NullsOrder, ObjectCreatePayload,
+    ObjectLifecyclePayload, ObjectMetadata, ObjectState, Operation, OperationId, OperationType,
+    Patch, Relation, RelationCreatePayload, RelationId, RelationKind, RelationState, SortDirection,
+    SortSpec, Space, SpaceObjectTombstonePayload, SpaceParentPayload, SpacePatchPayload,
+    SpaceStateTransitionPayload, Strand, StrandCreateObject, StrandMoveExpectedPosition,
+    StrandMovePayload, StrandPatchPayload, StrandReorderExpectedPosition, StrandReorderPayload,
 };
 use crate::resolver::RealmState;
 use crate::{RealmId, Result, SpaceId, StrandId};
@@ -412,7 +409,7 @@ impl Realm {
         Ok(Operation::create(
             operation_id,
             self.realm_id()?,
-            OP_MESSAGE_CREATE,
+            arkret_core::events::EventKind::MESSAGE_CREATE,
             payload,
         ))
     }
@@ -440,7 +437,7 @@ impl Realm {
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
-            OP_MESSAGE_REVISE,
+            arkret_core::events::EventKind::MESSAGE_REVISE,
             payload_value(&payload, "message revise payload")?,
         );
         operation.object_id = Some(message_id.as_str().to_owned());
@@ -467,7 +464,7 @@ impl Realm {
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
-            OP_MESSAGE_REDACT,
+            arkret_core::events::EventKind::MESSAGE_REDACT,
             payload_value(&payload, "message redact payload")?,
         );
         operation.operation_type = OperationType::Redact;

@@ -3,10 +3,7 @@
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::{
-    AgentKeyScope, Did, Error, Hash, OP_ACCOUNT_AGENT_KEY_PAIR, PublicKey, Result,
-    base64url_decode, canonical,
-};
+use crate::{AgentKeyScope, Did, Error, Hash, PublicKey, Result, base64url_decode, canonical};
 
 #[derive(Serialize)]
 struct AgentRequestedScopeCommitment<'a> {
@@ -165,7 +162,7 @@ pub fn agent_key_pairing_request_binding_digest(
     Hash::new(canonical::canonical_sha256(
         &AgentKeyPairingRequestBinding {
             kind: "ak.agent.key_pairing_request_binding.v1",
-            operation_id: OP_ACCOUNT_AGENT_KEY_PAIR,
+            operation_id: crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
             controller_id: controller_id.as_str(),
             agent_id: agent_id.as_str(),
             verification_method,
@@ -189,7 +186,7 @@ pub fn agent_key_pair_proof_request_binding_digest(
     Hash::new(canonical::canonical_sha256(
         &AgentKeyPairProofRequestBinding {
             kind: "ak.agent.key_pair_proof_of_possession_request.v1",
-            operation_id: OP_ACCOUNT_AGENT_KEY_PAIR,
+            operation_id: crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
             pairing_request_id,
             agent_id: agent_id.as_str(),
             verification_method,

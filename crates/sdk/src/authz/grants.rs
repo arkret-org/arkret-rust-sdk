@@ -1307,7 +1307,7 @@ impl CapabilityGrantBuilder {
             "grant": serde_json::to_value(&self.grant)?,
         });
         crate::Event::new(
-            crate::events::CAPABILITY_GRANT,
+            arkret_core::events::EventKind::CAPABILITY_GRANT,
             self.realm_id,
             self.actor_id,
             actor_seq,
@@ -1380,7 +1380,7 @@ mod capability_grant_builder_tests {
         let event = CapabilityGrantBuilder::new(realm(), alice(), base_grant())
             .build(1, hlc())
             .unwrap();
-        assert_eq!(event.kind, crate::events::CAPABILITY_GRANT);
+        assert_eq!(event.kind, arkret_core::events::EventKind::CAPABILITY_GRANT);
         // Canonical capability_grant_payload wrapper: {grant_id, grant}.
         assert_eq!(
             event.payload["grant_id"],

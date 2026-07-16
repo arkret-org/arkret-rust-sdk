@@ -4,7 +4,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::events::kinds::IDENTITY_ACCOUNTABILITY_GRANT;
 use crate::{
     ACTOR_PROFILE_SCHEMA, ActorKind, ActorProfile, ActorProfileId, AppletId, BlobRef, Did, Error,
     Event, ExternalRef, Hlc, ObjectCreatePayload, PayloadProof, RealmId, Result,
@@ -419,7 +418,7 @@ impl AccountabilityGrantPayload {
         authorization: Option<&AppletDelegatedEventAuthorization>,
     ) -> Result<Event> {
         let mut event = Event::new(
-            IDENTITY_ACCOUNTABILITY_GRANT,
+            crate::events::EventKind::IDENTITY_ACCOUNTABILITY_GRANT,
             realm_id,
             self.issuer.clone(),
             actor_seq,

@@ -20,9 +20,9 @@ use arkret_core::lattice::{
 use arkret_core::schema::embedded_json_artifact;
 use arkret_core::{
     CellRef, Did, LatticeOp, LatticeOpType, MoveId, REALM_LINK_ALLOWED_TRANSITIONS,
-    REALM_LINK_INITIAL_STATES, REALM_LINK_TERMINAL_STATES, REASON_REALM_LINK_INVALID_TRANSITION,
-    REASON_REALM_LINK_SELF_REFERENCE, RealmId, RealmLinkKind, RealmLinkPayload, RealmLinkStatus,
-    RealmLinkTransitionCandidate, RealmLinkTransitionOutcome, evaluate_realm_link_transition,
+    REALM_LINK_INITIAL_STATES, REALM_LINK_TERMINAL_STATES, RealmId, RealmLinkKind,
+    RealmLinkPayload, RealmLinkStatus, RealmLinkTransitionCandidate, RealmLinkTransitionOutcome,
+    evaluate_realm_link_transition,
 };
 use serde_json::{Value, json};
 
@@ -440,7 +440,10 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
                     },
                 )
                 .unwrap_err();
-                assert_eq!(error.reason_code(), REASON_REALM_LINK_INVALID_TRANSITION);
+                assert_eq!(
+                    error.reason_code(),
+                    arkret_core::ReasonCode::REALM_LINK_INVALID_TRANSITION
+                );
             }
         }
         ("fsm", "tombstoned_is_terminal_except_byte_equivalent_replay") => {
@@ -534,7 +537,10 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
                 },
             )
             .unwrap_err();
-            assert_eq!(error.reason_code(), REASON_REALM_LINK_SELF_REFERENCE);
+            assert_eq!(
+                error.reason_code(),
+                arkret_core::ReasonCode::REALM_LINK_SELF_REFERENCE
+            );
         }
         other => panic!("unknown lattice_round_trip assertion {other:?}; extend this driver"),
     }

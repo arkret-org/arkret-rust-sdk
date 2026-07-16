@@ -46,7 +46,7 @@ impl Realm {
         Ok(Operation::create(
             operation_id,
             self.realm_id()?,
-            OP_RELATION_CREATE,
+            arkret_core::events::EventKind::RELATION_CREATE,
             payload.to_value()?,
         ))
     }
@@ -64,7 +64,7 @@ impl Realm {
         Ok(Operation::create(
             operation_id,
             self.realm_id()?,
-            OP_RELATION_TOMBSTONE,
+            arkret_core::events::EventKind::RELATION_TOMBSTONE,
             payload,
         ))
     }

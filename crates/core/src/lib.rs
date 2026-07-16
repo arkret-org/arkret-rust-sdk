@@ -109,7 +109,10 @@ pub use agent::{
 };
 pub use applet::*;
 pub use arkret_identifiers as identifiers;
-pub use arkret_wire_base::{EvaluationClass, ServiceType, WireError, XExtensionMap};
+pub use arkret_wire_base::{
+    EvaluationClass, SERVICE_OPERATION_DESCRIPTORS, ServiceOperationDescriptor, ServiceOperationId,
+    ServiceType, WireError, XExtensionMap,
+};
 pub use authz::*;
 pub use base64url::{
     base64_standard_decode, base64_standard_encode, base64url_decode, base64url_encode,

@@ -22,7 +22,6 @@ mod tests {
     use chrono::Utc;
 
     use super::*;
-    use crate::error::{ERROR_CODE_PROFILE_UNSUPPORTED, REASON_MLS_GOVERNANCE_BINDING_STALE};
     use crate::{
         CryptoStore, DeviceId, Did, EncryptedPayloadScheme, Error, EventId, Hash,
         MLS_GOVERNANCE_BINDING_FULL_PROFILE, MLS_GOVERNANCE_BINDING_RELAXED_PROFILE,
@@ -301,7 +300,10 @@ mod tests {
             .verify_current_governance_binding(&expected)
             .unwrap_err();
 
-        assert!(err.to_string().contains(ERROR_CODE_PROFILE_UNSUPPORTED));
+        assert!(
+            err.to_string()
+                .contains(crate::error::ErrorCode::PROFILE_UNSUPPORTED)
+        );
     }
 
     #[test]
@@ -331,7 +333,10 @@ mod tests {
             .verify_current_governance_binding(&expected)
             .unwrap_err();
 
-        assert!(err.to_string().contains(ERROR_CODE_PROFILE_UNSUPPORTED));
+        assert!(
+            err.to_string()
+                .contains(crate::error::ErrorCode::PROFILE_UNSUPPORTED)
+        );
     }
 
     #[test]
@@ -363,7 +368,7 @@ mod tests {
 
         assert!(
             err.to_string()
-                .contains(REASON_MLS_GOVERNANCE_BINDING_STALE)
+                .contains(crate::error::ReasonCode::MLS_GOVERNANCE_BINDING_STALE)
         );
     }
 

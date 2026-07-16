@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::events::kinds;
 use crate::{Event, MessageEventPayload, Result};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -32,11 +31,11 @@ impl InboundDecoder {
 
     pub fn try_decode_event(&self, event: Event) -> Result<DecodedInbound> {
         match event.kind.as_str() {
-            kinds::MESSAGE_CREATE
-            | kinds::MESSAGE_REVISE
-            | kinds::MESSAGE_REDACT
-            | kinds::REACTION_ADD
-            | kinds::REACTION_REMOVE => {
+            crate::events::EventKind::MESSAGE_CREATE
+            | crate::events::EventKind::MESSAGE_REVISE
+            | crate::events::EventKind::MESSAGE_REDACT
+            | crate::events::EventKind::REACTION_ADD
+            | crate::events::EventKind::REACTION_REMOVE => {
                 let payload = event.as_message_event_payload()?;
                 Ok(DecodedInbound::Message(DecodedMessage { event, payload }))
             }
@@ -68,7 +67,7 @@ mod tests {
     fn decoder_parses_message_create_payload() {
         let inbound = InboundDecoder::new()
             .try_decode_event(event(
-                kinds::MESSAGE_CREATE,
+                crate::events::EventKind::MESSAGE_CREATE,
                 json!({
                     "strand_id": "ak:strand:01904100-0000-7000-8000-000000000002",
                     "track_name": "discussion",
@@ -91,7 +90,7 @@ mod tests {
     #[test]
     fn decoder_rejects_invalid_standard_message_payload() {
         let result = InboundDecoder::new().try_decode_event(event(
-            kinds::MESSAGE_CREATE,
+            crate::events::EventKind::MESSAGE_CREATE,
             json!({"content": {"kind": "ak.content.text", "body": "missing strand"}}),
         ));
 

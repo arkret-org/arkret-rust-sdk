@@ -15,7 +15,7 @@ pub use arkret_core::{
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::models::{DeliveryStatus, MembershipPayload, OP_MEMBER_STATE};
+use crate::models::{DeliveryStatus, MembershipPayload};
 use crate::{BlobRef, Did, Error, InviteId, Operation, OperationId, RealmId, Result};
 
 /// Generate a new UUIDv7-based wire ID with the given Arkret typed prefix
@@ -594,7 +594,7 @@ impl MembershipManager {
         Ok(Operation::create(
             OperationId::new(generate_id("ak:operation:"))?,
             realm_id,
-            OP_MEMBER_STATE,
+            arkret_core::events::EventKind::MEMBER_STATE,
             payload.to_value()?,
         ))
     }

@@ -211,199 +211,10 @@ impl Facets {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum RelationKind {
-    Contains,
-    BelongsTo,
-    RepliesTo,
-    DependsOn,
-    Blocks,
-    Mentions,
-    AssignedTo,
-    References,
-    DerivedFrom,
-    SummarizedFrom,
-    PromotedFromDiscussion,
-    AttachedTo,
-    HasDefaultView,
-    Watches,
-    /// AKP-0007 (spec b7d35be) — couples a "wide synthesis" Strand (often
-    /// Realm-default scope) to a "narrow discussion" Strand bound to a
-    /// `scope_circle_id` Circle. The discussion side carries the confidential
-    /// conversation; the synthesis side stays in the Realm scope. See
-    /// zh/models/circle.md §7.2.
-    ConfidentialDiscussionOf,
-    /// AKP-0008 / AKP-0009 (spec head 37ce729) — links a sidecar Circle to
-    /// its (controller, native agent) actor pair. Weak-semantic,
-    /// non-structural, non-cascading: reducers and federation invariants
-    /// MUST NOT drive lifecycle cascade through this relation.
-    AgentSidecarOf,
-    #[serde(untagged)]
-    Custom(String),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RelationTruthSourceClass {
-    Canonical,
-    DerivedProjection,
-    ShapeDependent,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct StandardRelationKindMetadata {
-    pub canonical_id: &'static str,
-    pub default_cardinality: &'static str,
-    pub truth_source_class: RelationTruthSourceClass,
-    pub weak_semantic: bool,
-}
-
-pub const STANDARD_RELATION_KIND_METADATA: &[StandardRelationKindMetadata] = &[
-    StandardRelationKindMetadata {
-        canonical_id: "contains",
-        default_cardinality: "shape_dependent",
-        truth_source_class: RelationTruthSourceClass::ShapeDependent,
-        weak_semantic: false,
-    },
-    StandardRelationKindMetadata {
-        canonical_id: "belongs_to",
-        default_cardinality: "many_to_one",
-        truth_source_class: RelationTruthSourceClass::Canonical,
-        weak_semantic: false,
-    },
-    StandardRelationKindMetadata {
-        canonical_id: "replies_to",
-        default_cardinality: "many_to_one",
-        truth_source_class: RelationTruthSourceClass::Canonical,
-        weak_semantic: true,
-    },
-    StandardRelationKindMetadata {
-        canonical_id: "depends_on",
-        default_cardinality: "many_to_many",
-        truth_source_class: RelationTruthSourceClass::Canonical,
-        weak_semantic: true,
-    },
-    StandardRelationKindMetadata {
-        canonical_id: "blocks",
-        default_cardinality: "many_to_many",
-        truth_source_class: RelationTruthSourceClass::Canonical,
-        weak_semantic: true,
-    },
-    StandardRelationKindMetadata {
-        canonical_id: "mentions",
-        default_cardinality: "many_to_many",
-        truth_source_class: RelationTruthSourceClass::Canonical,
-        weak_semantic: true,
-    },
-    StandardRelationKindMetadata {
-        canonical_id: "assigned_to",
-        default_cardinality: "many_to_many",
-        truth_source_class: RelationTruthSourceClass::Canonical,
-        weak_semantic: true,
-    },
-    StandardRelationKindMetadata {
-        canonical_id: "references",
-        default_cardinality: "many_to_many",
-        truth_source_class: RelationTruthSourceClass::Canonical,
-        weak_semantic: true,
-    },
-    StandardRelationKindMetadata {
-        canonical_id: "derived_from",
-        default_cardinality: "many_to_many",
-        truth_source_class: RelationTruthSourceClass::Canonical,
-        weak_semantic: true,
-    },
-    StandardRelationKindMetadata {
-        canonical_id: "attached_to",
-        default_cardinality: "many_to_many",
-        truth_source_class: RelationTruthSourceClass::Canonical,
-        weak_semantic: true,
-    },
-    StandardRelationKindMetadata {
-        canonical_id: "has_default_view",
-        default_cardinality: "many_to_one",
-        truth_source_class: RelationTruthSourceClass::Canonical,
-        weak_semantic: true,
-    },
-    StandardRelationKindMetadata {
-        canonical_id: "summarized_from",
-        default_cardinality: "many_to_many",
-        truth_source_class: RelationTruthSourceClass::Canonical,
-        weak_semantic: true,
-    },
-    StandardRelationKindMetadata {
-        canonical_id: "promoted_from_discussion",
-        default_cardinality: "many_to_many",
-        truth_source_class: RelationTruthSourceClass::Canonical,
-        weak_semantic: true,
-    },
-    StandardRelationKindMetadata {
-        canonical_id: "watches",
-        default_cardinality: "one_active_edge_per_pair",
-        truth_source_class: RelationTruthSourceClass::DerivedProjection,
-        weak_semantic: false,
-    },
-    StandardRelationKindMetadata {
-        canonical_id: "agent_sidecar_of",
-        default_cardinality: "many_to_one",
-        truth_source_class: RelationTruthSourceClass::Canonical,
-        weak_semantic: true,
-    },
-    StandardRelationKindMetadata {
-        canonical_id: "confidential_discussion_of",
-        default_cardinality: "many_to_one",
-        truth_source_class: RelationTruthSourceClass::Canonical,
-        weak_semantic: true,
-    },
-];
-
-pub fn standard_relation_kind_metadata(
-    relation_kind: &str,
-) -> Option<&'static StandardRelationKindMetadata> {
-    STANDARD_RELATION_KIND_METADATA
-        .iter()
-        .find(|metadata| metadata.canonical_id == relation_kind)
-}
-
-impl RelationKind {
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Contains => "contains",
-            Self::BelongsTo => "belongs_to",
-            Self::RepliesTo => "replies_to",
-            Self::DependsOn => "depends_on",
-            Self::Blocks => "blocks",
-            Self::Mentions => "mentions",
-            Self::AssignedTo => "assigned_to",
-            Self::References => "references",
-            Self::DerivedFrom => "derived_from",
-            Self::SummarizedFrom => "summarized_from",
-            Self::PromotedFromDiscussion => "promoted_from_discussion",
-            Self::AttachedTo => "attached_to",
-            Self::HasDefaultView => "has_default_view",
-            Self::Watches => "watches",
-            Self::ConfidentialDiscussionOf => "confidential_discussion_of",
-            Self::AgentSidecarOf => "agent_sidecar_of",
-            Self::Custom(value) => value.as_str(),
-        }
-    }
-
-    pub fn standard_metadata(&self) -> Option<&'static StandardRelationKindMetadata> {
-        standard_relation_kind_metadata(self.as_str())
-    }
-
-    pub fn is_standard(&self) -> bool {
-        self.standard_metadata().is_some()
-    }
-
-    pub fn is_structural(&self) -> bool {
-        self.standard_metadata()
-            .map(|metadata| !metadata.weak_semantic)
-            .unwrap_or(false)
-    }
-}
-
+pub use crate::generated::relation_kinds::{
+    RELATION_KIND_DESCRIPTORS, RelationKind, RelationKindDescriptor, RelationTruthSourceClass,
+    STANDARD_RELATION_KIND_METADATA, StandardRelationKindMetadata, standard_relation_kind_metadata,
+};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -1102,7 +913,7 @@ impl ProofBindingRequirements {
 fn proof_binding_missing(field: &str) -> Error {
     Error::Protocol(format!(
         "{}: proof {field} is required",
-        REASON_PROOF_BINDING_MISSING
+        crate::ReasonCode::PROOF_BINDING_MISSING
     ))
 }
 
@@ -1113,7 +924,7 @@ fn require_proof_domain(proof: Option<&str>, expected: Option<&str>) -> Result<(
     if expected.map(str::trim).map(str::is_empty).unwrap_or(true) {
         return Err(Error::Protocol(format!(
             "{}: expected domain is required",
-            REASON_PROOF_BINDING_MISSING
+            crate::ReasonCode::PROOF_BINDING_MISSING
         )));
     }
     Ok(())
@@ -1126,7 +937,7 @@ fn require_proof_audience(proof: Option<&Audience>, expected: Option<&Audience>)
     if expected.is_none() {
         return Err(Error::Protocol(format!(
             "{}: expected audience is required",
-            REASON_PROOF_BINDING_MISSING
+            crate::ReasonCode::PROOF_BINDING_MISSING
         )));
     }
     Ok(())

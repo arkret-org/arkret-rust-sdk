@@ -12,10 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::*;
-use crate::{
-    CellId, CellRef, ERROR_CODE_SCHEMA_VIOLATION, ERROR_CODE_STATE_MISMATCH, MoveId, NotarySig,
-    REASON_MLS_GOVERNANCE_BINDING_STALE, Seal, base64url_decode,
-};
+use crate::{CellId, CellRef, MoveId, NotarySig, Seal, base64url_decode};
 
 pub const MLS_GOVERNANCE_PROOF_BUNDLE_VERSION: u8 = 1;
 pub const MLS_GOVERNANCE_COMPLETE_MATERIALIZATION_PROFILE: &str = "complete_control_state_v1";
@@ -501,20 +498,16 @@ fn ensure_canonical_order<'a>(
 }
 
 fn schema<T>(message: &str) -> Result<T> {
-    Err(Error::Protocol(format!(
-        "{message} ({ERROR_CODE_SCHEMA_VIOLATION})"
-    )))
+    Err(Error::Protocol(format!("{message} (schema_violation)")))
 }
 
 fn state_mismatch<T>(message: &str) -> Result<T> {
-    Err(Error::Protocol(format!(
-        "{message} ({ERROR_CODE_STATE_MISMATCH})"
-    )))
+    Err(Error::Protocol(format!("{message} (state_mismatch)")))
 }
 
 fn stale<T>(message: &str) -> Result<T> {
     Err(Error::Protocol(format!(
-        "{message} ({REASON_MLS_GOVERNANCE_BINDING_STALE})"
+        "{message} (mls_governance_binding_stale)"
     )))
 }
 
@@ -824,7 +817,7 @@ mod tests {
         };
         signature.payload_digest = hash(0xef);
         let error = verify(&fixture).unwrap_err();
-        assert!(error.to_string().contains(ERROR_CODE_STATE_MISMATCH));
+        assert!(error.to_string().contains(crate::ErrorCode::STATE_MISMATCH));
     }
 
     #[test]
@@ -839,7 +832,11 @@ mod tests {
             reducer_profile: "ak.reducer.v1".to_owned(),
         };
         let error = request.validate().unwrap_err();
-        assert!(error.to_string().contains(ERROR_CODE_SCHEMA_VIOLATION));
+        assert!(
+            error
+                .to_string()
+                .contains(crate::ErrorCode::SCHEMA_VIOLATION)
+        );
     }
 
     #[test]
@@ -877,7 +874,7 @@ mod tests {
         )
         .unwrap();
         let error = verify(&fixture).unwrap_err();
-        assert!(error.to_string().contains(ERROR_CODE_STATE_MISMATCH));
+        assert!(error.to_string().contains(crate::ErrorCode::STATE_MISMATCH));
     }
 
     #[test]
@@ -887,7 +884,7 @@ mod tests {
             realm_id: RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014b").unwrap(),
         };
         let error = verify(&fixture).unwrap_err();
-        assert!(error.to_string().contains(ERROR_CODE_STATE_MISMATCH));
+        assert!(error.to_string().contains(crate::ErrorCode::STATE_MISMATCH));
     }
 
     #[test]
@@ -895,7 +892,7 @@ mod tests {
         let mut fixture = fixture();
         fixture.bundle.reducer_profile = "ak.reducer.tampered.v1".to_owned();
         let error = verify(&fixture).unwrap_err();
-        assert!(error.to_string().contains(ERROR_CODE_STATE_MISMATCH));
+        assert!(error.to_string().contains(crate::ErrorCode::STATE_MISMATCH));
     }
 
     #[test]
@@ -903,7 +900,7 @@ mod tests {
         let mut fixture = fixture();
         fixture.bundle.control_state.remove(0);
         let error = verify(&fixture).unwrap_err();
-        assert!(error.to_string().contains(ERROR_CODE_STATE_MISMATCH));
+        assert!(error.to_string().contains(crate::ErrorCode::STATE_MISMATCH));
     }
 
     #[test]
@@ -911,7 +908,7 @@ mod tests {
         let mut fixture = fixture();
         fixture.bundle.covered_event_digests.clear();
         let error = verify(&fixture).unwrap_err();
-        assert!(error.to_string().contains(ERROR_CODE_STATE_MISMATCH));
+        assert!(error.to_string().contains(crate::ErrorCode::STATE_MISMATCH));
     }
 
     #[test]
@@ -919,7 +916,7 @@ mod tests {
         let mut fixture = fixture();
         fixture.bundle.frontier_events.clear();
         let error = verify(&fixture).unwrap_err();
-        assert!(error.to_string().contains(ERROR_CODE_STATE_MISMATCH));
+        assert!(error.to_string().contains(crate::ErrorCode::STATE_MISMATCH));
     }
 
     #[test]
@@ -927,7 +924,7 @@ mod tests {
         let mut fixture = fixture();
         fixture.bundle.frontier_events[0].effective_scope = None;
         let error = verify(&fixture).unwrap_err();
-        assert!(error.to_string().contains(ERROR_CODE_STATE_MISMATCH));
+        assert!(error.to_string().contains(crate::ErrorCode::STATE_MISMATCH));
     }
 
     #[test]
@@ -952,7 +949,7 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains(REASON_MLS_GOVERNANCE_BINDING_STALE)
+                .contains(crate::ReasonCode::MLS_GOVERNANCE_BINDING_STALE)
         );
     }
 
@@ -982,7 +979,7 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains(REASON_MLS_GOVERNANCE_BINDING_STALE)
+                .contains(crate::ReasonCode::MLS_GOVERNANCE_BINDING_STALE)
         );
     }
 
@@ -1012,7 +1009,7 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains(REASON_MLS_GOVERNANCE_BINDING_STALE)
+                .contains(crate::ReasonCode::MLS_GOVERNANCE_BINDING_STALE)
         );
     }
 }

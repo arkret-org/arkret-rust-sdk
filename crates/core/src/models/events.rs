@@ -545,44 +545,44 @@ impl Event {
 
     event_payload_accessors! {
         /// Parse a `ak.message.create` payload.
-        as_message_create => (MessageCreatePayload, crate::events::kinds::MESSAGE_CREATE),
+        as_message_create => (MessageCreatePayload, crate::events::EventKind::MESSAGE_CREATE),
         /// Parse a `ak.message.revise` payload.
-        as_message_revise => (MessageRevisePayload, crate::events::kinds::MESSAGE_REVISE),
+        as_message_revise => (MessageRevisePayload, crate::events::EventKind::MESSAGE_REVISE),
         /// Parse a `ak.message.redact` payload.
-        as_message_redact => (MessageRedactPayload, crate::events::kinds::MESSAGE_REDACT),
+        as_message_redact => (MessageRedactPayload, crate::events::EventKind::MESSAGE_REDACT),
         /// Parse a `ak.reaction.add` payload.
-        as_reaction_add => (ReactionPayload, crate::events::kinds::REACTION_ADD),
+        as_reaction_add => (ReactionPayload, crate::events::EventKind::REACTION_ADD),
         /// Parse a `ak.reaction.remove` payload.
-        as_reaction_remove => (ReactionPayload, crate::events::kinds::REACTION_REMOVE),
+        as_reaction_remove => (ReactionPayload, crate::events::EventKind::REACTION_REMOVE),
         /// Parse a `ak.strand.create` payload.
-        as_strand_create => (StrandCreatePayload, crate::events::kinds::STRAND_CREATE),
+        as_strand_create => (StrandCreatePayload, crate::events::EventKind::STRAND_CREATE),
         /// Parse a `ak.strand.update` payload.
-        as_strand_update => (StrandPatchPayload, crate::events::kinds::STRAND_UPDATE),
+        as_strand_update => (StrandPatchPayload, crate::events::EventKind::STRAND_UPDATE),
         /// Parse a `ak.member.state` payload.
-        as_member_state => (MembershipPayload, crate::events::kinds::MEMBER_STATE),
+        as_member_state => (MembershipPayload, crate::events::EventKind::MEMBER_STATE),
         /// Parse a `ak.device.reanchor` payload.
-        as_device_reanchor => (DeviceReanchorPayload, crate::events::kinds::DEVICE_REANCHOR),
+        as_device_reanchor => (DeviceReanchorPayload, crate::events::EventKind::DEVICE_REANCHOR),
         /// Parse a `ak.morph.create` payload.
-        as_morph_create => (MorphCreatePayload, crate::events::kinds::MORPH_CREATE),
+        as_morph_create => (MorphCreatePayload, crate::events::EventKind::MORPH_CREATE),
         /// Parse a `ak.morph.update` payload.
-        as_morph_update => (MorphUpdatePayload, crate::events::kinds::MORPH_UPDATE),
+        as_morph_update => (MorphUpdatePayload, crate::events::EventKind::MORPH_UPDATE),
     }
 
     pub fn as_message_event_payload(&self) -> Result<MessageEventPayload> {
         match self.kind.as_str() {
-            crate::events::kinds::MESSAGE_CREATE => {
+            crate::events::EventKind::MESSAGE_CREATE => {
                 Ok(MessageEventPayload::Create(self.as_message_create()?))
             }
-            crate::events::kinds::MESSAGE_REVISE => {
+            crate::events::EventKind::MESSAGE_REVISE => {
                 Ok(MessageEventPayload::Revise(self.as_message_revise()?))
             }
-            crate::events::kinds::MESSAGE_REDACT => {
+            crate::events::EventKind::MESSAGE_REDACT => {
                 Ok(MessageEventPayload::Redact(self.as_message_redact()?))
             }
-            crate::events::kinds::REACTION_ADD => {
+            crate::events::EventKind::REACTION_ADD => {
                 Ok(MessageEventPayload::ReactionAdd(self.as_reaction_add()?))
             }
-            crate::events::kinds::REACTION_REMOVE => Ok(MessageEventPayload::ReactionRemove(
+            crate::events::EventKind::REACTION_REMOVE => Ok(MessageEventPayload::ReactionRemove(
                 self.as_reaction_remove()?,
             )),
             _ => Err(Error::Protocol(format!(
@@ -621,12 +621,12 @@ impl Event {
     pub fn validate_for_submit(&self) -> Result<()> {
         if self.effective_scope.is_some() {
             return Err(Error::Protocol(
-                crate::error::REASON_EFFECTIVE_SCOPE_REDUCER_MANAGED.to_owned(),
+                crate::error::ReasonCode::EFFECTIVE_SCOPE_REDUCER_MANAGED.to_owned(),
             ));
         }
         if self.actor_kind.is_some() {
             return Err(Error::Protocol(
-                crate::error::REASON_ACTOR_KIND_REDUCER_MANAGED.to_owned(),
+                crate::error::ReasonCode::ACTOR_KIND_REDUCER_MANAGED.to_owned(),
             ));
         }
         self.validate_wire_schema()?;
@@ -863,7 +863,7 @@ mod event_wire_surface_tests {
     #[test]
     fn message_event_payload_classifies_message_and_reaction_kinds() {
         let mut revise = base_event();
-        revise.kind = crate::events::kinds::MESSAGE_REVISE.into();
+        revise.kind = crate::events::EventKind::MESSAGE_REVISE.into();
         revise.payload = serde_json::from_value(json!({
             "message_id": "ak:message:01904100-0000-7000-8000-000000000001",
             "content": {
@@ -879,7 +879,7 @@ mod event_wire_surface_tests {
         ));
 
         let mut reaction = base_event();
-        reaction.kind = crate::events::kinds::REACTION_ADD.into();
+        reaction.kind = crate::events::EventKind::REACTION_ADD.into();
         reaction.payload = serde_json::from_value(json!({
             "target_ref": "ak:event:01904100-0000-7000-8000-000000000099",
             "key": "+1"
@@ -936,7 +936,7 @@ mod event_wire_surface_tests {
     fn typed_payload_rejects_kind_mismatch() {
         let event = base_event();
         let error = event
-            .typed_payload::<MessageCreatePayload>(crate::events::kinds::STRAND_CREATE)
+            .typed_payload::<MessageCreatePayload>(crate::events::EventKind::STRAND_CREATE)
             .unwrap_err();
 
         assert!(error.to_string().contains("kind mismatch"), "{error}");
@@ -1074,7 +1074,7 @@ mod event_wire_surface_tests {
         let err = event.validate_for_submit().unwrap_err();
         assert!(
             err.to_string()
-                .contains(crate::error::REASON_ACTOR_KIND_REDUCER_MANAGED),
+                .contains(crate::error::ReasonCode::ACTOR_KIND_REDUCER_MANAGED),
             "unexpected error: {err}"
         );
     }
@@ -1087,7 +1087,7 @@ mod event_wire_surface_tests {
         let err = event.validate_for_submit().unwrap_err();
         assert!(
             err.to_string()
-                .contains(crate::error::REASON_EFFECTIVE_SCOPE_REDUCER_MANAGED),
+                .contains(crate::error::ReasonCode::EFFECTIVE_SCOPE_REDUCER_MANAGED),
             "unexpected error: {err}"
         );
     }

@@ -4,7 +4,6 @@ use serde_json::Value;
 
 use super::constants::{DETACHED_JWS_ALG_EDDSA, DETACHED_JWS_PROOF_KIND};
 use super::merkle::sha256_digest;
-use crate::error::{ERROR_CODE_SNAPSHOT_AUTHORITY_UNVERIFIED, ERROR_CODE_SNAPSHOT_UNAVAILABLE};
 use crate::{BlobRef, Did, Error, EventId, Hash, Hlc, RealmId, Result, SnapshotId};
 
 mod base64_url {
@@ -311,11 +310,13 @@ pub enum SnapshotValidationCode {
 impl SnapshotValidationCode {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::DigestMismatch => crate::ERROR_CODE_DIGEST_MISMATCH,
-            Self::SnapshotAuthorityUnverified => ERROR_CODE_SNAPSHOT_AUTHORITY_UNVERIFIED,
+            Self::DigestMismatch => crate::ErrorCode::DIGEST_MISMATCH,
+            Self::SnapshotAuthorityUnverified => {
+                crate::error::ErrorCode::SNAPSHOT_AUTHORITY_UNVERIFIED
+            }
             Self::SnapshotIssuerRevoked => "snapshot_issuer_revoked",
             Self::InclusionProofFailed => "inclusion_proof_failed",
-            Self::SnapshotUnavailable => ERROR_CODE_SNAPSHOT_UNAVAILABLE,
+            Self::SnapshotUnavailable => crate::error::ErrorCode::SNAPSHOT_UNAVAILABLE,
         }
     }
 }

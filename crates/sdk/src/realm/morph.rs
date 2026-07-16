@@ -38,7 +38,7 @@ impl Realm {
         Ok(Operation::create(
             operation_id,
             self.realm_id()?,
-            OP_MORPH_CREATE,
+            arkret_core::events::EventKind::MORPH_CREATE,
             ObjectCreatePayload::new(object).to_value()?,
         ))
     }
@@ -76,7 +76,7 @@ impl Realm {
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
-            OP_MORPH_UPDATE,
+            arkret_core::events::EventKind::MORPH_UPDATE,
             MorphUpdatePayload::for_morph(morph_id.clone(), patch)?.to_value()?,
         );
         operation.operation_type = OperationType::Update;
@@ -95,7 +95,7 @@ impl Realm {
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
-            OP_MORPH_ARCHIVE,
+            arkret_core::events::EventKind::MORPH_ARCHIVE,
             ObjectLifecyclePayload::new(morph_id.as_str().to_owned())
                 .with_target_state("archived")
                 .to_value()?,

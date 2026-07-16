@@ -159,8 +159,8 @@ pub fn profile_conformance_suites() -> Vec<ConformanceSuite> {
                 "order_independent": true,
                 "requires_merkle_root": true,
                 "canonical_kinds": [
-                    OP_CONTAINER_MOVE_ITEM,
-                    OP_CONTAINER_REBALANCE
+                    crate::events::EventKind::CONTAINER_MOVE_ITEM,
+                    crate::events::EventKind::CONTAINER_REBALANCE
                 ]
             }),
         ),

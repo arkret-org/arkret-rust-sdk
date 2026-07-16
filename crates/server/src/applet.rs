@@ -224,7 +224,6 @@ impl AppletService {
 #[cfg(feature = "salvo")]
 mod salvo_router {
     use arkret_canonical::canonical;
-    use arkret_core::{ERROR_CODE_DUPLICATE_CONFLICT, ERROR_CODE_INVALID_SIGNATURE};
     use arkret_signatures::http_signature::{
         SignatureVerificationPolicy, parse_signature_input, public_key_from_bytes,
         verify_signed_http_message,
@@ -296,8 +295,8 @@ mod salvo_router {
     fn render_invalid_signature(res: &mut Response) {
         res.render(
             StatusError::unauthorized()
-                .brief(ERROR_CODE_INVALID_SIGNATURE)
-                .detail(ERROR_CODE_INVALID_SIGNATURE),
+                .brief(arkret_core::ErrorCode::INVALID_SIGNATURE)
+                .detail(arkret_core::ErrorCode::INVALID_SIGNATURE),
         );
     }
 
@@ -594,8 +593,8 @@ mod salvo_router {
                 // with `duplicate_conflict` once authentication passed.
                 res.render(
                     StatusError::conflict()
-                        .brief(ERROR_CODE_DUPLICATE_CONFLICT)
-                        .detail(ERROR_CODE_DUPLICATE_CONFLICT),
+                        .brief(arkret_core::ErrorCode::DUPLICATE_CONFLICT)
+                        .detail(arkret_core::ErrorCode::DUPLICATE_CONFLICT),
                 );
             }
             TransactionDispatch::InFlight => {
@@ -701,7 +700,7 @@ mod tests {
             let mut description = ServiceDescribe::development(
                 Did::new("did:webvh:QmSvc:svc.example").unwrap(),
                 TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-                "applet_service",
+                arkret_core::ServiceType::AppletService,
             );
             description.supported_profiles = vec!["ak.profile.applet.v1".to_owned()];
             description.supported_operations = vec!["ak.edge.applet.query.describe".to_owned()];

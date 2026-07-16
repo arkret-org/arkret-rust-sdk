@@ -839,12 +839,12 @@ impl MlsWelcomeClaimEnvelope {
 
     pub fn validate_signature_shape(&self) -> std::result::Result<(), &'static str> {
         if self.signature.kid.is_empty() || self.signature.sig.is_empty() {
-            return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+            return Err(crate::ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
         }
         if let Some(alg) = self.signature.alg.as_deref()
             && !matches!(alg, "EdDSA" | "Ed25519")
         {
-            return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+            return Err(crate::ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
         }
         Ok(())
     }
@@ -1001,7 +1001,7 @@ pub fn validate_mls_welcome_claim_envelope(
         || welcome.claim_ref.trust_binding.device_authorize_event_id()
             != claim.device_authorize_event_id.as_deref()
     {
-        return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+        return Err(crate::ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     }
     validate_claim_trust_binding(
         &welcome.claim_ref.trust_binding,
@@ -1018,7 +1018,7 @@ pub fn validate_mls_welcome_claim_envelope(
         || envelope.nonce.as_str() != claim_nonce
         || envelope.welcome_digest.as_str() != welcome_digest.as_str()
     {
-        return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+        return Err(crate::ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     }
     validate_requester_signature_binding(
         &envelope.trust_binding,
@@ -1027,7 +1027,7 @@ pub fn validate_mls_welcome_claim_envelope(
     )?;
     envelope.validate_signature_shape()?;
     if envelope.created_at > claim.expires_at || welcome.expires_at > claim.expires_at {
-        return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+        return Err(crate::ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     }
     Ok(())
 }
@@ -1048,7 +1048,7 @@ fn validate_claim_trust_binding(
         {
             Ok(())
         }
-        _ => Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH),
+        _ => Err(crate::ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH),
     }
 }
 
@@ -1068,7 +1068,7 @@ fn validate_requester_signature_binding(
         {
             Ok(())
         }
-        _ => Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH),
+        _ => Err(crate::ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH),
     }
 }
 

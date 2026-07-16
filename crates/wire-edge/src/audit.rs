@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{Did, ERROR_CODE_SCHEMA_VIOLATION, Error, EventId, RealmId, Result};
+use crate::{Did, Error, EventId, RealmId, Result};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
@@ -30,11 +30,11 @@ impl AuditPolicyAccessPayload {
     pub fn validate_minimal(&self) -> Result<()> {
         match (self.access_kind, &self.late_recovery_original_event_id) {
             (AccessKind::E2EELateRecovery, None) => Err(Error::Protocol(format!(
-                "ak.audit.policy_access access_kind=e2ee_late_recovery requires late_recovery_original_event_id ({ERROR_CODE_SCHEMA_VIOLATION})"
+                "ak.audit.policy_access access_kind=e2ee_late_recovery requires late_recovery_original_event_id (schema_violation)"
             ))),
             (kind, Some(_)) if !matches!(kind, AccessKind::E2EELateRecovery) => {
                 Err(Error::Protocol(format!(
-                    "ak.audit.policy_access late_recovery_original_event_id is only valid for access_kind=e2ee_late_recovery ({ERROR_CODE_SCHEMA_VIOLATION})"
+                    "ak.audit.policy_access late_recovery_original_event_id is only valid for access_kind=e2ee_late_recovery (schema_violation)"
                 )))
             }
             _ => Ok(()),

@@ -14,6 +14,7 @@ pub use portal::*;
 mod tests {
     use std::collections::BTreeMap;
 
+    use arkret_core::events::EventKind::IDENTITY_ACCOUNTABILITY_GRANT;
     use arkret_core::{
         AppletInstallAppletId, AppletInstallPlan, E2eeEffect, EffectiveScope, WidgetEffect,
     };
@@ -21,7 +22,6 @@ mod tests {
     use serde_json::{Value, json};
 
     use super::*;
-    use crate::events::kinds::IDENTITY_ACCOUNTABILITY_GRANT;
     use crate::models::AppletTransactionOutcome;
     use crate::{ActorKind, ActorProfileId, AppletId, Did, Hlc, PayloadProof, Proof, RealmId};
 
@@ -158,7 +158,10 @@ mod tests {
         let event = grant
             .to_event(ghost_test_realm(), 2, ghost_test_hlc(), None)
             .unwrap();
-        assert_eq!(event.kind, IDENTITY_ACCOUNTABILITY_GRANT);
+        assert_eq!(
+            event.kind,
+            arkret_core::events::EventKind::IDENTITY_ACCOUNTABILITY_GRANT
+        );
         assert_eq!(event.actor_id, owner);
         assert_eq!(event.payload["grant_status"], "active");
         assert_eq!(event.payload["accountability_scope"], "contracted_service");

@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "generator": "event-kinds",
+      "outputs": [
+        "crates/wire-base/src/generated/event_kinds.rs"
+      ],
+      "owner": "arkret-wire-base",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "registry/event-kind-registry.json"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
+        "crates/wire-base/src/error_codes/error_code.rs",
+        "crates/wire-base/src/error_codes/reason_code.rs"
+      ],
+      "owner": "arkret-wire-base",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "registry/error-code-registry.json"
+      ]
+    },
+    {
+      "generator": "profile-constants",
+      "outputs": [
+        "crates/policy/src/generated/profiles.rs"
+      ],
+      "owner": "arkret-policy",
+      "mode": "registered+projection",
+      "artifacts": [
+        "profiles/conformance-profiles.json"
+      ]
+    },
+    {
+      "generator": "profile-requirements",
+      "outputs": [
+        "crates/schema/src/generated/profile_requirements.rs"
+      ],
+      "owner": "arkret-schema",
+      "mode": "descriptor",
+      "artifacts": [
+        "profiles/conformance-profiles.json"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
+        "crates/wire-base/src/generated/operation_ids.rs"
+      ],
+      "owner": "arkret-wire-base",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "registry/operation-registry.json"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
+        "crates/wire-base/src/generated/service_types.rs"
+      ],
+      "owner": "arkret-wire-base",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "registry/service-type-registry.json"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
+        "crates/wire-base/src/generated/relation_kinds.rs"
+      ],
+      "owner": "arkret-wire-base",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "registry/relation-kind-registry.json"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
+        "crates/wire-base/src/generated/security_strings.rs"
+      ],
+      "owner": "arkret-wire-base",
+      "mode": "newtype+descriptor",
+      "artifacts": [
+        "registry/proof-context-registry.json",
+        "registry/exporter-label-registry.json",
+        "registry/digest-suite-registry.json",
+        "registry/signature-alg-registry.json",
+        "registry/hpke-suite-registry.json",
+        "registry/mls-ciphersuite-registry.json",
+        "registry/mls-extension-registry.json"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
+        "crates/schema/src/generated/registry_descriptors.rs"
+      ],
+      "owner": "arkret-schema",
+      "mode": "registered+descriptor",
+      "artifacts": [
+        "registry/schema-registry.json",
+        "registry/id-kind-registry.json",
+        "registry/capability-action-registry.json",
+        "registry/account-data-type-registry.json"
+      ]
+    }
+  ]
+}

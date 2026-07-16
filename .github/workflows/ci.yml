@@ -233,29 +233,12 @@ jobs:
         run: >-
           python tools/refresh-embedded-artifacts.py --check
           ${{ github.workspace }}/arkret-spec/spec/v1/artifacts
-      - name: Regenerate registry-derived SDK surfaces
+      - name: Reject registry-derived SDK surface drift
         working-directory: arkret-rust-sdk
         shell: pwsh
         run: |
           $artifacts = "${{ github.workspace }}/arkret-spec/spec/v1/artifacts"
-          ./tools/generate-sdk-error-codes.ps1 -ArtifactsDir $artifacts
-          ./tools/generate-sdk-profile-constants.ps1 -ArtifactsDir $artifacts
-          ./tools/generate-sdk-profile-requirements.ps1 -ArtifactsDir $artifacts
-          ./tools/generate-sdk-event-kinds.ps1 -ArtifactsDir $artifacts
-      - name: Reject generated surface drift
-        working-directory: arkret-rust-sdk
-        run: |
-          generated=(
-            crates/wire-base/src/error_codes/codes.rs
-            crates/wire-base/src/error_codes/reasons.rs
-            crates/policy/src/generated/profiles.rs
-            crates/schema/src/generated/profile_requirements.rs
-            crates/wire-base/src/generated/event_kinds.rs
-          )
-          for path in "${generated[@]}"; do
-            test -f "$path" || { echo "missing generated surface: $path"; exit 1; }
-          done
-          git diff --exit-code -- "${generated[@]}"
+          ./tools/sync-spec-generated.ps1 -ArtifactsDir $artifacts -Check
       - name: Verify claimable-profile operation coverage matrix
         working-directory: arkret-rust-sdk
         run: >-

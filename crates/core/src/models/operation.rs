@@ -336,7 +336,7 @@ impl OperationEnvelopeBuilder {
     }
 
     /// Build and validate the operation envelope against a registry.
-    pub fn build(self, registry: &OperationKindRegistry) -> Result<OperationEnvelope> {
+    pub fn build(self, registry: &EventDraftKindRegistry) -> Result<OperationEnvelope> {
         let validation = registry.canonicalize(&self.kind)?;
         let envelope = OperationEnvelope {
             operation_id: self.operation_id,

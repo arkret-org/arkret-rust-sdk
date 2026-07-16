@@ -4,8 +4,6 @@
 //! introduced them.
 
 use super::*;
-use crate::ERROR_CODE_INVALID_PARAM;
-
 /// Absolute hard ceiling on `expires_at - sent_at` for an ephemeral signal,
 /// in milliseconds. Per `schemas/ephemeral-envelope.schema.json`:
 /// "Signals with expires_at > sent_at + 5 minutes MUST be dropped by
@@ -97,7 +95,7 @@ impl EphemeralEnvelope {
         if window_ms < 0 || (window_ms as u64) > EPHEMERAL_ABSOLUTE_HARD_CEILING_MS as u64 {
             return Err(Error::Protocol(format!(
                 "ephemeral envelope window {window_ms}ms exceeds absolute hard ceiling \
-                 {EPHEMERAL_ABSOLUTE_HARD_CEILING_MS}ms ({ERROR_CODE_INVALID_PARAM})"
+                 {EPHEMERAL_ABSOLUTE_HARD_CEILING_MS}ms (invalid_param)"
             )));
         }
         self.proof.validate_production()?;
@@ -159,7 +157,7 @@ impl CallSignalPayload {
                 "ak.call.signal payload.signal_type {:?} not in canonical 14-value enum \
                  ({})",
                 self.signal_type,
-                crate::ERROR_CODE_SCHEMA_VIOLATION
+                crate::ErrorCode::SCHEMA_VIOLATION
             )));
         }
         Ok(())
@@ -192,7 +190,7 @@ impl CallSignalSeqKey {
 /// Verify `next` is strictly greater than `prev` for the same
 /// `key`. `prev = None` accepts any `next` (first observation).
 ///
-/// Returns `Err(ERROR_CODE_SCHEMA_VIOLATION)` on rollback / repeat —
+/// Returns `Err(crate::ErrorCode::SCHEMA_VIOLATION)` on rollback / repeat —
 /// receivers MUST drop the signal and emit `hangup`.
 pub fn validate_signal_seq(prev: Option<u64>, next: u64) -> Result<()> {
     match prev {
@@ -200,7 +198,7 @@ pub fn validate_signal_seq(prev: Option<u64>, next: u64) -> Result<()> {
         Some(prev) if next > prev => Ok(()),
         Some(prev) => Err(Error::Protocol(format!(
             "ak.call.signal seq rollback prev={prev} next={next} ({})",
-            crate::ERROR_CODE_SCHEMA_VIOLATION
+            crate::ErrorCode::SCHEMA_VIOLATION
         ))),
     }
 }
@@ -248,7 +246,7 @@ pub fn validate_call_signal_envelope(env: &EphemeralEnvelope) -> Result<CallSign
     .map_err(|e| {
         Error::Protocol(format!(
             "ak.call.signal payload must carry {{call_id, signal_type, seq}}: {e} ({})",
-            crate::ERROR_CODE_SCHEMA_VIOLATION
+            crate::ErrorCode::SCHEMA_VIOLATION
         ))
     })?;
     payload.validate_signal_type()?;

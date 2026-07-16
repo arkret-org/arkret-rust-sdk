@@ -1153,7 +1153,7 @@ mod tests {
         Event {
             event_id: EventId::new(format!("ak:event:01904100-0000-7000-8000-{:012x}", index))
                 .unwrap(),
-            kind: crate::OP_MORPH_CREATE.into(),
+            kind: arkret_core::events::EventKind::MORPH_CREATE.into(),
             realm_id: realm_id.clone(),
             actor_id: Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
             actor_seq: index as u64,

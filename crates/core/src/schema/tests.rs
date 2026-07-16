@@ -1057,7 +1057,7 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
         .unwrap();
     catalog
         .validate_payload(
-            crate::events::REALM_HISTORY_VISIBILITY,
+            crate::events::EventKind::REALM_HISTORY_VISIBILITY,
             &shared.to_value().unwrap(),
         )
         .unwrap();
@@ -1102,7 +1102,7 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
         .unwrap();
     catalog
         .validate_payload(
-            crate::events::REALM_HISTORY_SHARING_POLICY,
+            crate::events::EventKind::REALM_HISTORY_SHARING_POLICY,
             &history_policy_value,
         )
         .unwrap();
@@ -1142,7 +1142,7 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
     // `board_space_id` and `target_space_id`.
     catalog
         .validate_payload(
-            crate::events::STRAND_MOVE,
+            crate::events::EventKind::STRAND_MOVE,
             &json!({
                 "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
                 "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
@@ -1154,7 +1154,7 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
     assert!(
         catalog
             .validate_payload(
-                crate::events::STRAND_MOVE,
+                crate::events::EventKind::STRAND_MOVE,
                 &json!({
                     "board_space_id": "not-a-space-id",
                     "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
@@ -1166,7 +1166,7 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
     );
     let warnings = catalog
         .validate_payload_with_warnings(
-            crate::events::STRAND_MOVE,
+            crate::events::EventKind::STRAND_MOVE,
             &json!({
                 "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
                 "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
@@ -1399,18 +1399,18 @@ fn artifact_payload_catalog_enforces_invite_create_payload_shape() {
     });
 
     assert_eq!(
-        catalog.rules[crate::events::INVITE_CREATE].payload_schema_id,
+        catalog.rules[crate::events::EventKind::INVITE_CREATE].payload_schema_id,
         format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/invite_payload")
     );
     assert!(
-        catalog.rules[crate::events::INVITE_CREATE]
+        catalog.rules[crate::events::EventKind::INVITE_CREATE]
             .required_fields
             .iter()
             .any(|field| field == "invite_id"),
         "ak.invite.create must require invite_id"
     );
     catalog
-        .validate_payload(crate::events::INVITE_CREATE, &payload)
+        .validate_payload(crate::events::EventKind::INVITE_CREATE, &payload)
         .unwrap_or_else(|err| panic!("ak.invite.create should accept directed invite: {err}"));
 
     let mut missing_invite_id = payload.clone();
@@ -1420,7 +1420,7 @@ fn artifact_payload_catalog_enforces_invite_create_payload_shape() {
         .remove("invite_id");
     assert!(
         catalog
-            .validate_payload(crate::events::INVITE_CREATE, &missing_invite_id)
+            .validate_payload(crate::events::EventKind::INVITE_CREATE, &missing_invite_id)
             .is_err(),
         "ak.invite.create must reject directed invite payloads without invite_id"
     );
@@ -1432,7 +1432,7 @@ fn artifact_payload_catalog_enforces_invite_create_payload_shape() {
         .remove("expires_at");
     assert!(
         catalog
-            .validate_payload(crate::events::INVITE_CREATE, &missing_expires_at)
+            .validate_payload(crate::events::EventKind::INVITE_CREATE, &missing_expires_at)
             .is_err(),
         "ak.invite.create must reject directed invite payloads without expires_at"
     );
@@ -1463,7 +1463,7 @@ fn artifact_payload_catalog_enforces_external_schema_refs_and_enums() {
     });
     catalog
         .validate_payload(
-            crate::events::CROSS_SIGNING_PUBLISH,
+            crate::events::EventKind::CROSS_SIGNING_PUBLISH,
             &json!({
                 "principal_id": "did:webvh:z6mkfixture:alice.example",
                 "trust_domain": "ak:trust_domain:example.net",
@@ -1479,7 +1479,7 @@ fn artifact_payload_catalog_enforces_external_schema_refs_and_enums() {
     assert!(
         catalog
             .validate_payload(
-                crate::events::CROSS_SIGNING_PUBLISH,
+                crate::events::EventKind::CROSS_SIGNING_PUBLISH,
                 &json!({
                     "principal_id": "did:webvh:z6mkfixture:alice.example",
                     "principal_signing_key": key,

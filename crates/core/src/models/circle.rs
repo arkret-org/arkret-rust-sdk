@@ -525,7 +525,7 @@ pub fn validate_member_transition(
 /// `scope_circle_id` MUST NOT change between two sequential states
 /// (`prev`, `next`). AKP-0007 §3.4 — default profile rejects all scope
 /// rebinds with `failed_precondition` reason
-/// [`crate::error::REASON_SCOPE_REBIND_FORBIDDEN`].
+/// [`crate::error::ReasonCode::SCOPE_REBIND_FORBIDDEN`].
 ///
 /// Cases (legal):
 ///   * `None → None`         — Realm-default stays Realm-default.
@@ -608,7 +608,7 @@ fn metadata_floor_rank(floor: EncryptionFloor) -> u8 {
 /// (AKP-0007 §3.4.1). Returns `Ok(())` when
 /// `rank(circle_floor) >= rank(realm_floor)`; otherwise
 /// [`CircleScopeError::MetadataEncryptionFloorViolation`] (wire reason
-/// [`crate::error::REASON_METADATA_ENCRYPTION_FLOOR_VIOLATION`]).
+/// [`crate::error::ReasonCode::METADATA_ENCRYPTION_FLOOR_VIOLATION`]).
 pub fn validate_metadata_floor_tightens(
     realm_floor: EncryptionFloor,
     circle_floor: EncryptionFloor,
@@ -799,7 +799,7 @@ pub enum CircleScopeError {
         reason: &'static str,
     },
     /// `scope_circle_id` rebind rejected by default profile.
-    /// Wire reason: [`crate::error::REASON_SCOPE_REBIND_FORBIDDEN`].
+    /// Wire reason: [`crate::error::ReasonCode::SCOPE_REBIND_FORBIDDEN`].
     #[error(
         "reason=scope_rebind_forbidden: scope_circle_id rebind from {from:?} to \
          {to:?} forbidden (AKP-0007 §3.4)"
@@ -817,7 +817,7 @@ pub enum CircleScopeError {
     RestrictedNotInLinearFloor { side: &'static str },
     /// Circle's `metadata_encryption_floor` is laxer than the parent
     /// Realm's. Wire reason:
-    /// [`crate::error::REASON_METADATA_ENCRYPTION_FLOOR_VIOLATION`].
+    /// [`crate::error::ReasonCode::METADATA_ENCRYPTION_FLOOR_VIOLATION`].
     #[error(
         "reason=metadata_encryption_floor_violation: circle_floor={circle_floor:?} is \
          laxer than realm_floor={realm_floor:?} (AKP-0007 §3.4.1)"

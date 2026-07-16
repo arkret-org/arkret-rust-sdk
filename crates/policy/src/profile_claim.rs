@@ -276,6 +276,7 @@ impl ProfileValidator {
             | ServiceType::TurnService => {
                 vec![ProfileRole::Gateway]
             }
+            ServiceType::MimiProviderFacade => vec![ProfileRole::Interop],
             ServiceType::DeviceKeyService
             | ServiceType::AuthzService
             | ServiceType::PolicyServer

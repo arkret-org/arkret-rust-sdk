@@ -88,12 +88,12 @@ pub fn relation_direct_write_reject_reason(
     if metadata.truth_source_class == RelationTruthSourceClass::DerivedProjection
         && relation_kind == RELATION_KIND_WATCHES
     {
-        return Some(crate::error::REASON_RELATION_KIND_WATCHES_DERIVED);
+        return Some(crate::error::ReasonCode::RELATION_KIND_WATCHES_DERIVED);
     }
     if relation_kind == RELATION_KIND_CONTAINS
         && from_ref.is_some_and(|value| value.starts_with("ak:space:"))
     {
-        return Some(crate::error::REASON_RELATION_KIND_CONTAINS_DERIVED);
+        return Some(crate::error::ReasonCode::RELATION_KIND_CONTAINS_DERIVED);
     }
     None
 }
@@ -122,7 +122,7 @@ where
             .into_iter()
             .any(|endpoint_realm| endpoint_realm != relation_realm)
     {
-        Err(crate::error::REASON_CROSS_REALM_STRUCTURAL_RELATION)
+        Err(crate::error::ReasonCode::CROSS_REALM_STRUCTURAL_RELATION)
     } else {
         Ok(())
     }
@@ -197,11 +197,11 @@ mod tests {
     fn relation_direct_write_helper_rejects_derived_edges() {
         assert_eq!(
             validate_relation_direct_write(RELATION_KIND_WATCHES, Some("ak:strand:a")),
-            Err(crate::error::REASON_RELATION_KIND_WATCHES_DERIVED)
+            Err(crate::error::ReasonCode::RELATION_KIND_WATCHES_DERIVED)
         );
         assert_eq!(
             validate_relation_direct_write(RELATION_KIND_CONTAINS, Some("ak:space:a")),
-            Err(crate::error::REASON_RELATION_KIND_CONTAINS_DERIVED)
+            Err(crate::error::ReasonCode::RELATION_KIND_CONTAINS_DERIVED)
         );
         assert!(
             validate_relation_direct_write(RELATION_KIND_CONTAINS, Some("ak:strand:a")).is_ok()
@@ -218,7 +218,7 @@ mod tests {
                 "ak:realm:a",
                 ["ak:realm:a", "ak:realm:b"],
             ),
-            Err(crate::error::REASON_CROSS_REALM_STRUCTURAL_RELATION)
+            Err(crate::error::ReasonCode::CROSS_REALM_STRUCTURAL_RELATION)
         );
         assert!(
             validate_structural_relation_same_realm(
@@ -238,7 +238,7 @@ mod tests {
                 "ak:realm:a",
                 ["ak:realm:a", "ak:realm:b"],
             ),
-            Err(crate::error::REASON_CROSS_REALM_STRUCTURAL_RELATION)
+            Err(crate::error::ReasonCode::CROSS_REALM_STRUCTURAL_RELATION)
         );
         assert!(
             validate_structural_relation_same_realm("vendor_custom", "ak:realm:a", ["ak:realm:b"],)

@@ -425,8 +425,8 @@ pub enum AccountStatusTransitionRejection {
 impl AccountStatusTransitionRejection {
     pub fn reason_code(self) -> &'static str {
         match self {
-            Self::ErasurePendingIsTerminal => crate::REASON_ERASURE_PENDING_IS_TERMINAL,
-            Self::TransitionInvalid => crate::REASON_ACCOUNT_STATUS_TRANSITION_INVALID,
+            Self::ErasurePendingIsTerminal => crate::ReasonCode::ERASURE_PENDING_IS_TERMINAL,
+            Self::TransitionInvalid => crate::ReasonCode::ACCOUNT_STATUS_TRANSITION_INVALID,
         }
     }
 }
@@ -543,11 +543,11 @@ pub fn is_e2ee_relaxed_compatible_with_compliance<S: AsRef<str>>(active_profiles
 }
 
 /// Round R2/R3 — validate a relaxed-window value against the absolute hard
-/// ceiling. Returns `Err(REASON_RELAXED_WINDOW_EXCEEDS_CEILING)` when
+/// ceiling. Returns `Err(crate::ReasonCode::RELAXED_WINDOW_EXCEEDS_CEILING)` when
 /// `ms > ABSOLUTE_HARD_CEILING_MS`.
 pub fn validate_relaxed_window_ms(ms: u32) -> std::result::Result<(), &'static str> {
     if ms > ABSOLUTE_HARD_CEILING_MS {
-        return Err(crate::REASON_RELAXED_WINDOW_EXCEEDS_CEILING);
+        return Err(crate::ReasonCode::RELAXED_WINDOW_EXCEEDS_CEILING);
     }
     Ok(())
 }

@@ -63,7 +63,7 @@ impl ServiceIdAllowlist {
                 description.service_id
             ))
         })?;
-        if description.service_type != binding.service_type.as_str() {
+        if description.service_type != binding.service_type {
             return Err(Error::Protocol(format!(
                 "service DID {} is allowlisted as {}, not {}",
                 description.service_id,
@@ -242,11 +242,10 @@ impl ServiceRequirements {
         }
 
         if let Some(service_type) = &self.service_type {
-            let expected = service_type.as_str();
-            if description.service_type != expected {
+            if description.service_type != *service_type {
                 return Err(Error::Protocol(format!(
-                    "service_type {} does not match expected {expected}",
-                    description.service_type
+                    "service_type {} does not match expected {}",
+                    description.service_type, service_type
                 )));
             }
             // Cross-check the service-type capability matrix (T3-10):
@@ -256,7 +255,7 @@ impl ServiceRequirements {
                 if !service_type.permits_operation(op) {
                     return Err(Error::Protocol(format!(
                         "service_type {} must not advertise operation {op}",
-                        expected
+                        service_type
                     )));
                 }
             }

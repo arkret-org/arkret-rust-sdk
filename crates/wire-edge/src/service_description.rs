@@ -91,7 +91,7 @@ impl PushTargetPrivacyDerivation {
         {
             return Err(Error::Protocol(format!(
                 "ServiceDescribe: invalid push_target privacy derivation ({})",
-                ERROR_CODE_SCHEMA_VIOLATION
+                arkret_wire_base::ErrorCode::SCHEMA_VIOLATION
             )));
         }
         Ok(())
@@ -116,7 +116,7 @@ pub struct ServiceDescribe {
     /// register a peer whose `trust_domain` disagrees with the
     /// expected deployment scope.
     pub trust_domain: TypedTrustDomainId,
-    pub service_type: String,
+    pub service_type: ServiceType,
     pub protocol_version: String,
     /// Profiles the service
     /// declares conformance to. Empty array is valid; missing is not.
@@ -258,12 +258,12 @@ impl ServiceDescribe {
     pub fn development(
         service_id: Did,
         trust_domain: TypedTrustDomainId,
-        service_type: impl Into<String>,
+        service_type: ServiceType,
     ) -> Self {
         Self {
             service_id,
             trust_domain,
-            service_type: service_type.into(),
+            service_type,
             protocol_version: PROTOCOL_VERSION.to_owned(),
             supported_profiles: Vec::new(),
             supported_operations: Vec::new(),
@@ -309,6 +309,13 @@ impl ServiceDescribe {
     /// - `verified_profiles` MUST be empty when `development_mode = true`.
     /// - the describe `anyOf` requires `rate_limit_policy` or `rate_limit_policy_id`.
     pub fn validate(&self) -> Result<()> {
+        if !self.service_type.valid_in("service_describe") {
+            return Err(Error::Protocol(format!(
+                "ServiceDescribe: service_type={} is not valid in service_describe ({})",
+                self.service_type.as_str(),
+                arkret_wire_base::ErrorCode::SCHEMA_VIOLATION
+            )));
+        }
         if let Some(push_target) = self
             .privacy_derivation
             .as_ref()
@@ -320,17 +327,17 @@ impl ServiceDescribe {
             return Err(Error::Protocol(format!(
                 "ServiceDescribe: development_mode=true forbids non-empty verified_profiles \
                  ({})",
-                ERROR_CODE_SCHEMA_VIOLATION
+                arkret_wire_base::ErrorCode::SCHEMA_VIOLATION
             )));
         }
         if self.rate_limit_policy.is_none() && self.rate_limit_policy_id.is_none() {
             return Err(Error::Protocol(format!(
                 "ServiceDescribe: one of rate_limit_policy or rate_limit_policy_id is required \
                  ({})",
-                ERROR_CODE_SCHEMA_VIOLATION
+                arkret_wire_base::ErrorCode::SCHEMA_VIOLATION
             )));
         }
-        if self.service_type == "directory_service" {
+        if self.service_type == ServiceType::DirectoryService {
             if !self
                 .supported_profiles
                 .iter()
@@ -339,7 +346,7 @@ impl ServiceDescribe {
                 return Err(Error::Protocol(format!(
                     "ServiceDescribe: service_type=directory_service requires \
                      supported_profiles to include ak.profile.directory_service.v1 ({})",
-                    ERROR_CODE_SCHEMA_VIOLATION
+                    arkret_wire_base::ErrorCode::SCHEMA_VIOLATION
                 )));
             }
             if self.resource_types.is_empty()
@@ -356,7 +363,7 @@ impl ServiceDescribe {
                 return Err(Error::Protocol(format!(
                     "ServiceDescribe: service_type=directory_service requires the directory \
                      describe overlay fields ({})",
-                    ERROR_CODE_SCHEMA_VIOLATION
+                    arkret_wire_base::ErrorCode::SCHEMA_VIOLATION
                 )));
             }
             let default_ttl = self.default_ttl_seconds.unwrap_or_default();
@@ -365,7 +372,7 @@ impl ServiceDescribe {
                 return Err(Error::Protocol(format!(
                     "ServiceDescribe: directory TTL fields must satisfy \
                      default_ttl_seconds <= max_ttl_seconds <= 2592000 ({})",
-                    ERROR_CODE_SCHEMA_VIOLATION
+                    arkret_wire_base::ErrorCode::SCHEMA_VIOLATION
                 )));
             }
             if self
@@ -376,7 +383,7 @@ impl ServiceDescribe {
                 return Err(Error::Protocol(format!(
                     "ServiceDescribe: directory accepted_did_methods entries must match \
                      did:<method> with lowercase alphanumeric method names ({})",
-                    ERROR_CODE_SCHEMA_VIOLATION
+                    arkret_wire_base::ErrorCode::SCHEMA_VIOLATION
                 )));
             }
         }
@@ -412,7 +419,7 @@ mod tests {
         ServiceDescribe {
             service_id: Did::new("did:webvh:z6mkfixture:directory.example").unwrap(),
             trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-            service_type: "directory_service".to_owned(),
+            service_type: ServiceType::DirectoryService,
             protocol_version: PROTOCOL_VERSION.to_owned(),
             supported_profiles: vec![PROFILE_DIRECTORY_SERVICE.to_owned()],
             supported_operations: vec!["ak.find.directory.query.describe".to_owned()],
@@ -549,6 +556,8 @@ impl AuthMetadata {
 pub struct AccountAuthority {
     pub origin: String,
     pub gate_account_base: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enrollment_authority_did: Option<Did>,
 }
 
 /// Mirrors `service-describe.schema.json#/$defs/auth_method`. Describes a

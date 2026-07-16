@@ -125,7 +125,7 @@ impl ErrorDetail {
         details: AgentHumanApprovalErrorDetails,
     ) -> Self {
         Self {
-            code: crate::error_codes::ERROR_CODE_CLAIM_REQUIRED.to_owned(),
+            code: crate::error_codes::ErrorCode::CLAIM_REQUIRED.to_owned(),
             message: message.into(),
             retry_after_ms: None,
             details: details.into_wire_details(),
@@ -139,7 +139,7 @@ impl ErrorDetail {
         &self,
     ) -> StdResult<Option<AgentHumanApprovalErrorDetails>, AgentHumanApprovalErrorDetailsError>
     {
-        if self.code != crate::error_codes::ERROR_CODE_CLAIM_REQUIRED {
+        if self.code != crate::error_codes::ErrorCode::CLAIM_REQUIRED {
             return Ok(None);
         }
         let value = Value::Object(self.details.clone().into_iter().collect());
@@ -261,7 +261,7 @@ mod tests {
 
         assert_eq!(
             envelope.code(),
-            crate::error_codes::ERROR_CODE_CLAIM_REQUIRED
+            crate::error_codes::ErrorCode::CLAIM_REQUIRED
         );
         assert_eq!(
             envelope.agent_human_approval_details().unwrap(),

@@ -189,7 +189,7 @@ impl Realm {
             }
 
             match event.kind.as_str() {
-                OP_MORPH_CREATE => {
+                arkret_core::events::EventKind::MORPH_CREATE => {
                     version = Some(0);
                     title = object
                         .pointer("/metadata/title")
@@ -206,7 +206,7 @@ impl Realm {
                         .unwrap_or_default();
                     state = Some(ObjectState::Active);
                 }
-                OP_MORPH_UPDATE => {
+                arkret_core::events::EventKind::MORPH_UPDATE => {
                     let Some(next_version) = version.map(|value| value + 1) else {
                         continue;
                     };
@@ -254,7 +254,7 @@ impl Realm {
                         state = parse_object_state(next_state);
                     }
                 }
-                OP_MORPH_ARCHIVE => {
+                arkret_core::events::EventKind::MORPH_ARCHIVE => {
                     let Some(next_version) = version.map(|value| value + 1) else {
                         continue;
                     };

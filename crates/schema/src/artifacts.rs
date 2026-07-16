@@ -1,12 +1,15 @@
 use std::sync::OnceLock;
 
-use events::STANDARD_EVENT_KINDS;
+use arkret_wire_base::generated::{EVENT_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS};
 
 use super::*;
+use crate::generated::{
+    CapabilityRiskTier, REGISTERED_ID_KINDS, REGISTERED_SCHEMA_IDS,
+    REGISTERED_SPECIAL_FORM_ID_KINDS,
+};
 use crate::{
-    BUILT_IN_OPERATION_KINDS, INVITE_DELIVERY_REQUEST_SCHEMA, INVITE_RECEIVE_POLICY_SCHEMA,
-    PRINCIPAL_LOCATOR_SCHEMA, PROFILE_ATTESTED_AUDIT_E2EE, PROFILE_DIRECTORY_SERVICE,
-    PROFILE_DISCLOSED_AUDIT_E2EE,
+    INVITE_DELIVERY_REQUEST_SCHEMA, INVITE_RECEIVE_POLICY_SCHEMA, PRINCIPAL_LOCATOR_SCHEMA,
+    PROFILE_ATTESTED_AUDIT_E2EE, PROFILE_DIRECTORY_SERVICE, PROFILE_DISCLOSED_AUDIT_E2EE,
 };
 
 const EMBEDDED_ARTIFACTS_SENTINEL: &str = "<embedded-spec-artifacts>";
@@ -18,7 +21,7 @@ const EMBEDDED_SPEC_ARTIFACTS_JSON: &str = "{}";
 static EMBEDDED_SPEC_ARTIFACTS: OnceLock<std::result::Result<BTreeMap<String, Value>, String>> =
     OnceLock::new();
 static EMBEDDED_CAPABILITY_ACTIONS: OnceLock<
-    std::result::Result<BTreeMap<String, CapabilityActionDescriptor>, String>,
+    std::result::Result<BTreeMap<String, ParsedCapabilityActionDescriptor>, String>,
 > = OnceLock::new();
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -103,29 +106,9 @@ pub struct ComponentDescriptor {
     pub component_slot_alias_of: Option<String>,
 }
 
-/// Risk tier for a capability action as declared by
-/// `registry/capability-action-registry.json`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CapabilityRiskTier {
-    Low,
-    Medium,
-    High,
-}
-
-impl CapabilityRiskTier {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Low => "low",
-            Self::Medium => "medium",
-            Self::High => "high",
-        }
-    }
-}
-
 /// Machine-readable descriptor for one capability action registry entry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CapabilityActionDescriptor {
+pub struct ParsedCapabilityActionDescriptor {
     pub action: String,
     pub category: String,
     pub risk_tier: CapabilityRiskTier,
@@ -193,6 +176,26 @@ impl SpecArtifactBundle {
     }
 
     pub fn drift_report(&self) -> ArtifactDriftReport {
+        let registered_schema_ids: Vec<&str> = REGISTERED_SCHEMA_IDS
+            .iter()
+            .map(|descriptor| descriptor.schema_id)
+            .collect();
+        let registered_event_kinds: Vec<&str> = EVENT_KIND_DESCRIPTORS
+            .iter()
+            .map(|descriptor| descriptor.kind)
+            .collect();
+        let registered_operations: Vec<&str> = SERVICE_OPERATION_DESCRIPTORS
+            .iter()
+            .map(|descriptor| descriptor.id.as_str())
+            .collect();
+        let registered_id_kinds: Vec<&str> = REGISTERED_ID_KINDS
+            .iter()
+            .map(|descriptor| descriptor.kind)
+            .collect();
+        let registered_special_forms: Vec<&str> = REGISTERED_SPECIAL_FORM_ID_KINDS
+            .iter()
+            .map(|descriptor| descriptor.kind)
+            .collect();
         ArtifactDriftReport {
             checked_files: vec![
                 "registry/schema-registry.json".to_owned(),
@@ -207,64 +210,64 @@ impl SpecArtifactBundle {
                 &self.schema_registry,
                 "schemas",
                 "schema_id",
-                ARTIFACT_BACKED_SCHEMA_IDS,
+                &registered_schema_ids,
             ),
             missing_event_kinds: missing_registry_values(
                 &self.event_kind_registry,
                 "event_kinds",
                 "event_kind",
-                ARTIFACT_BACKED_EVENT_KINDS,
+                &registered_event_kinds,
             ),
             missing_operations: missing_registry_values(
                 &self.operation_registry,
                 "operations",
                 "operation_id",
-                ARTIFACT_BACKED_SERVICE_OPERATIONS,
+                &registered_operations,
             ),
             missing_id_kinds: missing_registry_values(
                 &self.id_kind_registry,
                 "id_kinds",
                 "kind",
-                ARTIFACT_BACKED_ID_KINDS,
+                &registered_id_kinds,
             ),
             missing_special_form_id_kinds: missing_registry_values(
                 &self.id_kind_registry,
                 "special_forms",
                 "kind",
-                ARTIFACT_BACKED_SPECIAL_FORM_ID_KINDS,
+                &registered_special_forms,
             ),
-            missing_profiles: self.missing_profile_values(ARTIFACT_BACKED_PROFILE_IDS),
+            missing_profiles: self.missing_profile_values(SUPPORTED_PROFILE_IDS),
             profile_requirement_issues: self.profile_requirement_drift(),
             missing_payload_validators: self.payload_validator_drift(),
             unlisted_schemas: unlisted_active_registry_values(
                 &self.schema_registry,
                 "schemas",
                 "schema_id",
-                ARTIFACT_BACKED_SCHEMA_IDS,
+                SUPPORTED_SCHEMA_IDS,
             ),
             unlisted_event_kinds: unlisted_active_registry_values(
                 &self.event_kind_registry,
                 "event_kinds",
                 "event_kind",
-                ARTIFACT_BACKED_EVENT_KINDS,
+                SUPPORTED_EVENT_KINDS,
             ),
             unlisted_operations: unlisted_active_registry_values(
                 &self.operation_registry,
                 "operations",
                 "operation_id",
-                ARTIFACT_BACKED_SERVICE_OPERATIONS,
+                SUPPORTED_SERVICE_OPERATIONS,
             ),
             unlisted_id_kinds: unlisted_active_registry_values(
                 &self.id_kind_registry,
                 "id_kinds",
                 "kind",
-                ARTIFACT_BACKED_ID_KINDS,
+                SUPPORTED_ID_KINDS,
             ),
             unlisted_special_form_id_kinds: unlisted_active_registry_values(
                 &self.id_kind_registry,
                 "special_forms",
                 "kind",
-                ARTIFACT_BACKED_SPECIAL_FORM_ID_KINDS,
+                SUPPORTED_SPECIAL_FORM_ID_KINDS,
             ),
         }
     }
@@ -341,11 +344,27 @@ impl SpecArtifactBundle {
     }
 
     fn profile_requirement_drift(&self) -> Vec<String> {
-        let operation_ids = ARTIFACT_BACKED_SERVICE_OPERATIONS.iter().copied().collect();
-        let event_kinds = ARTIFACT_BACKED_EVENT_KINDS.iter().copied().collect();
-        let schema_ids = ARTIFACT_BACKED_SCHEMA_IDS.iter().copied().collect();
+        let operation_ids = SERVICE_OPERATION_DESCRIPTORS
+            .iter()
+            .map(|descriptor| descriptor.id.as_str())
+            .collect();
+        let event_kinds = EVENT_KIND_DESCRIPTORS
+            .iter()
+            .map(|descriptor| descriptor.kind)
+            .collect();
+        let schema_ids = REGISTERED_SCHEMA_IDS
+            .iter()
+            .map(|descriptor| descriptor.schema_id)
+            .collect();
         let mut issues = Vec::new();
-        for profile_id in ARTIFACT_BACKED_PROFILE_IDS {
+        let Some(requirements) = self
+            .conformance_profiles
+            .get("profile_requirements")
+            .and_then(Value::as_object)
+        else {
+            return issues;
+        };
+        for profile_id in requirements.keys() {
             let requirement = match self.profile_requirement(profile_id) {
                 Ok(Some(requirement)) => requirement,
                 Ok(None) => continue,
@@ -362,7 +381,7 @@ impl SpecArtifactBundle {
                 "required_endpoint",
                 &requirement.required_endpoints,
                 &operation_ids,
-                "ARTIFACT_BACKED_SERVICE_OPERATIONS",
+                "REGISTERED_OPERATION_IDS",
             );
             profile_requirement_missing_values(
                 &mut issues,
@@ -370,7 +389,7 @@ impl SpecArtifactBundle {
                 "required_event_kind",
                 &requirement.required_event_kinds,
                 &event_kinds,
-                "ARTIFACT_BACKED_EVENT_KINDS",
+                "REGISTERED_EVENT_KINDS",
             );
             profile_requirement_missing_values(
                 &mut issues,
@@ -378,7 +397,7 @@ impl SpecArtifactBundle {
                 "required_schema",
                 &requirement.required_schemas,
                 &schema_ids,
-                "ARTIFACT_BACKED_SCHEMA_IDS",
+                "REGISTERED_SCHEMA_IDS",
             );
         }
         issues
@@ -453,12 +472,15 @@ impl SpecArtifactBundle {
     ///
     /// Returns `Ok(None)` for actions absent from the registry. The caller can
     /// then apply the spec's fail-closed default for unknown actions.
-    pub fn capability_action(&self, action: &str) -> Result<Option<CapabilityActionDescriptor>> {
+    pub fn capability_action(
+        &self,
+        action: &str,
+    ) -> Result<Option<ParsedCapabilityActionDescriptor>> {
         capability_action_from_registry(&self.capability_action_registry, action)
     }
 }
 
-/// Two-way drift between the SDK's declared spec coverage (`ARTIFACT_BACKED_*`)
+/// Two-way drift between the SDK's declared spec coverage (`SUPPORTED_*`)
 /// and the spec's registry/profile artifacts.
 ///
 /// `missing_*` lists entries the SDK declares coverage for that the spec no
@@ -558,7 +580,7 @@ impl ArtifactDriftReport {
 ///
 /// Update this constant whenever the SDK adds typed support for a new
 /// schema; the drift report will then enforce that the spec still ships it.
-pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
+pub const SUPPORTED_SCHEMA_IDS: &[&str] = &[
     // Realm/Space schemas: `ak.schema.realm.v1` is the security-boundary
     // schema; `ak.schema.space.v1` is the product container schema.
     "ak.schema.realm.v1",
@@ -690,20 +712,25 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
 ];
 
 /// Active event kinds the SDK recognises from the spec registry.
-pub const ARTIFACT_BACKED_EVENT_KINDS: &[&str] = STANDARD_EVENT_KINDS;
+/// Every registered event kind has a generated typed representation and
+/// descriptor-backed validation in this SDK.
+pub const SUPPORTED_EVENT_KINDS: &[&str] =
+    arkret_wire_base::generated::REGISTERED_EVENT_KIND_WIRE_VALUES;
 
-pub const ARTIFACT_BACKED_SERVICE_OPERATIONS: &[&str] = BUILT_IN_OPERATION_KINDS;
+/// Every registered service operation has generated route and metadata support.
+pub const SUPPORTED_SERVICE_OPERATIONS: &[&str] =
+    arkret_wire_base::generated::REGISTERED_SERVICE_OPERATION_IDS;
 
 /// Profile IDs that still appear as hand-written SDK constants or service
 /// requirement fixtures and are therefore hard-checked against the profile
 /// artifact.
-pub const ARTIFACT_BACKED_PROFILE_IDS: &[&str] = &[
+pub const SUPPORTED_PROFILE_IDS: &[&str] = &[
     PROFILE_DIRECTORY_SERVICE,
     PROFILE_ATTESTED_AUDIT_E2EE,
     PROFILE_DISCLOSED_AUDIT_E2EE,
 ];
 
-pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &[
+pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "actor_profile",
     "announce",
     "appeal",
@@ -759,9 +786,9 @@ pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &[
 /// Special-form id kinds (non-UUIDv7) the SDK declares coverage for from
 /// the spec id-kind-registry `special_forms` array. Round R2/R3 (2026-05-20)
 /// adds `trust_domain` (`ak:trust_domain:<scope>`). These are validated
-/// separately from `ARTIFACT_BACKED_ID_KINDS` because the spec lists them
+/// separately from `SUPPORTED_ID_KINDS` because the spec lists them
 /// under `special_forms`, not `id_kinds`.
-pub const ARTIFACT_BACKED_SPECIAL_FORM_ID_KINDS: &[&str] = &[
+pub const SUPPORTED_SPECIAL_FORM_ID_KINDS: &[&str] = &[
     "seal",
     "blob",
     "cell",
@@ -868,7 +895,7 @@ pub fn schema_registry_from_default_spec_artifacts() -> Result<Option<ProtocolSc
 /// the local filesystem.
 pub fn embedded_capability_action(
     action: &str,
-) -> Result<Option<&'static CapabilityActionDescriptor>> {
+) -> Result<Option<&'static ParsedCapabilityActionDescriptor>> {
     match EMBEDDED_CAPABILITY_ACTIONS.get_or_init(|| {
         let artifacts = embedded_spec_artifacts().map_err(|error| error.to_string())?;
         let registry = artifacts
@@ -887,7 +914,7 @@ pub fn embedded_capability_action(
 fn capability_action_from_registry(
     registry: &Value,
     action: &str,
-) -> Result<Option<CapabilityActionDescriptor>> {
+) -> Result<Option<ParsedCapabilityActionDescriptor>> {
     let Some(entry) = registry_entry(registry, "actions", "action", action) else {
         return Ok(None);
     };
@@ -896,7 +923,7 @@ fn capability_action_from_registry(
 
 fn capability_actions_from_registry(
     registry: &Value,
-) -> Result<BTreeMap<String, CapabilityActionDescriptor>> {
+) -> Result<BTreeMap<String, ParsedCapabilityActionDescriptor>> {
     let entries = registry
         .get("actions")
         .and_then(Value::as_array)
@@ -910,7 +937,10 @@ fn capability_actions_from_registry(
     Ok(actions)
 }
 
-fn capability_action_from_entry(entry: &Value, action: &str) -> Result<CapabilityActionDescriptor> {
+fn capability_action_from_entry(
+    entry: &Value,
+    action: &str,
+) -> Result<ParsedCapabilityActionDescriptor> {
     let action_field = required_registry_string(entry, "action", action)?;
     if action_field != action {
         return Err(Error::Protocol(format!(
@@ -936,7 +966,7 @@ fn capability_action_from_entry(entry: &Value, action: &str) -> Result<Capabilit
             )));
         }
     };
-    Ok(CapabilityActionDescriptor {
+    Ok(ParsedCapabilityActionDescriptor {
         action: action.to_owned(),
         category: required_registry_string(entry, "category", action)?.to_owned(),
         risk_tier,
@@ -1210,7 +1240,12 @@ fn unlisted_active_registry_values(
     };
     let mut out = Vec::new();
     for entry in entries {
-        if entry.get("status").and_then(Value::as_str) != Some("active") {
+        if entry
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or("active")
+            != "active"
+        {
             continue;
         }
         let Some(key) = entry.get(key_field).and_then(Value::as_str) else {

@@ -44,8 +44,6 @@ pub const RRK_SERVICE_TYPE: &str = "ArkretRealmHistoryRecoveryKey";
 pub const RRK_SERVICE_DOMAIN: &str = "mls_history";
 /// Reason code (`error-code-registry.json`) surfaced when a recovery recipient's
 /// verification method cannot be resolved to an active RRK service entry.
-pub const REASON_DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED: &str =
-    "durability_recovery_recipient_unverified";
 
 /// X25519 public-key multicodec prefix (`0xec 0x01` unsigned-varint), the wire
 /// form a `Multikey` `publicKeyMultibase` RRK key uses for HPKE key agreement.
@@ -53,7 +51,7 @@ const MULTICODEC_X25519_PUB: u64 = 0xec;
 
 /// Fail-closed outcome of [`resolve_realm_history_recovery_key`]. Every variant
 /// maps to the spec reason code
-/// [`REASON_DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED`]; the inner string is a
+/// [`crate::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED`]; the inner string is a
 /// human-readable diagnostic only (never relax the fail-closed contract).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RealmHistoryRecoveryKeyError {
@@ -65,9 +63,9 @@ pub enum RealmHistoryRecoveryKeyError {
 
 impl RealmHistoryRecoveryKeyError {
     /// Spec reason code for this failure (always
-    /// [`REASON_DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED`]).
+    /// [`crate::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED`]).
     pub fn reason_code(&self) -> &'static str {
-        REASON_DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
+        crate::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
     }
 
     /// Human-readable diagnostic detail.
@@ -83,7 +81,7 @@ impl std::fmt::Display for RealmHistoryRecoveryKeyError {
         write!(
             f,
             "{}: {}",
-            REASON_DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED,
+            crate::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED,
             self.detail()
         )
     }
@@ -435,7 +433,7 @@ mod tests {
         let err = resolve_realm_history_recovery_key(&recipient, &document).unwrap_err();
         assert_eq!(
             err.reason_code(),
-            REASON_DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
+            crate::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
         );
     }
 
@@ -449,7 +447,7 @@ mod tests {
         let err = resolve_realm_history_recovery_key(&recipient, &document).unwrap_err();
         assert_eq!(
             err.reason_code(),
-            REASON_DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
+            crate::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
         );
     }
 
@@ -463,7 +461,7 @@ mod tests {
         let err = resolve_realm_history_recovery_key(&recipient, &document).unwrap_err();
         assert_eq!(
             err.reason_code(),
-            REASON_DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
+            crate::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
         );
     }
 
@@ -480,7 +478,7 @@ mod tests {
         let err = resolve_realm_history_recovery_key(&recipient, &document).unwrap_err();
         assert_eq!(
             err.reason_code(),
-            REASON_DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
+            crate::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
         );
     }
 
@@ -500,7 +498,7 @@ mod tests {
         let err = resolve_realm_history_recovery_key(&recipient, &document).unwrap_err();
         assert_eq!(
             err.reason_code(),
-            REASON_DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
+            crate::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
         );
     }
 
@@ -514,7 +512,7 @@ mod tests {
         let err = resolve_realm_history_recovery_key(&recipient, &document).unwrap_err();
         assert_eq!(
             err.reason_code(),
-            REASON_DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
+            crate::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
         );
     }
 

@@ -295,61 +295,61 @@ impl CallStatePayloadRecordingResult {
         call_id: &CallId,
     ) -> std::result::Result<(), &'static str> {
         let Some(artifact) = &self.artifact else {
-            return Err(ERROR_CODE_SCHEMA_VIOLATION);
+            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
         };
         if let Err(error) = artifact.validate() {
             let message = error.to_string();
-            if message.contains(REASON_RECORDING_ARTIFACT_PIPELINE_BYPASSED) {
-                return Err(REASON_RECORDING_ARTIFACT_PIPELINE_BYPASSED);
+            if message.contains(crate::ReasonCode::RECORDING_ARTIFACT_PIPELINE_BYPASSED) {
+                return Err(crate::ReasonCode::RECORDING_ARTIFACT_PIPELINE_BYPASSED);
             }
-            if message.contains(REASON_LEGAL_HOLD_ACTIVE) {
-                return Err(REASON_LEGAL_HOLD_ACTIVE);
+            if message.contains(crate::ReasonCode::LEGAL_HOLD_ACTIVE) {
+                return Err(crate::ReasonCode::LEGAL_HOLD_ACTIVE);
             }
-            return Err(ERROR_CODE_SCHEMA_VIOLATION);
+            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
         }
         if &artifact.call_id != call_id {
-            return Err(ERROR_CODE_SCHEMA_VIOLATION);
+            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
         }
         if self
             .recording_start_event_id
             .as_ref()
             .is_some_and(|id| id != &artifact.recording_start_event_id)
         {
-            return Err(ERROR_CODE_SCHEMA_VIOLATION);
+            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
         }
         if self
             .content_digest
             .as_ref()
             .is_some_and(|digest| digest != &artifact.content_digest)
         {
-            return Err(ERROR_CODE_SCHEMA_VIOLATION);
+            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
         }
         if self
             .duration_ms
             .is_some_and(|duration| duration != artifact.duration_ms)
         {
-            return Err(ERROR_CODE_SCHEMA_VIOLATION);
+            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
         }
         if self
             .media_type
             .as_ref()
             .is_some_and(|media_type| media_type != &artifact.media_type)
         {
-            return Err(ERROR_CODE_SCHEMA_VIOLATION);
+            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
         }
         if self
             .retention_policy_id
             .as_ref()
             .is_some_and(|policy_id| Some(policy_id) != artifact.retention_policy_id.as_ref())
         {
-            return Err(ERROR_CODE_SCHEMA_VIOLATION);
+            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
         }
         if self
             .retention
             .as_ref()
             .is_some_and(|retention| retention != &artifact.retention)
         {
-            return Err(ERROR_CODE_SCHEMA_VIOLATION);
+            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
         }
         Ok(())
     }
@@ -412,12 +412,13 @@ impl CallStatePayload {
         let Some(recording_state) = self.recording_state.as_deref() else {
             return Ok(());
         };
-        let call_id = CallId::new(self.call_id.clone()).map_err(|_| ERROR_CODE_SCHEMA_VIOLATION)?;
+        let call_id =
+            CallId::new(self.call_id.clone()).map_err(|_| crate::ErrorCode::SCHEMA_VIOLATION)?;
         match recording_state {
             "ready" => self
                 .recording_result
                 .as_ref()
-                .ok_or(ERROR_CODE_SCHEMA_VIOLATION)?
+                .ok_or(crate::ErrorCode::SCHEMA_VIOLATION)?
                 .validate_ready_artifact(&call_id),
             "failed" => {
                 if let Some(result) = &self.recording_result
@@ -427,7 +428,7 @@ impl CallStatePayload {
                             .as_deref()
                             .is_some_and(contains_backend_direct_recording_ref))
                 {
-                    return Err(REASON_RECORDING_ARTIFACT_PIPELINE_BYPASSED);
+                    return Err(crate::ReasonCode::RECORDING_ARTIFACT_PIPELINE_BYPASSED);
                 }
                 Ok(())
             }
@@ -446,7 +447,7 @@ impl CallStatePayload {
                     .as_ref()
                     .is_some_and(CallStatePayloadTranscriptResult::consent_confirmed)
                 {
-                    return Err(REASON_RECORDING_CONSENT_REQUIRED);
+                    return Err(crate::ReasonCode::RECORDING_CONSENT_REQUIRED);
                 }
                 Ok(())
             }
@@ -454,13 +455,13 @@ impl CallStatePayload {
                 let result = self
                     .transcript_result
                     .as_ref()
-                    .ok_or(ERROR_CODE_SCHEMA_VIOLATION)?;
+                    .ok_or(crate::ErrorCode::SCHEMA_VIOLATION)?;
                 if result.transcript_start_event_id.is_none() {
-                    return Err(ERROR_CODE_SCHEMA_VIOLATION);
+                    return Err(crate::ErrorCode::SCHEMA_VIOLATION);
                 }
                 Ok(())
             }
-            _ => Err(ERROR_CODE_SCHEMA_VIOLATION),
+            _ => Err(crate::ErrorCode::SCHEMA_VIOLATION),
         }
     }
 }
@@ -473,7 +474,7 @@ fn validate_recording_deletion_audit(
         && audit.outcome == CallRecordingDeletionOutcome::Completed
     {
         return Err(Error::Protocol(format!(
-            "{REASON_LEGAL_HOLD_ACTIVE}: recording deletion cannot complete under audit_lock"
+            "legal_hold_active: recording deletion cannot complete under audit_lock"
         )));
     }
     let Some(deletion_trigger) = retention.deletion_trigger else {
@@ -496,7 +497,7 @@ fn validate_recording_deletion_audit(
         && audit.legal_hold_ref.as_deref().is_none_or(str::is_empty)
     {
         return Err(Error::Protocol(format!(
-            "{REASON_LEGAL_HOLD_ACTIVE}: blocked recording deletion requires legal_hold_ref"
+            "legal_hold_active: blocked recording deletion requires legal_hold_ref"
         )));
     }
     Ok(())
@@ -523,14 +524,14 @@ fn contains_backend_direct_recording_ref(value: &str) -> bool {
 
 fn schema_violation(message: impl Into<String>) -> Result<()> {
     Err(Error::Protocol(format!(
-        "{ERROR_CODE_SCHEMA_VIOLATION}: {}",
+        "schema_violation: {}",
         message.into()
     )))
 }
 
 fn recording_artifact_pipeline_bypassed(message: impl Into<String>) -> Result<()> {
     Err(Error::Protocol(format!(
-        "{REASON_RECORDING_ARTIFACT_PIPELINE_BYPASSED}: {}",
+        "recording_artifact_pipeline_bypassed: {}",
         message.into()
     )))
 }
@@ -654,7 +655,7 @@ mod tests {
 
         assert_eq!(
             payload.validate_transcript_result_storage(),
-            Err(REASON_RECORDING_CONSENT_REQUIRED)
+            Err(crate::ReasonCode::RECORDING_CONSENT_REQUIRED)
         );
     }
 }

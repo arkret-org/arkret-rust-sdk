@@ -1,8 +1,6 @@
 //! DID continuity proof payloads.
 
 use super::*;
-use crate::ERROR_CODE_SCHEMA_VIOLATION;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -81,20 +79,20 @@ impl DidContinuityProof {
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != Self::SCHEMA {
             return Err(Error::Protocol(format!(
-                "DID continuity proof schema must be {} ({ERROR_CODE_SCHEMA_VIOLATION})",
+                "DID continuity proof schema must be {} (schema_violation)",
                 Self::SCHEMA
             )));
         }
         if self.signature_chain.len() < 2 {
             return Err(Error::Protocol(format!(
                 "DID continuity proof requires at least two signature_chain links \
-                 ({ERROR_CODE_SCHEMA_VIOLATION})"
+                 (schema_violation)"
             )));
         }
         if self.old_did == self.new_did {
             return Err(Error::Protocol(format!(
                 "DID continuity proof old_did and new_did must differ \
-                 ({ERROR_CODE_SCHEMA_VIOLATION})"
+                 (schema_violation)"
             )));
         }
         if self.purpose == DidContinuityPurpose::PrincipalMethodUpgrade
@@ -103,7 +101,7 @@ impl DidContinuityProof {
         {
             return Err(Error::Protocol(format!(
                 "principal_method_upgrade requires old_did did:web and new_did did:webvh \
-                 ({ERROR_CODE_SCHEMA_VIOLATION})"
+                 (schema_violation)"
             )));
         }
         if let Some(expires_at) = self.expires_at
@@ -111,7 +109,7 @@ impl DidContinuityProof {
         {
             return Err(Error::Protocol(format!(
                 "DID continuity proof expires_at must be after issued_at \
-                 ({ERROR_CODE_SCHEMA_VIOLATION})"
+                 (schema_violation)"
             )));
         }
         let mut seen_audience = BTreeSet::new();
@@ -119,7 +117,7 @@ impl DidContinuityProof {
             if audience.trim().is_empty() || !seen_audience.insert(audience) {
                 return Err(Error::Protocol(format!(
                     "DID continuity proof audience entries must be non-empty and unique \
-                     ({ERROR_CODE_SCHEMA_VIOLATION})"
+                     (schema_violation)"
                 )));
             }
         }
@@ -131,7 +129,7 @@ impl DidContinuityProof {
         {
             return Err(Error::Protocol(format!(
                 "DID continuity proof user_oob_confirmation_id is required \
-                 ({ERROR_CODE_SCHEMA_VIOLATION})"
+                 (schema_violation)"
             )));
         }
         let expected_digest = self.signature_payload_digest()?;
@@ -143,7 +141,7 @@ impl DidContinuityProof {
             {
                 return Err(Error::Protocol(format!(
                     "DID continuity proof verification_method must be a DID URL with fragment \
-                     ({ERROR_CODE_SCHEMA_VIOLATION})"
+                     (schema_violation)"
                 )));
             }
             if link.signature.trim().is_empty()
@@ -154,7 +152,7 @@ impl DidContinuityProof {
             {
                 return Err(Error::Protocol(format!(
                     "DID continuity proof signature must be base64url-like \
-                     ({ERROR_CODE_SCHEMA_VIOLATION})"
+                     (schema_violation)"
                 )));
             }
             let method_principal = link
@@ -165,13 +163,13 @@ impl DidContinuityProof {
             if method_principal != link.principal_id.as_str() {
                 return Err(Error::Protocol(format!(
                     "DID continuity proof signature link principal_id must match verification_method DID \
-                     ({ERROR_CODE_SCHEMA_VIOLATION})"
+                     (schema_violation)"
                 )));
             }
             if link.payload_digest.as_str() != expected_digest.as_str() {
                 return Err(Error::Protocol(format!(
                     "DID continuity proof payload_digest {} does not match canonical proof digest {} \
-                     ({ERROR_CODE_SCHEMA_VIOLATION})",
+                     (schema_violation)",
                     link.payload_digest, expected_digest
                 )));
             }
@@ -181,7 +179,7 @@ impl DidContinuityProof {
         if !has_old_link || !has_new_link {
             return Err(Error::Protocol(format!(
                 "DID continuity proof signature_chain must include old_did and new_did links \
-                 ({ERROR_CODE_SCHEMA_VIOLATION})"
+                 (schema_violation)"
             )));
         }
         Ok(())

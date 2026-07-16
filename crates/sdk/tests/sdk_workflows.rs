@@ -74,7 +74,7 @@ fn end_to_end_auth_session_and_realm_query() {
     base.process_events(
         &realm_id,
         vec![event(
-            OP_MORPH_CREATE,
+            arkret_core::events::EventKind::MORPH_CREATE,
             1,
             &realm_id,
             json!({

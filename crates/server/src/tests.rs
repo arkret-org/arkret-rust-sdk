@@ -143,7 +143,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                             "ak:trust_domain:example.net",
                         )
                         .unwrap(),
-                        service_type: "principal_server".to_owned(),
+                        service_type: arkret_core::ServiceType::PrincipalServer,
                         protocol_version: arkret_core::PROTOCOL_VERSION.to_owned(),
                         supported_profiles: vec![],
                         supported_features: vec![],
