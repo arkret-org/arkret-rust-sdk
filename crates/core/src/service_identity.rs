@@ -55,11 +55,6 @@ impl CanonicalServiceUrl {
                 "service public base must not contain a query or fragment".to_owned(),
             ));
         }
-        if url.port() == url.port_or_known_default() {
-            url.set_port(None).map_err(|()| {
-                Error::Protocol("service public base contains an invalid port".to_owned())
-            })?;
-        }
         let path = url.path().trim_end_matches('/');
         let canonical_path = if path.is_empty() {
             "/".to_owned()
@@ -93,11 +88,6 @@ impl CanonicalServiceUrl {
             return Err(Error::Protocol(
                 "service public base must not contain userinfo, query, or fragment".to_owned(),
             ));
-        }
-        if url.port() == url.port_or_known_default() {
-            url.set_port(None).map_err(|()| {
-                Error::Protocol("service public base contains an invalid port".to_owned())
-            })?;
         }
         let path = url.path().trim_end_matches('/');
         let canonical_path = if path.is_empty() {
@@ -1252,6 +1242,17 @@ mod tests {
             "https://auth.example/"
         );
         assert!(CanonicalServiceUrl::new("https://auth.example/?x=1").is_err());
+    }
+
+    #[test]
+    fn canonical_service_url_preserves_non_default_port() {
+        assert_eq!(
+            CanonicalServiceUrl::canonicalize("http://localhost:18080")
+                .unwrap()
+                .as_str(),
+            "http://localhost:18080/"
+        );
+        assert!(CanonicalServiceUrl::new("http://localhost:18080/").is_ok());
     }
 
     #[test]
