@@ -353,23 +353,295 @@ pub struct AccountView {
     pub is_server_admin: bool,
 }
 
+pub const ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_DOMAIN: &str =
+    "ak.account-handoff-authentication-proof-v1\n";
+pub const IDENTITY_CREATION_CONTROL_PROOF_DOMAIN: &str = "ak.identity-creation-control-proof-v1\n";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AccountHandoffAuthenticationProofKind {
+    OidcCodeExchange,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountHandoffAuthenticationProof {
+    pub proof_kind: AccountHandoffAuthenticationProofKind,
+    pub challenge: String,
+    pub request_canonical_digest: Hash,
+    pub audience: Did,
+    pub issuer: String,
+    pub client_id: String,
+    pub redirect_uri: String,
+    pub state: String,
+    pub nonce: String,
+    pub authorization_code: String,
+    pub code_verifier: String,
+    pub signature: String,
+}
+
+impl AccountHandoffAuthenticationProof {
+    pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .expect("account handoff proof serializes as an object")
+            .remove("signature");
+        let mut bytes = ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_DOMAIN
+            .as_bytes()
+            .to_vec();
+        bytes.extend(canonical::canonical_json_bytes(&value)?);
+        Ok(bytes)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountHandoffRequestBody {
+    pub request_id: RequestId,
+    pub proof: AccountHandoffAuthenticationProof,
+}
+
+impl AccountHandoffRequestBody {
+    pub fn canonical_request_digest(&self) -> Result<Hash> {
+        let mut value = serde_json::to_value(self)?;
+        let proof = value
+            .as_object_mut()
+            .and_then(|object| object.get_mut("proof"))
+            .and_then(Value::as_object_mut)
+            .expect("account handoff request proof serializes as an object");
+        proof.remove("request_canonical_digest");
+        proof.remove("signature");
+        Hash::new(canonical::canonical_sha256(&value)?).map_err(Into::into)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub enum AccountHandoffAllowedOperation {
+    #[serde(rename = "ak.gate.account.command.issue_identity_binding_challenge")]
+    IssueIdentityBindingChallenge,
+    #[serde(rename = "ak.gate.account.command.register")]
+    Register,
+    #[serde(rename = "ak.gate.account.command.issue_session_grant")]
+    IssueSessionGrant,
+}
+
+pub const ACCOUNT_HANDOFF_ALLOWED_OPERATIONS: [AccountHandoffAllowedOperation; 3] = [
+    AccountHandoffAllowedOperation::IssueIdentityBindingChallenge,
+    AccountHandoffAllowedOperation::Register,
+    AccountHandoffAllowedOperation::IssueSessionGrant,
+];
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ReservedIdentityCreation {
+    pub principal_id: Did,
+    pub operation_digest: Hash,
+    pub did_operation: DidOperationSubmitRequestBody,
+}
+
+impl ReservedIdentityCreation {
+    pub fn from_operation(did_operation: DidOperationSubmitRequestBody) -> Result<Self> {
+        did_operation.validate()?;
+        let principal_id = did_operation.did.clone();
+        let operation_digest = Hash::new(canonical::canonical_sha256(&did_operation)?)?;
+        Ok(Self {
+            principal_id,
+            operation_digest,
+            did_operation,
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct IdentityCreationLease {
+    pub lease_id: String,
+    pub fence: u64,
+    pub expires_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reserved_identity: Option<ReservedIdentityCreation>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum AccountHandoffBinding {
+    IdentityCreationActive {
+        identity_creation_lease: IdentityCreationLease,
+    },
+    IdentityCreationBusy {
+        retry_after_ms: u64,
+    },
+    Bound {
+        principal_id: Did,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountHandoffOutcome {
+    pub request_id: RequestId,
+    pub account_handoff_grant: String,
+    pub expires_at: DateTime<Utc>,
+    pub allowed_operations: [AccountHandoffAllowedOperation; 3],
+    pub binding: AccountHandoffBinding,
+}
+
+impl AccountHandoffOutcome {
+    pub fn validate(&self) -> Result<()> {
+        if self.allowed_operations != ACCOUNT_HANDOFF_ALLOWED_OPERATIONS {
+            return Err(Error::Protocol(
+                "account handoff allowed_operations does not match the canonical closed set"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct IdentityBindingChallengeRequestBody {
+    pub request_id: RequestId,
+    pub lease_id: String,
+    pub lease_fence: u64,
+    pub did_operation: DidOperationSubmitRequestBody,
+}
+
+impl IdentityBindingChallengeRequestBody {
+    pub fn canonical_request_digest(&self) -> Result<Hash> {
+        Hash::new(canonical::canonical_sha256(self)?).map_err(Into::into)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum IdentityBindingPurpose {
+    AccountBinding,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct IdentityBindingChallengeOutcome {
+    pub request_id: RequestId,
+    pub challenge_id: String,
+    pub challenge: String,
+    pub purpose: IdentityBindingPurpose,
+    pub principal_id: Did,
+    pub operation_digest: Hash,
+    pub lease_id: String,
+    pub lease_fence: u64,
+    pub dpop_jkt: String,
+    pub audience: Did,
+    pub origin: String,
+    pub trust_domain: TypedTrustDomainId,
+    pub issued_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum IdentityCreationControlProofKind {
+    DidWebvhInceptionUpdateKey,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct IdentityCreationControlProof {
+    pub proof_kind: IdentityCreationControlProofKind,
+    pub challenge_id: String,
+    pub challenge: String,
+    pub purpose: IdentityBindingPurpose,
+    pub principal_id: Did,
+    pub operation_digest: Hash,
+    pub lease_id: String,
+    pub lease_fence: u64,
+    pub dpop_jkt: String,
+    pub audience: Did,
+    pub origin: String,
+    pub trust_domain: TypedTrustDomainId,
+    pub issued_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub verification_key_multibase: String,
+    pub signature: String,
+}
+
+impl IdentityCreationControlProof {
+    pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .expect("identity creation proof serializes as an object")
+            .remove("signature");
+        let mut bytes = IDENTITY_CREATION_CONTROL_PROOF_DOMAIN.as_bytes().to_vec();
+        bytes.extend(canonical::canonical_json_bytes(&value)?);
+        Ok(bytes)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct IdentityCreationRegistration {
+    pub lease_id: String,
+    pub lease_fence: u64,
+    pub did_operation: DidOperationSubmitRequestBody,
+    pub control_proof: IdentityCreationControlProof,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AccountBindingState {
+    Bound,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum IdentityCreationOperationStatus {
+    Accepted,
+    Duplicate,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountBindingReceipt {
+    pub binding_state: AccountBindingState,
+    pub lease_id: String,
+    pub lease_fence: u64,
+    pub operation_status: IdentityCreationOperationStatus,
+    pub operation_digest: Hash,
+    pub head_event_digest: Hash,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct AccountRegisterRequestBody {
     pub principal_id: Did,
-    /// Optional canonical registration handle (`<localpart>:<domain>`) the
-    /// Account Authority asserts. When present and the localpart is available,
-    /// the Principal Server issues the first signed handle claim and returns it
-    /// as `AccountRegisterOutcome.primary_handle_claim` (identity-handles.md
-    /// §3.7.1; never an unsigned bare handle).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub handle: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<AccountLifecycleProof>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identity_creation: Option<IdentityCreationRegistration>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub policy_evidence: Option<AccountRegistrationPolicyEvidence>,
 }
@@ -391,6 +663,8 @@ pub struct AccountRegisterOutcome {
     pub profile: Option<ActorProfile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub registration_audit: Option<AccountRegistrationAudit>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binding_receipt: Option<AccountBindingReceipt>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -468,4 +742,72 @@ pub struct AccountCursorRevokeOutcome {
 
 fn default_cursor_revoke_scope() -> CursorRevokeScope {
     CursorRevokeScope::ThisCursor
+}
+
+#[cfg(test)]
+mod account_handoff_tests {
+    use super::*;
+
+    fn handoff_request() -> AccountHandoffRequestBody {
+        AccountHandoffRequestBody {
+            request_id: RequestId::new("ak:request:019b0000-0000-7000-8000-000000000001").unwrap(),
+            proof: AccountHandoffAuthenticationProof {
+                proof_kind: AccountHandoffAuthenticationProofKind::OidcCodeExchange,
+                challenge: "challenge-0123456789".to_owned(),
+                request_canonical_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                audience: Did::new("did:webvh:z6mkfixture:account.example").unwrap(),
+                issuer: "https://auth.example".to_owned(),
+                client_id: "arkret-client".to_owned(),
+                redirect_uri: "https://client.example/callback".to_owned(),
+                state: "state-0123456789".to_owned(),
+                nonce: "nonce-0123456789".to_owned(),
+                authorization_code: "authorization-code".to_owned(),
+                code_verifier: "v".repeat(43),
+                signature: "signature-one".to_owned(),
+            },
+        }
+    }
+
+    #[test]
+    fn handoff_request_digest_omits_digest_and_signature_fields() {
+        let first = handoff_request();
+        let mut second = first.clone();
+        second.proof.request_canonical_digest =
+            Hash::new(format!("sha256:{}", "f".repeat(64))).unwrap();
+        second.proof.signature = "signature-two".to_owned();
+
+        assert_eq!(
+            first.canonical_request_digest().unwrap(),
+            second.canonical_request_digest().unwrap()
+        );
+        assert_ne!(
+            first.proof.canonical_signing_bytes().unwrap(),
+            second.proof.canonical_signing_bytes().unwrap()
+        );
+    }
+
+    #[test]
+    fn account_handoff_outcome_enforces_canonical_allowlist() {
+        let mut outcome = AccountHandoffOutcome {
+            request_id: handoff_request().request_id,
+            account_handoff_grant: "g".repeat(32),
+            expires_at: Utc::now(),
+            allowed_operations: ACCOUNT_HANDOFF_ALLOWED_OPERATIONS,
+            binding: AccountHandoffBinding::IdentityCreationBusy { retry_after_ms: 1 },
+        };
+        outcome.validate().unwrap();
+
+        outcome.allowed_operations.swap(0, 1);
+        assert!(outcome.validate().is_err());
+    }
+
+    #[test]
+    fn account_handoff_request_rejects_unknown_fields() {
+        let mut value = serde_json::to_value(handoff_request()).unwrap();
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("recovery_secret".to_owned(), json!("must-not-pass"));
+        assert!(serde_json::from_value::<AccountHandoffRequestBody>(value).is_err());
+    }
 }

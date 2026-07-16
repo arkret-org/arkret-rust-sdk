@@ -97,6 +97,8 @@ pub const ERROR_CODE_DID_NOT_FOUND: &str = "did_not_found";
 pub const ERROR_CODE_DID_REVOKED: &str = "did_revoked";
 pub const ERROR_CODE_FRONTIER_UNAVAILABLE: &str = "frontier_unavailable";
 pub const ERROR_CODE_MLS_GOVERNANCE_ANCHOR_UNREACHABLE: &str = "mls_governance_anchor_unreachable";
+pub const ERROR_CODE_MLS_GOVERNANCE_PROOF_BOUNDS_EXCEEDED: &str =
+    "mls_governance_proof_bounds_exceeded";
 pub const ERROR_CODE_HANDLE_UNVERIFIED: &str = "handle_unverified";
 pub const ERROR_CODE_KEY_REPLAY: &str = "key_replay";
 pub const ERROR_CODE_KEYPACKAGE_ALREADY_CONSUMED: &str = "keypackage_already_consumed";
@@ -350,6 +352,7 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_DID_REVOKED,
     ERROR_CODE_FRONTIER_UNAVAILABLE,
     ERROR_CODE_MLS_GOVERNANCE_ANCHOR_UNREACHABLE,
+    ERROR_CODE_MLS_GOVERNANCE_PROOF_BOUNDS_EXCEEDED,
     ERROR_CODE_HANDLE_UNVERIFIED,
     ERROR_CODE_KEY_REPLAY,
     ERROR_CODE_KEYPACKAGE_ALREADY_CONSUMED,

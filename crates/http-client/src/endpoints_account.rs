@@ -6,17 +6,19 @@ use arkret_core::StreamTraceValidator;
 use arkret_core::{
     AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountDeviceEnrollOutcome,
     AccountDeviceEnrollRequestBody, AccountDevicePairOutcome, AccountDevicePairRequestBody,
-    AccountLogoutOutcome, AccountLogoutRequestBody, AccountRegisterOutcome,
-    AccountRegisterRequestBody, AccountSubscribeBatch, AccountSubscribeFolder,
-    AccountSubscribeFrame, AccountSubscribeFrameKind, AccountSubscribeSnapshotResult,
-    AccountUpdateProfileOutcome, AccountUpdateProfileRequestBody, AccountView, ContactList,
-    ContactRequestOutcome, ContactRequestRequestBody, ContactRespondOutcome,
-    ContactRespondRequestBody, ContactTombstone, ContactTombstoneRequestBody,
-    DirectConversationResolveOutcome, DirectConversationResolveRequestBody, Error,
-    PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST, PATH_SELF_CONTACTS_RESPOND,
-    PATH_SELF_CONTACTS_TOMBSTONE, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, Result, ServiceDescribe,
-    SessionGrantOutcome, SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody,
-    SessionGrantRequestBody, SyncRequestBody,
+    AccountHandoffOutcome, AccountHandoffRequestBody, AccountLogoutOutcome,
+    AccountLogoutRequestBody, AccountRegisterOutcome, AccountRegisterRequestBody,
+    AccountSubscribeBatch, AccountSubscribeFolder, AccountSubscribeFrame,
+    AccountSubscribeFrameKind, AccountSubscribeSnapshotResult, AccountUpdateProfileOutcome,
+    AccountUpdateProfileRequestBody, AccountView, ContactList, ContactRequestOutcome,
+    ContactRequestRequestBody, ContactRespondOutcome, ContactRespondRequestBody, ContactTombstone,
+    ContactTombstoneRequestBody, DirectConversationResolveOutcome,
+    DirectConversationResolveRequestBody, Error, IdentityBindingChallengeOutcome,
+    IdentityBindingChallengeRequestBody, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
+    PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
+    PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, Result, ServiceDescribe, SessionGrantOutcome,
+    SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
+    SyncRequestBody,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use reqwest::Response;
@@ -73,6 +75,32 @@ impl AccountSubscribeFrameStream {
 }
 
 impl Client {
+    /// `POST /_arkret/gate/account/authentication-handoffs`
+    /// (`ak.gate.account.exchange.create_handoff`): exchange an OIDC
+    /// authorization code for a short-lived DPoP-bound account handoff.
+    pub async fn auth_create_account_handoff(
+        &self,
+        req: &AccountHandoffRequestBody,
+    ) -> Result<AccountHandoffOutcome> {
+        let outcome: AccountHandoffOutcome = self
+            .post("/_arkret/gate/account/authentication-handoffs", req)
+            .await?;
+        outcome.validate()?;
+        Ok(outcome)
+    }
+
+    /// `POST /_arkret/gate/account/identity-binding-challenges`
+    /// (`ak.gate.account.command.issue_identity_binding_challenge`). The
+    /// client must use `Authorization: DPoP <account_handoff_grant>` and a
+    /// matching per-request DPoP proof.
+    pub async fn auth_issue_identity_binding_challenge(
+        &self,
+        req: &IdentityBindingChallengeRequestBody,
+    ) -> Result<IdentityBindingChallengeOutcome> {
+        self.post("/_arkret/gate/account/identity-binding-challenges", req)
+            .await
+    }
+
     /// `POST /_arkret/gate/account/session-grants`
     /// (`ak.gate.account.command.issue_session_grant`): exchange a body-borne
     /// passkey / OIDC / device / DID proof for a session grant. This is

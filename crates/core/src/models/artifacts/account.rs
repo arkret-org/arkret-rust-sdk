@@ -7,6 +7,10 @@ use super::*;
 #[serde(untagged)]
 pub enum AccountOperations {
     AccountView(AccountView),
+    AccountHandoffRequestBody(AccountHandoffRequestBody),
+    AccountHandoffOutcome(AccountHandoffOutcome),
+    IdentityBindingChallengeRequestBody(IdentityBindingChallengeRequestBody),
+    IdentityBindingChallengeOutcome(IdentityBindingChallengeOutcome),
     AccountRegisterRequestBody(AccountRegisterRequestBody),
     AccountRegisterOutcome(AccountRegisterOutcome),
     AccountUpdateProfileRequestBody(AccountUpdateProfileRequestBody),

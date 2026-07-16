@@ -1019,6 +1019,21 @@ pub struct SessionGrantRequestBody {
     pub proof: SessionGrantRequestProof,
 }
 
+impl SessionGrantRequestBody {
+    /// Digest the complete request while excluding the self-referential digest
+    /// and detached signature fields.
+    pub fn canonical_request_digest(&self) -> Result<Hash> {
+        let mut value = serde_json::to_value(self)?;
+        let proof = value
+            .get_mut("proof")
+            .and_then(Value::as_object_mut)
+            .expect("session grant proof serializes as an object");
+        proof.remove("request_canonical_digest");
+        proof.remove("signature");
+        Hash::new(canonical::canonical_sha256(&value)?).map_err(Into::into)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantDpopBindingProof {
@@ -1083,6 +1098,18 @@ pub struct SessionGrantRequestProof {
     pub authorization_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub code_verifier: Option<String>,
+}
+
+impl SessionGrantRequestProof {
+    /// Canonical detached-signature transcript for human proof kinds.
+    pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .expect("session grant proof serializes as an object")
+            .remove("signature");
+        canonical::canonical_json_bytes(&value).map_err(Into::into)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

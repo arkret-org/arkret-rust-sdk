@@ -8,6 +8,7 @@ pub enum SessionGrantProofKind {
     PairedDeviceProof,
     PasskeyAssertion,
     OidcCodeExchange,
+    PreRegistrationHandoff,
     AgentKeyProof,
 }
 

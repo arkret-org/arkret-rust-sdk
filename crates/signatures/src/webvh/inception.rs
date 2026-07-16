@@ -32,9 +32,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_core::{
-    CanonicalServiceUrl, Did, DidOperationSubmitRequestBody, Hash, ServiceRegistrationKey,
-    ServiceType, ServiceWebvhInceptionOperation, decode_base58btc, decode_ed25519_multibase,
-    encode_base58btc, service_registration_local_id,
+    CanonicalServiceUrl, Did, DidOperationSubmitRequestBody, Hash, IdentityCreationControlProof,
+    ServiceRegistrationKey, ServiceType, ServiceWebvhInceptionOperation, base64url_encode,
+    decode_base58btc, decode_ed25519_multibase, encode_base58btc, service_registration_local_id,
 };
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{
@@ -159,6 +159,194 @@ pub struct PreparedPrincipalInception {
     pub next_root_key_hash: String,
     pub document_url: String,
     pub log_url: String,
+}
+
+/// Public facts extracted from a fully validated principal inception.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ValidatedPrincipalInception {
+    /// Principal DID declared by the operation wrapper and DID document.
+    pub principal_id: Did,
+    /// Canonical digest of the complete typed submit request.
+    pub operation_digest: Hash,
+    /// The method-native identity root selected from `parameters.updateKeys[0]`.
+    pub root_public_key_multibase: String,
+    /// DID-document profile selected by the inception state.
+    pub document_profile: PrincipalDidDocumentProfile,
+    /// External enrollment authority for the B model, when present.
+    pub enrollment_authority: Option<Did>,
+}
+
+/// Validate a complete, signed `did:webvh` entry-0 operation before it is
+/// reserved by an Account Authority.
+///
+/// This validates the wrapper, entry sequence, SCID and entry hash, the
+/// method-native `eddsa-jcs-2022` controller proof, the principal document
+/// profile, and root-key separation. It never resolves an already-published
+/// DID and never selects authority from a DID Document verification method.
+pub fn validate_principal_inception_operation(
+    request: &DidOperationSubmitRequestBody,
+) -> Result<ValidatedPrincipalInception, WebvhInceptionError> {
+    request
+        .validate()
+        .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
+    if request.did_method != "webvh"
+        || request.seq != Some(1)
+        || request.prev_event_digest.is_some()
+    {
+        return Err(WebvhInceptionError::InvalidProof(
+            "identity creation requires a did:webvh entry-0 operation with seq=1 and no predecessor"
+                .to_owned(),
+        ));
+    }
+
+    let entry = Value::Object(request.operation.clone().into_iter().collect());
+    if entry.pointer("/parameters/method").and_then(Value::as_str) != Some(WEBVH_METHOD_VERSION) {
+        return Err(WebvhInceptionError::InvalidProof(
+            "identity creation requires did:webvh:1.0 parameters".to_owned(),
+        ));
+    }
+    let update_keys = entry
+        .pointer("/parameters/updateKeys")
+        .and_then(Value::as_array)
+        .filter(|keys| keys.len() == 1)
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "principal inception must declare exactly one updateKeys root".to_owned(),
+            )
+        })?;
+    let root_public_key_multibase = update_keys[0].as_str().ok_or_else(|| {
+        WebvhInceptionError::InvalidProof(
+            "principal inception updateKeys[0] must be a string".to_owned(),
+        )
+    })?;
+    if !valid_multibase_key(root_public_key_multibase) {
+        return Err(WebvhInceptionError::InvalidProof(
+            "principal inception updateKeys[0] must be an Ed25519 multikey".to_owned(),
+        ));
+    }
+
+    let claimed_scid = entry
+        .pointer("/parameters/scid")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "principal inception must declare parameters.scid".to_owned(),
+            )
+        })?;
+    let did_scid = request.did.as_str().split(':').nth(2).unwrap_or_default();
+    if claimed_scid != did_scid {
+        return Err(WebvhInceptionError::InvalidProof(
+            "principal inception SCID does not match the wrapper DID".to_owned(),
+        ));
+    }
+    let skeleton = scid_skeleton_from_genesis(&entry, claimed_scid)?;
+    let derived_scid = sha256_multihash_base58btc(&canonical_bytes(&skeleton)?);
+    if derived_scid != claimed_scid {
+        return Err(WebvhInceptionError::InvalidProof(
+            "principal inception SCID does not match its canonical skeleton".to_owned(),
+        ));
+    }
+    let expected_version_id = format!(
+        "1-{}",
+        sha256_multihash_base58btc(&canonical_bytes(&strip_for_hash(&entry, claimed_scid))?)
+    );
+    if entry.get("versionId").and_then(Value::as_str) != Some(expected_version_id.as_str()) {
+        return Err(WebvhInceptionError::InvalidProof(
+            "principal inception versionId does not match its canonical entry hash".to_owned(),
+        ));
+    }
+    verify_webvh_log_proof(&entry).map_err(WebvhInceptionError::InvalidProof)?;
+
+    let state = entry.get("state").ok_or_else(|| {
+        WebvhInceptionError::InvalidProof(
+            "principal inception must contain a DID document state".to_owned(),
+        )
+    })?;
+    let document_profile = validate_principal_did_document_profile(
+        request.did.as_str(),
+        state,
+        &[root_public_key_multibase],
+    )?;
+    let enrollment_authority = if document_profile == PrincipalDidDocumentProfile::ExternalAuthority
+    {
+        state
+            .get("service")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .find(|service| {
+                service.get("type").and_then(Value::as_str)
+                    == Some(arkret_core::service::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
+            })
+            .and_then(|service| service.get("serviceEndpoint"))
+            .and_then(Value::as_str)
+            .map(|did| Did::new(did.to_owned()))
+            .transpose()
+            .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?
+    } else {
+        None
+    };
+    let operation_digest = Hash::new(
+        arkret_core::canonical::canonical_sha256(request)
+            .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
+    )
+    .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+
+    Ok(ValidatedPrincipalInception {
+        principal_id: request.did.clone(),
+        operation_digest,
+        root_public_key_multibase: root_public_key_multibase.to_owned(),
+        document_profile,
+        enrollment_authority,
+    })
+}
+
+/// Verify the account-binding control proof with the inception operation's
+/// method-native identity root.
+pub fn verify_identity_creation_control_proof(
+    request: &DidOperationSubmitRequestBody,
+    proof: &IdentityCreationControlProof,
+) -> Result<ValidatedPrincipalInception, WebvhInceptionError> {
+    let validated = validate_principal_inception_operation(request)?;
+    if proof.principal_id != validated.principal_id
+        || proof.operation_digest != validated.operation_digest
+        || proof.verification_key_multibase != validated.root_public_key_multibase
+    {
+        return Err(WebvhInceptionError::InvalidProof(
+            "identity-creation proof does not match the reserved inception root or operation"
+                .to_owned(),
+        ));
+    }
+    let signing_bytes = proof
+        .canonical_signing_bytes()
+        .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let public_key = crate::proof::PublicKeyMaterial::Ed25519Multibase {
+        value: validated.root_public_key_multibase.clone(),
+    };
+    if !crate::proof::verify_detached_ed25519_signature(
+        &public_key,
+        &signing_bytes,
+        &proof.signature,
+    ) {
+        return Err(WebvhInceptionError::InvalidProof(
+            "identity-creation control signature is invalid".to_owned(),
+        ));
+    }
+    Ok(validated)
+}
+
+/// Sign an identity-creation control transcript with a borrowed cold root.
+/// The caller remains responsible for zeroizing and never persisting the seed.
+pub fn sign_identity_creation_control_proof(
+    proof: &mut IdentityCreationControlProof,
+    root_seed: &[u8; SECRET_KEY_LENGTH],
+) -> Result<(), WebvhInceptionError> {
+    let signing_bytes = proof
+        .canonical_signing_bytes()
+        .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let signature = SigningKey::from_bytes(root_seed).sign(&signing_bytes);
+    proof.signature = base64url_encode(signature.to_bytes());
+    Ok(())
 }
 
 /// Inputs for one canonical principal root rotation. `previous_entries` must
@@ -1432,7 +1620,7 @@ fn verify_webvh_log_proof(entry: &Value) -> Result<(), String> {
         .and_then(Value::as_array)
         .map(|items| items.iter().filter_map(Value::as_str).collect::<Vec<_>>())
         .unwrap_or_default();
-    if !update_keys.contains(&public_key_multibase) {
+    if update_keys.first().copied() != Some(public_key_multibase) {
         return Err("proof verificationMethod must reference updateKeys[0]".to_owned());
     }
     let public_key = decode_ed25519_multibase(public_key_multibase)
@@ -1501,6 +1689,31 @@ fn substitute_scid(value: &Value, scid: &str) -> Value {
     };
     serde_json::from_str(&text.replace(WEBVH_SCID_PLACEHOLDER, scid))
         .unwrap_or_else(|_| value.clone())
+}
+
+fn scid_skeleton_from_genesis(
+    entry: &Value,
+    claimed_scid: &str,
+) -> Result<Value, WebvhInceptionError> {
+    let mut stripped = entry.clone();
+    if let Value::Object(map) = &mut stripped {
+        map.remove("proof");
+        map.remove("versionId");
+        map.remove("witness");
+    }
+    let encoded = serde_json::to_string(&stripped)
+        .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let mut skeleton: Value =
+        serde_json::from_str(&encoded.replace(claimed_scid, WEBVH_SCID_PLACEHOLDER))
+            .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let object = skeleton.as_object_mut().ok_or_else(|| {
+        WebvhInceptionError::InvalidProof("principal inception must be an object".to_owned())
+    })?;
+    object.insert(
+        "versionId".to_owned(),
+        Value::String(WEBVH_SCID_PLACEHOLDER.to_owned()),
+    );
+    Ok(skeleton)
 }
 
 /// `base58btc(0x12 0x20 || sha256(bytes))` — the sha2-256 multihash, base58btc
@@ -1770,6 +1983,54 @@ mod tests {
         let proof = &body.operation["proof"][0];
         assert!(proof.is_object());
         assert_eq!(proof["cryptosuite"].as_str(), Some("eddsa-jcs-2022"));
+    }
+
+    #[test]
+    fn account_binding_control_proof_uses_entry_zero_root() {
+        let prepared = run_prepare(19);
+        let validated = validate_principal_inception_operation(&prepared.submit_body)
+            .expect("inception validates");
+        assert_eq!(validated.principal_id.as_str(), prepared.did);
+        assert_eq!(
+            validated.document_profile,
+            PrincipalDidDocumentProfile::ExternalAuthority
+        );
+        assert_eq!(
+            validated.enrollment_authority.as_ref().map(Did::as_str),
+            Some("did:web:coauth.example.com")
+        );
+
+        let issued_at = DateTime::parse_from_rfc3339("2026-05-15T00:01:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut proof = IdentityCreationControlProof {
+            proof_kind: arkret_core::IdentityCreationControlProofKind::DidWebvhInceptionUpdateKey,
+            challenge_id: "challenge_0123456789012345678901".to_owned(),
+            challenge: "nonce_0123456789012345678901".to_owned(),
+            purpose: arkret_core::IdentityBindingPurpose::AccountBinding,
+            principal_id: validated.principal_id.clone(),
+            operation_digest: validated.operation_digest.clone(),
+            lease_id: "lease_0123456789012345678901".to_owned(),
+            lease_fence: 1,
+            dpop_jkt: "a".repeat(43),
+            audience: Did::new("did:web:coauth.example.com").unwrap(),
+            origin: "https://coauth.example.com".to_owned(),
+            trust_domain: arkret_core::TypedTrustDomainId::new(
+                "ak:trust_domain:example.com".to_owned(),
+            )
+            .unwrap(),
+            issued_at,
+            expires_at: issued_at + chrono::Duration::minutes(5),
+            verification_key_multibase: prepared.root_public_key_multibase.clone(),
+            signature: String::new(),
+        };
+        sign_identity_creation_control_proof(&mut proof, &[19; SECRET_KEY_LENGTH])
+            .expect("proof signs");
+        verify_identity_creation_control_proof(&prepared.submit_body, &proof)
+            .expect("root proof verifies");
+
+        proof.verification_key_multibase = public_multikey(20);
+        assert!(verify_identity_creation_control_proof(&prepared.submit_body, &proof).is_err());
     }
 
     #[test]

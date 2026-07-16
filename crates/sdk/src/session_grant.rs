@@ -137,6 +137,47 @@ pub fn oidc_session_grant_request(
     }
 }
 
+/// Build the holder-signed session request used immediately after account
+/// binding. The caller signs `request.proof.canonical_signing_bytes()` with
+/// the same Ed25519 key used by the account-handoff DPoP credential.
+pub fn pre_registration_handoff_session_grant_request(
+    principal_id: Did,
+    device_id: Option<DeviceId>,
+    requested_scope: Vec<String>,
+    challenge: impl Into<String>,
+    audience: Did,
+    expires_at: DateTime<Utc>,
+) -> crate::Result<SessionGrantRequestBody> {
+    let placeholder = Hash::new(format!("sha256:{}", "0".repeat(64)))?;
+    let mut request = SessionGrantRequestBody {
+        principal_id,
+        device_id,
+        requested_scope,
+        agent_key_authorization_ref: None,
+        agent_scope_request: None,
+        dpop_binding_proof: None,
+        applet_delegation: None,
+        proof: SessionGrantRequestProof {
+            proof_kind: SessionGrantProofKind::PreRegistrationHandoff,
+            challenge: challenge.into(),
+            request_canonical_digest: placeholder,
+            audience,
+            expires_at: Some(expires_at),
+            signature: String::new(),
+            verification_method: None,
+            issuer: None,
+            client_id: None,
+            redirect_uri: None,
+            state: None,
+            nonce: None,
+            authorization_code: None,
+            code_verifier: None,
+        },
+    };
+    request.proof.request_canonical_digest = request.canonical_request_digest()?;
+    Ok(request)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

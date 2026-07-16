@@ -101,6 +101,7 @@ pub enum ErrorCode {
     DidRevoked,
     FrontierUnavailable,
     MlsGovernanceAnchorUnreachable,
+    MlsGovernanceProofBoundsExceeded,
     HandleUnverified,
     KeyReplay,
     KeypackageAlreadyConsumed,
@@ -244,7 +245,7 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
-    pub const ALL: [Self; 231] = [
+    pub const ALL: [Self; 232] = [
         Self::BadJson,
         Self::BadQuery,
         Self::SchemaViolation,
@@ -336,6 +337,7 @@ impl ErrorCode {
         Self::DidRevoked,
         Self::FrontierUnavailable,
         Self::MlsGovernanceAnchorUnreachable,
+        Self::MlsGovernanceProofBoundsExceeded,
         Self::HandleUnverified,
         Self::KeyReplay,
         Self::KeypackageAlreadyConsumed,
@@ -577,6 +579,9 @@ impl ErrorCode {
             Self::DidRevoked => ERROR_CODE_DID_REVOKED,
             Self::FrontierUnavailable => ERROR_CODE_FRONTIER_UNAVAILABLE,
             Self::MlsGovernanceAnchorUnreachable => ERROR_CODE_MLS_GOVERNANCE_ANCHOR_UNREACHABLE,
+            Self::MlsGovernanceProofBoundsExceeded => {
+                ERROR_CODE_MLS_GOVERNANCE_PROOF_BOUNDS_EXCEEDED
+            }
             Self::HandleUnverified => ERROR_CODE_HANDLE_UNVERIFIED,
             Self::KeyReplay => ERROR_CODE_KEY_REPLAY,
             Self::KeypackageAlreadyConsumed => ERROR_CODE_KEYPACKAGE_ALREADY_CONSUMED,
@@ -851,6 +856,9 @@ impl ErrorCode {
             ERROR_CODE_DID_REVOKED => Self::DidRevoked,
             ERROR_CODE_FRONTIER_UNAVAILABLE => Self::FrontierUnavailable,
             ERROR_CODE_MLS_GOVERNANCE_ANCHOR_UNREACHABLE => Self::MlsGovernanceAnchorUnreachable,
+            ERROR_CODE_MLS_GOVERNANCE_PROOF_BOUNDS_EXCEEDED => {
+                Self::MlsGovernanceProofBoundsExceeded
+            }
             ERROR_CODE_HANDLE_UNVERIFIED => Self::HandleUnverified,
             ERROR_CODE_KEY_REPLAY => Self::KeyReplay,
             ERROR_CODE_KEYPACKAGE_ALREADY_CONSUMED => Self::KeypackageAlreadyConsumed,
