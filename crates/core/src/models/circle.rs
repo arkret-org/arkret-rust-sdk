@@ -727,8 +727,8 @@ pub fn enforce_child_scope_policy_with_circle_profile(
     child_circle_encryption_profile: Option<&EncryptionProfile>,
 ) -> std::result::Result<(), CircleScopeError> {
     match policy {
-        ChildScopePolicy::AllowAny { .. } => Ok(()),
-        ChildScopePolicy::RequireE2ee { .. } => match child_scope {
+        ChildScopePolicy::AllowAny {} => Ok(()),
+        ChildScopePolicy::RequireE2ee {} => match child_scope {
             Some(_)
                 if matches!(
                     child_circle_encryption_profile,
@@ -749,7 +749,7 @@ pub fn enforce_child_scope_policy_with_circle_profile(
                 }),
             },
         },
-        ChildScopePolicy::RequireSameScope { .. } => {
+        ChildScopePolicy::RequireSameScope {} => {
             let child_s = child_scope.map(|c| c.as_str());
             let parent_s = parent_space_scope.map(|c| c.as_str());
             if child_s == parent_s {
@@ -1279,9 +1279,7 @@ mod tests {
 
     #[test]
     fn child_scope_allow_any_accepts_everything() {
-        let policy = ChildScopePolicy::AllowAny {
-            metadata_encryption_floor: None,
-        };
+        let policy = ChildScopePolicy::AllowAny {};
         enforce_child_scope_policy(&policy, None, None, &EncryptionProfile::None).unwrap();
         enforce_child_scope_policy(&policy, Some(&circle_a()), None, &EncryptionProfile::None)
             .unwrap();
@@ -1289,9 +1287,7 @@ mod tests {
 
     #[test]
     fn child_scope_require_e2ee_needs_circle_or_mls_realm() {
-        let policy = ChildScopePolicy::RequireE2ee {
-            metadata_encryption_floor: None,
-        };
+        let policy = ChildScopePolicy::RequireE2ee {};
         // Circle-scoped child requires the reducer to resolve the Circle's
         // encryption profile; plaintext delivery-only Circles do not satisfy
         // require_e2ee.
@@ -1330,9 +1326,7 @@ mod tests {
 
     #[test]
     fn child_scope_require_same_scope_matches_parent() {
-        let policy = ChildScopePolicy::RequireSameScope {
-            metadata_encryption_floor: None,
-        };
+        let policy = ChildScopePolicy::RequireSameScope {};
         let a = circle_a();
         enforce_child_scope_policy(&policy, Some(&a), Some(&a), &EncryptionProfile::None).unwrap();
         enforce_child_scope_policy(&policy, None, None, &EncryptionProfile::None).unwrap();
@@ -1357,7 +1351,6 @@ mod tests {
         let a = circle_a();
         let policy = ChildScopePolicy::RequireScopeCircleId {
             scope_circle_id: a.clone(),
-            metadata_encryption_floor: None,
         };
         enforce_child_scope_policy(&policy, Some(&a), None, &EncryptionProfile::None).unwrap();
         // Wrong circle.

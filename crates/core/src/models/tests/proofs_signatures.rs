@@ -133,12 +133,14 @@ fn view_supports_renderer_and_facet_config_facades() {
         limit: None,
         consistency: None,
     };
-    let view = View {
+    let mut view = View {
         schema: VIEW_SCHEMA.to_owned(),
         id: ViewId::new("ak:view:01904100-0000-7000-8000-848727f328fe").unwrap(),
         realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         kind: ViewKind::Collection,
         visibility: None,
+        state: None,
+        state_changed_at: None,
         renderer: Some(ViewRenderer::Board),
         title: Some("Board".to_owned()),
         query: request,
@@ -160,11 +162,30 @@ fn view_supports_renderer_and_facet_config_facades() {
         updated_at: None,
     };
 
-    let value = serde_json::to_value(view).unwrap();
+    view.validate_lifecycle().unwrap();
+    let value = serde_json::to_value(&view).unwrap();
     assert_eq!(value["renderer"], "board");
     assert_eq!(
         value["collection"]["item_facets"],
         json!(["stateful", "rankable"])
+    );
+    view.state = Some(ViewState::Tombstoned);
+    assert!(view.validate_lifecycle().is_err());
+    view.state_changed_at = Some(Utc::now());
+    view.validate_lifecycle().unwrap();
+
+    for removed in [
+        json!({"item_order_by": [], "grouping": null, "page_size": 50}),
+        json!({"item_order_by": [], "grouping": null, "selection_policy": "multiple"}),
+    ] {
+        assert!(serde_json::from_value::<CollectionConfig>(removed).is_err());
+    }
+    assert!(
+        serde_json::from_value::<CollectionGrouping>(json!({
+            "mode": "none",
+            "wip_limit_enforcement": "warn"
+        }))
+        .is_err()
     );
 }
 

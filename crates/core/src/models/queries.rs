@@ -117,6 +117,7 @@ pub struct ViewQueryOutcome<T = Value> {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct View {
     pub schema: String,
     pub id: ViewId,
@@ -127,6 +128,12 @@ pub struct View {
     /// `None` keeps backward decode for fixtures predating the field.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub visibility: Option<ViewVisibility>,
+    /// Shared View lifecycle. Omitted is equivalent to active on wire.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<ViewState>,
+    /// Reducer-derived timestamp, present only for tombstoned Views.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_changed_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub renderer: Option<ViewRenderer>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -157,8 +164,34 @@ pub struct View {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ViewState {
+    Active,
+    Tombstoned,
+}
+
+impl View {
+    pub fn validate_lifecycle(&self) -> Result<()> {
+        match (
+            self.state.unwrap_or(ViewState::Active),
+            self.state_changed_at,
+        ) {
+            (ViewState::Active, None) | (ViewState::Tombstoned, Some(_)) => Ok(()),
+            (ViewState::Active, Some(_)) => Err(Error::Protocol(
+                "active view must not carry state_changed_at".to_owned(),
+            )),
+            (ViewState::Tombstoned, None) => Err(Error::Protocol(
+                "tombstoned view requires state_changed_at".to_owned(),
+            )),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct CollectionConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub item_object_types: Vec<String>,
@@ -171,16 +204,9 @@ pub struct CollectionConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub display_fields: Vec<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub selection_policy: Option<CollectionSelectionPolicy>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub count_policy: Option<CollectionCountPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub grouping: Option<CollectionGrouping>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub page_size: Option<u32>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    #[serde(default, flatten)]
-    pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -193,15 +219,6 @@ pub enum CollectionItemRender {
     Compact,
     Badge,
     Message,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum CollectionSelectionPolicy {
-    None,
-    Single,
-    Multiple,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -224,17 +241,9 @@ pub enum CollectionGroupingMode {
     Matrix,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum CollectionWipLimitEnforcement {
-    Warn,
-    Reject,
-    RequireReview,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct CollectionGrouping {
     pub mode: CollectionGroupingMode,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -257,11 +266,6 @@ pub struct CollectionGrouping {
     pub columns_by: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hidden_count_policy: Option<CollectionCountPolicy>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub wip_limit_enforcement: Option<CollectionWipLimitEnforcement>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    #[serde(default, flatten)]
-    pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

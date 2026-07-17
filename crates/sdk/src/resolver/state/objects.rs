@@ -191,7 +191,6 @@ impl RealmState {
             state: Some(state),
             state_changed_at: self.extract_optional_field(object, "state_changed_at"),
             scope_circle_id: self.extract_optional_field(object, "scope_circle_id"),
-            default_scope_circle_id: self.extract_optional_field(object, "default_scope_circle_id"),
             child_scope_policy: object
                 .get("child_scope_policy")
                 .and_then(|v| serde_json::from_value(v.clone()).ok()),
