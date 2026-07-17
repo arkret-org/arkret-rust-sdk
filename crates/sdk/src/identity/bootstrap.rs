@@ -1,6 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_core::events::kinds;
 use arkret_core::{
     CellRef, Did, Discoverability, Effect, EncryptionFloor, EncryptionProfile, Event, EventId,
     EventRef, EventRequirements, EventsSubmitRequestBody, Hash, HistoryVisibility, Hlc, JoinRule,
@@ -224,6 +223,330 @@ pub fn build_self_principal_bootstrap_seal<S: MoveSigner + ?Sized>(
     seal.validate_structural()?;
     seal.validate_id()?;
     Ok(seal)
+}
+
+/// Complete reducer material needed to construct or validate a
+/// controller-signed managed Agent PCR Event Seal.
+#[derive(Clone, Debug)]
+pub struct ManagedAgentPcrControlMaterial {
+    pub realm_id: RealmId,
+    pub agent_id: Did,
+    pub controller_id: Did,
+    pub authorization_ref: String,
+    pub covered_event_digests: Vec<MoveId>,
+    pub state_root: Hash,
+    pub joined: BTreeMap<CellRef, CellState>,
+    pub event_ops: Vec<(CellRef, SealedOp)>,
+}
+
+/// Materialize the canonical control state of a managed Agent PCR.
+///
+/// The delegated create Event has one producer marker effect, while the
+/// Realm create/member/notary writes are reducer-derived. Later managed PCR
+/// Events contribute their literal producer effects. Keeping this expansion
+/// in the SDK gives the controller-side Seal builder and receiver admission
+/// one byte-identical state-root implementation.
+pub fn materialize_managed_agent_pcr_control(
+    events: &[Event],
+) -> Result<ManagedAgentPcrControlMaterial> {
+    let managed_cell = CellRef::new(MANAGED_AGENT_PRINCIPAL_CONTROL_CREATE_CELL)?;
+    let creates = events
+        .iter()
+        .filter(|event| {
+            event.kind == arkret_core::events::EventKind::REALM_CREATE
+                && event
+                    .effects
+                    .iter()
+                    .any(|effect| effect.cell == managed_cell)
+        })
+        .collect::<Vec<_>>();
+    if creates.len() != 1 {
+        return Err(Error::Protocol(
+            "managed Agent PCR material requires exactly one canonical create Event".to_owned(),
+        ));
+    }
+    let create = creates[0];
+    let controller_id = create.executed_by.clone().ok_or_else(|| {
+        Error::Protocol("managed Agent PCR create Event omits executed_by".to_owned())
+    })?;
+    let authorization_ref = create.authorization_ref.clone().ok_or_else(|| {
+        Error::Protocol("managed Agent PCR create Event omits authorization_ref".to_owned())
+    })?;
+    let object = create
+        .payload
+        .get("object")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            Error::Protocol("managed Agent PCR create payload omits object".to_owned())
+        })?;
+    if object.get("created_by").and_then(Value::as_str) != Some(create.actor_id.as_str())
+        || object
+            .get("fields")
+            .and_then(Value::as_object)
+            .and_then(|fields| fields.get("purpose"))
+            .and_then(Value::as_str)
+            != Some(PRINCIPAL_CONTROL_PURPOSE)
+    {
+        return Err(Error::Protocol(
+            "managed Agent PCR create actor, created_by, or purpose is inconsistent".to_owned(),
+        ));
+    }
+    let notary = object
+        .get("notary")
+        .cloned()
+        .ok_or_else(|| Error::Protocol("managed Agent PCR create omits notary".to_owned()))?;
+    let notary_value: arkret_core::NotaryValue = serde_json::from_value(notary.clone())?;
+    notary_value.validate()?;
+    if !notary_value.includes_signer_as_primary(&create.actor_id) {
+        return Err(Error::Protocol(
+            "managed Agent PCR notary must be the Agent DID".to_owned(),
+        ));
+    }
+
+    // A managed PCR is itself a control-only Realm. Effectless protocol
+    // anchors such as `ak.mls.genesis` still belong to the notarized history:
+    // they change the coverage root even though they do not change a lattice
+    // cell. Omitting them would leave the MLS genesis outside its own
+    // governance anchor.
+    let included = events.iter().collect::<Vec<_>>();
+    if included.iter().any(|event| {
+        event.realm_id != create.realm_id
+            || event.actor_id != create.actor_id
+            || event.executed_by.as_ref() != Some(&controller_id)
+            || event.authorization_ref.as_deref() != Some(authorization_ref.as_str())
+    }) {
+        return Err(Error::Protocol(
+            "managed Agent PCR Event authority or Realm differs from its genesis".to_owned(),
+        ));
+    }
+
+    let mut covered = BTreeSet::new();
+    let mut ops_by_cell = BTreeMap::<CellRef, Vec<SealedOp>>::new();
+    let mut event_ops = Vec::new();
+    for event in included {
+        let move_id = MoveId::new(event.event_digest()?)?;
+        if !covered.insert(move_id.clone()) {
+            return Err(Error::Protocol(
+                "managed Agent PCR Event material contains duplicate digests".to_owned(),
+            ));
+        }
+        let ops = if std::ptr::eq(event, create) {
+            managed_agent_pcr_create_ops(create, &move_id, object, notary.clone())?
+        } else {
+            event
+                .effects
+                .iter()
+                .map(|effect| {
+                    (
+                        effect.cell.clone(),
+                        SealedOp::new(move_id.clone(), effect.op.clone()),
+                    )
+                })
+                .collect()
+        };
+        for (cell, op) in ops {
+            ops_by_cell
+                .entry(cell.clone())
+                .or_default()
+                .push(op.clone());
+            event_ops.push((cell, op));
+        }
+    }
+
+    let registry = crate::lattice_registry::build_sdk_cell_registry();
+    let mut joined = BTreeMap::new();
+    for (cell, mut ops) in ops_by_cell {
+        ops.sort_by(|left, right| right.move_id.as_str().cmp(left.move_id.as_str()));
+        let binding = registry.resolve(&create.realm_id, &cell).map_err(|error| {
+            Error::Protocol(format!("managed Agent PCR cell registry: {error}"))
+        })?;
+        let state = binding.lattice.join(&cell, &ops);
+        if matches!(state, CellState::Bottom(_)) {
+            return Err(Error::Protocol(format!(
+                "managed Agent PCR cell {cell} resolved to Bottom"
+            )));
+        }
+        joined.insert(cell, state);
+    }
+    let state_root = compute_state_root(&joined)
+        .map_err(|error| Error::Protocol(format!("managed Agent PCR state root: {error}")))?;
+    Ok(ManagedAgentPcrControlMaterial {
+        realm_id: create.realm_id.clone(),
+        agent_id: create.actor_id.clone(),
+        controller_id,
+        authorization_ref,
+        covered_event_digests: covered.into_iter().collect(),
+        state_root,
+        joined,
+        event_ops,
+    })
+}
+
+/// Build and sign a managed Agent PCR Seal with the controller device named
+/// by the accepted Agent DID delegation.
+pub fn build_managed_agent_pcr_event_seal<S: MoveSigner + ?Sized>(
+    events: &[Event],
+    predecessor: Option<&Seal>,
+    hlc: Hlc,
+    signer: &S,
+) -> Result<Seal> {
+    let material = materialize_managed_agent_pcr_control(events)?;
+    if signer.signer_did() != &material.controller_id {
+        return Err(Error::Protocol(
+            "managed Agent PCR Seal signer must be the delegated controller".to_owned(),
+        ));
+    }
+    let target = material
+        .covered_event_digests
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let (predecessor_refs, current, notary_seq) = match predecessor {
+        Some(seal) => {
+            if seal.realm_id != material.realm_id || seal.covered_event_digests.is_empty() {
+                return Err(Error::Protocol(
+                    "managed Agent PCR predecessor has incompatible Realm or coverage".to_owned(),
+                ));
+            }
+            let current = seal
+                .covered_event_digests
+                .iter()
+                .cloned()
+                .collect::<BTreeSet<_>>();
+            if !current.is_subset(&target) {
+                return Err(Error::Protocol(
+                    "managed Agent PCR predecessor coverage is not a subset of the target"
+                        .to_owned(),
+                ));
+            }
+            (
+                vec![seal.id.clone()],
+                current,
+                seal.notary_seq.checked_add(1).ok_or_else(|| {
+                    Error::Protocol("managed Agent PCR notary sequence overflow".to_owned())
+                })?,
+            )
+        }
+        None => (Vec::new(), BTreeSet::new(), 0),
+    };
+    let delta = target.difference(&current).cloned().collect::<Vec<_>>();
+    if delta.is_empty() {
+        return Err(Error::Protocol(
+            "managed Agent PCR Seal has no new Event delta".to_owned(),
+        ));
+    }
+    let control_root = control_event_set_root(&target)
+        .map_err(|error| Error::Protocol(format!("managed Agent PCR control root: {error}")))?;
+    let sealed_at = Utc::now();
+    let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
+    let mut seal = Seal {
+        id: SealId::new(format!("ak:seal:sha256:{}", "00".repeat(32)))?,
+        realm_id: material.realm_id,
+        predecessor_refs,
+        delta,
+        control_event_set_root: control_root.clone(),
+        state_root: material.state_root,
+        completeness_root: control_root,
+        notary_seq,
+        data_view_root: None,
+        data_event_set_root: None,
+        availability_root: None,
+        coverage_scope: None,
+        covered_event_digests: material.covered_event_digests,
+        previous_state_root: None,
+        previous_digest_algorithm: None,
+        notary_signature: NotarySig::Single(MoveSignature {
+            alg: "EdDSA".to_owned(),
+            verification_method: signer.verification_method_id().to_owned(),
+            payload_digest: zero_hash,
+            created_at: sealed_at,
+            jws: String::new(),
+        }),
+        sealed_at,
+        hlc,
+        kind: SealKind::Compaction,
+    };
+    let canonical_bytes = seal.canonical_bytes_for_id()?;
+    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes)?;
+    seal.notary_signature = NotarySig::Single(signer.sign_payload(&canonical_bytes)?);
+    seal.validate_structural()?;
+    seal.validate_id()?;
+    Ok(seal)
+}
+
+fn managed_agent_pcr_create_ops(
+    create: &Event,
+    move_id: &MoveId,
+    object: &serde_json::Map<String, Value>,
+    notary: Value,
+) -> Result<Vec<(CellRef, SealedOp)>> {
+    let mut entry = Value::Object(object.clone());
+    entry
+        .as_object_mut()
+        .expect("Realm create object remains an object")
+        .insert(
+            "entry_id".to_owned(),
+            Value::String(create.event_id.to_string()),
+        );
+    let create_cell = CellRef::new(format!(
+        "ak:cell:ak.component.realm.create.v1:{}",
+        create.realm_id
+    ))?;
+    let member_cell = CellRef::new(format!(
+        "ak:cell:ak.component.member.state.v1:{}",
+        create.actor_id
+    ))?;
+    let notary_cell = CellRef::new(format!(
+        "ak:cell:ak.component.notary.v1:{}",
+        create.realm_id
+    ))?;
+    Ok(vec![
+        (
+            create_cell,
+            SealedOp::new(
+                move_id.clone(),
+                LatticeOp {
+                    op_type: LatticeOpType::Append,
+                    tag: None,
+                    value: Some(entry),
+                    from: None,
+                    to: None,
+                    reason: None,
+                    issuer_seq: Some(create.actor_seq),
+                },
+            ),
+        ),
+        (
+            member_cell,
+            SealedOp::new(
+                move_id.clone(),
+                LatticeOp {
+                    op_type: LatticeOpType::Transition,
+                    tag: None,
+                    value: None,
+                    from: Some(serde_json::json!("leave")),
+                    to: Some(serde_json::json!("join")),
+                    reason: Some("realm_genesis".to_owned()),
+                    issuer_seq: None,
+                },
+            ),
+        ),
+        (
+            notary_cell,
+            SealedOp::new(
+                move_id.clone(),
+                LatticeOp {
+                    op_type: LatticeOpType::Set,
+                    tag: None,
+                    value: Some(notary),
+                    from: None,
+                    to: None,
+                    reason: None,
+                    issuer_seq: None,
+                },
+            ),
+        ),
+    ])
 }
 
 fn self_principal_bootstrap_state_root(
@@ -751,6 +1074,87 @@ mod tests {
         assert_eq!(seal.derive_id().unwrap(), seal.id);
         let NotarySig::Single(signature) = seal.notary_signature else {
             panic!("bootstrap Seal must use one device signature")
+        };
+        assert_eq!(signature.verification_method, signer.verification_method);
+    }
+
+    #[test]
+    fn managed_agent_seal_covers_effectless_mls_genesis_with_controller_signature() {
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-0000000000a1").unwrap();
+        let agent = Did::new("did:web:agent.example").unwrap();
+        let controller = Did::new("did:web:controller.example").unwrap();
+        let authorization_ref = format!("{agent}#managed-controller");
+        let mut create = Event::new(
+            arkret_core::events::EventKind::REALM_CREATE,
+            realm_id.clone(),
+            agent.clone(),
+            1,
+            Hlc::new("01970e589d21-0007-a13f9c2e").unwrap(),
+            serde_json::json!({
+                "object": {
+                    "id": realm_id,
+                    "created_by": agent,
+                    "fields": {"purpose": "principal_control"},
+                    "notary": {"type": "single_did", "did": agent},
+                }
+            }),
+        )
+        .unwrap();
+        create.event_id = EventId::new("ak:event:01904100-0000-7000-8000-0000000000a1").unwrap();
+        create.executed_by = Some(controller.clone());
+        create.authorization_ref = Some(authorization_ref.clone());
+        create.effects = vec![
+            managed_agent_principal_control_create_effect(&create.realm_id, create.actor_seq)
+                .unwrap(),
+        ];
+
+        let mut genesis = Event::new(
+            arkret_core::events::EventKind::MLS_GENESIS,
+            create.realm_id.clone(),
+            create.actor_id.clone(),
+            2,
+            Hlc::new("01970e589d21-0008-a13f9c2e").unwrap(),
+            serde_json::json!({}),
+        )
+        .unwrap();
+        genesis.event_id = EventId::new("ak:event:01904100-0000-7000-8000-0000000000a2").unwrap();
+        genesis.executed_by = Some(controller.clone());
+        genesis.authorization_ref = Some(authorization_ref);
+        assert!(genesis.effects.is_empty());
+
+        let signer = FixtureSigner {
+            did: controller.clone(),
+            verification_method: format!(
+                "{controller}#ak:device:01904100-0000-7000-8000-0000000000a1"
+            ),
+        };
+        let first = build_managed_agent_pcr_event_seal(
+            &[create.clone()],
+            None,
+            Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
+            &signer,
+        )
+        .unwrap();
+        let successor = build_managed_agent_pcr_event_seal(
+            &[create, genesis.clone()],
+            Some(&first),
+            Hlc::new("01970e589d21-000a-a13f9c2e").unwrap(),
+            &signer,
+        )
+        .unwrap();
+
+        assert_eq!(successor.predecessor_refs, vec![first.id.clone()]);
+        assert_eq!(successor.notary_seq, 1);
+        assert_eq!(successor.delta.len(), 1);
+        assert_eq!(successor.delta[0].as_str(), genesis.event_digest().unwrap());
+        assert_eq!(successor.covered_event_digests.len(), 2);
+        assert_eq!(successor.state_root, first.state_root);
+        assert_ne!(
+            successor.control_event_set_root,
+            first.control_event_set_root
+        );
+        let NotarySig::Single(signature) = successor.notary_signature else {
+            panic!("managed Agent PCR Seal must use one controller signature")
         };
         assert_eq!(signature.verification_method, signer.verification_method);
     }
