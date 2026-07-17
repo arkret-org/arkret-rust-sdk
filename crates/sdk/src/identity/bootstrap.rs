@@ -56,6 +56,7 @@ pub struct SelfPrincipalPcrCreateInput {
 /// Construct the only unsigned `ak.realm.create` shape that an identity root
 /// may sign. Signing material remains entirely with the caller.
 pub fn build_self_principal_pcr_create(input: SelfPrincipalPcrCreateInput) -> Result<Event> {
+    let created_at = arkret_core::canonical::normalize_timestamp_millis_canonical(input.created_at);
     let expected_realm_id =
         RealmId::new(arkret_core::principal_control_realm_id(&input.principal_id))?;
     if input.realm_id != expected_realm_id {
@@ -95,7 +96,7 @@ pub fn build_self_principal_pcr_create(input: SelfPrincipalPcrCreateInput) -> Re
         "purpose".to_owned(),
         Value::String(PRINCIPAL_CONTROL_PURPOSE.to_owned()),
     );
-    realm.created_at = input.created_at;
+    realm.created_at = created_at;
 
     let payload = payload_map(&RealmCreatePayload {
         object: realm,
@@ -113,33 +114,19 @@ pub fn build_self_principal_pcr_create(input: SelfPrincipalPcrCreateInput) -> Re
             issuer_seq: None,
         },
     };
-    let event = Event {
-        event_id: input.event_id,
-        kind: arkret_core::events::EventKind::REALM_CREATE.into(),
-        realm_id: input.realm_id,
-        actor_id: input.principal_id,
-        actor_seq: 0,
-        created_at: input.created_at,
-        hlc: input.hlc,
-        prev_refs: Vec::new(),
-        effective_scope: None,
-        refs: vec![input.did_inception_ref],
-        preconditions: Vec::new(),
-        effects: vec![effect],
-        seal_ref: None,
-        auth_context: None,
-        seal_basis: None,
-        requirements: EventRequirements::default(),
-        redacts: None,
-        payload,
-        executed_by: None,
-        authorization_ref: None,
-        applet_id: None,
-        external_ref: None,
-        actor_kind: None,
-        unsigned: BTreeMap::new(),
-        proofs: Vec::new(),
-    };
+    let mut event = Event::new_with_id_at(
+        input.event_id,
+        arkret_core::events::EventKind::REALM_CREATE,
+        input.realm_id,
+        input.principal_id,
+        0,
+        input.hlc,
+        Value::Object(payload.into_iter().collect()),
+        created_at,
+    )?;
+    event.refs = vec![input.did_inception_ref];
+    event.effects = vec![effect];
+    event.requirements = EventRequirements::default();
     validate_self_principal_pcr_create(&event, false)?;
     Ok(event)
 }

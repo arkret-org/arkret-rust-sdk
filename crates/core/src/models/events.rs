@@ -762,18 +762,72 @@ impl Event {
         hlc: Hlc,
         payload: Value,
     ) -> Result<Self> {
+        Self::new_at(
+            kind,
+            realm_id,
+            actor_id,
+            actor_seq,
+            hlc,
+            payload,
+            Utc::now(),
+        )
+    }
+
+    /// Construct an Event at a caller-supplied instant.
+    ///
+    /// The instant is truncated to the fixed millisecond precision required by
+    /// the Event wire profile before it is stored on the typed envelope. This
+    /// is the deterministic authoring entry point for callers that need an
+    /// object timestamp and its containing Event to share one exact instant.
+    pub fn new_at(
+        kind: impl Into<String>,
+        realm_id: RealmId,
+        actor_id: Did,
+        actor_seq: u64,
+        hlc: Hlc,
+        payload: Value,
+        created_at: DateTime<Utc>,
+    ) -> Result<Self> {
+        Self::new_with_id_at(
+            EventId::new(new_prefixed_uuid7("ak:event:"))?,
+            kind,
+            realm_id,
+            actor_id,
+            actor_seq,
+            hlc,
+            payload,
+            created_at,
+        )
+    }
+
+    /// Construct an Event with a caller-supplied identifier and instant.
+    ///
+    /// This deterministic variant supports protocol flows that allocate an
+    /// Event identifier before authoring the envelope. It shares all envelope
+    /// defaults and timestamp normalization with [`Self::new_at`].
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_with_id_at(
+        event_id: EventId,
+        kind: impl Into<String>,
+        realm_id: RealmId,
+        actor_id: Did,
+        actor_seq: u64,
+        hlc: Hlc,
+        payload: Value,
+        created_at: DateTime<Utc>,
+    ) -> Result<Self> {
         let Value::Object(payload) = payload else {
             return Err(Error::Protocol(
                 "event payload must be a JSON object".to_owned(),
             ));
         };
         Ok(Self {
-            event_id: EventId::new(new_prefixed_uuid7("ak:event:"))?,
+            event_id,
             kind: EventKind::from_wire(&kind.into()),
             realm_id,
             actor_id,
             actor_seq,
-            created_at: canonical::normalize_timestamp_millis_canonical(Utc::now()),
+            created_at: canonical::normalize_timestamp_millis_canonical(created_at),
             hlc,
             prev_refs: Vec::new(),
             effective_scope: None,
@@ -888,6 +942,52 @@ mod event_wire_surface_tests {
         let mut micros = value;
         micros["proofs"][0]["created_at"] = json!("2026-06-03T12:34:56.000123Z");
         assert!(serde_json::from_value::<Event>(micros).is_err());
+    }
+
+    #[test]
+    fn event_new_at_normalizes_the_supplied_instant_before_serialization() {
+        let created_at = "2026-06-03T12:34:56.987654Z".parse().unwrap();
+        let event = Event::new_at(
+            "ak.message.create",
+            realm(),
+            alice(),
+            1,
+            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+            json!({"body": "hello"}),
+            created_at,
+        )
+        .unwrap();
+
+        assert_eq!(
+            event.created_at,
+            "2026-06-03T12:34:56.987Z".parse::<DateTime<Utc>>().unwrap()
+        );
+        assert_eq!(
+            serde_json::to_value(event).unwrap()["created_at"],
+            json!("2026-06-03T12:34:56.987Z")
+        );
+    }
+
+    #[test]
+    fn event_new_with_id_at_preserves_the_allocated_identifier() {
+        let event_id = EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c576").unwrap();
+        let event = Event::new_with_id_at(
+            event_id.clone(),
+            "ak.message.create",
+            realm(),
+            alice(),
+            1,
+            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+            json!({"body": "hello"}),
+            "2026-06-03T12:34:56Z".parse().unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(event.event_id, event_id);
+        assert_eq!(
+            serde_json::to_value(event).unwrap()["created_at"],
+            json!("2026-06-03T12:34:56.000Z")
+        );
     }
 
     #[test]
