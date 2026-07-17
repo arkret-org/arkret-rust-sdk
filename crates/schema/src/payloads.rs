@@ -343,9 +343,8 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["relation", "create"] => candidates.push("relation_create_payload".to_owned()),
         ["relation", "update"] => candidates.push("relation_update_payload".to_owned()),
         ["relation", "delete"] => candidates.push("object_lifecycle_payload".to_owned()),
-        ["container", "move_item" | "rebalance"] => {
-            candidates.push("container_position_payload".to_owned());
-        }
+        ["container", "move_item"] => candidates.push("container_move_item_payload".to_owned()),
+        ["container", "rebalance"] => candidates.push("container_rebalance_payload".to_owned()),
         ["view", "create" | "update" | "reconcile"] => candidates.push("view_payload".to_owned()),
         // Applet interop-session events resolve through the `exact`
         // candidate above, which the spec event-payload schema defines

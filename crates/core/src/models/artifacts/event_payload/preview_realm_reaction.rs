@@ -126,6 +126,57 @@ pub struct RealmCreatePayload {
     pub initial_relations: Option<Vec<BTreeMap<String, Value>>>,
 }
 
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_notary_payload`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmNotaryPayload {
+    pub realm_id: RealmId,
+    pub notary: NotaryValue,
+}
+
+impl RealmNotaryPayload {
+    pub fn validate(&self) -> Result<()> {
+        Ok(self.notary.validate()?)
+    }
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/
+/// realm_digest_suite_transition_payload`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmDigestSuiteTransitionPayload {
+    pub from_digest_algorithm: canonical::DigestSuite,
+    pub to_digest_algorithm: canonical::DigestSuite,
+    pub transition_snapshot_ref: SnapshotId,
+    pub snapshot_commitment: Hash,
+}
+
+impl RealmDigestSuiteTransitionPayload {
+    pub fn validate(&self) -> Result<()> {
+        if self.from_digest_algorithm == self.to_digest_algorithm {
+            return Err(Error::Protocol(
+                "realm digest suite transition must change digest_algorithm (schema_violation)"
+                    .to_owned(),
+            ));
+        }
+        if matches!(
+            (&self.from_digest_algorithm, &self.to_digest_algorithm),
+            (
+                canonical::DigestSuite::Blake3,
+                canonical::DigestSuite::Sha256
+            )
+        ) {
+            return Err(Error::Protocol(
+                "realm digest suite transition must not downgrade hash strength (schema_violation)"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 // `realm_destroy_payload` now has a strong type:
 // `models::operation_payloads::RealmDestroyPayload` (replaces the former
 // `= Value` alias as part of the wire strong-type migration).
@@ -693,6 +744,55 @@ pub struct ViewPayload {
     pub definition: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub patch: Option<Patch>,
+}
+
+#[cfg(test)]
+mod realm_control_payload_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn realm_notary_payload_is_closed_and_validated() {
+        let value = json!({
+            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+            "notary": {
+                "type": "single_did",
+                "did": "did:web:notary.example"
+            }
+        });
+        let payload: RealmNotaryPayload = serde_json::from_value(value.clone()).unwrap();
+        payload.validate().unwrap();
+
+        let mut unknown = value;
+        unknown["notary"]["endpoint"] = json!("https://notary.example");
+        assert!(serde_json::from_value::<RealmNotaryPayload>(unknown).is_err());
+    }
+
+    #[test]
+    fn digest_suite_transition_rejects_noop_and_downgrade() {
+        let value = json!({
+            "from_digest_algorithm": "sha256",
+            "to_digest_algorithm": "blake3",
+            "transition_snapshot_ref": "ak:snapshot:01904100-0000-7000-8000-000000000002",
+            "snapshot_commitment": format!("sha256:{}", "a".repeat(64))
+        });
+        let payload: RealmDigestSuiteTransitionPayload =
+            serde_json::from_value(value.clone()).unwrap();
+        payload.validate().unwrap();
+
+        let mut noop = value.clone();
+        noop["to_digest_algorithm"] = json!("sha256");
+        let noop: RealmDigestSuiteTransitionPayload = serde_json::from_value(noop).unwrap();
+        assert!(noop.validate().is_err());
+
+        let mut downgrade = value;
+        downgrade["from_digest_algorithm"] = json!("blake3");
+        downgrade["to_digest_algorithm"] = json!("sha256");
+        let downgrade: RealmDigestSuiteTransitionPayload =
+            serde_json::from_value(downgrade).unwrap();
+        assert!(downgrade.validate().is_err());
+    }
 }
 
 #[cfg(test)]
