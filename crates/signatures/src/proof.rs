@@ -827,9 +827,7 @@ mod ed25519_jws {
     }
 }
 
-pub use ed25519_jws::{
-    Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier, VerifiedDetachedJws,
-};
+pub use ed25519_jws::{Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier, VerifiedDetachedJws};
 
 /// Construct a [`Proof`] envelope for an already-signed payload. The
 /// caller is responsible for supplying the algorithm name and the

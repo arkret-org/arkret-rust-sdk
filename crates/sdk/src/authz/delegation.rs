@@ -457,9 +457,7 @@ pub fn create_delegated_grant(
             subject: requested.subject.clone(),
             resource: requested.resource.clone(),
             actions: requested.actions.clone(),
-            capability_action_registry_digest: requested
-                .capability_action_registry_digest
-                .clone(),
+            capability_action_registry_digest: requested.capability_action_registry_digest.clone(),
             constraints: requested.constraints.clone(),
             revoked: false,
             created_at: now,

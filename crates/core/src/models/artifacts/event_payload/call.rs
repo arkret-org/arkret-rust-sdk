@@ -28,14 +28,12 @@ impl CallCaptureFailureReasonCode {
                 | "consent_withdrawn"
                 | "integrity_failed"
         );
-        let extension = value
-            .strip_prefix("x_")
-            .is_some_and(|suffix| {
-                (1..=62).contains(&suffix.len())
-                    && suffix
-                        .bytes()
-                        .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
-            });
+        let extension = value.strip_prefix("x_").is_some_and(|suffix| {
+            (1..=62).contains(&suffix.len())
+                && suffix
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+        });
         if standard || extension {
             Ok(Self(value))
         } else {
@@ -59,6 +57,73 @@ impl<'de> Deserialize<'de> for CallCaptureFailureReasonCode {
         let value = String::deserialize(deserializer)?;
         Self::new(value).map_err(serde::de::Error::custom)
     }
+}
+
+/// Stable, byte-preserving recording/transcript lifecycle handle.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
+#[serde(transparent)]
+pub struct CallRecordingId(String);
+
+impl CallRecordingId {
+    pub fn new(value: impl Into<String>) -> Result<Self> {
+        let value = value.into();
+        if recording_id_is_canonical(&value) {
+            Ok(Self(value))
+        } else {
+            Err(Error::Protocol(
+                "recording_id must be ASCII [A-Za-z0-9._-], length 1..=128".to_owned(),
+            ))
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for CallRecordingId {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for CallRecordingId {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::new(value).map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecordingCaptureKind {
+    Recording,
+    Transcript,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RecordingMode {
+    #[serde(rename = "audio")]
+    AudioOnly,
+    #[serde(rename = "audio_video")]
+    AudioVideo,
+}
+
+/// Typed payload for `ak.call.recording.start`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecordingStartPayload {
+    pub call_id: CallId,
+    pub recording_id: CallRecordingId,
+    pub recording_agent: Did,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capture_kind: Option<RecordingCaptureKind>,
+    pub mode: RecordingMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visible_notice: Option<bool>,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/call_participant`.
@@ -182,7 +247,7 @@ pub struct CallRecordingEncryptionContext {
     pub realm_id: RealmId,
     pub call_id: CallId,
     pub focus_id: String,
-    pub recording_id: String,
+    pub recording_id: CallRecordingId,
     pub media_service_id: Did,
     pub recording_start_event_id: EventId,
 }
@@ -236,7 +301,7 @@ pub struct CallRecordingArtifact {
     pub schema: String,
     pub realm_id: RealmId,
     pub call_id: CallId,
-    pub recording_id: String,
+    pub recording_id: CallRecordingId,
     pub recording_start_event_id: EventId,
     pub artifact_kind: CallRecordingArtifactKind,
     pub blob_ref: BlobRef,
@@ -265,9 +330,6 @@ impl CallRecordingArtifact {
                 "call recording artifact schema must be {}",
                 Self::SCHEMA
             ));
-        }
-        if !recording_id_is_canonical(&self.recording_id) {
-            return schema_violation("recording_id must be ASCII [A-Za-z0-9._-], length 1..=128");
         }
         if !self.blob_ref.as_str().starts_with("ak:blob:") {
             return recording_artifact_pipeline_bypassed(
@@ -424,6 +486,8 @@ pub struct CallStatePayloadTranscriptResult {
     pub retention: Option<CallRecordingRetention>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transcript_start_event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_reason_code: Option<CallCaptureFailureReasonCode>,
 }
 
 impl CallStatePayloadTranscriptResult {
