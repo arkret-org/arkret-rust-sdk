@@ -566,6 +566,14 @@ impl Event {
         as_morph_create => (MorphCreatePayload, crate::events::EventKind::MORPH_CREATE),
         /// Parse a `ak.morph.update` payload.
         as_morph_update => (MorphUpdatePayload, crate::events::EventKind::MORPH_UPDATE),
+        /// Parse a `ak.container.move_item` payload.
+        as_container_move_item => (ContainerMoveItemPayload, crate::events::EventKind::CONTAINER_MOVE_ITEM),
+        /// Parse a `ak.container.rebalance` payload.
+        as_container_rebalance => (ContainerRebalancePayload, crate::events::EventKind::CONTAINER_REBALANCE),
+        /// Parse a `ak.realm.notary` payload.
+        as_realm_notary => (RealmNotaryPayload, crate::events::EventKind::REALM_NOTARY),
+        /// Parse a `ak.realm.digest_suite_transition` payload.
+        as_realm_digest_suite_transition => (RealmDigestSuiteTransitionPayload, crate::events::EventKind::REALM_DIGEST_SUITE_TRANSITION),
     }
 
     pub fn as_message_event_payload(&self) -> Result<MessageEventPayload> {

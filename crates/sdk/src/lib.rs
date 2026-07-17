@@ -348,8 +348,9 @@ pub use authz::{
     ProposalApproval, ProposalStatus, ProtocolResourceSelector, ProtocolResourceSelectorKind,
     ProtocolResourceSelectorScope, Recurrence, Resource, ResourceSelector, ScopeLimitation,
     VerifiedClaim, apply_policy_response, capability_grants_from_realm_state,
-    grant_requires_approval, moderation_report_for_policy_outcome,
-    reject_unknown_critical_constraints, validate_capability_frontier,
+    current_capability_action_registry_digest, grant_requires_approval,
+    moderation_report_for_policy_outcome, reject_unknown_critical_constraints,
+    validate_capability_action_registry_binding, validate_capability_frontier,
 };
 #[cfg(feature = "full-surface")]
 pub use base::{

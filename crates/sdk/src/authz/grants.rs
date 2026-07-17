@@ -16,7 +16,7 @@
 //! `constraint_type = "delegation_control"` constraint with
 //! `max_delegation_depth` (no constraint ⇒ not delegable).
 
-use arkret_core::{CAPABILITY_SCHEMA, CapabilitySubject, GrantId};
+use arkret_core::{CAPABILITY_SCHEMA, CapabilitySubject, GrantId, Hash};
 
 use super::*;
 
@@ -32,6 +32,7 @@ pub(crate) struct GrantProjection {
     pub(crate) issuer: Did,
     pub(crate) subject: CapabilitySubject,
     pub(crate) actions: Vec<String>,
+    pub(crate) capability_action_registry_digest: Option<Hash>,
     pub(crate) resources: Vec<ResourceSelector>,
     pub(crate) constraints: Vec<ConstraintEntry>,
     pub(crate) parent_grant_id: Option<String>,
@@ -70,6 +71,10 @@ impl GrantProjection {
                 "schema_violation: capability grant requires proofs".to_owned(),
             ));
         }
+        validate_capability_action_registry_binding(
+            &grant.actions,
+            grant.capability_action_registry_digest.as_ref(),
+        )?;
         let resources = grant
             .resources
             .iter()
@@ -91,6 +96,7 @@ impl GrantProjection {
             issuer: grant.issuer.clone(),
             subject: grant.subject.clone(),
             actions: grant.actions.clone(),
+            capability_action_registry_digest: grant.capability_action_registry_digest.clone(),
             resources,
             constraints,
             parent_grant_id: grant
@@ -135,6 +141,68 @@ impl GrantProjection {
         }
         depth.unwrap_or(0)
     }
+}
+
+/// Return the JCS SHA-256 digest of the embedded complete capability-action
+/// registry snapshot.
+pub fn current_capability_action_registry_digest() -> Result<Hash> {
+    let registry =
+        arkret_core::schema::embedded_json_artifact("registry/capability-action-registry.json")
+            .map_err(|_| {
+                Error::Protocol(
+                    "capability_registry_basis_unavailable: embedded registry missing".to_owned(),
+                )
+            })?;
+    let bytes = arkret_canonical::canonical_json_bytes(&registry).map_err(|error| {
+        Error::Protocol(format!(
+            "capability_registry_basis_unavailable: registry JCS failed: {error}"
+        ))
+    })?;
+    Hash::new(arkret_canonical::sha256_digest(&bytes)).map_err(|error| {
+        Error::Protocol(format!(
+            "capability_registry_basis_unavailable: invalid registry digest: {error}"
+        ))
+    })
+}
+
+/// Validate the registry snapshot binding required by aggregate-admin actions.
+/// Any supplied digest must identify the exact embedded snapshot; receivers
+/// never fall back to a different/current registry for an unknown basis.
+pub fn validate_capability_action_registry_binding(
+    actions: &[String],
+    digest: Option<&Hash>,
+) -> Result<()> {
+    let mut requires_binding = false;
+    for action in actions {
+        let descriptor = arkret_core::schema::capability_action(action).ok_or_else(|| {
+            Error::Protocol(format!(
+                "schema_violation: capability action '{action}' is not registered"
+            ))
+        })?;
+        requires_binding |= descriptor.event_mapping_kind == "aggregate_admin";
+    }
+    if digest.is_some_and(|value| !value.as_str().starts_with("sha256:")) {
+        return Err(Error::Protocol(
+            "schema_violation: capability_action_registry_digest must be sha256".to_owned(),
+        ));
+    }
+    if requires_binding && digest.is_none() {
+        return Err(Error::Protocol(
+            "capability_registry_basis_unavailable: aggregate_admin grant is missing capability_action_registry_digest"
+                .to_owned(),
+        ));
+    }
+    let Some(digest) = digest else {
+        return Ok(());
+    };
+    let current = current_capability_action_registry_digest()?;
+    if digest != &current {
+        return Err(Error::Protocol(
+            "capability_registry_basis_unavailable: registry snapshot is unknown or unavailable"
+                .to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -270,6 +338,16 @@ fn validate_delegation_chain(
                 child.id
             )));
         }
+        if let (Some(child_basis), Some(parent_basis)) = (
+            child.capability_action_registry_digest.as_ref(),
+            parent.capability_action_registry_digest.as_ref(),
+        ) && child_basis != parent_basis
+        {
+            return Err(Error::Protocol(format!(
+                "capability grant '{}' uses a different registry basis than parent '{}'",
+                child.id, parent.id
+            )));
+        }
         if !actions_are_narrowed(&child.actions, &parent.actions) {
             return Err(Error::Protocol(format!(
                 "capability grant '{}' widens delegated actions",
@@ -304,10 +382,32 @@ fn validate_delegation_chain(
 }
 
 fn actions_are_narrowed(child: &[String], parent: &[String]) -> bool {
-    parent.iter().any(|action| action == "*")
-        || child
-            .iter()
-            .all(|action| parent.iter().any(|parent| parent == action))
+    child.iter().all(|child_action| {
+        parent.iter().any(|parent_action| {
+            if parent_action == child_action {
+                return true;
+            }
+            let Some(parent_descriptor) = arkret_core::schema::capability_action(parent_action)
+            else {
+                return false;
+            };
+            if parent_descriptor.event_mapping_kind != "aggregate_admin" {
+                return false;
+            }
+            let Some(child_descriptor) = arkret_core::schema::capability_action(child_action)
+            else {
+                return false;
+            };
+            child_descriptor.event_mapping_kind != "non_event_surface"
+                && !child_descriptor.target_event_kinds.is_empty()
+                && child_descriptor.target_event_kinds.iter().all(|target| {
+                    parent_descriptor
+                        .target_event_kinds
+                        .iter()
+                        .any(|parent_target| parent_target == target)
+                })
+        })
+    })
 }
 
 fn resources_are_narrowed(child: &[ResourceSelector], parent: &[ResourceSelector]) -> bool {
@@ -1217,6 +1317,12 @@ impl CapabilityGrantBuilder {
         self
     }
 
+    /// Bind aggregate-admin action expansion to an exact registry snapshot.
+    pub fn with_capability_action_registry_digest(mut self, digest: Hash) -> Self {
+        self.grant.capability_action_registry_digest = Some(digest);
+        self
+    }
+
     /// Replace the resource selector list (serialized to the spec selector
     /// object form).
     pub fn with_resources(mut self, resources: Vec<ResourceSelector>) -> Self {
@@ -1455,6 +1561,43 @@ mod capability_grant_builder_tests {
     }
 
     #[test]
+    fn aggregate_admin_grant_requires_registry_digest() {
+        let mut grant = base_grant();
+        grant.actions = vec!["ak.realm.admin".to_owned()];
+        let err = CapabilityGrantBuilder::new(realm(), alice(), grant)
+            .build(1, hlc())
+            .expect_err("aggregate admin without registry basis must fail closed");
+        assert!(format!("{err}").contains("capability_registry_basis_unavailable"));
+    }
+
+    #[test]
+    fn aggregate_admin_grant_binds_current_registry_in_wire_body() {
+        let digest = current_capability_action_registry_digest().unwrap();
+        let mut grant = base_grant();
+        grant.actions = vec!["ak.realm.admin".to_owned()];
+        let event = CapabilityGrantBuilder::new(realm(), alice(), grant)
+            .with_capability_action_registry_digest(digest.clone())
+            .build(1, hlc())
+            .unwrap();
+        assert_eq!(
+            event.payload["grant"]["capability_action_registry_digest"],
+            digest.as_str()
+        );
+    }
+
+    #[test]
+    fn supplied_unknown_registry_digest_fails_closed() {
+        let mut grant = base_grant();
+        grant.actions = vec!["ak.realm.admin".to_owned()];
+        grant.capability_action_registry_digest =
+            Some(Hash::new(format!("sha256:{}", "f".repeat(64))).unwrap());
+        let err = CapabilityGrantBuilder::new(realm(), alice(), grant)
+            .build(1, hlc())
+            .expect_err("unknown registry basis must fail closed");
+        assert!(format!("{err}").contains("capability_registry_basis_unavailable"));
+    }
+
+    #[test]
     fn capability_grant_builder_encodes_delegation_control_constraint() {
         let event = CapabilityGrantBuilder::new(realm(), alice(), base_grant())
             .with_delegation_control(2, false)
@@ -1482,7 +1625,7 @@ mod capability_grant_builder_tests {
     fn capability_chain_verifier_accepts_narrowing_child() {
         let parent = arkret_core::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000001").unwrap(),
-            actions: vec!["*".to_owned()],
+            actions: vec!["ak.message.create".to_owned()],
             constraints: vec![arkret_core::GrantConstraint::delegation_control(1, false)],
             ..base_grant()
         };
@@ -1506,7 +1649,7 @@ mod capability_grant_builder_tests {
     fn capability_chain_verifier_rejects_parent_without_delegation_control() {
         let parent = arkret_core::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000001").unwrap(),
-            actions: vec!["*".to_owned()],
+            actions: vec!["ak.message.create".to_owned()],
             ..base_grant()
         };
         let child = arkret_core::CapabilityGrant {

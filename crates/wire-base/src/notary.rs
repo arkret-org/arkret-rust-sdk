@@ -46,7 +46,7 @@ pub enum ForensicAttribution {
 /// (decisions/0003 §7).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum NotaryValue {
     SingleDid {
         did: Did,

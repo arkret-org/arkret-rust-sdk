@@ -2,9 +2,6 @@
 
 use super::*;
 
-pub const DIRECT_CONVERSATION_PAIR_KEY_VERSION: &str = "ak.direct_conversation.pair_key.v1";
-pub const DIRECT_CONVERSATION_PAIR_KEY_PREFIX: &str = "ak:direct_pair:";
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -24,29 +21,28 @@ impl DirectConversationPairKeyParticipant {
 
 #[derive(Serialize)]
 struct DirectConversationPairKeyMaterial {
-    version: &'static str,
-    trust_domain: TypedTrustDomainId,
     participants: [Did; 2],
+    trust_domain: TypedTrustDomainId,
 }
 
 pub fn direct_conversation_pair_key(
     trust_domain: TypedTrustDomainId,
     left: DirectConversationPairKeyParticipant,
     right: DirectConversationPairKeyParticipant,
-) -> Result<String> {
+) -> Result<Hash> {
     let mut participants = [left.stable_subject, right.stable_subject];
     participants.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+    if participants[0] == participants[1] {
+        return Err(Error::Protocol(
+            "direct conversation participants must be distinct (schema_violation)".to_owned(),
+        ));
+    }
     let material = DirectConversationPairKeyMaterial {
-        version: DIRECT_CONVERSATION_PAIR_KEY_VERSION,
-        trust_domain,
         participants,
+        trust_domain,
     };
     let canonical = canonical::canonical_json_bytes(&material)?;
-    Ok(format!(
-        "{}{}",
-        DIRECT_CONVERSATION_PAIR_KEY_PREFIX,
-        canonical::sha256_base64url(&canonical)
-    ))
+    Ok(Hash::new(canonical::sha256_digest(canonical))?)
 }
 
 #[cfg(test)]
@@ -74,7 +70,24 @@ mod tests {
         let b = direct_conversation_pair_key(trust_domain(), bob, alice).unwrap();
 
         assert_eq!(a, b);
-        assert!(a.starts_with(DIRECT_CONVERSATION_PAIR_KEY_PREFIX));
+        assert!(a.as_str().starts_with("sha256:"));
+    }
+
+    #[test]
+    fn pair_key_matches_normative_known_answer() {
+        let alice = DirectConversationPairKeyParticipant::unmapped(did(
+            "did:webvh:z6mkfixture:alice.example",
+        ));
+        let bob = DirectConversationPairKeyParticipant::unmapped(did(
+            "did:webvh:z6mkfixture:bob.example",
+        ));
+
+        let pair_key = direct_conversation_pair_key(trust_domain(), alice, bob).unwrap();
+
+        assert_eq!(
+            pair_key.as_str(),
+            "sha256:a97a411daac39d8fe9c29755109c5785e86b83e9f966c65363bafcf02654790b"
+        );
     }
 
     #[test]
@@ -97,5 +110,13 @@ mod tests {
         let stable_key = direct_conversation_pair_key(trust_domain(), alice, stable_bob).unwrap();
 
         assert_eq!(pairwise_key, stable_key);
+    }
+
+    #[test]
+    fn pair_key_rejects_identical_stable_subjects() {
+        let alice = DirectConversationPairKeyParticipant::unmapped(did(
+            "did:webvh:z6mkfixture:alice.example",
+        ));
+        assert!(direct_conversation_pair_key(trust_domain(), alice.clone(), alice).is_err());
     }
 }

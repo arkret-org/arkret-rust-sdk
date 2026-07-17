@@ -8,124 +8,6 @@ use serde_json::Value;
 
 use crate::*;
 
-/// Closed standard call-capture failure reasons with an extension escape
-/// hatch matching `^x_[a-z0-9_]{1,62}$`.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
-#[serde(transparent)]
-pub struct CallCaptureFailureReasonCode(String);
-
-impl CallCaptureFailureReasonCode {
-    pub fn new(value: impl Into<String>) -> Result<Self> {
-        let value = value.into();
-        let standard = matches!(
-            value.as_str(),
-            "media_negotiation_timeout"
-                | "permission_denied"
-                | "backend_unavailable"
-                | "media_source_unavailable"
-                | "storage_failed"
-                | "policy_revoked"
-                | "consent_withdrawn"
-                | "integrity_failed"
-        );
-        let extension = value.strip_prefix("x_").is_some_and(|suffix| {
-            (1..=62).contains(&suffix.len())
-                && suffix
-                    .bytes()
-                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
-        });
-        if standard || extension {
-            Ok(Self(value))
-        } else {
-            Err(Error::Protocol(
-                "call capture failure reason must be standard or match ^x_[a-z0-9_]{1,62}$"
-                    .to_owned(),
-            ))
-        }
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl<'de> Deserialize<'de> for CallCaptureFailureReasonCode {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = String::deserialize(deserializer)?;
-        Self::new(value).map_err(serde::de::Error::custom)
-    }
-}
-
-/// Stable, byte-preserving recording/transcript lifecycle handle.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
-#[serde(transparent)]
-pub struct CallRecordingId(String);
-
-impl CallRecordingId {
-    pub fn new(value: impl Into<String>) -> Result<Self> {
-        let value = value.into();
-        if recording_id_is_canonical(&value) {
-            Ok(Self(value))
-        } else {
-            Err(Error::Protocol(
-                "recording_id must be ASCII [A-Za-z0-9._-], length 1..=128".to_owned(),
-            ))
-        }
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl std::fmt::Display for CallRecordingId {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str(&self.0)
-    }
-}
-
-impl<'de> Deserialize<'de> for CallRecordingId {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = String::deserialize(deserializer)?;
-        Self::new(value).map_err(serde::de::Error::custom)
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RecordingCaptureKind {
-    Recording,
-    Transcript,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum RecordingMode {
-    #[serde(rename = "audio")]
-    AudioOnly,
-    #[serde(rename = "audio_video")]
-    AudioVideo,
-}
-
-/// Typed payload for `ak.call.recording.start`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecordingStartPayload {
-    pub call_id: CallId,
-    pub recording_id: CallRecordingId,
-    pub recording_agent: Did,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub capture_kind: Option<RecordingCaptureKind>,
-    pub mode: RecordingMode,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub visible_notice: Option<bool>,
-}
-
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/call_participant`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -206,6 +88,112 @@ pub struct CallPayload {
     pub state: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signal: Option<BTreeMap<String, Value>>,
+}
+
+/// Stable opaque recording/transcript lifecycle handle used byte-for-byte in
+/// exporter context derivation.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CallRecordingId(String);
+
+impl CallRecordingId {
+    pub fn new(value: impl Into<String>) -> Result<Self> {
+        let value = value.into();
+        if !recording_id_is_canonical(&value) {
+            return schema_violation("recording_id must be ASCII [A-Za-z0-9._-], length 1..=128");
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Serialize for CallRecordingId {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for CallRecordingId {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+
+/// Closed failure-code subset used by recording, transcription and artifact
+/// deletion. Registered values are stored as the generated [`ReasonCode`];
+/// only the schema's `x_...` extension form may remain unknown.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct CallCaptureFailureReasonCode(ReasonCode);
+
+impl CallCaptureFailureReasonCode {
+    pub fn new(value: impl Into<String>) -> Result<Self> {
+        let value = value.into();
+        if !call_capture_failure_reason_code_is_valid(&value) {
+            return schema_violation("invalid call capture failure_reason_code");
+        }
+        Ok(Self(ReasonCode::from_wire(&value)))
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+
+    pub fn reason_code(&self) -> &ReasonCode {
+        &self.0
+    }
+}
+
+impl Serialize for CallCaptureFailureReasonCode {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for CallCaptureFailureReasonCode {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RecordingMode {
+    #[serde(rename = "audio")]
+    AudioOnly,
+    #[serde(rename = "audio_video")]
+    AudioVideo,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecordingCaptureKind {
+    Recording,
+    Transcript,
+}
+
+/// Typed payload for `ak.call.recording.start`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecordingStartPayload {
+    pub call_id: CallId,
+    pub recording_id: CallRecordingId,
+    pub recording_agent: Did,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capture_kind: Option<RecordingCaptureKind>,
+    pub mode: RecordingMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visible_notice: Option<bool>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -628,6 +616,25 @@ fn recording_id_is_canonical(value: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
 }
 
+fn call_capture_failure_reason_code_is_valid(value: &str) -> bool {
+    matches!(
+        value,
+        ReasonCode::MEDIA_NEGOTIATION_TIMEOUT
+            | ReasonCode::PERMISSION_DENIED
+            | ReasonCode::BACKEND_UNAVAILABLE
+            | ReasonCode::MEDIA_SOURCE_UNAVAILABLE
+            | ReasonCode::STORAGE_FAILED
+            | ReasonCode::POLICY_REVOKED
+            | ReasonCode::CONSENT_WITHDRAWN
+            | ReasonCode::INTEGRITY_FAILED
+    ) || value.strip_prefix("x_").is_some_and(|extension| {
+        (1..=62).contains(&extension.len())
+            && extension
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+    })
+}
+
 fn contains_backend_direct_recording_ref(value: &str) -> bool {
     let lower = value.to_ascii_lowercase();
     lower.contains("http://")
@@ -639,7 +646,7 @@ fn contains_backend_direct_recording_ref(value: &str) -> bool {
         || lower.contains("s3.amazonaws.com")
 }
 
-fn schema_violation(message: impl Into<String>) -> Result<()> {
+fn schema_violation<T>(message: impl Into<String>) -> Result<T> {
     Err(Error::Protocol(format!(
         "schema_violation: {}",
         message.into()
@@ -660,11 +667,48 @@ mod tests {
     use super::*;
 
     #[test]
+    fn recording_start_requires_mode_and_valid_recording_id() {
+        let value = json!({
+            "call_id": "ak:call:019a7360-0000-7000-8000-000000000001",
+            "recording_id": "capture-1",
+            "recording_agent": "did:webvh:z6mkfixture:recorder.example",
+            "mode": "audio_video"
+        });
+        let payload: RecordingStartPayload = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(payload.mode, RecordingMode::AudioVideo);
+
+        let mut missing_mode = value.clone();
+        missing_mode.as_object_mut().unwrap().remove("mode");
+        assert!(serde_json::from_value::<RecordingStartPayload>(missing_mode).is_err());
+
+        let mut invalid_id = value;
+        invalid_id["recording_id"] = json!("capture id");
+        assert!(serde_json::from_value::<RecordingStartPayload>(invalid_id).is_err());
+    }
+
+    #[test]
+    fn call_capture_failure_reason_is_closed_with_x_extension() {
+        let registered =
+            serde_json::from_value::<CallCaptureFailureReasonCode>(json!("backend_unavailable"))
+                .unwrap();
+        assert_eq!(registered.reason_code(), &ReasonCode::BackendUnavailable);
+        assert!(
+            serde_json::from_value::<CallCaptureFailureReasonCode>(json!("x_vendor_timeout"))
+                .is_ok()
+        );
+        assert!(
+            serde_json::from_value::<CallCaptureFailureReasonCode>(json!("call_state_terminal"))
+                .is_err()
+        );
+        assert!(serde_json::from_value::<CallCaptureFailureReasonCode>(json!("x_UPPER")).is_err());
+    }
+
+    #[test]
     fn call_state_transcript_result_round_trips_and_validates() {
         let value = json!({
             "call_id": "ak:call:019a7360-0000-7000-8000-000000000001",
             "state": "ended",
-            "transcript_state": "ready",
+            "transcript_state": "failed",
             "transcript_result": {
                 "content_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "media_type": "text/vtt",
@@ -673,7 +717,8 @@ mod tests {
                 "retention": {
                     "consent_confirmed": true
                 },
-                "transcript_start_event_id": "ak:event:019a7360-0000-7000-8000-000000000003"
+                "transcript_start_event_id": "ak:event:019a7360-0000-7000-8000-000000000003",
+                "failure_reason_code": "storage_failed"
             }
         });
         let payload: CallStatePayload = serde_json::from_value(value).unwrap();
@@ -684,6 +729,10 @@ mod tests {
         assert_eq!(
             encoded["transcript_result"]["transcript_start_event_id"],
             "ak:event:019a7360-0000-7000-8000-000000000003"
+        );
+        assert_eq!(
+            encoded["transcript_result"]["failure_reason_code"],
+            "storage_failed"
         );
     }
 

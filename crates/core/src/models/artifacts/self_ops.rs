@@ -243,13 +243,41 @@ pub enum RealmReadOperations {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/seal-transparency.schema.json#/$defs/auditor_attestation/checks`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SealTransparencyVerifiedCheck;
+
+impl Serialize for SealTransparencyVerifiedCheck {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> Deserialize<'de> for SealTransparencyVerifiedCheck {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        if bool::deserialize(deserializer)? {
+            Ok(Self)
+        } else {
+            Err(serde::de::Error::custom(
+                "seal transparency auditor checks must be true",
+            ))
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SealTransparencyChecks {
-    pub append_only: bool,
-    pub seal_signatures: bool,
-    pub set_root_monotonic: bool,
-    pub completeness_monotonic: bool,
+    pub append_only: SealTransparencyVerifiedCheck,
+    pub seal_signatures: SealTransparencyVerifiedCheck,
+    pub dag_edges_verified: SealTransparencyVerifiedCheck,
+    pub set_root_monotonic: SealTransparencyVerifiedCheck,
+    pub completeness_monotonic: SealTransparencyVerifiedCheck,
 }
 
 /// Counterpart for
@@ -283,4 +311,38 @@ pub struct SealTransparency {
     pub prev_entry_digest: Option<Hash>,
     pub logged_at: DateTime<Utc>,
     pub log_signature: PayloadProof,
+}
+
+#[cfg(test)]
+mod seal_transparency_tests {
+    use super::*;
+
+    #[test]
+    fn auditor_checks_require_dag_edges_and_true_values() {
+        let valid = serde_json::json!({
+            "append_only": true,
+            "seal_signatures": true,
+            "dag_edges_verified": true,
+            "set_root_monotonic": true,
+            "completeness_monotonic": true
+        });
+        assert!(serde_json::from_value::<SealTransparencyChecks>(valid).is_ok());
+
+        let missing = serde_json::json!({
+            "append_only": true,
+            "seal_signatures": true,
+            "set_root_monotonic": true,
+            "completeness_monotonic": true
+        });
+        assert!(serde_json::from_value::<SealTransparencyChecks>(missing).is_err());
+
+        let false_check = serde_json::json!({
+            "append_only": true,
+            "seal_signatures": true,
+            "dag_edges_verified": false,
+            "set_root_monotonic": true,
+            "completeness_monotonic": true
+        });
+        assert!(serde_json::from_value::<SealTransparencyChecks>(false_check).is_err());
+    }
 }

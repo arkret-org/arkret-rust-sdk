@@ -531,41 +531,7 @@ impl SpeakingData {
 
 // ── Recording / transcribe / moderation (call-state.md §5) ──────────────────
 
-/// Recording capture mode (`ak.call.recording.start`, `call-state.md` §5).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum RecordingMode {
-    #[serde(rename = "audio")]
-    AudioOnly,
-    #[serde(rename = "audio_video")]
-    AudioVideo,
-}
-
-/// Capture dimension selected by `ak.call.recording.start`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RecordingCaptureKind {
-    Recording,
-    Transcript,
-}
-
-/// `ak.call.recording.start` payload (`call-state.md` §5). Field names are
-/// snake_case per spec; the recording artifact key is derived separately via
-/// [`crate::sframe::derive_recording_key`] over the
-/// `(realm_id, call_id, focus_id, recording_id, media_service_id,
-/// recording_start_event_id)` tuple.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RecordingStartPayload {
-    pub call_id: crate::CallId,
-    pub recording_id: String,
-    /// Service DID performing the capture (backend egress agent).
-    pub recording_agent: Did,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub capture_kind: Option<RecordingCaptureKind>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mode: Option<RecordingMode>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub visible_notice: Option<bool>,
-}
+pub use crate::{RecordingCaptureKind, RecordingMode, RecordingStartPayload};
 
 /// Recording lifecycle state published on `ak.call.state.recording_state`
 /// (`call-state.md` §4.2 / §5). Orthogonal to call `state`.
@@ -578,31 +544,7 @@ pub enum RecordingState {
     Failed,
 }
 
-/// `ak.call.state.recording_result` artifact reference (`call-state.md` §5).
-/// Published after a recording reaches `ready`; the artifact MUST be a Arkret
-/// encrypted blob (no backend-hosted URL).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RecordingResult {
-    /// `ak.call.recording.start` event id this segment derives from.
-    pub recording_start_event_id: crate::EventId,
-    /// Content digest of the encrypted recording blob.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content_digest: Option<crate::Hash>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub duration_ms: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub media_type: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retention_policy_id: Option<crate::PolicyId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retention: Option<crate::CallRecordingRetention>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub artifact: Option<crate::CallRecordingArtifact>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub failure_reason_code: Option<arkret_core::CallCaptureFailureReasonCode>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub failure_message: Option<String>,
-}
+pub use crate::CallStatePayloadRecordingResult as RecordingResult;
 
 /// `ak.call.transcribe` request payload (`webrtc-signaling.md` §3 capability,
 /// `call-state.md` §5). Transcript text is stored as a Morph / Artifact under
@@ -955,10 +897,10 @@ mod tests {
     fn recording_and_transcribe_payloads_serialize_snake_case() {
         let start = RecordingStartPayload {
             call_id: crate::CallId::new("ak:call:0196441c-0000-7000-8000-000000000000").unwrap(),
-            recording_id: "rtc-recording-1".to_owned(),
+            recording_id: crate::CallRecordingId::new("rtc-recording-1").unwrap(),
             recording_agent: did("recorder"),
             capture_kind: Some(RecordingCaptureKind::Recording),
-            mode: Some(RecordingMode::AudioVideo),
+            mode: RecordingMode::AudioVideo,
             visible_notice: Some(true),
         };
         let value = serde_json::to_value(&start).unwrap();
@@ -982,10 +924,9 @@ mod tests {
         );
 
         let result = RecordingResult {
-            recording_start_event_id: crate::EventId::new(
-                "ak:event:019a7360-0000-7000-8000-000000000003",
-            )
-            .unwrap(),
+            recording_start_event_id: Some(
+                crate::EventId::new("ak:event:019a7360-0000-7000-8000-000000000003").unwrap(),
+            ),
             content_digest: Some(
                 crate::Hash::new(
                     "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
