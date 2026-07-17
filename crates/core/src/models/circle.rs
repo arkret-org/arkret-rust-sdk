@@ -44,9 +44,9 @@ pub enum CircleJoinRule {
     /// Admin must invite or add.
     Invite,
     /// Profile-defined apply/approve strand.
-    Request,
+    Knock,
     /// Any active parent-Realm member self-joins.
-    Open,
+    Public,
 }
 
 /// Binary encryption floor, shared by `content_encryption_floor` and
@@ -183,7 +183,7 @@ pub struct Circle {
     /// Optional native-agent participation ceiling. Omitted bits inherit
     /// the parent Realm ceiling independently.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub agent_participation: Option<AgentParticipationCeiling>,
+    pub agent_participation: Option<AgentParticipationPolicy>,
     pub encryption_profile: EncryptionProfile,
     /// Reducer-derived; populated by `ak.circle.create` reducer once the
     /// independent MLS group is bound. NOT actor-supplied on wire.
@@ -243,7 +243,7 @@ pub struct CircleView {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_encryption_floor: Option<EncryptionFloor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub agent_participation: Option<AgentParticipationCeiling>,
+    pub agent_participation: Option<AgentParticipationPolicy>,
     pub encryption_profile: EncryptionProfile,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_ref: Option<String>,
@@ -283,7 +283,7 @@ pub struct CircleCreateRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_encryption_floor: Option<EncryptionFloor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub agent_participation: Option<AgentParticipationCeiling>,
+    pub agent_participation: Option<AgentParticipationPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encryption_profile: Option<EncryptionProfile>,
 }
@@ -437,7 +437,7 @@ impl CircleMemberState {
 ///
 /// ```text
 ///   none / leave                         → invite
-///   none / leave                         → knock (join_rule=request only)
+///   none / leave                         → knock (join_rule=knock only)
 ///   knock                                → invite / join / leave
 ///   invite                               → join
 ///   none / leave                         → join
@@ -466,12 +466,12 @@ pub fn validate_member_transition(
     }
     // knock is only available on request-rule Circles.
     if matches!((prev, next), (None, Knock) | (Some(Leave), Knock))
-        && join_rule != CircleJoinRule::Request
+        && join_rule != CircleJoinRule::Knock
     {
         return Err(CircleScopeError::IllegalMemberTransition {
             from: prev,
             to: next,
-            reason: "knock is only legal when join_rule=request",
+            reason: "knock is only legal when join_rule=knock",
         });
     }
     // join -> invite is a regression not in the spec table.
@@ -909,7 +909,10 @@ impl Circle {
         &self,
         parent: AgentParticipation,
     ) -> std::result::Result<AgentParticipation, AgentParticipationError> {
-        match self.agent_participation {
+        match self
+            .agent_participation
+            .and_then(|policy| policy.native_agent)
+        {
             Some(child) => validate_agent_participation_ceiling_tightens(parent, child),
             None => Ok(parent),
         }
@@ -979,18 +982,22 @@ mod tests {
             RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000012".to_owned()).unwrap();
         let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
         let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
-        circle.agent_participation = Some(AgentParticipationCeiling {
-            reply: Some(true),
-            accept_third_party_mention: None,
-            act_on_behalf: Some(false),
+        circle.agent_participation = Some(AgentParticipationPolicy {
+            native_agent: Some(AgentParticipationCeiling {
+                reply: Some(true),
+                accept_third_party_mention: None,
+                act_on_behalf: Some(false),
+            }),
         });
 
         let value = serde_json::to_value(&circle).unwrap();
         assert_eq!(
             value.get("agent_participation"),
             Some(&serde_json::json!({
-                "reply": true,
-                "act_on_behalf": false
+                "native_agent": {
+                    "reply": true,
+                    "act_on_behalf": false
+                }
             }))
         );
         let parsed: Circle = serde_json::from_value(value).unwrap();
@@ -1046,10 +1053,12 @@ mod tests {
             parent
         );
 
-        circle.agent_participation = Some(AgentParticipationCeiling {
-            reply: Some(false),
-            accept_third_party_mention: None,
-            act_on_behalf: None,
+        circle.agent_participation = Some(AgentParticipationPolicy {
+            native_agent: Some(AgentParticipationCeiling {
+                reply: Some(false),
+                accept_third_party_mention: None,
+                act_on_behalf: None,
+            }),
         });
         assert_eq!(
             circle.validate_agent_participation_ceiling(parent).unwrap(),
@@ -1060,10 +1069,12 @@ mod tests {
             }
         );
 
-        circle.agent_participation = Some(AgentParticipationCeiling {
-            reply: None,
-            accept_third_party_mention: Some(true),
-            act_on_behalf: None,
+        circle.agent_participation = Some(AgentParticipationPolicy {
+            native_agent: Some(AgentParticipationCeiling {
+                reply: None,
+                accept_third_party_mention: Some(true),
+                act_on_behalf: None,
+            }),
         });
         assert!(matches!(
             circle.validate_agent_participation_ceiling(parent),
@@ -1111,9 +1122,9 @@ mod tests {
     #[test]
     fn member_transition_knock_requires_request_join_rule() {
         use CircleMemberState::*;
-        validate_member_transition(None, Knock, CircleJoinRule::Request).unwrap();
-        validate_member_transition(Some(Leave), Knock, CircleJoinRule::Request).unwrap();
-        for jr in [CircleJoinRule::Invite, CircleJoinRule::Open] {
+        validate_member_transition(None, Knock, CircleJoinRule::Knock).unwrap();
+        validate_member_transition(Some(Leave), Knock, CircleJoinRule::Knock).unwrap();
+        for jr in [CircleJoinRule::Invite, CircleJoinRule::Public] {
             let err = validate_member_transition(None, Knock, jr).unwrap_err();
             match err {
                 CircleScopeError::IllegalMemberTransition { from, to, .. } => {
@@ -1130,8 +1141,8 @@ mod tests {
         use CircleMemberState::*;
         for jr in [
             CircleJoinRule::Invite,
-            CircleJoinRule::Open,
-            CircleJoinRule::Request,
+            CircleJoinRule::Public,
+            CircleJoinRule::Knock,
         ] {
             assert!(validate_member_transition(Some(Ban), Join, jr).is_err());
         }

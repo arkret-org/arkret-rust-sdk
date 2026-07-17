@@ -63,6 +63,9 @@ pub struct Strand {
     /// (common-fields §3.2): `id, schema, realm_id, scope_circle_id, …`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope_circle_id: Option<CircleId>,
+    /// Optional native-agent participation ceiling, wrapped by agent class.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_participation: Option<AgentParticipationPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<StrandMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -110,6 +113,7 @@ impl Strand {
             schema: STRAND_SCHEMA.to_owned(),
             realm_id,
             scope_circle_id: None,
+            agent_participation: None,
             metadata: Some(StrandMetadata::with_title(title)),
             encrypted_metadata: None,
             body: None,

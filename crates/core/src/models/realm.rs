@@ -53,6 +53,9 @@ pub struct Realm {
     pub content_encryption_floor: Option<EncryptionFloor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata_encryption_floor: Option<EncryptionFloor>,
+    /// Optional deployment-capped native-agent participation policy.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_participation: Option<AgentParticipationPolicy>,
     /// Realm Recovery Key (RRK) durability policy (realm-and-space.md §2.3.1,
     /// encryption-and-audit.md §2.10.8). Declares who can recover Realm history
     /// after all member devices are lost or all members leave. Confidentiality-
@@ -264,6 +267,7 @@ impl Realm {
             content_scheme: None,
             content_encryption_floor: Some(EncryptionFloor::AllowPlaintext),
             metadata_encryption_floor: Some(EncryptionFloor::AllowPlaintext),
+            agent_participation: None,
             durability_policy: None,
             federation_policy: None,
             sync_endpoints: Vec::new(),

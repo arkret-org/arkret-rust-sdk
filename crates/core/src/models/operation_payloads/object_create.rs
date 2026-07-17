@@ -48,6 +48,8 @@ pub struct StrandCreateObject {
     pub realm_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope_circle_id: Option<CircleId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_participation: Option<AgentParticipationPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<StrandMetadata>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -76,6 +78,7 @@ impl StrandCreateObject {
             schema: STRAND_SCHEMA.to_owned(),
             realm_id,
             scope_circle_id: None,
+            agent_participation: None,
             metadata: None,
             encrypted_metadata: None,
             content: None,
