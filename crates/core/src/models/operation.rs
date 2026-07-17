@@ -1167,6 +1167,8 @@ pub struct CapabilityGrant {
     pub subject: CapabilitySubject,
     pub actions: Vec<String>,
     pub resources: Vec<WireResourceSelector>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability_action_registry_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub constraints: Vec<GrantConstraint>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1209,6 +1211,56 @@ pub struct CapabilityGrant {
     )]
     pub revoked_at: Option<DateTime<Utc>>,
     pub proofs: Vec<PayloadProof>,
+}
+
+/// Return the digest of the embedded canonical capability-action registry.
+///
+/// Aggregate-admin grants bind their action expansion to this snapshot so a
+/// later registry change cannot silently widen an already-issued grant.
+#[cfg(feature = "embedded-artifacts")]
+pub fn current_capability_action_registry_digest() -> Result<Hash> {
+    let bundle = arkret_schema::SpecArtifactBundle::load_embedded()?;
+    Hash::new(canonical::canonical_sha256(
+        &bundle.capability_action_registry,
+    )?)
+    .map_err(Into::into)
+}
+
+/// Validate the registry snapshot bound by a capability grant.
+///
+/// A digest is mandatory when any action expands through the
+/// `aggregate_admin` mapping. When a non-aggregate grant supplies an optional
+/// audit anchor, it must still name the current available snapshot.
+#[cfg(feature = "embedded-artifacts")]
+pub fn validate_capability_action_registry_binding(
+    actions: &[String],
+    digest: Option<&Hash>,
+) -> Result<()> {
+    let bundle = arkret_schema::SpecArtifactBundle::load_embedded()?;
+    let requires_digest = actions.iter().try_fold(false, |required, action| {
+        let descriptor = bundle.capability_action(action)?;
+        Ok::<_, arkret_schema::Error>(
+            required
+                || descriptor
+                    .is_some_and(|descriptor| descriptor.event_mapping_kind == "aggregate_admin"),
+        )
+    })?;
+
+    if requires_digest && digest.is_none() {
+        return Err(Error::Protocol(
+            "aggregate-admin capability grant requires capability_action_registry_digest"
+                .to_owned(),
+        ));
+    }
+    if let Some(digest) = digest {
+        let current = current_capability_action_registry_digest()?;
+        if digest != &current {
+            return Err(Error::Protocol(
+                "capability action registry snapshot is unavailable".to_owned(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

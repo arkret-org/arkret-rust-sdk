@@ -8,6 +8,59 @@ use serde_json::Value;
 
 use crate::*;
 
+/// Closed standard call-capture failure reasons with an extension escape
+/// hatch matching `^x_[a-z0-9_]{1,62}$`.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
+#[serde(transparent)]
+pub struct CallCaptureFailureReasonCode(String);
+
+impl CallCaptureFailureReasonCode {
+    pub fn new(value: impl Into<String>) -> Result<Self> {
+        let value = value.into();
+        let standard = matches!(
+            value.as_str(),
+            "media_negotiation_timeout"
+                | "permission_denied"
+                | "backend_unavailable"
+                | "media_source_unavailable"
+                | "storage_failed"
+                | "policy_revoked"
+                | "consent_withdrawn"
+                | "integrity_failed"
+        );
+        let extension = value
+            .strip_prefix("x_")
+            .is_some_and(|suffix| {
+                (1..=62).contains(&suffix.len())
+                    && suffix
+                        .bytes()
+                        .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+            });
+        if standard || extension {
+            Ok(Self(value))
+        } else {
+            Err(Error::Protocol(
+                "call capture failure reason must be standard or match ^x_[a-z0-9_]{1,62}$"
+                    .to_owned(),
+            ))
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for CallCaptureFailureReasonCode {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::new(value).map_err(serde::de::Error::custom)
+    }
+}
+
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/call_participant`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -173,7 +226,7 @@ pub struct CallRecordingDeletionAudit {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub legal_hold_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub failure_reason_code: Option<String>,
+    pub failure_reason_code: Option<CallCaptureFailureReasonCode>,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/call-recording-artifact.schema.json`.
@@ -284,7 +337,7 @@ pub struct CallStatePayloadRecordingResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub artifact: Option<CallRecordingArtifact>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub failure_reason_code: Option<String>,
+    pub failure_reason_code: Option<CallCaptureFailureReasonCode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failure_message: Option<String>,
 }

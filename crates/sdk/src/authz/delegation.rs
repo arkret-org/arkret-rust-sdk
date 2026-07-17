@@ -30,7 +30,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_core::CircleId;
+use arkret_core::{CircleId, Hash};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -52,6 +52,8 @@ pub struct Grant {
     pub subject: String,
     pub resource: String,
     pub actions: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability_action_registry_digest: Option<Hash>,
     #[serde(default)]
     pub constraints: Vec<GrantConstraint>,
     pub revoked: bool,
@@ -200,6 +202,7 @@ pub struct GrantRequestDraft {
     pub subject: String,
     pub resource: String,
     pub actions: Vec<String>,
+    pub capability_action_registry_digest: Option<Hash>,
     pub constraints: Vec<GrantConstraint>,
     pub expires_at: Option<DateTime<Utc>>,
 }
@@ -454,6 +457,9 @@ pub fn create_delegated_grant(
             subject: requested.subject.clone(),
             resource: requested.resource.clone(),
             actions: requested.actions.clone(),
+            capability_action_registry_digest: requested
+                .capability_action_registry_digest
+                .clone(),
             constraints: requested.constraints.clone(),
             revoked: false,
             created_at: now,
@@ -483,6 +489,7 @@ pub fn create_delegated_grant(
         subject: requested.subject.clone(),
         resource: requested.resource.clone(),
         actions: requested.actions.clone(),
+        capability_action_registry_digest: requested.capability_action_registry_digest.clone(),
         constraints: requested.constraints.clone(),
         revoked: false,
         created_at: now,
@@ -540,6 +547,7 @@ mod tests {
             subject: "did:webvh:z6mkfixture:bob".to_owned(),
             resource: resource.to_owned(),
             actions: actions.iter().map(|s| (*s).to_owned()).collect(),
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             revoked: false,
             created_at: Utc::now(),
@@ -564,6 +572,7 @@ mod tests {
             subject: subject.to_owned(),
             resource: resource.to_owned(),
             actions: actions.iter().map(|s| (*s).to_owned()).collect(),
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             revoked: false,
             created_at: Utc::now(),
@@ -640,6 +649,7 @@ mod tests {
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             expires_at: Some(now + Duration::minutes(30)),
         };
@@ -661,6 +671,7 @@ mod tests {
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             // Child outlives parent → reject.
             expires_at: Some(now + Duration::hours(2)),
@@ -693,6 +704,7 @@ mod tests {
             resource: "ak:realm:1".to_owned(),
             // Parent only has `read`; child asking for `send` and `delete`.
             actions: vec!["read".to_owned(), "send".to_owned(), "delete".to_owned()],
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             expires_at: None,
         };
@@ -717,6 +729,7 @@ mod tests {
             // Parent's resource is "ak:realm:1"; child trying a sibling realm.
             resource: "ak:realm:2".to_owned(),
             actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             expires_at: None,
         };
@@ -740,6 +753,7 @@ mod tests {
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             expires_at: None,
         };
@@ -773,6 +787,7 @@ mod tests {
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
             constraints: vec![GrantConstraint::DelegationControl {
                 max_delegation_depth: Some(0),
             }],
@@ -796,6 +811,7 @@ mod tests {
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             expires_at: None,
         };
@@ -906,6 +922,7 @@ mod tests {
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             expires_at: None,
         };

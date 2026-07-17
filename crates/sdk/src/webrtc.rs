@@ -599,7 +599,7 @@ pub struct RecordingResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub artifact: Option<crate::CallRecordingArtifact>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub failure_reason_code: Option<String>,
+    pub failure_reason_code: Option<arkret_core::CallCaptureFailureReasonCode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub failure_message: Option<String>,
 }
