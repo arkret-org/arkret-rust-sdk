@@ -5,9 +5,10 @@ use arkret_core::{
     AuthzCheckOutcome, AuthzCheckRequestBody, AuthzInviteList, CollectionProjectionView,
     DocumentMorphProjectionOutcome, Error, Event, EventSealSubmitOutcome, EventsQueryOutcome,
     EventsSubmitBatchRequestBody, EventsSubmitOutcome, EventsSubscribeFrame, GrantList,
-    MlsGovernanceProofBundle, MlsGovernanceProofRequest, ProjectionSpaceList, ProjectionStrandList,
-    RealmOrganizationRelationshipList, Result, Seal, ServiceDescribe, StreamTraceValidator,
-    ViewProjectionRequestBody,
+    MaterializedMlsGovernanceProofBundle, MlsGovernanceProofBundle, MlsGovernanceProofRequest,
+    ProjectionSpaceList, ProjectionStrandList, RealmOrganizationRelationshipList, Result, Seal,
+    ServiceDescribe, StreamTraceValidator, ViewProjectionRequestBody,
+    assemble_mls_governance_proof_chunks,
 };
 use arkret_state::SnapshotManifest;
 use reqwest::{Method, Response};
@@ -369,6 +370,28 @@ impl Client {
         request.validate()?;
         self.post("/_arkret/self/events/mls-governance-proof", request)
             .await
+    }
+
+    /// Fetch and authenticate every chunk of one logical MLS governance proof.
+    pub async fn mls_governance_proof_complete(
+        &self,
+        request: &MlsGovernanceProofRequest,
+    ) -> Result<MaterializedMlsGovernanceProofBundle> {
+        let mut first_request = request.clone();
+        first_request.chunk_index = 0;
+        first_request.expected_bundle_digest = None;
+        let first = self.mls_governance_proof(&first_request).await?;
+        let chunk_count = first.chunk_manifest.chunk_count;
+        let bundle_digest = first.bundle_digest.clone();
+        let mut responses = Vec::with_capacity(chunk_count as usize);
+        responses.push(first);
+        for chunk_index in 1..chunk_count {
+            let mut next_request = first_request.clone();
+            next_request.chunk_index = chunk_index;
+            next_request.expected_bundle_digest = Some(bundle_digest.clone());
+            responses.push(self.mls_governance_proof(&next_request).await?);
+        }
+        assemble_mls_governance_proof_chunks(&first_request, &responses)
     }
 
     /// Submit a single signed Event Envelope via `ak.self.events.command.submit`

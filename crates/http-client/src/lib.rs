@@ -1027,6 +1027,12 @@ mod tests {
                 next_epoch: 0,
                 binding_profile: MLS_GOVERNANCE_BINDING_FULL_PROFILE.to_owned(),
                 reducer_profile: "ak.reducer.v1".to_owned(),
+                trusted_anchor_seal_id: arkret_core::SealId::new(
+                    "ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                )
+                .unwrap(),
+                chunk_index: 0,
+                expected_bundle_digest: None,
             };
 
             client.mls_governance_proof(&request).await.unwrap_err();
