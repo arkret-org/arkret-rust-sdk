@@ -105,7 +105,9 @@ pub fn sign_event<S: MoveSigner + ?Sized>(
     let canonical_bytes = canonical::canonical_json_bytes(&event.digest_payload()?)?;
     let payload_digest = Hash::new(canonical::sha256_digest(&canonical_bytes))?;
 
-    let created_at = options.created_at.unwrap_or_else(Utc::now);
+    let created_at = canonical::normalize_timestamp_millis_canonical(
+        options.created_at.unwrap_or_else(Utc::now),
+    );
 
     // Per `encoding.md` §6 / `event-and-patch.md` §3 the detached JWS MUST
     // sign the canonical **proof binding object** — NOT the raw canonical
@@ -155,7 +157,7 @@ mod tests {
         RealmId, UnsignedMove, canonical,
     };
     use arkret_wire_base::Result as WireResult;
-    use chrono::{TimeZone, Utc};
+    use chrono::{DateTime, TimeZone, Utc};
     use serde_json::json;
 
     use super::*;
@@ -315,6 +317,27 @@ mod tests {
             Some(Audience::Single(value)) => assert_eq!(value, "did:web:svc.example"),
             other => panic!("expected single audience, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn sign_event_normalizes_proof_timestamp_to_canonical_milliseconds() {
+        let mut event = make_event();
+        let signer = StubMoveSigner::new(alice(), vm_alice());
+        let subsecond = DateTime::parse_from_rfc3339("2026-05-26T12:00:00.987654Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        sign_event(
+            &mut event,
+            &signer,
+            vm_alice(),
+            SignEventOptions::new().with_created_at(subsecond),
+        )
+        .unwrap();
+
+        let proof = serde_json::to_value(&event.proofs[0]).unwrap();
+        assert_eq!(proof["created_at"], json!("2026-05-26T12:00:00.987Z"));
+        event.validate_proof_bindings().unwrap();
     }
 
     #[test]

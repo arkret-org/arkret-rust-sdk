@@ -583,6 +583,55 @@ pub fn format_timestamp_canonical(when: chrono::DateTime<chrono::Utc>) -> String
     when.format("%Y-%m-%dT%H:%M:%SZ").to_string()
 }
 
+/// Validate the canonical millisecond timestamp form used by Event Envelopes,
+/// detached Event proofs, and Agent pairing transcripts.
+///
+/// Canonical form: `YYYY-MM-DDTHH:MM:SS.sssZ`. The fraction is mandatory and
+/// has exactly three decimal digits; offsets and finer precision are rejected.
+pub fn validate_timestamp_millis_canonical(timestamp: &str) -> Result<()> {
+    let bytes = timestamp.as_bytes();
+    let shape_matches = bytes.len() == 24
+        && bytes.get(4) == Some(&b'-')
+        && bytes.get(7) == Some(&b'-')
+        && bytes.get(10) == Some(&b'T')
+        && bytes.get(13) == Some(&b':')
+        && bytes.get(16) == Some(&b':')
+        && bytes.get(19) == Some(&b'.')
+        && bytes.get(23) == Some(&b'Z')
+        && bytes[20..23].iter().all(u8::is_ascii_digit);
+    if !shape_matches {
+        return Err(Error::Protocol(format!(
+            "canonical millisecond timestamp must be YYYY-MM-DDTHH:MM:SS.sssZ: {timestamp}"
+        )));
+    }
+    chrono::DateTime::parse_from_rfc3339(timestamp).map_err(|_| {
+        Error::Protocol(format!(
+            "canonical millisecond timestamp is not a valid RFC 3339 date: {timestamp}"
+        ))
+    })?;
+    Ok(())
+}
+
+/// Format a UTC timestamp as canonical RFC 3339 milliseconds.
+#[must_use]
+pub fn format_timestamp_millis_canonical(when: chrono::DateTime<chrono::Utc>) -> String {
+    when.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+}
+
+/// Normalize a UTC timestamp to the canonical millisecond precision used by
+/// Event Envelope, detached Event proof, and Agent pairing timestamps.
+///
+/// Keeping this as a typed helper prevents producers from formatting a string
+/// canonically and then accidentally serializing the original sub-second
+/// [`chrono::DateTime`] value on the wire.
+#[must_use]
+pub fn normalize_timestamp_millis_canonical(
+    when: chrono::DateTime<chrono::Utc>,
+) -> chrono::DateTime<chrono::Utc> {
+    chrono::DateTime::from_timestamp_millis(when.timestamp_millis())
+        .expect("an existing DateTime<Utc> timestamp remains representable at milliseconds")
+}
+
 fn write_canonical_value(value: &Value, out: &mut Vec<u8>) -> Result<()> {
     match value {
         Value::Null => out.extend_from_slice(b"null"),
@@ -866,6 +915,27 @@ mod tests {
         assert_eq!(formatted.len(), 20);
         // The formatter's output MUST be accepted by the validator.
         validate_timestamp_canonical(&formatted).expect("formatted timestamp must validate");
+    }
+
+    #[test]
+    fn millisecond_timestamp_helpers_fix_precision_before_serde() {
+        let when = chrono::DateTime::parse_from_rfc3339("2026-06-03T12:34:56.789123Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let normalized = normalize_timestamp_millis_canonical(when);
+
+        assert_eq!(
+            serde_json::to_value(normalized).unwrap(),
+            serde_json::json!("2026-06-03T12:34:56.789Z")
+        );
+        assert_eq!(
+            format_timestamp_millis_canonical(normalized),
+            "2026-06-03T12:34:56.789Z"
+        );
+        validate_timestamp_millis_canonical("2026-06-03T12:34:56.789Z").unwrap();
+        assert!(validate_timestamp_millis_canonical("2026-06-03T12:34:56Z").is_err());
+        assert!(validate_timestamp_millis_canonical("2026-06-03T12:34:56.789123Z").is_err());
+        assert!(validate_timestamp_millis_canonical("2026-06-03T12:34:56.789+00:00").is_err());
     }
 
     #[test]
