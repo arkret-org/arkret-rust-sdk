@@ -163,9 +163,6 @@ pub struct Ciphertext {
     pub payload: String,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/mimi-operations.schema.json#/$defs/consent_id`.
-pub type ConsentId = String;
-
 /// Counterpart for `spec/v1/artifacts/schemas/mimi-operations.schema.json#/$defs/consent_target`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

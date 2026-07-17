@@ -12,12 +12,12 @@ use salvo::oapi::{
 use crate::{
     ActorProfileId, AnnounceId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,
     AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
-    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId, Did,
-    EventId, FilterId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId,
-    MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId, OperationId, PolicyId,
-    PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId,
-    RequestId, RtcParticipantId, SealId, SnapshotId, SpaceId, StrandId, TransactionId,
-    TypedAppealId, TypedTrustDomainId, ViewId,
+    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, ConsentId, Cursor, DeviceId,
+    DeviceMessageId, Did, EventId, FilterId, FrameId, FrankingProofId, GrantId, Hash, Hlc,
+    InviteId, KeyEventId, MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId,
+    OperationId, PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId,
+    RelationId, ReportId, RequestId, RtcParticipantId, SealId, SnapshotId, SpaceId, StrandId,
+    TransactionId, TypedAppealId, TypedTrustDomainId, ViewId,
 };
 
 fn string_schema(pattern: &str) -> RefOr<Schema> {
@@ -165,6 +165,10 @@ impl_string_schema!(
 impl_string_schema!(
     RelationId,
     r"^ak:relation:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+);
+impl_string_schema!(
+    ConsentId,
+    r"^ak:consent:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
     EventId,

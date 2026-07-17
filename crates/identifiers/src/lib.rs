@@ -396,6 +396,7 @@ uuid_id_type!(BatchId, "ak:batch:");
 uuid_id_type!(BlobId, "ak:blob:");
 uuid_id_type!(BlockId, "ak:block:");
 uuid_id_type!(CallId, "ak:call:");
+uuid_id_type!(ConsentId, "ak:consent:");
 uuid_id_type!(CapabilityId, "ak:capability:");
 uuid_id_type!(ChunkId, "ak:chunk:");
 // AKP-0007 (2026-05-08) — Circle id-kind. Intra-Realm cryptographic
@@ -665,6 +666,7 @@ mod tests {
         assert_id!(BlobId, "ak:blob:");
         assert_id!(BlockId, "ak:block:");
         assert_id!(CallId, "ak:call:");
+        assert_id!(ConsentId, "ak:consent:");
         assert_id!(CapabilityId, "ak:capability:");
         assert_id!(ChunkId, "ak:chunk:");
         assert_id!(ClaimId, "ak:claim:");

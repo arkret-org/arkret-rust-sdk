@@ -22,8 +22,8 @@
 
 use arkret_core::lattice::CellState;
 use arkret_core::{
-    CellRef, Did, Effect, GrantConstraint, LatticeOp, LatticeOpType, Precondition, Predicate,
-    PredicateOp,
+    CellRef, ConsentId, Did, Effect, GrantConstraint, LatticeOp, LatticeOpType, Precondition,
+    Predicate, PredicateOp,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -78,12 +78,7 @@ impl Scope {
 ///
 /// Returns a `CellRef` with the canonical wire form
 /// `ak:cell:ak.component.consent.grant.v1:<consent_id>`.
-pub fn consent_cell_id(consent_id: &str) -> Result<CellRef, arkret_core::Error> {
-    if consent_id.is_empty() {
-        return Err(arkret_core::Error::Protocol(
-            "consent_id must not be empty".to_owned(),
-        ));
-    }
+pub fn consent_cell_id(consent_id: &ConsentId) -> Result<CellRef, arkret_core::Error> {
     CellRef::new(format!("ak:cell:{CONSENT_CELL_FAMILY}:{consent_id}"))
         .map_err(|e| arkret_core::Error::Protocol(format!("invalid consent cell id: {e}")))
 }
@@ -92,7 +87,7 @@ pub fn consent_cell_id(consent_id: &str) -> Result<CellRef, arkret_core::Error> 
 ///
 /// Spec §3.2: same `(consent_id, peer, scope)` triple MUST produce the
 /// same tag so duplicate grants idempotently dedupe in the or-set.
-pub fn consent_tag(consent_id: &str, peer: &Did, scope: Scope) -> String {
+pub fn consent_tag(consent_id: &ConsentId, peer: &Did, scope: Scope) -> String {
     format!("grant:{consent_id}:{}:{}", peer.as_str(), scope.as_wire())
 }
 
@@ -110,7 +105,7 @@ pub struct ConsentGrantOptions {
 /// `add` op. Mirrors the spec §3.2 `value` field.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ConsentGrantValue {
-    pub consent_id: String,
+    pub consent_id: ConsentId,
     pub peer: Did,
     pub scope: Scope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -141,7 +136,7 @@ pub struct ConsentRevokeValue {
 /// op = `add(tag, value)`, tag = `grant:<consent_id>:<peer>:<scope>`,
 /// value = [`ConsentGrantValue`].
 pub fn grant_effect(
-    consent_id: &str,
+    consent_id: &ConsentId,
     peer: Did,
     scope: Scope,
     options: &ConsentGrantOptions,
@@ -181,7 +176,7 @@ pub fn grant_effect(
 /// tag fails closed rather than silently no-ops). The first return value
 /// is the precondition, the second is the effect.
 pub fn revoke_effect_with_precondition(
-    consent_id: &str,
+    consent_id: &ConsentId,
     peer: &Did,
     scope: Scope,
     revoke_value: ConsentRevokeValue,
@@ -267,7 +262,7 @@ pub fn evaluate_consent(
 /// tag. Use this in invite / DM / call-init Moves to gate on consent
 /// without re-deriving the tag at the call site.
 pub fn require_consent_precondition(
-    consent_id: &str,
+    consent_id: &ConsentId,
     peer: &Did,
     scope: Scope,
 ) -> Result<Precondition, arkret_core::Error> {
@@ -302,37 +297,45 @@ mod tests {
         Did::new("did:webvh:z6mkfixture:bob.example").unwrap()
     }
 
+    fn consent_id() -> ConsentId {
+        ConsentId::new("ak:consent:01904100-0000-7000-8000-000000000001").unwrap()
+    }
+
     fn move_id(byte: u8) -> arkret_core::MoveId {
         arkret_core::MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     #[test]
     fn cell_id_is_canonical() {
-        let cell = consent_cell_id("cs-001").unwrap();
+        let cell = consent_cell_id(&consent_id()).unwrap();
         assert_eq!(
             cell.as_str(),
-            "ak:cell:ak.component.consent.grant.v1:cs-001"
+            "ak:cell:ak.component.consent.grant.v1:ak:consent:01904100-0000-7000-8000-000000000001"
         );
     }
 
     #[test]
-    fn cell_id_rejects_empty_consent_id() {
-        consent_cell_id("").unwrap_err();
+    fn consent_id_rejects_non_typed_or_non_uuidv7_values() {
+        assert!(ConsentId::new("").is_err());
+        assert!(ConsentId::new("cs-001").is_err());
     }
 
     #[test]
     fn tag_is_deterministic() {
-        let t1 = consent_tag("cs-001", &bob(), Scope::Invite);
-        let t2 = consent_tag("cs-001", &bob(), Scope::Invite);
+        let t1 = consent_tag(&consent_id(), &bob(), Scope::Invite);
+        let t2 = consent_tag(&consent_id(), &bob(), Scope::Invite);
         assert_eq!(t1, t2);
-        assert_eq!(t1, "grant:cs-001:did:webvh:z6mkfixture:bob.example:invite");
+        assert_eq!(
+            t1,
+            "grant:ak:consent:01904100-0000-7000-8000-000000000001:did:webvh:z6mkfixture:bob.example:invite"
+        );
     }
 
     #[test]
     fn tag_distinguishes_scope() {
         assert_ne!(
-            consent_tag("cs-001", &bob(), Scope::Invite),
-            consent_tag("cs-001", &bob(), Scope::VoiceCall)
+            consent_tag(&consent_id(), &bob(), Scope::Invite),
+            consent_tag(&consent_id(), &bob(), Scope::VoiceCall)
         );
     }
 
@@ -343,14 +346,16 @@ mod tests {
             evidence_ref: Some("ak:event:01904100-0000-7000-8000-4ad9d5ef0089".to_owned()),
             ..Default::default()
         };
-        let eff = grant_effect("cs-001", bob(), Scope::Invite, &opts).unwrap();
+        let eff = grant_effect(&consent_id(), bob(), Scope::Invite, &opts).unwrap();
         assert_eq!(eff.op.op_type, LatticeOpType::Add);
         assert_eq!(
             eff.op.tag.as_deref(),
-            Some("grant:cs-001:did:webvh:z6mkfixture:bob.example:invite")
+            Some(
+                "grant:ak:consent:01904100-0000-7000-8000-000000000001:did:webvh:z6mkfixture:bob.example:invite"
+            )
         );
         let value = eff.op.value.as_ref().unwrap();
-        assert_eq!(value.get("consent_id").unwrap(), "cs-001");
+        assert_eq!(value.get("consent_id").unwrap(), consent_id().as_str());
         assert_eq!(value.get("scope").unwrap(), "invite");
         assert_eq!(
             value.get("peer").unwrap(),
@@ -366,16 +371,18 @@ mod tests {
             reason: Some("incident".to_owned()),
         };
         let (pre, eff) =
-            revoke_effect_with_precondition("cs-001", &bob(), Scope::Invite, revoke).unwrap();
+            revoke_effect_with_precondition(&consent_id(), &bob(), Scope::Invite, revoke).unwrap();
         assert_eq!(pre.predicate.op, PredicateOp::Contains);
         assert_eq!(
             pre.predicate.value.as_ref().unwrap(),
-            "grant:cs-001:did:webvh:z6mkfixture:bob.example:invite"
+            "grant:ak:consent:01904100-0000-7000-8000-000000000001:did:webvh:z6mkfixture:bob.example:invite"
         );
         assert_eq!(eff.op.op_type, LatticeOpType::Remove);
         assert_eq!(
             eff.op.tag.as_deref(),
-            Some("grant:cs-001:did:webvh:z6mkfixture:bob.example:invite")
+            Some(
+                "grant:ak:consent:01904100-0000-7000-8000-000000000001:did:webvh:z6mkfixture:bob.example:invite"
+            )
         );
         assert_eq!(eff.op.reason.as_deref(), Some("incident"));
     }
@@ -384,9 +391,9 @@ mod tests {
     fn evaluate_consent_grants_with_no_window_active() {
         // Build a consent or-set state by joining a single grant op.
         let opts = ConsentGrantOptions::default();
-        let grant = grant_effect("cs-001", bob(), Scope::Invite, &opts).unwrap();
+        let grant = grant_effect(&consent_id(), bob(), Scope::Invite, &opts).unwrap();
         let aop = SealedOp::new(move_id(0x11), grant.op);
-        let state = OrSet.join(&consent_cell_id("cs-001").unwrap(), &[aop]);
+        let state = OrSet.join(&consent_cell_id(&consent_id()).unwrap(), &[aop]);
         assert!(evaluate_consent(
             &state,
             &bob(),
@@ -416,9 +423,9 @@ mod tests {
             expires_at: Some(ts(2026, 12, 31)),
             ..Default::default()
         };
-        let grant = grant_effect("cs-001", bob(), Scope::Invite, &opts).unwrap();
+        let grant = grant_effect(&consent_id(), bob(), Scope::Invite, &opts).unwrap();
         let aop = SealedOp::new(move_id(0x11), grant.op);
-        let state = OrSet.join(&consent_cell_id("cs-001").unwrap(), &[aop]);
+        let state = OrSet.join(&consent_cell_id(&consent_id()).unwrap(), &[aop]);
         assert!(evaluate_consent(
             &state,
             &bob(),
@@ -444,15 +451,15 @@ mod tests {
     #[test]
     fn revoke_after_grant_removes_consent() {
         let opts = ConsentGrantOptions::default();
-        let grant = grant_effect("cs-001", bob(), Scope::Invite, &opts).unwrap();
+        let grant = grant_effect(&consent_id(), bob(), Scope::Invite, &opts).unwrap();
         let (_pre, revoke) = revoke_effect_with_precondition(
-            "cs-001",
+            &consent_id(),
             &bob(),
             Scope::Invite,
             ConsentRevokeValue::default(),
         )
         .unwrap();
-        let cell = consent_cell_id("cs-001").unwrap();
+        let cell = consent_cell_id(&consent_id()).unwrap();
         let aops = vec![
             SealedOp::new(move_id(0x11), grant.op),
             SealedOp::new(move_id(0x22), revoke.op),
@@ -469,9 +476,9 @@ mod tests {
     #[test]
     fn scope_any_grants_every_concrete_scope() {
         let opts = ConsentGrantOptions::default();
-        let grant = grant_effect("cs-any", bob(), Scope::Any, &opts).unwrap();
+        let grant = grant_effect(&consent_id(), bob(), Scope::Any, &opts).unwrap();
         let aop = SealedOp::new(move_id(0x11), grant.op);
-        let state = OrSet.join(&consent_cell_id("cs-any").unwrap(), &[aop]);
+        let state = OrSet.join(&consent_cell_id(&consent_id()).unwrap(), &[aop]);
         assert!(evaluate_consent(
             &state,
             &bob(),
@@ -497,10 +504,10 @@ mod tests {
         // Two identical grants with the same (consent_id, peer, scope)
         // produce the same tag → or-set sees them as duplicates after join.
         let opts = ConsentGrantOptions::default();
-        let g1 = grant_effect("cs-001", bob(), Scope::Invite, &opts).unwrap();
-        let g2 = grant_effect("cs-001", bob(), Scope::Invite, &opts).unwrap();
+        let g1 = grant_effect(&consent_id(), bob(), Scope::Invite, &opts).unwrap();
+        let g2 = grant_effect(&consent_id(), bob(), Scope::Invite, &opts).unwrap();
         assert_eq!(g1.op.tag, g2.op.tag);
-        let cell = consent_cell_id("cs-001").unwrap();
+        let cell = consent_cell_id(&consent_id()).unwrap();
         let aops = vec![
             SealedOp::new(move_id(0x11), g1.op),
             SealedOp::new(move_id(0x22), g2.op),
@@ -516,21 +523,21 @@ mod tests {
 
     #[test]
     fn require_consent_precondition_round_trip() {
-        let pre = require_consent_precondition("cs-001", &bob(), Scope::Invite).unwrap();
+        let pre = require_consent_precondition(&consent_id(), &bob(), Scope::Invite).unwrap();
         assert_eq!(
             pre.cell.as_str(),
-            "ak:cell:ak.component.consent.grant.v1:cs-001"
+            "ak:cell:ak.component.consent.grant.v1:ak:consent:01904100-0000-7000-8000-000000000001"
         );
         assert_eq!(pre.predicate.op, PredicateOp::Contains);
         assert_eq!(
             pre.predicate.value.as_ref().unwrap(),
-            "grant:cs-001:did:webvh:z6mkfixture:bob.example:invite"
+            "grant:ak:consent:01904100-0000-7000-8000-000000000001:did:webvh:z6mkfixture:bob.example:invite"
         );
     }
 
     #[test]
     fn empty_cell_state_denies_consent() {
-        let cell = consent_cell_id("cs-empty").unwrap();
+        let cell = consent_cell_id(&consent_id()).unwrap();
         let state = OrSet.join(&cell, &[]);
         assert!(!evaluate_consent(
             &state,
@@ -543,7 +550,7 @@ mod tests {
     #[test]
     fn grant_value_round_trip_through_serde() {
         let v = ConsentGrantValue {
-            consent_id: "cs-001".to_owned(),
+            consent_id: consent_id(),
             peer: bob(),
             scope: Scope::Invite,
             not_before: None,

@@ -305,7 +305,10 @@ mod protocol_wire {
     #[test]
     fn consent_revoke_requires_observed_dots() {
         let payload = ConsentRevokePayload {
-            consent_id: "cid".to_owned(),
+            consent_id: ConsentId::new(
+                "ak:consent:01904100-0000-7000-8000-000000000001".to_owned(),
+            )
+            .unwrap(),
             peer: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             scope: "invite".to_owned(),
             observed_dots: Vec::new(),

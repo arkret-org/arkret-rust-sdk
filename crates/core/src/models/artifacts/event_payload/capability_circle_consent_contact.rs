@@ -90,7 +90,7 @@ pub struct CirclePatchPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConsentGrantPayload {
-    pub consent_id: String,
+    pub consent_id: ConsentId,
     pub peer: Did,
     pub consent_scope: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

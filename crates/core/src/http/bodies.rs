@@ -896,7 +896,7 @@ pub struct MimiRequestConsentRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MimiRequestConsentOutcome {
-    pub consent_id: String,
+    pub consent_id: ConsentId,
     pub status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub challenge: Option<String>,
@@ -914,7 +914,7 @@ pub enum MimiConsentDecision {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MimiUpdateConsentRequestBody {
-    pub consent_id: String,
+    pub consent_id: ConsentId,
     pub decision: MimiConsentDecision,
     pub actor_id: Did,
     pub signature: Proof,

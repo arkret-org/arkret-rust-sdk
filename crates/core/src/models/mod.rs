@@ -4,12 +4,12 @@ use std::fmt;
 pub use arkret_identifiers::{
     ActorProfileId, AppletId, AttestationId, AuditBindingId, AuditReleaseId, AuditSessionId,
     BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId, CapabilityId, ChunkId,
-    CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId, Did, EventId, FilterId, FrameId,
-    FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId, MessageId, ModerationQueueItemId,
-    MorphId, NotificationId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId,
-    ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId, RtcParticipantId, SnapshotId,
-    SpaceId, StrandId, TransactionId, TypedAppealId, TypedTrustDomainId, ViewId,
-    new_prefixed_uuid7,
+    CircleId, ClaimId, ConsentId, Cursor, DeviceId, DeviceMessageId, Did, EventId, FilterId,
+    FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId, MessageId,
+    ModerationQueueItemId, MorphId, NotificationId, OperationId, PolicyId, PresentationId,
+    ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId,
+    RtcParticipantId, SnapshotId, SpaceId, StrandId, TransactionId, TypedAppealId,
+    TypedTrustDomainId, ViewId, new_prefixed_uuid7,
 };
 pub use arkret_wire_base::{EvaluationClass, ServiceType, XExtensionMap};
 use chrono::{DateTime, Utc};

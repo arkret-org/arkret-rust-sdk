@@ -595,18 +595,41 @@ impl<'de> Deserialize<'de> for DeviceRevocationReason {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationBoundPayload {
-    pub pair_key: String,
+    pub pair_key: Hash,
     pub participants_unordered: Vec<Did>,
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
     pub contact_refs: ContactEventRefs,
     pub member_event_refs: ContactEventRefs,
-    pub main_strand_create_ref: EventRef,
+    pub main_strand_create_ref: EventId,
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binding_state: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub supersedes_binding_ref: Option<EventRef>,
+    pub supersedes_binding_ref: Option<EventId>,
+}
+
+impl DirectConversationBoundPayload {
+    pub fn validate_pair_key(&self, trust_domain: TypedTrustDomainId) -> Result<()> {
+        let [left, right]: [Did; 2] =
+            self.participants_unordered
+                .clone()
+                .try_into()
+                .map_err(|_| {
+                    Error::Protocol("direct conversation requires two participants".to_owned())
+                })?;
+        let expected = direct_conversation_pair_key(
+            trust_domain,
+            DirectConversationPairKeyParticipant::unmapped(left),
+            DirectConversationPairKeyParticipant::unmapped(right),
+        )?;
+        if self.pair_key != expected {
+            return Err(Error::Protocol(
+                "direct conversation pair_key mismatch (schema_violation)".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

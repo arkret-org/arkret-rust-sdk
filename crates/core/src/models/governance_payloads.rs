@@ -22,7 +22,7 @@ pub struct Dot {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ConsentRevokePayload {
-    pub consent_id: String,
+    pub consent_id: ConsentId,
 
     pub peer: Did,
 
