@@ -183,9 +183,9 @@ pub use profile_semantics::{
     validate_profile_semantic_coverage,
 };
 pub use sdk_conformance::{
-    SDK_CONFORMANCE_CLAIM_DOMAIN, SdkArtifactSubject, SdkClaimIssuer, SdkClauseClaim,
-    SdkClauseResult, SdkConformanceClaim, SdkConformanceClaimError, SdkConformanceEvidence,
-    SdkConformanceProof, SdkConformanceProofAlgorithm, SdkEvidenceKind,
+    SDK_CONFORMANCE_CLAIM_DOMAIN, SdkArtifactSubject, SdkBuildVariant, SdkClaimIssuer,
+    SdkClauseClaim, SdkClauseResult, SdkConformanceClaim, SdkConformanceClaimError,
+    SdkConformanceEvidence, SdkConformanceProof, SdkConformanceProofAlgorithm, SdkEvidenceKind,
 };
 pub use seal::{
     MultiSigKind, MultiSignature, NotarySig, SEAL_SIGNATURE_ALGS, Seal, SealKind, ThresholdSigKind,

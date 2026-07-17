@@ -19,7 +19,19 @@ pub struct SdkConformanceClaim {
     pub issued_at: DateTime<Utc>,
     pub issuer: SdkClaimIssuer,
     pub clause_claims: Vec<SdkClauseClaim>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub build_variants: Option<Vec<SdkBuildVariant>>,
     pub proof: SdkConformanceProof,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SdkBuildVariant {
+    pub variant_id: String,
+    pub feature_set_digest: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub features: Option<Vec<String>>,
+    pub claimed_profiles: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -85,6 +97,7 @@ pub struct SdkConformanceEvidence {
 pub enum SdkEvidenceKind {
     VectorResult,
     PublicApiInventory,
+    BuildVariantInventory,
     CodeAudit,
     ConfigAudit,
     DataFlowAudit,
@@ -160,6 +173,8 @@ impl SdkConformanceClaim {
             ));
         }
 
+        self.validate_build_variants()?;
+
         let known = known_clauses.into_iter().collect::<BTreeSet<_>>();
         let mut seen = BTreeSet::new();
         for claim in &self.clause_claims {
@@ -208,6 +223,86 @@ impl SdkConformanceClaim {
                 validate_nonzero_digest("evidence.digest", &evidence.digest)?;
             }
         }
+        Ok(())
+    }
+
+    fn validate_build_variants(&self) -> Result<(), SdkConformanceClaimError> {
+        let Some(variants) = &self.build_variants else {
+            return Ok(());
+        };
+        if variants.is_empty() || variants.len() > 256 {
+            return Err(SdkConformanceClaimError::InvalidField(
+                "build_variants".to_owned(),
+            ));
+        }
+        let known_profiles = crate::schema::known_profile_ids()
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        let mut variant_ids = BTreeSet::new();
+        for variant in variants {
+            if !is_build_variant_id(&variant.variant_id) {
+                return Err(SdkConformanceClaimError::InvalidField(format!(
+                    "build_variants[{}].variant_id",
+                    variant.variant_id
+                )));
+            }
+            if !variant_ids.insert(variant.variant_id.as_str()) {
+                return Err(SdkConformanceClaimError::InvalidField(
+                    "build_variants.variant_id must be unique".to_owned(),
+                ));
+            }
+            validate_nonzero_digest(
+                "build_variant.feature_set_digest",
+                &variant.feature_set_digest,
+            )?;
+            if let Some(features) = &variant.features {
+                if features.len() > 512 || !all_unique(features) {
+                    return Err(SdkConformanceClaimError::InvalidField(format!(
+                        "build_variants[{}].features",
+                        variant.variant_id
+                    )));
+                }
+                if features.iter().any(|feature| !is_build_feature(feature)) {
+                    return Err(SdkConformanceClaimError::InvalidField(format!(
+                        "build_variants[{}].features",
+                        variant.variant_id
+                    )));
+                }
+            }
+            if variant.claimed_profiles.len() > 256 || !all_unique(&variant.claimed_profiles) {
+                return Err(SdkConformanceClaimError::InvalidField(format!(
+                    "build_variants[{}].claimed_profiles",
+                    variant.variant_id
+                )));
+            }
+            for profile in &variant.claimed_profiles {
+                if !is_profile_id(profile) || !known_profiles.contains(profile.as_str()) {
+                    return Err(SdkConformanceClaimError::InvalidField(format!(
+                        "build_variants[{}].claimed_profiles",
+                        variant.variant_id
+                    )));
+                }
+            }
+        }
+
+        let inventory_evidence = self
+            .clause_claims
+            .iter()
+            .find(|claim| claim.clause_id == "AK-SDK-015")
+            .and_then(|claim| {
+                claim
+                    .evidence
+                    .iter()
+                    .find(|evidence| evidence.kind == SdkEvidenceKind::BuildVariantInventory)
+            })
+            .ok_or_else(|| SdkConformanceClaimError::MissingEvidence("AK-SDK-015".to_owned()))?;
+        let inventory_bytes = canonical::canonical_json_bytes(variants)
+            .map_err(|error| SdkConformanceClaimError::SigningInput(error.to_string()))?;
+        canonical::verify_digest(&inventory_bytes, &inventory_evidence.digest).map_err(|_| {
+            SdkConformanceClaimError::BindingMismatch(
+                "AK-SDK-015 build_variant_inventory digest".to_owned(),
+            )
+        })?;
         Ok(())
     }
 
@@ -315,6 +410,46 @@ fn is_clause_id(value: &str) -> bool {
         && value[7..].bytes().all(|byte| byte.is_ascii_digit())
 }
 
+fn all_unique(values: &[String]) -> bool {
+    values.iter().collect::<BTreeSet<_>>().len() == values.len()
+}
+
+fn is_build_variant_id(value: &str) -> bool {
+    (1..=128).contains(&value.len())
+        && value
+            .bytes()
+            .next()
+            .is_some_and(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+        && value.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'_' | b'-')
+        })
+}
+
+fn is_build_feature(value: &str) -> bool {
+    (1..=128).contains(&value.len())
+        && value
+            .bytes()
+            .next()
+            .is_some_and(|byte| byte.is_ascii_alphanumeric())
+        && value.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'+' | b':' | b'/' | b'-')
+        })
+}
+
+fn is_profile_id(value: &str) -> bool {
+    value
+        .strip_prefix("ak.profile.")
+        .and_then(|value| value.strip_suffix(".v1"))
+        .is_some_and(|body| {
+            !body.is_empty()
+                && body.bytes().all(|byte| {
+                    byte.is_ascii_lowercase()
+                        || byte.is_ascii_digit()
+                        || matches!(byte, b'.' | b'_' | b'-')
+                })
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -344,12 +479,37 @@ mod tests {
                 }],
                 rationale: None,
             }],
+            build_variants: None,
             proof: SdkConformanceProof {
                 kid: "did:webvh:z6mkfixture:release.example#claim-key-1".to_owned(),
                 alg: SdkConformanceProofAlgorithm::EdDsa,
                 signature: "A".repeat(43),
             },
         }
+    }
+
+    fn claim_with_build_variants() -> SdkConformanceClaim {
+        let variants = vec![SdkBuildVariant {
+            variant_id: "full-native".to_owned(),
+            feature_set_digest: format!("sha256:{}", "5".repeat(64)),
+            features: Some(vec!["full-surface".to_owned(), "mls".to_owned()]),
+            claimed_profiles: vec!["ak.profile.chat_mvp.v1".to_owned()],
+        }];
+        let inventory_bytes = canonical::canonical_json_bytes(&variants).unwrap();
+        let inventory_digest = canonical::sha256_digest(&inventory_bytes);
+        let mut claim = valid_claim();
+        claim.clause_claims.push(SdkClauseClaim {
+            clause_id: "AK-SDK-015".to_owned(),
+            result: SdkClauseResult::Pass,
+            evidence: vec![SdkConformanceEvidence {
+                kind: SdkEvidenceKind::BuildVariantInventory,
+                evidence_ref: "ci://run/1/build-variants".to_owned(),
+                digest: inventory_digest,
+            }],
+            rationale: None,
+        });
+        claim.build_variants = Some(variants);
+        claim
     }
 
     #[test]
@@ -370,6 +530,58 @@ mod tests {
         let canonical = std::str::from_utf8(&bytes).unwrap();
         assert!(!canonical.contains("\"proof\""));
         assert!(canonical.contains("\"sdk_artifact\""));
+    }
+
+    #[test]
+    fn build_variant_inventory_is_validated_and_signed() {
+        let claim = claim_with_build_variants();
+        claim
+            .validate(["AK-SDK-001", "AK-SDK-015"])
+            .expect("valid registered build inventory");
+        let signing = String::from_utf8(claim.signing_bytes().unwrap()).unwrap();
+        assert!(signing.contains("\"build_variants\""));
+        assert!(signing.contains("\"build_variant_inventory\""));
+    }
+
+    #[test]
+    fn duplicate_variant_id_is_rejected() {
+        let mut claim = claim_with_build_variants();
+        let variants = claim.build_variants.as_mut().unwrap();
+        variants.push(variants[0].clone());
+        assert!(matches!(
+            claim.validate(["AK-SDK-001", "AK-SDK-015"]),
+            Err(SdkConformanceClaimError::InvalidField(field))
+                if field.contains("variant_id")
+        ));
+    }
+
+    #[test]
+    fn unregistered_variant_profile_is_rejected() {
+        let mut claim = claim_with_build_variants();
+        claim.build_variants.as_mut().unwrap()[0].claimed_profiles =
+            vec!["ak.profile.unregistered.v1".to_owned()];
+        assert!(matches!(
+            claim.validate(["AK-SDK-001", "AK-SDK-015"]),
+            Err(SdkConformanceClaimError::InvalidField(field))
+                if field.contains("claimed_profiles")
+        ));
+    }
+
+    #[test]
+    fn mismatched_build_inventory_digest_is_rejected() {
+        let mut claim = claim_with_build_variants();
+        claim
+            .clause_claims
+            .iter_mut()
+            .find(|clause| clause.clause_id == "AK-SDK-015")
+            .unwrap()
+            .evidence[0]
+            .digest = format!("sha256:{}", "9".repeat(64));
+        assert!(matches!(
+            claim.validate(["AK-SDK-001", "AK-SDK-015"]),
+            Err(SdkConformanceClaimError::BindingMismatch(field))
+                if field.contains("build_variant_inventory")
+        ));
     }
 
     #[test]
