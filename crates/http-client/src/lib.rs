@@ -1744,6 +1744,65 @@ mod tests {
         }
 
         #[tokio::test]
+        async fn account_subscribe_batch_returns_while_live_body_stays_open() {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let addr = listener.local_addr().unwrap();
+            let (release_tx, release_rx) = tokio::sync::oneshot::channel::<()>();
+            tokio::spawn(async move {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut request = Vec::new();
+                let mut buffer = [0u8; 4096];
+                while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+                    let count = socket.read(&mut buffer).await.unwrap();
+                    if count == 0 {
+                        return;
+                    }
+                    request.extend_from_slice(&buffer[..count]);
+                }
+                socket
+                    .write_all(
+                        b"HTTP/1.1 200 OK\r\nContent-Type: application/x-ndjson\r\n\
+                          Transfer-Encoding: chunked\r\nConnection: keep-alive\r\n\r\n",
+                    )
+                    .await
+                    .unwrap();
+                for frame in [
+                    "{\"cursor\":\"ak:cursor:delta-live\",\"kind\":\"delta\",\"partial\":false}\n",
+                    "{\"cursor\":\"ak:cursor:catchup-live\",\"kind\":\"catchup_complete\"}\n",
+                ] {
+                    socket
+                        .write_all(format!("{:X}\r\n{}\r\n", frame.len(), frame).as_bytes())
+                        .await
+                        .unwrap();
+                }
+                let _ = release_rx.await;
+                let _ = socket.write_all(b"0\r\n\r\n").await;
+            });
+
+            let client = Client::builder(Url::parse(&format!("http://{addr}/")).unwrap())
+                .allow_insecure_localhost()
+                .build()
+                .unwrap();
+            let outcome = tokio::time::timeout(
+                Duration::from_secs(2),
+                client.account_subscribe_batch(&SyncRequestBody {
+                    after: None,
+                    catchup: Some(true),
+                    filter: None,
+                    subscriptions: None,
+                    wait_for: None,
+                }),
+            )
+            .await
+            .expect("account batch must not wait for the live response body to close")
+            .unwrap();
+            release_tx.send(()).ok();
+
+            assert_eq!(outcome.cursor, "ak:cursor:catchup-live");
+            assert_eq!(outcome.frames.len(), 1);
+        }
+
+        #[tokio::test]
         async fn account_subscribe_batch_surfaces_dropped_interrupt() {
             use arkret_core::AccountStreamInterrupt;
 
