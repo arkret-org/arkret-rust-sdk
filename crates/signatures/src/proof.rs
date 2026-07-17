@@ -657,10 +657,25 @@ mod ed25519_jws {
     #[derive(Default, Clone, Copy)]
     pub struct Ed25519DetachedJwsVerifier;
 
+    /// Metadata extracted from a successfully verified detached JWS.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct VerifiedDetachedJws {
+        key_id: Option<String>,
+    }
+
+    impl VerifiedDetachedJws {
+        /// Return the optional RFC 7515 `kid` protected-header value.
+        pub fn key_id(&self) -> Option<&str> {
+            self.key_id.as_deref()
+        }
+    }
+
     #[derive(Debug, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct JwsProtectedHeader {
         alg: String,
+        #[serde(default)]
+        kid: Option<String>,
         #[serde(default)]
         typ: Option<String>,
         /// RFC 7515 §4.1.11 `crit`. Arkret v1 understands no critical
@@ -692,6 +707,18 @@ mod ed25519_jws {
             canonical_bytes: &[u8],
             public_key: &PublicKeyMaterial,
         ) -> Result<(), VerifierError> {
+            self.verify_detached_jws_with_metadata(jws, canonical_bytes, public_key)
+                .map(|_| ())
+        }
+
+        /// Verify a generic detached JWS and return validated protected-header
+        /// metadata needed by protocol callers, such as the signing key id.
+        pub fn verify_detached_jws_with_metadata(
+            &self,
+            jws: &str,
+            canonical_bytes: &[u8],
+            public_key: &PublicKeyMaterial,
+        ) -> Result<VerifiedDetachedJws, VerifierError> {
             let parts: Vec<&str> = jws.split('.').collect();
             if parts.len() != 3 || !parts[1].is_empty() {
                 return Err(VerifierError::Encoding(
@@ -725,7 +752,8 @@ mod ed25519_jws {
             let sig_bytes = base64url_decode(parts[2])
                 .map_err(|err| VerifierError::Encoding(format!("invalid sig base64: {err}")))?;
             let signing_input = format!("{}.{}", parts[0], base64url_encode(canonical_bytes));
-            self.verify_signing_input(&signing_input, &sig_bytes, public_key)
+            self.verify_signing_input(&signing_input, &sig_bytes, public_key)?;
+            Ok(VerifiedDetachedJws { key_id: header.kid })
         }
 
         fn verify_signing_input(
@@ -799,7 +827,9 @@ mod ed25519_jws {
     }
 }
 
-pub use ed25519_jws::{Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier};
+pub use ed25519_jws::{
+    Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier, VerifiedDetachedJws,
+};
 
 /// Construct a [`Proof`] envelope for an already-signed payload. The
 /// caller is responsible for supplying the algorithm name and the
