@@ -161,39 +161,6 @@ pub struct InclusionList {
     pub signature: PayloadProof,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/key-view-proof.schema.json#/$defs/key_view`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KeyView {
-    pub cell_id: String,
-    pub lattice_type: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub heads: Option<Vec<Hash>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub value_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub last_covered_event: Option<Hash>,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/key-view-proof.schema.json#/$defs/audit_path`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KeyViewAuditPathItem {
-    pub side: String,
-    pub digest: Hash,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/key-view-proof.schema.json`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KeyViewProof {
-    pub realm_id: RealmId,
-    pub seal_id: SealId,
-    pub data_view_root: Hash,
-    pub key_view: KeyView,
-    pub audit_path: Vec<KeyViewAuditPathItem>,
-}
-
 /// Counterpart for `spec/v1/artifacts/schemas/read-cursor-operations.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]

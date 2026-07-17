@@ -642,7 +642,6 @@ pub const SUPPORTED_SCHEMA_IDS: &[&str] = &[
     "ak.schema.cross_signing_publish.v1",
     "ak.schema.cross_signing_reset.v1",
     "ak.schema.inclusion_list.v1",
-    "ak.schema.key_view_proof.v1",
     "ak.schema.seal_transparency.v1",
     // Round R2/R3 (2026-05-20) — broadcast ephemeral envelope, moderation
     // appeal payloads, structured attestation evidence.

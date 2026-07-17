@@ -97,26 +97,6 @@ pub struct ViewQuery {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct QueryFrontier {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sync_token: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_hlc: Option<Hlc>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ViewQueryOutcome<T = Value> {
-    pub items: Vec<T>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<Cursor>,
-    pub has_more: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub frontier: Option<QueryFrontier>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct View {
     pub schema: String,
