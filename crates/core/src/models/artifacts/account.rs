@@ -199,6 +199,7 @@ pub struct NotificationContainer {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DeviceMessageEnvelope {
+    pub message_id: DeviceMessageId,
     pub kind: ProtocolKind,
     pub sender_principal_id: Did,
     pub sender_device_id: DeviceId,
@@ -216,6 +217,7 @@ pub struct DeviceMessageEnvelope {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DeviceMessageEnvelopeWire {
+    message_id: DeviceMessageId,
     kind: ProtocolKind,
     sender_principal_id: Did,
     sender_device_id: DeviceId,
@@ -242,6 +244,7 @@ impl<'de> Deserialize<'de> for DeviceMessageEnvelope {
             ));
         }
         Ok(Self {
+            message_id: wire.message_id,
             kind: wire.kind,
             sender_principal_id: wire.sender_principal_id,
             sender_device_id: wire.sender_device_id,
@@ -453,6 +456,7 @@ mod device_message_tests {
 
     fn envelope_value() -> Value {
         json!({
+            "message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
             "kind": "ak.key.verification.request",
             "sender_principal_id": "did:webvh:z6mkfixture:alice.example",
             "sender_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
@@ -481,5 +485,12 @@ mod device_message_tests {
         let mut unknown_root_field = envelope_value();
         unknown_root_field["legacy"] = json!(true);
         assert!(serde_json::from_value::<DeviceMessageEnvelope>(unknown_root_field).is_err());
+
+        let mut missing_message_id = envelope_value();
+        missing_message_id
+            .as_object_mut()
+            .unwrap()
+            .remove("message_id");
+        assert!(serde_json::from_value::<DeviceMessageEnvelope>(missing_message_id).is_err());
     }
 }

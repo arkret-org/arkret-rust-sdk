@@ -859,7 +859,11 @@ mod tests {
             )
             .unwrap();
         let to_device = add_result
-            .welcome_device_message_target(Utc::now())
+            .welcome_device_message_target(
+                DeviceMessageId::new("ak:device_message:01904100-0000-7000-8000-000000000001")
+                    .unwrap(),
+                Utc::now(),
+            )
             .unwrap();
 
         assert_eq!(operation.object_type, "mls_commit");
