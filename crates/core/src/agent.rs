@@ -1,5 +1,6 @@
 //! Agent key-pairing canonical binding helpers.
 
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -159,6 +160,16 @@ pub fn agent_key_pairing_request_binding_digest(
     pairing_expires_at: &str,
     audience: &str,
 ) -> Result<Hash> {
+    // The pairing binding has a protocol-specific timestamp spelling.  Do not
+    // let database precision or an equivalent RFC 3339 offset change a signed
+    // digest for the same millisecond.
+    let parsed_expires_at = DateTime::parse_from_rfc3339(pairing_expires_at).map_err(|error| {
+        Error::Protocol(format!(
+            "agent pairing_expires_at must be RFC 3339: {error}"
+        ))
+    })?;
+    let pairing_expires_at =
+        canonical::format_timestamp_millis_canonical(parsed_expires_at.with_timezone(&Utc));
     Hash::new(canonical::canonical_sha256(
         &AgentKeyPairingRequestBinding {
             kind: "ak.agent.key_pairing_request_binding.v1",
@@ -169,7 +180,7 @@ pub fn agent_key_pairing_request_binding_digest(
             runtime_public_key_digest: runtime_public_key_digest.as_str(),
             pairing_request_id,
             pairing_code,
-            expires_at: pairing_expires_at,
+            expires_at: &pairing_expires_at,
             audience,
         },
     )?)
@@ -293,5 +304,58 @@ mod tests {
             .unwrap()
         };
         assert_ne!(digest(&first), digest(&second));
+    }
+
+    #[test]
+    fn pairing_request_binding_normalizes_expiry_to_utc_milliseconds() {
+        let controller_id = Did::new("did:webvh:z6mkcontroller:controller.example").unwrap();
+        let agent_id = Did::new("did:webvh:z6mkagent:agent.example").unwrap();
+        let public_key_digest =
+            Hash::new("sha256:7bfcb9251367ab71fd32c19fc23c11b46ddbc371b52fcb5a75eaa1a79f5f463b")
+                .unwrap();
+        let digest = |expires_at: &str| {
+            agent_key_pairing_request_binding_digest(
+                &controller_id,
+                &agent_id,
+                "did:webvh:z6mkagent:agent.example#runtime-1",
+                &public_key_digest,
+                "pairing_request:01964137-0000-7000-8000-000000000000",
+                "fixture-pairing-code",
+                expires_at,
+                "https://pair.example/_arkret/gate/account/agent-key-pair",
+            )
+            .unwrap()
+        };
+
+        let canonical = digest("2026-07-17T13:50:07.734Z");
+        assert_eq!(
+            canonical.as_str(),
+            "sha256:efa5a4362f7e9da83f03aaa986faeac77140d8b15e8e62c8842d4a78c5eb6661"
+        );
+        assert_eq!(canonical, digest("2026-07-17T13:50:07.734997Z"));
+        assert_eq!(canonical, digest("2026-07-17T21:50:07.734+08:00"));
+    }
+
+    #[test]
+    fn pairing_request_binding_rejects_invalid_expiry() {
+        let controller_id = Did::new("did:webvh:z6mkcontroller:controller.example").unwrap();
+        let agent_id = Did::new("did:webvh:z6mkagent:agent.example").unwrap();
+        let public_key_digest =
+            Hash::new("sha256:7bfcb9251367ab71fd32c19fc23c11b46ddbc371b52fcb5a75eaa1a79f5f463b")
+                .unwrap();
+
+        assert!(
+            agent_key_pairing_request_binding_digest(
+                &controller_id,
+                &agent_id,
+                "did:webvh:z6mkagent:agent.example#runtime-1",
+                &public_key_digest,
+                "pairing_request:01964137-0000-7000-8000-000000000000",
+                "fixture-pairing-code",
+                "2026-07-17 13:50:07.734",
+                "https://pair.example/_arkret/gate/account/agent-key-pair",
+            )
+            .is_err()
+        );
     }
 }

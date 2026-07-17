@@ -771,7 +771,7 @@ impl Event {
             realm_id,
             actor_id,
             actor_seq,
-            created_at: Utc::now(),
+            created_at: canonical::normalize_timestamp_millis_canonical(Utc::now()),
             hlc,
             prev_refs: Vec::new(),
             effective_scope: None,
@@ -846,6 +846,25 @@ mod event_wire_surface_tests {
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
         }
+    }
+
+    #[test]
+    fn event_new_serializes_created_at_in_canonical_utc_millisecond_form() {
+        let event = Event::new(
+            "ak.message.create",
+            realm(),
+            alice(),
+            1,
+            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+            json!({"body": "hello"}),
+        )
+        .unwrap();
+        let value = serde_json::to_value(event).unwrap();
+        let created_at = value["created_at"].as_str().unwrap();
+
+        assert_eq!(created_at.len(), 24);
+        assert!(created_at.ends_with('Z'));
+        canonical::validate_timestamp_millis_canonical(created_at).unwrap();
     }
 
     #[test]
