@@ -108,7 +108,7 @@ pub struct DraftSyncValue {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[serde(rename_all = "snake_case")]
 pub enum RecurrenceFrequency {
     Daily,
     Weekly,
@@ -117,7 +117,7 @@ pub enum RecurrenceFrequency {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[serde(rename_all = "snake_case")]
 pub enum RecurrenceWeekday {
     Mo,
     Tu,
@@ -128,6 +128,14 @@ pub enum RecurrenceWeekday {
     Su,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CalendarRecurrenceDay {
+    pub day: RecurrenceWeekday,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nth_of_period: Option<i16>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CalendarRecurrence {
@@ -135,11 +143,19 @@ pub struct CalendarRecurrence {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub interval: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub by_day: Vec<RecurrenceWeekday>,
+    pub by_day: Vec<CalendarRecurrenceDay>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub by_month: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub by_month_day: Option<Vec<i8>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub by_set_position: Option<Vec<i16>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_day_of_week: Option<RecurrenceWeekday>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub count: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<String>,
+    pub until: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -244,9 +260,9 @@ impl<'de> Deserialize<'de> for RsvpComment {
 
 impl CalendarRecurrence {
     pub fn validate(&self) -> Result<()> {
-        if self.count.is_some() && self.expires_at.is_some() {
+        if self.count.is_some() && self.until.is_some() {
             return Err(Error::Protocol(
-                "calendar recurrence count and expires_at are mutually exclusive".to_owned(),
+                "calendar recurrence count and until are mutually exclusive".to_owned(),
             ));
         }
         if self
@@ -262,10 +278,69 @@ impl CalendarRecurrence {
                 "calendar recurrence interval must be positive".to_owned(),
             ));
         }
-        if let Some(expires_at) = &self.expires_at {
-            canonical::validate_timestamp_canonical(expires_at)?;
+        if let Some(until) = &self.until
+            && (until.ends_with('Z')
+                || until.contains('+')
+                || chrono::NaiveDateTime::parse_from_str(until, "%Y-%m-%dT%H:%M:%S%.f").is_err())
+        {
+            return Err(Error::Protocol(
+                "calendar recurrence until must be a canonical offset-free local date-time"
+                    .to_owned(),
+            ));
         }
         require_unique("calendar recurrence by_day", &self.by_day)?;
+        for day in &self.by_day {
+            if day.nth_of_period == Some(0)
+                || day
+                    .nth_of_period
+                    .is_some_and(|nth| !(-366..=366).contains(&nth))
+            {
+                return Err(Error::Protocol(
+                    "calendar recurrence nth_of_period must be in -366..=-1 or 1..=366".to_owned(),
+                ));
+            }
+        }
+        if let Some(months) = &self.by_month {
+            if months.is_empty()
+                || months.iter().any(|month| {
+                    month.parse::<u8>().map_or(true, |number| {
+                        !(1..=12).contains(&number) || month != &number.to_string()
+                    })
+                })
+            {
+                return Err(Error::Protocol(
+                    "calendar recurrence by_month must contain canonical month numbers 1..=12"
+                        .to_owned(),
+                ));
+            }
+            require_unique("calendar recurrence by_month", months)?;
+        }
+        if let Some(days) = &self.by_month_day {
+            if days.is_empty()
+                || days
+                    .iter()
+                    .any(|day| *day == 0 || !(-31..=31).contains(day))
+            {
+                return Err(Error::Protocol(
+                    "calendar recurrence by_month_day must contain non-zero values in -31..=31"
+                        .to_owned(),
+                ));
+            }
+            require_unique("calendar recurrence by_month_day", days)?;
+        }
+        if let Some(positions) = &self.by_set_position {
+            if positions.is_empty()
+                || positions
+                    .iter()
+                    .any(|position| *position == 0 || !(-366..=366).contains(position))
+            {
+                return Err(Error::Protocol(
+                    "calendar recurrence by_set_position must contain non-zero values in -366..=366"
+                        .to_owned(),
+                ));
+            }
+            require_unique("calendar recurrence by_set_position", positions)?;
+        }
         Ok(())
     }
 }
@@ -695,7 +770,7 @@ pub struct FileTransferRecord {
     pub created_at: String,
     pub updated_hlc: String,
     pub retention_expires_at: String,
-    pub state: FileTransferState,
+    pub status: FileTransferStatus,
 }
 
 impl FileTransferRecord {
@@ -1023,7 +1098,7 @@ impl FileTransferKeyEnvelope {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum FileTransferState {
+pub enum FileTransferStatus {
     Available,
     Downloaded,
     Dismissed,
@@ -1956,9 +2031,16 @@ mod tests {
             recurrence: Some(CalendarRecurrence {
                 frequency: RecurrenceFrequency::Weekly,
                 interval: Some(1),
-                by_day: vec![RecurrenceWeekday::Mo],
+                by_day: vec![CalendarRecurrenceDay {
+                    day: RecurrenceWeekday::Mo,
+                    nth_of_period: None,
+                }],
+                by_month: None,
+                by_month_day: None,
+                by_set_position: None,
+                first_day_of_week: Some(RecurrenceWeekday::Mo),
                 count: Some(10_000),
-                expires_at: None,
+                until: None,
             }),
             location: None,
             call_id: None,
@@ -1977,6 +2059,33 @@ mod tests {
         let mut invalid = fields;
         invalid.recurrence.as_mut().unwrap().count = Some(10_001);
         assert!(invalid.validate().is_err());
+    }
+
+    #[test]
+    fn calendar_recurrence_matches_current_wire_shape() {
+        let recurrence: CalendarRecurrence = serde_json::from_value(serde_json::json!({
+            "frequency": "monthly",
+            "interval": 1,
+            "by_day": [{"day": "mo", "nth_of_period": -1}],
+            "by_month": ["1", "12"],
+            "by_month_day": [-1, 15],
+            "by_set_position": [1],
+            "first_day_of_week": "mo",
+            "until": "2026-12-31T23:59:59"
+        }))
+        .unwrap();
+        recurrence.validate().unwrap();
+        assert_eq!(
+            serde_json::to_value(&recurrence).unwrap()["frequency"],
+            "monthly"
+        );
+        assert!(
+            serde_json::from_value::<CalendarRecurrence>(serde_json::json!({
+                "frequency": "MONTHLY",
+                "expires_at": "2026-12-31T23:59:59Z"
+            }))
+            .is_err()
+        );
     }
 
     #[test]
@@ -2096,7 +2205,7 @@ mod tests {
             created_at: "2026-06-22T00:00:00Z".to_owned(),
             updated_hlc: "01970e589d21-0004-a13f9c2e".to_owned(),
             retention_expires_at: "2026-06-29T00:00:00Z".to_owned(),
-            state: FileTransferState::Available,
+            status: FileTransferStatus::Available,
         }
     }
 
@@ -2106,6 +2215,8 @@ mod tests {
         record.validate().unwrap();
         let value = serde_json::to_value(&record).unwrap();
         assert_eq!(value["kind"], "file_transfer");
+        assert_eq!(value["status"], "available");
+        assert!(value.get("state").is_none());
         assert_eq!(value["access"]["visibility"], "actor_private");
         assert_eq!(
             value["encryption"]["key_delivery"]["method"],
