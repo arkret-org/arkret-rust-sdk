@@ -19,7 +19,12 @@ pub enum AccountSubscribeSnapshotResult {
     },
 }
 
-/// Validated delta frames collected for one account-subscribe catch-up step.
+/// Validated account-subscribe catch-up step.
+///
+/// `frames` may be empty when a bounded long-poll expires without account
+/// changes. In that case the wire trace contains a cursor-bearing `frontier`
+/// followed by `catchup_complete`; the cursor still advances the reconnect
+/// baseline while the projection update is intentionally empty.
 #[derive(Clone, Debug)]
 pub struct AccountSubscribeBatch {
     pub frames: Vec<AccountSubscribeFrame>,
@@ -117,23 +122,17 @@ impl AccountSubscribeFolder {
         if let Some(done) = self.done {
             return Ok(done);
         }
-        if self.frames.is_empty() {
-            Err(Error::Protocol(
-                "account subscribe stream ended before a delta frame".to_owned(),
-            ))
-        } else {
-            let cursor = self
-                .trace
-                .reconnect_cursor()
-                .ok_or_else(|| Error::Protocol("account subscribe batch has no cursor".to_owned()))?
-                .to_owned();
-            Ok(AccountSubscribeSnapshotResult::Batch(
-                AccountSubscribeBatch {
-                    frames: self.frames,
-                    cursor,
-                },
-            ))
-        }
+        let cursor = self
+            .trace
+            .reconnect_cursor()
+            .ok_or_else(|| Error::Protocol("account subscribe batch has no cursor".to_owned()))?
+            .to_owned();
+        Ok(AccountSubscribeSnapshotResult::Batch(
+            AccountSubscribeBatch {
+                frames: self.frames,
+                cursor,
+            },
+        ))
     }
 
     pub fn reconnect_cursor(&self) -> Option<&str> {
@@ -225,6 +224,34 @@ mod tests {
         };
         assert_eq!(batch.cursor, "ak:cursor:complete");
         assert_eq!(batch.frames.len(), 1);
+    }
+
+    #[test]
+    fn folder_accepts_frontier_only_bounded_long_poll_timeout() {
+        let mut folder =
+            AccountSubscribeFolder::for_request(&request(true, Some("ak:cursor:saved")));
+        assert!(
+            !folder
+                .push(frame(serde_json::json!({
+                    "kind": "frontier",
+                    "cursor": "ak:cursor:idle",
+                })))
+                .unwrap()
+        );
+        assert!(
+            folder
+                .push(frame(serde_json::json!({
+                    "kind": "catchup_complete",
+                    "cursor": "ak:cursor:idle",
+                })))
+                .unwrap()
+        );
+
+        let AccountSubscribeSnapshotResult::Batch(batch) = folder.finish().unwrap() else {
+            panic!("expected empty projection batch");
+        };
+        assert!(batch.frames.is_empty());
+        assert_eq!(batch.cursor, "ak:cursor:idle");
     }
 
     #[test]
