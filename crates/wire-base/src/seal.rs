@@ -14,6 +14,8 @@ use crate::move_event::MoveSignature;
 use crate::{Did, Error, Hash, Hlc, MoveId, RealmId, Result, SealId, canonical};
 
 pub const SEAL_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ML-DSA-65"];
+pub const MAX_SEAL_PREDECESSOR_REFS: usize = 128;
+pub const MAX_SEAL_COVERED_EVENT_DIGESTS: usize = 1_048_576;
 
 pub fn seal_canonical_bytes(seal: &Seal) -> Result<Vec<u8>> {
     seal.canonical_bytes_for_id()
@@ -193,6 +195,16 @@ impl Seal {
     }
 
     pub fn validate_structural(&self) -> Result<()> {
+        if self.predecessor_refs.len() > MAX_SEAL_PREDECESSOR_REFS {
+            return Err(Error::Protocol(format!(
+                "Seal.predecessor_refs exceeds maximum item count {MAX_SEAL_PREDECESSOR_REFS}"
+            )));
+        }
+        if self.covered_event_digests.len() > MAX_SEAL_COVERED_EVENT_DIGESTS {
+            return Err(Error::Protocol(format!(
+                "Seal.covered_event_digests exceeds maximum item count {MAX_SEAL_COVERED_EVENT_DIGESTS}"
+            )));
+        }
         validate_sorted_unique("Seal.predecessor_refs", &self.predecessor_refs)?;
         validate_sorted_unique("Seal.delta", &self.delta)?;
         validate_sorted_unique("Seal.covered_event_digests", &self.covered_event_digests)?;
@@ -380,5 +392,14 @@ mod tests {
 
         let error = serde_json::from_value::<Seal>(value).unwrap_err();
         assert!(error.to_string().contains("map"));
+    }
+
+    #[test]
+    fn predecessor_refs_enforce_schema_bound_before_set_validation() {
+        let mut seal = sample();
+        seal.predecessor_refs = vec![seal_id(0x11); MAX_SEAL_PREDECESSOR_REFS + 1];
+
+        let error = seal.validate_structural().unwrap_err();
+        assert!(error.to_string().contains("predecessor_refs exceeds"));
     }
 }

@@ -322,7 +322,6 @@ pub struct EventBatchReceipt {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum EventBatchReceiptEvent {
-    Event(EventId),
     Digest(Hash),
     Item(EventBatchReceiptItem),
 }
@@ -336,7 +335,26 @@ pub struct EventBatchReceiptItem {
     pub kind: NonEmptyString,
 }
 
+impl EventBatchReceiptEvent {
+    pub fn canonical_json_bytes(&self) -> Result<Vec<u8>> {
+        canonical::canonical_json_bytes(self).map_err(Into::into)
+    }
+}
+
 impl EventBatchReceipt {
+    /// Sort and deduplicate the receipt's set projection before signing it.
+    pub fn canonicalize_events(&mut self) -> Result<()> {
+        let mut keyed = self
+            .events
+            .drain(..)
+            .map(|event| Ok((event.canonical_json_bytes()?, event)))
+            .collect::<Result<Vec<_>>>()?;
+        keyed.sort_by(|left, right| left.0.cmp(&right.0));
+        keyed.dedup_by(|left, right| left.0 == right.0);
+        self.events = keyed.into_iter().map(|(_, event)| event).collect();
+        Ok(())
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.schema != "ak.schema.event_batch_receipt.v1" {
             return Err(Error::Protocol(
@@ -346,6 +364,16 @@ impl EventBatchReceipt {
         if self.events.is_empty() || self.proofs.is_empty() {
             return Err(Error::Protocol(
                 "event batch receipt requires events and proofs".to_owned(),
+            ));
+        }
+        let canonical_events = self
+            .events
+            .iter()
+            .map(EventBatchReceiptEvent::canonical_json_bytes)
+            .collect::<Result<Vec<_>>>()?;
+        if canonical_events.windows(2).any(|pair| pair[0] >= pair[1]) {
+            return Err(Error::Protocol(
+                "event batch receipt events must be canonical sorted and duplicate-free".to_owned(),
             ));
         }
         if self.frontier.actor_seq.is_none()
@@ -369,20 +397,36 @@ impl EventBatchReceipt {
                 }
             }
             EventBatchReceiptScope::DeviceReanchor(scope) => {
-                let [
-                    EventBatchReceiptEvent::Item(reanchor),
-                    EventBatchReceiptEvent::Item(authorize),
-                ] = self.events.as_slice()
-                else {
+                if self.events.len() != 2
+                    || self
+                        .events
+                        .iter()
+                        .any(|event| !matches!(event, EventBatchReceiptEvent::Item(_)))
+                {
                     return Err(Error::Protocol(
                         "device reanchor receipt must contain exactly two typed event items"
                             .to_owned(),
                     ));
-                };
-                if reanchor.kind.as_str() != "ak.device.reanchor"
-                    || authorize.kind.as_str() != "ak.device.authorize"
-                    || reanchor.event_digest != scope.reanchor_digest
-                    || authorize.event_digest != scope.replacement_authorize_digest
+                }
+                let reanchor = self.events.iter().find_map(|event| match event {
+                    EventBatchReceiptEvent::Item(item)
+                        if item.kind.as_str() == "ak.device.reanchor" =>
+                    {
+                        Some(item)
+                    }
+                    _ => None,
+                });
+                let authorize = self.events.iter().find_map(|event| match event {
+                    EventBatchReceiptEvent::Item(item)
+                        if item.kind.as_str() == "ak.device.authorize" =>
+                    {
+                        Some(item)
+                    }
+                    _ => None,
+                });
+                if reanchor.map(|item| &item.event_digest) != Some(&scope.reanchor_digest)
+                    || authorize.map(|item| &item.event_digest)
+                        != Some(&scope.replacement_authorize_digest)
                 {
                     return Err(Error::Protocol(
                         "device reanchor receipt event binding mismatch".to_owned(),
@@ -391,6 +435,89 @@ impl EventBatchReceipt {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod event_batch_receipt_tests {
+    use super::*;
+
+    fn hash(byte: u8) -> Hash {
+        Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+    }
+
+    fn item(id: &str, digest: Hash, kind: &str) -> EventBatchReceiptEvent {
+        EventBatchReceiptEvent::Item(EventBatchReceiptItem {
+            event_id: EventId::new(id).unwrap(),
+            event_digest: digest,
+            kind: NonEmptyString::new(kind).unwrap(),
+        })
+    }
+
+    #[test]
+    fn bare_event_id_is_not_a_receipt_event() {
+        let encoded = "\"ak:event:0196419b-0000-7000-8000-000000000001\"";
+        assert!(serde_json::from_str::<EventBatchReceiptEvent>(encoded).is_err());
+    }
+
+    #[test]
+    fn reanchor_binding_is_by_kind_after_canonical_sort() {
+        let reanchor_digest = hash(0xbb);
+        let authorize_digest = hash(0xaa);
+        let mut receipt = EventBatchReceipt {
+            schema: "ak.schema.event_batch_receipt.v1".to_owned(),
+            receipt_id: ReceiptId::new("ak:receipt:0196419b-0000-7000-8000-000000000003").unwrap(),
+            issuer: Did::new("did:web:service.example").unwrap(),
+            scope: EventBatchReceiptScope::DeviceReanchor(DeviceReanchorReceiptScope {
+                kind: DeviceReanchorReceiptScopeKind::DeviceReanchorUnit,
+                principal_id: Did::new("did:web:alice.example").unwrap(),
+                realm_id: RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000001").unwrap(),
+                did_version_id: NonEmptyString::new("1-fixture").unwrap(),
+                registry_head: hash(0xcc),
+                reanchor_digest: reanchor_digest.clone(),
+                replacement_authorize_digest: authorize_digest.clone(),
+            }),
+            frontier: EventBatchReceiptFrontier {
+                actor_seq: Some(2),
+                event_id: None,
+                event_digest: None,
+                hlc: None,
+            },
+            events: vec![
+                item(
+                    "ak:event:0196419b-0000-7000-8000-000000000001",
+                    reanchor_digest,
+                    "ak.device.reanchor",
+                ),
+                item(
+                    "ak:event:0196419b-0000-7000-8000-000000000002",
+                    authorize_digest,
+                    "ak.device.authorize",
+                ),
+            ],
+            created_at: Utc::now(),
+            proofs: vec![Proof {
+                kind: "DataIntegrityProof".to_owned(),
+                alg: "EdDSA".to_owned(),
+                verification_method: "did:web:service.example#key-1".to_owned(),
+                event_digest: hash(0xdd),
+                created_at: Utc::now(),
+                domain: None,
+                audience: None,
+                jws: "AAAA..BBBB".to_owned(),
+            }],
+        };
+
+        receipt.canonicalize_events().unwrap();
+        assert!(matches!(
+            &receipt.events[0],
+            EventBatchReceiptEvent::Item(item)
+                if item.kind.as_str() == "ak.device.authorize"
+        ));
+        receipt.validate().unwrap();
+        receipt.events.reverse();
+        let error = receipt.validate().unwrap_err();
+        assert!(error.to_string().contains("canonical sorted"));
     }
 }
 
