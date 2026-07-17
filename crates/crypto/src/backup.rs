@@ -830,7 +830,7 @@ mod tests {
         let binding = test_binding(BackupClass::SecretStorage, "recovery_secret");
         let ct = encrypt_vault(&kek, &binding, b"secret").unwrap();
         let mut tampered = binding.clone();
-        tampered.backup_class = BackupClass::DidRecovery;
+        tampered.aead_aad.backup_class = BackupClass::DidRecovery;
         let err = decrypt_vault(
             b"pp",
             &tampered,

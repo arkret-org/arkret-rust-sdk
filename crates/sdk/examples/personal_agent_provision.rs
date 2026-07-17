@@ -229,7 +229,9 @@ fn main() -> arkret::Result<()> {
     let disclosure_issued_at = Utc::now();
     let pairing_request_uuid = pairing_request_id
         .strip_prefix("agent_pairing_request:")
-        .ok_or("pairing_request_id has an invalid prefix")?;
+        .ok_or_else(|| {
+            arkret::Error::Protocol("pairing_request_id has an invalid prefix".to_owned())
+        })?;
     let mut requested_scope_disclosure = AgentRequestedScopeDisclosure {
         schema: arkret::AGENT_REQUESTED_SCOPE_DISCLOSURE_SCHEMA.to_owned(),
         request_id: RequestId::new(format!("ak:request:{pairing_request_uuid}"))?,

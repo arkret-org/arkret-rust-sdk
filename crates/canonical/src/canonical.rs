@@ -583,21 +583,6 @@ pub fn format_timestamp_canonical(when: chrono::DateTime<chrono::Utc>) -> String
     when.format("%Y-%m-%dT%H:%M:%SZ").to_string()
 }
 
-/// Convenience: format a Unix timestamp in **milliseconds** (UTC) into the
-/// canonical `YYYY-MM-DDTHH:MM:SSZ` string. Returns `None` if the value is
-/// out of the representable range. Sub-second milliseconds are truncated.
-pub fn format_timestamp_canonical_millis(unix_millis: i64) -> Option<String> {
-    chrono::DateTime::<chrono::Utc>::from_timestamp_millis(unix_millis)
-        .map(format_timestamp_canonical)
-}
-
-/// Convenience: format a Unix timestamp in **seconds** (UTC) into the
-/// canonical `YYYY-MM-DDTHH:MM:SSZ` string. Returns `None` if the value is
-/// out of the representable range.
-pub fn format_timestamp_canonical_secs(unix_secs: i64) -> Option<String> {
-    chrono::DateTime::<chrono::Utc>::from_timestamp(unix_secs, 0).map(format_timestamp_canonical)
-}
-
 fn write_canonical_value(value: &Value, out: &mut Vec<u8>) -> Result<()> {
     match value {
         Value::Null => out.extend_from_slice(b"null"),
@@ -881,16 +866,6 @@ mod tests {
         assert_eq!(formatted.len(), 20);
         // The formatter's output MUST be accepted by the validator.
         validate_timestamp_canonical(&formatted).expect("formatted timestamp must validate");
-    }
-
-    #[test]
-    fn format_timestamp_canonical_from_unix_passes_validate() {
-        let millis = format_timestamp_canonical_millis(1_780_000_000_999).unwrap();
-        validate_timestamp_canonical(&millis).expect("millis form must validate");
-        let secs = format_timestamp_canonical_secs(1_780_000_000).unwrap();
-        validate_timestamp_canonical(&secs).expect("secs form must validate");
-        // The two forms agree once sub-second precision is dropped.
-        assert_eq!(millis, secs);
     }
 
     #[test]

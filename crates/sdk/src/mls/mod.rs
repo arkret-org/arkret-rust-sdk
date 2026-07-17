@@ -23,7 +23,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        CryptoStore, DeviceId, Did, EncryptedPayloadScheme, Error, EventId, Hash,
+        CryptoStore, DeviceId, DeviceMessageId, Did, EncryptedPayloadScheme, Error, EventId, Hash,
         MLS_GOVERNANCE_BINDING_FULL_PROFILE, MLS_GOVERNANCE_BINDING_RELAXED_PROFILE,
         MlsGovernanceBindingPayload, MlsGovernanceBindingValidationContext, OperationId, RealmId,
         base64url_encode,

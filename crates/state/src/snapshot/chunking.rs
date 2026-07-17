@@ -270,33 +270,6 @@ pub fn event_id_sets_equal(a: &[EventId], b: &[EventId]) -> bool {
     left == right
 }
 
-pub fn verify_snapshot_chunk_descriptors(
-    descriptors: &[SnapshotChunkDescriptor],
-    payloads: &[SnapshotChunkPayload],
-) -> Result<()> {
-    if descriptors.len() != payloads.len() {
-        return Err(Error::Protocol("snapshot chunk count mismatch".to_owned()));
-    }
-    for (expected, payload) in descriptors.iter().zip(payloads.iter()) {
-        let bytes = snapshot_chunk_payload_bytes(payload)?;
-        let digest = sha256_digest(&bytes);
-        if expected.digest != digest {
-            return Err(Error::Protocol(format!(
-                "snapshot chunk {} digest mismatch",
-                payload.index
-            )));
-        }
-        if expected.size_bytes != bytes.len() as u64 {
-            return Err(Error::Protocol(format!(
-                "snapshot chunk {} size_bytes mismatch",
-                payload.index
-            )));
-        }
-        verify_snapshot_chunk_ref_digest(expected).map_err(|err| Error::Protocol(err.message))?;
-    }
-    Ok(())
-}
-
 pub fn verify_snapshot_chunk_bytes(
     descriptor: &SnapshotChunkDescriptor,
     bytes: &[u8],

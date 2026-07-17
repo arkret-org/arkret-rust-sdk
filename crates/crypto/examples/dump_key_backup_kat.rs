@@ -1,9 +1,9 @@
 use std::fs;
 
-use arkret_core::BackupClass;
+use arkret_core::{BackupClass, KeyBackupDomainSeparationAad};
 use arkret_crypto::backup::{
-    KeyBackupDomainSeparationAad, VaultBinding, commitment_digest, derive_subkey,
-    derive_vault_kek_with_salt, encrypt_vault_with_nonce_salt,
+    VAULT_SCHEMA_ID, VaultBinding, commitment_digest, derive_subkey, derive_vault_kek_with_salt,
+    encrypt_vault_with_nonce_salt,
 };
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
@@ -43,10 +43,11 @@ fn main() {
         let binding = VaultBinding {
             backup_id: string(binding_json, "backup_id").parse().unwrap(),
             aead_aad: KeyBackupDomainSeparationAad {
+                schema: VAULT_SCHEMA_ID.to_owned(),
                 actor_id: string(binding_json, "actor_id").parse().unwrap(),
                 device_id: binding_json["device_id"]
                     .as_str()
-                    .map(|value| value.parse().unwrap()),
+                    .map(|value| value.to_owned()),
                 backup_class,
                 backup_version: string(binding_json, "backup_version").to_owned(),
                 created_at: string(binding_json, "created_at")
@@ -58,7 +59,9 @@ fn main() {
                     .iter()
                     .map(|value| value.as_str().unwrap().to_owned())
                     .collect(),
-                recipient_actor_id: None,
+                managed_principal_bindings: vec![],
+                recipient_method: None,
+                recipient_key_ref: None,
                 extra: Default::default(),
             },
         };
