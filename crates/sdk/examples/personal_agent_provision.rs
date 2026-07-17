@@ -330,6 +330,7 @@ fn main() -> arkret::Result<()> {
                     }))
                     .unwrap(),
                 ],
+                capability_action_registry_digest: None,
                 constraints: Vec::new(),
                 parent_grant_id: None,
                 issued_at: chrono::DateTime::parse_from_rfc3339("2026-06-18T12:00:00Z")

@@ -30,7 +30,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_core::CircleId;
+use arkret_core::{CircleId, Hash};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -52,6 +52,8 @@ pub struct Grant {
     pub subject: String,
     pub resource: String,
     pub actions: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability_action_registry_digest: Option<Hash>,
     #[serde(default)]
     pub constraints: Vec<GrantConstraint>,
     pub revoked: bool,
@@ -200,6 +202,7 @@ pub struct GrantRequestDraft {
     pub subject: String,
     pub resource: String,
     pub actions: Vec<String>,
+    pub capability_action_registry_digest: Option<Hash>,
     pub constraints: Vec<GrantConstraint>,
     pub expires_at: Option<DateTime<Utc>>,
 }
@@ -235,6 +238,9 @@ pub enum DelegationError {
     /// Parent grant's `max_delegation_depth` leaves no room for another
     /// child, or the child failed to seal the decremented depth.
     DelegationDepthExceeded,
+    /// Aggregate-admin expansion cannot be evaluated against the exact
+    /// registry snapshot bound by the parent/child grant.
+    RegistryBasisUnavailable,
 }
 
 /// Returns the effective expiry for a grant, taking the stricter of the
@@ -410,6 +416,37 @@ pub fn create_delegated_grant(
     if parent.subject != requested.issuer {
         return Err(DelegationError::NotGrantHolder);
     }
+    let parent_binding_relevant = parent.capability_action_registry_digest.is_some()
+        || parent.actions.iter().any(|action| {
+            arkret_core::schema::capability_action(action)
+                .is_some_and(|row| row.event_mapping_kind == "aggregate_admin")
+        });
+    if parent_binding_relevant {
+        super::validate_capability_action_registry_binding(
+            &parent.actions,
+            parent.capability_action_registry_digest.as_ref(),
+        )
+        .map_err(|_| DelegationError::RegistryBasisUnavailable)?;
+    }
+    let child_binding_relevant = requested.capability_action_registry_digest.is_some()
+        || requested.actions.iter().any(|action| {
+            arkret_core::schema::capability_action(action)
+                .is_some_and(|row| row.event_mapping_kind == "aggregate_admin")
+        });
+    if child_binding_relevant {
+        super::validate_capability_action_registry_binding(
+            &requested.actions,
+            requested.capability_action_registry_digest.as_ref(),
+        )
+        .map_err(|_| DelegationError::RegistryBasisUnavailable)?;
+    }
+    if let (Some(child_basis), Some(parent_basis)) = (
+        requested.capability_action_registry_digest.as_ref(),
+        parent.capability_action_registry_digest.as_ref(),
+    ) && child_basis != parent_basis
+    {
+        return Err(DelegationError::RegistryBasisUnavailable);
+    }
     let parent_effective_expiry = grant_effective_expiry(parent);
     if let Some(parent_expiry) = parent_effective_expiry
         && parent_expiry <= now
@@ -454,6 +491,7 @@ pub fn create_delegated_grant(
             subject: requested.subject.clone(),
             resource: requested.resource.clone(),
             actions: requested.actions.clone(),
+            capability_action_registry_digest: requested.capability_action_registry_digest.clone(),
             constraints: requested.constraints.clone(),
             revoked: false,
             created_at: now,
@@ -483,6 +521,7 @@ pub fn create_delegated_grant(
         subject: requested.subject.clone(),
         resource: requested.resource.clone(),
         actions: requested.actions.clone(),
+        capability_action_registry_digest: requested.capability_action_registry_digest.clone(),
         constraints: requested.constraints.clone(),
         revoked: false,
         created_at: now,
@@ -540,6 +579,7 @@ mod tests {
             subject: "did:webvh:z6mkfixture:bob".to_owned(),
             resource: resource.to_owned(),
             actions: actions.iter().map(|s| (*s).to_owned()).collect(),
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             revoked: false,
             created_at: Utc::now(),
@@ -564,6 +604,7 @@ mod tests {
             subject: subject.to_owned(),
             resource: resource.to_owned(),
             actions: actions.iter().map(|s| (*s).to_owned()).collect(),
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             revoked: false,
             created_at: Utc::now(),
@@ -640,6 +681,7 @@ mod tests {
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             expires_at: Some(now + Duration::minutes(30)),
         };
@@ -647,6 +689,48 @@ mod tests {
         assert_eq!(child.delegated_from.as_deref(), Some("g1"));
         assert_eq!(child.actions, vec!["read".to_owned()]);
         assert!(child.grant_id.is_empty(), "caller must assign grant_id");
+    }
+
+    #[test]
+    fn aggregate_admin_delegation_preserves_registry_basis() {
+        let now = Utc::now();
+        let digest = super::super::current_capability_action_registry_digest().unwrap();
+        let mut root = root_grant("g1", &["ak.realm.admin"], "ak:realm:1");
+        root.capability_action_registry_digest = Some(digest.clone());
+        let request = GrantRequestDraft {
+            realm_id: "ak:realm:1".to_owned(),
+            issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            subject: "did:webvh:z6mkfixture:carol".to_owned(),
+            resource: "ak:realm:1".to_owned(),
+            actions: vec!["ak.realm.admin".to_owned()],
+            capability_action_registry_digest: Some(digest.clone()),
+            constraints: Vec::new(),
+            expires_at: None,
+        };
+        let child = create_delegated_grant("g1", &request, &[root], now).unwrap();
+        assert_eq!(child.capability_action_registry_digest, Some(digest));
+    }
+
+    #[test]
+    fn aggregate_admin_delegation_rejects_missing_child_basis() {
+        let now = Utc::now();
+        let digest = super::super::current_capability_action_registry_digest().unwrap();
+        let mut root = root_grant("g1", &["ak.realm.admin"], "ak:realm:1");
+        root.capability_action_registry_digest = Some(digest);
+        let request = GrantRequestDraft {
+            realm_id: "ak:realm:1".to_owned(),
+            issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            subject: "did:webvh:z6mkfixture:carol".to_owned(),
+            resource: "ak:realm:1".to_owned(),
+            actions: vec!["ak.realm.admin".to_owned()],
+            capability_action_registry_digest: None,
+            constraints: Vec::new(),
+            expires_at: None,
+        };
+        assert!(matches!(
+            create_delegated_grant("g1", &request, &[root], now),
+            Err(DelegationError::RegistryBasisUnavailable)
+        ));
     }
 
     #[test]
@@ -661,6 +745,7 @@ mod tests {
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             // Child outlives parent → reject.
             expires_at: Some(now + Duration::hours(2)),
@@ -693,6 +778,7 @@ mod tests {
             resource: "ak:realm:1".to_owned(),
             // Parent only has `read`; child asking for `send` and `delete`.
             actions: vec!["read".to_owned(), "send".to_owned(), "delete".to_owned()],
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             expires_at: None,
         };
@@ -717,6 +803,7 @@ mod tests {
             // Parent's resource is "ak:realm:1"; child trying a sibling realm.
             resource: "ak:realm:2".to_owned(),
             actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             expires_at: None,
         };
@@ -740,6 +827,7 @@ mod tests {
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             expires_at: None,
         };
@@ -773,6 +861,7 @@ mod tests {
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
             constraints: vec![GrantConstraint::DelegationControl {
                 max_delegation_depth: Some(0),
             }],
@@ -796,6 +885,7 @@ mod tests {
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             expires_at: None,
         };
@@ -906,6 +996,7 @@ mod tests {
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             expires_at: None,
         };

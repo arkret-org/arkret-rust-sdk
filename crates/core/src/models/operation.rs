@@ -1167,6 +1167,8 @@ pub struct CapabilityGrant {
     pub subject: CapabilitySubject,
     pub actions: Vec<String>,
     pub resources: Vec<WireResourceSelector>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability_action_registry_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub constraints: Vec<GrantConstraint>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1909,6 +1911,7 @@ mod actor_accessor_tests {
             subject: CapabilitySubject::Did(Did::new("did:web:subject.example").unwrap()),
             actions: vec!["ak.event.read".to_owned()],
             resources: vec![serde_json::from_value(json!({"kind": "realm"})).unwrap()],
+            capability_action_registry_digest: None,
             constraints: Vec::new(),
             parent_grant_id: None,
             issued_at: fractional,
