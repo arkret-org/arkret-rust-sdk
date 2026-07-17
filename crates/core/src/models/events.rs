@@ -296,6 +296,7 @@ pub struct Event {
     pub realm_id: RealmId,
     pub actor_id: Did,
     pub actor_seq: u64,
+    #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp_millis")]
     pub created_at: DateTime<Utc>,
     pub hlc: Hlc,
     pub prev_refs: Vec<EventId>,
@@ -383,6 +384,7 @@ struct EventWire {
     pub realm_id: RealmId,
     pub actor_id: Did,
     pub actor_seq: u64,
+    #[serde(deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp_millis")]
     pub created_at: DateTime<Utc>,
     pub hlc: Hlc,
     pub prev_refs: Vec<EventId>,
@@ -850,7 +852,7 @@ mod event_wire_surface_tests {
 
     #[test]
     fn event_new_serializes_created_at_in_canonical_utc_millisecond_form() {
-        let event = Event::new(
+        let mut event = Event::new(
             "ak.message.create",
             realm(),
             alice(),
@@ -859,12 +861,33 @@ mod event_wire_surface_tests {
             json!({"body": "hello"}),
         )
         .unwrap();
-        let value = serde_json::to_value(event).unwrap();
+        let whole_second = "2026-06-03T12:34:56Z".parse().unwrap();
+        event.created_at = whole_second;
+        event.proofs.push(Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+            event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            created_at: whole_second,
+            domain: None,
+            audience: None,
+            jws: "a..b".to_owned(),
+        });
+        let value = serde_json::to_value(&event).unwrap();
         let created_at = value["created_at"].as_str().unwrap();
 
-        assert_eq!(created_at.len(), 24);
-        assert!(created_at.ends_with('Z'));
+        assert_eq!(created_at, "2026-06-03T12:34:56.000Z");
+        assert_eq!(value["proofs"][0]["created_at"], created_at);
         canonical::validate_timestamp_millis_canonical(created_at).unwrap();
+        serde_json::from_value::<Event>(value.clone()).unwrap();
+
+        let mut seconds = value.clone();
+        seconds["created_at"] = json!("2026-06-03T12:34:56Z");
+        assert!(serde_json::from_value::<Event>(seconds).is_err());
+
+        let mut micros = value;
+        micros["proofs"][0]["created_at"] = json!("2026-06-03T12:34:56.000123Z");
+        assert!(serde_json::from_value::<Event>(micros).is_err());
     }
 
     #[test]

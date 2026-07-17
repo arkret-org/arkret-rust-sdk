@@ -53,7 +53,7 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
 
     assert_eq!(
         event.event_digest().unwrap(),
-        "sha256:1232274d1cdfe61e6b29564c6fadb5eef25090df7ac941c06e69943906080013"
+        "sha256:e900abc168bc630f073e1ae104af45f0b534feb86e9671f4ed91f38e51d3dd21"
     );
 
     let value = serde_json::to_value(&event).unwrap();

@@ -38,6 +38,31 @@ where
         .map_err(serde::de::Error::custom)
 }
 
+/// Serialize an Event/proof timestamp with exactly three UTC millisecond digits.
+pub fn serialize_canonical_timestamp_millis<S>(
+    value: &DateTime<Utc>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(&canonical::format_timestamp_millis_canonical(*value))
+}
+
+/// Deserialize the fixed-width Event/proof millisecond timestamp profile.
+pub fn deserialize_canonical_timestamp_millis<'de, D>(
+    deserializer: D,
+) -> Result<DateTime<Utc>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = String::deserialize(deserializer)?;
+    canonical::validate_timestamp_millis_canonical(&value).map_err(serde::de::Error::custom)?;
+    DateTime::parse_from_rfc3339(&value)
+        .map(|parsed| parsed.with_timezone(&Utc))
+        .map_err(serde::de::Error::custom)
+}
+
 pub fn serialize_optional_canonical_timestamp<S>(
     value: &Option<DateTime<Utc>>,
     serializer: S,

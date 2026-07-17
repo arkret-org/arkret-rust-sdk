@@ -959,6 +959,10 @@ pub struct Proof {
     pub alg: String,
     pub verification_method: String,
     pub event_digest: Hash,
+    #[serde(
+        serialize_with = "crate::serde_helpers::serialize_canonical_timestamp_millis",
+        deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp_millis"
+    )]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
