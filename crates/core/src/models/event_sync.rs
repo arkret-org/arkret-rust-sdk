@@ -177,7 +177,7 @@ pub struct FederationServiceBindingRef {
 
 pub const FEDERATION_MINIMAL_PROFILE_ID: &str = "ak.profile.federation_minimal.v1";
 pub const FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST: &str =
-    "sha256:f275d2e5dd588758bd9a77254cbfa72fa187cc098e7f61a63c3d13609c34a09c";
+    "sha256:56942fe4d4786ea635277188f89a459d58b4f395164fefe1b1d8dcbaa3e935ac";
 
 pub fn federation_minimal_reducer_profile_digest() -> &'static str {
     FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST

@@ -87,6 +87,9 @@ pub enum JwsVerifyError {
         #[source]
         source: arkret_core::Error,
     },
+    /// The verification-method value is neither multibase nor valid JWK JSON.
+    #[error("public key material is neither Ed25519 multibase nor JWK JSON: {reason}")]
+    PublicKeyMaterialParse { reason: String },
     /// The decoded key bytes do not form a valid Ed25519 public key.
     #[error("Ed25519 public key parse failed: {reason}")]
     PublicKeyParse { reason: String },
@@ -210,6 +213,7 @@ pub fn verify_jws_ed25519(
 ///     `k1`).
 ///   - did:key: the multibase-encoded key is in the DID itself; resolve returns a doc whose
 ///     verification_methods entry points at the same multibase string.
+///   - DID verification methods carrying an Ed25519 `publicKeyJwk` serialized as JSON.
 pub fn resolve_ed25519_pubkey(
     resolver: &dyn DidResolver,
     verification_method: &str,
@@ -233,7 +237,7 @@ pub fn resolve_ed25519_pubkey(
     // Try full URL first, then fragment-only id, then any single-key
     // shortcut (`did:key:` documents typically have one key whose id
     // matches the full URL).
-    let multibase = document
+    let material = document
         .verification_methods
         .get(verification_method)
         .or_else(|| {
@@ -261,7 +265,41 @@ pub fn resolve_ed25519_pubkey(
             available: document.verification_methods.keys().cloned().collect(),
         })?;
 
-    decode_ed25519_multibase(multibase)
+    decode_ed25519_public_key_material(material)
+}
+
+/// Decode the Ed25519 verification material stored by [`crate::identity::DidDocument`].
+///
+/// DID resolvers normalize `publicKeyMultibase` to the multibase string and
+/// `publicKeyJwk` to a JSON string. This helper accepts both forms so all SDK
+/// consumers share the same key-shape checks.
+pub fn decode_ed25519_public_key_material(material: &str) -> Result<VerifyingKey, JwsVerifyError> {
+    let material = material.trim();
+    if material.starts_with('z') {
+        return decode_ed25519_multibase(material);
+    }
+
+    let value: serde_json::Value =
+        serde_json::from_str(material).map_err(|error| JwsVerifyError::PublicKeyMaterialParse {
+            reason: error.to_string(),
+        })?;
+    if let serde_json::Value::String(inner) = value {
+        return decode_ed25519_public_key_material(&inner);
+    }
+
+    if !value.is_object() {
+        return Err(JwsVerifyError::PublicKeyMaterialParse {
+            reason: format!("unsupported public key material shape: {value}"),
+        });
+    }
+    let raw = PublicKeyMaterial::Jwk { value }
+        .ed25519_bytes()
+        .map_err(|error| JwsVerifyError::PublicKeyParse {
+            reason: error.to_string(),
+        })?;
+    VerifyingKey::from_bytes(&raw).map_err(|error| JwsVerifyError::PublicKeyParse {
+        reason: error.to_string(),
+    })
 }
 
 /// Decode a base58btc-encoded multibase Ed25519 public key.
@@ -424,13 +462,13 @@ mod tests {
     use crate::identity::DidDocument;
 
     /// Minimal in-memory resolver used by the sign-then-verify round-trip
-    /// tests. Holds a single `(did, multibase_pubkey)` pair and surfaces it as
+    /// tests. Holds a single `(did, public_key_material)` pair and surfaces it as
     /// a one-key DID Document under the id `{did}#k1`. The round-trip tests
     /// pass that exact `verification_method`, so they do not depend on the
     /// single-key fallback (which is now restricted to `did:key`).
     struct StubResolver {
         did: Did,
-        multibase: String,
+        material: String,
     }
 
     impl DidResolver for StubResolver {
@@ -445,7 +483,7 @@ mod tests {
                 )));
             }
             let mut verification_methods = BTreeMap::new();
-            verification_methods.insert(format!("{}#k1", self.did), self.multibase.clone());
+            verification_methods.insert(format!("{}#k1", self.did), self.material.clone());
             Ok(DidDocument {
                 id: self.did.clone(),
                 verification_methods,
@@ -470,6 +508,38 @@ mod tests {
         let multibase = encode_ed25519_multibase(&verifying);
         let decoded = decode_ed25519_multibase(&multibase).expect("decode");
         assert_eq!(decoded.as_bytes(), verifying.as_bytes());
+    }
+
+    #[test]
+    fn resolve_ed25519_pubkey_accepts_public_key_jwk() {
+        let signing = SigningKey::from_bytes(&[43u8; 32]);
+        let did = Did::new("did:web:policy.example".to_owned()).unwrap();
+        let resolver = StubResolver {
+            did: did.clone(),
+            material: serde_json::json!({
+                "kty": "OKP",
+                "crv": "Ed25519",
+                "x": base64url_encode(signing.verifying_key().as_bytes()),
+            })
+            .to_string(),
+        };
+
+        let resolved = resolve_ed25519_pubkey(&resolver, &format!("{did}#k1")).unwrap();
+        assert_eq!(resolved.as_bytes(), signing.verifying_key().as_bytes());
+    }
+
+    #[test]
+    fn decode_rejects_non_ed25519_public_key_jwk() {
+        let material = serde_json::json!({
+            "kty": "OKP",
+            "crv": "X25519",
+            "x": base64url_encode([7u8; 32]),
+        })
+        .to_string();
+
+        let err = decode_ed25519_public_key_material(&material).unwrap_err();
+        assert!(matches!(err, JwsVerifyError::PublicKeyParse { .. }));
+        assert!(err.to_string().contains("unsupported JWK for Ed25519"));
     }
 
     #[test]
@@ -678,7 +748,7 @@ mod tests {
         let did = Did::new("did:webvh:z6mkfixture:duplicate-header.example".to_owned()).unwrap();
         let resolver = StubResolver {
             did: did.clone(),
-            multibase: encode_ed25519_multibase(&signing.verifying_key()),
+            material: encode_ed25519_multibase(&signing.verifying_key()),
         };
         let header = base64url_encode(br#"{"alg":"EdDSA","alg":"EdDSA"}"#);
         let signature = base64url_encode([1u8; 64]);
@@ -704,7 +774,7 @@ mod tests {
         let did = Did::new("did:webvh:z6mkfixture:single.example".to_owned()).unwrap();
         let resolver = StubResolver {
             did: did.clone(),
-            multibase: encode_ed25519_multibase(&signing.verifying_key()),
+            material: encode_ed25519_multibase(&signing.verifying_key()),
         };
         let err = resolve_ed25519_pubkey(&resolver, &format!("{did}#does-not-exist")).unwrap_err();
         assert!(
@@ -722,7 +792,7 @@ mod tests {
         let did = Did::new(format!("did:key:{multibase}")).unwrap();
         let resolver = StubResolver {
             did: did.clone(),
-            multibase: multibase.clone(),
+            material: multibase.clone(),
         };
         // A reference with a mismatched fragment still resolves via the
         // single-key fallback for did:key.
@@ -749,7 +819,7 @@ mod tests {
         let did = Did::new("did:webvh:z6mkfixture:roundtrip.example".to_owned()).unwrap();
         let resolver = StubResolver {
             did: did.clone(),
-            multibase,
+            material: multibase,
         };
 
         let canonical = br#"{"hello":"world","n":42}"#;
@@ -772,7 +842,7 @@ mod tests {
         let did = Did::new("did:webvh:z6mkfixture:tamper.example".to_owned()).unwrap();
         let resolver = StubResolver {
             did: did.clone(),
-            multibase,
+            material: multibase,
         };
 
         let canonical = b"original-bytes";
