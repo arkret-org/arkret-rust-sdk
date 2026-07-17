@@ -16,8 +16,30 @@ use crate::{Error, Result};
 pub const PRINCIPAL_CONTROL_REALM_PROFILE: &str = "ak.profile.principal_control_realm.v1";
 pub const DID_INCEPTION_REF_ROLE: &str = "did_inception";
 const PRINCIPAL_CONTROL_PURPOSE: &str = "principal_control";
-const PRINCIPAL_CONTROL_CREATE_CELL: &str =
+pub const PRINCIPAL_CONTROL_CREATE_CELL: &str =
     "ak:cell:ak.component.realm.create.v1:principal_control";
+pub const MANAGED_AGENT_PRINCIPAL_CONTROL_CREATE_CELL: &str =
+    "ak:cell:ak.component.realm.create.v1:managed_agent_principal_control";
+
+/// Construct the canonical producer effect for a controller-delegated managed
+/// Agent Principal Control Realm genesis.
+pub fn managed_agent_principal_control_create_effect(
+    realm_id: &RealmId,
+    actor_seq: u64,
+) -> Result<Effect> {
+    Ok(Effect {
+        cell: CellRef::new(MANAGED_AGENT_PRINCIPAL_CONTROL_CREATE_CELL)?,
+        op: LatticeOp {
+            op_type: LatticeOpType::Append,
+            tag: None,
+            value: Some(Value::String(realm_id.to_string())),
+            from: None,
+            to: None,
+            reason: None,
+            issuer_seq: Some(actor_seq),
+        },
+    })
+}
 
 /// Public inputs required to construct the unsigned, root-anchored first
 /// Event of a self-principal PCR bootstrap unit.
