@@ -683,12 +683,6 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/artifacts/event_payload/strand_history_join.rs::JoinPolicyPayload.directory_hint",
-      "spec_pointer": "event-payload.schema.json#/$defs/join_policy_payload/properties/directory_hint",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
       "rust_field": "crates/core/src/models/artifacts/event_payload/strand_history_join.rs::JoinPolicyPayloadGatesItem.extra",
       "spec_pointer": "event-payload.schema.json#/$defs/join_policy_payload/additionalProperties",
       "classification": "open_json",

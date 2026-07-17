@@ -11,9 +11,9 @@ use serde_json::json;
 use super::*;
 use crate::{
     AccountNotificationDataKind, AgentRuntimeApprovalNotificationData,
-    AgentRuntimeApprovalNotificationRemovalData, AgentRuntimeApprovalRemovalReason, Did,
-    EphemeralEnvelope, Hash, NotificationContainer, NotificationData, NotificationId,
-    NotificationType, Proof, RealmId,
+    AgentRuntimeApprovalNotificationRemovalData, AgentRuntimeApprovalRemovalReason,
+    DeviceMessageId, Did, EphemeralEnvelope, Hash, NotificationContainer, NotificationData,
+    NotificationId, NotificationType, Proof, RealmId,
 };
 
 fn sync_response(cursor: &str) -> AccountSubscribeBatch {
@@ -346,6 +346,10 @@ fn processor_dispatches_all_update_categories() {
     });
     frame.to_device = Some(DeviceMessageContainer {
         messages: vec![DeviceMessageEnvelope {
+            message_id: DeviceMessageId::new(
+                "ak:device_message:01904100-0000-7000-8000-000000000007",
+            )
+            .unwrap(),
             kind: ProtocolKind::new("ak.test.message").unwrap(),
             content: serde_json::from_value(json!({"ok":true})).unwrap(),
             sender_principal_id: sender.clone(),

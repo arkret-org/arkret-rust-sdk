@@ -845,7 +845,7 @@ mod tests {
             DirectoryPrivateContactDiscoveryRequestBody, EffectiveScope, Event, EventId,
             EventRequirements, Hash, Hlc, MLS_GOVERNANCE_BINDING_FULL_PROFILE,
             MimiReportAbuseRequestBody, MimiRoomUri, MlsGovernanceProofRequest, NonEmptyString,
-            RealmId, StrandId, SyncRequestBody,
+            RealmId, ServiceType, StrandId, SyncRequestBody,
         };
         use serde_json::{Value, json};
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -1251,6 +1251,60 @@ mod tests {
                 !headers
                     .lines()
                     .any(|line| line.to_ascii_lowercase().starts_with("dpop:"))
+            );
+        }
+
+        #[tokio::test]
+        async fn role_scoped_describe_sends_selector_and_rejects_mismatched_response() {
+            let canned = r#"{
+                "protocol_version":"1.0",
+                "service_type":"principal_server",
+                "service_id":"did:web:server.local",
+                "trust_domain":"ak:trust_domain:server.local",
+                "supported_profiles":[],
+                "supported_operations":[],
+                "supported_bindings":[],
+                "supported_features":[],
+                "auth_metadata":{"mode":"development","methods":[]},
+                "limits":{},
+                "plaintext_visibility":{"data_classes":[],"max_visibility":"none"},
+                "implemented_features":[],
+                "claimed_profiles":[],
+                "verified_profiles":[],
+                "experimental_features":[],
+                "compat_surfaces":[],
+                "development_mode":false,
+                "rate_limit_policy":{}
+            }"#;
+            let (client, capture) = spawn_capture_server(canned).await;
+            let description = client
+                .describe_for_role(ServiceType::PrincipalServer)
+                .await
+                .unwrap();
+            assert_eq!(description.service_type, ServiceType::PrincipalServer);
+
+            let raw = capture.await.unwrap();
+            let (request_line, _headers, _body) = split_request(&raw);
+            assert!(
+                request_line
+                    .starts_with("GET /_arkret/describe?service_type=principal_server HTTP/1.1"),
+                "unexpected request line: {request_line}",
+            );
+
+            let mismatched = Box::leak(
+                canned
+                    .replace(
+                        "\"service_type\":\"principal_server\"",
+                        "\"service_type\":\"auth_server\"",
+                    )
+                    .into_boxed_str(),
+            );
+            let (client, _capture) = spawn_capture_server(mismatched).await;
+            assert!(
+                client
+                    .describe_for_role(ServiceType::PrincipalServer)
+                    .await
+                    .is_err()
             );
         }
 

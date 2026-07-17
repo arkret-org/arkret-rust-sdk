@@ -14,8 +14,9 @@ use arkret_core::{
     DirectoryTargetResolutionOutcome, DirectoryUserSearchOutcome, IdentityDescription,
     IdentityDocumentView, IdentityLogListOutcome, IdentityReceiptListOutcome,
     IdentityResolveOutcome, IdentityResolveRequestBody, Result, SERVICE_REGISTRATION_ENSURE_PATH,
-    SERVICE_REGISTRATION_GET_PATH, ServiceDescribe, ServiceRegistrationEnsureRequestBody,
-    ServiceRegistrationKey, ServiceRegistrationOutcome, ServiceRequirements,
+    SERVICE_REGISTRATION_GET_PATH, ServiceDescribe, ServiceEndpointBinding, ServiceIdAllowlist,
+    ServiceRegistrationEnsureRequestBody, ServiceRegistrationKey, ServiceRegistrationOutcome,
+    ServiceRequirements, ServiceType,
 };
 use reqwest::Method;
 
@@ -27,12 +28,63 @@ impl Client {
         self.send_json(builder).await
     }
 
+    /// Fetches the description for exactly one co-located service role.
+    pub async fn describe_for_role(&self, service_type: ServiceType) -> Result<ServiceDescribe> {
+        if !service_type.valid_in("service_describe") {
+            return Err(arkret_core::Error::Protocol(format!(
+                "service_type {} is not valid for service describe",
+                service_type.as_str()
+            )));
+        }
+        let builder = self
+            .public_request(Method::GET, "/_arkret/describe")?
+            .query(&[("service_type", service_type.as_str())]);
+        let description: ServiceDescribe = self.send_json(builder).await?;
+        ServiceRequirements::new()
+            .service_type(service_type)
+            .verify(&description)?;
+        Ok(description)
+    }
+
     pub async fn describe_and_verify(
         &self,
         requirements: &ServiceRequirements,
     ) -> Result<ServiceDescribe> {
         let description = self.describe().await?;
         requirements.verify(&description)?;
+        Ok(description)
+    }
+
+    pub async fn describe_role_and_verify(
+        &self,
+        service_type: ServiceType,
+        requirements: &ServiceRequirements,
+    ) -> Result<ServiceDescribe> {
+        let description = self.describe_for_role(service_type).await?;
+        requirements.verify(&description)?;
+        Ok(description)
+    }
+
+    /// Fetches one role-scoped description and verifies its service DID and
+    /// advertised operations against the expected DID service binding.
+    pub async fn describe_role_and_verify_binding(
+        &self,
+        service_type: ServiceType,
+        requirements: &ServiceRequirements,
+        binding: &ServiceEndpointBinding,
+    ) -> Result<ServiceDescribe> {
+        if binding.service_type != service_type {
+            return Err(arkret_core::Error::Protocol(format!(
+                "service binding role {} does not match requested role {}",
+                binding.service_type, service_type
+            )));
+        }
+        let description = self
+            .describe_role_and_verify(service_type, requirements)
+            .await?;
+        ServiceIdAllowlist::new()
+            .allow(binding.clone())
+            .verify_description(&description)?;
         Ok(description)
     }
 

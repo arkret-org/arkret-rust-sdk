@@ -21,8 +21,8 @@ use zeroize::Zeroizing;
 
 use super::identity::{ARKRET_MLS_CIPHERSUITE, ArkretMlsIdentity, decode_key_package};
 use crate::{
-    CryptoStore, DeviceId, DeviceMessageTarget, Did, EncryptedPayload, EncryptedPayloadScheme,
-    Error, Hash, MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsCommitEnvelope,
+    CryptoStore, DeviceId, DeviceMessageId, DeviceMessageTarget, Did, EncryptedPayload,
+    EncryptedPayloadScheme, Error, Hash, MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsCommitEnvelope,
     MlsGovernanceBindingExtension, MlsGovernanceBindingPayload,
     MlsGovernanceBindingValidationContext, MlsGroupStateRecord, MlsKeyPackageRecord,
     MlsProposalEnvelope, MlsWelcomeEnvelope, Operation, OperationId, ProtocolKind, RealmId, Result,
@@ -159,9 +159,11 @@ impl MlsAddMemberResult {
 
     pub fn welcome_device_message_target(
         &self,
+        message_id: DeviceMessageId,
         expires_at: chrono::DateTime<Utc>,
     ) -> Result<DeviceMessageTarget> {
         Ok(DeviceMessageTarget {
+            message_id,
             kind: ProtocolKind::new("ak.mls.welcome.v1")
                 .map_err(|error| Error::Protocol(error.to_owned()))?,
             content: serde_json::from_value(json!({

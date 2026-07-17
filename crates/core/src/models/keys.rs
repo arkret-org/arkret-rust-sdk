@@ -238,6 +238,7 @@ pub struct DeviceMessagesSendRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DeviceMessageTarget {
+    pub message_id: DeviceMessageId,
     pub kind: ProtocolKind,
     pub content: BTreeMap<String, Value>,
     pub expires_at: DateTime<Utc>,
@@ -292,13 +293,22 @@ mod device_message_tests {
     #[test]
     fn device_message_target_rejects_non_object_content_and_invalid_kind() {
         let valid = json!({
+            "message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
             "kind": "ak.key.verification.request",
             "content": {"transaction_id": "txn"},
             "expires_at": "2026-07-15T01:00:00Z"
         });
         assert!(serde_json::from_value::<DeviceMessageTarget>(valid).is_ok());
 
+        let missing_message_id = json!({
+            "kind": "ak.key.verification.request",
+            "content": {"transaction_id": "txn"},
+            "expires_at": "2026-07-15T01:00:00Z"
+        });
+        assert!(serde_json::from_value::<DeviceMessageTarget>(missing_message_id).is_err());
+
         let invalid_kind = json!({
+            "message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
             "kind": "key.verification.request",
             "content": {},
             "expires_at": "2026-07-15T01:00:00Z"
@@ -306,6 +316,7 @@ mod device_message_tests {
         assert!(serde_json::from_value::<DeviceMessageTarget>(invalid_kind).is_err());
 
         let scalar_content = json!({
+            "message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
             "kind": "ak.key.verification.request",
             "content": "legacy payload",
             "expires_at": "2026-07-15T01:00:00Z"
