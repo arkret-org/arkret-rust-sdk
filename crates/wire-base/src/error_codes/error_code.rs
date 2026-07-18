@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-07-10; sha256=2e602789f21d6df2e68fcaaadce73ebc1c619d66ee1a3152613d98ad3dc80c29
-//! Entries: error_codes=243
+//! Input: registry/error-code-registry.json; version=2026-07-10;
+//! sha256=2e602789f21d6df2e68fcaaadce73ebc1c619d66ee1a3152613d98ad3dc80c29 Entries: error_codes=243
 
 use serde::{Deserialize, Serialize};
 
@@ -518,18 +518,23 @@ impl ErrorCode {
     pub const ACCOUNT_LOCKED: &'static str = "account_locked";
     pub const ACCOUNT_SUSPENDED: &'static str = "account_suspended";
     pub const ACTOR_SEQ_INVALID: &'static str = "actor_seq_invalid";
-    pub const AGENT_PROVISION_FANOUT_UNAVAILABLE: &'static str = "agent_provision_fanout_unavailable";
+    pub const AGENT_PROVISION_FANOUT_UNAVAILABLE: &'static str =
+        "agent_provision_fanout_unavailable";
     pub const APPLET_ALREADY_REGISTERED: &'static str = "applet_already_registered";
     pub const APPLET_E2EE_JOIN_UNAUTHORIZED: &'static str = "applet_e2ee_join_unauthorized";
     pub const APPLET_EFFECTIVE_SCOPE_MISMATCH: &'static str = "applet_effective_scope_mismatch";
     pub const APPLET_INSTALL_PLAN_MISMATCH: &'static str = "applet_install_plan_mismatch";
-    pub const APPLET_INSTALL_PROJECTION_INCOMPLETE: &'static str = "applet_install_projection_incomplete";
+    pub const APPLET_INSTALL_PROJECTION_INCOMPLETE: &'static str =
+        "applet_install_projection_incomplete";
     pub const APPLET_INSTALL_REQUIRED: &'static str = "applet_install_required";
     pub const APPLET_NAMESPACE_CONFLICT: &'static str = "applet_namespace_conflict";
     pub const APPLET_PACKAGE_EXPIRED: &'static str = "applet_package_expired";
-    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_MISMATCH: &'static str = "applet_registration_epoch_evidence_mismatch";
-    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_MISSING: &'static str = "applet_registration_epoch_evidence_missing";
-    pub const APPLET_REGISTRATION_EPOCH_SIGNING_KEY_MISMATCH: &'static str = "applet_registration_epoch_signing_key_mismatch";
+    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_MISMATCH: &'static str =
+        "applet_registration_epoch_evidence_mismatch";
+    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_MISSING: &'static str =
+        "applet_registration_epoch_evidence_missing";
+    pub const APPLET_REGISTRATION_EPOCH_SIGNING_KEY_MISMATCH: &'static str =
+        "applet_registration_epoch_signing_key_mismatch";
     pub const APPLET_REGISTRATION_UNAUTHORIZED: &'static str = "applet_registration_unauthorized";
     pub const APPLET_REVOKED: &'static str = "applet_revoked";
     pub const APPLET_TRANSACTION_IN_PROGRESS: &'static str = "applet_transaction_in_progress";
@@ -570,9 +575,11 @@ impl ErrorCode {
     pub const DELIVERY_BINDING_UNRESOLVABLE: &'static str = "delivery_binding_unresolvable";
     pub const DEPENDENCY_MISSING: &'static str = "dependency_missing";
     pub const DEVICE_ALREADY_AUTHORIZED: &'static str = "device_already_authorized";
-    pub const DEVICE_ENROLLMENT_AUTHORITY_NOT_DESIGNATED: &'static str = "device_enrollment_authority_not_designated";
+    pub const DEVICE_ENROLLMENT_AUTHORITY_NOT_DESIGNATED: &'static str =
+        "device_enrollment_authority_not_designated";
     pub const DEVICE_NOT_AUTHORIZED: &'static str = "device_not_authorized";
-    pub const DEVICE_RECOVERY_SSK_GENERATION_MISMATCH: &'static str = "device_recovery_ssk_generation_mismatch";
+    pub const DEVICE_RECOVERY_SSK_GENERATION_MISMATCH: &'static str =
+        "device_recovery_ssk_generation_mismatch";
     pub const DEVICE_REVOKED: &'static str = "device_revoked";
     pub const DEVICE_UNKNOWN: &'static str = "device_unknown";
     pub const DID_ALREADY_EXISTS: &'static str = "did_already_exists";
@@ -587,7 +594,8 @@ impl ErrorCode {
     pub const DUPLICATE_CLAUSE_CLAIM: &'static str = "duplicate_clause_claim";
     pub const DUPLICATE_CONFLICT: &'static str = "duplicate_conflict";
     pub const E2EE_REQUIRED: &'static str = "e2ee_required";
-    pub const ENCLAVE_NO_UPSTREAM_PROXY_FOR_EXTERNAL: &'static str = "enclave_no_upstream_proxy_for_external";
+    pub const ENCLAVE_NO_UPSTREAM_PROXY_FOR_EXTERNAL: &'static str =
+        "enclave_no_upstream_proxy_for_external";
     pub const ENCLAVE_NOT_TRUSTED: &'static str = "enclave_not_trusted";
     pub const EPHEMERAL_CHANNEL_UNAVAILABLE: &'static str = "ephemeral_channel_unavailable";
     pub const EPHEMERAL_KIND_NOT_PERMITTED: &'static str = "ephemeral_kind_not_permitted";
@@ -601,7 +609,8 @@ impl ErrorCode {
     pub const FEDERATION_ACTOR_ORIGIN_REJECTED: &'static str = "federation_actor_origin_rejected";
     pub const FEDERATION_INTEROP_TRACK_ONLY: &'static str = "federation_interop_track_only";
     pub const FEDERATION_ORIGIN_DENIED: &'static str = "federation_origin_denied";
-    pub const FEDERATION_PRIVATE_READ_RAIL_LOCAL_ONLY: &'static str = "federation_private_read_rail_local_only";
+    pub const FEDERATION_PRIVATE_READ_RAIL_LOCAL_ONLY: &'static str =
+        "federation_private_read_rail_local_only";
     pub const FIRST_BACKUP_GATE_UNSATISFIED: &'static str = "first_backup_gate_unsatisfied";
     pub const FRANKING_PROOF_UNAVAILABLE: &'static str = "franking_proof_unavailable";
     pub const FRANKING_TAMPERED: &'static str = "franking_tampered";
@@ -638,8 +647,10 @@ impl ErrorCode {
     pub const MIMI_REPORTER_RESOLUTION_REQUIRED: &'static str = "mimi_reporter_resolution_required";
     pub const MISSING_PARAM: &'static str = "missing_param";
     pub const MLS_GOVERNANCE_ANCHOR_UNREACHABLE: &'static str = "mls_governance_anchor_unreachable";
-    pub const MLS_GOVERNANCE_PROOF_BOUNDS_EXCEEDED: &'static str = "mls_governance_proof_bounds_exceeded";
-    pub const MLS_KEYPACKAGE_CLAIM_REQUEST_EXPIRED: &'static str = "mls_keypackage_claim_request_expired";
+    pub const MLS_GOVERNANCE_PROOF_BOUNDS_EXCEEDED: &'static str =
+        "mls_governance_proof_bounds_exceeded";
+    pub const MLS_KEYPACKAGE_CLAIM_REQUEST_EXPIRED: &'static str =
+        "mls_keypackage_claim_request_expired";
     pub const MORPH_PROFILE_WIDENS_SCHEMA_REF: &'static str = "morph_profile_widens_schema_ref";
     pub const MORPH_TYPE_IMMUTABLE: &'static str = "morph_type_immutable";
     pub const NOT_FOUND: &'static str = "not_found";
@@ -671,27 +682,38 @@ impl ErrorCode {
     pub const QUOTA_EXCEEDED: &'static str = "quota_exceeded";
     pub const RANK_EXHAUSTED: &'static str = "rank_exhausted";
     pub const RATE_LIMITED: &'static str = "rate_limited";
-    pub const READ_RECEIPT_COMPLIANCE_FLOOR_VIOLATED: &'static str = "read_receipt_compliance_floor_violated";
+    pub const READ_RECEIPT_COMPLIANCE_FLOOR_VIOLATED: &'static str =
+        "read_receipt_compliance_floor_violated";
     pub const REALM_FEDERATION_POLICY_CLOSED: &'static str = "realm_federation_policy_closed";
     pub const REALM_FEDERATION_POLICY_INVALID: &'static str = "realm_federation_policy_invalid";
-    pub const REALM_FEDERATION_POLICY_QUARANTINE: &'static str = "realm_federation_policy_quarantine";
-    pub const REALM_FEDERATION_POLICY_RESTRICTED: &'static str = "realm_federation_policy_restricted";
+    pub const REALM_FEDERATION_POLICY_QUARANTINE: &'static str =
+        "realm_federation_policy_quarantine";
+    pub const REALM_FEDERATION_POLICY_RESTRICTED: &'static str =
+        "realm_federation_policy_restricted";
     pub const REALM_FROZEN: &'static str = "realm_frozen";
     pub const REALM_MODERATION_POLICY_DENIED: &'static str = "realm_moderation_policy_denied";
     pub const RECORDING_DENIED: &'static str = "recording_denied";
-    pub const RECOVERY_AUTHORIZATION_DEVICE_MISMATCH: &'static str = "recovery_authorization_device_mismatch";
-    pub const RECOVERY_AUTHORIZATION_PRINCIPAL_MISMATCH: &'static str = "recovery_authorization_principal_mismatch";
-    pub const RECOVERY_AUTHORIZATION_SESSION_MISMATCH: &'static str = "recovery_authorization_session_mismatch";
-    pub const RECOVERY_CONTROL_EVENT_KIND_MISMATCH: &'static str = "recovery_control_event_kind_mismatch";
+    pub const RECOVERY_AUTHORIZATION_DEVICE_MISMATCH: &'static str =
+        "recovery_authorization_device_mismatch";
+    pub const RECOVERY_AUTHORIZATION_PRINCIPAL_MISMATCH: &'static str =
+        "recovery_authorization_principal_mismatch";
+    pub const RECOVERY_AUTHORIZATION_SESSION_MISMATCH: &'static str =
+        "recovery_authorization_session_mismatch";
+    pub const RECOVERY_CONTROL_EVENT_KIND_MISMATCH: &'static str =
+        "recovery_control_event_kind_mismatch";
     pub const RECOVERY_CONTROL_EVENT_NOT_FOUND: &'static str = "recovery_control_event_not_found";
-    pub const RECOVERY_LIST_UPDATE_DEVICE_MISMATCH: &'static str = "recovery_list_update_device_mismatch";
-    pub const RECOVERY_LIST_UPDATE_PRINCIPAL_MISMATCH: &'static str = "recovery_list_update_principal_mismatch";
+    pub const RECOVERY_LIST_UPDATE_DEVICE_MISMATCH: &'static str =
+        "recovery_list_update_device_mismatch";
+    pub const RECOVERY_LIST_UPDATE_PRINCIPAL_MISMATCH: &'static str =
+        "recovery_list_update_principal_mismatch";
     pub const RECOVERY_POLICY_CONFLICT: &'static str = "recovery_policy_conflict";
-    pub const RECOVERY_POLICY_DEVICE_NOT_AUTHORIZED: &'static str = "recovery_policy_device_not_authorized";
+    pub const RECOVERY_POLICY_DEVICE_NOT_AUTHORIZED: &'static str =
+        "recovery_policy_device_not_authorized";
     pub const RECOVERY_POLICY_ID_MISMATCH: &'static str = "recovery_policy_id_mismatch";
     pub const RECOVERY_POLICY_MISSING: &'static str = "recovery_policy_missing";
     pub const RECOVERY_POLICY_REVOKED: &'static str = "recovery_policy_revoked";
-    pub const RECOVERY_POLICY_TRUST_DOMAIN_MISMATCH: &'static str = "recovery_policy_trust_domain_mismatch";
+    pub const RECOVERY_POLICY_TRUST_DOMAIN_MISMATCH: &'static str =
+        "recovery_policy_trust_domain_mismatch";
     pub const RECOVERY_POLICY_VERSION_MISMATCH: &'static str = "recovery_policy_version_mismatch";
     pub const RECOVERY_PROOF_AUTHORITY_INVALID: &'static str = "recovery_proof_authority_invalid";
     pub const RECOVERY_PROOF_KIND_NOT_ALLOWED: &'static str = "recovery_proof_kind_not_allowed";
@@ -707,7 +729,8 @@ impl ErrorCode {
     pub const SEAL_REF_UNKNOWN: &'static str = "seal_ref_unknown";
     pub const SEAL_SIGNER_UNAUTHORIZED: &'static str = "seal_signer_unauthorized";
     pub const SERVICE_IDENTITY_CONFLICT: &'static str = "service_identity_conflict";
-    pub const SERVICE_IDENTITY_PROVIDER_UNAVAILABLE: &'static str = "service_identity_provider_unavailable";
+    pub const SERVICE_IDENTITY_PROVIDER_UNAVAILABLE: &'static str =
+        "service_identity_provider_unavailable";
     pub const SERVICE_IDENTITY_UNAVAILABLE: &'static str = "service_identity_unavailable";
     pub const SERVICE_REGISTRATION_REJECTED: &'static str = "service_registration_rejected";
     pub const SERVICE_UNAVAILABLE: &'static str = "service_unavailable";
@@ -773,9 +796,15 @@ impl ErrorCode {
             Self::AppletInstallRequired => "applet_install_required",
             Self::AppletNamespaceConflict => "applet_namespace_conflict",
             Self::AppletPackageExpired => "applet_package_expired",
-            Self::AppletRegistrationEpochEvidenceMismatch => "applet_registration_epoch_evidence_mismatch",
-            Self::AppletRegistrationEpochEvidenceMissing => "applet_registration_epoch_evidence_missing",
-            Self::AppletRegistrationEpochSigningKeyMismatch => "applet_registration_epoch_signing_key_mismatch",
+            Self::AppletRegistrationEpochEvidenceMismatch => {
+                "applet_registration_epoch_evidence_mismatch"
+            }
+            Self::AppletRegistrationEpochEvidenceMissing => {
+                "applet_registration_epoch_evidence_missing"
+            }
+            Self::AppletRegistrationEpochSigningKeyMismatch => {
+                "applet_registration_epoch_signing_key_mismatch"
+            }
             Self::AppletRegistrationUnauthorized => "applet_registration_unauthorized",
             Self::AppletRevoked => "applet_revoked",
             Self::AppletTransactionInProgress => "applet_transaction_in_progress",
@@ -816,7 +845,9 @@ impl ErrorCode {
             Self::DeliveryBindingUnresolvable => "delivery_binding_unresolvable",
             Self::DependencyMissing => "dependency_missing",
             Self::DeviceAlreadyAuthorized => "device_already_authorized",
-            Self::DeviceEnrollmentAuthorityNotDesignated => "device_enrollment_authority_not_designated",
+            Self::DeviceEnrollmentAuthorityNotDesignated => {
+                "device_enrollment_authority_not_designated"
+            }
             Self::DeviceNotAuthorized => "device_not_authorized",
             Self::DeviceRecoverySskGenerationMismatch => "device_recovery_ssk_generation_mismatch",
             Self::DeviceRevoked => "device_revoked",
@@ -926,7 +957,9 @@ impl ErrorCode {
             Self::RealmModerationPolicyDenied => "realm_moderation_policy_denied",
             Self::RecordingDenied => "recording_denied",
             Self::RecoveryAuthorizationDeviceMismatch => "recovery_authorization_device_mismatch",
-            Self::RecoveryAuthorizationPrincipalMismatch => "recovery_authorization_principal_mismatch",
+            Self::RecoveryAuthorizationPrincipalMismatch => {
+                "recovery_authorization_principal_mismatch"
+            }
             Self::RecoveryAuthorizationSessionMismatch => "recovery_authorization_session_mismatch",
             Self::RecoveryControlEventKindMismatch => "recovery_control_event_kind_mismatch",
             Self::RecoveryControlEventNotFound => "recovery_control_event_not_found",
@@ -1021,9 +1054,15 @@ impl ErrorCode {
             "applet_install_required" => Some(Self::AppletInstallRequired),
             "applet_namespace_conflict" => Some(Self::AppletNamespaceConflict),
             "applet_package_expired" => Some(Self::AppletPackageExpired),
-            "applet_registration_epoch_evidence_mismatch" => Some(Self::AppletRegistrationEpochEvidenceMismatch),
-            "applet_registration_epoch_evidence_missing" => Some(Self::AppletRegistrationEpochEvidenceMissing),
-            "applet_registration_epoch_signing_key_mismatch" => Some(Self::AppletRegistrationEpochSigningKeyMismatch),
+            "applet_registration_epoch_evidence_mismatch" => {
+                Some(Self::AppletRegistrationEpochEvidenceMismatch)
+            }
+            "applet_registration_epoch_evidence_missing" => {
+                Some(Self::AppletRegistrationEpochEvidenceMissing)
+            }
+            "applet_registration_epoch_signing_key_mismatch" => {
+                Some(Self::AppletRegistrationEpochSigningKeyMismatch)
+            }
             "applet_registration_unauthorized" => Some(Self::AppletRegistrationUnauthorized),
             "applet_revoked" => Some(Self::AppletRevoked),
             "applet_transaction_in_progress" => Some(Self::AppletTransactionInProgress),
@@ -1064,9 +1103,13 @@ impl ErrorCode {
             "delivery_binding_unresolvable" => Some(Self::DeliveryBindingUnresolvable),
             "dependency_missing" => Some(Self::DependencyMissing),
             "device_already_authorized" => Some(Self::DeviceAlreadyAuthorized),
-            "device_enrollment_authority_not_designated" => Some(Self::DeviceEnrollmentAuthorityNotDesignated),
+            "device_enrollment_authority_not_designated" => {
+                Some(Self::DeviceEnrollmentAuthorityNotDesignated)
+            }
             "device_not_authorized" => Some(Self::DeviceNotAuthorized),
-            "device_recovery_ssk_generation_mismatch" => Some(Self::DeviceRecoverySskGenerationMismatch),
+            "device_recovery_ssk_generation_mismatch" => {
+                Some(Self::DeviceRecoverySskGenerationMismatch)
+            }
             "device_revoked" => Some(Self::DeviceRevoked),
             "device_unknown" => Some(Self::DeviceUnknown),
             "did_already_exists" => Some(Self::DidAlreadyExists),
@@ -1081,7 +1124,9 @@ impl ErrorCode {
             "duplicate_clause_claim" => Some(Self::DuplicateClauseClaim),
             "duplicate_conflict" => Some(Self::DuplicateConflict),
             "e2ee_required" => Some(Self::E2eeRequired),
-            "enclave_no_upstream_proxy_for_external" => Some(Self::EnclaveNoUpstreamProxyForExternal),
+            "enclave_no_upstream_proxy_for_external" => {
+                Some(Self::EnclaveNoUpstreamProxyForExternal)
+            }
             "enclave_not_trusted" => Some(Self::EnclaveNotTrusted),
             "ephemeral_channel_unavailable" => Some(Self::EphemeralChannelUnavailable),
             "ephemeral_kind_not_permitted" => Some(Self::EphemeralKindNotPermitted),
@@ -1095,7 +1140,9 @@ impl ErrorCode {
             "federation_actor_origin_rejected" => Some(Self::FederationActorOriginRejected),
             "federation_interop_track_only" => Some(Self::FederationInteropTrackOnly),
             "federation_origin_denied" => Some(Self::FederationOriginDenied),
-            "federation_private_read_rail_local_only" => Some(Self::FederationPrivateReadRailLocalOnly),
+            "federation_private_read_rail_local_only" => {
+                Some(Self::FederationPrivateReadRailLocalOnly)
+            }
             "first_backup_gate_unsatisfied" => Some(Self::FirstBackupGateUnsatisfied),
             "franking_proof_unavailable" => Some(Self::FrankingProofUnavailable),
             "franking_tampered" => Some(Self::FrankingTampered),
@@ -1165,7 +1212,9 @@ impl ErrorCode {
             "quota_exceeded" => Some(Self::QuotaExceeded),
             "rank_exhausted" => Some(Self::RankExhausted),
             "rate_limited" => Some(Self::RateLimited),
-            "read_receipt_compliance_floor_violated" => Some(Self::ReadReceiptComplianceFloorViolated),
+            "read_receipt_compliance_floor_violated" => {
+                Some(Self::ReadReceiptComplianceFloorViolated)
+            }
             "realm_federation_policy_closed" => Some(Self::RealmFederationPolicyClosed),
             "realm_federation_policy_invalid" => Some(Self::RealmFederationPolicyInvalid),
             "realm_federation_policy_quarantine" => Some(Self::RealmFederationPolicyQuarantine),
@@ -1173,19 +1222,31 @@ impl ErrorCode {
             "realm_frozen" => Some(Self::RealmFrozen),
             "realm_moderation_policy_denied" => Some(Self::RealmModerationPolicyDenied),
             "recording_denied" => Some(Self::RecordingDenied),
-            "recovery_authorization_device_mismatch" => Some(Self::RecoveryAuthorizationDeviceMismatch),
-            "recovery_authorization_principal_mismatch" => Some(Self::RecoveryAuthorizationPrincipalMismatch),
-            "recovery_authorization_session_mismatch" => Some(Self::RecoveryAuthorizationSessionMismatch),
+            "recovery_authorization_device_mismatch" => {
+                Some(Self::RecoveryAuthorizationDeviceMismatch)
+            }
+            "recovery_authorization_principal_mismatch" => {
+                Some(Self::RecoveryAuthorizationPrincipalMismatch)
+            }
+            "recovery_authorization_session_mismatch" => {
+                Some(Self::RecoveryAuthorizationSessionMismatch)
+            }
             "recovery_control_event_kind_mismatch" => Some(Self::RecoveryControlEventKindMismatch),
             "recovery_control_event_not_found" => Some(Self::RecoveryControlEventNotFound),
             "recovery_list_update_device_mismatch" => Some(Self::RecoveryListUpdateDeviceMismatch),
-            "recovery_list_update_principal_mismatch" => Some(Self::RecoveryListUpdatePrincipalMismatch),
+            "recovery_list_update_principal_mismatch" => {
+                Some(Self::RecoveryListUpdatePrincipalMismatch)
+            }
             "recovery_policy_conflict" => Some(Self::RecoveryPolicyConflict),
-            "recovery_policy_device_not_authorized" => Some(Self::RecoveryPolicyDeviceNotAuthorized),
+            "recovery_policy_device_not_authorized" => {
+                Some(Self::RecoveryPolicyDeviceNotAuthorized)
+            }
             "recovery_policy_id_mismatch" => Some(Self::RecoveryPolicyIdMismatch),
             "recovery_policy_missing" => Some(Self::RecoveryPolicyMissing),
             "recovery_policy_revoked" => Some(Self::RecoveryPolicyRevoked),
-            "recovery_policy_trust_domain_mismatch" => Some(Self::RecoveryPolicyTrustDomainMismatch),
+            "recovery_policy_trust_domain_mismatch" => {
+                Some(Self::RecoveryPolicyTrustDomainMismatch)
+            }
             "recovery_policy_version_mismatch" => Some(Self::RecoveryPolicyVersionMismatch),
             "recovery_proof_authority_invalid" => Some(Self::RecoveryProofAuthorityInvalid),
             "recovery_proof_kind_not_allowed" => Some(Self::RecoveryProofKindNotAllowed),
@@ -1201,7 +1262,9 @@ impl ErrorCode {
             "seal_ref_unknown" => Some(Self::SealRefUnknown),
             "seal_signer_unauthorized" => Some(Self::SealSignerUnauthorized),
             "service_identity_conflict" => Some(Self::ServiceIdentityConflict),
-            "service_identity_provider_unavailable" => Some(Self::ServiceIdentityProviderUnavailable),
+            "service_identity_provider_unavailable" => {
+                Some(Self::ServiceIdentityProviderUnavailable)
+            }
             "service_identity_unavailable" => Some(Self::ServiceIdentityUnavailable),
             "service_registration_rejected" => Some(Self::ServiceRegistrationRejected),
             "service_unavailable" => Some(Self::ServiceUnavailable),

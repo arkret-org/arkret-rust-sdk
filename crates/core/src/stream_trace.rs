@@ -285,7 +285,7 @@ mod tests {
     }
 
     enum SurfaceFrame {
-        Account(AccountSubscribeFrame),
+        Account(Box<AccountSubscribeFrame>),
         Events(EventsSubscribeFrame),
     }
 
@@ -308,7 +308,7 @@ mod tests {
     fn surface_frame(surface: Surface, value: &Value) -> SurfaceFrame {
         match surface {
             Surface::Account => {
-                SurfaceFrame::Account(serde_json::from_value(value.clone()).unwrap())
+                SurfaceFrame::Account(Box::new(serde_json::from_value(value.clone()).unwrap()))
             }
             Surface::Events => {
                 let kind = match value["kind"].as_str().unwrap() {

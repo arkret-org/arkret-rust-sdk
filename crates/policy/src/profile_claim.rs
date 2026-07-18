@@ -484,7 +484,7 @@ mod tests {
             ServiceType::ModerationService,
             ServiceType::SyncNode,
         ] {
-            let roles = ProfileValidator::permitted_roles(service.clone());
+            let roles = ProfileValidator::permitted_roles(service);
             assert!(roles.contains(&ProfileRole::Interop));
             assert!(roles.contains(&ProfileRole::Admin));
         }

@@ -12,7 +12,7 @@ pub enum AgentOperations {
     AgentKeyPairOutcome(AgentKeyPairOutcome),
     AgentRuntimeApprovalRequestBody(AgentRuntimeApprovalRequestBody),
     AgentRuntimeApprovalOutcome(AgentRuntimeApprovalOutcome),
-    AgentProvisionRequestBody(AgentProvisionRequestBody),
+    AgentProvisionRequestBody(Box<AgentProvisionRequestBody>),
     AgentProvisionOutcome(AgentProvisionOutcome),
     AgentRenewPairingRequestBody(AgentRenewPairingRequestBody),
     AgentRenewPairingOutcome(AgentRenewPairingOutcome),

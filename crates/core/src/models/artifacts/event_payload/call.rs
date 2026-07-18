@@ -820,7 +820,7 @@ mod tests {
 
         assert_eq!(
             payload.validate_transcript_result_storage(),
-            Err(crate::ReasonCode::RECORDING_CONSENT_REQUIRED)
+            Err(ReasonCode::RECORDING_CONSENT_REQUIRED)
         );
     }
 }

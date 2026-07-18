@@ -123,7 +123,7 @@ fn did_document_default_binding_requires_digest() {
     // Negative half derived from the vector's own expectation
     // (`missing_did_document_digest_reason_code = schema_violation`):
     // dropping the digest must fail the conditional-required rule.
-    let mut stripped = binding.clone();
+    let mut stripped = binding;
     stripped.did_document_digest = None;
     stripped
         .validate()

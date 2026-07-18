@@ -371,11 +371,11 @@ mod tests {
 
         let response = resolve_response_from_document(document.clone(), None);
         assert_eq!(response.did_document["id"], document.id.as_str());
-        assert!(response.did_document.get("verificationMethod").is_some());
-        assert!(response.did_document.get("alsoKnownAs").is_some());
-        assert!(response.did_document.get("updated").is_some());
-        assert!(response.did_document.get("verification_methods").is_none());
-        assert!(response.did_document.get("also_known_as").is_none());
+        assert!(response.did_document.contains_key("verificationMethod"));
+        assert!(response.did_document.contains_key("alsoKnownAs"));
+        assert!(response.did_document.contains_key("updated"));
+        assert!(!response.did_document.contains_key("verification_methods"));
+        assert!(!response.did_document.contains_key("also_known_as"));
     }
 
     #[test]

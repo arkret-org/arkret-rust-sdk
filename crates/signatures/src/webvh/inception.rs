@@ -1995,7 +1995,7 @@ mod tests {
             challenge: "nonce_0123456789012345678901".to_owned(),
             purpose: arkret_core::IdentityBindingPurpose::AccountBinding,
             principal_id: validated.principal_id.clone(),
-            operation_digest: validated.operation_digest.clone(),
+            operation_digest: validated.operation_digest,
             lease_id: "lease_0123456789012345678901".to_owned(),
             lease_fence: 1,
             dpop_jkt: "a".repeat(43),

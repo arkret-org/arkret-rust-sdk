@@ -575,7 +575,7 @@ impl AgentProvisionRequestBuilder {
             slug: self.slug,
             avatar_blob_ref: self.avatar_blob_ref,
             requested_scope: self.requested_scope,
-            provision_events: self.provision_events,
+            provision_events: Box::new(self.provision_events),
             pairing_ttl_ms: self.pairing_ttl_ms,
         }
     }

@@ -845,8 +845,6 @@ impl Event {
     }
 }
 
-/// Canonical signed Event Envelope wire model.
-
 #[cfg(test)]
 mod event_wire_surface_tests {
     //! Guard the Event Envelope wire surface against removed non-spec fields.
@@ -1007,7 +1005,7 @@ mod event_wire_surface_tests {
     #[test]
     fn message_event_payload_classifies_message_and_reaction_kinds() {
         let mut revise = base_event();
-        revise.kind = crate::events::EventKind::MESSAGE_REVISE.into();
+        revise.kind = EventKind::MESSAGE_REVISE.into();
         revise.payload = serde_json::from_value(json!({
             "message_id": "ak:message:01904100-0000-7000-8000-000000000001",
             "content": {
@@ -1023,7 +1021,7 @@ mod event_wire_surface_tests {
         ));
 
         let mut reaction = base_event();
-        reaction.kind = crate::events::EventKind::REACTION_ADD.into();
+        reaction.kind = EventKind::REACTION_ADD.into();
         reaction.payload = serde_json::from_value(json!({
             "target_ref": "ak:event:01904100-0000-7000-8000-000000000099",
             "key": "+1"
@@ -1080,7 +1078,7 @@ mod event_wire_surface_tests {
     fn typed_payload_rejects_kind_mismatch() {
         let event = base_event();
         let error = event
-            .typed_payload::<MessageCreatePayload>(crate::events::EventKind::STRAND_CREATE)
+            .typed_payload::<MessageCreatePayload>(EventKind::STRAND_CREATE)
             .unwrap_err();
 
         assert!(error.to_string().contains("kind mismatch"), "{error}");
@@ -1167,7 +1165,7 @@ mod event_wire_surface_tests {
         let event = base_event();
         let baseline = event.event_digest().unwrap();
 
-        let mut stamped = event.clone();
+        let mut stamped = event;
         stamped.effective_scope = Some(EffectiveScope::Realm { realm_id: realm() });
         stamped.actor_kind = Some(EnvelopeActorKind::Agent);
 

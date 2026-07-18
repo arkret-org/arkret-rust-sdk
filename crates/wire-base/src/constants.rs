@@ -434,25 +434,11 @@ pub const HEADER_DESTINATION_TRUST_DOMAIN: &str = "Destination-Trust-Domain";
 /// computed. Spec commit f9bd7eb.
 pub const HEADER_REQUEST_CANONICAL_DIGEST: &str = "Request-Canonical-Digest";
 
-/// Policy server check.
-
-/// Push gateway register / unregister.
-
-/// Account aggregate stream and snapshot head.
-
 // Spec-sync (operation-registry.json) — service operations the registry ships
 // that the SDK had not yet enumerated. Trust-surface segments: `gate` =
 // pre-auth account onboarding, `self` = authenticated account-scoped surface,
 // `peer` = inter-principal-server federation surface, `root` = identity-root
 // recovery surface.
-
-/// `POST /_arkret/find/directory/takedown/appeal` — resource-side appeal of an
-/// operator takedown; returns a signed adjudication receipt.
-
-/// Canonical service operation IDs built into this SDK.
-///
-/// Event kinds live in `crate::events`; this list mirrors the spec
-/// `operation-registry.json` service surface.
 
 #[cfg(test)]
 mod tests {

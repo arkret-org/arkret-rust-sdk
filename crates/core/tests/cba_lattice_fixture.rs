@@ -122,11 +122,7 @@ fn realm_link_payload(status: RealmLinkStatus, target_realm_id: RealmId) -> Real
 }
 
 fn realm_id(suffix: &str) -> RealmId {
-    RealmId::new(format!(
-        "ak:realm:01904100-0000-7000-8000-{}",
-        format!("{suffix:0>12}")
-    ))
-    .unwrap()
+    RealmId::new(format!("ak:realm:01904100-0000-7000-8000-{suffix:0>12}")).unwrap()
 }
 
 /// Dispatch table: executes every assertion string the fixture's
@@ -636,13 +632,13 @@ fn dual_plane_vector_inventory_is_pinned() {
         );
         // Every embedded event must carry a plane marker consistent with the
         // CBA dual-plane notes (data / control) when present.
-        if let Some(event) = vector.get("event") {
-            if let Some(plane) = event.get("plane").and_then(Value::as_str) {
-                assert!(
-                    plane == "data" || plane == "control",
-                    "{vector_id}: unknown plane {plane}"
-                );
-            }
+        if let Some(event) = vector.get("event")
+            && let Some(plane) = event.get("plane").and_then(Value::as_str)
+        {
+            assert!(
+                plane == "data" || plane == "control",
+                "{vector_id}: unknown plane {plane}"
+            );
         }
     }
 }

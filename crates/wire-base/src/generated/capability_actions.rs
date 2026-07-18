@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-07-13; sha256=f2f7ec3dd9ac9d12fd7f2c028d65d88448931e1f62935f319498913bdc1e564e
-//! Entries: registered=152
+//! Input: registry/capability-action-registry.json; version=2026-07-13;
+//! sha256=f2f7ec3dd9ac9d12fd7f2c028d65d88448931e1f62935f319498913bdc1e564e Entries: registered=152
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -414,7 +414,8 @@ impl CapabilityActionId {
     pub const REALM_MEDIA_SERVICE: &'static str = "ak.realm.media_service";
     pub const REALM_MODERATION_POLICY: &'static str = "ak.realm.moderation_policy";
     pub const REALM_NOTIFICATION_AUDIT: &'static str = "ak.realm.notification.audit";
-    pub const REALM_PLAINTEXT_VISIBLE_SERVICES: &'static str = "ak.realm.plaintext_visible_services";
+    pub const REALM_PLAINTEXT_VISIBLE_SERVICES: &'static str =
+        "ak.realm.plaintext_visible_services";
     pub const REALM_PREVIEW_POLICY: &'static str = "ak.realm.preview_policy";
     pub const REALM_SEARCH_POLICY: &'static str = "ak.realm.search_policy";
     pub const REALM_SET_DEFAULT_STRAND: &'static str = "ak.realm.set_default_strand";
@@ -433,19 +434,24 @@ impl CapabilityActionId {
     pub const SELF_AGENT_COMMAND_DEACTIVATE: &'static str = "ak.self.agent.command.deactivate";
     pub const SELF_AGENT_COMMAND_PAUSE: &'static str = "ak.self.agent.command.pause";
     pub const SELF_AGENT_COMMAND_PROVISION: &'static str = "ak.self.agent.command.provision";
-    pub const SELF_AGENT_COMMAND_RENEW_PAIRING: &'static str = "ak.self.agent.command.renew_pairing";
+    pub const SELF_AGENT_COMMAND_RENEW_PAIRING: &'static str =
+        "ak.self.agent.command.renew_pairing";
     pub const SELF_AGENT_COMMAND_RESUME: &'static str = "ak.self.agent.command.resume";
     pub const SELF_AGENT_GRANT_COMMAND_ATTACH: &'static str = "ak.self.agent.grant.command.attach";
-    pub const SELF_AGENT_GRANT_RESOURCE_DELETE: &'static str = "ak.self.agent.grant.resource.delete";
-    pub const SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE: &'static str = "ak.self.agent.participation.resource.replace";
-    pub const SELF_AGENT_SIDECAR_THREAD_COMMAND_ENSURE: &'static str = "ak.self.agent.sidecar_thread.command.ensure";
+    pub const SELF_AGENT_GRANT_RESOURCE_DELETE: &'static str =
+        "ak.self.agent.grant.resource.delete";
+    pub const SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE: &'static str =
+        "ak.self.agent.participation.resource.replace";
+    pub const SELF_AGENT_SIDECAR_THREAD_COMMAND_ENSURE: &'static str =
+        "ak.self.agent.sidecar_thread.command.ensure";
     pub const SELF_BLOB_COMMAND_PRESIGN: &'static str = "ak.self.blob.command.presign";
     pub const SELF_BLOB_RESOURCE_GET: &'static str = "ak.self.blob.resource.get";
     pub const SELF_BLOB_RESOURCE_HEAD: &'static str = "ak.self.blob.resource.head";
     pub const SELF_BLOB_UPLOAD_CREATE: &'static str = "ak.self.blob.upload.create";
     pub const SELF_EVENTS_QUERY_SCAN: &'static str = "ak.self.events.query.scan";
     pub const SELF_EVENTS_STREAM_SUBSCRIBE: &'static str = "ak.self.events.stream.subscribe";
-    pub const SELF_SNAPSHOT_QUERY_MANIFEST_HEAD: &'static str = "ak.self.snapshot.query.manifest_head";
+    pub const SELF_SNAPSHOT_QUERY_MANIFEST_HEAD: &'static str =
+        "ak.self.snapshot.query.manifest_head";
     pub const SPACE_ARCHIVE: &'static str = "ak.space.archive";
     pub const SPACE_CREATE: &'static str = "ak.space.create";
     pub const SPACE_PARENT: &'static str = "ak.space.parent";
@@ -592,8 +598,12 @@ impl CapabilityActionId {
             Self::SelfAgentCommandResume => "ak.self.agent.command.resume",
             Self::SelfAgentGrantCommandAttach => "ak.self.agent.grant.command.attach",
             Self::SelfAgentGrantResourceDelete => "ak.self.agent.grant.resource.delete",
-            Self::SelfAgentParticipationResourceReplace => "ak.self.agent.participation.resource.replace",
-            Self::SelfAgentSidecarThreadCommandEnsure => "ak.self.agent.sidecar_thread.command.ensure",
+            Self::SelfAgentParticipationResourceReplace => {
+                "ak.self.agent.participation.resource.replace"
+            }
+            Self::SelfAgentSidecarThreadCommandEnsure => {
+                "ak.self.agent.sidecar_thread.command.ensure"
+            }
             Self::SelfBlobCommandPresign => "ak.self.blob.command.presign",
             Self::SelfBlobResourceGet => "ak.self.blob.resource.get",
             Self::SelfBlobResourceHead => "ak.self.blob.resource.head",
@@ -749,8 +759,12 @@ impl CapabilityActionId {
             "ak.self.agent.command.resume" => Some(Self::SelfAgentCommandResume),
             "ak.self.agent.grant.command.attach" => Some(Self::SelfAgentGrantCommandAttach),
             "ak.self.agent.grant.resource.delete" => Some(Self::SelfAgentGrantResourceDelete),
-            "ak.self.agent.participation.resource.replace" => Some(Self::SelfAgentParticipationResourceReplace),
-            "ak.self.agent.sidecar_thread.command.ensure" => Some(Self::SelfAgentSidecarThreadCommandEnsure),
+            "ak.self.agent.participation.resource.replace" => {
+                Some(Self::SelfAgentParticipationResourceReplace)
+            }
+            "ak.self.agent.sidecar_thread.command.ensure" => {
+                Some(Self::SelfAgentSidecarThreadCommandEnsure)
+            }
             "ak.self.blob.command.presign" => Some(Self::SelfBlobCommandPresign),
             "ak.self.blob.resource.get" => Some(Self::SelfBlobResourceGet),
             "ak.self.blob.resource.head" => Some(Self::SelfBlobResourceHead),

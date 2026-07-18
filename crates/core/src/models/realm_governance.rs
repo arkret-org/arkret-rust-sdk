@@ -841,7 +841,7 @@ mod tests {
     fn realm_link_tombstone_is_terminal_except_exact_replay() {
         let source = realm('1');
         let target = realm('2');
-        let current_payload = link_payload(target.clone(), RealmLinkStatus::Tombstoned);
+        let current_payload = link_payload(target, RealmLinkStatus::Tombstoned);
         let next_payload = current_payload.clone();
         let current = RealmLinkTransitionCandidate {
             payload: &current_payload,

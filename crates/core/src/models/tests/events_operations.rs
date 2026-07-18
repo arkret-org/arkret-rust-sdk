@@ -190,13 +190,8 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
 fn event_draft_kind_registry_accepts_only_canonical_kinds() {
     let registry = EventDraftKindRegistry::default();
 
-    let canonical = registry
-        .canonicalize(crate::events::EventKind::MESSAGE_CREATE)
-        .unwrap();
-    assert_eq!(
-        canonical.canonical_kind,
-        crate::events::EventKind::MESSAGE_CREATE
-    );
+    let canonical = registry.canonicalize(EventKind::MESSAGE_CREATE).unwrap();
+    assert_eq!(canonical.canonical_kind, EventKind::MESSAGE_CREATE);
 
     assert!(registry.canonicalize("message_create").is_err());
     assert!(registry.canonicalize("ak.task.move").is_err());
@@ -231,7 +226,7 @@ fn event_draft_kind_registry_drives_envelope_semantics() {
             .unwrap(),
         realm_id: test_realm_id(),
         actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        kind: crate::events::EventKind::MESSAGE_CREATE.to_owned(),
+        kind: EventKind::MESSAGE_CREATE.to_owned(),
         target_ref: None,
         causal: CausalRef {
             deps: Vec::new(),
@@ -248,10 +243,7 @@ fn event_draft_kind_registry_drives_envelope_semantics() {
     };
 
     let validation = registry.validate_envelope(&envelope).unwrap();
-    assert_eq!(
-        validation.canonical_kind,
-        crate::events::EventKind::MESSAGE_CREATE
-    );
+    assert_eq!(validation.canonical_kind, EventKind::MESSAGE_CREATE);
 
     let mut missing_strand = envelope;
     missing_strand.payload = json!({"track_name": "discussion"});
@@ -290,7 +282,7 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
         OperationId::new("ak:operation:01904100-0000-7000-8000-76b2a3b35ad0").unwrap(),
         test_realm_id(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        crate::events::EventKind::MESSAGE_CREATE,
+        EventKind::MESSAGE_CREATE,
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     );
@@ -304,7 +296,7 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
         .with_payload_field("track_name", json!("discussion"))
         .build(&registry)
         .unwrap();
-    assert_eq!(envelope.kind, crate::events::EventKind::MESSAGE_CREATE);
+    assert_eq!(envelope.kind, EventKind::MESSAGE_CREATE);
 
     let unknown = OperationEnvelopeBuilder::new(
         OperationId::new("ak:operation:01904100-0000-7000-8000-e9d434a97fb1").unwrap(),
