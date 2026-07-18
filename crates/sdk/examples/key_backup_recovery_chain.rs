@@ -166,7 +166,9 @@ fn build_envelope(
             frontier_digest: Hash::new(format!("sha256:{:0>64}", format!("{seq:02x}")))
                 .expect("valid frontier digest"),
             seal_ref: None,
-            ssk_generation: Some(1),
+            generation: arkret::KeyBackupFrontierGeneration::SskGeneration(
+                std::num::NonZeroU64::new(1).unwrap(),
+            ),
         }),
         recovery_policy_ref: None,
         extra: Default::default(),
