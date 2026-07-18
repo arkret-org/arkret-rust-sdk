@@ -12,6 +12,12 @@ use crate::serde_helpers::{
 
 pub const INVITE_RECIPIENT_SERVICE_TYPE_PRINCIPAL_SERVER: &str = "principal_server";
 pub const INVITE_LOCATOR_RESOLVE_PATH: &str = "_arkret/open/invite-locators/resolve";
+pub const INVITE_LOCATOR_ISSUE_PATH: &str = "_arkret/self/invite-locators";
+pub const INVITE_LOCATOR_ROTATE_PATH: &str = "_arkret/self/invite-locators/rotate";
+pub const INVITE_LOCATOR_REVOKE_PATH: &str = "_arkret/self/invite-locators/revoke";
+pub const INVITE_LOCATOR_DEFAULT_TTL_SECONDS: u32 = 900;
+pub const INVITE_LOCATOR_MIN_TTL_SECONDS: u32 = 60;
+pub const INVITE_LOCATOR_MAX_TTL_SECONDS: u32 = 3600;
 
 fn validate_locator_token_shape(value: &str) -> bool {
     (22..=512).contains(&value.len())
@@ -50,6 +56,122 @@ impl InviteLocatorResolveRequestBody {
         }
         Ok(())
     }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct InviteLocatorIssueRequestBody {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ttl_seconds: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub one_time_use: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_hint: Option<PrincipalLocatorDisplayHint>,
+}
+
+impl InviteLocatorIssueRequestBody {
+    pub fn effective_ttl_seconds(&self) -> u32 {
+        self.ttl_seconds
+            .unwrap_or(INVITE_LOCATOR_DEFAULT_TTL_SECONDS)
+    }
+
+    pub fn validate_minimal(&self) -> Result<()> {
+        let ttl = self.effective_ttl_seconds();
+        if !(INVITE_LOCATOR_MIN_TTL_SECONDS..=INVITE_LOCATOR_MAX_TTL_SECONDS).contains(&ttl) {
+            return Err(Error::Protocol(
+                "invite locator ttl_seconds must be between 60 and 3600".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct InviteLocatorRotateRequestBody {
+    pub locator_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ttl_seconds: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub one_time_use: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_hint: Option<PrincipalLocatorDisplayHint>,
+}
+
+impl InviteLocatorRotateRequestBody {
+    pub fn issue_options(&self) -> InviteLocatorIssueRequestBody {
+        InviteLocatorIssueRequestBody {
+            ttl_seconds: self.ttl_seconds,
+            one_time_use: self.one_time_use,
+            display_hint: self.display_hint.clone(),
+        }
+    }
+
+    pub fn validate_minimal(&self) -> Result<()> {
+        validate_locator_id(&self.locator_id)?;
+        self.issue_options().validate_minimal()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct InviteLocatorRevokeRequestBody {
+    pub locator_id: String,
+}
+
+impl InviteLocatorRevokeRequestBody {
+    pub fn validate_minimal(&self) -> Result<()> {
+        validate_locator_id(&self.locator_id)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum InviteLocatorStatus {
+    Revoked,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct InviteLocatorIssueOutcome {
+    pub locator_id: String,
+    pub locator_token: String,
+    #[serde(
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
+    )]
+    pub expires_at: DateTime<Utc>,
+    pub one_time_use: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct InviteLocatorRevokeOutcome {
+    pub locator_id: String,
+    pub status: InviteLocatorStatus,
+    #[serde(
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
+    )]
+    pub revoked_at: DateTime<Utc>,
+}
+
+fn validate_locator_id(value: &str) -> Result<()> {
+    let suffix = value.strip_prefix("ak:invite_locator:").ok_or_else(|| {
+        Error::Protocol("invite locator id must use ak:invite_locator:<uuid>".to_owned())
+    })?;
+    if !crate::identifiers::is_lowercase_uuidv7(suffix) {
+        return Err(Error::Protocol(
+            "invite locator id must contain a lowercase UUIDv7".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -440,6 +562,39 @@ mod tests {
             InviteLocatorResolveRequestBody::new("aaaaaaaaaaaaaaaaaaaaa+")
                 .validate_minimal()
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn invite_locator_management_bodies_enforce_ttl_and_typed_id() {
+        assert!(
+            InviteLocatorIssueRequestBody::default()
+                .validate_minimal()
+                .is_ok()
+        );
+        assert!(
+            InviteLocatorIssueRequestBody {
+                ttl_seconds: Some(59),
+                ..Default::default()
+            }
+            .validate_minimal()
+            .is_err()
+        );
+        let rotate = InviteLocatorRotateRequestBody {
+            locator_id: "ak:invite_locator:0196419b-0000-7000-8000-000000000000".to_owned(),
+            ttl_seconds: Some(900),
+            one_time_use: Some(true),
+            display_hint: None,
+        };
+        rotate
+            .validate_minimal()
+            .expect("valid locator rotate body");
+        assert!(
+            InviteLocatorRevokeRequestBody {
+                locator_id: "wrong".to_owned()
+            }
+            .validate_minimal()
+            .is_err()
         );
     }
 

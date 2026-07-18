@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/service-type-registry.json; version=2026-07-15;
-//! sha256=67cd0bf6f1071d1f7398bec7f01295d325e6e23c4bfc3dba0dc9ea074d0f4cc7 Entries: active=22
+//! Input: registry/service-type-registry.json; version=2026-07-15; sha256=67cd0bf6f1071d1f7398bec7f01295d325e6e23c4bfc3dba0dc9ea074d0f4cc7
+//! Entries: active=22
 
 use serde::{Deserialize, Serialize};
 
@@ -171,11 +171,7 @@ pub const SERVICE_TYPE_DESCRIPTORS: &[ServiceTypeDescriptor] = &[
     },
     ServiceTypeDescriptor {
         service_type: ServiceType::Notary,
-        valid_in: &[
-            "service_describe",
-            "realm_sync_endpoint",
-            "realm_join_candidate",
-        ],
+        valid_in: &["service_describe", "realm_sync_endpoint", "realm_join_candidate"],
         description: "Seal and state-attestation notary surface.",
     },
     ServiceTypeDescriptor {
@@ -185,12 +181,7 @@ pub const SERVICE_TYPE_DESCRIPTORS: &[ServiceTypeDescriptor] = &[
     },
     ServiceTypeDescriptor {
         service_type: ServiceType::PrincipalServer,
-        valid_in: &[
-            "service_describe",
-            "realm_sync_endpoint",
-            "realm_join_candidate",
-            "service_registration_key",
-        ],
+        valid_in: &["service_describe", "realm_sync_endpoint", "realm_join_candidate", "service_registration_key"],
         description: "Account-owning home server: event ingestion, sync, authz projections, key backup, federation. Also acts as an embedded did:webvh host for the identities it serves, which is why it is valid_in service_registration_key both as a subject and as a Service Identity Provider.",
     },
     ServiceTypeDescriptor {
@@ -215,11 +206,7 @@ pub const SERVICE_TYPE_DESCRIPTORS: &[ServiceTypeDescriptor] = &[
     },
     ServiceTypeDescriptor {
         service_type: ServiceType::SyncNode,
-        valid_in: &[
-            "service_describe",
-            "realm_sync_endpoint",
-            "realm_join_candidate",
-        ],
+        valid_in: &["service_describe", "realm_sync_endpoint", "realm_join_candidate"],
         description: "Event sync surface without account authority.",
     },
     ServiceTypeDescriptor {

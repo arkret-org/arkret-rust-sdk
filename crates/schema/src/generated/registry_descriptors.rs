@@ -1,14 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-07-13;
-//! sha256=73ae005e62ddf5fdd3ddcb5fc4cb869724d883af6d3789714ffcd0d59bc16ba7 Input: registry/
-//! capability-action-registry.json; version=2026-07-13;
-//! sha256=f2f7ec3dd9ac9d12fd7f2c028d65d88448931e1f62935f319498913bdc1e564e Input: registry/
-//! schema-registry.json; version=2026-07-13;
-//! sha256=eea4266d2fa350d424a63a02c5fe29821f57f277e1e2a6e2f7d1330da25d7062 Input: registry/
-//! account-data-type-registry.json; version=2026-07-03;
-//! sha256=bccf3c35a9a6be687d22f6691fb1dde2724b660b0d523eb5254bac2e24cec211 Entries: id_kinds=48,
-//! special_forms=9, actions=152, schemas=119, account_data_patterns=22
+//! Input: registry/id-kind-registry.json; version=2026-07-13; sha256=73ae005e62ddf5fdd3ddcb5fc4cb869724d883af6d3789714ffcd0d59bc16ba7
+//! Input: registry/capability-action-registry.json; version=2026-07-13; sha256=f2f7ec3dd9ac9d12fd7f2c028d65d88448931e1f62935f319498913bdc1e564e
+//! Input: registry/schema-registry.json; version=2026-07-13; sha256=eea4266d2fa350d424a63a02c5fe29821f57f277e1e2a6e2f7d1330da25d7062
+//! Input: registry/account-data-type-registry.json; version=2026-07-03; sha256=bccf3c35a9a6be687d22f6691fb1dde2724b660b0d523eb5254bac2e24cec211
+//! Entries: id_kinds=48, special_forms=9, actions=152, schemas=119, account_data_patterns=22
 
 use arkret_wire_base::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -636,12 +632,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         category: "general",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &["allowed_circle_ids"],
-        target_event_kinds: &[
-            "ak.circle.update",
-            "ak.circle.archive",
-            "ak.circle.restore",
-            "ak.circle.tombstone",
-        ],
+        target_event_kinds: &["ak.circle.update", "ak.circle.archive", "ak.circle.restore", "ak.circle.tombstone"],
         profile: None,
         event_mapping_kind: "aggregate_admin",
     },
@@ -857,11 +848,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
-        target_event_kinds: &[
-            "ak.moderation.appeal.review",
-            "ak.moderation.appeal.decision",
-            "ak.moderation.appeal.close",
-        ],
+        target_event_kinds: &["ak.moderation.appeal.review", "ak.moderation.appeal.decision", "ak.moderation.appeal.close"],
         profile: None,
         event_mapping_kind: "aggregate_admin",
     },
@@ -1077,22 +1064,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
-        target_event_kinds: &[
-            "ak.policy.set",
-            "ak.policy.rule",
-            "ak.policy.action",
-            "ak.realm.policy",
-            "ak.realm.policy_server",
-            "ak.realm.policy_components",
-            "ak.realm.delivery_binding_policy",
-            "ak.realm.asset_privacy_policy",
-            "ak.realm.read_receipt_policy",
-            "ak.realm.history_sharing_policy",
-            "ak.realm.preview_policy",
-            "ak.realm.moderation_policy",
-            "ak.realm.disappearing_policy",
-            "ak.realm.search_policy",
-        ],
+        target_event_kinds: &["ak.policy.set", "ak.policy.rule", "ak.policy.action", "ak.realm.policy", "ak.realm.policy_server", "ak.realm.policy_components", "ak.realm.delivery_binding_policy", "ak.realm.asset_privacy_policy", "ak.realm.read_receipt_policy", "ak.realm.history_sharing_policy", "ak.realm.preview_policy", "ak.realm.moderation_policy", "ak.realm.disappearing_policy", "ak.realm.search_policy"],
         profile: None,
         event_mapping_kind: "aggregate_admin",
     },
@@ -1155,31 +1127,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
-        target_event_kinds: &[
-            "ak.realm.organization",
-            "ak.realm.link",
-            "ak.realm.policy",
-            "ak.realm.join_rule",
-            "ak.realm.history_visibility",
-            "ak.realm.discovery",
-            "ak.realm.digest_suite_transition",
-            "ak.realm.notary",
-            "ak.realm.preview_policy",
-            "ak.realm.policy_server",
-            "ak.realm.policy_components",
-            "ak.realm.history_sharing_policy",
-            "ak.realm.delivery_binding_policy",
-            "ak.realm.asset_privacy_policy",
-            "ak.realm.read_receipt_policy",
-            "ak.realm.moderation_policy",
-            "ak.realm.media_service",
-            "ak.realm.schema",
-            "ak.realm.inheritance_policy",
-            "ak.realm.disappearing_policy",
-            "ak.realm.search_policy",
-            "ak.realm.set_default_strand",
-            "ak.applet.registration",
-        ],
+        target_event_kinds: &["ak.realm.organization", "ak.realm.link", "ak.realm.policy", "ak.realm.join_rule", "ak.realm.history_visibility", "ak.realm.discovery", "ak.realm.digest_suite_transition", "ak.realm.notary", "ak.realm.preview_policy", "ak.realm.policy_server", "ak.realm.policy_components", "ak.realm.history_sharing_policy", "ak.realm.delivery_binding_policy", "ak.realm.asset_privacy_policy", "ak.realm.read_receipt_policy", "ak.realm.moderation_policy", "ak.realm.media_service", "ak.realm.schema", "ak.realm.inheritance_policy", "ak.realm.disappearing_policy", "ak.realm.search_policy", "ak.realm.set_default_strand", "ak.applet.registration"],
         profile: None,
         event_mapping_kind: "aggregate_admin",
     },
@@ -1449,10 +1397,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
-        target_event_kinds: &[
-            "ak.identity.accountability_grant",
-            "ak.agent.selector_claim",
-        ],
+        target_event_kinds: &["ak.identity.accountability_grant", "ak.agent.selector_claim"],
         profile: Some("ak.profile.personal_agent_provisioning.v1"),
         event_mapping_kind: "aggregate_admin",
     },
@@ -1506,12 +1451,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
-        target_event_kinds: &[
-            "ak.circle.create",
-            "ak.circle.member.state",
-            "ak.strand.create",
-            "ak.relation.create",
-        ],
+        target_event_kinds: &["ak.circle.create", "ak.circle.member.state", "ak.strand.create", "ak.relation.create"],
         profile: Some("ak.profile.agent_sidecar_thread.v1"),
         event_mapping_kind: "aggregate_admin",
     },
@@ -2392,11 +2332,16 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
     },
 ];
 
-pub fn capability_action(value: &str) -> Option<&'static CapabilityActionDescriptor> {
-    CapabilityActionId::from_wire(value).map(|id| &REGISTERED_CAPABILITY_ACTIONS[id as usize])
+pub fn capability_action(
+    value: &str,
+) -> Option<&'static CapabilityActionDescriptor> {
+    CapabilityActionId::from_wire(value)
+        .map(|id| &REGISTERED_CAPABILITY_ACTIONS[id as usize])
 }
 
-pub fn account_data_pattern(value: &str) -> Option<&'static AccountDataPatternDescriptor> {
+pub fn account_data_pattern(
+    value: &str,
+) -> Option<&'static AccountDataPatternDescriptor> {
     REGISTERED_ACCOUNT_DATA_PATTERNS
         .iter()
         .find(|row| account_data_pattern_matches(row.key_pattern, value))
