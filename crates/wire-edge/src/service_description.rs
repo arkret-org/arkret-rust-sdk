@@ -91,7 +91,7 @@ impl PushTargetPrivacyDerivation {
         {
             return Err(Error::Protocol(format!(
                 "ServiceDescribe: invalid push_target privacy derivation ({})",
-                arkret_wire_base::ErrorCode::SCHEMA_VIOLATION
+                ErrorCode::SCHEMA_VIOLATION
             )));
         }
         Ok(())
@@ -313,7 +313,7 @@ impl ServiceDescribe {
             return Err(Error::Protocol(format!(
                 "ServiceDescribe: service_type={} is not valid in service_describe ({})",
                 self.service_type.as_str(),
-                arkret_wire_base::ErrorCode::SCHEMA_VIOLATION
+                ErrorCode::SCHEMA_VIOLATION
             )));
         }
         if let Some(push_target) = self
@@ -327,14 +327,14 @@ impl ServiceDescribe {
             return Err(Error::Protocol(format!(
                 "ServiceDescribe: development_mode=true forbids non-empty verified_profiles \
                  ({})",
-                arkret_wire_base::ErrorCode::SCHEMA_VIOLATION
+                ErrorCode::SCHEMA_VIOLATION
             )));
         }
         if self.rate_limit_policy.is_none() && self.rate_limit_policy_id.is_none() {
             return Err(Error::Protocol(format!(
                 "ServiceDescribe: one of rate_limit_policy or rate_limit_policy_id is required \
                  ({})",
-                arkret_wire_base::ErrorCode::SCHEMA_VIOLATION
+                ErrorCode::SCHEMA_VIOLATION
             )));
         }
         if self.service_type == ServiceType::DirectoryService {
@@ -346,7 +346,7 @@ impl ServiceDescribe {
                 return Err(Error::Protocol(format!(
                     "ServiceDescribe: service_type=directory_service requires \
                      supported_profiles to include ak.profile.directory_service.v1 ({})",
-                    arkret_wire_base::ErrorCode::SCHEMA_VIOLATION
+                    ErrorCode::SCHEMA_VIOLATION
                 )));
             }
             if self.resource_types.is_empty()
@@ -363,7 +363,7 @@ impl ServiceDescribe {
                 return Err(Error::Protocol(format!(
                     "ServiceDescribe: service_type=directory_service requires the directory \
                      describe overlay fields ({})",
-                    arkret_wire_base::ErrorCode::SCHEMA_VIOLATION
+                    ErrorCode::SCHEMA_VIOLATION
                 )));
             }
             let default_ttl = self.default_ttl_seconds.unwrap_or_default();
@@ -372,7 +372,7 @@ impl ServiceDescribe {
                 return Err(Error::Protocol(format!(
                     "ServiceDescribe: directory TTL fields must satisfy \
                      default_ttl_seconds <= max_ttl_seconds <= 2592000 ({})",
-                    arkret_wire_base::ErrorCode::SCHEMA_VIOLATION
+                    ErrorCode::SCHEMA_VIOLATION
                 )));
             }
             if self
@@ -383,7 +383,7 @@ impl ServiceDescribe {
                 return Err(Error::Protocol(format!(
                     "ServiceDescribe: directory accepted_did_methods entries must match \
                      did:<method> with lowercase alphanumeric method names ({})",
-                    arkret_wire_base::ErrorCode::SCHEMA_VIOLATION
+                    ErrorCode::SCHEMA_VIOLATION
                 )));
             }
         }

@@ -913,7 +913,7 @@ impl ProofBindingRequirements {
 fn proof_binding_missing(field: &str) -> Error {
     Error::Protocol(format!(
         "{}: proof {field} is required",
-        crate::ReasonCode::PROOF_BINDING_MISSING
+        ReasonCode::PROOF_BINDING_MISSING
     ))
 }
 
@@ -924,7 +924,7 @@ fn require_proof_domain(proof: Option<&str>, expected: Option<&str>) -> Result<(
     if expected.map(str::trim).map(str::is_empty).unwrap_or(true) {
         return Err(Error::Protocol(format!(
             "{}: expected domain is required",
-            crate::ReasonCode::PROOF_BINDING_MISSING
+            ReasonCode::PROOF_BINDING_MISSING
         )));
     }
     Ok(())
@@ -937,7 +937,7 @@ fn require_proof_audience(proof: Option<&Audience>, expected: Option<&Audience>)
     if expected.is_none() {
         return Err(Error::Protocol(format!(
             "{}: expected audience is required",
-            crate::ReasonCode::PROOF_BINDING_MISSING
+            ReasonCode::PROOF_BINDING_MISSING
         )));
     }
     Ok(())

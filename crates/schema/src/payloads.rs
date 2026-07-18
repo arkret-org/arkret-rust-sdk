@@ -428,7 +428,7 @@ fn required_fields_for_event_kind(
 ) -> Vec<String> {
     let mut required_fields =
         required_fields_for_schema_ref(registry, schema_ref).unwrap_or_default();
-    if event_kind == arkret_wire_base::events::EventKind::INVITE_CREATE {
+    if event_kind == events::EventKind::INVITE_CREATE {
         for field in [
             "invite_id",
             "invitee",
