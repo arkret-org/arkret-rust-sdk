@@ -1,6 +1,6 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-07-13; sha256=f127c1ed8c066d5b837f3a01a8c0b2e9bd8682f69ff55e1b9228b50fab618390
+//! Input: registry/operation-registry.json; version=2026-07-13; sha256=3e64391fd31f1a126ef43cd94fdae374f7c63abfb4cb6a6c1f05c7b261ddd949
 //! Entries: registered=188
 
 use serde::{Deserialize, Serialize};
@@ -3113,7 +3113,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: Some(false),
         request_schema_ref: Some("schemas/principal-locator.schema.json#/$defs/invite_locator_rotate_request_body"),
         response_schema_ref: Some("schemas/principal-locator.schema.json#/$defs/invite_locator_issue_outcome"),
-        uncertain_outcome: Some("{\"operation_id\":\"ak.self.invite_locator.command.issue\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}"),
+        uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfInviteReceivePolicyResourceGet,

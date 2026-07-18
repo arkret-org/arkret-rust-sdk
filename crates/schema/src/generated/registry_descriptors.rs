@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-07-13; sha256=73ae005e62ddf5fdd3ddcb5fc4cb869724d883af6d3789714ffcd0d59bc16ba7
+//! Input: registry/id-kind-registry.json; version=2026-07-13; sha256=a345e045bd7514aea98bf65a88e767f49a5916e7150bfb56fa93125c083a1605
 //! Input: registry/capability-action-registry.json; version=2026-07-13; sha256=f2f7ec3dd9ac9d12fd7f2c028d65d88448931e1f62935f319498913bdc1e564e
 //! Input: registry/schema-registry.json; version=2026-07-13; sha256=eea4266d2fa350d424a63a02c5fe29821f57f277e1e2a6e2f7d1330da25d7062
 //! Input: registry/account-data-type-registry.json; version=2026-07-03; sha256=bccf3c35a9a6be687d22f6691fb1dde2724b660b0d523eb5254bac2e24cec211
-//! Entries: id_kinds=48, special_forms=9, actions=152, schemas=119, account_data_patterns=22
+//! Entries: id_kinds=49, special_forms=9, actions=152, schemas=119, account_data_patterns=22
 
 use arkret_wire_base::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -200,6 +200,11 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "invite",
         category: "authz",
         wire_form: "ak:invite:<uuid>",
+    },
+    IdKindDescriptor {
+        kind: "invite_locator",
+        category: "account_private",
+        wire_form: "ak:invite_locator:<uuid>",
     },
     IdKindDescriptor {
         kind: "key_event",

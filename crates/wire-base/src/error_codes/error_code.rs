@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-07-10; sha256=9de4bc453817c36273bf341e2fa83e0170e6f2405dd38333a7d269cf1299e7af
-//! Entries: error_codes=242
+//! Input: registry/error-code-registry.json; version=2026-07-10; sha256=2e602789f21d6df2e68fcaaadce73ebc1c619d66ee1a3152613d98ad3dc80c29
+//! Entries: error_codes=243
 
 use serde::{Deserialize, Serialize};
 
@@ -160,6 +160,7 @@ pub enum ErrorCode {
     PrincipalUnknown,
     ProfileUnsupported,
     ProjectionIncomplete,
+    PsiQuotaExhausted,
     PushGatewayUnreachable,
     PushPayloadTooLarge,
     PushTargetUnknown,
@@ -415,6 +416,7 @@ impl ErrorCode {
         Self::PrincipalUnknown,
         Self::ProfileUnsupported,
         Self::ProjectionIncomplete,
+        Self::PsiQuotaExhausted,
         Self::PushGatewayUnreachable,
         Self::PushPayloadTooLarge,
         Self::PushTargetUnknown,
@@ -659,6 +661,7 @@ impl ErrorCode {
     pub const PRINCIPAL_UNKNOWN: &'static str = "principal_unknown";
     pub const PROFILE_UNSUPPORTED: &'static str = "profile_unsupported";
     pub const PROJECTION_INCOMPLETE: &'static str = "projection_incomplete";
+    pub const PSI_QUOTA_EXHAUSTED: &'static str = "psi_quota_exhausted";
     pub const PUSH_GATEWAY_UNREACHABLE: &'static str = "push_gateway_unreachable";
     pub const PUSH_PAYLOAD_TOO_LARGE: &'static str = "push_payload_too_large";
     pub const PUSH_TARGET_UNKNOWN: &'static str = "push_target_unknown";
@@ -904,6 +907,7 @@ impl ErrorCode {
             Self::PrincipalUnknown => "principal_unknown",
             Self::ProfileUnsupported => "profile_unsupported",
             Self::ProjectionIncomplete => "projection_incomplete",
+            Self::PsiQuotaExhausted => "psi_quota_exhausted",
             Self::PushGatewayUnreachable => "push_gateway_unreachable",
             Self::PushPayloadTooLarge => "push_payload_too_large",
             Self::PushTargetUnknown => "push_target_unknown",
@@ -1151,6 +1155,7 @@ impl ErrorCode {
             "principal_unknown" => Some(Self::PrincipalUnknown),
             "profile_unsupported" => Some(Self::ProfileUnsupported),
             "projection_incomplete" => Some(Self::ProjectionIncomplete),
+            "psi_quota_exhausted" => Some(Self::PsiQuotaExhausted),
             "push_gateway_unreachable" => Some(Self::PushGatewayUnreachable),
             "push_payload_too_large" => Some(Self::PushPayloadTooLarge),
             "push_target_unknown" => Some(Self::PushTargetUnknown),
@@ -2312,6 +2317,13 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "The requested projection cannot be claimed complete under the current supported feature set or dependency frontier.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::PsiQuotaExhausted,
+        http_status: 429,
+        scope: "both",
+        applies_to: &[],
+        description: "The authenticated device exhausted `max_psi_queries_per_window` for private contact discovery in the current quota window. Returned only at the PSI blind phase, before any target is evaluated; an admitted batch_id's match request MUST NOT be quota-denied. The response is a standard ErrorEnvelope padded to the same size bucket and anti-enumeration delay class as the success path (Class B), and MUST carry a `Retry-After` header quantized up to a multiple of 300s. Distinct from the generic `rate_limited` transport throttle (this code is the per-device PSI window quota with its own reset rules) and from `quota_exceeded` (403 storage/bandwidth/compute quota, which is not window-scoped). See zh/discovery/discovery-directory.md §6.3/§6.4.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PushGatewayUnreachable,
