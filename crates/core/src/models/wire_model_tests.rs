@@ -309,13 +309,48 @@ mod protocol_wire {
                 "ak:consent:01904100-0000-7000-8000-000000000001".to_owned(),
             )
             .unwrap(),
-            peer: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            scope: "invite".to_owned(),
             observed_dots: Vec::new(),
             revoked_at: None,
             reason: None,
         };
         assert!(payload.validate_minimal().is_err());
+
+        let canonical = json!({
+            "consent_id": "ak:consent:01904100-0000-7000-8000-000000000001",
+            "observed_dots": [
+                "ak:event:01904100-0000-7000-8000-000000000002:7"
+            ]
+        });
+        let parsed: ConsentRevokePayload = serde_json::from_value(canonical).unwrap();
+        assert!(parsed.validate_minimal().is_ok());
+        assert!(
+            serde_json::from_value::<ConsentRevokePayload>(json!({
+                "consent_id": "ak:consent:01904100-0000-7000-8000-000000000001",
+                "observed_dots": ["ak:event:not-a-uuidv7:7"]
+            }))
+            .is_err()
+        );
+        let duplicate_dots: ConsentRevokePayload = serde_json::from_value(json!({
+            "consent_id": "ak:consent:01904100-0000-7000-8000-000000000001",
+            "observed_dots": [
+                "ak:event:01904100-0000-7000-8000-000000000002:7",
+                "ak:event:01904100-0000-7000-8000-000000000002:7"
+            ]
+        }))
+        .unwrap();
+        assert!(duplicate_dots.validate_minimal().is_err());
+        assert!(
+            serde_json::from_value::<ConsentRevokePayload>(json!({
+                "consent_id": "ak:consent:01904100-0000-7000-8000-000000000001",
+                "peer": "did:web:bob.example",
+                "scope": "invite",
+                "observed_dots": [{
+                    "actor_id": "did:web:alice.example",
+                    "actor_seq": 7
+                }]
+            }))
+            .is_err()
+        );
     }
 
     #[test]

@@ -1100,7 +1100,7 @@ mod erasure_receipt_tests {
         let receipt = receipt(&stub);
         assert!(receipt.validate_with_retained_stub(&stub).is_ok());
 
-        let mut tampered = stub.clone();
+        let mut tampered = stub;
         tampered.subject.subject_ref = "ak:event:01970e58-0004-7000-8000-ffffffffffff".to_owned();
         assert!(receipt.validate_with_retained_stub(&tampered).is_err());
     }

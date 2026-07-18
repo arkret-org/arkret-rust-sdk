@@ -401,7 +401,7 @@ mod tests {
         m.effects = vec![effect];
         m.id = m.derive_id().unwrap();
         m.sig.payload_digest =
-            Hash::new(sha256_digest(&m.canonical_bytes_for_id().unwrap())).unwrap();
+            Hash::new(sha256_digest(m.canonical_bytes_for_id().unwrap())).unwrap();
         let err = m.validate_structural().unwrap_err();
         assert!(format!("{err}").contains("preconditions[] + effects[]"));
     }

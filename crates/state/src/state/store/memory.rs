@@ -886,10 +886,7 @@ mod tests {
         );
         assert!(
             store
-                .put_if_frontier(
-                    &joined,
-                    &[right.id.clone(), left.id.clone(), right.id.clone()]
-                )
+                .put_if_frontier(&joined, &[right.id.clone(), left.id, right.id])
                 .unwrap()
         );
         assert_eq!(store.list_leaves(&realm()).unwrap(), vec![joined.id]);

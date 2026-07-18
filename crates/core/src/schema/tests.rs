@@ -749,7 +749,7 @@ fn auth_session_fixture_enforces_device_identity_key_separation() {
 
 /// Minimal hex decoder for fixture `input_hex` payloads.
 fn hex_decode(input: &str) -> Option<Vec<u8>> {
-    if input.len() % 2 != 0 {
+    if !input.len().is_multiple_of(2) {
         return None;
     }
     (0..input.len())

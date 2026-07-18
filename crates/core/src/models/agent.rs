@@ -212,7 +212,7 @@ pub enum AgentProvisionRequestBody {
         #[serde(skip_serializing_if = "Option::is_none")]
         avatar_blob_ref: Option<BlobRef>,
         requested_scope: AgentKeyScope,
-        provision_events: AgentProvisionEvents,
+        provision_events: Box<AgentProvisionEvents>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pairing_ttl_ms: Option<u64>,
     },

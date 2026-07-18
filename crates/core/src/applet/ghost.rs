@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -132,6 +132,7 @@ impl AppletDelegatedEventAuthorization {
         self.validate()?;
         event.executed_by = Some(self.executed_by.clone());
         event.authorization_ref = Some(self.authorization_ref.clone());
+        event.applet_id = Some(self.applet_id.clone());
         Ok(())
     }
 }
@@ -318,11 +319,39 @@ pub enum AccountabilityGrantStatus {
 }
 
 /// `ak.identity.accountability_grant.accountability_scope`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccountabilityScopeKind {
+    Employment,
+    ContractedService,
+    AgentOperator,
+}
+
+/// A single accountability scope or a non-empty unique set of scopes.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AccountabilityScope {
-    Single(String),
-    Multiple(Vec<String>),
+    Single(AccountabilityScopeKind),
+    Multiple(Vec<AccountabilityScopeKind>),
+}
+
+impl AccountabilityScope {
+    pub fn validate(&self) -> Result<()> {
+        let Self::Multiple(scopes) = self else {
+            return Ok(());
+        };
+        if scopes.is_empty() {
+            return Err(Error::Protocol(
+                "accountability_scope list must not be empty".to_owned(),
+            ));
+        }
+        if scopes.iter().copied().collect::<BTreeSet<_>>().len() != scopes.len() {
+            return Err(Error::Protocol(
+                "accountability_scope list must contain unique values".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// Payload for durable `ak.identity.accountability_grant` events.
@@ -423,6 +452,7 @@ impl AccountabilityGrantPayload {
     }
 
     pub fn validate_lifecycle_at(&self, now: DateTime<Utc>) -> Result<()> {
+        self.accountability_scope.validate()?;
         if let Some(expires_at) = self.expires_at {
             if self.not_before >= expires_at {
                 return Err(Error::Protocol(
@@ -487,5 +517,57 @@ impl AccountabilityGrantPayload {
             authorization.apply_to_event(&mut event)?;
         }
         Ok(event)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn applet_delegation_applies_all_signed_envelope_fields() {
+        let mut event = Event::new(
+            "ak.profile.create",
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            Did::new("did:web:ghost.example").unwrap(),
+            1,
+            Hlc::new("019041000000-0000-00000000").unwrap(),
+            serde_json::json!({"object": {}}),
+        )
+        .unwrap();
+        let authorization = AppletDelegatedEventAuthorization::new(
+            Did::new("did:web:applet.example").unwrap(),
+            "ak:event:01904100-0000-7000-8000-000000000002",
+            AppletId::new("ak:applet:01904100-0000-7000-8000-000000000003").unwrap(),
+        );
+
+        authorization.apply_to_event(&mut event).unwrap();
+
+        assert_eq!(event.executed_by.as_ref(), Some(&authorization.executed_by));
+        assert_eq!(
+            event.authorization_ref.as_deref(),
+            Some(authorization.authorization_ref.as_str())
+        );
+        assert_eq!(event.applet_id.as_ref(), Some(&authorization.applet_id));
+    }
+
+    #[test]
+    fn accountability_scope_is_closed_non_empty_and_unique() {
+        assert!(
+            serde_json::from_value::<AccountabilityScope>(serde_json::json!("custom")).is_err()
+        );
+        assert!(
+            AccountabilityScope::Multiple(Vec::new())
+                .validate()
+                .is_err()
+        );
+        assert!(
+            AccountabilityScope::Multiple(vec![
+                AccountabilityScopeKind::ContractedService,
+                AccountabilityScopeKind::ContractedService,
+            ])
+            .validate()
+            .is_err()
+        );
     }
 }

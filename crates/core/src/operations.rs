@@ -595,13 +595,7 @@ mod tests {
     use crate::{Did, GrantId, Hlc, OperationEnvelopeBuilder};
 
     fn envelope(id: &str, deps: Vec<&str>) -> OperationEnvelope {
-        envelope_for(
-            id,
-            crate::events::EventKind::REALM_CREATE,
-            json!({}),
-            deps,
-            false,
-        )
+        envelope_for(id, EventKind::REALM_CREATE, json!({}), deps, false)
     }
 
     fn envelope_for(
@@ -641,10 +635,7 @@ mod tests {
                 .iter()
                 .any(|row| row.surface == OperationSurface::Events)
         );
-        assert_eq!(
-            conformance_vectors().len(),
-            crate::events::EventKind::ALL.len()
-        );
+        assert_eq!(conformance_vectors().len(), EventKind::ALL.len());
     }
 
     #[test]
@@ -706,7 +697,7 @@ mod tests {
     fn semantic_reducer_rejects_tombstone_mutations_and_missing_authz() {
         let create = envelope_for(
             "ak:operation:01904100-0000-7000-8000-b24c1b0f1a32",
-            crate::events::EventKind::SPACE_CREATE,
+            EventKind::SPACE_CREATE,
             json!({
                 "object": {},
                 "space_id": "ak:space:01904100-0000-7000-8000-c89a39a907e5"
@@ -716,14 +707,14 @@ mod tests {
         );
         let delete = envelope_for(
             "ak:operation:01904100-0000-7000-8000-bc16402a117e",
-            crate::events::EventKind::SPACE_TOMBSTONE,
+            EventKind::SPACE_TOMBSTONE,
             json!({"space_id": "ak:space:01904100-0000-7000-8000-c89a39a907e5"}),
             vec!["ak:operation:01904100-0000-7000-8000-b24c1b0f1a32"],
             true,
         );
         let update_after_delete = envelope_for(
             "ak:operation:01904100-0000-7000-8000-57ea8fc8ec0b",
-            crate::events::EventKind::SPACE_CREATE,
+            EventKind::SPACE_CREATE,
             json!({
                 "object": {},
                 "space_id": "ak:space:01904100-0000-7000-8000-c89a39a907e5"
@@ -737,7 +728,7 @@ mod tests {
 
         let missing_authz = envelope_for(
             "ak:operation:01904100-0000-7000-8000-a8e5d315a094",
-            crate::events::EventKind::SPACE_CREATE,
+            EventKind::SPACE_CREATE,
             json!({
                 "object": {},
                 "space_id": "ak:space:01904100-0000-7000-8000-9160607cbd81"
@@ -755,7 +746,7 @@ mod tests {
             OperationId::new("ak:operation:01904100-0000-7000-8000-e0d2820b21e0").unwrap(),
             RealmId::new("ak:realm:01904100-0000-7000-8000-6b91994c774d").unwrap(),
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            crate::events::EventKind::SPACE_CREATE,
+            EventKind::SPACE_CREATE,
             1,
             Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         )
