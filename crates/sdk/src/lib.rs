@@ -406,7 +406,7 @@ pub use federation::{
     ServiceEndpointDescriptor, SovereignDeployment, VerifyActorChallenge,
     VerifyActorChallengeSignature, WellKnownArkretServer, content_digest_sha256,
     did_document_service_endpoint_matches, duplicate_transaction_quarantine,
-    fork_quarantine_record, rfc9530_content_digest_sha256, verify_rfc9530_content_digest,
+    fork_quarantine_record,
 };
 pub use fixtures::{
     CANONICAL_FIXTURE_DEFAULT_KIND, CanonicalFixtureBuilder, CanonicalFixtureSuite,

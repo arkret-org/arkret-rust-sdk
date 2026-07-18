@@ -10,7 +10,6 @@ const EXTRACT_SALT: &[u8] = b"arkret-identity-recovery-kdf-v1";
 const ROOT_INFO: &[u8] = b"arkret/did-update/root/v1";
 const RECOVERY_PROOF_INFO: &[u8] = b"arkret/recovery-proof/v1";
 const BACKUP_HPKE_INFO: &[u8] = b"arkret/backup-hpke/v1";
-const ED25519_MULTICODEC_PREFIX: [u8; 2] = [0xed, 0x01];
 const X25519_MULTICODEC_PREFIX: [u8; 2] = [0xec, 0x01];
 const HPKE_X25519_KEM_SUITE_ID: &[u8] = b"KEM\x00\x20";
 
@@ -203,7 +202,7 @@ pub fn derive_hpke_x25519_raw_private_key(
 }
 
 pub fn ed25519_public_multikey(public_key: &[u8; 32]) -> String {
-    multikey(&ED25519_MULTICODEC_PREFIX, public_key)
+    arkret_canonical::ed25519_pubkey_to_did_key_multibase(public_key)
 }
 
 pub fn x25519_public_multikey(public_key: &[u8; 32]) -> String {
@@ -213,11 +212,7 @@ pub fn x25519_public_multikey(public_key: &[u8; 32]) -> String {
 /// `Base58BTC(multihash(sha2-256, UTF8(root multikey)))`, with no multibase
 /// prefix on the returned hash.
 pub fn did_webvh_next_key_hash(root_public_key_multikey: &str) -> String {
-    let digest = arkret_canonical::canonical::sha256_bytes(root_public_key_multikey.as_bytes());
-    let mut multihash = Vec::with_capacity(34);
-    multihash.extend_from_slice(&[0x12, 0x20]);
-    multihash.extend_from_slice(&digest);
-    arkret_core::encode_base58btc(&multihash)
+    arkret_canonical::sha256_multihash_base58btc(root_public_key_multikey.as_bytes())
 }
 
 fn expand_root(

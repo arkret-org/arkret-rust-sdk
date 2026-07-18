@@ -14,7 +14,8 @@ pub use base64url::{
 pub use canonical::*;
 pub use error::{CanonicalError, Result};
 pub use multibase::{
-    MULTICODEC_ED25519_PUB, decode_base58btc, decode_ed25519_multibase, decode_multibase_base58btc,
-    decode_multicodec_varint, ed25519_pubkey_to_did_key_multibase, encode_base58btc,
-    encode_multibase_base58btc,
+    MULTICODEC_ED25519_PUB, decode_base58btc, decode_ed25519_multibase,
+    decode_ed25519_signature_multibase, decode_multibase_base58btc, decode_multicodec_varint,
+    ed25519_pubkey_to_did_key_multibase, encode_base58btc, encode_multibase_base58btc,
+    sha256_multihash_base58btc,
 };

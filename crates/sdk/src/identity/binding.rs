@@ -51,21 +51,6 @@ use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::identity::helpers::decode_base58btc;
-
-/// Multicodec varint tag for Ed25519 public keys: `0xed 0x01`.
-///
-/// Two bytes are prepended to the 32-byte raw key before
-/// multibase-encoding (`z` + base58btc) per
-/// <https://github.com/multiformats/multicodec/blob/master/table.csv>.
-const MULTICODEC_ED25519_PUB: [u8; 2] = [0xed, 0x01];
-
-/// Base58btc alphabet (Bitcoin) used by `did:key` / multibase `z…`
-/// prefix. Inlined to avoid pulling the `multibase` crate just for one
-/// 58-character table; matches the alphabet
-/// [`crate::identity::helpers::decode_base58btc`] consumes.
-const BASE58_ALPHABET: &[u8; 58] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-
 /// Discriminator for the on-wire binding proof family. Today only
 /// `Ed25519V1` ships. `WebAuthnCose` is reserved for a future variant
 /// that carries a raw COSE_Sign1 envelope produced by a WebAuthn
@@ -263,13 +248,7 @@ pub fn multicodec_ed25519_public_key(verifying_key: &VerifyingKey) -> String {
 /// and wears the Ed25519-pub envelope by spec) and for tests.
 #[must_use]
 pub fn multicodec_ed25519_from_bytes(bytes: &[u8; 32]) -> String {
-    let mut envelope = Vec::with_capacity(2 + bytes.len());
-    envelope.extend_from_slice(&MULTICODEC_ED25519_PUB);
-    envelope.extend_from_slice(bytes);
-    let mut out = String::with_capacity(1 + envelope.len() * 2);
-    out.push('z');
-    out.push_str(&base58btc_encode(&envelope));
-    out
+    arkret_canonical::ed25519_pubkey_to_did_key_multibase(bytes)
 }
 
 /// Decode a multibase `z…` string produced by
@@ -281,27 +260,8 @@ pub fn multicodec_ed25519_from_bytes(bytes: &[u8; 32]) -> String {
 /// public key this is the value that round-trips through
 /// `VerifyingKey::from_bytes`.
 pub fn decode_multicodec_ed25519(encoded: &str) -> Result<[u8; 32], BindingError> {
-    let body = encoded.strip_prefix('z').ok_or_else(|| {
-        BindingError::InvalidMulticodec("missing multibase 'z' prefix".to_owned())
-    })?;
-    let decoded = decode_base58btc(body)
-        .ok_or_else(|| BindingError::InvalidMulticodec("invalid base58btc body".to_owned()))?;
-    if decoded.len() != 34 {
-        return Err(BindingError::InvalidMulticodec(format!(
-            "expected 34-byte envelope (2-byte tag + 32-byte key), got {} bytes",
-            decoded.len()
-        )));
-    }
-    if decoded[..2] != MULTICODEC_ED25519_PUB {
-        return Err(BindingError::InvalidMulticodec(format!(
-            "expected multicodec tag {:02x?}, got {:02x?}",
-            MULTICODEC_ED25519_PUB,
-            &decoded[..2]
-        )));
-    }
-    let mut out = [0u8; 32];
-    out.copy_from_slice(&decoded[2..]);
-    Ok(out)
+    arkret_canonical::decode_ed25519_multibase(encoded)
+        .map_err(|error| BindingError::InvalidMulticodec(error.to_string()))
 }
 
 /// Decode a multibase `z…` string carrying a **64-byte Ed25519 signature**
@@ -312,64 +272,23 @@ pub fn decode_multicodec_ed25519(encoded: &str) -> Result<[u8; 32], BindingError
 /// and enforces the fixed 64-byte signature length. Any other multicodec
 /// prefix or a wrong length is rejected.
 pub fn decode_multicodec_ed25519_signature(encoded: &str) -> Result<[u8; 64], BindingError> {
-    let body = encoded.strip_prefix('z').ok_or_else(|| {
-        BindingError::InvalidMulticodec("missing multibase 'z' prefix".to_owned())
-    })?;
-    let decoded = decode_base58btc(body)
-        .ok_or_else(|| BindingError::InvalidMulticodec("invalid base58btc body".to_owned()))?;
+    let decoded = arkret_canonical::decode_multibase_base58btc(encoded)
+        .map_err(|error| BindingError::InvalidMulticodec(error.to_string()))?;
     if decoded.len() != 66 {
         return Err(BindingError::InvalidMulticodec(format!(
             "expected 66-byte envelope (2-byte tag + 64-byte signature), got {} bytes",
             decoded.len()
         )));
     }
-    if decoded[..2] != MULTICODEC_ED25519_PUB {
+    if decoded[..2] != [0xed, 0x01] {
         return Err(BindingError::InvalidMulticodec(format!(
-            "expected multicodec tag {:02x?}, got {:02x?}",
-            MULTICODEC_ED25519_PUB,
+            "expected multicodec tag [ed, 01], got {:02x?}",
             &decoded[..2]
         )));
     }
     let mut out = [0u8; 64];
     out.copy_from_slice(&decoded[2..]);
     Ok(out)
-}
-
-/// Minimal base58btc encoder. Accepts an arbitrary byte slice and
-/// returns the base58btc-encoded string (no leading multibase tag —
-/// that's the caller's job).
-fn base58btc_encode(bytes: &[u8]) -> String {
-    if bytes.is_empty() {
-        return String::new();
-    }
-
-    let leading_zeros = bytes.iter().take_while(|&&b| b == 0).count();
-
-    let mut input: Vec<u8> = bytes.to_vec();
-    let mut output: Vec<u8> = Vec::with_capacity(bytes.len() * 138 / 100 + 1);
-
-    let mut start = leading_zeros;
-    while start < input.len() {
-        let mut remainder: u32 = 0;
-        for byte in input.iter_mut().skip(start) {
-            let acc = (remainder << 8) | u32::from(*byte);
-            *byte = u8::try_from(acc / 58).expect("acc/58 fits in u8 because acc < 58 * 256");
-            remainder = acc % 58;
-        }
-        output.push(BASE58_ALPHABET[remainder as usize]);
-        while start < input.len() && input[start] == 0 {
-            start += 1;
-        }
-    }
-
-    let mut s = String::with_capacity(leading_zeros + output.len());
-    for _ in 0..leading_zeros {
-        s.push('1');
-    }
-    for &b in output.iter().rev() {
-        s.push(b as char);
-    }
-    s
 }
 
 #[cfg(test)]
@@ -546,9 +465,9 @@ mod tests {
         ));
         // 33 bytes (2-byte tag + 31-byte key) — wrong length.
         let mut envelope = Vec::with_capacity(33);
-        envelope.extend_from_slice(&MULTICODEC_ED25519_PUB);
+        envelope.extend_from_slice(&[0xed, 0x01]);
         envelope.extend_from_slice(&[0u8; 31]);
-        let short = format!("z{}", base58btc_encode(&envelope));
+        let short = arkret_canonical::encode_multibase_base58btc(&envelope);
         assert!(matches!(
             decode_multicodec_ed25519(&short),
             Err(BindingError::InvalidMulticodec(_))
@@ -558,7 +477,7 @@ mod tests {
         let mut envelope = Vec::with_capacity(34);
         envelope.extend_from_slice(&[0xec, 0x01]);
         envelope.extend_from_slice(&[0u8; 32]);
-        let wrong_tag = format!("z{}", base58btc_encode(&envelope));
+        let wrong_tag = arkret_canonical::encode_multibase_base58btc(&envelope);
         assert!(matches!(
             decode_multicodec_ed25519(&wrong_tag),
             Err(BindingError::InvalidMulticodec(_))
