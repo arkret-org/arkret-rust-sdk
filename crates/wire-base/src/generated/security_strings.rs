@@ -1,13 +1,21 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-07-16; sha256=2dfe74804a47e3904c3e339472227b4524c60bd57992b41e6612af632dd071cc
-//! Input: registry/exporter-label-registry.json; version=2026-06-10; sha256=e119ced0d8bff290880df1e6ecaa31946d6a2a6ffc005d144e60db26a4a01ecd
-//! Input: registry/digest-suite-registry.json; version=2026-06-10; sha256=6522a9f899872e285762d46634a8f13a2d9f69437d04287a404cccde42327344
-//! Input: registry/signature-alg-registry.json; version=2026-07-13; sha256=5ccd1caf0e223f267b782a5d8bd61310597031f76f71cc49d60eea261b73061f
-//! Input: registry/hpke-suite-registry.json; version=2026-07-13; sha256=bbb4b335c9d8e33b7c3b378932dedaa7aff019c5dec21225576632d88374a5d2
-//! Input: registry/mls-ciphersuite-registry.json; version=2026-07-13; sha256=0fa9193fba7c2b4d1f7e36cc92c669f3dca251272897ac20cdbc70d5d160613b
-//! Input: registry/mls-extension-registry.json; version=2026-06-03; sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
-//! Entries: proof_contexts=24, exporter_labels=8, digest_suites=3, signature_algorithms=4, hpke_suites=4, mls_ciphersuites=3, mls_extensions=1
+//! Input: registry/proof-context-registry.json; version=2026-07-16;
+//! sha256=2dfe74804a47e3904c3e339472227b4524c60bd57992b41e6612af632dd071cc Input: registry/
+//! exporter-label-registry.json; version=2026-06-10;
+//! sha256=e119ced0d8bff290880df1e6ecaa31946d6a2a6ffc005d144e60db26a4a01ecd Input: registry/
+//! digest-suite-registry.json; version=2026-06-10;
+//! sha256=6522a9f899872e285762d46634a8f13a2d9f69437d04287a404cccde42327344 Input: registry/
+//! signature-alg-registry.json; version=2026-07-13;
+//! sha256=5ccd1caf0e223f267b782a5d8bd61310597031f76f71cc49d60eea261b73061f Input: registry/
+//! hpke-suite-registry.json; version=2026-07-13;
+//! sha256=bbb4b335c9d8e33b7c3b378932dedaa7aff019c5dec21225576632d88374a5d2 Input: registry/
+//! mls-ciphersuite-registry.json; version=2026-07-13;
+//! sha256=0fa9193fba7c2b4d1f7e36cc92c669f3dca251272897ac20cdbc70d5d160613b Input: registry/
+//! mls-extension-registry.json; version=2026-06-03;
+//! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
+//! Entries: proof_contexts=24, exporter_labels=8, digest_suites=3, signature_algorithms=4,
+//! hpke_suites=4, mls_ciphersuites=3, mls_extensions=1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -66,9 +74,11 @@ impl ProofContextId {
         Self::SnapshotProofV1,
     ];
 
-    pub const ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_V1: &'static str = "ak.account-handoff-authentication-proof-v1";
+    pub const ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_V1: &'static str =
+        "ak.account-handoff-authentication-proof-v1";
     pub const ACCOUNTABILITY_GRANT_PROOF_V1: &'static str = "ak.accountability-grant-proof-v1";
-    pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_PROOF_V1: &'static str = "ak.agent-requested-scope-disclosure-proof-v1";
+    pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_PROOF_V1: &'static str =
+        "ak.agent-requested-scope-disclosure-proof-v1";
     pub const AGENT_SELECTOR_CLAIM_PROOF_V1: &'static str = "ak.agent-selector-claim-proof-v1";
     pub const APPLET_PACKAGE_PROOF_V1: &'static str = "ak.applet-package-proof-v1";
     pub const ATTESTATION_EVIDENCE_PROOF_V1: &'static str = "ak.attestation-evidence-proof-v1";
@@ -80,22 +90,30 @@ impl ProofContextId {
     pub const EPHEMERAL_PROOF_V1: &'static str = "ak.ephemeral-proof-v1";
     pub const EVENT_PROOF_V1: &'static str = "ak.event-proof-v1";
     pub const HANDLE_CLAIM_PROOF_V1: &'static str = "ak.handle-claim-proof-v1";
-    pub const IDENTITY_CREATION_CONTROL_PROOF_V1: &'static str = "ak.identity-creation-control-proof-v1";
+    pub const IDENTITY_CREATION_CONTROL_PROOF_V1: &'static str =
+        "ak.identity-creation-control-proof-v1";
     pub const IDENTITY_RECEIPT_PROOF_V1: &'static str = "ak.identity-receipt-proof-v1";
-    pub const MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1: &'static str = "ak.member-delivery-binding-candidate-proof-v1";
+    pub const MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1: &'static str =
+        "ak.member-delivery-binding-candidate-proof-v1";
     pub const MIMI_OPERATION_PROOF_V1: &'static str = "ak.mimi-operation-proof-v1";
     pub const PRINCIPAL_LOCATOR_PROOF_V1: &'static str = "ak.principal-locator-proof-v1";
-    pub const RANGE_COMPLETENESS_ATTESTATION_PROOF_V1: &'static str = "ak.range-completeness-attestation-proof-v1";
+    pub const RANGE_COMPLETENESS_ATTESTATION_PROOF_V1: &'static str =
+        "ak.range-completeness-attestation-proof-v1";
     pub const REALM_JOIN_CANDIDATE_PROOF_V1: &'static str = "ak.realm-join-candidate-proof-v1";
     pub const RECEIPT_PROOF_V1: &'static str = "ak.receipt-proof-v1";
-    pub const SERVICE_REGISTRATION_RECEIPT_PROOF_V1: &'static str = "ak.service-registration-receipt-proof-v1";
+    pub const SERVICE_REGISTRATION_RECEIPT_PROOF_V1: &'static str =
+        "ak.service-registration-receipt-proof-v1";
     pub const SNAPSHOT_PROOF_V1: &'static str = "ak.snapshot-proof-v1";
 
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::AccountHandoffAuthenticationProofV1 => "ak.account-handoff-authentication-proof-v1",
+            Self::AccountHandoffAuthenticationProofV1 => {
+                "ak.account-handoff-authentication-proof-v1"
+            }
             Self::AccountabilityGrantProofV1 => "ak.accountability-grant-proof-v1",
-            Self::AgentRequestedScopeDisclosureProofV1 => "ak.agent-requested-scope-disclosure-proof-v1",
+            Self::AgentRequestedScopeDisclosureProofV1 => {
+                "ak.agent-requested-scope-disclosure-proof-v1"
+            }
             Self::AgentSelectorClaimProofV1 => "ak.agent-selector-claim-proof-v1",
             Self::AppletPackageProofV1 => "ak.applet-package-proof-v1",
             Self::AttestationEvidenceProofV1 => "ak.attestation-evidence-proof-v1",
@@ -109,10 +127,14 @@ impl ProofContextId {
             Self::HandleClaimProofV1 => "ak.handle-claim-proof-v1",
             Self::IdentityCreationControlProofV1 => "ak.identity-creation-control-proof-v1",
             Self::IdentityReceiptProofV1 => "ak.identity-receipt-proof-v1",
-            Self::MemberDeliveryBindingCandidateProofV1 => "ak.member-delivery-binding-candidate-proof-v1",
+            Self::MemberDeliveryBindingCandidateProofV1 => {
+                "ak.member-delivery-binding-candidate-proof-v1"
+            }
             Self::MimiOperationProofV1 => "ak.mimi-operation-proof-v1",
             Self::PrincipalLocatorProofV1 => "ak.principal-locator-proof-v1",
-            Self::RangeCompletenessAttestationProofV1 => "ak.range-completeness-attestation-proof-v1",
+            Self::RangeCompletenessAttestationProofV1 => {
+                "ak.range-completeness-attestation-proof-v1"
+            }
             Self::RealmJoinCandidateProofV1 => "ak.realm-join-candidate-proof-v1",
             Self::ReceiptProofV1 => "ak.receipt-proof-v1",
             Self::ServiceRegistrationReceiptProofV1 => "ak.service-registration-receipt-proof-v1",
@@ -122,9 +144,13 @@ impl ProofContextId {
 
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
-            "ak.account-handoff-authentication-proof-v1" => Some(Self::AccountHandoffAuthenticationProofV1),
+            "ak.account-handoff-authentication-proof-v1" => {
+                Some(Self::AccountHandoffAuthenticationProofV1)
+            }
             "ak.accountability-grant-proof-v1" => Some(Self::AccountabilityGrantProofV1),
-            "ak.agent-requested-scope-disclosure-proof-v1" => Some(Self::AgentRequestedScopeDisclosureProofV1),
+            "ak.agent-requested-scope-disclosure-proof-v1" => {
+                Some(Self::AgentRequestedScopeDisclosureProofV1)
+            }
             "ak.agent-selector-claim-proof-v1" => Some(Self::AgentSelectorClaimProofV1),
             "ak.applet-package-proof-v1" => Some(Self::AppletPackageProofV1),
             "ak.attestation-evidence-proof-v1" => Some(Self::AttestationEvidenceProofV1),
@@ -138,13 +164,19 @@ impl ProofContextId {
             "ak.handle-claim-proof-v1" => Some(Self::HandleClaimProofV1),
             "ak.identity-creation-control-proof-v1" => Some(Self::IdentityCreationControlProofV1),
             "ak.identity-receipt-proof-v1" => Some(Self::IdentityReceiptProofV1),
-            "ak.member-delivery-binding-candidate-proof-v1" => Some(Self::MemberDeliveryBindingCandidateProofV1),
+            "ak.member-delivery-binding-candidate-proof-v1" => {
+                Some(Self::MemberDeliveryBindingCandidateProofV1)
+            }
             "ak.mimi-operation-proof-v1" => Some(Self::MimiOperationProofV1),
             "ak.principal-locator-proof-v1" => Some(Self::PrincipalLocatorProofV1),
-            "ak.range-completeness-attestation-proof-v1" => Some(Self::RangeCompletenessAttestationProofV1),
+            "ak.range-completeness-attestation-proof-v1" => {
+                Some(Self::RangeCompletenessAttestationProofV1)
+            }
             "ak.realm-join-candidate-proof-v1" => Some(Self::RealmJoinCandidateProofV1),
             "ak.receipt-proof-v1" => Some(Self::ReceiptProofV1),
-            "ak.service-registration-receipt-proof-v1" => Some(Self::ServiceRegistrationReceiptProofV1),
+            "ak.service-registration-receipt-proof-v1" => {
+                Some(Self::ServiceRegistrationReceiptProofV1)
+            }
             "ak.snapshot-proof-v1" => Some(Self::SnapshotProofV1),
             _ => None,
         }
@@ -254,168 +286,355 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         id: ProofContextId::AccountHandoffAuthenticationProofV1,
         context: "ak.account-handoff-authentication-proof-v1",
         object_family: "account_handoff_authentication",
-        binding_fields: &["payload_digest", "account_id", "principal_id", "verification_method", "created_at", "audience"],
+        binding_fields: &[
+            "payload_digest",
+            "account_id",
+            "principal_id",
+            "verification_method",
+            "created_at",
+            "audience",
+        ],
         schema_ref: "schemas/account-operations.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::AccountabilityGrantProofV1,
         context: "ak.accountability-grant-proof-v1",
         object_family: "accountability_grant",
-        binding_fields: &["payload_digest", "issuer", "subject", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "issuer",
+            "subject",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/accountability-grant.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::AgentRequestedScopeDisclosureProofV1,
         context: "ak.agent-requested-scope-disclosure-proof-v1",
         object_family: "agent_requested_scope_disclosure",
-        binding_fields: &["payload_digest", "controller_id", "agent_id", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "controller_id",
+            "agent_id",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/agent-requested-scope-disclosure.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::AgentSelectorClaimProofV1,
         context: "ak.agent-selector-claim-proof-v1",
         object_family: "agent_selector_claim",
-        binding_fields: &["payload_digest", "controller_id", "agent_id", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "controller_id",
+            "agent_id",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/agent-selector-claim.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::AppletPackageProofV1,
         context: "ak.applet-package-proof-v1",
         object_family: "applet_package",
-        binding_fields: &["payload_digest", "applet_id", "publisher_id", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "applet_id",
+            "publisher_id",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/applet-package.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::AttestationEvidenceProofV1,
         context: "ak.attestation-evidence-proof-v1",
         object_family: "attestation_evidence",
-        binding_fields: &["payload_digest", "issuer", "subject", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "issuer",
+            "subject",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/attestation-evidence.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::AuditRywReceiptProofV1,
         context: "ak.audit-ryw-receipt-proof-v1",
         object_family: "audit_ryw_receipt",
-        binding_fields: &["payload_digest", "issuer", "scope", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "issuer",
+            "scope",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/audit-ryw-receipt.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::CapabilityGrantProofV1,
         context: "ak.capability-grant-proof-v1",
         object_family: "capability_grant",
-        binding_fields: &["payload_digest", "issuer", "subject", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "issuer",
+            "subject",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/capability-grant.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::DidContinuityProofV1,
         context: "ak.did-continuity-proof-v1",
         object_family: "did_continuity",
-        binding_fields: &["payload_digest", "old_did", "new_did", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "old_did",
+            "new_did",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/did-continuity-proof.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::DidKeyLogEntryProofV1,
         context: "ak.did-key-log-entry-proof-v1",
         object_family: "did_key_log_entry",
-        binding_fields: &["payload_digest", "did", "seq", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "did",
+            "seq",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/did-key-log-entry.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::DirectoryOperationProofV1,
         context: "ak.directory-operation-proof-v1",
         object_family: "directory_operation",
-        binding_fields: &["payload_digest", "issuer", "operation_id", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "issuer",
+            "operation_id",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/directory-operations.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::EphemeralProofV1,
         context: "ak.ephemeral-proof-v1",
         object_family: "ephemeral_envelope",
-        binding_fields: &["payload_digest", "actor_id", "device_id", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "actor_id",
+            "device_id",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/ephemeral-envelope.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::EventProofV1,
         context: "ak.event-proof-v1",
         object_family: "event_envelope",
-        binding_fields: &["event_digest", "actor_id", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "event_digest",
+            "actor_id",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/event-envelope.schema.json#/$defs/event_proof",
     },
     ProofContextDescriptor {
         id: ProofContextId::HandleClaimProofV1,
         context: "ak.handle-claim-proof-v1",
         object_family: "handle_claim",
-        binding_fields: &["payload_digest", "handle", "subject_id", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "handle",
+            "subject_id",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/handle-claim.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::IdentityCreationControlProofV1,
         context: "ak.identity-creation-control-proof-v1",
         object_family: "identity_creation_control",
-        binding_fields: &["payload_digest", "principal_id", "verification_method", "created_at", "audience"],
+        binding_fields: &[
+            "payload_digest",
+            "principal_id",
+            "verification_method",
+            "created_at",
+            "audience",
+        ],
         schema_ref: "schemas/account-operations.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::IdentityReceiptProofV1,
         context: "ak.identity-receipt-proof-v1",
         object_family: "identity_receipt",
-        binding_fields: &["payload_digest", "registry_service_id", "did", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "registry_service_id",
+            "did",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/identity-receipt.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::MemberDeliveryBindingCandidateProofV1,
         context: "ak.member-delivery-binding-candidate-proof-v1",
         object_family: "member_delivery_binding_candidate",
-        binding_fields: &["payload_digest", "subject_id", "recipient_service_id", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "subject_id",
+            "recipient_service_id",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/member-delivery-binding-candidate.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::MimiOperationProofV1,
         context: "ak.mimi-operation-proof-v1",
         object_family: "mimi_operation",
-        binding_fields: &["payload_digest", "issuer", "operation_id", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "issuer",
+            "operation_id",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/mimi-operations.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::PrincipalLocatorProofV1,
         context: "ak.principal-locator-proof-v1",
         object_family: "principal_locator",
-        binding_fields: &["payload_digest", "subject_id", "recipient_service_id", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "subject_id",
+            "recipient_service_id",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/principal-locator.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::RangeCompletenessAttestationProofV1,
         context: "ak.range-completeness-attestation-proof-v1",
         object_family: "range_completeness_attestation",
-        binding_fields: &["payload_digest", "issuer", "scope", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "issuer",
+            "scope",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/range-completeness-attestation.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::RealmJoinCandidateProofV1,
         context: "ak.realm-join-candidate-proof-v1",
         object_family: "realm_join_candidate",
-        binding_fields: &["payload_digest", "realm_id", "subject_id", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "realm_id",
+            "subject_id",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/realm-join-candidate.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::ReceiptProofV1,
         context: "ak.receipt-proof-v1",
         object_family: "event_batch_receipt",
-        binding_fields: &["payload_digest", "issuer", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "issuer",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/event-batch-receipt.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::ServiceRegistrationReceiptProofV1,
         context: "ak.service-registration-receipt-proof-v1",
         object_family: "service_registration_receipt",
-        binding_fields: &["payload_digest", "provider_service_id", "registration_receipt_id", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "provider_service_id",
+            "registration_receipt_id",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/ServiceRegistrationReceipt",
     },
     ProofContextDescriptor {
         id: ProofContextId::SnapshotProofV1,
         context: "ak.snapshot-proof-v1",
         object_family: "snapshot",
-        binding_fields: &["payload_digest", "snapshot_id", "realm_id", "verification_method", "created_at", "domain?", "audience?"],
+        binding_fields: &[
+            "payload_digest",
+            "snapshot_id",
+            "realm_id",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
         schema_ref: "schemas/snapshot.schema.json",
     },
 ];
@@ -428,7 +647,12 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         context_fields: &[],
         output_length: "AEAD.Nk for the active MLS ciphersuite",
         empty_context_forbidden: false,
-        forbid_reuse_with: &["ak.history-v1", "arkret-aead-sender-nonce-prefix-v1", "arkret-reaction-routing-v1", "arkret-mention-routing-v1"],
+        forbid_reuse_with: &[
+            "ak.history-v1",
+            "arkret-aead-sender-nonce-prefix-v1",
+            "arkret-reaction-routing-v1",
+            "arkret-mention-routing-v1",
+        ],
     },
     ExporterLabelDescriptor {
         id: ExporterLabelId::HistoryV1,
@@ -437,13 +661,25 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         context_fields: &["realm_id"],
         output_length: "KDF.Nh for the active MLS ciphersuite",
         empty_context_forbidden: true,
-        forbid_reuse_with: &["ak.content-v1", "arkret-aead-sender-nonce-prefix-v1", "arkret-reaction-routing-v1", "arkret-mention-routing-v1"],
+        forbid_reuse_with: &[
+            "ak.content-v1",
+            "arkret-aead-sender-nonce-prefix-v1",
+            "arkret-reaction-routing-v1",
+            "arkret-mention-routing-v1",
+        ],
     },
     ExporterLabelDescriptor {
         id: ExporterLabelId::RtcFrameKeyV1,
         label: "ak.rtc-frame-key/v1",
         primitive: None,
-        context_fields: &["realm_id", "call_id", "focus_id", "epoch_id", "participant_identity", "device_id"],
+        context_fields: &[
+            "realm_id",
+            "call_id",
+            "focus_id",
+            "epoch_id",
+            "participant_identity",
+            "device_id",
+        ],
         output_length: "32",
         empty_context_forbidden: true,
         forbid_reuse_with: &["ak.rtc-recording-key/v1", "ak.rtc-transcript-key/v1"],
@@ -452,7 +688,14 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         id: ExporterLabelId::RtcRecordingKeyV1,
         label: "ak.rtc-recording-key/v1",
         primitive: None,
-        context_fields: &["realm_id", "call_id", "focus_id", "recording_id", "media_service_id", "recording_start_event_id"],
+        context_fields: &[
+            "realm_id",
+            "call_id",
+            "focus_id",
+            "recording_id",
+            "media_service_id",
+            "recording_start_event_id",
+        ],
         output_length: "32",
         empty_context_forbidden: true,
         forbid_reuse_with: &["ak.rtc-frame-key/v1", "ak.rtc-transcript-key/v1"],
@@ -461,7 +704,14 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         id: ExporterLabelId::RtcTranscriptKeyV1,
         label: "ak.rtc-transcript-key/v1",
         primitive: None,
-        context_fields: &["realm_id", "call_id", "focus_id", "recording_id", "media_service_id", "transcript_start_event_id"],
+        context_fields: &[
+            "realm_id",
+            "call_id",
+            "focus_id",
+            "recording_id",
+            "media_service_id",
+            "transcript_start_event_id",
+        ],
         output_length: "32",
         empty_context_forbidden: true,
         forbid_reuse_with: &["ak.rtc-frame-key/v1", "ak.rtc-recording-key/v1"],
@@ -591,22 +841,18 @@ pub const MLS_CIPHERSUITES: &[AlgorithmSuiteDescriptor] = &[
     },
 ];
 
-pub const MLS_EXTENSIONS: &[MlsExtensionDescriptor] = &[
-    MlsExtensionDescriptor {
-        name: "mls_governance_binding",
-        codepoint: "0xF1C0",
-        status: "active",
-        profile_id: "ak.profile.mls_governance_binding.full.v1",
-    },
-];
+pub const MLS_EXTENSIONS: &[MlsExtensionDescriptor] = &[MlsExtensionDescriptor {
+    name: "mls_governance_binding",
+    codepoint: "0xF1C0",
+    status: "active",
+    profile_id: "ak.profile.mls_governance_binding.full.v1",
+}];
 
 pub fn proof_context(value: &str) -> Option<&'static ProofContextDescriptor> {
     ProofContextId::from_wire(value).map(proof_context_descriptor)
 }
 
-pub const fn proof_context_descriptor(
-    id: ProofContextId,
-) -> &'static ProofContextDescriptor {
+pub const fn proof_context_descriptor(id: ProofContextId) -> &'static ProofContextDescriptor {
     &PROOF_CONTEXTS[id as usize]
 }
 
@@ -614,8 +860,6 @@ pub fn exporter_label(value: &str) -> Option<&'static ExporterLabelDescriptor> {
     ExporterLabelId::from_wire(value).map(exporter_label_descriptor)
 }
 
-pub const fn exporter_label_descriptor(
-    id: ExporterLabelId,
-) -> &'static ExporterLabelDescriptor {
+pub const fn exporter_label_descriptor(id: ExporterLabelId) -> &'static ExporterLabelDescriptor {
     &EXPORTER_LABELS[id as usize]
 }

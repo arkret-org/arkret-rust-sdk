@@ -177,7 +177,7 @@ pub struct FederationServiceBindingRef {
 
 pub const FEDERATION_MINIMAL_PROFILE_ID: &str = "ak.profile.federation_minimal.v1";
 pub const FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST: &str =
-    "sha256:064b3d1d3e0af6d1047e89372e93f4b20f79338e0b3b18273d5a15cda17f6a15";
+    arkret_policy::generated::profiles::FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST;
 
 pub fn federation_minimal_reducer_profile_digest() -> &'static str {
     FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST
@@ -243,6 +243,12 @@ mod tests {
         assert_eq!(
             federation_minimal_reducer_profile_digest(),
             FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST
+        );
+        assert_eq!(
+            arkret_policy::generated::profiles::reducer_profile_digest(
+                FEDERATION_MINIMAL_PROFILE_ID
+            ),
+            Some(FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST)
         );
         assert_eq!(
             Hash::new(FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST)

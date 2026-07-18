@@ -32,7 +32,8 @@
       "owner": "arkret-policy",
       "mode": "registered+projection",
       "artifacts": [
-        "profiles/conformance-profiles.json"
+        "profiles/conformance-profiles.json",
+        "registry/reducer-profile-registry.json"
       ]
     },
     {
