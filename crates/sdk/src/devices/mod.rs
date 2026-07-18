@@ -18,11 +18,13 @@ use sha2::Sha256;
 
 use crate::{DeviceId, DeviceVerificationState, Did, Error, Result, canonical};
 
+mod authoring;
 mod backup;
 mod manager;
 #[cfg(test)]
 mod tests;
 
+pub use authoring::*;
 pub use backup::*;
 pub use manager::*;
 

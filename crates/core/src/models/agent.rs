@@ -191,19 +191,43 @@ pub struct AgentRuntimeApprovalStatusOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AgentProvisionRequestBody {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<String>,
-    pub slug: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub avatar_blob_ref: Option<BlobRef>,
-    /// Immutable global Agent ceiling selected at provision time. This is not
-    /// a grant; later key scopes, Realm grants and sessions may only narrow it.
-    pub requested_scope: AgentKeyScope,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub accountability: Option<BTreeMap<String, Value>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pairing_ttl_ms: Option<u64>,
+#[serde(tag = "phase", rename_all = "snake_case")]
+pub enum AgentProvisionRequestBody {
+    Prepare {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        display_name: Option<String>,
+        slug: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        avatar_blob_ref: Option<BlobRef>,
+        requested_scope: AgentKeyScope,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pairing_ttl_ms: Option<u64>,
+    },
+    Commit {
+        agent_id: Did,
+        principal_control_realm_id: RealmId,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        display_name: Option<String>,
+        slug: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        avatar_blob_ref: Option<BlobRef>,
+        requested_scope: AgentKeyScope,
+        provision_events: AgentProvisionEvents,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pairing_ttl_ms: Option<u64>,
+    },
+}
+
+/// Closed controller-signed Event pair committed by personal-Agent
+/// provisioning. The server validates semantic cross-bindings and admits both
+/// envelopes through the ordinary Event pipeline; it never authors a proof on
+/// the controller's behalf.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentProvisionEvents {
+    pub accountability_grant: Event,
+    pub selector_claim: Event,
 }
 
 // NOTE: `AgentKeyScope` is the spec object `{actions, resources, constraints?}`
@@ -302,7 +326,25 @@ pub enum AgentPairingMode {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AgentProvisionOutcome {
+#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+pub enum AgentProvisionOutcome {
+    AwaitingControllerEvents {
+        agent_id: Did,
+        principal_control_realm_id: RealmId,
+        controller_realm_id: RealmId,
+        controller_authorization_ref: String,
+        requested_scope_digest: Hash,
+    },
+    Complete {
+        #[serde(flatten)]
+        outcome: AgentProvisionComplete,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentProvisionComplete {
     pub agent_id: Did,
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: String,

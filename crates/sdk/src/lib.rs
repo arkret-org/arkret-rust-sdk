@@ -391,7 +391,8 @@ pub use devices::{
     DeviceChange, DeviceCrossSigningChainVerification, DeviceManager, DeviceMetadata,
     DeviceQuorumSignature, DeviceQuorumThreshold, DeviceTrustBinding, DeviceTrustChainOutcome,
     DeviceTrustState, DeviceVerificationChallenge, DeviceVerificationMessageKind,
-    QrVerificationPayload, ToDeviceEnvelope, cross_signing_publish_cell_subject,
+    QrVerificationPayload, ToDeviceEnvelope, build_cross_signing_publish_event_at,
+    build_device_authorize_event_at, cross_signing_publish_cell_subject,
     device_verification_commitment, verify_device_cross_signing_chain,
 };
 #[cfg(feature = "full-surface")]

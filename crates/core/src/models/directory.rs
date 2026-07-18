@@ -619,11 +619,73 @@ pub struct AgentSelectorClaim {
     pub verified_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub proofs: Vec<PayloadProof>,
 }
 
 impl AgentSelectorClaim {
+    /// Canonical claim bytes covered by selector payload proofs.
+    pub fn canonical_payload_without_proofs(&self) -> Result<Vec<u8>> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .expect("AgentSelectorClaim serializes as an object")
+            .remove("proofs");
+        Ok(canonical::canonical_json_bytes(&value)?)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        Hash::new(canonical::sha256_digest(
+            &self.canonical_payload_without_proofs()?,
+        ))
+        .map_err(|reason| Error::Protocol(reason.to_string()))
+    }
+
+    /// Canonical `ak.agent-selector-claim-proof-v1` transcript shared by
+    /// producers and verifiers.
+    pub fn canonical_proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        let payload_digest = self.payload_digest()?;
+        if proof.payload_digest != payload_digest {
+            return Err(Error::Protocol(
+                "agent_selector_claim proof payload_digest mismatch".to_owned(),
+            ));
+        }
+        let mut binding = serde_json::Map::from_iter([
+            (
+                "context".to_owned(),
+                Value::String(crate::ProofContextId::AGENT_SELECTOR_CLAIM_PROOF_V1.to_owned()),
+            ),
+            (
+                "payload_digest".to_owned(),
+                serde_json::to_value(&payload_digest)?,
+            ),
+            (
+                "controller_subject".to_owned(),
+                serde_json::to_value(&self.controller_subject)?,
+            ),
+            ("subject".to_owned(), serde_json::to_value(&self.subject)?),
+            (
+                "agent_slug".to_owned(),
+                Value::String(self.agent_slug.clone()),
+            ),
+            (
+                "verification_method".to_owned(),
+                Value::String(proof.verification_method.clone()),
+            ),
+            (
+                "created_at".to_owned(),
+                serde_json::to_value(proof.created_at)?,
+            ),
+        ]);
+        if let Some(domain) = &proof.domain {
+            binding.insert("domain".to_owned(), Value::String(domain.clone()));
+        }
+        if let Some(audience) = &proof.audience {
+            binding.insert("audience".to_owned(), serde_json::to_value(audience)?);
+        }
+        Ok(canonical::canonical_json_bytes(&Value::Object(binding))?)
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.schema != AGENT_SELECTOR_CLAIM_SCHEMA {
             return Err(Error::Protocol(format!(

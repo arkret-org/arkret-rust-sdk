@@ -152,6 +152,16 @@ struct SealBody<'a> {
 }
 
 impl Seal {
+    /// Mint the single-leaf Control Move basis represented by this accepted
+    /// Seal. Callers must only use the result after receiver acceptance.
+    pub fn seal_basis(&self) -> crate::SealBasis {
+        crate::SealBasis {
+            leaves: vec![self.id.clone()],
+            control_event_set_root: self.control_event_set_root.clone(),
+            state_root: self.state_root.clone(),
+        }
+    }
+
     pub fn canonical_bytes_for_id(&self) -> Result<Vec<u8>> {
         let body = SealBody {
             realm_id: &self.realm_id,
