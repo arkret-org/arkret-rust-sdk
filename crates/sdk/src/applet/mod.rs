@@ -147,7 +147,7 @@ mod tests {
         let grant = AccountabilityGrantPayload::new(
             owner.clone(),
             subject,
-            AccountabilityScope::Single("contracted_service".to_owned()),
+            AccountabilityScope::Single(AccountabilityScopeKind::ContractedService),
             now - Duration::minutes(1),
             Some(now + Duration::minutes(10)),
             production_proof(&owner, now),

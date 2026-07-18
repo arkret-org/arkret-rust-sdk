@@ -293,14 +293,14 @@ pub use agent::{
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub use applet::{
     AccountabilityGrantPayload, AccountabilityGrantStatus, AccountabilityScope,
-    AppletAcceptedSigningKeyEvidence, AppletBridgeErrorBuilder, AppletBridgeErrorClass,
-    AppletBridgeErrorVisibility, AppletDelegatedEventAuthorization, AppletEpochEvidenceError,
-    AppletNamespaceConflict, AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage,
-    AppletPortal, AppletRegistrationEpochEvidence, AppletServiceIntent, AppletServiceTransaction,
-    AppletWireNamespaces, GhostActorProfileFields, GhostActorProfileRequest,
-    GhostActorProvisionOutcome, GhostActorProvisionRequestBody, PortalMode, PortalRealmMapping,
-    WebhookAuth, WireAppletRegistration, applet_did_document_digest,
-    applet_signing_key_material_digest, namespace_pattern_matches,
+    AccountabilityScopeKind, AppletAcceptedSigningKeyEvidence, AppletBridgeErrorBuilder,
+    AppletBridgeErrorClass, AppletBridgeErrorVisibility, AppletDelegatedEventAuthorization,
+    AppletEpochEvidenceError, AppletNamespaceConflict, AppletNamespaceDomain, AppletNamespaceEntry,
+    AppletPackage, AppletPortal, AppletRegistrationEpochEvidence, AppletServiceIntent,
+    AppletServiceTransaction, AppletWireNamespaces, GhostActorProfileFields,
+    GhostActorProfileRequest, GhostActorProvisionOutcome, GhostActorProvisionRequestBody,
+    PortalMode, PortalRealmMapping, WebhookAuth, WireAppletRegistration,
+    applet_did_document_digest, applet_signing_key_material_digest, namespace_pattern_matches,
     normalize_applet_signing_key_ref, sign_registration,
 };
 pub use arkret_core::hlc::{

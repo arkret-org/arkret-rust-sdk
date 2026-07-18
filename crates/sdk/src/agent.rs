@@ -18,8 +18,8 @@ use serde_json::Value;
 #[cfg(test)]
 use crate::AgentKeyRuntimeAttestationKind;
 use crate::{
-    AccountabilityGrantPayload, AccountabilityScope, AgentDeactivateRequestBody,
-    AgentGrantAttachRequestBody, AgentKeyAuthorizePayload,
+    AccountabilityGrantPayload, AccountabilityScope, AccountabilityScopeKind,
+    AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyAuthorizePayload,
     AgentKeyAuthorizePayloadRuntimeAttestation, AgentKeyPairRequestBody, AgentPairingBootstrap,
     AgentPauseRequestBody, AgentProvisionEvents, AgentProvisionRequestBody,
     AgentRenewPairingRequestBody, AgentRequestedScopeDisclosure, AgentResumeRequestBody,
@@ -648,7 +648,7 @@ pub fn build_agent_provision_event_drafts<S: MoveSigner + ?Sized>(
     let mut accountability_payload = AccountabilityGrantPayload::new(
         controller_id.clone(),
         agent_id.clone(),
-        AccountabilityScope::Single("agent_operator".to_owned()),
+        AccountabilityScope::Single(AccountabilityScopeKind::AgentOperator),
         created_at,
         None,
         PayloadProof {
