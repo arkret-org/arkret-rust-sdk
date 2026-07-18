@@ -112,18 +112,14 @@ pub(in crate::models) fn required_fields_for_event_kind(kind: &str) -> Vec<Strin
         EventKind::STRAND_STAGE_SET => {
             vec!["strand_id".to_owned(), "stage".to_owned()]
         }
-        EventKind::STRAND_MOVE => {
-            ["board_space_id", "strand_id", "target_space_id", "rank"]
-                .into_iter()
-                .map(str::to_owned)
-                .collect()
-        }
-        EventKind::STRAND_REORDER => {
-            ["board_space_id", "strand_id", "space_id", "rank"]
-                .into_iter()
-                .map(str::to_owned)
-                .collect()
-        }
+        EventKind::STRAND_MOVE => ["board_space_id", "strand_id", "target_space_id", "rank"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+        EventKind::STRAND_REORDER => ["board_space_id", "strand_id", "space_id", "rank"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
         EventKind::APPLET_REGISTRATION => {
             vec!["service_id".to_owned(), "namespace".to_owned()]
         }
@@ -146,12 +142,10 @@ pub(in crate::models) fn required_fields_for_event_kind(kind: &str) -> Vec<Strin
         .into_iter()
         .map(str::to_owned)
         .collect(),
-        EventKind::AGENT_KEY_REVOKE => {
-            ["agent_id", "key_id", "revoked_at", "revoked_by"]
-                .into_iter()
-                .map(str::to_owned)
-                .collect()
-        }
+        EventKind::AGENT_KEY_REVOKE => ["agent_id", "key_id", "revoked_at", "revoked_by"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
         EventKind::MORPH_CREATE => vec!["object".to_owned()],
         EventKind::MORPH_UPDATE => vec!["target_ref".to_owned(), "patch".to_owned()],
         EventKind::MORPH_ARCHIVE | EventKind::MORPH_RESTORE => {
@@ -167,9 +161,9 @@ pub(in crate::models) fn required_fields_for_event_kind(kind: &str) -> Vec<Strin
         EventKind::SPACE_PARENT => {
             vec!["space_id".to_owned(), "parent_space_id".to_owned()]
         }
-        EventKind::SPACE_ARCHIVE
-        | EventKind::SPACE_RESTORE
-        | EventKind::SPACE_TOMBSTONE => vec!["space_id".to_owned()],
+        EventKind::SPACE_ARCHIVE | EventKind::SPACE_RESTORE | EventKind::SPACE_TOMBSTONE => {
+            vec!["space_id".to_owned()]
+        }
         EventKind::RELATION_CREATE => ["kind", "from_ref", "to_ref"]
             .into_iter()
             .map(str::to_owned)

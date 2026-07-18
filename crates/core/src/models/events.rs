@@ -580,15 +580,9 @@ impl Event {
 
     pub fn as_message_event_payload(&self) -> Result<MessageEventPayload> {
         match self.kind.as_str() {
-            EventKind::MESSAGE_CREATE => {
-                Ok(MessageEventPayload::Create(self.as_message_create()?))
-            }
-            EventKind::MESSAGE_REVISE => {
-                Ok(MessageEventPayload::Revise(self.as_message_revise()?))
-            }
-            EventKind::MESSAGE_REDACT => {
-                Ok(MessageEventPayload::Redact(self.as_message_redact()?))
-            }
+            EventKind::MESSAGE_CREATE => Ok(MessageEventPayload::Create(self.as_message_create()?)),
+            EventKind::MESSAGE_REVISE => Ok(MessageEventPayload::Revise(self.as_message_revise()?)),
+            EventKind::MESSAGE_REDACT => Ok(MessageEventPayload::Redact(self.as_message_redact()?)),
             EventKind::REACTION_ADD => {
                 Ok(MessageEventPayload::ReactionAdd(self.as_reaction_add()?))
             }

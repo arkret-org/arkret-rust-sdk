@@ -151,7 +151,10 @@ impl MlsGovernanceBindingPayload {
             )));
         }
         if self.membership_frontier.is_empty() {
-            return Err(Error::Protocol("mls_governance_binding.membership_frontier must be non-empty (schema_violation)".to_owned()));
+            return Err(Error::Protocol(
+                "mls_governance_binding.membership_frontier must be non-empty (schema_violation)"
+                    .to_owned(),
+            ));
         }
         validate_profile_id(
             "mls_governance_binding.binding_profile",
@@ -159,19 +162,28 @@ impl MlsGovernanceBindingPayload {
         )?;
         if self.binding_profile == MLS_GOVERNANCE_BINDING_FULL_PROFILE {
             if self.capability_root.is_none() {
-                return Err(Error::Protocol("full mls_governance_binding requires capability_root (schema_violation)".to_owned()));
+                return Err(Error::Protocol(
+                    "full mls_governance_binding requires capability_root (schema_violation)"
+                        .to_owned(),
+                ));
             }
             if self.discussion_metadata_digest.is_none() {
                 return Err(Error::Protocol("full mls_governance_binding requires discussion_metadata_digest (schema_violation)".to_owned()));
             }
         }
         if self.reducer_profile.is_empty() {
-            return Err(Error::Protocol("mls_governance_binding.reducer_profile must be non-empty (schema_violation)".to_owned()));
+            return Err(Error::Protocol(
+                "mls_governance_binding.reducer_profile must be non-empty (schema_violation)"
+                    .to_owned(),
+            ));
         }
         match &self.effective_scope {
             EffectiveScope::Realm { realm_id } => {
                 if realm_id != &self.realm_id || self.circle_id.is_some() {
-                    return Err(Error::Protocol("mls_governance_binding realm effective_scope mismatch (schema_violation)".to_owned()));
+                    return Err(Error::Protocol(
+                        "mls_governance_binding realm effective_scope mismatch (schema_violation)"
+                            .to_owned(),
+                    ));
                 }
             }
             EffectiveScope::Circle {
@@ -179,7 +191,10 @@ impl MlsGovernanceBindingPayload {
                 circle_id,
             } => {
                 if realm_id != &self.realm_id || self.circle_id.as_ref() != Some(circle_id) {
-                    return Err(Error::Protocol("mls_governance_binding circle effective_scope mismatch (schema_violation)".to_owned()));
+                    return Err(Error::Protocol(
+                        "mls_governance_binding circle effective_scope mismatch (schema_violation)"
+                            .to_owned(),
+                    ));
                 }
             }
         }
@@ -213,7 +228,9 @@ impl MlsGovernanceBindingPayload {
         if let Some(scope) = expected.effective_scope
             && &self.effective_scope != scope
         {
-            return Err(Error::Protocol("mls_governance_binding.effective_scope mismatch (state_mismatch)".to_owned()));
+            return Err(Error::Protocol(
+                "mls_governance_binding.effective_scope mismatch (state_mismatch)".to_owned(),
+            ));
         }
         if let Some(frontier) = expected.membership_frontier
             && self.membership_frontier.as_slice() != frontier
@@ -223,12 +240,18 @@ impl MlsGovernanceBindingPayload {
         if let Some(policy_root) = expected.policy_root
             && &self.policy_root != policy_root
         {
-            return Err(Error::Protocol("mls_governance_binding.policy_root is stale (mls_governance_binding_stale)".to_owned()));
+            return Err(Error::Protocol(
+                "mls_governance_binding.policy_root is stale (mls_governance_binding_stale)"
+                    .to_owned(),
+            ));
         }
         if let Some(capability_root) = expected.capability_root
             && self.capability_root.as_ref() != Some(capability_root)
         {
-            return Err(Error::Protocol("mls_governance_binding.capability_root is stale (mls_governance_binding_stale)".to_owned()));
+            return Err(Error::Protocol(
+                "mls_governance_binding.capability_root is stale (mls_governance_binding_stale)"
+                    .to_owned(),
+            ));
         }
         if let Some(digest) = expected.discussion_metadata_digest
             && self.discussion_metadata_digest.as_ref() != Some(digest)
@@ -655,7 +678,10 @@ impl MlsCommitPayload {
 
     pub fn validate(&self) -> Result<()> {
         if self.base_epoch.checked_add(1) != Some(self.next_epoch) {
-            return Err(Error::Protocol("mls_commit_payload.next_epoch must equal base_epoch + 1 (schema_violation)".to_owned()));
+            return Err(Error::Protocol(
+                "mls_commit_payload.next_epoch must equal base_epoch + 1 (schema_violation)"
+                    .to_owned(),
+            ));
         }
         validate_object_ref("mls_commit_payload.base_epoch_ref", &self.base_epoch_ref)?;
         if let Some(commit_message_ref) = &self.commit_message_ref {
@@ -664,17 +690,25 @@ impl MlsCommitPayload {
         let mut seen = BTreeSet::new();
         for proposal_ref in &self.proposal_refs {
             if !seen.insert(proposal_ref.to_string()) {
-                return Err(Error::Protocol("mls_commit_payload.proposal_refs must be unique (schema_violation)".to_owned()));
+                return Err(Error::Protocol(
+                    "mls_commit_payload.proposal_refs must be unique (schema_violation)".to_owned(),
+                ));
             }
         }
         self.governance_binding.validate()?;
         if self.governance_binding.mls_group_id() != self.mls_group_id.as_str() {
-            return Err(Error::Protocol("mls_commit_payload.governance_binding.mls_group_id mismatch (schema_violation)".to_owned()));
+            return Err(Error::Protocol(
+                "mls_commit_payload.governance_binding.mls_group_id mismatch (schema_violation)"
+                    .to_owned(),
+            ));
         }
         if self.governance_binding.previous_epoch() != self.base_epoch
             || self.governance_binding.next_epoch() != self.next_epoch
         {
-            return Err(Error::Protocol("mls_commit_payload.governance_binding epoch mismatch (schema_violation)".to_owned()));
+            return Err(Error::Protocol(
+                "mls_commit_payload.governance_binding epoch mismatch (schema_violation)"
+                    .to_owned(),
+            ));
         }
         Ok(())
     }
@@ -807,8 +841,11 @@ pub fn verify_media_decrypt_metadata(
     if binding_covered_digest == recomputed {
         Ok(())
     } else {
-        Err(Error::Protocol("media_service_decrypts metadata digest does not match governance binding; \
-             refusing media negotiation (mls_governance_binding_stale)".to_owned()))
+        Err(Error::Protocol(
+            "media_service_decrypts metadata digest does not match governance binding; \
+             refusing media negotiation (mls_governance_binding_stale)"
+                .to_owned(),
+        ))
     }
 }
 

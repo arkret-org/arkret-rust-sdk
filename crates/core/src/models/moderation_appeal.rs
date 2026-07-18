@@ -131,8 +131,11 @@ impl ModerationAppealPayload {
         if let ModerationAppealPayload::Decision(p) = self {
             match (p.verdict, &p.modify_decision_ref) {
                 (AppealVerdict::Modify, None) => {
-                    return Err(Error::Protocol("moderation appeal decision verdict=modify requires modify_decision_ref \
-                         (schema_violation)".to_owned()));
+                    return Err(Error::Protocol(
+                        "moderation appeal decision verdict=modify requires modify_decision_ref \
+                         (schema_violation)"
+                            .to_owned(),
+                    ));
                 }
                 (AppealVerdict::Uphold | AppealVerdict::Overturn, Some(_)) => {
                     return Err(Error::Protocol(format!(

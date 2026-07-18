@@ -143,12 +143,11 @@ impl Space {
                     enforcement.as_str(),
                     Some("warn" | "reject" | "require_review")
                 ))
-            {
-                return Err(Error::Protocol(
-                    "space wip_limit_enforcement requires a registered value and wip_limit"
-                        .to_owned(),
-                ));
-            }
+        {
+            return Err(Error::Protocol(
+                "space wip_limit_enforcement requires a registered value and wip_limit".to_owned(),
+            ));
+        }
         Ok(())
     }
 }

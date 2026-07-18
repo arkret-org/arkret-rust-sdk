@@ -92,9 +92,7 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         | ServiceOperationId::SELF_BLOB_RESOURCE_GET => OperationSurface::Blob,
         ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND
         | ServiceOperationId::SELF_DEVICE_MESSAGES_QUERY_LIST
-        | ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK => {
-            OperationSurface::DeviceMessages
-        }
+        | ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK => OperationSurface::DeviceMessages,
         ServiceOperationId::FIND_DIRECTORY_COMMAND_ANNOUNCE
         | ServiceOperationId::FIND_DIRECTORY_QUERY_DESCRIBE
         | ServiceOperationId::FIND_DIRECTORY_QUERY_PRIVATE_CONTACT_DISCOVERY
@@ -169,9 +167,7 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         | ServiceOperationId::SELF_ACCOUNT_STREAM_SUBSCRIBE
         | ServiceOperationId::SELF_ACCOUNT_COMMAND_REVOKE_CURSOR
         | ServiceOperationId::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD
-        | ServiceOperationId::PEER_SNAPSHOT_QUERY_MANIFEST_HEAD => {
-            OperationSurface::AccountStream
-        }
+        | ServiceOperationId::PEER_SNAPSHOT_QUERY_MANIFEST_HEAD => OperationSurface::AccountStream,
         _ => OperationSurface::Custom(kind.to_owned()),
     }
 }
