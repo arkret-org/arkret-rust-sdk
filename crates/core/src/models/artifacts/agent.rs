@@ -8,7 +8,7 @@ use super::*;
 pub enum AgentOperations {
     AccountDevicePairRequestBody(crate::AccountDevicePairRequestBody),
     AccountDevicePairOutcome(crate::AccountDevicePairOutcome),
-    AgentKeyPairRequestBody(AgentKeyPairRequestBody),
+    AgentKeyPairRequestBody(Box<AgentKeyPairRequestBody>),
     AgentKeyPairOutcome(AgentKeyPairOutcome),
     AgentRuntimeApprovalRequestBody(AgentRuntimeApprovalRequestBody),
     AgentRuntimeApprovalOutcome(AgentRuntimeApprovalOutcome),
@@ -18,7 +18,7 @@ pub enum AgentOperations {
     AgentRenewPairingOutcome(AgentRenewPairingOutcome),
     AgentPairingBootstrap(AgentPairingBootstrap),
     AgentList(AgentList),
-    AgentView(AgentView),
+    AgentView(Box<AgentView>),
     AgentPauseRequestBody(AgentPauseRequestBody),
     AgentLifecycleState(AgentLifecycleOutcome),
     AgentResumeRequestBody(AgentResumeRequestBody),

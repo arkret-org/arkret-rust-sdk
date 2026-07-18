@@ -210,11 +210,8 @@ fn apply_transformation_rule(
                 MorphSchemaTransformationError::MissingSourceField(field.to_owned())
             })?;
             if !value
-                .as_i64()
-                .is_some_and(|integer| Value::from(integer) == *value)
-                && !value
-                    .as_u64()
-                    .is_some_and(|integer| Value::from(integer) == *value)
+                .as_number()
+                .is_some_and(|number| number.is_i64() || number.is_u64())
             {
                 return Err(MorphSchemaTransformationError::TypeMismatch(
                     field.to_owned(),

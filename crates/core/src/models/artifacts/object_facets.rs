@@ -105,7 +105,7 @@ pub type Snooze = SnoozeValue;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Pin {
-    PinAddPayload(PinAddPayload),
+    PinAddPayload(Box<PinAddPayload>),
     PinRemovePayload(PinRemovePayload),
     PinReorderPayload(PinReorderPayload),
 }

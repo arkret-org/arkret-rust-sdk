@@ -24,7 +24,7 @@ pub const MAX_CALENDAR_RECURRENCE_COUNT: u64 = 10_000;
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PersonalProductivityValue {
     Reminder(ReminderValue),
-    ScheduledSend(ScheduledSendValue),
+    ScheduledSend(Box<ScheduledSendValue>),
     Snooze(SnoozeValue),
     SavedItem(SavedItemValue),
 }
@@ -175,7 +175,7 @@ pub struct CalendarLocation {
 #[serde(untagged)]
 pub enum CalendarEventLocation {
     Plaintext(CalendarLocation),
-    Encrypted(EncryptedEnvelope),
+    Encrypted(Box<EncryptedEnvelope>),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -234,7 +234,7 @@ pub struct RsvpSetPayload {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum RsvpComment {
-    Encrypted(EncryptedEnvelope),
+    Encrypted(Box<EncryptedEnvelope>),
     Plaintext(String),
 }
 
@@ -253,6 +253,7 @@ impl<'de> Deserialize<'de> for RsvpComment {
             return Ok(Self::Plaintext(text.to_owned()));
         }
         serde_json::from_value::<EncryptedEnvelope>(value)
+            .map(Box::new)
             .map(Self::Encrypted)
             .map_err(serde::de::Error::custom)
     }

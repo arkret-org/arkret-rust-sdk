@@ -92,7 +92,7 @@ pub struct GhostActorProvisionOutcome {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AppletGhostOperations {
-    GhostActorProvisionRequestBody(GhostActorProvisionRequestBody),
+    GhostActorProvisionRequestBody(Box<GhostActorProvisionRequestBody>),
     GhostActorProvisionOutcome(GhostActorProvisionOutcome),
 }
 

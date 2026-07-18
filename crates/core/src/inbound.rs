@@ -10,8 +10,8 @@ pub struct DecodedMessage {
 
 #[derive(Clone, Debug)]
 pub enum DecodedInbound {
-    Message(DecodedMessage),
-    Event(Event),
+    Message(Box<DecodedMessage>),
+    Event(Box<Event>),
 }
 
 #[derive(Clone, Debug, Default)]
@@ -25,7 +25,7 @@ impl InboundDecoder {
     pub fn decode_event(&self, event: Event) -> DecodedInbound {
         match self.try_decode_event(event.clone()) {
             Ok(decoded) => decoded,
-            Err(_) => DecodedInbound::Event(event),
+            Err(_) => DecodedInbound::Event(Box::new(event)),
         }
     }
 
@@ -37,9 +37,12 @@ impl InboundDecoder {
             | crate::events::EventKind::REACTION_ADD
             | crate::events::EventKind::REACTION_REMOVE => {
                 let payload = event.as_message_event_payload()?;
-                Ok(DecodedInbound::Message(DecodedMessage { event, payload }))
+                Ok(DecodedInbound::Message(Box::new(DecodedMessage {
+                    event,
+                    payload,
+                })))
             }
-            _ => Ok(DecodedInbound::Event(event)),
+            _ => Ok(DecodedInbound::Event(Box::new(event))),
         }
     }
 }

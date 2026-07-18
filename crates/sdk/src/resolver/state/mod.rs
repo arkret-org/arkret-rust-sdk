@@ -177,34 +177,34 @@ impl RealmState {
     /// Process the content of an event and update state.
     pub(super) fn process_event_content(&mut self, event: &Event) -> Result<()> {
         match event.kind.as_str() {
-            arkret_core::events::EventKind::STRAND_CREATE => self.create_strand(event)?,
-            arkret_core::events::EventKind::STRAND_UPDATE => self.update_strand(event)?,
-            arkret_core::events::EventKind::STRAND_ARCHIVE => self.archive_strand(event)?,
-            arkret_core::events::EventKind::STRAND_RESTORE => self.restore_strand(event)?,
-            arkret_core::events::EventKind::STRAND_MOVE | arkret_core::events::EventKind::STRAND_REORDER => self.touch_strand(event)?,
+            EventKind::STRAND_CREATE => self.create_strand(event)?,
+            EventKind::STRAND_UPDATE => self.update_strand(event)?,
+            EventKind::STRAND_ARCHIVE => self.archive_strand(event)?,
+            EventKind::STRAND_RESTORE => self.restore_strand(event)?,
+            EventKind::STRAND_MOVE | EventKind::STRAND_REORDER => self.touch_strand(event)?,
             EventKind::STRAND_TRACKS_UPDATE => self.update_strand_tracks(event)?,
 
-            arkret_core::events::EventKind::MORPH_CREATE => self.create_morph(event)?,
-            arkret_core::events::EventKind::MORPH_UPDATE => self.update_morph(event)?,
-            arkret_core::events::EventKind::MORPH_ARCHIVE => self.archive_morph(event)?,
-            arkret_core::events::EventKind::MORPH_RESTORE => self.restore_morph(event)?,
+            EventKind::MORPH_CREATE => self.create_morph(event)?,
+            EventKind::MORPH_UPDATE => self.update_morph(event)?,
+            EventKind::MORPH_ARCHIVE => self.archive_morph(event)?,
+            EventKind::MORPH_RESTORE => self.restore_morph(event)?,
 
-            arkret_core::events::EventKind::SPACE_CREATE => self.create_space(event)?,
-            arkret_core::events::EventKind::SPACE_UPDATE => self.update_space(event)?,
-            arkret_core::events::EventKind::SPACE_PARENT => self.set_space_parent(event)?,
-            arkret_core::events::EventKind::SPACE_ARCHIVE => self.archive_space(event)?,
-            arkret_core::events::EventKind::SPACE_RESTORE => self.restore_space(event)?,
-            arkret_core::events::EventKind::SPACE_TOMBSTONE => self.tombstone_space(event)?,
+            EventKind::SPACE_CREATE => self.create_space(event)?,
+            EventKind::SPACE_UPDATE => self.update_space(event)?,
+            EventKind::SPACE_PARENT => self.set_space_parent(event)?,
+            EventKind::SPACE_ARCHIVE => self.archive_space(event)?,
+            EventKind::SPACE_RESTORE => self.restore_space(event)?,
+            EventKind::SPACE_TOMBSTONE => self.tombstone_space(event)?,
 
             // Relation lifecycle
-            arkret_core::events::EventKind::RELATION_CREATE => self.create_relation(event)?,
-            arkret_core::events::EventKind::RELATION_TOMBSTONE => self.delete_relation(event)?,
-            arkret_core::events::EventKind::CONTAINER_MOVE_ITEM => self.move_relation(event)?,
+            EventKind::RELATION_CREATE => self.create_relation(event)?,
+            EventKind::RELATION_TOMBSTONE => self.delete_relation(event)?,
+            EventKind::CONTAINER_MOVE_ITEM => self.move_relation(event)?,
 
             // View operations
-            arkret_core::events::EventKind::VIEW_CREATE => self.create_view(event)?,
-            arkret_core::events::EventKind::VIEW_UPDATE => self.update_view(event)?,
-            arkret_core::events::EventKind::VIEW_RECONCILE => self.reconcile_view(event)?,
+            EventKind::VIEW_CREATE => self.create_view(event)?,
+            EventKind::VIEW_UPDATE => self.update_view(event)?,
+            EventKind::VIEW_RECONCILE => self.reconcile_view(event)?,
 
             // Realm lifecycle - generic state reduction. Container-level
             // (`ak.space.*`) lifecycle is covered by the `EventKind::SPACE_*` arms above.

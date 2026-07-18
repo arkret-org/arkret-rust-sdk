@@ -82,17 +82,17 @@ pub const ATTESTATION_EVIDENCE_SCHEMA: &str = "ak.schema.attestation_evidence.v1
 pub const CROSS_SIGNING_RESET_SCHEMA: &str = "ak.schema.cross_signing_reset.v1";
 
 // ── Canonical ak.* event kinds ──────────────────────────────────────────────
-/// Strand event kinds.
+// Strand event kinds.
 
-/// AKP-0007 (spec b7d35be) — Circle event kinds. The 7th kind
-/// (`ak.circle.seal_commit`) is reducer-derived and MUST NOT be
-/// submitted by clients; it is exported for receiver-side dispatch only.
+// AKP-0007 (spec b7d35be) — Circle event kinds. The 7th kind
+// (`ak.circle.seal_commit`) is reducer-derived and MUST NOT be
+// submitted by clients; it is exported for receiver-side dispatch only.
 
-/// AKP-0007 (spec b7d35be) — Circle capability action ids. Spec
-/// `capability-action-registry.json`. `ak.circle.manage`,
-/// `ak.circle.member.manage`, `ak.circle.member.add.others`, and
-/// `ak.circle.audit` declare `required_constraints=["allowed_circle_ids"]`;
-/// unconstrained Realm-wide grants for those actions MUST be rejected.
+// AKP-0007 (spec b7d35be) — Circle capability action ids. Spec
+// `capability-action-registry.json`. `ak.circle.manage`,
+// `ak.circle.member.manage`, `ak.circle.member.add.others`, and
+// `ak.circle.audit` declare `required_constraints=["allowed_circle_ids"]`;
+// unconstrained Realm-wide grants for those actions MUST be rejected.
 
 /// AKP-0007 capability action list (6 actions). Useful for downstream
 /// services that want to iterate the Circle-management surface.
@@ -105,10 +105,10 @@ pub const CIRCLE_CAPABILITY_ACTIONS: &[&str] = &[
     CapabilityActionId::CIRCLE_AUDIT,
 ];
 
-/// AKP-0008 / AKP-0009 — personal-agent operation IDs (registered in
-/// `operation-registry.json`). Used by the RPC dispatch layer; reducer-input
-/// agent lifecycle events are registered separately under `AGENT_*`
-/// event-kind constants above.
+// AKP-0008 / AKP-0009 — personal-agent operation IDs (registered in
+// `operation-registry.json`). Used by the RPC dispatch layer; reducer-input
+// agent lifecycle events are registered separately under `AGENT_*`
+// event-kind constants above.
 
 /// AKP-0008 / AKP-0009 — controller-private account-data types. Reducer
 /// MUST reject writes from non-controller actors.
@@ -181,66 +181,66 @@ pub fn agent_sidecar_short_name(controller_agent_circle_key: &str) -> String {
     format!("AI-{suffix}")
 }
 
-/// Morph event kinds.
+// Morph event kinds.
 
-/// Space (container) event kinds. Container events use `ak.space.*`; see the
-/// security-boundary `EventKind::REALM_*` family for `ak.realm.*` events.
+// Space (container) event kinds. Container events use `ak.space.*`; see the
+// security-boundary `EventKind::REALM_*` family for `ak.realm.*` events.
 
-/// Relation event kinds.
+// Relation event kinds.
 
-/// View event kinds.
+// View event kinds.
 
-/// Realm event kinds (security boundary). The container-level `EventKind::SPACE_*` family
-/// lives above.
+// Realm event kinds (security boundary). The container-level `EventKind::SPACE_*` family
+// lives above.
 
-/// Per-Realm governance of member `delivery_binding`: which `binding_source`
-/// values are admissible, which recipient services are allowed, whether DID
-/// Document fallback is permitted, who may sign rebind. cell_family
-/// `ak.component.realm.delivery_binding_policy.v1`, cas-register.
+// Per-Realm governance of member `delivery_binding`: which `binding_source`
+// values are admissible, which recipient services are allowed, whether DID
+// Document fallback is permitted, who may sign rebind. cell_family
+// `ak.component.realm.delivery_binding_policy.v1`, cas-register.
 
-/// Device event kinds.
-///
-/// Round C45 (2026-05-19; spec 0a5ab85) — actor-private push route binding
-/// for the composite tuple `(recipient_service_id, principal, device,
-/// push_route)`. MUST NOT be replicated outside the binding's
-/// recipient_service_id context.
+// Device event kinds.
+//
+// Round C45 (2026-05-19; spec 0a5ab85) — actor-private push route binding
+// for the composite tuple `(recipient_service_id, principal, device,
+// push_route)`. MUST NOT be replicated outside the binding's
+// recipient_service_id context.
 
-/// Message event kinds.
+// Message event kinds.
 
-/// High-risk capability required in addition to `ak.message.create` or
-/// `ak.message.revise` whenever a Message introduces an `audience_mention`
-/// node such as `@all` or v1 `@here` (`audience="strand_engaged"`).
+// High-risk capability required in addition to `ak.message.create` or
+// `ak.message.revise` whenever a Message introduces an `audience_mention`
+// node such as `@all` or v1 `@here` (`audience="strand_engaged"`).
 
 /// Capability constraint shorthand from `capability-action-registry.json`.
 pub const CAP_CONSTRAINT_ALLOWED_WRITE_FIELDS: &str = "allowed_write_fields";
 
-/// Capability-action IDs sampled in `_randmon.md` and promoted to SDK
-/// constants so downstream grant builders do not hard-code raw strings.
+// Capability-action IDs sampled in `_randmon.md` and promoted to SDK
+// constants so downstream grant builders do not hard-code raw strings.
 
-/// Membership and invite event kinds.
+// Membership and invite event kinds.
 
-/// Server and account/snapshot operations.
+// Server and account/snapshot operations.
 
-/// Directory operations.
+// Directory operations.
 
-/// Blob operations.
+// Blob operations.
 
-/// Round C44 (2026-05-18; spec dc01ad7) — pre-signed blob URL surface.
-/// `POST /blob/presign` returns a short-lived put/get URL pair so very
-/// large blobs can be uploaded directly to object storage. Full signing
-/// enforcement is a server responsibility; SDK only needs the constant for
-/// client routing.
+// Round C44 (2026-05-18; spec dc01ad7) — pre-signed blob URL surface.
+// `POST /blob/presign` returns a short-lived put/get URL pair so very
+// large blobs can be uploaded directly to object storage. Full signing
+// enforcement is a server responsibility; SDK only needs the constant for
+// client routing.
 
-/// Push and key operations.
+// Push and key operations.
 
 // Renamed from `ak.self.keys.backups.command.unlock` on 2026-06-11
 // (artifacts/migration/renames.json): backup retrieval is rebound to
 // `POST /_arkret/self/keys/backups/{backup_id}/unlock` with a body-borne
 // unlock proof.
 
-/// Authorization check.
+// Authorization check.
 
-/// Account / auth-server operations.
+// Account / auth-server operations.
 
 // Admin / operator APIs (moderation queue, server status, device revocation,
 // account status) are product-local per spec @ 2026-06-04 and MUST NOT be
@@ -249,25 +249,25 @@ pub const CAP_CONSTRAINT_ALLOWED_WRITE_FIELDS: &str = "allowed_write_fields";
 // from the operation registry (see migration/removed-operation-ids.json) and
 // therefore carry no separate admin protocol symbol family here.
 
-/// Applet / bridge operations.
+// Applet / bridge operations.
 
-/// Applet durable event kinds, distinct from the RPC-style applet operations.
+// Applet durable event kinds, distinct from the RPC-style applet operations.
 
-/// Directory operations beyond the bare `describe`.
+// Directory operations beyond the bare `describe`.
 
-/// R3.2 (arkret-spec @ b56cab1) — subject/context → current visible
-/// handle claims; the inverse of `resolve_handle`.
+// R3.2 (arkret-spec @ b56cab1) — subject/context → current visible
+// handle claims; the inverse of `resolve_handle`.
 
-/// R3.3 (AKP-0011, arkret-spec @ cced4b8) — resolve a client-agnostic
-/// shareable object address (Realm / Strand / Message) to a preview. Pure ADD;
-/// `resolve_realm` is retained and NOT deprecated.
+// R3.3 (AKP-0011, arkret-spec @ cced4b8) — resolve a client-agnostic
+// shareable object address (Realm / Strand / Message) to a preview. Pure ADD;
+// `resolve_realm` is retained and NOT deprecated.
 
-/// Events-API operations (low-level Event Envelope plane).
+// Events-API operations (low-level Event Envelope plane).
 
-/// Round C44 (2026-05-18; spec dc01ad7) — POST variant of
-/// `ak.self.events.query.scan` for selectors too long to fit in a `GET` query
-/// string (large `spaces[]` / `actors[]` unions). HTTP path:
-/// `POST /events/query`. Identical selector / range / response shape.
+// Round C44 (2026-05-18; spec dc01ad7) — POST variant of
+// `ak.self.events.query.scan` for selectors too long to fit in a `GET` query
+// string (large `spaces[]` / `actors[]` unions). HTTP path:
+// `POST /events/query`. Identical selector / range / response shape.
 
 // DRIFT-ALLOW: constant declaring the operation-id string, not a payload type.
 
@@ -292,45 +292,45 @@ pub fn is_personal_agent_runtime_event_service_scope(scope: &str) -> bool {
     )
 }
 
-/// Contact and direct-conversation operations.
+// Contact and direct-conversation operations.
 
-/// Account-private data operations.
+// Account-private data operations.
 
-/// Holder-private consent operations.
+// Holder-private consent operations.
 
-/// Read cursor self-service operations.
+// Read cursor self-service operations.
 
-/// Circle self-service operations.
+// Circle self-service operations.
 
-/// Realm-scoped object read-model operations.
+// Realm-scoped object read-model operations.
 
-/// Identity-registry operations.
+// Identity-registry operations.
 
-/// Media / WebRTC ICE config.
+// Media / WebRTC ICE config.
 
-/// MIMI provider-facade operations.
+// MIMI provider-facade operations.
 
-/// Moderation report submission.
+// Moderation report submission.
 
-/// Round R2/R3 (2026-05-20) — capability actions for the moderation appeal
-/// strand. `submit` is low-risk (any member may appeal); `review` is
-/// medium-risk and gates the review / decision / close transitions.
-/// Spec: capability-action-registry.json.
+// Round R2/R3 (2026-05-20) — capability actions for the moderation appeal
+// strand. `submit` is low-risk (any member may appeal); `review` is
+// medium-risk and gates the review / decision / close transitions.
+// Spec: capability-action-registry.json.
 
-/// Round 4 (2026-05-20, spec a77b995) — capability action gating Morph
-/// creation. Medium risk; the spec
-/// `capability-action-registry.json` declares `required_constraints=[allowed_morph_types]`.
+// Round 4 (2026-05-20, spec a77b995) — capability action gating Morph
+// creation. Medium risk; the spec
+// `capability-action-registry.json` declares `required_constraints=[allowed_morph_types]`.
 
-/// AKP-0010 (R3 spec-sync 2026-05-27, arkret-spec b47ff6ec) — call /
-/// media capability actions registered in
-/// `capability-action-registry.json`. These actions gate the join,
-/// screen-share, recording, transcription, moderation, and signal-send
-/// surfaces of the ak.call.* feature.
+// AKP-0010 (R3 spec-sync 2026-05-27, arkret-spec b47ff6ec) — call /
+// media capability actions registered in
+// `capability-action-registry.json`. These actions gate the join,
+// screen-share, recording, transcription, moderation, and signal-send
+// surfaces of the ak.call.* feature.
 
-/// `service-http-binding.md` §162 — sending a `ak.call.signal` ephemeral
-/// envelope via `POST /_arkret/self/ephemeral` requires the actor to hold
-/// this realm-scoped capability. Registered in
-/// `capability-action-registry.json`.
+// `service-http-binding.md` §162 — sending a `ak.call.signal` ephemeral
+// envelope via `POST /_arkret/self/ephemeral` requires the actor to hold
+// this realm-scoped capability. Registered in
+// `capability-action-registry.json`.
 
 /// AKP-0010 — full call/media capability-action list.
 pub const CALL_CAPABILITY_ACTIONS: &[&str] = &[
@@ -342,9 +342,9 @@ pub const CALL_CAPABILITY_ACTIONS: &[&str] = &[
     CapabilityActionId::CALL_SIGNAL_SEND,
 ];
 
-/// AKP-0010 — `ak.self.call.media.exchange.issue_token` operation id. HTTP route:
-/// `POST /rtc/token`. Surface tier `core_personal`. Registered in
-/// `operation-registry.json` v2026-05-27.
+// AKP-0010 — `ak.self.call.media.exchange.issue_token` operation id. HTTP route:
+// `POST /rtc/token`. Surface tier `core_personal`. Registered in
+// `operation-registry.json` v2026-05-27.
 
 /// AKP-0010 — schema id for the participant_binding signing envelope.
 pub const PARTICIPANT_BINDING_SCHEMA: &str = "ak.media.participant_binding.v1";
