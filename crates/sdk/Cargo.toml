@@ -143,7 +143,7 @@ required-features = ["full-surface"]
 
 [[example]]
 name = "personal_agent_provision"
-required-features = ["full-surface"]
+required-features = ["full-surface", "signer"]
 
 [[test]]
 name = "sdk_workflows"

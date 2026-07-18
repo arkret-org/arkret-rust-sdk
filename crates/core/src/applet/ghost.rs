@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use crate::{
     ACTOR_PROFILE_SCHEMA, ActorKind, ActorProfile, ActorProfileId, AppletId, BlobRef, Did, Error,
-    Event, ExternalRef, Hlc, ObjectCreatePayload, PayloadProof, RealmId, Result,
+    Event, ExternalRef, Hash, Hlc, ObjectCreatePayload, PayloadProof, RealmId, Result, canonical,
 };
 
 pub const ACCOUNTABILITY_GRANT_SCHEMA: &str = "ak.schema.accountability_grant.v1";
@@ -362,6 +362,64 @@ impl AccountabilityGrantPayload {
             grant_status: AccountabilityGrantStatus::Active,
             proof,
         }
+    }
+
+    /// Canonical accountability-grant payload bytes with the detached
+    /// `proof` member omitted. This is the only protocol implementation of
+    /// the payload covered by an accountability proof.
+    pub fn canonical_payload_without_proof(&self) -> Result<Vec<u8>> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .expect("AccountabilityGrantPayload serializes as an object")
+            .remove("proof");
+        Ok(canonical::canonical_json_bytes(&value)?)
+    }
+
+    /// `sha256(utf8("ak.accountability-grant-v1\\n") || canonical_payload)`.
+    pub fn payload_digest(&self) -> Result<Hash> {
+        let mut input = b"ak.accountability-grant-v1\n".to_vec();
+        input.extend(self.canonical_payload_without_proof()?);
+        Hash::new(canonical::sha256_digest(&input))
+            .map_err(|reason| Error::Protocol(reason.to_string()))
+    }
+
+    /// Canonical proof transcript shared by all accountability-grant
+    /// producers and verifiers.
+    pub fn canonical_proof_binding_bytes(&self) -> Result<Vec<u8>> {
+        let payload_digest = self.payload_digest()?;
+        if self.proof.payload_digest != payload_digest {
+            return Err(Error::Protocol(
+                "accountability_grant proof payload_digest mismatch".to_owned(),
+            ));
+        }
+        let mut binding = serde_json::Map::from_iter([
+            (
+                "context".to_owned(),
+                Value::String(crate::ProofContextId::ACCOUNTABILITY_GRANT_PROOF_V1.to_owned()),
+            ),
+            (
+                "payload_digest".to_owned(),
+                serde_json::to_value(&payload_digest)?,
+            ),
+            ("issuer".to_owned(), serde_json::to_value(&self.issuer)?),
+            ("subject".to_owned(), serde_json::to_value(&self.subject)?),
+            (
+                "verification_method".to_owned(),
+                Value::String(self.proof.verification_method.clone()),
+            ),
+            (
+                "created_at".to_owned(),
+                serde_json::to_value(self.proof.created_at)?,
+            ),
+        ]);
+        if let Some(domain) = &self.proof.domain {
+            binding.insert("domain".to_owned(), Value::String(domain.clone()));
+        }
+        if let Some(audience) = &self.proof.audience {
+            binding.insert("audience".to_owned(), serde_json::to_value(audience)?);
+        }
+        Ok(canonical::canonical_json_bytes(&Value::Object(binding))?)
     }
 
     pub fn validate_lifecycle_at(&self, now: DateTime<Utc>) -> Result<()> {

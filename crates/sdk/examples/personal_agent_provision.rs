@@ -23,7 +23,7 @@
 //! Build with the high-level SDK surface:
 //!
 //! ```sh
-//! cargo run --example personal_agent_provision --features full-surface
+//! cargo run --example personal_agent_provision --features full-surface,signer
 //! ```
 
 use arkret::agent::{
@@ -41,7 +41,7 @@ use arkret::{
     AgentRenewPairingRequestBody, AgentRequestedScopeDisclosure, AgentResumeRequestBody,
     AgentSidecarContextRef, AgentSidecarThreadEnsureRequestBody, CapabilityGrant,
     CapabilitySubject, Did, GrantId, Hash, Hlc, NonEmptyString, PayloadProof, PayloadProofPurpose,
-    Proof, RealmId, RequestId, StrandId,
+    Proof, RealmId, RequestId, SealBasis, SealId, StrandId,
 };
 use chrono::Utc;
 use serde::Serialize;
@@ -61,16 +61,28 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
             let requested_scope_digest =
                 arkret::agent_requested_scope_digest(&agent_id, &controller_id, &requested_scope)
                     .unwrap();
-            json!({
-                "agent_id": agent_id,
-                "principal_control_realm_id": "ak:realm:01964137-0000-7000-8000-000000000100",
-                "controller_authorization_ref": "did:webvh:z6mkfixture:agent.example#managed-controller",
-                "requested_scope_digest": requested_scope_digest,
-                "pairing_request_id": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
-                "pairing_code": "12345678",
-                "expires_at": "2026-06-18T12:15:00Z",
-                "pcr_recovery": { "status": "pending" },
-            })
+            if body["phase"] == "prepare" {
+                json!({
+                    "status": "awaiting_controller_events",
+                    "agent_id": agent_id,
+                    "principal_control_realm_id": "ak:realm:01964137-0000-7000-8000-000000000100",
+                    "controller_realm_id": "ak:realm:01964137-0000-7000-8000-000000000099",
+                    "controller_authorization_ref": "did:webvh:z6mkfixture:agent.example#managed-controller",
+                    "requested_scope_digest": requested_scope_digest,
+                })
+            } else {
+                json!({
+                    "status": "complete",
+                    "agent_id": agent_id,
+                    "principal_control_realm_id": "ak:realm:01964137-0000-7000-8000-000000000100",
+                    "controller_authorization_ref": "did:webvh:z6mkfixture:agent.example#managed-controller",
+                    "requested_scope_digest": requested_scope_digest,
+                    "pairing_request_id": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
+                    "pairing_code": "12345678",
+                    "expires_at": "2026-06-18T12:15:00Z",
+                    "pcr_recovery": { "status": "pending" },
+                })
+            }
         }
         "ak.gate.account.command.pair_agent_key" => json!({
             "ok": true,
@@ -123,33 +135,77 @@ fn send_plan<B: Serialize>(plan: AgentRequestPlan<B>) -> arkret::Result<Value> {
 fn main() -> arkret::Result<()> {
     let controller: Did = Did::new("did:webvh:z6mkfixture:alice.example")?;
 
-    let provision_body = AgentProvisionRequestBuilder::new(
+    let requested_scope = AgentKeyScope {
+        actions: vec![
+            "ak.message.create".to_owned(),
+            "ak.self.events.command.submit".to_owned(),
+        ],
+        resources: vec![AgentKeyScopeResource {
+            kind: AgentKeyScopeResourceKind::Operation,
+            realm_id: None,
+            resource_ref: None,
+            schema_ref: None,
+            operation: Some("ak.self.events.command.submit".to_owned()),
+            service_id: None,
+        }],
+        constraints: Vec::new(),
+    };
+    let prepared = send_plan(plan_agent_provision(
+        arkret::agent::prepare_agent_provision_request("summary", requested_scope.clone()),
+    ))?;
+    let agent_id = Did::new(prepared["agent_id"].as_str().unwrap().to_owned())?;
+    let principal_control_realm_id =
+        RealmId::new(prepared["principal_control_realm_id"].as_str().unwrap())?;
+    let controller_realm_id = RealmId::new(prepared["controller_realm_id"].as_str().unwrap())?;
+    let created_at = Utc::now();
+    let signer = arkret::Ed25519MoveSigner::from_did_key_seed(
+        [7_u8; 32],
+        controller.clone(),
+        format!("{controller}#key-1"),
+    );
+    let mut provision_events = arkret::agent::build_agent_provision_event_drafts(
+        &controller,
+        &controller_realm_id,
+        &agent_id,
         "summary",
-        AgentKeyScope {
-            actions: vec![
-                "ak.message.create".to_owned(),
-                "ak.self.events.command.submit".to_owned(),
-            ],
-            resources: vec![AgentKeyScopeResource {
-                kind: AgentKeyScopeResourceKind::Operation,
-                realm_id: None,
-                resource_ref: None,
-                schema_ref: None,
-                operation: Some("ak.self.events.command.submit".to_owned()),
-                service_id: None,
-            }],
-            constraints: Vec::new(),
+        arkret::agent::AgentProvisionEventDraftOptions {
+            created_at,
+            accountability_actor_seq: 1,
+            accountability_hlc: Hlc::new("01970e589d21-0001-a13f9c2e")?,
+            selector_actor_seq: 2,
+            selector_hlc: Hlc::new("01970e589d21-0002-a13f9c2e")?,
         },
+        &signer,
+    )?;
+    let seal_basis = SealBasis {
+        leaves: vec![SealId::new("ak:seal:01964137-0000-7000-8000-000000000098")?],
+        control_event_set_root: Hash::new(format!("sha256:{}", "1".repeat(64)))?,
+        state_root: Hash::new(format!("sha256:{}", "2".repeat(64)))?,
+    };
+    for event in [
+        &mut provision_events.accountability_grant,
+        &mut provision_events.selector_claim,
+    ] {
+        event.seal_basis = Some(seal_basis.clone());
+        arkret::signatures::sign_event(
+            event,
+            &signer,
+            &format!("{controller}#key-1"),
+            arkret::signatures::SignEventOptions::new().with_created_at(created_at),
+        )?;
+    }
+    let provision_body = AgentProvisionRequestBuilder::new(
+        agent_id.clone(),
+        principal_control_realm_id,
+        "summary",
+        requested_scope.clone(),
+        provision_events,
     )
     .display_name("alice-personal-agent")
     .pairing_ttl_ms(15 * 60 * 1000)
     .build();
-
-    let requested_scope = provision_body.requested_scope.clone();
     let provisioned = send_plan(plan_agent_provision(provision_body))?;
-    let agent_id = provisioned["agent_id"].as_str().unwrap().to_owned();
 
-    let agent_id = Did::new(agent_id)?;
     let expected_scope_digest =
         arkret::agent_requested_scope_digest(&agent_id, &controller, &requested_scope)?;
     assert_eq!(

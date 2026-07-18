@@ -1,6 +1,8 @@
 //! Agent runtime and protocol interop helpers.
 
-use std::collections::{BTreeMap, BTreeSet};
+#[cfg(test)]
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::time::Duration;
 
 pub use arkret_core::agent::{
@@ -16,14 +18,17 @@ use serde_json::Value;
 #[cfg(test)]
 use crate::AgentKeyRuntimeAttestationKind;
 use crate::{
-    AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyAuthorizePayload,
+    AccountabilityGrantPayload, AccountabilityScope, AgentDeactivateRequestBody,
+    AgentGrantAttachRequestBody, AgentKeyAuthorizePayload,
     AgentKeyAuthorizePayloadRuntimeAttestation, AgentKeyPairRequestBody, AgentPairingBootstrap,
-    AgentPauseRequestBody, AgentProvisionRequestBody, AgentRenewPairingRequestBody,
-    AgentRequestedScopeDisclosure, AgentResumeRequestBody, AgentRuntimeApprovalRequestBody,
-    AgentRuntimeApprovalStatusRequestBody, AgentSidecarThreadEnsureRequestBody, CapabilityGrant,
-    Did, DidUrl, Error, Event, GrantId, Hash, Hlc, NonEmptyJsonObject, NonEmptyString, PublicKey,
-    RealmId, Result, SessionGrantAgentScopeRequest, SessionGrantDpopBindingProof,
-    SessionGrantProofKind, SessionGrantRequestBody, SessionGrantRequestProof,
+    AgentPauseRequestBody, AgentProvisionEvents, AgentProvisionRequestBody,
+    AgentRenewPairingRequestBody, AgentRequestedScopeDisclosure, AgentResumeRequestBody,
+    AgentRuntimeApprovalRequestBody, AgentRuntimeApprovalStatusRequestBody, AgentSelectorClaim,
+    AgentSidecarThreadEnsureRequestBody, CapabilityGrant, CellRef, Did, DidUrl, Effect, Error,
+    Event, GrantId, HandleBindingState, HandleVisibility, Hash, Hlc, LatticeOp, LatticeOpType,
+    MoveSigner, NonEmptyJsonObject, NonEmptyString, PayloadProof, PublicKey, RealmId, Result,
+    SessionGrantAgentScopeRequest, SessionGrantDpopBindingProof, SessionGrantProofKind,
+    SessionGrantRequestBody, SessionGrantRequestProof, proof_kind,
 };
 
 pub const AGENT_KEY_PROOF_KIND: &str = "agent_key_proof";
@@ -517,22 +522,32 @@ pub fn agent_path_component(value: &str) -> String {
 /// Builder for `ak.self.agent.command.provision` request bodies.
 #[derive(Clone, Debug)]
 pub struct AgentProvisionRequestBuilder {
+    agent_id: Did,
+    principal_control_realm_id: RealmId,
     display_name: Option<String>,
     slug: String,
     avatar_blob_ref: Option<crate::BlobRef>,
     requested_scope: crate::AgentKeyScope,
-    accountability: Option<BTreeMap<String, Value>>,
+    provision_events: AgentProvisionEvents,
     pairing_ttl_ms: Option<u64>,
 }
 
 impl AgentProvisionRequestBuilder {
-    pub fn new(slug: impl Into<String>, requested_scope: crate::AgentKeyScope) -> Self {
+    pub fn new(
+        agent_id: Did,
+        principal_control_realm_id: RealmId,
+        slug: impl Into<String>,
+        requested_scope: crate::AgentKeyScope,
+        provision_events: AgentProvisionEvents,
+    ) -> Self {
         Self {
+            agent_id,
+            principal_control_realm_id,
             display_name: None,
             slug: slug.into(),
             avatar_blob_ref: None,
             requested_scope,
-            accountability: None,
+            provision_events,
             pairing_ttl_ms: None,
         }
     }
@@ -547,26 +562,204 @@ impl AgentProvisionRequestBuilder {
         self
     }
 
-    pub fn accountability(mut self, accountability: BTreeMap<String, Value>) -> Self {
-        self.accountability = Some(accountability);
-        self
-    }
-
     pub fn pairing_ttl_ms(mut self, pairing_ttl_ms: u64) -> Self {
         self.pairing_ttl_ms = Some(pairing_ttl_ms);
         self
     }
 
     pub fn build(self) -> AgentProvisionRequestBody {
-        AgentProvisionRequestBody {
+        AgentProvisionRequestBody::Commit {
+            agent_id: self.agent_id,
+            principal_control_realm_id: self.principal_control_realm_id,
             display_name: self.display_name,
             slug: self.slug,
             avatar_blob_ref: self.avatar_blob_ref,
             requested_scope: self.requested_scope,
-            accountability: self.accountability,
+            provision_events: self.provision_events,
             pairing_ttl_ms: self.pairing_ttl_ms,
         }
     }
+}
+
+pub fn prepare_agent_provision_request(
+    slug: impl Into<String>,
+    requested_scope: crate::AgentKeyScope,
+) -> AgentProvisionRequestBody {
+    AgentProvisionRequestBody::Prepare {
+        display_name: None,
+        slug: slug.into(),
+        avatar_blob_ref: None,
+        requested_scope,
+        pairing_ttl_ms: None,
+    }
+}
+
+/// Envelope stamps supplied by a client before the ordinary submit pipeline
+/// allocates final actor sequences/frontiers and signs each Event envelope.
+#[derive(Clone, Debug)]
+pub struct AgentProvisionEventDraftOptions {
+    pub created_at: DateTime<Utc>,
+    pub accountability_actor_seq: u64,
+    pub accountability_hlc: Hlc,
+    pub selector_actor_seq: u64,
+    pub selector_hlc: Hlc,
+}
+
+fn provision_set_effect(cell_family: &str, subject_parts: &[&str], value: Value) -> Result<Effect> {
+    let subject = arkret_core::composite_subject(subject_parts)?;
+    Ok(Effect {
+        cell: CellRef::new(format!("ak:cell:{cell_family}:{subject}"))?,
+        op: LatticeOp {
+            op_type: LatticeOpType::Set,
+            tag: None,
+            value: Some(value),
+            from: None,
+            to: None,
+            reason: None,
+            issuer_seq: None,
+        },
+    })
+}
+
+/// Build the closed controller-owned provisioning Event pair.
+///
+/// This is the single SDK implementation of the accountability payload
+/// digest, payload-proof transcript, selector cross-reference, and the two
+/// typed Event envelopes. Consumers only supply identity values, stamps and a
+/// signer; they must not reconstruct any of these protocol bytes locally.
+pub fn build_agent_provision_event_drafts<S: MoveSigner + ?Sized>(
+    controller_id: &Did,
+    controller_realm_id: &RealmId,
+    agent_id: &Did,
+    agent_slug: &str,
+    options: AgentProvisionEventDraftOptions,
+    signer: &S,
+) -> Result<AgentProvisionEvents> {
+    if signer.signer_did() != controller_id {
+        return Err(Error::Protocol(format!(
+            "provision signer {} does not match controller {controller_id}",
+            signer.signer_did()
+        )));
+    }
+    let created_at = DateTime::<Utc>::from_timestamp(options.created_at.timestamp(), 0)
+        .ok_or_else(|| Error::Protocol("provision timestamp is outside the wire range".into()))?;
+    let verification_method = signer.verification_method_id().to_owned();
+    let placeholder_digest = Hash::new(format!("sha256:{}", "0".repeat(64)))?;
+    let mut accountability_payload = AccountabilityGrantPayload::new(
+        controller_id.clone(),
+        agent_id.clone(),
+        AccountabilityScope::Single("agent_operator".to_owned()),
+        created_at,
+        None,
+        PayloadProof {
+            kind: proof_kind::DETACHED_JWS.to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: verification_method.clone(),
+            payload_digest: placeholder_digest,
+            created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "pending".to_owned(),
+        },
+    );
+    accountability_payload.proof.payload_digest = accountability_payload.payload_digest()?;
+    let proof_bytes = accountability_payload.canonical_proof_binding_bytes()?;
+    let signature = signer.sign_payload(&proof_bytes)?;
+    if signature.verification_method != verification_method {
+        return Err(Error::Protocol(
+            "provision signer changed verification_method while signing".to_owned(),
+        ));
+    }
+    let expected_signature_digest = Hash::new(arkret_canonical::sha256_digest(&proof_bytes))?;
+    if signature.payload_digest != expected_signature_digest {
+        return Err(Error::Protocol(
+            "provision signer returned the wrong proof transcript digest".to_owned(),
+        ));
+    }
+    accountability_payload.proof.alg = signature.alg;
+    accountability_payload.proof.jws = signature.jws;
+
+    let accountability_value = serde_json::to_value(&accountability_payload)?;
+    let mut accountability_grant = Event::new_at(
+        arkret_core::events::EventKind::IDENTITY_ACCOUNTABILITY_GRANT,
+        controller_realm_id.clone(),
+        controller_id.clone(),
+        options.accountability_actor_seq,
+        options.accountability_hlc,
+        accountability_value.clone(),
+        created_at,
+    )?;
+    accountability_grant.effects = vec![provision_set_effect(
+        "ak.component.identity.accountability.v1",
+        &[controller_id.as_str(), agent_id.as_str(), "agent_operator"],
+        accountability_value,
+    )?];
+    accountability_grant.requirements.schema_profile_refs =
+        vec![arkret_core::applet::ACCOUNTABILITY_GRANT_SCHEMA.to_owned()];
+    let mut selector_payload = AgentSelectorClaim {
+        schema: arkret_core::AGENT_SELECTOR_CLAIM_SCHEMA.to_owned(),
+        controller_subject: controller_id.clone(),
+        agent_slug: agent_slug.to_owned(),
+        subject: agent_id.clone(),
+        issuer: controller_id.clone(),
+        issuer_service_id: None,
+        binding_state: HandleBindingState::Pending,
+        visibility: HandleVisibility::Private,
+        audience: None,
+        claim_scope: Default::default(),
+        expires_at: None,
+        created_at,
+        verified_at: None,
+        source_refs: vec![accountability_grant.event_id.to_string()],
+        proofs: vec![PayloadProof {
+            kind: proof_kind::DETACHED_JWS.to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: verification_method.clone(),
+            payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64)))?,
+            created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "pending".to_owned(),
+        }],
+    };
+    selector_payload.proofs[0].payload_digest = selector_payload.payload_digest()?;
+    let selector_binding =
+        selector_payload.canonical_proof_binding_bytes(&selector_payload.proofs[0])?;
+    let selector_signature = signer.sign_payload(&selector_binding)?;
+    if selector_signature.verification_method != verification_method
+        || selector_signature.payload_digest
+            != Hash::new(arkret_canonical::sha256_digest(&selector_binding))?
+    {
+        return Err(Error::Protocol(
+            "provision signer returned an invalid selector proof signature".to_owned(),
+        ));
+    }
+    selector_payload.proofs[0].alg = selector_signature.alg;
+    selector_payload.proofs[0].jws = selector_signature.jws;
+    selector_payload.validate()?;
+    let selector_value = serde_json::to_value(&selector_payload)?;
+    let mut selector_claim = Event::new_at(
+        "ak.agent.selector_claim",
+        controller_realm_id.clone(),
+        controller_id.clone(),
+        options.selector_actor_seq,
+        options.selector_hlc,
+        selector_value.clone(),
+        created_at,
+    )?;
+    selector_claim.effects = vec![provision_set_effect(
+        "ak.component.agent.selector_claim.v1",
+        &[controller_id.as_str(), agent_slug],
+        selector_value,
+    )?];
+    selector_claim.requirements.schema_profile_refs =
+        vec![arkret_core::AGENT_SELECTOR_CLAIM_SCHEMA.to_owned()];
+    Ok(AgentProvisionEvents {
+        accountability_grant,
+        selector_claim,
+    })
 }
 
 pub fn agent_pairing_bootstrap(
@@ -614,7 +807,7 @@ pub fn build_agent_key_authorize_event(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn build_signed_agent_key_authorize_event<S: arkret_core::MoveSigner + ?Sized>(
+pub fn build_signed_agent_key_authorize_event<S: MoveSigner + ?Sized>(
     payload: &AgentKeyAuthorizePayload,
     realm_id: RealmId,
     agent_actor_id: Did,
@@ -1322,18 +1515,75 @@ mod tests {
         }
     }
 
+    fn provision_events() -> AgentProvisionEvents {
+        let controller = did("controller");
+        let signer = StubMoveSigner::new(controller.clone(), format!("{}#device-1", controller));
+        build_agent_provision_event_drafts(
+            &controller,
+            &RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            &did("agent"),
+            "summary",
+            AgentProvisionEventDraftOptions {
+                created_at: Utc.with_ymd_and_hms(2026, 7, 18, 1, 2, 3).unwrap(),
+                accountability_actor_seq: 4,
+                accountability_hlc: Hlc::new("01980a8f3980-0001-a13f9c2e").unwrap(),
+                selector_actor_seq: 5,
+                selector_hlc: Hlc::new("01980a8f3980-0002-a13f9c2e").unwrap(),
+            },
+            &signer,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn provision_event_authoring_is_closed_and_sdk_canonical() {
+        let events = provision_events();
+        let payload: AccountabilityGrantPayload = serde_json::from_value(
+            serde_json::to_value(&events.accountability_grant.payload).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            payload.proof.payload_digest,
+            payload.payload_digest().unwrap()
+        );
+        assert!(
+            String::from_utf8(payload.canonical_proof_binding_bytes().unwrap())
+                .unwrap()
+                .contains(arkret_core::ProofContextId::ACCOUNTABILITY_GRANT_PROOF_V1)
+        );
+        assert_eq!(
+            events.selector_claim.payload["source_refs"][0],
+            events.accountability_grant.event_id.as_str()
+        );
+        let wire = serde_json::to_value(events).unwrap();
+        assert_eq!(
+            wire["accountability_grant"]["created_at"],
+            "2026-07-18T01:02:03.000Z"
+        );
+        assert_eq!(
+            wire["accountability_grant"]["payload"]["proof"]["created_at"],
+            "2026-07-18T01:02:03Z"
+        );
+    }
+
     #[test]
     fn personal_agent_request_plans_use_standard_paths() {
-        let provision = AgentProvisionRequestBuilder::new("summary", test_scope())
-            .display_name("summary agent")
-            .avatar_blob_ref(
-                crate::BlobRef::new(concat!(
-                    "ak:blob:sha256:",
-                    "01015dc8af66d01f557ea63f13538f1964848840a350c5311d1efc8ad138bb91"
-                ))
-                .unwrap(),
-            )
-            .build();
+        let provision = AgentProvisionRequestBuilder::new(
+            did("agent"),
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000002").unwrap(),
+            "summary",
+            test_scope(),
+            provision_events(),
+        )
+        .display_name("summary agent")
+        .avatar_blob_ref(
+            crate::BlobRef::new(concat!(
+                "ak:blob:sha256:",
+                "01015dc8af66d01f557ea63f13538f1964848840a350c5311d1efc8ad138bb91"
+            ))
+            .unwrap(),
+        )
+        .build();
         let plan = plan_agent_provision(provision);
         assert_eq!(
             plan.operation_id,
@@ -1342,6 +1592,7 @@ mod tests {
         assert_eq!(plan.method.as_str(), "POST");
         assert_eq!(plan.path, "/_arkret/self/agents");
         let body = plan.body_value().unwrap().unwrap();
+        assert_eq!(body["phase"], "commit");
         assert_eq!(body["display_name"], "summary agent");
         assert_eq!(body["slug"], "summary");
         assert_eq!(

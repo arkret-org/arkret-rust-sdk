@@ -115,7 +115,17 @@ impl Cursor {
 
     /// Create a new cursor with current timestamp and default expiration.
     pub fn new() -> Result<Self> {
-        let now = chrono::Utc::now();
+        Self::new_at(chrono::Utc::now(), Self::DEFAULT_EXPIRATION_MS)
+    }
+
+    /// Create a stream cursor at an explicit instant and TTL.
+    pub fn new_at(now: chrono::DateTime<chrono::Utc>, ttl_ms: i64) -> Result<Self> {
+        if !(1..=Self::STREAM_TTL_MAX_MS).contains(&ttl_ms) {
+            return Err(Error::Protocol(format!(
+                "stream cursor TTL must be between 1 and {} ms",
+                Self::STREAM_TTL_MAX_MS
+            )));
+        }
         // `cursor.schema.json` `$defs.timestamp` / encoding.md §8.2 require
         // `t` to be a canonical RFC 3339 UTC timestamp ending in `Z`.
         // chrono's `to_rfc3339()` emits a `+00:00` offset with sub-second
@@ -131,7 +141,7 @@ impl Cursor {
             v: "1".to_owned(),
             purpose: CursorPurpose::Stream,
             t,
-            x: t_ms + Self::DEFAULT_EXPIRATION_MS,
+            x: t_ms + ttl_ms,
             h: generate_cursor_handle()?,
         })
     }
@@ -211,6 +221,11 @@ impl Cursor {
     /// - Cursor version is unsupported
     /// - Cursor has expired
     pub fn decode(encoded: &str) -> Result<Self> {
+        Self::decode_at(encoded, unix_time_millis()?)
+    }
+
+    /// Decode and validate a cursor against an explicit receiver clock.
+    pub fn decode_at(encoded: &str, now_ms: i64) -> Result<Self> {
         let encoded = encoded
             .strip_prefix("ak:cursor:")
             .ok_or_else(|| Error::Protocol("cursor token must start with ak:cursor:".to_owned()))?;
@@ -244,13 +259,12 @@ impl Cursor {
         let cursor: Cursor = crate::canonical::from_canonical_json_slice(&json)
             .map_err(|_| Error::Protocol("invalid cursor JSON".to_owned()))?;
 
-        cursor.validate()?;
+        cursor.validate_at(now_ms)?;
 
         Ok(cursor)
     }
 
-    /// Validate the cursor structure and expiration.
-    fn validate(&self) -> Result<()> {
+    fn validate_at(&self, now_ms: i64) -> Result<()> {
         // Check version
         if self.v != "1" {
             return Err(Error::Protocol(format!(
@@ -260,8 +274,6 @@ impl Cursor {
         }
 
         self.validate_core_wire_shape()?;
-
-        let now_ms = unix_time_millis()?;
 
         // §8.3 rule 5: `x` MUST NOT be in the past (TTL expiry).
         if self.x < now_ms {
@@ -451,6 +463,31 @@ mod tests {
         assert_eq!(decoded.v, cursor.v);
         assert_eq!(decoded.purpose, CursorPurpose::Stream);
         assert!(encoded.starts_with("ak:cursor:"));
+    }
+
+    #[test]
+    fn cursor_new_at_uses_whole_seconds_and_exact_ttl() {
+        let issued_at = chrono::DateTime::parse_from_rfc3339("2026-07-18T12:34:56.789Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let cursor = Cursor::new_at(issued_at, 3_600_000).unwrap();
+
+        assert_eq!(cursor.t, "2026-07-18T12:34:56Z");
+        let t_ms = chrono::DateTime::parse_from_rfc3339(&cursor.t)
+            .unwrap()
+            .timestamp_millis();
+        assert_eq!(cursor.x - t_ms, 3_600_000);
+    }
+
+    #[test]
+    fn cursor_decode_at_rejects_event_millisecond_time_profile() {
+        let json = br#"{"v":"1","purpose":"stream","t":"2026-07-18T12:34:56.000Z","x":1753014896000,"h":"ABCDEFGHIJKLMNOPQRSTUV"}"#;
+        let encoded = format!("ak:cursor:{}", crate::base64url_encode(json));
+
+        assert!(matches!(
+            Cursor::decode_at(&encoded, 1_753_011_296_000),
+            Err(Error::Protocol(_))
+        ));
     }
 
     #[test]
