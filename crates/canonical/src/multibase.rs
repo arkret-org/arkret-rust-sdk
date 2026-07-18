@@ -19,6 +19,8 @@
 //! The underlying bytes match the previous hand-rolled implementations, so
 //! existing did:key and did:webvh tests remain stable.
 
+use sha2::{Digest, Sha256};
+
 use crate::{CanonicalError as Error, Result};
 
 /// Multicodec code for an Ed25519 public key (`0xed`, encoded as unsigned-varint
@@ -101,6 +103,33 @@ pub fn decode_ed25519_multibase(multibase: &str) -> Result<[u8; 32]> {
     Ok(key)
 }
 
+/// Encode a DIF did:webvh sha2-256 multihash as bare base58btc:
+/// `base58btc(0x12 || 0x20 || sha256(bytes))`.
+///
+/// SCIDs, entry hashes, and `nextKeyHashes` use this form without a multibase
+/// `z` prefix.
+pub fn sha256_multihash_base58btc(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    let mut multihash = Vec::with_capacity(34);
+    multihash.extend_from_slice(&[0x12, 0x20]);
+    multihash.extend_from_slice(&digest);
+    encode_base58btc(multihash)
+}
+
+/// Decode a bare 64-byte Ed25519 signature carried as multibase base58btc.
+///
+/// DIF did:webvh `proofValue` uses this shape and does not prepend an
+/// Ed25519 multicodec tag.
+pub fn decode_ed25519_signature_multibase(multibase: &str) -> Result<[u8; 64]> {
+    let decoded = decode_multibase_base58btc(multibase)?;
+    decoded.try_into().map_err(|value: Vec<u8>| {
+        Error::Protocol(format!(
+            "Ed25519 signature must be 64 bytes, got {}",
+            value.len()
+        ))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -120,6 +149,26 @@ mod tests {
         let mb = encode_multibase_base58btc([1u8, 2, 3]);
         assert!(mb.starts_with('z'));
         assert_eq!(decode_multibase_base58btc(&mb).unwrap(), vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn webvh_sha256_multihash_uses_the_bare_qm_form() {
+        let encoded = sha256_multihash_base58btc(b"arkret");
+        assert!(encoded.starts_with("Qm"));
+        let decoded = decode_base58btc(&encoded).unwrap();
+        assert_eq!(&decoded[..2], &[0x12, 0x20]);
+        assert_eq!(&decoded[2..], Sha256::digest(b"arkret").as_slice());
+    }
+
+    #[test]
+    fn bare_ed25519_signature_multibase_round_trips() {
+        let signature = [0x5au8; 64];
+        let encoded = encode_multibase_base58btc(signature);
+        assert_eq!(
+            decode_ed25519_signature_multibase(&encoded).unwrap(),
+            signature
+        );
+        assert!(decode_ed25519_signature_multibase("z1").is_err());
     }
 
     #[test]

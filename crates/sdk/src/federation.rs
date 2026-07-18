@@ -1,5 +1,4 @@
-//! Federation discovery, replay/fork quarantine, and content-digest
-//! helpers.
+//! Federation discovery and replay/fork quarantine helpers.
 //!
 //! The protocol federation surface is the registered `ak.peer.*`
 //! operation family (`/_arkret/peer/*`) with Event proofs / HTTP
@@ -163,56 +162,6 @@ impl FederationReplayStore for FederationManager {
 /// byte-identical with soland / inkson / floria.
 pub fn content_digest_sha256(bytes: &[u8]) -> String {
     arkret_canonical::canonical::sha256_digest(bytes)
-}
-
-/// Build the value of the RFC 9530 `Content-Digest` header
-/// (`sha-256=:<base64>:`).
-///
-/// RFC 9530 wraps the raw 32-byte digest in **standard base64** with padding.
-/// That differs from the Arkret wire-form `sha256:<hex>` encoding, so this
-/// helper computes the raw digest and standard-base64 encodes it.
-pub fn rfc9530_content_digest_sha256(bytes: &[u8]) -> String {
-    let raw = sha256_raw(bytes);
-    format!(
-        "sha-256=:{}:",
-        arkret_canonical::base64_standard_encode(raw)
-    )
-}
-
-/// Verify an RFC 9530 `Content-Digest` header against the body bytes.
-///
-/// Accepts a single dictionary entry of the form `sha-256=:<base64>:`.
-/// Returns `Ok(())` when the digest matches, otherwise an
-/// `Error::Protocol` carrying `digest_mismatch`.
-pub fn verify_rfc9530_content_digest(header_value: &str, bytes: &[u8]) -> Result<()> {
-    let trimmed = header_value.trim();
-    let body = trimmed
-        .strip_prefix("sha-256=:")
-        .and_then(|s| s.strip_suffix(':'))
-        .ok_or_else(|| {
-            Error::Protocol(format!(
-                "digest_mismatch: unsupported Content-Digest format: {trimmed}"
-            ))
-        })?;
-    let provided = arkret_canonical::base64_standard_decode(body).map_err(|err| {
-        Error::Protocol(format!(
-            "digest_mismatch: bad base64 in Content-Digest: {err}"
-        ))
-    })?;
-    if sha256_raw(bytes) == provided.as_slice() {
-        Ok(())
-    } else {
-        Err(Error::Protocol(
-            "digest_mismatch: Content-Digest does not match body".to_owned(),
-        ))
-    }
-}
-
-/// Raw 32-byte SHA-256 digest. RFC 9530 needs the raw bytes (not the
-/// `sha256:<hex>` wire string), so this derives them from the canonical
-/// hex helper to keep a single hashing path.
-fn sha256_raw(bytes: &[u8]) -> [u8; 32] {
-    arkret_canonical::canonical::sha256_bytes(bytes)
 }
 
 pub fn did_document_service_endpoint_matches(
@@ -416,18 +365,12 @@ mod tests {
     }
 
     #[test]
-    fn rfc9530_content_digest_round_trips_and_reuses_core_helper() {
+    fn content_digest_reuses_core_helper() {
         let body = br#"{"ok":true}"#;
-        // Wire-form digest reuses the single core helper.
         assert_eq!(
             content_digest_sha256(body),
             arkret_canonical::canonical::sha256_digest(body)
         );
-        // RFC 9530 header verifies against the same body and rejects tamper.
-        let header = rfc9530_content_digest_sha256(body);
-        assert!(header.starts_with("sha-256=:") && header.ends_with(':'));
-        verify_rfc9530_content_digest(&header, body).unwrap();
-        assert!(verify_rfc9530_content_digest(&header, b"different").is_err());
     }
 
     #[test]

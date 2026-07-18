@@ -199,7 +199,8 @@ fn lookup_verification_method_value(
     {
         return Ok((fragment.to_owned(), value.clone()));
     }
-    if document.verification_methods.len() == 1
+    if document.id.method() == "key"
+        && document.verification_methods.len() == 1
         && let Some((method_id, value)) = document.verification_methods.iter().next()
     {
         return Ok((method_id.clone(), value.clone()));
@@ -233,4 +234,54 @@ fn public_key_material_from_did_document_value(
     Err(Error::Protocol(
         "DID verification method must carry Ed25519 publicKeyMultibase or publicKeyJwk".to_owned(),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use super::*;
+
+    fn document(id: &str, method_id: &str) -> DidDocument {
+        DidDocument {
+            id: Did::new(id).unwrap(),
+            verification_methods: BTreeMap::from([(
+                method_id.to_owned(),
+                "z6MkhWg7i8fV9nqC2jL4sP6tR1xY3aB5dE7gH9kM2pQ4uV6w".to_owned(),
+            )]),
+            also_known_as: Vec::new(),
+            updated_at: None,
+            raw_properties: BTreeMap::new(),
+        }
+    }
+
+    #[test]
+    fn non_did_key_does_not_fall_back_to_an_unrelated_single_method() {
+        let document = document(
+            "did:webvh:z6mkfixture:example.com",
+            "did:webvh:z6mkfixture:example.com#key-1",
+        );
+        assert!(
+            lookup_verification_method_value(
+                &document,
+                "did:webvh:z6mkfixture:example.com#missing",
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn did_key_retains_the_single_method_fallback() {
+        let document = document(
+            "did:key:z6MkhWg7i8fV9nqC2jL4sP6tR1xY3aB5dE7gH9kM2pQ4uV6w",
+            "did:key:z6MkhWg7i8fV9nqC2jL4sP6tR1xY3aB5dE7gH9kM2pQ4uV6w#z6MkhWg7i8fV9nqC2jL4sP6tR1xY3aB5dE7gH9kM2pQ4uV6w",
+        );
+        assert!(
+            lookup_verification_method_value(
+                &document,
+                "did:key:z6MkhWg7i8fV9nqC2jL4sP6tR1xY3aB5dE7gH9kM2pQ4uV6w",
+            )
+            .is_ok()
+        );
+    }
 }

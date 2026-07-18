@@ -128,6 +128,9 @@ pub enum SignaturePolicyError {
     /// `created` is too far in the future for the accepted clock skew.
     #[error("signature was created in the future")]
     CreatedInFuture,
+    /// `created` is too far in the past for the accepted clock skew.
+    #[error("signature creation time is too old")]
+    CreatedTooOld,
     /// `expires` is older than the accepted clock skew.
     #[error("signature has expired")]
     Expired,
@@ -175,7 +178,8 @@ pub struct VerifiedHttpMessageSignature {
 /// without re-parsing strings.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Component {
-    /// `@method` — uppercase HTTP method per RFC 9421 §2.2.1.
+    /// `@method` — the HTTP method exactly as received. RFC 9421
+    /// §2.2.1 explicitly forbids case transformation.
     Method,
     /// `@target-uri` — full request URI per RFC 9421 §2.2.2.
     TargetUri,
@@ -354,6 +358,9 @@ impl SignatureVerificationPolicy {
         if signature_input.expires < now_unix_seconds.saturating_sub(skew) {
             return Err(SignaturePolicyError::Expired);
         }
+        if signature_input.created < now_unix_seconds.saturating_sub(skew) {
+            return Err(SignaturePolicyError::CreatedTooOld);
+        }
         Ok(())
     }
 }
@@ -531,9 +538,9 @@ fn is_valid_signature_label(label: &str) -> bool {
 /// [`verify_content_digest`] separately against the raw body bytes.
 #[derive(Debug, Clone)]
 pub struct SignedRequestParts {
-    /// HTTP method, e.g. `"POST"`. Canonicalized to lowercase per
-    /// floria's existing verifier (matching the `@method`
-    /// canonicalization that floria emits and signs against).
+    /// HTTP method exactly as it appears on the request, e.g. `"POST"`.
+    /// RFC 9421 section 2.2.1 treats method names as case-sensitive and
+    /// forbids changing their case while constructing the signature base.
     pub method: String,
     /// Absolute target URI of the request, e.g.
     /// `"https://push.example.com/_arkret/edge/push/notify"`.
@@ -805,16 +812,33 @@ pub fn canonical_message(
     req: &SignedRequestParts,
     signature_input: &SignatureInput,
 ) -> Result<Vec<u8>, SignatureError> {
-    let mut lines = Vec::with_capacity(signature_input.covered_components.len() + 1);
+    let mut components = Vec::with_capacity(signature_input.covered_components.len());
     for component in &signature_input.covered_components {
         let value = component_value(req, component)?;
+        components.push((component.clone(), value));
+    }
+    Ok(canonical_message_from_component_values(
+        &components,
+        &signature_input.params_value,
+    ))
+}
+
+/// Build canonical RFC 9421 message bytes from already-resolved component
+/// values.
+///
+/// This is the shared lower-level primitive for adapters that obtain request
+/// components from framework-specific request types. Callers remain
+/// responsible for resolving each value according to RFC 9421.
+pub fn canonical_message_from_component_values(
+    components: &[(Component, String)],
+    signature_params: &str,
+) -> Vec<u8> {
+    let mut lines = Vec::with_capacity(components.len() + 1);
+    for (component, value) in components {
         lines.push(format!("\"{}\": {}", component.canonical_name(), value));
     }
-    lines.push(format!(
-        "\"@signature-params\": {}",
-        signature_input.params_value
-    ));
-    Ok(lines.join("\n").into_bytes())
+    lines.push(format!("\"@signature-params\": {}", signature_params));
+    lines.join("\n").into_bytes()
 }
 
 fn component_value(
@@ -822,7 +846,7 @@ fn component_value(
     component: &Component,
 ) -> Result<String, SignatureError> {
     match component {
-        Component::Method => Ok(req.method.to_ascii_lowercase()),
+        Component::Method => Ok(req.method.clone()),
         Component::TargetUri => Ok(req.target_uri.clone()),
         Component::Authority => Ok(req.authority.clone()),
         Component::Path => Ok(req.path.clone()),
@@ -964,10 +988,11 @@ mod tests {
                 now,
             )
             .expect("valid policy input passes");
-        let still_valid = parse_signature_input(&floria_signature_input(now - 300, now)).unwrap();
-        policy
-            .validate(&still_valid, Some("sha-256=:x=:"), now)
-            .expect("created may be old when the signature is still unexpired");
+        let too_old = parse_signature_input(&floria_signature_input(now - 300, now)).unwrap();
+        assert_eq!(
+            policy.validate(&too_old, Some("sha-256=:x=:"), now),
+            Err(SignaturePolicyError::CreatedTooOld)
+        );
 
         let missing_digest = parse_signature_input(
             "sig1=(\"@method\" \"@target-uri\" \"@authority\");created=1715990000;expires=1715990030;keyid=\"did:webvh:z6mkfixture:sync.example.com#push\";alg=\"ed25519\"",
@@ -1067,7 +1092,7 @@ mod tests {
         let message = canonical_message(&req, &signature_input).unwrap();
         let text = String::from_utf8(message).unwrap();
         let expected = format!(
-            "\"@method\": post\n\
+            "\"@method\": POST\n\
              \"@target-uri\": http://127.0.0.1/_arkret/edge/push/notify\n\
              \"@authority\": 127.0.0.1\n\
              \"content-digest\": {digest_val}\n\
@@ -1078,6 +1103,27 @@ mod tests {
             components = "\"@method\" \"@target-uri\" \"@authority\" \"content-digest\" \"x-arkret-origin-service-id\" \"x-arkret-destination-service-id\"",
         );
         assert_eq!(text, expected);
+    }
+
+    #[test]
+    fn method_component_preserves_extension_method_case() {
+        let input = parse_signature_input(
+            "sig1=(\"@method\");created=1;expires=2;keyid=\"k\";alg=\"ed25519\"",
+        )
+        .unwrap();
+        let request = SignedRequestParts {
+            method: "mIxEd".to_owned(),
+            target_uri: "https://example.test/".to_owned(),
+            authority: "example.test".to_owned(),
+            path: "/".to_owned(),
+            headers: Vec::new(),
+            body_digest: None,
+        };
+
+        assert_eq!(
+            canonical_message(&request, &input).unwrap(),
+            b"\"@method\": mIxEd\n\"@signature-params\": (\"@method\");created=1;expires=2;keyid=\"k\";alg=\"ed25519\""
+        );
     }
 
     #[test]

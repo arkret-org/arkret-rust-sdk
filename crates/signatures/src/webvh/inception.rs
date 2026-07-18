@@ -34,12 +34,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_core::{
     CanonicalServiceUrl, Did, DidOperationSubmitRequestBody, Hash, IdentityCreationControlProof,
     ServiceRegistrationKey, ServiceType, ServiceWebvhInceptionOperation, base64url_encode,
-    decode_base58btc, decode_ed25519_multibase, encode_base58btc, service_registration_local_id,
+    decode_ed25519_multibase, service_registration_local_id,
 };
 use chrono::{DateTime, Utc};
-use ed25519_dalek::{
-    SECRET_KEY_LENGTH, SIGNATURE_LENGTH, Signature, Signer, SigningKey, VerifyingKey,
-};
+use ed25519_dalek::{SECRET_KEY_LENGTH, Signature, Signer, SigningKey, VerifyingKey};
 use rand_core::RngCore;
 use serde_json::{Value, json};
 use thiserror::Error;
@@ -47,6 +45,7 @@ use url::Url;
 
 const WEBVH_SCID_PLACEHOLDER: &str = "{SCID}";
 const WEBVH_METHOD_VERSION: &str = "did:webvh:1.0";
+#[cfg(test)]
 const ED25519_MULTICODEC_PREFIX: [u8; 2] = [0xed, 0x01];
 
 /// Errors produced while preparing a `did:webvh` inception entry.
@@ -1586,7 +1585,9 @@ fn build_proof(
     if let Value::Object(properties) = &mut proof {
         properties.insert(
             "proofValue".to_owned(),
-            Value::String(format!("z{}", encode_base58btc(signature.to_bytes()))),
+            Value::String(arkret_canonical::encode_multibase_base58btc(
+                signature.to_bytes(),
+            )),
         );
     }
     Ok(proof)
@@ -1655,16 +1656,8 @@ fn verify_webvh_log_proof(entry: &Value) -> Result<(), String> {
 }
 
 fn decode_webvh_signature(value: &str) -> Result<Signature, String> {
-    let rest = value
-        .strip_prefix('z')
-        .ok_or_else(|| "proofValue must use base58btc multibase".to_owned())?;
-    let raw = decode_base58btc(rest)
-        .map_err(|error| format!("proofValue base58 decode failed: {error}"))?;
-    if raw.len() != SIGNATURE_LENGTH {
-        return Err("ed25519 proofValue must be 64 bytes".to_owned());
-    }
-    let mut signature_bytes = [0u8; SIGNATURE_LENGTH];
-    signature_bytes.copy_from_slice(&raw);
+    let signature_bytes = arkret_canonical::decode_ed25519_signature_multibase(value)
+        .map_err(|error| format!("invalid ed25519 proofValue: {error}"))?;
     Ok(Signature::from_bytes(&signature_bytes))
 }
 
@@ -1721,19 +1714,11 @@ fn scid_skeleton_from_genesis(
 /// hashes are 46-char `Qm…` strings; multibase `z` applies to keys/signatures
 /// only).
 fn sha256_multihash_base58btc(bytes: &[u8]) -> String {
-    let digest = arkret_canonical::canonical::sha256_bytes(bytes);
-    let mut multihash = Vec::with_capacity(34);
-    multihash.push(0x12);
-    multihash.push(0x20);
-    multihash.extend_from_slice(&digest);
-    encode_base58btc(&multihash)
+    arkret_canonical::sha256_multihash_base58btc(bytes)
 }
 
 fn encode_ed25519_pubkey_multibase(public_key: &[u8; 32]) -> String {
-    let mut envelope = Vec::with_capacity(2 + public_key.len());
-    envelope.extend_from_slice(&ED25519_MULTICODEC_PREFIX);
-    envelope.extend_from_slice(public_key);
-    format!("z{}", encode_base58btc(&envelope))
+    arkret_canonical::ed25519_pubkey_to_did_key_multibase(public_key)
 }
 
 fn format_webvh_did(method_authority: &str, scid: &str, local_id: &str) -> String {
@@ -1794,6 +1779,7 @@ fn valid_multibase_key(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use arkret_core::decode_base58btc;
     use ed25519_dalek::{PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH, Signature, VerifyingKey};
     use rand_chacha::ChaCha20Rng;
     use rand_chacha::rand_core::SeedableRng;
