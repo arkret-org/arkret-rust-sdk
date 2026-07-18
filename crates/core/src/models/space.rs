@@ -137,19 +137,18 @@ impl Space {
                 ));
             }
         }
-        if let Some(enforcement) = enforcement {
-            if wip_limit.is_none()
+        if let Some(enforcement) = enforcement
+            && (wip_limit.is_none()
                 || !matches!(
                     enforcement.as_str(),
                     Some("warn" | "reject" | "require_review")
-                )
+                ))
             {
                 return Err(Error::Protocol(
                     "space wip_limit_enforcement requires a registered value and wip_limit"
                         .to_owned(),
                 ));
             }
-        }
         Ok(())
     }
 }

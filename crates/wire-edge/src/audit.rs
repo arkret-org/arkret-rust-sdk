@@ -29,13 +29,9 @@ pub struct AuditPolicyAccessPayload {
 impl AuditPolicyAccessPayload {
     pub fn validate_minimal(&self) -> Result<()> {
         match (self.access_kind, &self.late_recovery_original_event_id) {
-            (AccessKind::E2EELateRecovery, None) => Err(Error::Protocol(format!(
-                "ak.audit.policy_access access_kind=e2ee_late_recovery requires late_recovery_original_event_id (schema_violation)"
-            ))),
+            (AccessKind::E2EELateRecovery, None) => Err(Error::Protocol("ak.audit.policy_access access_kind=e2ee_late_recovery requires late_recovery_original_event_id (schema_violation)".to_owned())),
             (kind, Some(_)) if !matches!(kind, AccessKind::E2EELateRecovery) => {
-                Err(Error::Protocol(format!(
-                    "ak.audit.policy_access late_recovery_original_event_id is only valid for access_kind=e2ee_late_recovery (schema_violation)"
-                )))
+                Err(Error::Protocol("ak.audit.policy_access late_recovery_original_event_id is only valid for access_kind=e2ee_late_recovery (schema_violation)".to_owned()))
             }
             _ => Ok(()),
         }

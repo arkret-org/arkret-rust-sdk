@@ -578,9 +578,7 @@ fn validate_recording_deletion_audit(
     if retention.audit_lock == Some(true)
         && audit.outcome == CallRecordingDeletionOutcome::Completed
     {
-        return Err(Error::Protocol(format!(
-            "legal_hold_active: recording deletion cannot complete under audit_lock"
-        )));
+        return Err(Error::Protocol("legal_hold_active: recording deletion cannot complete under audit_lock".to_owned()));
     }
     let Some(deletion_trigger) = retention.deletion_trigger else {
         return schema_violation("recording deletion_audit requires retention.deletion_trigger");
@@ -601,9 +599,7 @@ fn validate_recording_deletion_audit(
     if audit.outcome == CallRecordingDeletionOutcome::BlockedByLegalHold
         && audit.legal_hold_ref.as_deref().is_none_or(str::is_empty)
     {
-        return Err(Error::Protocol(format!(
-            "legal_hold_active: blocked recording deletion requires legal_hold_ref"
-        )));
+        return Err(Error::Protocol("legal_hold_active: blocked recording deletion requires legal_hold_ref".to_owned()));
     }
     Ok(())
 }

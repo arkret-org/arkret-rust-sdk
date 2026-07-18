@@ -84,41 +84,31 @@ impl DidContinuityProof {
             )));
         }
         if self.signature_chain.len() < 2 {
-            return Err(Error::Protocol(format!(
-                "DID continuity proof requires at least two signature_chain links \
-                 (schema_violation)"
-            )));
+            return Err(Error::Protocol("DID continuity proof requires at least two signature_chain links \
+                 (schema_violation)".to_owned()));
         }
         if self.old_did == self.new_did {
-            return Err(Error::Protocol(format!(
-                "DID continuity proof old_did and new_did must differ \
-                 (schema_violation)"
-            )));
+            return Err(Error::Protocol("DID continuity proof old_did and new_did must differ \
+                 (schema_violation)".to_owned()));
         }
         if self.purpose == DidContinuityPurpose::PrincipalMethodUpgrade
             && (!self.old_did.as_str().starts_with("did:web:")
                 || !self.new_did.as_str().starts_with("did:webvh:"))
         {
-            return Err(Error::Protocol(format!(
-                "principal_method_upgrade requires old_did did:web and new_did did:webvh \
-                 (schema_violation)"
-            )));
+            return Err(Error::Protocol("principal_method_upgrade requires old_did did:web and new_did did:webvh \
+                 (schema_violation)".to_owned()));
         }
         if let Some(expires_at) = self.expires_at
             && expires_at <= self.issued_at
         {
-            return Err(Error::Protocol(format!(
-                "DID continuity proof expires_at must be after issued_at \
-                 (schema_violation)"
-            )));
+            return Err(Error::Protocol("DID continuity proof expires_at must be after issued_at \
+                 (schema_violation)".to_owned()));
         }
         let mut seen_audience = BTreeSet::new();
         for audience in &self.audience {
             if audience.trim().is_empty() || !seen_audience.insert(audience) {
-                return Err(Error::Protocol(format!(
-                    "DID continuity proof audience entries must be non-empty and unique \
-                     (schema_violation)"
-                )));
+                return Err(Error::Protocol("DID continuity proof audience entries must be non-empty and unique \
+                     (schema_violation)".to_owned()));
             }
         }
         if self
@@ -127,10 +117,8 @@ impl DidContinuityProof {
             .trim()
             .is_empty()
         {
-            return Err(Error::Protocol(format!(
-                "DID continuity proof user_oob_confirmation_id is required \
-                 (schema_violation)"
-            )));
+            return Err(Error::Protocol("DID continuity proof user_oob_confirmation_id is required \
+                 (schema_violation)".to_owned()));
         }
         let expected_digest = self.signature_payload_digest()?;
         let mut has_old_link = false;
@@ -139,10 +127,8 @@ impl DidContinuityProof {
             if !link.verification_method.starts_with("did:")
                 || !link.verification_method.contains('#')
             {
-                return Err(Error::Protocol(format!(
-                    "DID continuity proof verification_method must be a DID URL with fragment \
-                     (schema_violation)"
-                )));
+                return Err(Error::Protocol("DID continuity proof verification_method must be a DID URL with fragment \
+                     (schema_violation)".to_owned()));
             }
             if link.signature.trim().is_empty()
                 || link
@@ -150,10 +136,8 @@ impl DidContinuityProof {
                     .chars()
                     .any(|c| !(c.is_ascii_alphanumeric() || c == '_' || c == '-'))
             {
-                return Err(Error::Protocol(format!(
-                    "DID continuity proof signature must be base64url-like \
-                     (schema_violation)"
-                )));
+                return Err(Error::Protocol("DID continuity proof signature must be base64url-like \
+                     (schema_violation)".to_owned()));
             }
             let method_principal = link
                 .verification_method
@@ -161,10 +145,8 @@ impl DidContinuityProof {
                 .next()
                 .unwrap_or_default();
             if method_principal != link.principal_id.as_str() {
-                return Err(Error::Protocol(format!(
-                    "DID continuity proof signature link principal_id must match verification_method DID \
-                     (schema_violation)"
-                )));
+                return Err(Error::Protocol("DID continuity proof signature link principal_id must match verification_method DID \
+                     (schema_violation)".to_owned()));
             }
             if link.payload_digest.as_str() != expected_digest.as_str() {
                 return Err(Error::Protocol(format!(
@@ -177,10 +159,8 @@ impl DidContinuityProof {
             has_new_link |= link.principal_id == self.new_did;
         }
         if !has_old_link || !has_new_link {
-            return Err(Error::Protocol(format!(
-                "DID continuity proof signature_chain must include old_did and new_did links \
-                 (schema_violation)"
-            )));
+            return Err(Error::Protocol("DID continuity proof signature_chain must include old_did and new_did links \
+                 (schema_violation)".to_owned()));
         }
         Ok(())
     }
