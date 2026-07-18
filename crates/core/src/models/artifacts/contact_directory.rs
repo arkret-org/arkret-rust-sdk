@@ -68,20 +68,6 @@ pub enum DirectoryOperations {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/blinded_contact`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct BlindedContact {
-    pub contact_ref: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub identifier_kind: Option<String>,
-    pub identifier_commitment: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub padding: Option<BTreeMap<String, Value>>,
-}
-
-/// Counterpart for
 /// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/freshness_fields`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -155,26 +141,6 @@ pub struct PaginationRequest {
     pub cursor: Option<crate::Cursor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<u64>,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/private_contact_match`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct PrivateContactMatch {
-    pub contact_ref: String,
-    pub match_kind: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub handle: Option<Handle>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subject: Option<Did>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub organization_did: Option<Did>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_refs: Option<SourceRefs>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub handoff_stub: Option<InviteConsentHandoffStub>,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/proofs`.

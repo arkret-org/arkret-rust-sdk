@@ -841,11 +841,12 @@ mod tests {
         use std::collections::BTreeMap;
 
         use arkret_core::{
-            BlindedContact, BlobRef, BlobUploadMetadata, Did, DirectConversationResolveRequestBody,
-            DirectoryPrivateContactDiscoveryRequestBody, EffectiveScope, Event, EventId,
-            EventRequirements, Hash, Hlc, MLS_GOVERNANCE_BINDING_FULL_PROFILE,
-            MimiReportAbuseRequestBody, MimiRoomUri, MlsGovernanceProofRequest, NonEmptyString,
-            RealmId, ServiceType, StrandId, SyncRequestBody,
+            BlobRef, BlobUploadMetadata, Did, DirectConversationResolveRequestBody,
+            DirectoryPrivateContactDiscoveryOutcome, DirectoryPrivateContactDiscoveryRequestBody,
+            EffectiveScope, Event, EventId, EventRequirements, Hash, Hlc,
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE, MimiReportAbuseRequestBody, MimiRoomUri,
+            MlsGovernanceProofRequest, NonEmptyString, RealmId, ServiceType, StrandId,
+            SyncRequestBody,
         };
         use serde_json::{Value, json};
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -1446,25 +1447,29 @@ mod tests {
 
         #[tokio::test]
         async fn directory_private_contact_discovery_posts_canonical_path() {
-            let (client, capture) = spawn_capture_server(r#"{"matches":[],"proofs":[]}"#).await;
-            let request = DirectoryPrivateContactDiscoveryRequestBody {
-                requester: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-                contacts: vec![BlindedContact {
-                    contact_ref: "contact-1".to_owned(),
-                    identifier_kind: None,
-                    identifier_commitment: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
-                    padding: None,
-                }],
-                proofs: Vec::new(),
-                privacy_profile: Some(NonEmptyString::new("psi-v1").unwrap()),
-                padding: BTreeMap::new(),
+            let (client, capture) = spawn_capture_server(
+                r#"{"phase":"match","profile":"ak.private_contact_discovery.v1","batch_id":"ak:batch:01964137-0000-7000-8000-000000000777","key_epoch":14,"hit_bitmap":[false],"padding_count":0}"#,
+            )
+            .await;
+            let request = DirectoryPrivateContactDiscoveryRequestBody::Blind {
+                profile: "ak.private_contact_discovery.v1".to_owned(),
+                batch_id: arkret_core::BatchId::new(
+                    "ak:batch:01964137-0000-7000-8000-000000000777",
+                )
+                .unwrap(),
+                ciphersuite: "OPRF-ristretto255-SHA512".to_owned(),
+                key_epoch: 14,
+                blinded_elements: vec!["dGVzdA".to_owned()],
             };
 
             let response = client
                 .directory_private_contact_discovery(&request)
                 .await
                 .unwrap();
-            assert!(response.matches.is_empty());
+            assert!(matches!(
+                response,
+                DirectoryPrivateContactDiscoveryOutcome::Match { .. }
+            ));
 
             let raw = capture.await.unwrap();
             let (request_line, _headers, body) = split_request(&raw);
@@ -1473,8 +1478,10 @@ mod tests {
                 "unexpected request line: {request_line}",
             );
             let parsed: Value = serde_json::from_slice(&body).unwrap();
-            assert_eq!(parsed["requester"], "did:webvh:z6mkfixture:alice.example");
-            assert_eq!(parsed["privacy_profile"], "psi-v1");
+            assert_eq!(parsed["phase"], "blind");
+            assert_eq!(parsed["profile"], "ak.private_contact_discovery.v1");
+            assert_eq!(parsed["ciphersuite"], "OPRF-ristretto255-SHA512");
+            assert!(parsed.get("requester").is_none());
         }
 
         #[tokio::test]

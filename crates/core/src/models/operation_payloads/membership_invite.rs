@@ -319,8 +319,208 @@ impl InviteRefPayload {
 }
 
 pub const INVITE_CLAIM_AUDIENCE: &str = "arkret.invite.claim";
+pub const INVITE_BINDING_PROOF_TRANSCRIPT_DOMAIN: &str = "ak.invite.claim.binding_proof.v1\n";
 pub const INVITE_SUBJECT_PROOF_ALG: &str = "EdDSA";
 pub const INVITE_SUBJECT_PROOF_TRANSCRIPT_DOMAIN: &str = "ak.invite.claim.subject_proof.v1\n";
+
+/// Verification-service proof carried by `ak.invite.claim`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct InviteClaimBindingProof {
+    pub verification_service_id: Did,
+    pub subject_id: Did,
+    pub realm_id: RealmId,
+    pub audience: String,
+    pub claim_nonce: String,
+    pub expires_at: String,
+    pub verification_method: String,
+    pub signature: String,
+}
+
+impl InviteClaimBindingProof {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        verification_service_id: Did,
+        subject_id: Did,
+        realm_id: RealmId,
+        claim_nonce: impl Into<String>,
+        expires_at: impl Into<String>,
+        verification_method: impl Into<String>,
+        signature: impl Into<String>,
+    ) -> Self {
+        Self {
+            verification_service_id,
+            subject_id,
+            realm_id,
+            audience: INVITE_CLAIM_AUDIENCE.to_owned(),
+            claim_nonce: claim_nonce.into(),
+            expires_at: expires_at.into(),
+            verification_method: verification_method.into(),
+            signature: signature.into(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.audience != INVITE_CLAIM_AUDIENCE {
+            return Err(Error::Protocol(
+                "invite binding proof audience must be arkret.invite.claim".to_owned(),
+            ));
+        }
+        if self.claim_nonce.len() < 16 || self.claim_nonce.len() > 128 {
+            return Err(Error::Protocol(
+                "invite binding proof claim_nonce length must be 16..=128".to_owned(),
+            ));
+        }
+        canonical::validate_timestamp_canonical(&self.expires_at)?;
+        if self.verification_method.trim().is_empty() {
+            return Err(Error::Protocol(
+                "invite binding proof verification_method must not be empty".to_owned(),
+            ));
+        }
+        if self.signature.trim().is_empty() {
+            return Err(Error::Protocol(
+                "invite binding proof signature must not be empty".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn unsigned(&self) -> InviteClaimUnsignedBindingProof {
+        InviteClaimUnsignedBindingProof {
+            verification_service_id: self.verification_service_id.clone(),
+            subject_id: self.subject_id.clone(),
+            realm_id: self.realm_id.clone(),
+            audience: self.audience.clone(),
+            claim_nonce: self.claim_nonce.clone(),
+            expires_at: self.expires_at.clone(),
+            verification_method: self.verification_method.clone(),
+        }
+    }
+
+    pub fn canonical_digest(&self) -> Result<Hash> {
+        self.validate()?;
+        Ok(Hash::new(canonical::canonical_sha256(self)?)?)
+    }
+}
+
+/// `binding_proof` with only the `signature` member removed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct InviteClaimUnsignedBindingProof {
+    pub verification_service_id: Did,
+    pub subject_id: Did,
+    pub realm_id: RealmId,
+    pub audience: String,
+    pub claim_nonce: String,
+    pub expires_at: String,
+    pub verification_method: String,
+}
+
+/// Canonical `ak.invite.claim.binding_proof.v1` transcript body.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct InviteClaimBindingProofBody {
+    pub audience: String,
+    pub binding_proof: InviteClaimUnsignedBindingProof,
+    pub claim_nonce: String,
+    pub invite_digest: Hash,
+    pub invite_id: InviteId,
+    pub realm_id: RealmId,
+    pub subject_id: Did,
+    pub token_commitment: Hash,
+    pub verification_service_id: Did,
+}
+
+impl InviteClaimBindingProofBody {
+    pub fn new(
+        binding_proof: &InviteClaimBindingProof,
+        invite_id: InviteId,
+        token_commitment: Hash,
+        invite_digest: Hash,
+    ) -> Result<Self> {
+        binding_proof.validate()?;
+        if !token_commitment.as_str().starts_with("sha256:") {
+            return Err(Error::Protocol(
+                "invite binding proof token_commitment must be sha256".to_owned(),
+            ));
+        }
+        if !invite_digest.as_str().starts_with("sha256:") {
+            return Err(Error::Protocol(
+                "invite binding proof invite_digest must be sha256".to_owned(),
+            ));
+        }
+        Ok(Self {
+            audience: INVITE_CLAIM_AUDIENCE.to_owned(),
+            binding_proof: binding_proof.unsigned(),
+            claim_nonce: binding_proof.claim_nonce.clone(),
+            invite_digest,
+            invite_id,
+            realm_id: binding_proof.realm_id.clone(),
+            subject_id: binding_proof.subject_id.clone(),
+            token_commitment,
+            verification_service_id: binding_proof.verification_service_id.clone(),
+        })
+    }
+
+    pub fn from_wire_parts(
+        binding_proof: &InviteClaimBindingProof,
+        invite_id: impl Into<String>,
+        token_commitment: impl Into<String>,
+        invite_digest: impl Into<String>,
+    ) -> Result<Self> {
+        Self::new(
+            binding_proof,
+            InviteId::new(invite_id.into())?,
+            Hash::new(token_commitment.into())?,
+            Hash::new(invite_digest.into())?,
+        )
+    }
+
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
+        let mut bytes = INVITE_BINDING_PROOF_TRANSCRIPT_DOMAIN.as_bytes().to_vec();
+        bytes.extend(canonical::canonical_json_bytes(self)?);
+        Ok(bytes)
+    }
+
+    pub fn transcript_digest(&self) -> Result<Hash> {
+        Ok(Hash::new(canonical::sha256_digest(
+            self.canonical_bytes()?,
+        ))?)
+    }
+}
+
+pub fn invite_binding_proof_transcript_bytes(
+    binding_proof: &InviteClaimBindingProof,
+    invite_id: &str,
+    token_commitment: &str,
+    invite_digest: &str,
+) -> Result<Vec<u8>> {
+    InviteClaimBindingProofBody::from_wire_parts(
+        binding_proof,
+        invite_id,
+        token_commitment,
+        invite_digest,
+    )?
+    .canonical_bytes()
+}
+
+pub fn invite_binding_proof_transcript_digest(
+    binding_proof: &InviteClaimBindingProof,
+    invite_id: &str,
+    token_commitment: &str,
+    invite_digest: &str,
+) -> Result<Hash> {
+    InviteClaimBindingProofBody::from_wire_parts(
+        binding_proof,
+        invite_id,
+        token_commitment,
+        invite_digest,
+    )?
+    .transcript_digest()
+}
 
 /// Subject DID proof carried by `ak.invite.claim`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -566,6 +766,50 @@ mod tests {
     const TOKEN: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const SERVICE: &str = "did:web:verify.example";
     const BINDING: &str = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+    fn binding_proof() -> InviteClaimBindingProof {
+        InviteClaimBindingProof::new(
+            Did::new(SERVICE).unwrap(),
+            Did::new(SUBJECT).unwrap(),
+            RealmId::new(REALM).unwrap(),
+            "nonce-claim-proof-1",
+            "2099-01-01T00:00:00Z",
+            "did:web:verify.example#key-1",
+            "c2ln",
+        )
+    }
+
+    #[test]
+    fn invite_binding_proof_transcript_is_typed_and_domain_separated() {
+        let bytes = invite_binding_proof_transcript_bytes(&binding_proof(), INVITE, TOKEN, BINDING)
+            .unwrap();
+        let actual = String::from_utf8(bytes).unwrap();
+
+        assert!(actual.starts_with(INVITE_BINDING_PROOF_TRANSCRIPT_DOMAIN));
+        assert!(actual.contains("\"binding_proof\""));
+        assert!(actual.contains("\"invite_digest\":\"sha256:bbbb"));
+        assert!(!actual.contains("\"signature\""));
+    }
+
+    #[test]
+    fn invite_binding_proof_rejects_sig_alias_and_unknown_fields() {
+        let mut value = serde_json::to_value(binding_proof()).unwrap();
+        let object = value.as_object_mut().unwrap();
+        object.remove("signature");
+        object.insert("sig".to_owned(), Value::String("c2ln".to_owned()));
+
+        assert!(serde_json::from_value::<InviteClaimBindingProof>(value).is_err());
+    }
+
+    #[test]
+    fn invite_binding_proof_digest_matches_transcript_bytes() {
+        let proof = binding_proof();
+        let bytes = invite_binding_proof_transcript_bytes(&proof, INVITE, TOKEN, BINDING).unwrap();
+        let digest =
+            invite_binding_proof_transcript_digest(&proof, INVITE, TOKEN, BINDING).unwrap();
+
+        assert_eq!(digest.as_str(), canonical::sha256_digest(&bytes));
+    }
 
     #[test]
     fn invite_subject_proof_transcript_bytes_are_domain_separated() {

@@ -39,6 +39,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 pub mod applet;
+pub mod cursor_authority;
 mod fixtures;
 pub mod idempotency;
 mod protocol;
@@ -49,9 +50,14 @@ mod tests;
 #[cfg(feature = "salvo")]
 pub use applet::router as applet_router;
 pub use applet::{AppletHandler, AppletService, ServiceRoute, TransactionDispatch, service_routes};
+pub use cursor_authority::{
+    CursorAuthority, CursorAuthorityError, CursorBindingContext, CursorBindingRecord,
+    MemoryCursorAuthority, cursor_filter_digest,
+};
 pub use fixtures::*;
 pub use idempotency::{
     IdempotencyClaim, IdempotencyDirection, IdempotencyIdentity, IdempotencyWindow,
+    TransactionClaim, TransactionIdempotencyStore,
 };
 pub use protocol::*;
 pub use registry::*;

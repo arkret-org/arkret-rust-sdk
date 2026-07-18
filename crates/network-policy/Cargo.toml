@@ -1,0 +1,20 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+categories = ["network-programming", "web-programming"]
+description = "Arkret v1 outbound network target and SSRF policy primitives."
+edition = "2024"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+keywords = ["arkret", "egress", "ssrf", "network", "policy"]
+license = "Apache-2.0"
+name = "arkret-network-policy"
+readme = "README.md"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+thiserror = {workspace = true}
+url = {workspace = true}
+
+[lints]
+workspace = true

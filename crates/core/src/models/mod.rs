@@ -97,6 +97,7 @@ mod runtime_identity;
 mod service_description {
     pub use arkret_wire_edge::service_description::*;
 }
+mod session_credential;
 mod space;
 mod strand;
 mod sync;
@@ -179,6 +180,7 @@ pub use relation::*;
 pub use resource_selector::*;
 pub use runtime_identity::*;
 pub use service_description::*;
+pub use session_credential::*;
 pub use space::*;
 pub use strand::*;
 pub use sync::*;

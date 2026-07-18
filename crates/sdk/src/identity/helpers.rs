@@ -1,4 +1,4 @@
-use std::net::{IpAddr, Ipv6Addr};
+use std::net::IpAddr;
 
 use super::*;
 pub(super) use crate::canonical::sha256_hex;
@@ -9,8 +9,10 @@ pub(super) use crate::canonical::sha256_hex;
 /// DIDs may be supplied by untrusted peers (handshakes, invites, directory
 /// responses), so a host like `169.254.169.254` (cloud metadata),
 /// `127.0.0.1`, or `10.x.x.x` must never trigger an internal request. Bare
-/// `localhost` is also blocked. Registered domain names are allowed (DNS
-/// rebinding is out of scope for this static check).
+/// `localhost` is also blocked. Registered domain names are allowed by this
+/// static compatibility helper; outbound clients must additionally use
+/// `arkret_network_policy::OutboundPolicy` for scheme, DNS-answer, and
+/// connection-binding checks.
 ///
 /// Public export for downstream crates such as starid, so they reuse the same
 /// outbound SSRF classification instead of duplicating private/metadata/CGN/
@@ -20,15 +22,10 @@ pub fn host_is_safe_for_outbound(host: &str) -> bool {
         .strip_prefix('[')
         .and_then(|h| h.strip_suffix(']'))
         .unwrap_or(host);
-    if let Ok(ip) = candidate.parse::<IpAddr>() {
-        return ip_is_public(ip);
-    }
-    if candidate.eq_ignore_ascii_case("localhost")
-        || candidate.to_ascii_lowercase().ends_with(".localhost")
-    {
-        return false;
-    }
-    true
+    candidate.parse::<IpAddr>().map_or_else(
+        |_| arkret_network_policy::classify_host(candidate).is_none(),
+        ip_is_public,
+    )
 }
 
 /// Returns `true` only if `ip` is in globally-routable public address space.
@@ -43,37 +40,7 @@ pub fn host_is_safe_for_outbound(host: &str) -> bool {
 /// Public export for downstream crates such as starid; see
 /// [`host_is_safe_for_outbound`] and STA-05-001.
 pub fn ip_is_public(ip: IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(v4) => {
-            !(v4.is_private()
-            || v4.is_loopback()
-            || v4.is_link_local()
-            || v4.is_broadcast()
-            || v4.is_documentation()
-            || v4.is_unspecified()
-            || v4.is_multicast()
-            // Carrier-grade NAT shared range 100.64.0.0/10.
-            || (v4.octets()[0] == 100 && (v4.octets()[1] & 0xc0) == 64))
-        }
-        IpAddr::V6(v6) => {
-            if let Some(mapped) = v6.to_ipv4_mapped() {
-                return ip_is_public(IpAddr::V4(mapped));
-            }
-            !(v6.is_loopback()
-                || v6.is_unspecified()
-                || v6.is_multicast()
-                || is_ipv6_unique_local(v6)
-                || is_ipv6_unicast_link_local(v6))
-        }
-    }
-}
-
-fn is_ipv6_unique_local(addr: Ipv6Addr) -> bool {
-    (addr.segments()[0] & 0xfe00) == 0xfc00
-}
-
-fn is_ipv6_unicast_link_local(addr: Ipv6Addr) -> bool {
-    (addr.segments()[0] & 0xffc0) == 0xfe80
+    arkret_network_policy::classify_ip(ip).is_none()
 }
 
 pub(super) fn split_domain_handle(handle: &str) -> Result<(String, String)> {

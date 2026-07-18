@@ -28,8 +28,8 @@ pub use helpers::did_webvh_parts;
 use helpers::*;
 /// Public re-export of the outbound SSRF egress guard (`host_is_safe_for_outbound`)
 /// and its IP classifier (`ip_is_public`) so downstream crates (e.g. starid)
-/// reuse one canonical private/metadata/CGN/NAT64/link-local blacklist instead
-/// of re-implementing it (STA-05-001).
+/// reuse the low-level `arkret-network-policy` classifier instead of
+/// re-implementing address tables (STA-05-001).
 pub use helpers::{host_is_safe_for_outbound, ip_is_public};
 pub use primary_handle::{
     DidDocumentSnapshotResolver, MentionRender, NoHolderPreferenceResolver,

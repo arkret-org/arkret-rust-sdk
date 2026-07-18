@@ -134,6 +134,7 @@ pub use arkret_keystore::{
     BackendKind, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore, WindowsCredentialKeyStore,
     durable_platform_keystore, platform_default_keystore_with_kind,
 };
+pub use arkret_network_policy as network_policy;
 #[cfg(feature = "server")]
 pub use arkret_server as server;
 pub use arkret_signatures as signatures;
@@ -318,7 +319,9 @@ pub use arkret_server::{
 };
 #[cfg(feature = "server")]
 pub use arkret_server::{
+    CursorAuthority, CursorAuthorityError, CursorBindingContext, CursorBindingRecord,
     IdempotencyClaim, IdempotencyDirection, IdempotencyIdentity, IdempotencyWindow,
+    MemoryCursorAuthority, TransactionClaim, TransactionIdempotencyStore, cursor_filter_digest,
 };
 #[cfg(feature = "full-surface")]
 pub use auth::{

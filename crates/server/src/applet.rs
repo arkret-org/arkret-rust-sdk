@@ -24,7 +24,9 @@ use arkret_core::{
 };
 use arkret_signatures::VerificationMethodDocument;
 
-use crate::idempotency::{IdempotencyClaim, IdempotencyIdentity, IdempotencyWindow};
+use crate::idempotency::{
+    IdempotencyIdentity, IdempotencyWindow, TransactionClaim, TransactionIdempotencyStore,
+};
 
 /// One standard Applet service route exposed by [`service_routes`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -129,7 +131,7 @@ pub trait AppletHandler: Send + Sync + 'static {
 #[derive(Clone)]
 pub struct AppletService {
     pub handler: Arc<dyn AppletHandler>,
-    pub idempotency: Arc<IdempotencyWindow<AppletTransactionOutcome>>,
+    pub idempotency: Arc<dyn TransactionIdempotencyStore<AppletTransactionOutcome, Error = Error>>,
 }
 
 /// Result of routing one *verified* transaction delivery through the
@@ -167,7 +169,7 @@ impl AppletService {
 
     pub fn from_arcs(
         handler: Arc<dyn AppletHandler>,
-        idempotency: Arc<IdempotencyWindow<AppletTransactionOutcome>>,
+        idempotency: Arc<dyn TransactionIdempotencyStore<AppletTransactionOutcome, Error = Error>>,
     ) -> Self {
         Self {
             handler,
@@ -193,9 +195,9 @@ impl AppletService {
     ) -> TransactionDispatch {
         match self
             .idempotency
-            .claim(identity, body_digest, source_signature_anchor)
+            .claim(identity, body_digest.as_str(), source_signature_anchor)
         {
-            IdempotencyClaim::Fresh => {
+            Ok(TransactionClaim::Claimed) => {
                 // The idempotency record is already persisted; only now may
                 // external side effects run.
                 match self
@@ -203,20 +205,32 @@ impl AppletService {
                     .handle_transaction(&identity.idempotency_key, body)
                 {
                     Ok(outcome) => {
-                        self.idempotency.complete(identity, outcome.clone());
-                        TransactionDispatch::Executed(outcome)
+                        match self.idempotency.record(
+                            identity,
+                            body_digest.as_str(),
+                            source_signature_anchor,
+                            &outcome,
+                        ) {
+                            Ok(()) => TransactionDispatch::Executed(outcome),
+                            Err(error) => TransactionDispatch::Failed(error),
+                        }
                     }
                     Err(err) => {
                         // Release the claim so a retry of the same delivery
                         // is not answered as a duplicate of a failure.
-                        self.idempotency.release(identity);
+                        let _ = self.idempotency.release(
+                            identity,
+                            body_digest.as_str(),
+                            source_signature_anchor,
+                        );
                         TransactionDispatch::Failed(err)
                     }
                 }
             }
-            IdempotencyClaim::Duplicate { outcome, .. } => TransactionDispatch::Replayed(outcome),
-            IdempotencyClaim::DuplicateConflict { .. } => TransactionDispatch::DuplicateConflict,
-            IdempotencyClaim::InFlight { .. } => TransactionDispatch::InFlight,
+            Ok(TransactionClaim::Duplicate(outcome)) => TransactionDispatch::Replayed(outcome),
+            Ok(TransactionClaim::Conflict) => TransactionDispatch::DuplicateConflict,
+            Ok(TransactionClaim::Pending) => TransactionDispatch::InFlight,
+            Err(error) => TransactionDispatch::Failed(error),
         }
     }
 }

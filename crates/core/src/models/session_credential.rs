@@ -1,0 +1,120 @@
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::{Did, Error, GrantId, Result, SessionGrantProofKind};
+
+pub const SIGNED_SESSION_GRANT_TYPE: &str = "ak.session.grant";
+
+/// Signed credential claims carried by an `ak.session.grant` JWT.
+///
+/// This credential is distinct from the durable `ak.session.grant` control
+/// event payload. The latter additionally binds the principal control Realm,
+/// issuer and session public key in the event body.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SignedSessionGrantClaims {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub grant_id: GrantId,
+    pub subject: Did,
+    pub audience: String,
+    pub scopes: Vec<String>,
+    pub not_before: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub session_id: String,
+    pub cnf: SessionGrantCnf,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof_kind: Option<SessionGrantProofKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope_details: Option<Value>,
+}
+
+/// RFC 7800 confirmation claim binding a grant to a DPoP holder key.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantCnf {
+    pub jkt: String,
+}
+
+impl SignedSessionGrantClaims {
+    pub fn validate(&self) -> Result<()> {
+        if self.kind != SIGNED_SESSION_GRANT_TYPE {
+            return Err(Error::Protocol(format!(
+                "session grant type must be {SIGNED_SESSION_GRANT_TYPE}"
+            )));
+        }
+        if self.audience.trim().is_empty() {
+            return Err(Error::Protocol(
+                "session grant audience must not be empty".to_owned(),
+            ));
+        }
+        if self.scopes.is_empty() || self.scopes.iter().any(|scope| scope.trim().is_empty()) {
+            return Err(Error::Protocol(
+                "session grant scopes must contain only non-empty values".to_owned(),
+            ));
+        }
+        if self.session_id.trim().is_empty() {
+            return Err(Error::Protocol(
+                "session grant session_id must not be empty".to_owned(),
+            ));
+        }
+        if self.expires_at <= self.not_before {
+            return Err(Error::Protocol(
+                "session grant expires_at must be after not_before".to_owned(),
+            ));
+        }
+        if self.cnf.jkt.trim().is_empty() {
+            return Err(Error::Protocol(
+                "session grant cnf.jkt must not be empty".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn claims() -> SignedSessionGrantClaims {
+        SignedSessionGrantClaims {
+            kind: SIGNED_SESSION_GRANT_TYPE.to_owned(),
+            grant_id: GrantId::new("ak:grant:01964198-0000-7000-8000-000000000000").unwrap(),
+            subject: Did::new("did:web:alice.example").unwrap(),
+            audience: "https://app.example.com".to_owned(),
+            scopes: vec!["ak.self.events.command.submit".to_owned()],
+            not_before: "2026-07-18T00:00:00Z".parse().unwrap(),
+            expires_at: "2026-07-18T00:15:00Z".parse().unwrap(),
+            session_id: "session-1".to_owned(),
+            cnf: SessionGrantCnf {
+                jkt: "thumbprint".to_owned(),
+            },
+            proof_kind: Some(SessionGrantProofKind::DidBoundSignature),
+            scope_details: None,
+        }
+    }
+
+    #[test]
+    fn validates_normative_shape() {
+        claims().validate().unwrap();
+    }
+
+    #[test]
+    fn rejects_unknown_claims() {
+        let mut value = serde_json::to_value(claims()).unwrap();
+        value["issuer"] = Value::String("did:web:issuer.example".to_owned());
+        assert!(serde_json::from_value::<SignedSessionGrantClaims>(value).is_err());
+    }
+
+    #[test]
+    fn rejects_wrong_type_and_invalid_window() {
+        let mut value = claims();
+        value.kind = "session".to_owned();
+        assert!(value.validate().is_err());
+
+        let mut value = claims();
+        value.expires_at = value.not_before;
+        assert!(value.validate().is_err());
+    }
+}

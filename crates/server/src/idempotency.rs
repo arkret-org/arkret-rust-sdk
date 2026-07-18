@@ -23,7 +23,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use arkret_core::Hash;
+use arkret_core::{Error, Hash};
 
 /// Delivery direction component of the idempotency identity
 /// (`applet-integration.md` §7.3.1).
@@ -76,6 +76,45 @@ impl IdempotencyIdentity {
             idempotency_key: idempotency_key.into(),
         }
     }
+}
+
+/// Storage-neutral decision for an Applet transaction idempotency claim.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TransactionClaim<T> {
+    Claimed,
+    Pending,
+    Duplicate(T),
+    Conflict,
+}
+
+/// Persistence contract for Applet transaction idempotency.
+///
+/// Production services should use a durable implementation so claims and
+/// completed outcomes survive restarts for the full retention window.
+pub trait TransactionIdempotencyStore<T>: Send + Sync + 'static {
+    type Error;
+
+    fn claim(
+        &self,
+        identity: &IdempotencyIdentity,
+        body_digest: &str,
+        source_signature_anchor: &str,
+    ) -> Result<TransactionClaim<T>, Self::Error>;
+
+    fn record(
+        &self,
+        identity: &IdempotencyIdentity,
+        body_digest: &str,
+        source_signature_anchor: &str,
+        outcome: &T,
+    ) -> Result<(), Self::Error>;
+
+    fn release(
+        &self,
+        identity: &IdempotencyIdentity,
+        body_digest: &str,
+        source_signature_anchor: &str,
+    ) -> Result<(), Self::Error>;
 }
 
 /// Decision returned by [`IdempotencyWindow::claim`].
@@ -250,6 +289,48 @@ impl<T: Clone> IdempotencyWindow<T> {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .is_empty()
+    }
+}
+
+impl<T: Clone + Send + 'static> TransactionIdempotencyStore<T> for IdempotencyWindow<T> {
+    type Error = Error;
+
+    fn claim(
+        &self,
+        identity: &IdempotencyIdentity,
+        body_digest: &str,
+        source_signature_anchor: &str,
+    ) -> Result<TransactionClaim<T>, Self::Error> {
+        let body_digest = Hash::new(body_digest)?;
+        Ok(
+            match self.claim(identity, &body_digest, source_signature_anchor) {
+                IdempotencyClaim::Fresh => TransactionClaim::Claimed,
+                IdempotencyClaim::InFlight { .. } => TransactionClaim::Pending,
+                IdempotencyClaim::Duplicate { outcome, .. } => TransactionClaim::Duplicate(outcome),
+                IdempotencyClaim::DuplicateConflict { .. } => TransactionClaim::Conflict,
+            },
+        )
+    }
+
+    fn record(
+        &self,
+        identity: &IdempotencyIdentity,
+        _body_digest: &str,
+        _source_signature_anchor: &str,
+        outcome: &T,
+    ) -> Result<(), Self::Error> {
+        self.complete(identity, outcome.clone());
+        Ok(())
+    }
+
+    fn release(
+        &self,
+        identity: &IdempotencyIdentity,
+        _body_digest: &str,
+        _source_signature_anchor: &str,
+    ) -> Result<(), Self::Error> {
+        self.release(identity);
+        Ok(())
     }
 }
 

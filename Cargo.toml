@@ -27,6 +27,7 @@ arkret-ffi = {version = "0.3.0",path = "crates/ffi",default-features = false}
 arkret-http-client = {version = "0.3.0",path = "crates/http-client",default-features = false}
 arkret-identifiers = {version = "0.3.0",path = "crates/identifiers",default-features = false}
 arkret-keystore = {version = "0.3.0",path = "crates/keystore",default-features = false}
+arkret-network-policy = {version = "0.3.0",path = "crates/network-policy",default-features = false}
 arkret-policy = {version = "0.3.0",path = "crates/policy",default-features = false}
 arkret-server = {version = "0.3.0",path = "crates/server",default-features = false}
 arkret-schema = {version = "0.3.0",path = "crates/schema",default-features = false}
