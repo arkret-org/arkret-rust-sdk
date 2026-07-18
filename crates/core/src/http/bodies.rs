@@ -840,7 +840,7 @@ pub struct MimiKeyMaterialOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<MimiFailure>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub signature: Option<Proof>,
+    pub signature: Option<PayloadProof>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -954,15 +954,74 @@ pub enum MimiConsentDecision {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct MimiUpdateConsentRequestBody {
     pub consent_id: ConsentId,
     pub decision: MimiConsentDecision,
     pub actor_id: Did,
-    pub signature: Proof,
+    pub signature: PayloadProof,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
+}
+
+pub const MIMI_UPDATE_CONSENT_OPERATION_ID: &str = "ak.open.mimi.command.update_consent";
+
+impl MimiUpdateConsentRequestBody {
+    /// Canonical request value covered by the operation proof. The detached
+    /// proof is omitted to avoid a self-referential digest.
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .expect("MimiUpdateConsentRequestBody serializes as an object")
+            .remove("signature");
+        Ok(value)
+    }
+
+    /// Digest of the complete request with only the detached proof omitted.
+    pub fn payload_digest(&self) -> Result<Hash> {
+        Hash::new(canonical::canonical_sha256(&self.unsigned_payload()?)?).map_err(Into::into)
+    }
+
+    /// Canonical `ak.mimi-operation-proof-v1` transcript shared by MIMI
+    /// consent proof producers and verifiers.
+    pub fn signature_binding_bytes(&self) -> Result<Vec<u8>> {
+        self.signature.validate_production()?;
+        if self.signature.proof_purpose.is_some() {
+            return Err(Error::Protocol(
+                "MIMI operation proof must not carry proof_purpose".to_owned(),
+            ));
+        }
+        let payload_digest = self.payload_digest()?;
+        if self.signature.payload_digest != payload_digest {
+            return Err(Error::Protocol(
+                "MIMI consent proof payload_digest mismatch".to_owned(),
+            ));
+        }
+        let domain = self
+            .signature
+            .domain
+            .as_ref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| Error::Protocol("MIMI operation proof requires domain".to_owned()))?;
+        let audience =
+            self.signature.audience.as_ref().ok_or_else(|| {
+                Error::Protocol("MIMI operation proof requires audience".to_owned())
+            })?;
+        let binding = serde_json::json!({
+            "context": ProofContextId::MIMI_OPERATION_PROOF_V1,
+            "payload_digest": payload_digest,
+            "issuer": self.actor_id,
+            "operation_id": MIMI_UPDATE_CONSENT_OPERATION_ID,
+            "verification_method": self.signature.verification_method,
+            "created_at": canonical::format_timestamp_canonical(self.signature.created_at),
+            "domain": domain,
+            "audience": audience,
+        });
+        canonical::canonical_json_bytes(&binding).map_err(Into::into)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1669,5 +1728,88 @@ mod private_contact_discovery_tests {
         .expect_err("legacy requester must not remain on the PSI wire");
 
         assert!(error.to_string().contains("unknown field"));
+    }
+}
+
+#[cfg(test)]
+mod mimi_consent_tests {
+    use chrono::TimeZone;
+    use serde_json::json;
+
+    use super::*;
+
+    fn request() -> MimiUpdateConsentRequestBody {
+        let created_at = Utc
+            .with_ymd_and_hms(2026, 7, 19, 6, 30, 0)
+            .single()
+            .unwrap();
+        let mut request = MimiUpdateConsentRequestBody {
+            consent_id: ConsentId::new(
+                "ak:consent:01964137-0000-7000-8000-000000000777".to_owned(),
+            )
+            .unwrap(),
+            decision: MimiConsentDecision::Accept,
+            actor_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice".to_owned()).unwrap(),
+            signature: PayloadProof {
+                kind: proof_kind::DETACHED_JWS.to_owned(),
+                alg: "EdDSA".to_owned(),
+                verification_method: "did:webvh:z6mkfixture:example.com:users:alice#device-1"
+                    .to_owned(),
+                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                created_at,
+                domain: Some("ak:trust_domain:example.com".to_owned()),
+                audience: Some(Audience::Single(
+                    "did:webvh:z6mkservice:example.com".to_owned(),
+                )),
+                proof_purpose: None,
+                jws: "e30..c2ln".to_owned(),
+            },
+            reason: Some("accepted after review".to_owned()),
+            expires_at: None,
+        };
+        request.signature.payload_digest = request.payload_digest().unwrap();
+        request
+    }
+
+    #[test]
+    fn mimi_consent_signature_binds_unsigned_payload() {
+        let request = request();
+        let binding: Value =
+            canonical::from_canonical_json_slice(&request.signature_binding_bytes().unwrap())
+                .unwrap();
+
+        assert_eq!(
+            binding,
+            json!({
+                "audience": "did:webvh:z6mkservice:example.com",
+                "context": "ak.mimi-operation-proof-v1",
+                "created_at": "2026-07-19T06:30:00Z",
+                "domain": "ak:trust_domain:example.com",
+                "issuer": "did:webvh:z6mkfixture:example.com:users:alice",
+                "operation_id": "ak.open.mimi.command.update_consent",
+                "payload_digest": request.payload_digest().unwrap(),
+                "verification_method": "did:webvh:z6mkfixture:example.com:users:alice#device-1"
+            })
+        );
+    }
+
+    #[test]
+    fn mimi_consent_signature_rejects_event_proof_shape() {
+        let mut value = serde_json::to_value(request()).unwrap();
+        let signature = value["signature"].as_object_mut().unwrap();
+        let digest = signature.remove("payload_digest").unwrap();
+        signature.insert("event_digest".to_owned(), digest);
+
+        let error = serde_json::from_value::<MimiUpdateConsentRequestBody>(value)
+            .expect_err("Event proof fields must fail closed");
+        assert!(error.to_string().contains("unknown field"));
+    }
+
+    #[test]
+    fn mimi_consent_signature_detects_payload_tampering() {
+        let mut request = request();
+        request.decision = MimiConsentDecision::Revoke;
+
+        assert!(request.signature_binding_bytes().is_err());
     }
 }
