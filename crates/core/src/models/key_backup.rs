@@ -250,15 +250,95 @@ impl KeyBackup {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeyBackupFrontierRef {
     pub frontier_digest: Hash,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub seal_ref: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ssk_generation: Option<u64>,
+    pub generation: KeyBackupFrontierGeneration,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum KeyBackupFrontierGeneration {
+    SskGeneration(NonZeroU64),
+    DeviceGenerationRef(NonEmptyString),
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct KeyBackupFrontierRefWire {
+    frontier_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    seal_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ssk_generation: Option<NonZeroU64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    device_generation_ref: Option<NonEmptyString>,
+}
+
+#[cfg(feature = "salvo")]
+impl salvo::oapi::ToSchema for KeyBackupFrontierRef {
+    fn to_schema(
+        components: &mut salvo::oapi::Components,
+    ) -> salvo::oapi::RefOr<salvo::oapi::Schema> {
+        use salvo::oapi::Object;
+
+        Object::new()
+            .property("frontier_digest", Hash::to_schema(components))
+            .required("frontier_digest")
+            .property("seal_ref", String::to_schema(components))
+            .property("ssk_generation", u64::to_schema(components))
+            .property(
+                "device_generation_ref",
+                NonEmptyString::to_schema(components),
+            )
+            .into()
+    }
+}
+
+impl Serialize for KeyBackupFrontierRef {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let (ssk_generation, device_generation_ref) = match &self.generation {
+            KeyBackupFrontierGeneration::SskGeneration(generation) => (Some(*generation), None),
+            KeyBackupFrontierGeneration::DeviceGenerationRef(generation) => {
+                (None, Some(generation.clone()))
+            }
+        };
+        KeyBackupFrontierRefWire {
+            frontier_digest: self.frontier_digest.clone(),
+            seal_ref: self.seal_ref.clone(),
+            ssk_generation,
+            device_generation_ref,
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for KeyBackupFrontierRef {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = KeyBackupFrontierRefWire::deserialize(deserializer)?;
+        let generation = match (wire.ssk_generation, wire.device_generation_ref) {
+            (Some(generation), None) => KeyBackupFrontierGeneration::SskGeneration(generation),
+            (None, Some(generation)) => {
+                KeyBackupFrontierGeneration::DeviceGenerationRef(generation)
+            }
+            _ => {
+                return Err(serde::de::Error::custom(
+                    "key backup frontier_ref must contain exactly one generation binding",
+                ));
+            }
+        };
+        Ok(Self {
+            frontier_digest: wire.frontier_digest,
+            seal_ref: wire.seal_ref,
+            generation,
+        })
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1701,5 +1781,30 @@ mod encryption_validate_tests {
                 "signed_fields": ["backup_id"]
             }));
         assert!(invalid_auth.is_err());
+    }
+
+    #[test]
+    fn key_backup_frontier_accepts_b_model_device_generation() {
+        let frontier: KeyBackupFrontierRef = serde_json::from_value(serde_json::json!({
+            "frontier_digest": format!("sha256:{}", "a".repeat(64)),
+            "seal_ref": format!("ak:seal:sha256:{}", "b".repeat(64)),
+            "device_generation_ref": "1-QmGeneration"
+        }))
+        .expect("B-model frontier");
+
+        assert_eq!(
+            frontier.generation,
+            KeyBackupFrontierGeneration::DeviceGenerationRef(
+                NonEmptyString::new("1-QmGeneration").unwrap()
+            )
+        );
+        assert!(
+            serde_json::from_value::<KeyBackupFrontierRef>(serde_json::json!({
+                "frontier_digest": format!("sha256:{}", "a".repeat(64)),
+                "ssk_generation": 1,
+                "device_generation_ref": "1-QmGeneration"
+            }))
+            .is_err()
+        );
     }
 }
