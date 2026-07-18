@@ -185,8 +185,7 @@ pub mod e2ee;
 #[cfg(feature = "full-surface")]
 pub mod federation;
 pub mod fixtures;
-#[cfg(feature = "full-surface")]
-pub mod hlc;
+pub use arkret_core::hlc;
 pub use arkret_signatures::dpop;
 // Realm Recovery Key (RRK) durable history sealing — provider-initiated
 // `ak.realm_key.share` to offline recovery recipients (encryption-and-audit.md
@@ -303,6 +302,10 @@ pub use applet::{
     applet_signing_key_material_digest, namespace_pattern_matches,
     normalize_applet_signing_key_ref, sign_registration,
 };
+pub use arkret_core::hlc::{
+    EXPECTED_FUTURE_SKEW_MS, HARD_FUTURE_SKEW_MS, HlcComponents, HlcFutureDrift, HlcGenerator,
+    compare_hlc, parse_hlc, time_until_hlc, validate_hlc_format, validate_hlc_future_drift,
+};
 #[cfg(all(
     feature = "full-surface",
     feature = "applet-runtime",
@@ -418,11 +421,6 @@ pub use history_recovery::{
     ResolvedRealmHistoryRecoveryKey, resolve_realm_history_recovery_key, rrk_key_scope,
     seal_history_secrets_to_recovery_recipient,
 };
-#[cfg(feature = "full-surface")]
-pub use hlc::{
-    EXPECTED_FUTURE_SKEW_MS, HARD_FUTURE_SKEW_MS, HlcComponents, HlcFutureDrift, HlcGenerator,
-    compare_hlc, parse_hlc, time_until_hlc, validate_hlc_format, validate_hlc_future_drift,
-};
 #[cfg(feature = "client")]
 pub use http_client::{Auth, Client, ClientBuilder, ClientRequestOptions, RetryConfig};
 #[cfg(all(
@@ -499,9 +497,9 @@ pub use profile::{
 };
 #[cfg(feature = "full-surface")]
 pub use push::{
-    CHIME_PUSH_REGISTRATION_VERSION, ChimePushRegistration, EncryptedPushPayload,
-    PushEventNotification, PushGateway, PushPayload, PushPlatform, PushPriority, PushPrivacyPolicy,
-    PushRule, PushToken,
+    CHIME_PUSH_REGISTRATION_VERSION, ChimePushRegistration, DndPeriod, DndSchedule, DndSettings,
+    EncryptedPushPayload, PushCondition, PushEventNotification, PushGateway, PushPayload,
+    PushPlatform, PushPriority, PushPrivacyPolicy, PushRule, PushRulesConfig, PushToken,
 };
 #[cfg(feature = "full-surface")]
 pub use realm::{

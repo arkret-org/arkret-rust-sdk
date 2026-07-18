@@ -1,4 +1,4 @@
-//! Hybrid Logical Clock (HLC) implementation.
+//! Core Hybrid Logical Clock (HLC) implementation.
 //!
 //! This module implements the Arkret v1 HLC specification with:
 //! - Strict format validation: `^[0-9a-f]{12}-[0-9a-f]{4}-[0-9a-f]{8}$`
@@ -143,6 +143,24 @@ impl HlcGenerator {
         Ok(HlcType::new(self.format())?)
     }
 
+    /// Generate the next HLC for an explicit scope and caller-supplied clock.
+    ///
+    /// A single process clock can use this entry point for many Realms while
+    /// retaining one monotonic `(physical, logical)` sequence. The node id is
+    /// derived independently for every scope, preventing cross-Realm linkage.
+    pub fn try_generate_for_scope_at(
+        &mut self,
+        realm_id: &str,
+        device_id: &str,
+        local_node_secret: &[u8],
+        current_time_ms: u64,
+    ) -> Result<HlcType> {
+        self.advance_for_now_or_error(current_time_ms)?;
+        self.clamp_physical();
+        let node_id = Self::compute_node_id(realm_id, device_id, local_node_secret);
+        Ok(HlcType::new(self.format_with_node(&node_id))?)
+    }
+
     /// Generate the next HLC value, adjusting for a received remote HLC.
     ///
     /// When receiving an event from another node, advance local HLC
@@ -223,10 +241,11 @@ impl HlcGenerator {
 
     /// Format current HLC as string.
     fn format(&self) -> String {
-        format!(
-            "{:012x}-{:04x}-{}",
-            self.physical, self.logical, self.node_id
-        )
+        self.format_with_node(&self.node_id)
+    }
+
+    fn format_with_node(&self, node_id: &str) -> String {
+        format!("{:012x}-{:04x}-{}", self.physical, self.logical, node_id)
     }
 
     /// Spin iterations before falling back to 1 ms sleeps in
@@ -564,6 +583,27 @@ mod tests {
         assert_eq!(id1.len(), 8);
         assert_ne!(id1, id3);
         assert_ne!(id1, id4);
+    }
+
+    #[test]
+    fn scoped_generation_keeps_one_sequence_with_unlinkable_node_ids() {
+        let realm_a = "ak:realm:01904100-0000-7000-8000-9b64700c6ee8";
+        let realm_b = "ak:realm:01904100-0000-7000-8000-65c7feb295d7";
+        let secret = b"stable-local-secret";
+        let mut generator = HlcGenerator::with_initial_time(realm_a, "device-1", secret, 0);
+
+        let first = generator
+            .try_generate_for_scope_at(realm_a, "device-1", secret, 1_700_000_000_000)
+            .unwrap();
+        let second = generator
+            .try_generate_for_scope_at(realm_b, "device-1", secret, 1_700_000_000_000)
+            .unwrap();
+        let first = parse_hlc(first.as_str()).unwrap();
+        let second = parse_hlc(second.as_str()).unwrap();
+
+        assert_eq!(first.physical_ms, second.physical_ms);
+        assert_eq!(first.logical + 1, second.logical);
+        assert_ne!(first.node_id, second.node_id);
     }
 
     #[test]

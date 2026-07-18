@@ -1,6 +1,5 @@
 //! Arkret push surface models and helpers.
 
-use std::collections::BTreeMap;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -75,10 +74,115 @@ impl Pusher {
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PushRule {
     pub rule_id: String,
+    #[serde(default)]
+    pub kind: String,
+    #[serde(default = "default_push_rule_enabled")]
     pub enabled: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub event_kind: Option<String>,
-    pub priority: PushPriority,
+    #[serde(default = "default_push_rule_locus")]
+    pub evaluation_locus: String,
+    #[serde(default)]
+    pub conditions: Vec<PushCondition>,
+    #[serde(default)]
+    pub actions: Vec<String>,
+}
+
+impl PushRule {
+    pub fn delivery_priority(&self) -> PushPriority {
+        if self.actions.iter().any(|action| action == "sound_critical") {
+            PushPriority::Urgent
+        } else {
+            PushPriority::Normal
+        }
+    }
+
+    pub fn server_metadata_matches(&self, event_kind: &str, realm_id: Option<&str>) -> bool {
+        self.evaluation_locus == "server"
+            && self.conditions.iter().all(|condition| {
+                if condition.kind != "field_match" {
+                    return false;
+                }
+                let Some(field) = condition.field.as_deref() else {
+                    return false;
+                };
+                let Some(pattern) = condition.pattern.as_ref() else {
+                    return false;
+                };
+                match field {
+                    "kind" | "event_kind" => push_pattern_matches(pattern, event_kind),
+                    "realm_id" => {
+                        realm_id.is_some_and(|realm_id| push_pattern_matches(pattern, realm_id))
+                    }
+                    _ => false,
+                }
+            })
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct PushCondition {
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub op: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<i64>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct PushRulesConfig {
+    #[serde(default)]
+    pub rules: Vec<PushRule>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct DndSettings {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub schedule: DndSchedule,
+    #[serde(default)]
+    pub exceptions: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct DndSchedule {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timezone: Option<String>,
+    #[serde(default)]
+    pub periods: Vec<DndPeriod>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct DndPeriod {
+    pub start: String,
+    pub end: String,
+}
+
+fn default_push_rule_locus() -> String {
+    "server".to_owned()
+}
+
+fn default_push_rule_enabled() -> bool {
+    true
+}
+
+fn push_pattern_matches(pattern: &Value, value: &str) -> bool {
+    match pattern {
+        Value::String(pattern) => pattern == "*" || pattern == value,
+        Value::Array(patterns) => patterns
+            .iter()
+            .any(|pattern| push_pattern_matches(pattern, value)),
+        _ => false,
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -122,7 +226,7 @@ pub fn format_push_payload(
         push_key: pusher.push_key.clone(),
         title,
         body,
-        priority: rule.priority,
+        priority: rule.delivery_priority(),
         data: blind_payload_data_for_event_kind(&notification.event_kind),
     }
 }
@@ -197,29 +301,15 @@ fn parse_platform(value: &str) -> Option<PushPlatform> {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-pub struct PushRuleSet {
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub rules: BTreeMap<String, PushRule>,
-}
-
-impl PushRuleSet {
-    pub fn matching_rule(&self, event_kind: &str) -> Option<&PushRule> {
+impl PushRulesConfig {
+    pub fn matching_server_metadata_rule(
+        &self,
+        event_kind: &str,
+        realm_id: Option<&str>,
+    ) -> Option<&PushRule> {
         self.rules
-            .values()
-            .find(|rule| {
-                rule.enabled
-                    && rule
-                        .event_kind
-                        .as_deref()
-                        .is_some_and(|kind| kind == event_kind)
-            })
-            .or_else(|| {
-                self.rules
-                    .values()
-                    .find(|rule| rule.enabled && rule.event_kind.is_none())
-            })
+            .iter()
+            .find(|rule| rule.enabled && rule.server_metadata_matches(event_kind, realm_id))
     }
 }
 
@@ -545,9 +635,11 @@ mod tests {
         };
         let rule = PushRule {
             rule_id: "default".to_owned(),
+            kind: "underride".to_owned(),
             enabled: true,
-            event_kind: None,
-            priority: PushPriority::High,
+            evaluation_locus: "server".to_owned(),
+            conditions: Vec::new(),
+            actions: vec!["notify".to_owned(), "sound_critical".to_owned()],
         };
         let payload = format_push_payload(
             &pusher,
@@ -734,5 +826,47 @@ mod tests {
         assert!(view.requires("soland", "register-device"));
         assert!(!view.requires("soland", "unregister-device"));
         assert_eq!(view.contract_digest(), "ak.push.bridge.v1");
+    }
+
+    #[test]
+    fn server_metadata_rule_matching_fails_closed_for_client_conditions() {
+        let config = PushRulesConfig {
+            rules: vec![
+                PushRule {
+                    rule_id: "client-mention".to_owned(),
+                    kind: "underride".to_owned(),
+                    enabled: true,
+                    evaluation_locus: "client".to_owned(),
+                    conditions: vec![PushCondition {
+                        kind: "mentions_actor".to_owned(),
+                        ..Default::default()
+                    }],
+                    actions: vec!["notify".to_owned()],
+                },
+                PushRule {
+                    rule_id: "server-message".to_owned(),
+                    kind: "underride".to_owned(),
+                    enabled: true,
+                    evaluation_locus: "server".to_owned(),
+                    conditions: vec![PushCondition {
+                        kind: "field_match".to_owned(),
+                        field: Some("kind".to_owned()),
+                        pattern: Some(Value::String("ak.message.create".to_owned())),
+                        ..Default::default()
+                    }],
+                    actions: vec!["notify".to_owned()],
+                },
+            ],
+        };
+
+        let matched = config
+            .matching_server_metadata_rule("ak.message.create", None)
+            .expect("server metadata rule");
+        assert_eq!(matched.rule_id, "server-message");
+        assert!(
+            config
+                .matching_server_metadata_rule("ak.reaction.add", None)
+                .is_none()
+        );
     }
 }

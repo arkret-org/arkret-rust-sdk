@@ -39,7 +39,7 @@ use serde_json::{Value, json};
 
 /// Multibase `z6Mk…` Ed25519 public key for a signing key.
 fn vector_update_key(signing_key: &SigningKey) -> String {
-    binding::multicodec_ed25519_public_key(&signing_key.verifying_key())
+    arkret_canonical::ed25519_pubkey_to_did_key_multibase(&signing_key.verifying_key().to_bytes())
 }
 
 /// Bare base58btc multihash digest of canonical JSON, matching the verifier's

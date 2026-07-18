@@ -5,7 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 // The provider payload helpers are owned by `arkret-core::push`; this module
 // only adds client-local gateway state and privacy policy.
 pub use arkret_core::push::{
-    PushEventNotification, PushPayload, PushPlatform, PushPriority, PushRule,
+    DndPeriod, DndSchedule, DndSettings, PushCondition, PushEventNotification, PushPayload,
+    PushPlatform, PushPriority, PushRule, PushRulesConfig,
 };
 use arkret_core::push::{
     blind_payload_data_for_event_kind, blind_push_body_for_wakeup_kind, wakeup_kind_for_event_kind,
@@ -198,7 +199,7 @@ fn json_contains_did(value: &Value) -> bool {
 #[derive(Clone, Debug, Default)]
 pub struct PushGateway {
     tokens: BTreeMap<Did, Vec<PushToken>>,
-    rules: BTreeMap<String, PushRule>,
+    rules: Vec<PushRule>,
     delivered: BTreeSet<(EventId, String)>,
 }
 
@@ -240,7 +241,15 @@ impl PushGateway {
 
     /// Add or replace a push rule.
     pub fn upsert_rule(&mut self, rule: PushRule) {
-        self.rules.insert(rule.rule_id.clone(), rule);
+        if let Some(existing) = self
+            .rules
+            .iter_mut()
+            .find(|existing| existing.rule_id == rule.rule_id)
+        {
+            *existing = rule;
+        } else {
+            self.rules.push(rule);
+        }
     }
 
     /// Process an event into platform payloads, with filtering and deduplication.
@@ -248,9 +257,14 @@ impl PushGateway {
         let Some(tokens) = self.tokens.get(&event.user_id).cloned() else {
             return Vec::new();
         };
-        let Some(rule) = self.match_rule(&event.event_kind).cloned() else {
+        let Some(rule) = self.match_rule(event).cloned() else {
             return Vec::new();
         };
+        if rule.actions.iter().any(|action| action == "dont_notify")
+            || !rule.actions.iter().any(|action| action == "notify")
+        {
+            return Vec::new();
+        }
 
         let mut payloads = Vec::new();
         for token in tokens {
@@ -285,7 +299,7 @@ impl PushGateway {
             push_key: token.token.clone(),
             title,
             body,
-            priority: rule.priority,
+            priority: rule.delivery_priority(),
             data: blind_payload_data_for_event_kind(&event.event_kind),
         }
     }
@@ -311,14 +325,13 @@ impl PushGateway {
         })
     }
 
-    fn match_rule(&self, event_kind: &str) -> Option<&PushRule> {
-        self.rules.values().find(|rule| {
+    fn match_rule(&self, event: &PushEventNotification) -> Option<&PushRule> {
+        self.rules.iter().find(|rule| {
             rule.enabled
-                && rule
-                    .event_kind
-                    .as_deref()
-                    .map(|kind| kind == event_kind)
-                    .unwrap_or(true)
+                && rule.server_metadata_matches(
+                    &event.event_kind,
+                    event.realm_id.as_ref().map(|realm_id| realm_id.as_str()),
+                )
         })
     }
 }
@@ -365,9 +378,16 @@ mod tests {
         });
         gateway.upsert_rule(PushRule {
             rule_id: "messages".to_owned(),
+            kind: "underride".to_owned(),
             enabled: true,
-            event_kind: Some("ak.message.create".to_owned()),
-            priority: PushPriority::High,
+            evaluation_locus: "server".to_owned(),
+            conditions: vec![PushCondition {
+                kind: "field_match".to_owned(),
+                field: Some("kind".to_owned()),
+                pattern: Some(serde_json::json!("ak.message.create")),
+                ..Default::default()
+            }],
+            actions: vec!["notify".to_owned(), "sound_default".to_owned()],
         });
 
         let first = gateway.process_event(&event());
@@ -392,9 +412,11 @@ mod tests {
         });
         gateway.upsert_rule(PushRule {
             rule_id: "all".to_owned(),
+            kind: "underride".to_owned(),
             enabled: true,
-            event_kind: None,
-            priority: PushPriority::Normal,
+            evaluation_locus: "server".to_owned(),
+            conditions: Vec::new(),
+            actions: vec!["notify".to_owned()],
         });
 
         let payload = gateway.process_event(&event()).pop().unwrap();
@@ -430,9 +452,11 @@ mod tests {
             .unwrap();
         gateway.upsert_rule(PushRule {
             rule_id: "all".to_owned(),
+            kind: "underride".to_owned(),
             enabled: true,
-            event_kind: None,
-            priority: PushPriority::Normal,
+            evaluation_locus: "server".to_owned(),
+            conditions: Vec::new(),
+            actions: vec!["notify".to_owned()],
         });
 
         let payload = gateway.process_event(&event()).pop().unwrap();

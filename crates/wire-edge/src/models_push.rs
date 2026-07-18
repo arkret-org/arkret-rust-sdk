@@ -21,8 +21,9 @@ pub struct PushRegisterDeviceRequestBody {
     pub recipient_service_id: Option<Did>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct PushRegisterDeviceOutcome {
     pub ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -42,8 +43,9 @@ pub struct PushUnregisterDeviceRequestBody {
     pub app_id: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct PushUnregisterDeviceOutcome {
     pub ok: bool,
 }

@@ -324,7 +324,7 @@ fn verify_did_webvh_v1_internal(
         }
         ensure_unique_webvh_values("updateKeys", &current_keys)?;
         for key in &current_keys {
-            binding::decode_multicodec_ed25519(key).map_err(|error| {
+            arkret_core::decode_ed25519_multibase(key).map_err(|error| {
                 Error::Protocol(format!("did:webvh update key is not Ed25519: {error}"))
             })?;
             if spent_keys.contains(key) {
@@ -563,7 +563,7 @@ fn verify_webvh_proof(raw_entry: &Value, proof: &Value, key_multibase: &str) -> 
         Error::Protocol("did:webvh proofValue is not a 64-byte signature".to_owned())
     })?;
 
-    let key_bytes = binding::decode_multicodec_ed25519(key_multibase)
+    let key_bytes = arkret_core::decode_ed25519_multibase(key_multibase)
         .map_err(|e| Error::Protocol(format!("did:webvh proof key decode failed: {e}")))?;
     let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&key_bytes)
         .map_err(|e| Error::Protocol(format!("did:webvh proof key is not Ed25519: {e}")))?;

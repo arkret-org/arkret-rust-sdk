@@ -34,6 +34,7 @@ pub mod error;
 pub mod events;
 pub mod federation;
 pub mod generated;
+pub mod hlc;
 pub mod http;
 pub mod identity;
 pub mod identity_key_log;
@@ -133,6 +134,10 @@ pub use cell::{CellId, composite_subject, composite_subject_pipe};
 pub use cursor::{Cursor, CursorPurpose, SyncPositions, SyncTracker};
 pub use error::*;
 pub use generated::profiles::{PROFILE_ROLES, ProfileRole, profile_ids_with_role, profile_role};
+pub use hlc::{
+    EXPECTED_FUTURE_SKEW_MS, HARD_FUTURE_SKEW_MS, HlcComponents, HlcFutureDrift, HlcGenerator,
+    compare_hlc, parse_hlc, time_until_hlc, validate_hlc_format, validate_hlc_future_drift,
+};
 pub use http::*;
 pub use identifiers::{
     ActorProfileId, AnnounceId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,

@@ -10,7 +10,6 @@ use serde_json::Value;
 
 use crate::{Did, Error, Result};
 
-pub mod binding;
 mod bootstrap;
 mod handles;
 pub(crate) mod helpers;
