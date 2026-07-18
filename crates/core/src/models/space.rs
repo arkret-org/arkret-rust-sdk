@@ -56,7 +56,7 @@ pub struct Space {
 ///
 /// Mirrors `spec/v1/artifacts/schemas/space.schema.json` `$defs.child_scope_policy`.
 /// The `require_scope_circle_id` variant carries the required Circle id.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ChildScopePolicy {
