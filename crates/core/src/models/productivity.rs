@@ -281,7 +281,7 @@ impl CalendarRecurrence {
         if let Some(until) = &self.until
             && (until.ends_with('Z')
                 || until.contains('+')
-                || chrono::NaiveDateTime::parse_from_str(until, "%Y-%m-%dT%H:%M:%S%.f").is_err())
+                || NaiveDateTime::parse_from_str(until, "%Y-%m-%dT%H:%M:%S%.f").is_err())
         {
             return Err(Error::Protocol(
                 "calendar recurrence until must be a canonical offset-free local date-time"

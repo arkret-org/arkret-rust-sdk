@@ -102,38 +102,38 @@ impl Default for EventDraftKindRegistry {
 
 pub(in crate::models) fn required_fields_for_event_kind(kind: &str) -> Vec<String> {
     match kind {
-        crate::events::EventKind::STRAND_CREATE => vec!["object".to_owned()],
-        crate::events::EventKind::STRAND_UPDATE => {
+        EventKind::STRAND_CREATE => vec!["object".to_owned()],
+        EventKind::STRAND_UPDATE => {
             vec!["target_ref".to_owned(), "patch".to_owned()]
         }
-        crate::events::EventKind::STRAND_ARCHIVE | crate::events::EventKind::STRAND_RESTORE => {
+        EventKind::STRAND_ARCHIVE | EventKind::STRAND_RESTORE => {
             vec!["target_ref".to_owned()]
         }
-        crate::events::EventKind::STRAND_STAGE_SET => {
+        EventKind::STRAND_STAGE_SET => {
             vec!["strand_id".to_owned(), "stage".to_owned()]
         }
-        crate::events::EventKind::STRAND_MOVE => {
+        EventKind::STRAND_MOVE => {
             ["board_space_id", "strand_id", "target_space_id", "rank"]
                 .into_iter()
                 .map(str::to_owned)
                 .collect()
         }
-        crate::events::EventKind::STRAND_REORDER => {
+        EventKind::STRAND_REORDER => {
             ["board_space_id", "strand_id", "space_id", "rank"]
                 .into_iter()
                 .map(str::to_owned)
                 .collect()
         }
-        crate::events::EventKind::APPLET_REGISTRATION => {
+        EventKind::APPLET_REGISTRATION => {
             vec!["service_id".to_owned(), "namespace".to_owned()]
         }
-        crate::events::EventKind::APPLET_DISCOVERY => {
+        EventKind::APPLET_DISCOVERY => {
             vec!["service_id".to_owned(), "manifest".to_owned()]
         }
-        crate::events::EventKind::APPLET_BRIDGE_ERROR => {
+        EventKind::APPLET_BRIDGE_ERROR => {
             vec!["session_id".to_owned(), "errcode".to_owned()]
         }
-        crate::events::EventKind::AGENT_KEY_AUTHORIZE => [
+        EventKind::AGENT_KEY_AUTHORIZE => [
             "agent_id",
             "key_id",
             "verification_method",
@@ -146,39 +146,39 @@ pub(in crate::models) fn required_fields_for_event_kind(kind: &str) -> Vec<Strin
         .into_iter()
         .map(str::to_owned)
         .collect(),
-        crate::events::EventKind::AGENT_KEY_REVOKE => {
+        EventKind::AGENT_KEY_REVOKE => {
             ["agent_id", "key_id", "revoked_at", "revoked_by"]
                 .into_iter()
                 .map(str::to_owned)
                 .collect()
         }
-        crate::events::EventKind::MORPH_CREATE => vec!["object".to_owned()],
-        crate::events::EventKind::MORPH_UPDATE => vec!["target_ref".to_owned(), "patch".to_owned()],
-        crate::events::EventKind::MORPH_ARCHIVE | crate::events::EventKind::MORPH_RESTORE => {
+        EventKind::MORPH_CREATE => vec!["object".to_owned()],
+        EventKind::MORPH_UPDATE => vec!["target_ref".to_owned(), "patch".to_owned()],
+        EventKind::MORPH_ARCHIVE | EventKind::MORPH_RESTORE => {
             vec!["target_ref".to_owned()]
         }
-        crate::events::EventKind::MORPH_STAGE_SET => {
+        EventKind::MORPH_STAGE_SET => {
             vec!["morph_id".to_owned(), "stage".to_owned()]
         }
         // Space container event kinds. The container primary key is `space_id`
         // (matching `parent_space_id`).
-        crate::events::EventKind::SPACE_CREATE => vec!["object".to_owned()],
-        crate::events::EventKind::SPACE_UPDATE => vec!["space_id".to_owned(), "patch".to_owned()],
-        crate::events::EventKind::SPACE_PARENT => {
+        EventKind::SPACE_CREATE => vec!["object".to_owned()],
+        EventKind::SPACE_UPDATE => vec!["space_id".to_owned(), "patch".to_owned()],
+        EventKind::SPACE_PARENT => {
             vec!["space_id".to_owned(), "parent_space_id".to_owned()]
         }
-        crate::events::EventKind::SPACE_ARCHIVE
-        | crate::events::EventKind::SPACE_RESTORE
-        | crate::events::EventKind::SPACE_TOMBSTONE => vec!["space_id".to_owned()],
-        crate::events::EventKind::RELATION_CREATE => ["kind", "from_ref", "to_ref"]
+        EventKind::SPACE_ARCHIVE
+        | EventKind::SPACE_RESTORE
+        | EventKind::SPACE_TOMBSTONE => vec!["space_id".to_owned()],
+        EventKind::RELATION_CREATE => ["kind", "from_ref", "to_ref"]
             .into_iter()
             .map(str::to_owned)
             .collect(),
-        crate::events::EventKind::RELATION_UPDATE => {
+        EventKind::RELATION_UPDATE => {
             vec!["relation_id".to_owned(), "patch".to_owned()]
         }
-        crate::events::EventKind::RELATION_TOMBSTONE => vec!["relation_id".to_owned()],
-        crate::events::EventKind::CONTAINER_MOVE_ITEM => [
+        EventKind::RELATION_TOMBSTONE => vec!["relation_id".to_owned()],
+        EventKind::CONTAINER_MOVE_ITEM => [
             "scope_container_id",
             "relation_kind",
             "object_ref",
@@ -188,7 +188,7 @@ pub(in crate::models) fn required_fields_for_event_kind(kind: &str) -> Vec<Strin
         .into_iter()
         .map(str::to_owned)
         .collect(),
-        crate::events::EventKind::CONTAINER_REBALANCE => [
+        EventKind::CONTAINER_REBALANCE => [
             "scope_container_id",
             "container_id",
             "relation_kind",
@@ -198,7 +198,7 @@ pub(in crate::models) fn required_fields_for_event_kind(kind: &str) -> Vec<Strin
         .into_iter()
         .map(str::to_owned)
         .collect(),
-        crate::events::EventKind::MESSAGE_CREATE => {
+        EventKind::MESSAGE_CREATE => {
             vec!["strand_id".to_owned(), "track_name".to_owned()]
         }
         _ => Vec::new(),

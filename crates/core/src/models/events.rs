@@ -547,52 +547,52 @@ impl Event {
 
     event_payload_accessors! {
         /// Parse a `ak.message.create` payload.
-        as_message_create => (MessageCreatePayload, crate::events::EventKind::MESSAGE_CREATE),
+        as_message_create => (MessageCreatePayload, EventKind::MESSAGE_CREATE),
         /// Parse a `ak.message.revise` payload.
-        as_message_revise => (MessageRevisePayload, crate::events::EventKind::MESSAGE_REVISE),
+        as_message_revise => (MessageRevisePayload, EventKind::MESSAGE_REVISE),
         /// Parse a `ak.message.redact` payload.
-        as_message_redact => (MessageRedactPayload, crate::events::EventKind::MESSAGE_REDACT),
+        as_message_redact => (MessageRedactPayload, EventKind::MESSAGE_REDACT),
         /// Parse a `ak.reaction.add` payload.
-        as_reaction_add => (ReactionPayload, crate::events::EventKind::REACTION_ADD),
+        as_reaction_add => (ReactionPayload, EventKind::REACTION_ADD),
         /// Parse a `ak.reaction.remove` payload.
-        as_reaction_remove => (ReactionPayload, crate::events::EventKind::REACTION_REMOVE),
+        as_reaction_remove => (ReactionPayload, EventKind::REACTION_REMOVE),
         /// Parse a `ak.strand.create` payload.
-        as_strand_create => (StrandCreatePayload, crate::events::EventKind::STRAND_CREATE),
+        as_strand_create => (StrandCreatePayload, EventKind::STRAND_CREATE),
         /// Parse a `ak.strand.update` payload.
-        as_strand_update => (StrandPatchPayload, crate::events::EventKind::STRAND_UPDATE),
+        as_strand_update => (StrandPatchPayload, EventKind::STRAND_UPDATE),
         /// Parse a `ak.member.state` payload.
-        as_member_state => (MembershipPayload, crate::events::EventKind::MEMBER_STATE),
+        as_member_state => (MembershipPayload, EventKind::MEMBER_STATE),
         /// Parse a `ak.device.reanchor` payload.
-        as_device_reanchor => (DeviceReanchorPayload, crate::events::EventKind::DEVICE_REANCHOR),
+        as_device_reanchor => (DeviceReanchorPayload, EventKind::DEVICE_REANCHOR),
         /// Parse a `ak.morph.create` payload.
-        as_morph_create => (MorphCreatePayload, crate::events::EventKind::MORPH_CREATE),
+        as_morph_create => (MorphCreatePayload, EventKind::MORPH_CREATE),
         /// Parse a `ak.morph.update` payload.
-        as_morph_update => (MorphUpdatePayload, crate::events::EventKind::MORPH_UPDATE),
+        as_morph_update => (MorphUpdatePayload, EventKind::MORPH_UPDATE),
         /// Parse a `ak.container.move_item` payload.
-        as_container_move_item => (ContainerMoveItemPayload, crate::events::EventKind::CONTAINER_MOVE_ITEM),
+        as_container_move_item => (ContainerMoveItemPayload, EventKind::CONTAINER_MOVE_ITEM),
         /// Parse a `ak.container.rebalance` payload.
-        as_container_rebalance => (ContainerRebalancePayload, crate::events::EventKind::CONTAINER_REBALANCE),
+        as_container_rebalance => (ContainerRebalancePayload, EventKind::CONTAINER_REBALANCE),
         /// Parse a `ak.realm.notary` payload.
-        as_realm_notary => (RealmNotaryPayload, crate::events::EventKind::REALM_NOTARY),
+        as_realm_notary => (RealmNotaryPayload, EventKind::REALM_NOTARY),
         /// Parse a `ak.realm.digest_suite_transition` payload.
-        as_realm_digest_suite_transition => (RealmDigestSuiteTransitionPayload, crate::events::EventKind::REALM_DIGEST_SUITE_TRANSITION),
+        as_realm_digest_suite_transition => (RealmDigestSuiteTransitionPayload, EventKind::REALM_DIGEST_SUITE_TRANSITION),
     }
 
     pub fn as_message_event_payload(&self) -> Result<MessageEventPayload> {
         match self.kind.as_str() {
-            crate::events::EventKind::MESSAGE_CREATE => {
+            EventKind::MESSAGE_CREATE => {
                 Ok(MessageEventPayload::Create(self.as_message_create()?))
             }
-            crate::events::EventKind::MESSAGE_REVISE => {
+            EventKind::MESSAGE_REVISE => {
                 Ok(MessageEventPayload::Revise(self.as_message_revise()?))
             }
-            crate::events::EventKind::MESSAGE_REDACT => {
+            EventKind::MESSAGE_REDACT => {
                 Ok(MessageEventPayload::Redact(self.as_message_redact()?))
             }
-            crate::events::EventKind::REACTION_ADD => {
+            EventKind::REACTION_ADD => {
                 Ok(MessageEventPayload::ReactionAdd(self.as_reaction_add()?))
             }
-            crate::events::EventKind::REACTION_REMOVE => Ok(MessageEventPayload::ReactionRemove(
+            EventKind::REACTION_REMOVE => Ok(MessageEventPayload::ReactionRemove(
                 self.as_reaction_remove()?,
             )),
             _ => Err(Error::Protocol(format!(

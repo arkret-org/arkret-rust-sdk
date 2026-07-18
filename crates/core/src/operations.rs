@@ -65,111 +65,111 @@ impl OperationCatalogReport {
 
 pub fn classify_operation_kind(kind: &str) -> OperationSurface {
     match kind {
-        crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_DEVICE
-        | crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT
-        | crate::ServiceOperationId::GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC
-        | crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_REGISTER
-        | crate::ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION
-        | crate::ServiceOperationId::SELF_ACCOUNT_COMMAND_UPDATE_PROFILE
-        | crate::ServiceOperationId::SELF_ACCOUNT_QUERY_VIEWER => OperationSurface::Account,
-        crate::ServiceOperationId::EDGE_APPLET_QUERY_DESCRIBE
-        | crate::ServiceOperationId::EDGE_APPLET_QUERY_PING
-        | crate::ServiceOperationId::EDGE_APPLET_QUERY_PROTOCOL_METADATA
-        | crate::ServiceOperationId::EDGE_APPLET_ACTOR_QUERY_RESOLVE
-        | crate::ServiceOperationId::EDGE_APPLET_REALM_QUERY_RESOLVE
-        | crate::ServiceOperationId::EDGE_APPLET_THIRD_PARTY_LOCATIONS_QUERY_LIST
-        | crate::ServiceOperationId::EDGE_APPLET_THIRD_PARTY_USERS_QUERY_LIST
-        | crate::ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION
-        | crate::ServiceOperationId::SELF_APPLET_COMMAND_INSTALL
-        | crate::ServiceOperationId::SELF_APPLET_INSTALL_COMMAND_PREVIEW
-        | crate::ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION
-        | crate::ServiceOperationId::SELF_APPLET_COMMAND_REVOKE => OperationSurface::Applet,
-        crate::ServiceOperationId::SELF_AUTHZ_QUERY_CHECK
-        | crate::ServiceOperationId::SELF_AUTHZ_GRANTS_QUERY_EFFECTIVE
-        | crate::ServiceOperationId::SELF_AUTHZ_INVITES_QUERY_LIST => OperationSurface::Authz,
-        crate::ServiceOperationId::SELF_BLOB_UPLOAD_CREATE
-        | crate::ServiceOperationId::SELF_BLOB_RESOURCE_HEAD
-        | crate::ServiceOperationId::SELF_BLOB_RESOURCE_GET => OperationSurface::Blob,
-        crate::ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND
-        | crate::ServiceOperationId::SELF_DEVICE_MESSAGES_QUERY_LIST
-        | crate::ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK => {
+        ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_DEVICE
+        | ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT
+        | ServiceOperationId::GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC
+        | ServiceOperationId::GATE_ACCOUNT_COMMAND_REGISTER
+        | ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION
+        | ServiceOperationId::SELF_ACCOUNT_COMMAND_UPDATE_PROFILE
+        | ServiceOperationId::SELF_ACCOUNT_QUERY_VIEWER => OperationSurface::Account,
+        ServiceOperationId::EDGE_APPLET_QUERY_DESCRIBE
+        | ServiceOperationId::EDGE_APPLET_QUERY_PING
+        | ServiceOperationId::EDGE_APPLET_QUERY_PROTOCOL_METADATA
+        | ServiceOperationId::EDGE_APPLET_ACTOR_QUERY_RESOLVE
+        | ServiceOperationId::EDGE_APPLET_REALM_QUERY_RESOLVE
+        | ServiceOperationId::EDGE_APPLET_THIRD_PARTY_LOCATIONS_QUERY_LIST
+        | ServiceOperationId::EDGE_APPLET_THIRD_PARTY_USERS_QUERY_LIST
+        | ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION
+        | ServiceOperationId::SELF_APPLET_COMMAND_INSTALL
+        | ServiceOperationId::SELF_APPLET_INSTALL_COMMAND_PREVIEW
+        | ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION
+        | ServiceOperationId::SELF_APPLET_COMMAND_REVOKE => OperationSurface::Applet,
+        ServiceOperationId::SELF_AUTHZ_QUERY_CHECK
+        | ServiceOperationId::SELF_AUTHZ_GRANTS_QUERY_EFFECTIVE
+        | ServiceOperationId::SELF_AUTHZ_INVITES_QUERY_LIST => OperationSurface::Authz,
+        ServiceOperationId::SELF_BLOB_UPLOAD_CREATE
+        | ServiceOperationId::SELF_BLOB_RESOURCE_HEAD
+        | ServiceOperationId::SELF_BLOB_RESOURCE_GET => OperationSurface::Blob,
+        ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND
+        | ServiceOperationId::SELF_DEVICE_MESSAGES_QUERY_LIST
+        | ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK => {
             OperationSurface::DeviceMessages
         }
-        crate::ServiceOperationId::FIND_DIRECTORY_COMMAND_ANNOUNCE
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_DESCRIBE
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_PRIVATE_CONTACT_DISCOVERY
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_HANDLE
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_LIST_HANDLES_FOR_SUBJECT
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_ORGANIZATION
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_REALM
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_TARGET
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_ACTORS
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_ORGANIZATIONS
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_REALMS
-        | crate::ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_USERS
-        | crate::ServiceOperationId::FIND_DIRECTORY_PUSH_COMMAND_REGISTER
-        | crate::ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW => OperationSurface::Directory,
-        crate::ServiceOperationId::SELF_EVENTS_QUERY_DESCRIBE
-        | crate::ServiceOperationId::SELF_EVENTS_QUERY_FRONTIER
-        | crate::ServiceOperationId::SELF_EVENTS_RESOURCE_GET
-        | crate::ServiceOperationId::SELF_EVENTS_QUERY_SCAN
-        | crate::ServiceOperationId::SELF_EVENTS_QUERY_RESOLVE
-        | crate::ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE
-        | crate::ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT
-        | crate::ServiceOperationId::PEER_EVENTS_QUERY_DESCRIBE
-        | crate::ServiceOperationId::PEER_EVENTS_QUERY_FRONTIER
-        | crate::ServiceOperationId::PEER_EVENTS_QUERY_SCAN
-        | crate::ServiceOperationId::PEER_EVENTS_QUERY_SCAN_BODY
-        | crate::ServiceOperationId::PEER_EVENTS_QUERY_RESOLVE
-        | crate::ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT => OperationSurface::Events,
-        crate::ServiceOperationId::ROOT_IDENTITY_REGISTRY_QUERY_DESCRIBE
-        | crate::ServiceOperationId::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET
-        | crate::ServiceOperationId::ROOT_IDENTITY_LOG_QUERY_LIST
-        | crate::ServiceOperationId::ROOT_IDENTITY_RECEIPTS_QUERY_LIST
-        | crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET
-        | crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_COMMAND_PUBLISH
-        | crate::ServiceOperationId::ROOT_IDENTITY_QUERY_RESOLVE
-        | crate::ServiceOperationId::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION
-        | crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE
-        | crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET
-        | crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF
-        | crate::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_COMPLETE => {
+        ServiceOperationId::FIND_DIRECTORY_COMMAND_ANNOUNCE
+        | ServiceOperationId::FIND_DIRECTORY_QUERY_DESCRIBE
+        | ServiceOperationId::FIND_DIRECTORY_QUERY_PRIVATE_CONTACT_DISCOVERY
+        | ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_HANDLE
+        | ServiceOperationId::FIND_DIRECTORY_QUERY_LIST_HANDLES_FOR_SUBJECT
+        | ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_ORGANIZATION
+        | ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_REALM
+        | ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_TARGET
+        | ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_ACTORS
+        | ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_ORGANIZATIONS
+        | ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_REALMS
+        | ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_USERS
+        | ServiceOperationId::FIND_DIRECTORY_PUSH_COMMAND_REGISTER
+        | ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW => OperationSurface::Directory,
+        ServiceOperationId::SELF_EVENTS_QUERY_DESCRIBE
+        | ServiceOperationId::SELF_EVENTS_QUERY_FRONTIER
+        | ServiceOperationId::SELF_EVENTS_RESOURCE_GET
+        | ServiceOperationId::SELF_EVENTS_QUERY_SCAN
+        | ServiceOperationId::SELF_EVENTS_QUERY_RESOLVE
+        | ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE
+        | ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT
+        | ServiceOperationId::PEER_EVENTS_QUERY_DESCRIBE
+        | ServiceOperationId::PEER_EVENTS_QUERY_FRONTIER
+        | ServiceOperationId::PEER_EVENTS_QUERY_SCAN
+        | ServiceOperationId::PEER_EVENTS_QUERY_SCAN_BODY
+        | ServiceOperationId::PEER_EVENTS_QUERY_RESOLVE
+        | ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT => OperationSurface::Events,
+        ServiceOperationId::ROOT_IDENTITY_REGISTRY_QUERY_DESCRIBE
+        | ServiceOperationId::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET
+        | ServiceOperationId::ROOT_IDENTITY_LOG_QUERY_LIST
+        | ServiceOperationId::ROOT_IDENTITY_RECEIPTS_QUERY_LIST
+        | ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET
+        | ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_COMMAND_PUBLISH
+        | ServiceOperationId::ROOT_IDENTITY_QUERY_RESOLVE
+        | ServiceOperationId::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION
+        | ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE
+        | ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET
+        | ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF
+        | ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_COMPLETE => {
             OperationSurface::Identity
         }
-        crate::ServiceOperationId::SELF_KEYS_UPLOAD_CREATE
-        | crate::ServiceOperationId::SELF_KEYS_QUERY_LOOKUP
-        | crate::ServiceOperationId::SELF_KEYS_COMMAND_CLAIM
-        | crate::ServiceOperationId::SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE
-        | crate::ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_CLAIM
-        | crate::ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_CONSUME
-        | crate::ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_REVOKE
-        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_REPLACE
-        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_QUERY_LIST
-        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK
-        | crate::ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_DELETE => OperationSurface::Keys,
-        crate::ServiceOperationId::SELF_MEDIA_QUERY_ICE_CONFIG => OperationSurface::Media,
-        crate::ServiceOperationId::OPEN_MIMI_QUERY_GROUP_INFO
-        | crate::ServiceOperationId::OPEN_MIMI_QUERY_IDENTIFIERS
-        | crate::ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL
-        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_NOTIFY
-        | crate::ServiceOperationId::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY
-        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_PROXY_DOWNLOAD
-        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_REPORT_ABUSE
-        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_REQUEST_CONSENT
-        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_ROOM
-        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_SUBMIT_MESSAGE
-        | crate::ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_CONSENT => OperationSurface::Mimi,
-        crate::ServiceOperationId::SELF_MODERATION_COMMAND_REPORT => OperationSurface::Moderation,
-        crate::ServiceOperationId::SELF_POLICY_QUERY_CHECK => OperationSurface::Policy,
-        crate::ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY
-        | crate::ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE
-        | crate::ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE => OperationSurface::Push,
-        crate::ServiceOperationId::SERVER_QUERY_DESCRIBE => OperationSurface::Server,
-        crate::ServiceOperationId::SELF_ACCOUNT_QUERY_DESCRIBE
-        | crate::ServiceOperationId::SELF_ACCOUNT_STREAM_SUBSCRIBE
-        | crate::ServiceOperationId::SELF_ACCOUNT_COMMAND_REVOKE_CURSOR
-        | crate::ServiceOperationId::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD
-        | crate::ServiceOperationId::PEER_SNAPSHOT_QUERY_MANIFEST_HEAD => {
+        ServiceOperationId::SELF_KEYS_UPLOAD_CREATE
+        | ServiceOperationId::SELF_KEYS_QUERY_LOOKUP
+        | ServiceOperationId::SELF_KEYS_COMMAND_CLAIM
+        | ServiceOperationId::SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE
+        | ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_CLAIM
+        | ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_CONSUME
+        | ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_REVOKE
+        | ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_REPLACE
+        | ServiceOperationId::SELF_KEYS_BACKUPS_QUERY_LIST
+        | ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK
+        | ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_DELETE => OperationSurface::Keys,
+        ServiceOperationId::SELF_MEDIA_QUERY_ICE_CONFIG => OperationSurface::Media,
+        ServiceOperationId::OPEN_MIMI_QUERY_GROUP_INFO
+        | ServiceOperationId::OPEN_MIMI_QUERY_IDENTIFIERS
+        | ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL
+        | ServiceOperationId::OPEN_MIMI_COMMAND_NOTIFY
+        | ServiceOperationId::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY
+        | ServiceOperationId::OPEN_MIMI_COMMAND_PROXY_DOWNLOAD
+        | ServiceOperationId::OPEN_MIMI_COMMAND_REPORT_ABUSE
+        | ServiceOperationId::OPEN_MIMI_COMMAND_REQUEST_CONSENT
+        | ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_ROOM
+        | ServiceOperationId::OPEN_MIMI_COMMAND_SUBMIT_MESSAGE
+        | ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_CONSENT => OperationSurface::Mimi,
+        ServiceOperationId::SELF_MODERATION_COMMAND_REPORT => OperationSurface::Moderation,
+        ServiceOperationId::SELF_POLICY_QUERY_CHECK => OperationSurface::Policy,
+        ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY
+        | ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE
+        | ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE => OperationSurface::Push,
+        ServiceOperationId::SERVER_QUERY_DESCRIBE => OperationSurface::Server,
+        ServiceOperationId::SELF_ACCOUNT_QUERY_DESCRIBE
+        | ServiceOperationId::SELF_ACCOUNT_STREAM_SUBSCRIBE
+        | ServiceOperationId::SELF_ACCOUNT_COMMAND_REVOKE_CURSOR
+        | ServiceOperationId::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD
+        | ServiceOperationId::PEER_SNAPSHOT_QUERY_MANIFEST_HEAD => {
             OperationSurface::AccountStream
         }
         _ => OperationSurface::Custom(kind.to_owned()),

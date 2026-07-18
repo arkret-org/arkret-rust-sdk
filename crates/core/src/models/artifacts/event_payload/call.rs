@@ -398,61 +398,61 @@ impl CallStatePayloadRecordingResult {
         call_id: &CallId,
     ) -> std::result::Result<(), &'static str> {
         let Some(artifact) = &self.artifact else {
-            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
+            return Err(ErrorCode::SCHEMA_VIOLATION);
         };
         if let Err(error) = artifact.validate() {
             let message = error.to_string();
-            if message.contains(crate::ReasonCode::RECORDING_ARTIFACT_PIPELINE_BYPASSED) {
-                return Err(crate::ReasonCode::RECORDING_ARTIFACT_PIPELINE_BYPASSED);
+            if message.contains(ReasonCode::RECORDING_ARTIFACT_PIPELINE_BYPASSED) {
+                return Err(ReasonCode::RECORDING_ARTIFACT_PIPELINE_BYPASSED);
             }
-            if message.contains(crate::ReasonCode::LEGAL_HOLD_ACTIVE) {
-                return Err(crate::ReasonCode::LEGAL_HOLD_ACTIVE);
+            if message.contains(ReasonCode::LEGAL_HOLD_ACTIVE) {
+                return Err(ReasonCode::LEGAL_HOLD_ACTIVE);
             }
-            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
+            return Err(ErrorCode::SCHEMA_VIOLATION);
         }
         if &artifact.call_id != call_id {
-            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
+            return Err(ErrorCode::SCHEMA_VIOLATION);
         }
         if self
             .recording_start_event_id
             .as_ref()
             .is_some_and(|id| id != &artifact.recording_start_event_id)
         {
-            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
+            return Err(ErrorCode::SCHEMA_VIOLATION);
         }
         if self
             .content_digest
             .as_ref()
             .is_some_and(|digest| digest != &artifact.content_digest)
         {
-            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
+            return Err(ErrorCode::SCHEMA_VIOLATION);
         }
         if self
             .duration_ms
             .is_some_and(|duration| duration != artifact.duration_ms)
         {
-            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
+            return Err(ErrorCode::SCHEMA_VIOLATION);
         }
         if self
             .media_type
             .as_ref()
             .is_some_and(|media_type| media_type != &artifact.media_type)
         {
-            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
+            return Err(ErrorCode::SCHEMA_VIOLATION);
         }
         if self
             .retention_policy_id
             .as_ref()
             .is_some_and(|policy_id| Some(policy_id) != artifact.retention_policy_id.as_ref())
         {
-            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
+            return Err(ErrorCode::SCHEMA_VIOLATION);
         }
         if self
             .retention
             .as_ref()
             .is_some_and(|retention| retention != &artifact.retention)
         {
-            return Err(crate::ErrorCode::SCHEMA_VIOLATION);
+            return Err(ErrorCode::SCHEMA_VIOLATION);
         }
         Ok(())
     }
@@ -518,12 +518,12 @@ impl CallStatePayload {
             return Ok(());
         };
         let call_id =
-            CallId::new(self.call_id.clone()).map_err(|_| crate::ErrorCode::SCHEMA_VIOLATION)?;
+            CallId::new(self.call_id.clone()).map_err(|_| ErrorCode::SCHEMA_VIOLATION)?;
         match recording_state {
             "ready" => self
                 .recording_result
                 .as_ref()
-                .ok_or(crate::ErrorCode::SCHEMA_VIOLATION)?
+                .ok_or(ErrorCode::SCHEMA_VIOLATION)?
                 .validate_ready_artifact(&call_id),
             "failed" => {
                 if let Some(result) = &self.recording_result
@@ -533,7 +533,7 @@ impl CallStatePayload {
                             .as_deref()
                             .is_some_and(contains_backend_direct_recording_ref))
                 {
-                    return Err(crate::ReasonCode::RECORDING_ARTIFACT_PIPELINE_BYPASSED);
+                    return Err(ReasonCode::RECORDING_ARTIFACT_PIPELINE_BYPASSED);
                 }
                 Ok(())
             }
@@ -552,7 +552,7 @@ impl CallStatePayload {
                     .as_ref()
                     .is_some_and(CallStatePayloadTranscriptResult::consent_confirmed)
                 {
-                    return Err(crate::ReasonCode::RECORDING_CONSENT_REQUIRED);
+                    return Err(ReasonCode::RECORDING_CONSENT_REQUIRED);
                 }
                 Ok(())
             }
@@ -560,13 +560,13 @@ impl CallStatePayload {
                 let result = self
                     .transcript_result
                     .as_ref()
-                    .ok_or(crate::ErrorCode::SCHEMA_VIOLATION)?;
+                    .ok_or(ErrorCode::SCHEMA_VIOLATION)?;
                 if result.transcript_start_event_id.is_none() {
-                    return Err(crate::ErrorCode::SCHEMA_VIOLATION);
+                    return Err(ErrorCode::SCHEMA_VIOLATION);
                 }
                 Ok(())
             }
-            _ => Err(crate::ErrorCode::SCHEMA_VIOLATION),
+            _ => Err(ErrorCode::SCHEMA_VIOLATION),
         }
     }
 }
