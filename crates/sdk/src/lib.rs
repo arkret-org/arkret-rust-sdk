@@ -134,7 +134,7 @@ pub use arkret_keystore::{
     BackendKind, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore, WindowsCredentialKeyStore,
     durable_platform_keystore, platform_default_keystore_with_kind,
 };
-pub use arkret_network_policy as network_policy;
+pub use arkret_egress_policy as network_policy;
 #[cfg(feature = "server")]
 pub use arkret_server as server;
 pub use arkret_signatures as signatures;

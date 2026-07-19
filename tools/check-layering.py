@@ -118,7 +118,6 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     },
     # R1 (frozen): keystore owns trait + backends, standalone.
     "arkret-keystore": _WIRE,
-    "arkret-network-policy": set(),  # renamed to arkret-egress-policy in phase 2
     "arkret-egress-policy": set(),
     "arkret-http-client": _WIRE
     | {

@@ -82,7 +82,7 @@ arkret-crypto = {workspace = true,features = ["identity-root"]}
 arkret-ffi = {workspace = true}
 arkret-http-client = {workspace = true,optional = true}
 arkret-keystore = {workspace = true}
-arkret-network-policy = {workspace = true}
+arkret-egress-policy = {workspace = true}
 arkret-server = {workspace = true,optional = true}
 arkret-signatures = {workspace = true,features = ["protocol"]}
 arkret-state = {workspace = true}

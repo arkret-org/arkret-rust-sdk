@@ -11,7 +11,7 @@ pub(super) use crate::canonical::sha256_hex;
 /// `127.0.0.1`, or `10.x.x.x` must never trigger an internal request. Bare
 /// `localhost` is also blocked. Registered domain names are allowed by this
 /// static compatibility helper; outbound clients must additionally use
-/// `arkret_network_policy::OutboundPolicy` for scheme, DNS-answer, and
+/// `arkret_egress_policy::OutboundPolicy` for scheme, DNS-answer, and
 /// connection-binding checks.
 ///
 /// Public export for downstream crates such as starid, so they reuse the same
@@ -23,7 +23,7 @@ pub fn host_is_safe_for_outbound(host: &str) -> bool {
         .and_then(|h| h.strip_suffix(']'))
         .unwrap_or(host);
     candidate.parse::<IpAddr>().map_or_else(
-        |_| arkret_network_policy::classify_host(candidate).is_none(),
+        |_| arkret_egress_policy::classify_host(candidate).is_none(),
         ip_is_public,
     )
 }
@@ -40,7 +40,7 @@ pub fn host_is_safe_for_outbound(host: &str) -> bool {
 /// Public export for downstream crates such as starid; see
 /// [`host_is_safe_for_outbound`] and STA-05-001.
 pub fn ip_is_public(ip: IpAddr) -> bool {
-    arkret_network_policy::classify_ip(ip).is_none()
+    arkret_egress_policy::classify_ip(ip).is_none()
 }
 
 pub(super) fn split_domain_handle(handle: &str) -> Result<(String, String)> {
