@@ -1,4 +1,4 @@
-use crate::identity::*;
+use crate::*;
 
 /// Policy controlling DID resolution per `identity-handles.md` §5 /
 /// `device-lifecycle.md` §4.

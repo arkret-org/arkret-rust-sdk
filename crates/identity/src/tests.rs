@@ -1,3 +1,5 @@
+use arkret_wire::{Hlc, RealmId};
+
 use super::*;
 
 fn did(name: &str) -> Did {
@@ -15,12 +17,12 @@ fn pairwise_did(name: &str) -> Did {
     Did::new(format!("did:key:z{name}")).unwrap()
 }
 
-fn realm() -> crate::RealmId {
-    crate::RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+fn realm() -> RealmId {
+    RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
 }
 
-fn hlc() -> crate::Hlc {
-    crate::Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()
+fn hlc() -> Hlc {
+    Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()
 }
 
 // ---------------------------------------------------------------------------
@@ -46,7 +48,7 @@ fn vector_update_key(signing_key: &SigningKey) -> String {
 /// `webvh_multihash_base58` (did:webvh v1.0 — no multibase `z` prefix).
 fn vector_multihash(value: &Value) -> String {
     let bytes = arkret_canonical::canonical::canonical_json_bytes(value).unwrap();
-    let digest = crate::canonical::sha256_bytes(&bytes);
+    let digest = arkret_canonical::canonical::sha256_bytes(&bytes);
     let mut envelope = vec![0x12u8, 0x20];
     envelope.extend_from_slice(&digest);
     encode_base58btc(&envelope)
@@ -75,8 +77,8 @@ fn vector_sign_entry(mut entry: Value, signing_key: &SigningKey) -> Value {
     let doc = entry.clone();
     let config_bytes = arkret_canonical::canonical::canonical_json_bytes(&proof_config).unwrap();
     let doc_bytes = arkret_canonical::canonical::canonical_json_bytes(&doc).unwrap();
-    let config_hash = crate::canonical::sha256_bytes(&config_bytes);
-    let doc_hash = crate::canonical::sha256_bytes(&doc_bytes);
+    let config_hash = arkret_canonical::canonical::sha256_bytes(&config_bytes);
+    let doc_hash = arkret_canonical::canonical::sha256_bytes(&doc_bytes);
     let mut signing_input = Vec::with_capacity(64);
     signing_input.extend_from_slice(&config_hash);
     signing_input.extend_from_slice(&doc_hash);
@@ -657,7 +659,7 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
         ))
         .unwrap();
 
-    let event = crate::Event::new(
+    let event = Event::new(
         "ak.test.event",
         realm(),
         actor,
@@ -668,14 +670,12 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
     .unwrap();
     let builder = arkret_signatures::EventProofBuilder::new();
     let canonical_bytes = builder.envelope_bytes(&event).unwrap();
-    let mut proof = crate::Proof {
+    let mut proof = Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method,
-        event_digest: crate::Hash::new(arkret_canonical::canonical::sha256_digest(
-            &canonical_bytes,
-        ))
-        .unwrap(),
+        event_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))
+            .unwrap(),
         created_at: Utc::now(),
         domain: None,
         audience: None,
@@ -684,7 +684,7 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
     // Spec §6: the detached JWS signs the canonical proof binding object,
     // not the raw event bytes. `actor_id` is the Event envelope actor.
     let binding_bytes = proof.canonical_binding_bytes(&event.actor_id).unwrap();
-    proof.jws = crate::jws::sign_jws_ed25519(&binding_bytes, &signing_key).unwrap();
+    proof.jws = arkret_signatures::jws::sign_jws_ed25519(&binding_bytes, &signing_key).unwrap();
 
     let verified = verify_event_proof_with_did_resolver(&event, &proof, &resolver).unwrap();
     assert!(verified.valid);
@@ -705,7 +705,7 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
         ))
         .unwrap();
 
-    let mut event = crate::Event::new(
+    let mut event = Event::new(
         "ak.test.event",
         realm(),
         controller,
@@ -718,14 +718,12 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
     event.authorization_ref = Some("ak:grant:01904100-0000-7000-8000-cccccccccccc".to_owned());
     let builder = arkret_signatures::EventProofBuilder::new();
     let canonical_bytes = builder.envelope_bytes(&event).unwrap();
-    let mut proof = crate::Proof {
+    let mut proof = Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method,
-        event_digest: crate::Hash::new(arkret_canonical::canonical::sha256_digest(
-            &canonical_bytes,
-        ))
-        .unwrap(),
+        event_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))
+            .unwrap(),
         created_at: Utc::now(),
         domain: None,
         audience: None,
@@ -734,7 +732,7 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
     // Binding object actor_id is the Event envelope `actor_id` (here
     // `controller`), even though the controller binding uses `executed_by`.
     let binding_bytes = proof.canonical_binding_bytes(&event.actor_id).unwrap();
-    proof.jws = crate::jws::sign_jws_ed25519(&binding_bytes, &signing_key).unwrap();
+    proof.jws = arkret_signatures::jws::sign_jws_ed25519(&binding_bytes, &signing_key).unwrap();
 
     let verified = verify_event_proof_with_did_resolver(&event, &proof, &resolver).unwrap();
     assert!(verified.valid);
@@ -882,7 +880,7 @@ fn did_key_log_rejects_drift_tampering_and_schema_violations() {
         alice,
         1,
         DidKeyLogOperation::Rotate,
-        Some(crate::Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap()),
+        Some(Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap()),
         body,
         Utc::now(),
     )
@@ -907,10 +905,10 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
 
     let alice = did("alice");
     let receipt = DidRegistryReceipt::signed(
-        arkret_core::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000001").unwrap(),
+        arkret_wire::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000001").unwrap(),
         alice,
         7,
-        crate::Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap(),
+        Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap(),
         registry,
         IdentityReceiptWitnessRole::Writer,
         &registry_key,
@@ -952,10 +950,10 @@ fn starid_registry_adapter_resolves_records_and_control_proofs() {
         .unwrap();
 
     let alice = Did::new("did:webvh:zabc:starid.example:users:alice").unwrap();
-    let head = crate::Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
+    let head = Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
     let document = DidDocument::new(alice.clone(), "root", "alice-public-key");
     let receipt = DidRegistryReceipt::signed(
-        arkret_core::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000002").unwrap(),
+        arkret_wire::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000002").unwrap(),
         alice.clone(),
         0,
         head.clone(),

@@ -1,17 +1,13 @@
-//! Authentication strand and session management helpers.
-
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
-use std::fmt;
-
-use chrono::{DateTime, Duration, Utc};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-
-use crate::identity::DidDocument;
-use crate::models::Proof;
-use crate::{DeviceId, Did, DidUrl, Error, NonEmptyString, Result};
+//! Arkret v1 authentication behavior: sessions, session grants, claims,
+//! passwords, MFA, and DID / OIDC / passkey proof verification.
+//!
+//! Depends only on the wire / model / signature data crates; the umbrella
+//! `arkret` crate re-exports this surface under `arkret::auth::*`. The
+//! transport-bound one-shot `login_did_proof` helper (which speaks the core
+//! http session-grant DTOs) stays in the SDK as `AuthManagerLoginExt`.
 
 mod claims;
+mod error;
 mod grants;
 mod helpers;
 mod manager;
@@ -19,9 +15,19 @@ mod manager;
 mod tests;
 mod verification;
 
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::fmt;
+
+use arkret_models_identity::DidDocument;
+use arkret_wire::{DeviceId, Did, DidUrl, NonEmptyString, Proof};
+use chrono::{DateTime, Duration, Utc};
 pub use claims::*;
+use error::AuthError as Error;
+pub use error::{AuthError, Result};
 pub use grants::*;
 pub use manager::*;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 pub use verification::*;
 
 /// Registered password user.
@@ -231,7 +237,7 @@ pub fn assert_control_realm_pinning(
     if !is_principal_control_event(event_kind) {
         return Ok(());
     }
-    let expected = arkret_core::principal_control_realm_id(principal_id);
+    let expected = arkret_models_identity::principal_control_realm_id(principal_id);
     if realm_id == expected {
         Ok(())
     } else {

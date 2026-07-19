@@ -38,6 +38,11 @@ arkret-keystore = {workspace = true}
 # downstream `?` call sites stay green until the facade retires (phase 5).
 arkret-signatures = {workspace = true}
 arkret-crypto = {workspace = true}
+# Transitional (phase 2-c2b): arkret-identity owns its boundary error; core
+# keeps the `From` bridge into its facade `Error` (same pattern as
+# signatures/crypto/mls). Retires with core in phase 5.
+arkret-identity = {workspace = true}
+arkret-auth = {workspace = true}
 # Behavior-layer bridge (phase 2-c1): only pulled under the `mls` feature so the
 # facade `Error` can absorb `arkret_mls::MlsError` for downstream `?` call
 # sites. Keeps openmls out of the default core graph.

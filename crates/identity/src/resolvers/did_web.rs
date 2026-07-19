@@ -1,6 +1,6 @@
 use super::basics::*;
-use crate::identity::helpers::*;
-use crate::identity::*;
+use crate::helpers::*;
+use crate::*;
 
 /// Limited `did:web` resolver backed by explicitly registered documents.
 #[derive(Clone, Debug, Default)]

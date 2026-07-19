@@ -2,17 +2,19 @@
   "summary": {
     "total": 263,
     "by_crate": {
-      "core": 29,
+      "auth": 1,
+      "core": 28,
       "crypto": 1,
       "event-draft": 2,
       "ffi": 1,
+      "identity": 5,
       "models-collaboration": 110,
       "models-crypto": 6,
       "models-discovery": 17,
-      "models-identity": 10,
+      "models-identity": 11,
       "models-integration": 17,
       "schema": 8,
-      "sdk": 28,
+      "sdk": 22,
       "server": 4,
       "signatures": 8,
       "state": 9,
@@ -32,6 +34,19 @@
     }
   },
   "entries": [
+    {
+      "rust_field": "crates/auth/src/claims.rs::PresentedClaim.value",
+      "crate": "auth",
+      "file": "crates/auth/src/claims.rs",
+      "line": 39,
+      "owner": "PresentedClaim",
+      "field": "value",
+      "rust_type": "BTreeMap<String, Value>",
+      "spec_pointer": "directory-operations.schema.json#/$defs/directory_presented_claim/properties/value",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "Presented claim values are deliberately claim-type-defined JSON."
+    },
     {
       "rust_field": "crates/core/src/admin_signer.rs::SessionGrantIntrospection.audit_context",
       "crate": "core",
@@ -57,19 +72,6 @@
       "schema_shape": "open_map",
       "classification": "open_json",
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
-    },
-    {
-      "rust_field": "crates/core/src/identity.rs::DidDocument.raw_properties",
-      "crate": "core",
-      "file": "crates/core/src/identity.rs",
-      "line": 116,
-      "owner": "DidDocument",
-      "field": "raw_properties",
-      "rust_type": "BTreeMap<String, Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "internal_or_fixture",
-      "reason": "DID Core relationships, services, contexts, and extension properties belong to the external DID document format."
     },
     {
       "rust_field": "crates/core/src/models/artifacts/agent.rs::KeyState.pending_runtime_key_request",
@@ -460,6 +462,71 @@
       "schema_shape": "unknown",
       "classification": "internal_or_fixture",
       "reason": "FFI event payload dispatch is an internal language-boundary representation."
+    },
+    {
+      "rust_field": "crates/identity/src/resolvers/did_webvh.rs::DidWebvhLogEntry.parameters",
+      "crate": "identity",
+      "file": "crates/identity/src/resolvers/did_webvh.rs",
+      "line": 35,
+      "owner": "DidWebvhLogEntry",
+      "field": "parameters",
+      "rust_type": "Value",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "internal_or_fixture",
+      "reason": "DID method log parsing is an external-method resolver representation."
+    },
+    {
+      "rust_field": "crates/identity/src/resolvers/did_webvh.rs::DidWebvhLogEntry.proof",
+      "crate": "identity",
+      "file": "crates/identity/src/resolvers/did_webvh.rs",
+      "line": 37,
+      "owner": "DidWebvhLogEntry",
+      "field": "proof",
+      "rust_type": "Vec<Value>",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "internal_or_fixture",
+      "reason": "DID method proof parsing is an external-method resolver representation."
+    },
+    {
+      "rust_field": "crates/identity/src/resolvers/did_webvh.rs::DidWebvhLogEntry.state",
+      "crate": "identity",
+      "file": "crates/identity/src/resolvers/did_webvh.rs",
+      "line": 36,
+      "owner": "DidWebvhLogEntry",
+      "field": "state",
+      "rust_type": "Value",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "internal_or_fixture",
+      "reason": "DID method log parsing is an external-method resolver representation."
+    },
+    {
+      "rust_field": "crates/identity/src/resolvers/did_webvh.rs::VerifiedDidWebvhLog.head_state",
+      "crate": "identity",
+      "file": "crates/identity/src/resolvers/did_webvh.rs",
+      "line": 66,
+      "owner": "VerifiedDidWebvhLog",
+      "field": "head_state",
+      "rust_type": "Value",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "internal_or_fixture",
+      "reason": "Verified WebVH head state preserves the external DID document without narrowing its extension fields."
+    },
+    {
+      "rust_field": "crates/identity/src/resolvers/did_webvh.rs::VerifiedDidWebvhLog.raw_entries",
+      "crate": "identity",
+      "file": "crates/identity/src/resolvers/did_webvh.rs",
+      "line": 63,
+      "owner": "VerifiedDidWebvhLog",
+      "field": "raw_entries",
+      "rust_type": "Vec<Value>",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "internal_or_fixture",
+      "reason": "Verified WebVH evidence preserves complete external log entries for fork comparison."
     },
     {
       "rust_field": "crates/models-collaboration/src/events_payloads/call.rs::CallPayload.signal",
@@ -2256,6 +2323,19 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
+      "rust_field": "crates/models-identity/src/did_document.rs::DidDocument.raw_properties",
+      "crate": "models-identity",
+      "file": "crates/models-identity/src/did_document.rs",
+      "line": 88,
+      "owner": "DidDocument",
+      "field": "raw_properties",
+      "rust_type": "BTreeMap<String, Value>",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "internal_or_fixture",
+      "reason": "DID Core relationships, services, contexts, and extension properties belong to the external DID document format."
+    },
+    {
       "rust_field": "crates/models-identity/src/identity.rs::DidOperationSubmitRequestBody.operation",
       "crate": "models-identity",
       "file": "crates/models-identity/src/identity.rs",
@@ -2750,19 +2830,6 @@
       "reason": "Tool audit output is a local runtime record."
     },
     {
-      "rust_field": "crates/sdk/src/auth/claims.rs::PresentedClaim.value",
-      "crate": "sdk",
-      "file": "crates/sdk/src/auth/claims.rs",
-      "line": 39,
-      "owner": "PresentedClaim",
-      "field": "value",
-      "rust_type": "BTreeMap<String, Value>",
-      "spec_pointer": "directory-operations.schema.json#/$defs/directory_presented_claim/properties/value",
-      "schema_shape": "open_map",
-      "classification": "open_json",
-      "reason": "Presented claim values are deliberately claim-type-defined JSON."
-    },
-    {
       "rust_field": "crates/sdk/src/devices/mod.rs::ToDeviceEnvelope.content",
       "crate": "sdk",
       "file": "crates/sdk/src/devices/mod.rs",
@@ -2787,71 +2854,6 @@
       "schema_shape": "unknown",
       "classification": "internal_or_fixture",
       "reason": "Canonicalization input is test fixture data."
-    },
-    {
-      "rust_field": "crates/sdk/src/identity/resolvers/did_webvh.rs::DidWebvhLogEntry.parameters",
-      "crate": "sdk",
-      "file": "crates/sdk/src/identity/resolvers/did_webvh.rs",
-      "line": 35,
-      "owner": "DidWebvhLogEntry",
-      "field": "parameters",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "internal_or_fixture",
-      "reason": "DID method log parsing is an external-method resolver representation."
-    },
-    {
-      "rust_field": "crates/sdk/src/identity/resolvers/did_webvh.rs::DidWebvhLogEntry.proof",
-      "crate": "sdk",
-      "file": "crates/sdk/src/identity/resolvers/did_webvh.rs",
-      "line": 37,
-      "owner": "DidWebvhLogEntry",
-      "field": "proof",
-      "rust_type": "Vec<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "internal_or_fixture",
-      "reason": "DID method proof parsing is an external-method resolver representation."
-    },
-    {
-      "rust_field": "crates/sdk/src/identity/resolvers/did_webvh.rs::DidWebvhLogEntry.state",
-      "crate": "sdk",
-      "file": "crates/sdk/src/identity/resolvers/did_webvh.rs",
-      "line": 36,
-      "owner": "DidWebvhLogEntry",
-      "field": "state",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "internal_or_fixture",
-      "reason": "DID method log parsing is an external-method resolver representation."
-    },
-    {
-      "rust_field": "crates/sdk/src/identity/resolvers/did_webvh.rs::VerifiedDidWebvhLog.head_state",
-      "crate": "sdk",
-      "file": "crates/sdk/src/identity/resolvers/did_webvh.rs",
-      "line": 66,
-      "owner": "VerifiedDidWebvhLog",
-      "field": "head_state",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "internal_or_fixture",
-      "reason": "Verified WebVH head state preserves the external DID document without narrowing its extension fields."
-    },
-    {
-      "rust_field": "crates/sdk/src/identity/resolvers/did_webvh.rs::VerifiedDidWebvhLog.raw_entries",
-      "crate": "sdk",
-      "file": "crates/sdk/src/identity/resolvers/did_webvh.rs",
-      "line": 63,
-      "owner": "VerifiedDidWebvhLog",
-      "field": "raw_entries",
-      "rust_type": "Vec<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "internal_or_fixture",
-      "reason": "Verified WebVH evidence preserves complete external log entries for fork comparison."
     },
     {
       "rust_field": "crates/sdk/src/profile.rs::PairwiseControlMessage.payload",

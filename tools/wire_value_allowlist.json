@@ -12,7 +12,7 @@
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
     {
-      "rust_field": "crates/core/src/identity.rs::DidDocument.raw_properties",
+      "rust_field": "crates/models-identity/src/did_document.rs::DidDocument.raw_properties",
       "classification": "internal_or_fixture",
       "reason": "DID Core relationships, services, contexts, and extension properties belong to the external DID document format."
     },
@@ -1213,7 +1213,7 @@
       "reason": "Tool audit output is a local runtime record."
     },
     {
-      "rust_field": "crates/sdk/src/auth/claims.rs::PresentedClaim.value",
+      "rust_field": "crates/auth/src/claims.rs::PresentedClaim.value",
       "spec_pointer": "directory-operations.schema.json#/$defs/directory_presented_claim/properties/value",
       "classification": "open_json",
       "reason": "Presented claim values are deliberately claim-type-defined JSON."
@@ -1234,27 +1234,27 @@
       "reason": "Canonicalization input is test fixture data."
     },
     {
-      "rust_field": "crates/sdk/src/identity/resolvers/did_webvh.rs::DidWebvhLogEntry.parameters",
+      "rust_field": "crates/identity/src/resolvers/did_webvh.rs::DidWebvhLogEntry.parameters",
       "classification": "internal_or_fixture",
       "reason": "DID method log parsing is an external-method resolver representation."
     },
     {
-      "rust_field": "crates/sdk/src/identity/resolvers/did_webvh.rs::DidWebvhLogEntry.proof",
+      "rust_field": "crates/identity/src/resolvers/did_webvh.rs::DidWebvhLogEntry.proof",
       "classification": "internal_or_fixture",
       "reason": "DID method proof parsing is an external-method resolver representation."
     },
     {
-      "rust_field": "crates/sdk/src/identity/resolvers/did_webvh.rs::DidWebvhLogEntry.state",
+      "rust_field": "crates/identity/src/resolvers/did_webvh.rs::DidWebvhLogEntry.state",
       "classification": "internal_or_fixture",
       "reason": "DID method log parsing is an external-method resolver representation."
     },
     {
-      "rust_field": "crates/sdk/src/identity/resolvers/did_webvh.rs::VerifiedDidWebvhLog.head_state",
+      "rust_field": "crates/identity/src/resolvers/did_webvh.rs::VerifiedDidWebvhLog.head_state",
       "classification": "internal_or_fixture",
       "reason": "Verified WebVH head state preserves the external DID document without narrowing its extension fields."
     },
     {
-      "rust_field": "crates/sdk/src/identity/resolvers/did_webvh.rs::VerifiedDidWebvhLog.raw_entries",
+      "rust_field": "crates/identity/src/resolvers/did_webvh.rs::VerifiedDidWebvhLog.raw_entries",
       "classification": "internal_or_fixture",
       "reason": "Verified WebVH evidence preserves complete external log entries for fork comparison."
     },

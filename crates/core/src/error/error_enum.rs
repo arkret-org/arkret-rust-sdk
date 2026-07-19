@@ -239,6 +239,36 @@ impl From<arkret_mls::MlsError> for Error {
     }
 }
 
+impl From<arkret_identity::IdentityError> for Error {
+    fn from(error: arkret_identity::IdentityError) -> Self {
+        match error {
+            arkret_identity::IdentityError::Protocol(message) => Self::Protocol(message),
+            arkret_identity::IdentityError::Crypto(message) => Self::Crypto(message),
+            arkret_identity::IdentityError::Wire(error) => error.into(),
+            arkret_identity::IdentityError::Canonical(error) => error.into(),
+            arkret_identity::IdentityError::Identifier(error) => error.into(),
+            arkret_identity::IdentityError::Signature(error) => error.into(),
+            arkret_identity::IdentityError::Json(error) => Self::CanonicalJson(error),
+            _ => Self::Protocol(error.to_string()),
+        }
+    }
+}
+
+impl From<arkret_auth::AuthError> for Error {
+    fn from(error: arkret_auth::AuthError) -> Self {
+        match error {
+            arkret_auth::AuthError::Protocol(message) => Self::Protocol(message),
+            arkret_auth::AuthError::Crypto(message) => Self::Crypto(message),
+            arkret_auth::AuthError::Wire(error) => error.into(),
+            arkret_auth::AuthError::Canonical(error) => error.into(),
+            arkret_auth::AuthError::Identifier(error) => error.into(),
+            arkret_auth::AuthError::Signature(error) => error.into(),
+            arkret_auth::AuthError::Json(error) => Self::CanonicalJson(error),
+            _ => Self::Protocol(error.to_string()),
+        }
+    }
+}
+
 impl From<arkret_schema::SchemaError> for Error {
     fn from(error: arkret_schema::SchemaError) -> Self {
         match error {

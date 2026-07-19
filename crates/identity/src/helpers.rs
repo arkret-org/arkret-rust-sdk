@@ -1,7 +1,8 @@
 use std::net::IpAddr;
 
+pub(super) use arkret_canonical::canonical::sha256_hex;
+
 use super::*;
-pub(super) use crate::canonical::sha256_hex;
 
 /// SSRF guard: reject hosts that resolve to non-public address space before
 /// the SDK makes an outbound `did:web` / `did:webvh` fetch.
@@ -67,7 +68,7 @@ pub(super) fn normalize_handle(handle: &str) -> String {
 }
 
 pub(super) fn did_web_document_url(did: &Did) -> Option<String> {
-    let document_url = arkret_core::identity::did_web_document_url(did).ok()?;
+    let document_url = arkret_models_identity::did_web_document_url(did).ok()?;
     let encoded_authority = did.as_str().strip_prefix("did:web:")?.split(':').next()?;
     let authority = encoded_authority.replace("%3A", ":").replace("%3a", ":");
     let host = authority.split(':').next()?;
@@ -175,7 +176,7 @@ pub(crate) fn decode_base58btc(input: &str) -> Option<Vec<u8>> {
     if input.is_empty() {
         return None;
     }
-    arkret_core::decode_base58btc(input).ok()
+    arkret_canonical::decode_base58btc(input).ok()
 }
 
 /// Encode `bytes` as a base58btc string (Bitcoin alphabet, no multibase

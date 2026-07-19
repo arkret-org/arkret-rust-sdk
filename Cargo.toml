@@ -20,6 +20,7 @@ chrono-tz = {version = "0.10.4",default-features = false}
 # Dev-only microbenchmark harness (SDK-SOTA-03). Excluded from cargo-deny via
 # `.deny.toml`; benches compile under `--all-targets` but are never run in CI.
 criterion = {version = "0.7",default-features = false,features = ["cargo_bench_support"]}
+arkret-auth = {version = "0.3.0",path = "crates/auth",default-features = false}
 arkret-canonical = {version = "0.3.0",path = "crates/canonical",default-features = false}
 arkret-models-identity = {version = "0.3.0",path = "crates/models-identity",default-features = false}
 arkret-models-collaboration = {version = "0.3.0",path = "crates/models-collaboration",default-features = false}
@@ -34,6 +35,7 @@ arkret-mls = {version = "0.3.0",path = "crates/mls",default-features = false}
 arkret-ffi = {version = "0.3.0",path = "crates/ffi",default-features = false}
 arkret-http-client = {version = "0.3.0",path = "crates/http-client",default-features = false}
 arkret-identifiers = {version = "0.3.0",path = "crates/identifiers",default-features = false}
+arkret-identity = {version = "0.3.0",path = "crates/identity",default-features = false}
 arkret-keystore = {version = "0.3.0",path = "crates/keystore",default-features = false}
 arkret-egress-policy = {version = "0.3.0",path = "crates/egress-policy",default-features = false}
 arkret-policy = {version = "0.3.0",path = "crates/policy",default-features = false}

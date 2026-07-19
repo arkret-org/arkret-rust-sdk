@@ -1,4 +1,4 @@
-use crate::identity::*;
+use crate::*;
 
 /// Resolve DID documents for one or more DID methods.
 pub trait DidResolver {
@@ -107,7 +107,7 @@ where
 
 /// Downcast the SDK facade error into the signature-layer error for the
 /// resolver adapter above. The signatures crate owns its boundary error and
-/// (by design) has no `From<arkret_core::Error>`; the facade message is
+/// (by design) has no `From<Error>`; the facade message is
 /// carried verbatim.
 fn to_signature_error(error: Error) -> arkret_signatures::Error {
     match error {
@@ -126,7 +126,7 @@ fn to_signature_error(error: Error) -> arkret_signatures::Error {
 /// (`executed_by`) used for the verification-method binding check.
 pub fn verify_canonical_proof_with_did_resolver<R>(
     canonical_bytes: &[u8],
-    proof: &crate::Proof,
+    proof: &Proof,
     binding_actor_id: &Did,
     context: &arkret_signatures::ProofVerificationContext,
     resolver: &R,
@@ -159,8 +159,8 @@ where
 /// When `event.executed_by` is present, the proof controller is bound to
 /// that DID; otherwise it is bound to `event.actor_id`.
 pub fn verify_event_proof_with_did_resolver<R>(
-    event: &crate::Event,
-    proof: &crate::Proof,
+    event: &Event,
+    proof: &Proof,
     resolver: &R,
 ) -> Result<arkret_signatures::SignatureVerification>
 where
@@ -171,8 +171,8 @@ where
 }
 
 pub fn verify_event_proof_with_did_resolver_context<R>(
-    event: &crate::Event,
-    proof: &crate::Proof,
+    event: &Event,
+    proof: &Proof,
     resolver: &R,
     context: arkret_signatures::ProofVerificationContext,
 ) -> Result<arkret_signatures::SignatureVerification>
@@ -193,12 +193,11 @@ where
 }
 
 pub fn event_proof_verification_context(
-    event: &crate::Event,
+    event: &Event,
 ) -> Result<arkret_signatures::ProofVerificationContext> {
     let builder = arkret_signatures::EventProofBuilder::new();
     let canonical_bytes = builder.envelope_bytes(event)?;
-    let expected_digest =
-        crate::Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))?;
+    let expected_digest = Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))?;
     let signing_actor = event
         .executed_by
         .clone()

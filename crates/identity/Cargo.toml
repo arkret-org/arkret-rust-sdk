@@ -1,0 +1,30 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+description = "Arkret v1 DID identity behavior: resolvers, handle claims, DID key-log records, and detached-JWS verification."
+edition = "2024"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+keywords = ["arkret", "did", "identity", "resolver"]
+license = "Apache-2.0"
+name = "arkret-identity"
+readme = "README.md"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+arkret-canonical = {workspace = true}
+arkret-egress-policy = {workspace = true}
+arkret-identifiers = {workspace = true}
+arkret-models-identity = {workspace = true}
+arkret-signatures = {workspace = true,features = ["protocol"]}
+arkret-wire = {workspace = true}
+base64 = {workspace = true}
+chrono = {workspace = true,features = ["serde"]}
+ed25519-dalek = {workspace = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
+subtle = {workspace = true}
+thiserror = {workspace = true}
+
+[lints]
+workspace = true

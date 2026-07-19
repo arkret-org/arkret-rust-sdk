@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use super::basics::*;
 use super::policy::*;
-use crate::identity::helpers::*;
-use crate::identity::*;
+use crate::helpers::*;
+use crate::*;
 
 /// Limited `did:keri` resolver backed by explicitly registered documents.
 #[derive(Clone, Debug, Default)]

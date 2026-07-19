@@ -69,6 +69,7 @@ keystore-encrypted-file = ["arkret-keystore/keystore-encrypted-file"]
 # openmls is split per-target because the upstream crate hard-requires the
 # `js` cargo feature on wasm32 (it pulls fluvio_wasm_timer + js-sys for time
 # and randomness). Native targets must NOT enable `js` (no js-sys available).
+arkret-auth = {workspace = true}
 argon2 = {workspace = true}
 arkret-canonical = {workspace = true}
 base64 = {workspace = true}
@@ -82,6 +83,7 @@ arkret-ffi = {workspace = true}
 # arkret-models-crypto. The umbrella crate is layering-exempt.
 arkret-models-crypto = {workspace = true}
 arkret-http-client = {workspace = true,optional = true}
+arkret-identity = {workspace = true}
 arkret-keystore = {workspace = true}
 arkret-egress-policy = {workspace = true}
 arkret-mls = {workspace = true,optional = true}

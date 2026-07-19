@@ -1,8 +1,8 @@
 use argon2::Argon2;
 use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
+pub(super) use arkret_canonical::canonical::sha256_hex;
 
 use super::*;
-pub(super) use crate::canonical::sha256_hex;
 
 pub(super) fn default_true() -> bool {
     true
@@ -93,10 +93,13 @@ pub(super) fn verify_password(password: &str, phc: &str) -> bool {
 }
 
 /// Constant-time string comparison — delegates to the single crate-wide
-/// implementation in [`crate::crypto::constant_time_eq`] (hash both inputs
+/// implementation in the shared constant-time helper (hash both inputs
 /// to a fixed-length SHA-256 digest, then compare with `subtle`).
 pub(super) fn constant_time_eq(left: &str, right: &str) -> bool {
-    crate::crypto::constant_time_eq(left, right)
+    use subtle::ConstantTimeEq;
+    let left = arkret_canonical::canonical::sha256_bytes(left.as_bytes());
+    let right = arkret_canonical::canonical::sha256_bytes(right.as_bytes());
+    left.ct_eq(&right).into()
 }
 
 /// Verify a built-in account-recovery proof.

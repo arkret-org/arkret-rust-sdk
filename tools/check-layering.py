@@ -107,7 +107,11 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-models-crypto",
         "arkret-models-collaboration",
     },
-    "arkret-identity": _WIRE | {"arkret-models-identity", "arkret-signatures"},
+    # arkret-egress-policy carries the outbound SSRF host/IP deny-list
+    # classifier (STA-05-001) the did:web / did:webvh resolvers guard fetches
+    # with; it is a leaf crate (no arkret deps), so the edge is cycle-free.
+    "arkret-identity": _WIRE
+    | {"arkret-models-identity", "arkret-signatures", "arkret-egress-policy"},
     "arkret-auth": _WIRE
     | {
         "arkret-models-identity",
@@ -180,6 +184,11 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         # can bridge `arkret_mls::MlsError`. openmls stays out of the default
         # core graph.
         "arkret-mls",
+        # Phase 2-c2b: facade `Error` bridges `arkret_identity::IdentityError`
+        # and `arkret_auth::AuthError` (same transitional pattern as
+        # signatures/crypto/mls). Retire with core in phase 5.
+        "arkret-identity",
+        "arkret-auth",
     },
     "arkret-ffi": {"arkret-core"},
     "arkret-sdk-fuzz": {"arkret-core", "arkret-signatures"},

@@ -1,6 +1,6 @@
 use super::basics::*;
-use crate::identity::helpers::*;
-use crate::identity::*;
+use crate::helpers::*;
+use crate::*;
 
 /// `did:webvh` resolver. Mirrors the offline-friendly shape of
 /// [`DidWebResolver`]: callers fetch `did.json` / `did.jsonl` over
@@ -324,7 +324,7 @@ fn verify_did_webvh_v1_internal(
         }
         ensure_unique_webvh_values("updateKeys", &current_keys)?;
         for key in &current_keys {
-            arkret_core::decode_ed25519_multibase(key).map_err(|error| {
+            arkret_canonical::decode_ed25519_multibase(key).map_err(|error| {
                 Error::Protocol(format!("did:webvh update key is not Ed25519: {error}"))
             })?;
             if spent_keys.contains(key) {
@@ -549,8 +549,10 @@ fn verify_webvh_proof(raw_entry: &Value, proof: &Value, key_multibase: &str) -> 
         .map_err(|e| Error::Protocol(format!("did:webvh proof doc canonicalization: {e}")))?;
 
     let mut signing_input = Vec::with_capacity(64);
-    signing_input.extend_from_slice(&crate::canonical::sha256_bytes(&proof_config_bytes));
-    signing_input.extend_from_slice(&crate::canonical::sha256_bytes(&doc_bytes));
+    signing_input.extend_from_slice(&arkret_canonical::canonical::sha256_bytes(
+        &proof_config_bytes,
+    ));
+    signing_input.extend_from_slice(&arkret_canonical::canonical::sha256_bytes(&doc_bytes));
 
     // `proofValue` is multibase base58btc (`z…`) of the raw 64-byte
     // signature (no multicodec tag, per Data Integrity proofValue).
@@ -563,7 +565,7 @@ fn verify_webvh_proof(raw_entry: &Value, proof: &Value, key_multibase: &str) -> 
         Error::Protocol("did:webvh proofValue is not a 64-byte signature".to_owned())
     })?;
 
-    let key_bytes = arkret_core::decode_ed25519_multibase(key_multibase)
+    let key_bytes = arkret_canonical::decode_ed25519_multibase(key_multibase)
         .map_err(|e| Error::Protocol(format!("did:webvh proof key decode failed: {e}")))?;
     let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&key_bytes)
         .map_err(|e| Error::Protocol(format!("did:webvh proof key is not Ed25519: {e}")))?;
@@ -618,7 +620,7 @@ fn webvh_next_key_hashes(parameters: &Value) -> Result<Vec<String>> {
             let hash = hash.as_str().ok_or_else(|| {
                 Error::Protocol("did:webvh nextKeyHashes entry is not a string".to_owned())
             })?;
-            let decoded = arkret_core::decode_base58btc(hash).map_err(|_| {
+            let decoded = arkret_canonical::decode_base58btc(hash).map_err(|_| {
                 Error::Protocol("did:webvh nextKeyHashes entry is not base58btc".to_owned())
             })?;
             if decoded.len() != 34 || decoded[..2] != [0x12, 0x20] {
@@ -626,7 +628,7 @@ fn webvh_next_key_hashes(parameters: &Value) -> Result<Vec<String>> {
                     "did:webvh nextKeyHashes entry is not a sha2-256 multihash".to_owned(),
                 ));
             }
-            if arkret_core::encode_base58btc(&decoded) != hash {
+            if arkret_canonical::encode_base58btc(&decoded) != hash {
                 return Err(Error::Protocol(
                     "did:webvh nextKeyHashes entry is not canonical base58btc".to_owned(),
                 ));

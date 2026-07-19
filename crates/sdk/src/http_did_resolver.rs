@@ -526,8 +526,11 @@ impl DidResolver for HttpDidResolver {
     /// timeout); see [`Self::drive`] for why this is deadlock-free on every
     /// runtime flavor. Async callers should use
     /// [`Self::resolve_did_async`] directly.
-    fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
+    fn resolve_did(&self, did: &Did) -> arkret_identity::Result<DidDocument> {
+        // The `DidResolver` trait (owned by arkret-identity) is typed on
+        // `IdentityError`; bridge this crate's facade error at the boundary.
         self.drive(self.resolve_did_async(did))
+            .map_err(|error| arkret_identity::IdentityError::Protocol(error.to_string()))
     }
 }
 

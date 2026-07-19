@@ -249,7 +249,7 @@ pub struct DidMigration {
 /// Client-local handle claim challenge state tracked by [`IdentityManager`].
 ///
 /// This is NOT the wire handle-claim resource — that is
-/// `arkret_core::HandleClaim` (handle-claim schema counterpart). This type
+/// `arkret_models_collaboration::HandleClaim` (handle-claim schema counterpart). This type
 /// only tracks the local challenge/verification lifecycle before a claim is
 /// published.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

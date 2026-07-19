@@ -1,16 +1,28 @@
 use arkret_canonical::serde_helpers::{
     deserialize_canonical_timestamp, serialize_canonical_timestamp,
 };
-use arkret_core::DetachedPayloadProof;
+use arkret_models_identity::DetachedPayloadProof;
 
 use super::*;
 
-fn constant_time_digest_eq(a: &crate::Hash, b: &crate::Hash) -> bool {
-    crate::crypto::constant_time_eq(a.as_str(), b.as_str())
+fn constant_time_digest_eq(a: &Hash, b: &Hash) -> bool {
+    constant_time_eq(a.as_str(), b.as_str())
 }
 
-fn placeholder_digest() -> crate::Hash {
-    crate::Hash::new(format!("sha256:{}", "0".repeat(64))).expect("static digest literal is valid")
+/// Constant-time string comparison backed by the audited `subtle` crate.
+///
+/// Both inputs are reduced to a fixed-length SHA-256 digest first so the
+/// comparison loop bound never depends on the secret's length, then compared
+/// with `subtle::ConstantTimeEq`.
+fn constant_time_eq(left: &str, right: &str) -> bool {
+    use subtle::ConstantTimeEq;
+    let left = arkret_canonical::canonical::sha256_bytes(left.as_bytes());
+    let right = arkret_canonical::canonical::sha256_bytes(right.as_bytes());
+    left.ct_eq(&right).into()
+}
+
+fn placeholder_digest() -> Hash {
+    Hash::new(format!("sha256:{}", "0".repeat(64))).expect("static digest literal is valid")
 }
 
 /// Sign a DID key-log entry with the controller key and append the detached proof.
@@ -31,8 +43,8 @@ pub fn attach_did_key_log_controller_proof(
         jws: String::new(),
     };
     let binding_bytes = entry.proof_binding_bytes(&proof)?;
-    proof.jws =
-        crate::jws::sign_jws_ed25519(&binding_bytes, signing_key).map_err(Error::Protocol)?;
+    proof.jws = arkret_signatures::jws::sign_jws_ed25519(&binding_bytes, signing_key)
+        .map_err(Error::Protocol)?;
     entry.proofs.push(proof);
     Ok(())
 }
@@ -45,7 +57,7 @@ pub struct VerifiedDidKeyLog {
     /// Sequence number of the latest accepted entry.
     pub seq: u64,
     /// `head_event_digest` of the latest accepted entry.
-    pub head: crate::Hash,
+    pub head: Hash,
     /// Whether the DID is deactivated.
     pub deactivated: bool,
 }
@@ -76,7 +88,7 @@ pub fn verify_did_key_log(
         ));
     }
 
-    let mut prev_head: Option<crate::Hash> = None;
+    let mut prev_head: Option<Hash> = None;
     let mut deactivated = false;
 
     for (index, entry) in entries.iter().enumerate() {
@@ -131,7 +143,7 @@ pub fn verify_did_key_log(
                 ));
             }
             let binding_bytes = entry.proof_binding_bytes(proof)?;
-            crate::jws::verify_jws_ed25519(
+            jws::verify_jws_ed25519(
                 &binding_bytes,
                 &proof.jws,
                 &proof.verification_method,
@@ -174,13 +186,13 @@ pub enum IdentityReceiptWitnessRole {
 pub struct DidRegistryReceipt {
     /// Canonical schema discriminator (`ak.schema.identity_receipt.v1`).
     pub schema: String,
-    pub receipt_id: arkret_core::ReceiptId,
+    pub receipt_id: arkret_wire::ReceiptId,
     /// DID whose key-log head this receipt witnesses.
     pub did: Did,
     /// Key-log sequence number of the witnessed head.
     pub seq: u64,
     /// Witnessed `head_event_digest` (§3.1.3 self-digest rule).
-    pub head_event_digest: crate::Hash,
+    pub head_event_digest: Hash,
     /// Issuing registry service DID.
     pub registry_service_id: Did,
     pub witness_role: IdentityReceiptWitnessRole,
@@ -207,10 +219,10 @@ impl DidRegistryReceipt {
     /// Build and sign a receipt with the **registry's** Ed25519 key.
     #[allow(clippy::too_many_arguments)]
     pub fn signed(
-        receipt_id: arkret_core::ReceiptId,
+        receipt_id: arkret_wire::ReceiptId,
         did: Did,
         seq: u64,
-        head_event_digest: crate::Hash,
+        head_event_digest: Hash,
         registry_service_id: Did,
         witness_role: IdentityReceiptWitnessRole,
         signing_key: &ed25519_dalek::SigningKey,
@@ -241,28 +253,31 @@ impl DidRegistryReceipt {
         receipt.signature.payload_digest = receipt.payload_digest()?;
         let binding_bytes = receipt.binding_bytes()?;
         receipt.signature.jws =
-            crate::jws::sign_jws_ed25519(&binding_bytes, signing_key).map_err(Error::Protocol)?;
+            arkret_signatures::jws::sign_jws_ed25519(&binding_bytes, signing_key)
+                .map_err(Error::Protocol)?;
         Ok(receipt)
     }
 
     /// `canonical_digest(receipt without signature)`.
-    pub fn payload_digest(&self) -> Result<crate::Hash> {
+    pub fn payload_digest(&self) -> Result<Hash> {
         let mut value = serde_json::to_value(self)?;
         value
             .as_object_mut()
             .expect("DidRegistryReceipt serializes to an object")
             .remove("signature");
         let bytes = arkret_canonical::canonical::canonical_json_bytes(&value)?;
-        Ok(crate::Hash::new(
-            arkret_canonical::canonical::sha256_digest(&bytes),
-        )?)
+        Ok(Hash::new(arkret_canonical::canonical::sha256_digest(
+            &bytes,
+        ))?)
     }
 
     fn binding_bytes(&self) -> Result<Vec<u8>> {
         let mut object = serde_json::Map::new();
         object.insert(
             "context".to_owned(),
-            Value::String(arkret_core::IDENTITY_RECEIPT_PROOF_BINDING_CONTEXT.to_owned()),
+            Value::String(
+                arkret_models_identity::IDENTITY_RECEIPT_PROOF_BINDING_CONTEXT.to_owned(),
+            ),
         );
         object.insert(
             "payload_digest".to_owned(),
@@ -320,7 +335,7 @@ impl DidRegistryReceipt {
         }
         match (&self.audience, &self.signature.audience) {
             (None, None) => {}
-            (Some(expected), Some(arkret_core::Audience::Single(actual))) if expected == actual => {
+            (Some(expected), Some(arkret_wire::Audience::Single(actual))) if expected == actual => {
             }
             _ => {
                 return Err(Error::Protocol(
@@ -336,7 +351,7 @@ impl DidRegistryReceipt {
             ));
         }
         let binding_bytes = self.binding_bytes()?;
-        crate::jws::verify_jws_ed25519(
+        jws::verify_jws_ed25519(
             &binding_bytes,
             &self.signature.jws,
             &self.signature.verification_method,
@@ -377,7 +392,7 @@ impl StaridRegistryRecord {
                 "StarID record current_control_key is empty".to_owned(),
             ));
         }
-        self.document.validate()
+        Ok(self.document.validate()?)
     }
 }
 

@@ -96,7 +96,7 @@ pub enum OidcCredential {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OidcVerificationRequestBody {
     pub issuer_metadata: OidcIssuerMetadata,
-    pub jwks: crate::signatures::JsonWebKeySet,
+    pub jwks: arkret_signatures::JsonWebKeySet,
     pub client_id: String,
     pub expected_nonce: Option<String>,
     pub credential: OidcCredential,

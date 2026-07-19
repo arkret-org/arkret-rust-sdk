@@ -46,6 +46,12 @@ pub mod service_identity;
 // soland's `verify_realm_organization_proof_signature`.
 #[path = "realm_organization.rs"]
 pub mod realm_organization;
+
+// RFC 7515 detached Ed25519 JWS signer (resolver-free sign half). The verify /
+// DID-resolve / replay-window half lives in `arkret-identity`.
+#[path = "jws.rs"]
+pub mod jws;
+
 use std::collections::BTreeMap;
 
 #[path = "error.rs"]

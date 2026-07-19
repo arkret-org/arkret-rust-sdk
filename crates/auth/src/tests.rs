@@ -1,3 +1,5 @@
+use arkret_wire::Hash;
+
 use super::helpers::sha256_hex;
 use super::*;
 
@@ -163,7 +165,7 @@ fn auth_uses_provider_oidc_verifier_with_metadata_and_jwks() {
             token_endpoint: "https://issuer.example/token".to_owned(),
             jwks_uri: "https://issuer.example/jwks".to_owned(),
         },
-        jwks: crate::signatures::JsonWebKeySet::new(Vec::new()).unwrap(),
+        jwks: arkret_signatures::JsonWebKeySet::new(Vec::new()).unwrap(),
         client_id: "client".to_owned(),
         expected_nonce: Some("nonce".to_owned()),
         credential: OidcCredential::IdToken {
@@ -214,7 +216,7 @@ fn json_web_key_set_accepts_typed_public_keys_and_rejects_ambiguous_input() {
             }
         ]
     });
-    let parsed: crate::signatures::JsonWebKeySet = serde_json::from_value(jwks.clone()).unwrap();
+    let parsed: arkret_signatures::JsonWebKeySet = serde_json::from_value(jwks.clone()).unwrap();
     assert_eq!(parsed.keys().len(), 2);
     assert_eq!(serde_json::to_value(parsed).unwrap(), jwks);
 
@@ -222,13 +224,13 @@ fn json_web_key_set_accepts_typed_public_keys_and_rejects_ambiguous_input() {
         "keys": [{ "kty": "RSA", "n": "AQAB" }]
     });
     assert!(
-        serde_json::from_value::<crate::signatures::JsonWebKeySet>(missing_rsa_exponent).is_err()
+        serde_json::from_value::<arkret_signatures::JsonWebKeySet>(missing_rsa_exponent).is_err()
     );
 
     let symmetric_key = serde_json::json!({
         "keys": [{ "kty": "oct", "k": "AQAB" }]
     });
-    assert!(serde_json::from_value::<crate::signatures::JsonWebKeySet>(symmetric_key).is_err());
+    assert!(serde_json::from_value::<arkret_signatures::JsonWebKeySet>(symmetric_key).is_err());
 
     let unknown_member = serde_json::json!({
         "keys": [{
@@ -238,7 +240,7 @@ fn json_web_key_set_accepts_typed_public_keys_and_rejects_ambiguous_input() {
             "legacy_key_material": "opaque"
         }]
     });
-    assert!(serde_json::from_value::<crate::signatures::JsonWebKeySet>(unknown_member).is_err());
+    assert!(serde_json::from_value::<arkret_signatures::JsonWebKeySet>(unknown_member).is_err());
 
     let duplicate_kid = serde_json::json!({
         "keys": [
@@ -246,11 +248,11 @@ fn json_web_key_set_accepts_typed_public_keys_and_rejects_ambiguous_input() {
             { "kty": "OKP", "kid": "duplicate", "crv": "Ed25519", "x": "AQAB" }
         ]
     });
-    assert!(serde_json::from_value::<crate::signatures::JsonWebKeySet>(duplicate_kid).is_err());
+    assert!(serde_json::from_value::<arkret_signatures::JsonWebKeySet>(duplicate_kid).is_err());
 
     let legacy_nested_value = serde_json::json!({ "keys": { "keys": [] } });
     assert!(
-        serde_json::from_value::<crate::signatures::JsonWebKeySet>(legacy_nested_value).is_err()
+        serde_json::from_value::<arkret_signatures::JsonWebKeySet>(legacy_nested_value).is_err()
     );
 }
 
@@ -762,7 +764,7 @@ fn auth_uses_provider_did_proof_verifier_for_recovery() {
         kind: "did-proof".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method: verification_method.to_owned(),
-        event_digest: crate::Hash::new(format!("sha256:{}", sha256_hex(b"payload"))).unwrap(),
+        event_digest: Hash::new(format!("sha256:{}", sha256_hex(b"payload"))).unwrap(),
         created_at: Utc::now(),
         domain: Some("arkret-auth".to_owned()),
         audience: None,

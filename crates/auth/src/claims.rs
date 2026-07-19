@@ -189,8 +189,8 @@ impl PresentedClaim {
     }
 }
 
-impl From<arkret_core::DirectoryPresentedClaim> for PresentedClaim {
-    fn from(claim: arkret_core::DirectoryPresentedClaim) -> Self {
+impl From<arkret_models_identity::DirectoryPresentedClaim> for PresentedClaim {
+    fn from(claim: arkret_models_identity::DirectoryPresentedClaim) -> Self {
         Self {
             claim_id: claim.claim_id,
             subject: claim.subject,
@@ -206,7 +206,7 @@ impl From<arkret_core::DirectoryPresentedClaim> for PresentedClaim {
     }
 }
 
-impl From<PresentedClaim> for arkret_core::DirectoryPresentedClaim {
+impl From<PresentedClaim> for arkret_models_identity::DirectoryPresentedClaim {
     fn from(claim: PresentedClaim) -> Self {
         Self {
             claim_id: claim.claim_id,
