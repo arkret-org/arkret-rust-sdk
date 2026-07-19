@@ -1,0 +1,40 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+categories = ["api-bindings", "data-structures"]
+description = "Arkret v1 client-side event drafting: operation drafts, the operation envelope builder, the event-draft kind registry, and rank interval arithmetic."
+edition = "2024"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+keywords = ["arkret", "operation", "draft", "protocol"]
+license = "Apache-2.0"
+name = "arkret-event-draft"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+default = []
+salvo-oapi = [
+    "dep:salvo",
+    "salvo/oapi",
+    "arkret-wire/salvo-oapi",
+    "arkret-models-collaboration/salvo-oapi",
+    "arkret-models-crypto/salvo-oapi",
+]
+
+[dependencies]
+arkret-canonical = {workspace = true}
+arkret-identifiers = {workspace = true}
+arkret-models-collaboration = {workspace = true}
+arkret-models-crypto = {workspace = true}
+arkret-wire = {workspace = true}
+chrono = {workspace = true,features = ["serde"]}
+salvo = {workspace = true,features = ["oapi"],optional = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
+thiserror = {workspace = true}
+
+[dev-dependencies]
+serde_json = {workspace = true}
+
+[lints]
+workspace = true

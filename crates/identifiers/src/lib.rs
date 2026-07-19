@@ -20,6 +20,13 @@ pub enum IdentifierError {
 
     #[error("identifier random generation failed: {0}")]
     Random(String),
+
+    /// Spec-level value violation carrying the wire reason-code message
+    /// verbatim (e.g. `schema_violation: ...`, `hlc_hard_future_skew: ...`).
+    /// Used by the HLC value helpers in [`crate::hlc`] so downstream error
+    /// contracts keep the exact reason strings.
+    #[error("{0}")]
+    Protocol(String),
 }
 
 macro_rules! id_type {
@@ -592,6 +599,8 @@ fn parse_lower_hex(part: &str, original: &str) -> Result<u64> {
     }
     u64::from_str_radix(part, 16).map_err(|_| IdentifierError::InvalidId(original.to_owned()))
 }
+
+pub mod hlc;
 
 #[cfg(feature = "salvo")]
 mod oapi;

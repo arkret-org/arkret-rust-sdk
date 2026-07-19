@@ -1,4 +1,3 @@
-mod canonical;
 mod membership_invite;
 mod morph_message;
 mod object_create;

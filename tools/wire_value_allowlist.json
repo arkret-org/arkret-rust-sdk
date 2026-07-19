@@ -154,12 +154,12 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/operation.rs::Operation.payload",
+      "rust_field": "crates/event-draft/src/operation.rs::Operation.payload",
       "classification": "internal_or_fixture",
       "reason": "Internal operation construction keeps payload dispatch dynamic before selecting a typed wire operation."
     },
     {
-      "rust_field": "crates/core/src/models/operation.rs::OperationEnvelope.payload",
+      "rust_field": "crates/event-draft/src/operation.rs::OperationEnvelope.payload",
       "classification": "internal_or_fixture",
       "reason": "Internal operation envelope dispatch is dynamic and is not serialized as a standalone Spec schema."
     },

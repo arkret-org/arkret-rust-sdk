@@ -171,6 +171,8 @@ name = "arkret-core"
 version = "0.3.0"
 dependencies = [
  "arkret-canonical",
+ "arkret-event-draft",
+ "arkret-hlc",
  "arkret-identifiers",
  "arkret-models-collaboration",
  "arkret-models-crypto",
@@ -235,12 +237,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "arkret-event-draft"
+version = "0.3.0"
+dependencies = [
+ "arkret-canonical",
+ "arkret-identifiers",
+ "arkret-models-collaboration",
+ "arkret-models-crypto",
+ "arkret-wire",
+ "chrono",
+ "salvo",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "arkret-ffi"
 version = "0.3.0"
 dependencies = [
  "arkret-core",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "arkret-hlc"
+version = "0.3.0"
+dependencies = [
+ "arkret-canonical",
+ "arkret-identifiers",
+ "chrono",
+ "getrandom 0.4.2",
+ "salvo",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]

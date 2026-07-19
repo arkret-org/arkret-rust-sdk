@@ -15,6 +15,7 @@ pub mod http_bodies;
 pub mod key_backup;
 pub mod key_transparency;
 pub mod keys;
+pub mod mls_envelopes;
 pub mod mls_governance_proof;
 pub mod mls_payloads;
 
@@ -25,5 +26,6 @@ pub use http_bodies::*;
 pub use key_backup::*;
 pub use key_transparency::*;
 pub use keys::*;
+pub use mls_envelopes::*;
 pub use mls_governance_proof::*;
 pub use mls_payloads::*;

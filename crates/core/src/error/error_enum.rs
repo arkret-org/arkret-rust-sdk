@@ -116,6 +116,29 @@ impl From<arkret_identifiers::IdentifierError> for Error {
         match error {
             arkret_identifiers::IdentifierError::InvalidId(value) => Self::InvalidId(value),
             arkret_identifiers::IdentifierError::Random(error) => Self::Crypto(error),
+            arkret_identifiers::IdentifierError::Protocol(message) => Self::Protocol(message),
+        }
+    }
+}
+
+impl From<arkret_hlc::HlcError> for Error {
+    fn from(error: arkret_hlc::HlcError) -> Self {
+        match error {
+            arkret_hlc::HlcError::Protocol(message) => Self::Protocol(message),
+            arkret_hlc::HlcError::Identifier(error) => error.into(),
+            arkret_hlc::HlcError::Canonical(error) => error.into(),
+        }
+    }
+}
+
+impl From<arkret_event_draft::EventDraftError> for Error {
+    fn from(error: arkret_event_draft::EventDraftError) -> Self {
+        match error {
+            arkret_event_draft::EventDraftError::Protocol(message) => Self::Protocol(message),
+            arkret_event_draft::EventDraftError::Wire(error) => error.into(),
+            arkret_event_draft::EventDraftError::Canonical(error) => error.into(),
+            arkret_event_draft::EventDraftError::Identifier(error) => error.into(),
+            arkret_event_draft::EventDraftError::Json(error) => Self::CanonicalJson(error),
         }
     }
 }

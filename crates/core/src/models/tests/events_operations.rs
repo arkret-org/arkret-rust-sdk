@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use arkret_event_draft::required_fields_for_event_kind;
 use serde_json::json;
 
 use super::super::*;

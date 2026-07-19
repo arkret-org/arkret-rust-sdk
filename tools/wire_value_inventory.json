@@ -2,7 +2,8 @@
   "summary": {
     "total": 263,
     "by_crate": {
-      "core": 31,
+      "core": 29,
+      "event-draft": 2,
       "ffi": 1,
       "models-collaboration": 109,
       "models-crypto": 6,
@@ -369,32 +370,6 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/operation.rs::Operation.payload",
-      "crate": "core",
-      "file": "crates/core/src/models/operation.rs",
-      "line": 18,
-      "owner": "Operation",
-      "field": "payload",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "internal_or_fixture",
-      "reason": "Internal operation construction keeps payload dispatch dynamic before selecting a typed wire operation."
-    },
-    {
-      "rust_field": "crates/core/src/models/operation.rs::OperationEnvelope.payload",
-      "crate": "core",
-      "file": "crates/core/src/models/operation.rs",
-      "line": 110,
-      "owner": "OperationEnvelope",
-      "field": "payload",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "internal_or_fixture",
-      "reason": "Internal operation envelope dispatch is dynamic and is not serialized as a standalone Spec schema."
-    },
-    {
       "rust_field": "crates/core/src/models/policy_check.rs::PolicyCheckOutcome.obligations",
       "crate": "core",
       "file": "crates/core/src/models/policy_check.rs",
@@ -432,6 +407,32 @@
       "schema_shape": "open_map",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/event-draft/src/operation.rs::Operation.payload",
+      "crate": "event-draft",
+      "file": "crates/event-draft/src/operation.rs",
+      "line": 29,
+      "owner": "Operation",
+      "field": "payload",
+      "rust_type": "Value",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "internal_or_fixture",
+      "reason": "Internal operation construction keeps payload dispatch dynamic before selecting a typed wire operation."
+    },
+    {
+      "rust_field": "crates/event-draft/src/operation.rs::OperationEnvelope.payload",
+      "crate": "event-draft",
+      "file": "crates/event-draft/src/operation.rs",
+      "line": 121,
+      "owner": "OperationEnvelope",
+      "field": "payload",
+      "rust_type": "Value",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "internal_or_fixture",
+      "reason": "Internal operation envelope dispatch is dynamic and is not serialized as a standalone Spec schema."
     },
     {
       "rust_field": "crates/ffi/src/lib.rs::FfiEvent.payload",

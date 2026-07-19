@@ -103,12 +103,13 @@ impl CursorAuthority {
 
     /// Decode a stream token before looking up its server-private binding.
     pub fn decode_stream(token: &str) -> Result<Cursor, CursorAuthorityError> {
-        let cursor = Cursor::decode(token).map_err(|error| match error {
-            arkret_core::Error::Protocol(message) if message == "cursor has expired" => {
-                CursorAuthorityError::Expired
-            }
-            other => CursorAuthorityError::InvalidParam(other.to_string()),
-        })?;
+        let cursor =
+            Cursor::decode(token).map_err(|error| match arkret_core::Error::from(error) {
+                arkret_core::Error::Protocol(message) if message == "cursor has expired" => {
+                    CursorAuthorityError::Expired
+                }
+                other => CursorAuthorityError::InvalidParam(other.to_string()),
+            })?;
         if cursor.purpose != CursorPurpose::Stream {
             return Err(CursorAuthorityError::InvalidParam(
                 "cursor purpose must be stream".to_owned(),

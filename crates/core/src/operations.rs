@@ -752,6 +752,9 @@ mod tests {
         )
         .with_payload(json!({}))
         .build(&EventDraftKindRegistry::default());
-        assert!(matches!(result, Err(Error::Protocol(_))));
+        assert!(matches!(
+            result,
+            Err(arkret_event_draft::EventDraftError::Protocol(_))
+        ));
     }
 }
