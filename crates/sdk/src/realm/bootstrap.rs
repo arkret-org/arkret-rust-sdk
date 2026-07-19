@@ -1,0 +1,291 @@
+//! Ordinary Realm bootstrap batch validation.
+//!
+//! `ak.realm.create` is not an independently committable Event.  The wire
+//! unit is the ordered batch `create -> founding grant -> closed followups`.
+//! Keeping that shape here prevents clients and servers from growing separate
+//! kind allowlists or interpreting genesis authority differently.
+
+use std::collections::BTreeSet;
+
+use crate::Event;
+
+/// The only actions carried by an ordinary Realm founding grant.
+pub const REALM_FOUNDING_GRANT_ACTIONS: [&str; 3] = [
+    "ak.realm.admin",
+    "ak.capability.grant",
+    "ak.capability.revoke",
+];
+
+/// Closed set of initial Realm facets that may follow the founding grant.
+pub fn is_realm_bootstrap_followup_kind(kind: &str) -> bool {
+    matches!(
+        kind,
+        crate::events::EventKind::MEMBER_STATE
+            | crate::events::EventKind::REALM_HISTORY_VISIBILITY
+            | crate::events::EventKind::REALM_HISTORY_SHARING_POLICY
+            | crate::events::EventKind::REALM_POLICY_COMPONENTS
+            | crate::events::EventKind::REALM_DISCOVERY
+            | crate::events::EventKind::REALM_JOIN_RULE
+            | crate::events::EventKind::REALM_PLAINTEXT_VISIBLE_SERVICES
+    )
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RealmBootstrapValidationError {
+    NotOrdinaryRealmBootstrap,
+    RealmFoundingGrantMissing,
+    InvalidRealmFoundingGrant,
+    OutOfOrderBootstrap,
+}
+
+impl RealmBootstrapValidationError {
+    pub const fn reason_code(self) -> &'static str {
+        match self {
+            Self::NotOrdinaryRealmBootstrap => "not_ordinary_realm_bootstrap",
+            Self::RealmFoundingGrantMissing => "realm_founding_grant_missing",
+            Self::InvalidRealmFoundingGrant => "invalid_realm_founding_grant",
+            Self::OutOfOrderBootstrap => "out_of_order_bootstrap",
+        }
+    }
+}
+
+impl std::fmt::Display for RealmBootstrapValidationError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.reason_code())
+    }
+}
+
+impl std::error::Error for RealmBootstrapValidationError {}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ValidatedRealmBootstrap {
+    pub realm_id: String,
+    pub actor_id: String,
+}
+
+/// Validate the complete ordinary (non-PCR) Realm genesis transaction.
+///
+/// Envelope schema/proof validation remains the caller's responsibility. This
+/// function owns the cross-Event shape and genesis-authority invariants.
+pub fn validate_realm_bootstrap_unit(
+    events: &[Event],
+) -> Result<ValidatedRealmBootstrap, RealmBootstrapValidationError> {
+    let Some(create) = events.first() else {
+        return Err(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap);
+    };
+    if create.kind.as_str() != crate::events::EventKind::REALM_CREATE {
+        return Err(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap);
+    }
+    // PCR bootstrap is a distinct, exactly-two-Event protocol unit.
+    if events
+        .get(1)
+        .is_some_and(|event| event.kind.as_str() == crate::events::EventKind::DEVICE_AUTHORIZE)
+    {
+        return Err(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap);
+    }
+    let actor_id = create.actor_id.as_str();
+    let realm_id = create.realm_id.as_str();
+    if create
+        .payload
+        .get("object")
+        .and_then(|object| object.get("created_by"))
+        .and_then(serde_json::Value::as_str)
+        != Some(actor_id)
+    {
+        return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
+    }
+    let Some(founding) = events.get(1) else {
+        return Err(RealmBootstrapValidationError::RealmFoundingGrantMissing);
+    };
+    if founding.kind.as_str() != crate::events::EventKind::CAPABILITY_GRANT {
+        return Err(RealmBootstrapValidationError::RealmFoundingGrantMissing);
+    }
+    if founding.actor_id.as_str() != actor_id || founding.realm_id.as_str() != realm_id {
+        return Err(RealmBootstrapValidationError::InvalidRealmFoundingGrant);
+    }
+    validate_founding_grant_payload(&founding.payload, realm_id, actor_id)?;
+
+    for followup in &events[2..] {
+        if followup.actor_id.as_str() != actor_id
+            || followup.realm_id.as_str() != realm_id
+            || !is_realm_bootstrap_followup_kind(followup.kind.as_str())
+        {
+            return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
+        }
+    }
+    Ok(ValidatedRealmBootstrap {
+        realm_id: realm_id.to_owned(),
+        actor_id: actor_id.to_owned(),
+    })
+}
+
+fn validate_founding_grant_payload(
+    object: &std::collections::BTreeMap<String, serde_json::Value>,
+    realm_id: &str,
+    actor_id: &str,
+) -> Result<(), RealmBootstrapValidationError> {
+    let invalid = RealmBootstrapValidationError::InvalidRealmFoundingGrant;
+    if object.keys().any(|key| key != "grant_id" && key != "grant") {
+        return Err(invalid);
+    }
+    let grant_id = object
+        .get("grant_id")
+        .and_then(serde_json::Value::as_str)
+        .filter(|value| value.starts_with("ak:grant:"))
+        .ok_or(invalid)?;
+    let grant = object
+        .get("grant")
+        .and_then(serde_json::Value::as_object)
+        .ok_or(invalid)?;
+    const ALLOWED_GRANT_FIELDS: &[&str] = &[
+        "id",
+        "schema",
+        "realm_id",
+        "issuer",
+        "subject",
+        "actions",
+        "resources",
+        "issued_at",
+        "proofs",
+    ];
+    if grant
+        .keys()
+        .any(|key| !ALLOWED_GRANT_FIELDS.contains(&key.as_str()))
+        || grant.get("id").and_then(serde_json::Value::as_str) != Some(grant_id)
+        || grant.get("schema").and_then(serde_json::Value::as_str)
+            != Some("ak.schema.capability.v1")
+        || grant.get("realm_id").and_then(serde_json::Value::as_str) != Some(realm_id)
+        || grant.get("issuer").and_then(serde_json::Value::as_str) != Some(actor_id)
+        || grant.get("subject").and_then(serde_json::Value::as_str) != Some(actor_id)
+    {
+        return Err(invalid);
+    }
+    let actions = grant
+        .get("actions")
+        .and_then(serde_json::Value::as_array)
+        .ok_or(invalid)?;
+    let actual_actions = actions
+        .iter()
+        .map(|action| action.as_str().ok_or(invalid))
+        .collect::<Result<BTreeSet<_>, _>>()?;
+    let expected_actions = REALM_FOUNDING_GRANT_ACTIONS
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    if actual_actions != expected_actions || actions.len() != expected_actions.len() {
+        return Err(invalid);
+    }
+    let resources = grant
+        .get("resources")
+        .and_then(serde_json::Value::as_array)
+        .filter(|resources| resources.len() == 1)
+        .ok_or(invalid)?;
+    let resource = resources[0].as_object().ok_or(invalid)?;
+    if resource.len() != 3
+        || resource.get("kind").and_then(serde_json::Value::as_str) != Some("realm")
+        || resource.get("realm_id").and_then(serde_json::Value::as_str) != Some(realm_id)
+        || resource
+            .get("match_scope")
+            .and_then(serde_json::Value::as_str)
+            != Some("realm_wide")
+    {
+        return Err(invalid);
+    }
+    if !grant
+        .get("issued_at")
+        .is_some_and(serde_json::Value::is_string)
+        || !grant.get("proofs").is_some_and(serde_json::Value::is_array)
+    {
+        return Err(invalid);
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    const REALM: &str = "ak:realm:01964120-0000-7000-8000-000000000000";
+    const ACTOR: &str = "did:web:founder.example";
+
+    fn event(kind: &str, payload: serde_json::Value) -> Event {
+        Event::new_at(
+            kind,
+            crate::RealmId::new(REALM).unwrap(),
+            crate::Did::new(ACTOR).unwrap(),
+            1,
+            crate::Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
+            payload,
+            chrono::Utc::now(),
+        )
+        .unwrap()
+    }
+
+    fn create() -> Event {
+        event(
+            crate::events::EventKind::REALM_CREATE,
+            json!({"object": {"created_by": ACTOR}}),
+        )
+    }
+
+    fn founding(subject: &str) -> Event {
+        event(
+            crate::events::EventKind::CAPABILITY_GRANT,
+            json!({
+                "grant_id": "ak:grant:01964120-0000-7000-8000-000000000001",
+                "grant": {
+                    "id": "ak:grant:01964120-0000-7000-8000-000000000001",
+                    "schema": "ak.schema.capability.v1",
+                    "realm_id": REALM,
+                    "issuer": ACTOR,
+                    "subject": subject,
+                    "actions": REALM_FOUNDING_GRANT_ACTIONS,
+                    "resources": [{
+                        "kind": "realm",
+                        "realm_id": REALM,
+                        "match_scope": "realm_wide"
+                    }],
+                    "issued_at": "2026-07-20T00:00:00Z",
+                    "proofs": []
+                }
+            }),
+        )
+    }
+
+    #[test]
+    fn accepts_closed_founding_grant_and_history_sharing_followup() {
+        let events = vec![
+            create(),
+            founding(ACTOR),
+            event(
+                crate::events::EventKind::REALM_HISTORY_SHARING_POLICY,
+                json!({"value": {"version": 1}}),
+            ),
+        ];
+        assert!(validate_realm_bootstrap_unit(&events).is_ok());
+    }
+
+    #[test]
+    fn rejects_missing_founding_grant() {
+        let events = vec![
+            create(),
+            event(
+                crate::events::EventKind::REALM_POLICY_COMPONENTS,
+                json!({"value": {"policy_revision": 1}}),
+            ),
+        ];
+        assert_eq!(
+            validate_realm_bootstrap_unit(&events),
+            Err(RealmBootstrapValidationError::RealmFoundingGrantMissing)
+        );
+    }
+
+    #[test]
+    fn rejects_widened_or_third_party_founding_grant() {
+        let events = vec![create(), founding("did:web:other.example")];
+        assert_eq!(
+            validate_realm_bootstrap_unit(&events),
+            Err(RealmBootstrapValidationError::InvalidRealmFoundingGrant)
+        );
+    }
+}

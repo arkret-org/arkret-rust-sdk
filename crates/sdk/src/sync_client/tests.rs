@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use arkret_core::{
     AccountSubscribeRealms, AccountSubscribeUnreadCounts, DeviceMessageContainer,
-    EphemeralEventContainer, EventContainer, ProtocolKind, RealmSyncEntry,
+    EphemeralEventContainer, ErrorEnvelope, EventContainer, ProtocolKind, RealmSyncEntry,
 };
 use arkret_signatures::{PublicKeyMaterial, sign_eddsa_detached_jws};
 use ed25519_dalek::SigningKey;
@@ -133,7 +133,10 @@ fn sync_loop_recovers_after_failure() {
         calls += 1;
         if calls == 1 {
             assert_eq!(request.catchup, Some(true));
-            Err(Error::Protocol("network down".to_owned()))
+            Err(Error::Api {
+                status: 503,
+                error: Box::new(ErrorEnvelope::new("unavailable", "network down")),
+            })
         } else {
             assert!(request.after.is_none());
             assert_eq!(request.catchup, Some(true));
@@ -160,10 +163,33 @@ fn sync_loop_rejects_empty_cursor_without_advancing_position() {
 
     assert!(matches!(
         sync_loop.step(&mut transport),
-        SyncLoopStep::Retry { error, .. }
+        SyncLoopStep::Failed { error }
             if error.contains("requires a non-empty cursor")
     ));
     assert!(sync_loop.token().is_none());
+}
+
+#[test]
+fn sync_loop_discards_rejected_cursor_before_retry() {
+    let mut sync_loop = SyncLoop::from_snapshot(SyncLoopSnapshot {
+        token: Some("ak:cursor:expired".to_owned()),
+        timeout_ms: 30_000,
+        gap_strategy: SyncGapStrategy::PreserveTokenAndBackfill,
+    });
+    let mut transport = |request: SyncRequestBody| {
+        assert_eq!(request.after.as_deref(), Some("ak:cursor:expired"));
+        Err(Error::Api {
+            status: 410,
+            error: Box::new(ErrorEnvelope::new("cursor_expired", "cursor expired")),
+        })
+    };
+
+    assert!(matches!(
+        sync_loop.step(&mut transport),
+        SyncLoopStep::Retry { retry_after, .. } if retry_after.is_zero()
+    ));
+    assert!(sync_loop.token().is_none());
+    assert!(sync_loop.recovery_actions().is_empty());
 }
 
 #[test]
@@ -430,6 +456,49 @@ fn processor_dispatches_all_update_categories() {
     assert!(processor.account_data("ak.settings").is_some());
     assert!(processor.notification(notification_id).is_some());
     assert_eq!(processor.device_lists().changed.len(), 1);
+}
+
+#[test]
+fn ephemeral_only_realm_delta_preserves_durable_processor_summary() {
+    let realm_id = "ak:realm:01904100-0000-7000-8000-9b64700c6ee8";
+    let parsed_realm_id = RealmId::new(realm_id).unwrap();
+    let mut processor = SyncResponseProcessor::new();
+
+    let mut baseline = sync_response("s-summary-1");
+    delta_mut(&mut baseline).realms = Some(AccountSubscribeRealms {
+        entries: BTreeMap::from([(
+            realm_id.to_owned(),
+            RealmSyncEntry {
+                summary: Some(AccountSubscribeRealmSummary {
+                    joined_member_count: Some(2),
+                    invited_member_count: None,
+                    heroes: None,
+                }),
+                ..Default::default()
+            },
+        )]),
+    });
+    processor.process(baseline).unwrap();
+
+    let mut ephemeral = sync_response("s-summary-2");
+    delta_mut(&mut ephemeral).realms = Some(AccountSubscribeRealms {
+        entries: BTreeMap::from([(
+            realm_id.to_owned(),
+            RealmSyncEntry {
+                ephemeral: Some(EphemeralEventContainer { events: Vec::new() }),
+                ..Default::default()
+            },
+        )]),
+    });
+    processor.process(ephemeral).unwrap();
+
+    assert_eq!(
+        processor
+            .realm(&parsed_realm_id)
+            .and_then(|realm| realm.summary.as_ref())
+            .and_then(|summary| summary.joined_member_count),
+        Some(2)
+    );
 }
 
 #[test]

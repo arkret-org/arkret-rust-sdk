@@ -93,6 +93,54 @@ pub enum Error {
 }
 
 impl Error {
+    /// True when a service rejected a continuation cursor that the client must
+    /// discard before retrying. Arkret services use dedicated cursor codes for
+    /// expiry/integrity/portability failures and `invalid_param` plus the
+    /// `invalid_cursor` reason for malformed values.
+    pub fn is_invalid_cursor(&self) -> bool {
+        let Self::Api { error, .. } = self else {
+            return false;
+        };
+
+        const INVALID_CURSOR_CODES: &[&str] = &[
+            "cursor_expired",
+            "cursor_integrity_invalid",
+            "cursor_unrecognized",
+            "cursor_invalid",
+            "invalid_cursor",
+        ];
+
+        let code = error.error.code.as_str();
+        if INVALID_CURSOR_CODES.contains(&code) {
+            return true;
+        }
+        if code != "invalid_param" {
+            return false;
+        }
+
+        let reason_is_invalid_cursor = error
+            .error
+            .details
+            .get("reason_code")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|reason| INVALID_CURSOR_CODES.contains(&reason));
+        if reason_is_invalid_cursor {
+            return true;
+        }
+
+        let message = error.error.message.to_ascii_lowercase();
+        message.contains("cursor")
+            && [
+                "invalid",
+                "malformed",
+                "expired",
+                "integrity",
+                "unrecognized",
+            ]
+            .iter()
+            .any(|marker| message.contains(marker))
+    }
+
     /// Return the structured key-store error when this error originated at a
     /// [`crate::keystore::KeyStore`] boundary.
     pub fn as_key_store_error(&self) -> Option<&crate::keystore::KeyStoreError> {

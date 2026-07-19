@@ -143,7 +143,12 @@ impl SyncResponseProcessor {
                         .state
                         .as_ref()
                         .map_or(0, |container| container.events.len());
-                    processed.summary = entry.summary.clone();
+                    // Realm entries are per-stream deltas. An
+                    // ephemeral-only entry legitimately omits `summary`; do
+                    // not erase the last durable summary in that case.
+                    if let Some(summary) = &entry.summary {
+                        processed.summary = Some(summary.clone());
+                    }
                     if let Some(unread) = &entry.unread_notifications {
                         processed.notification_count = unread.notification_count.unwrap_or(0);
                         processed.highlight_count = unread.highlight_count.unwrap_or(0);

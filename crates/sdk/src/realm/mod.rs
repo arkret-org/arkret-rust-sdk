@@ -28,6 +28,7 @@ use crate::models::{
 use crate::resolver::RealmState;
 use crate::{RealmId, Result, SpaceId, StrandId};
 
+pub mod bootstrap;
 mod helpers;
 mod membership;
 mod morph;

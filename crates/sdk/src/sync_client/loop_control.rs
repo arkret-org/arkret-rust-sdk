@@ -498,9 +498,7 @@ impl SyncLoop {
         // after `process` succeeds.
         let cursor = batch.cursor.clone();
         if cursor.trim().is_empty() {
-            let retry_after = self.backoff.record_failure();
-            return SyncLoopStep::Retry {
-                retry_after,
+            return SyncLoopStep::Failed {
                 error: "account subscribe batch requires a non-empty cursor".to_owned(),
             };
         }
@@ -527,28 +525,68 @@ impl SyncLoop {
                 }
                 SyncLoopStep::Updates(updates)
             }
-            Err(error) => {
-                let retry_after = self.backoff.record_failure();
-                SyncLoopStep::Retry {
-                    retry_after,
-                    error: error.to_string(),
-                }
-            }
+            Err(error) => SyncLoopStep::Failed {
+                error: error.to_string(),
+            },
         }
     }
 
     /// React to a transport error, routing structured account-stream
     /// interrupts (client-sync.md §2.2) to their recovery paths.
     fn handle_transport_error(&mut self, error: Error) -> SyncLoopStep {
+        if error.is_invalid_cursor() {
+            // Continuation cursors are opaque and cannot be repaired locally.
+            // Clear the in-memory position before returning so the owning
+            // runner checkpoints `None` and the next request is an initial
+            // catch-up instead of replaying the rejected cursor forever.
+            self.reset();
+            return SyncLoopStep::Retry {
+                retry_after: Duration::ZERO,
+                error: error.to_string(),
+            };
+        }
+        if let Error::Api { error, .. } = &error
+            && matches!(
+                error.error.code.as_str(),
+                "grant_already_consumed"
+                    | "session_logged_out"
+                    | "auth_expired"
+                    | "unauthenticated"
+                    | "audience_mismatch"
+            )
+        {
+            return SyncLoopStep::Unauthorized {
+                reason: Some(error.error.code.clone()),
+            };
+        }
+        if matches!(&error, Error::Api { status: 401, .. }) {
+            return SyncLoopStep::Unauthorized { reason: None };
+        }
+        #[cfg(feature = "client")]
+        let retryable_http = matches!(&error, Error::Http(_));
+        #[cfg(not(feature = "client"))]
+        let retryable_http = false;
+        let retryable_api = matches!(
+            &error,
+            Error::Api { status: 429, .. }
+                | Error::Api { status: 408, .. }
+                | Error::Api {
+                    status: 500..=u16::MAX,
+                    ..
+                }
+        );
+        if retryable_http || retryable_api {
+            let retry_after = self.backoff.record_failure();
+            return SyncLoopStep::Retry {
+                retry_after,
+                error: error.to_string(),
+            };
+        }
         match error {
             Error::AccountStreamInterrupt(interrupt) => self.handle_interrupt(interrupt),
-            error => {
-                let retry_after = self.backoff.record_failure();
-                SyncLoopStep::Retry {
-                    retry_after,
-                    error: error.to_string(),
-                }
-            }
+            error => SyncLoopStep::Failed {
+                error: error.to_string(),
+            },
         }
     }
 
