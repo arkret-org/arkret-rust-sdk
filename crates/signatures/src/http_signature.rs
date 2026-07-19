@@ -310,7 +310,7 @@ impl SignatureVerificationPolicy {
         self
     }
 
-    /// Configure accepted clock skew around `created` and `expires`.
+    /// Configure accepted clock skew around `created`.
     pub fn max_clock_skew_seconds(mut self, seconds: i64) -> Self {
         self.max_clock_skew_seconds = seconds.max(0);
         self
@@ -355,7 +355,7 @@ impl SignatureVerificationPolicy {
         if signature_input.created > now_unix_seconds.saturating_add(skew) {
             return Err(SignaturePolicyError::CreatedInFuture);
         }
-        if signature_input.expires < now_unix_seconds.saturating_sub(skew) {
+        if signature_input.expires < now_unix_seconds {
             return Err(SignaturePolicyError::Expired);
         }
         if signature_input.created < now_unix_seconds.saturating_sub(skew) {
@@ -1015,6 +1015,12 @@ mod tests {
         let expired = parse_signature_input(&floria_signature_input(now - 300, now - 40)).unwrap();
         assert_eq!(
             policy.validate(&expired, Some("sha-256=:x=:"), now),
+            Err(SignaturePolicyError::Expired)
+        );
+        let just_expired =
+            parse_signature_input(&floria_signature_input(now - 30, now - 1)).unwrap();
+        assert_eq!(
+            policy.validate(&just_expired, Some("sha-256=:x=:"), now),
             Err(SignaturePolicyError::Expired)
         );
         let too_long = parse_signature_input(&floria_signature_input(now - 1, now + 301)).unwrap();

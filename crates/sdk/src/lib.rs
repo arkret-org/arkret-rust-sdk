@@ -177,7 +177,6 @@ pub mod crypto;
 #[cfg(feature = "full-surface")]
 pub mod crypto_store;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
-#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub mod devices;
 #[cfg(feature = "full-surface")]
 pub mod discovery;
@@ -282,8 +281,9 @@ pub mod webrtc;
 
 #[cfg(feature = "full-surface")]
 pub use account::{
-    ACCOUNT_DATA_BLOCKLIST, AccountBlocklist, AccountBlocklistPayload,
-    AccountBlocklistPayloadEntry, AccountDataManager, AccountDataSetPayload, BlocklistEntry,
+    ACCOUNT_DATA_BLOCKLIST, AccountBlocklistPayload, AccountBlocklistPayloadEntry,
+    AccountBlocklistTarget, AccountDataManager, AccountDataSetPayload, ContactRemark,
+    ContactRemarkSubject, RealmRemark, RealmRemarkSubject,
 };
 #[cfg(feature = "full-surface")]
 pub use agent::{

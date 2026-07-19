@@ -72,6 +72,7 @@ pub mod profile_feature_guard {
 pub mod profile_semantics {
     pub use arkret_policy::profile_semantics::*;
 }
+pub mod query_auth;
 pub mod push {
     pub use arkret_wire_edge::push::*;
 }
@@ -187,6 +188,9 @@ pub use profile_semantics::{
     ProfileSemanticSurface, collect_profile_semantic_requirements,
     profile_capability_action_coverage_report, profile_semantic_coverage_report,
     validate_profile_semantic_coverage,
+};
+pub use query_auth::{
+    QUERY_AUTH_PARAMETER_NAMES, contains_query_auth_material, is_query_auth_parameter,
 };
 pub use sdk_conformance::{
     SDK_CONFORMANCE_CLAIM_DOMAIN, SdkArtifactSubject, SdkBuildVariant, SdkClaimIssuer,

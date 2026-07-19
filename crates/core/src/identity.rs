@@ -16,6 +16,53 @@ pub mod primary_handle;
 pub const DID_WEB_MAX_DOCUMENT_BYTES: usize = 64 * 1024;
 pub const DID_WEBVH_V1_METHOD: &str = "did:webvh:1.0";
 
+pub fn did_web_document_url(did: &Did) -> Result<String> {
+    if did.method() != "web" {
+        return Err(crate::Error::Protocol(
+            "DID method is not did:web".to_owned(),
+        ));
+    }
+    let method_id = did
+        .as_str()
+        .strip_prefix("did:web:")
+        .ok_or_else(|| crate::Error::Protocol("invalid did:web identifier".to_owned()))?;
+    let mut parts = method_id.split(':');
+    let encoded_authority = parts
+        .next()
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| crate::Error::Protocol("did:web authority is empty".to_owned()))?;
+    let authority = encoded_authority.replace("%3A", ":").replace("%3a", ":");
+    let path: Vec<&str> = parts.collect();
+    if path.iter().any(|segment| {
+        segment.is_empty()
+            || segment.contains('/')
+            || segment.contains("..")
+            || segment.contains('?')
+            || segment.contains('#')
+    }) {
+        return Err(crate::Error::Protocol(
+            "did:web contains an invalid path segment".to_owned(),
+        ));
+    }
+    let raw = if path.is_empty() {
+        format!("https://{authority}/.well-known/did.json")
+    } else {
+        format!("https://{authority}/{}/did.json", path.join("/"))
+    };
+    let parsed = url::Url::parse(&raw)
+        .map_err(|_| crate::Error::Protocol("invalid did:web URL".to_owned()))?;
+    let host = parsed
+        .host_str()
+        .filter(|host| host.contains('.'))
+        .ok_or_else(|| crate::Error::Protocol("invalid did:web host".to_owned()))?;
+    if !host.bytes().all(|byte| {
+        byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'-')
+    }) {
+        return Err(crate::Error::Protocol("invalid did:web host".to_owned()));
+    }
+    Ok(parsed.to_string())
+}
+
 pub fn validate_did_webvh_v1_method(parameters: &Value) -> Result<()> {
     if parameters.get("method").and_then(Value::as_str) != Some(DID_WEBVH_V1_METHOD) {
         return Err(crate::Error::Protocol(
@@ -427,6 +474,15 @@ mod tests {
         assert_eq!(
             document.service_urls(),
             vec!["https://example.test/users/alice"]
+        );
+    }
+
+    #[test]
+    fn did_web_url_supports_encoded_ports_and_paths() {
+        let did = Did::new("did:web:example.test%3A8443:users:alice").unwrap();
+        assert_eq!(
+            did_web_document_url(&did).unwrap(),
+            "https://example.test:8443/users/alice/did.json"
         );
     }
 }

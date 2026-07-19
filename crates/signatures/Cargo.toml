@@ -13,7 +13,6 @@ version.workspace = true
 
 [features]
 default = ["protocol"]
-http-signature = []
 protocol = ["dep:arkret-core"]
 signer = ["protocol"]
 
