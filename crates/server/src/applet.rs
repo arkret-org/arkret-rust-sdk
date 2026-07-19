@@ -340,8 +340,12 @@ mod salvo_router {
         fn resolve_verification_method(
             &self,
             verification_method: &str,
-        ) -> Result<VerificationMethodDocument> {
-            self.0.resolve_verification_method(verification_method)
+        ) -> arkret_signatures::Result<VerificationMethodDocument> {
+            // AppletHandler returns core-typed results; bridge into the
+            // arkret_signatures error the resolver trait requires.
+            self.0
+                .resolve_verification_method(verification_method)
+                .map_err(|err| arkret_signatures::Error::Protocol(err.to_string()))
         }
     }
 
@@ -449,14 +453,16 @@ mod salvo_router {
                 let context = ProofVerificationContext::new(signing_actor, expected_digest);
                 let verification =
                     verify_proof_with_resolver(proof, &context, &resolver, |method, proof| {
-                        let public_key = public_key_material(&method.public_key_multibase)?;
+                        // The resolver callback contract is arkret_signatures::Result;
+                        // bridge the core-typed helper error at this boundary.
+                        let public_key = public_key_material(&method.public_key_multibase)
+                            .map_err(|err| arkret_signatures::Error::Protocol(err.to_string()))?;
                         verify_eddsa_detached_jws_proof(
                             proof,
                             &canonical_bytes,
                             &event.actor_id,
                             &public_key,
-                        )
-                        .map_err(Error::from)?;
+                        )?;
                         Ok(true)
                     })?;
                 if !verification.valid {

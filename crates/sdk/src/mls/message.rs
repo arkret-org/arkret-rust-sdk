@@ -144,7 +144,10 @@ impl MessageCrypto {
 
     pub fn verify_opaque_payload_digest(message: &EncryptedMessage) -> Result<()> {
         let ciphertext_bytes = decode(&message.payload.ciphertext)?;
-        message.payload.verify_mls_payload_digest(&ciphertext_bytes)
+        message
+            .payload
+            .verify_mls_payload_digest(&ciphertext_bytes)
+            .map_err(Into::into)
     }
 
     pub fn verify_payload_and_aad_digest(
