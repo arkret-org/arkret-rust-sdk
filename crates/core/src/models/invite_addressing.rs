@@ -26,6 +26,26 @@ fn validate_locator_token_shape(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
+fn deserialize_non_null_optional<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
+}
+
+fn deserialize_present_nullable<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer).map(Some)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -62,11 +82,23 @@ impl InviteLocatorResolveRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteLocatorIssueRequestBody {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub ttl_seconds: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub one_time_use: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub display_hint: Option<PrincipalLocatorDisplayHint>,
 }
 
@@ -83,6 +115,9 @@ impl InviteLocatorIssueRequestBody {
                 "invite locator ttl_seconds must be between 60 and 3600".to_owned(),
             ));
         }
+        if let Some(display_hint) = &self.display_hint {
+            display_hint.validate_minimal()?;
+        }
         Ok(())
     }
 }
@@ -92,26 +127,40 @@ impl InviteLocatorIssueRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct InviteLocatorRotateRequestBody {
     pub locator_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub ttl_seconds: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub one_time_use: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display_hint: Option<PrincipalLocatorDisplayHint>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_present_nullable",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub display_hint: Option<Option<PrincipalLocatorDisplayHint>>,
 }
 
 impl InviteLocatorRotateRequestBody {
-    pub fn issue_options(&self) -> InviteLocatorIssueRequestBody {
-        InviteLocatorIssueRequestBody {
-            ttl_seconds: self.ttl_seconds,
-            one_time_use: self.one_time_use,
-            display_hint: self.display_hint.clone(),
-        }
-    }
-
     pub fn validate_minimal(&self) -> Result<()> {
         validate_locator_id(&self.locator_id)?;
-        self.issue_options().validate_minimal()
+        if let Some(ttl) = self.ttl_seconds
+            && !(INVITE_LOCATOR_MIN_TTL_SECONDS..=INVITE_LOCATOR_MAX_TTL_SECONDS).contains(&ttl)
+        {
+            return Err(Error::Protocol(
+                "invite locator ttl_seconds must be between 60 and 3600".to_owned(),
+            ));
+        }
+        if let Some(Some(display_hint)) = &self.display_hint {
+            display_hint.validate_minimal()?;
+        }
+        Ok(())
     }
 }
 
@@ -321,6 +370,21 @@ pub struct PrincipalLocatorDisplayHint {
     pub display_name_hint: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
+}
+
+impl PrincipalLocatorDisplayHint {
+    pub fn validate_minimal(&self) -> Result<()> {
+        if self
+            .display_name_hint
+            .as_ref()
+            .is_some_and(|value| value.chars().count() > 128)
+        {
+            return Err(Error::Protocol(
+                "invite locator display_name_hint must not exceed 128 characters".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -594,6 +658,36 @@ mod tests {
                 locator_id: "wrong".to_owned()
             }
             .validate_minimal()
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn invite_locator_rotate_distinguishes_omitted_preserved_and_explicitly_cleared_hint() {
+        let omitted: InviteLocatorRotateRequestBody = serde_json::from_value(serde_json::json!({
+            "locator_id": "ak:invite_locator:0196419b-0000-7000-8000-000000000000"
+        }))
+        .unwrap();
+        assert_eq!(omitted.display_hint, None);
+
+        let cleared: InviteLocatorRotateRequestBody = serde_json::from_value(serde_json::json!({
+            "locator_id": "ak:invite_locator:0196419b-0000-7000-8000-000000000000",
+            "display_hint": null
+        }))
+        .unwrap();
+        assert_eq!(cleared.display_hint, Some(None));
+
+        assert!(
+            serde_json::from_value::<InviteLocatorRotateRequestBody>(serde_json::json!({
+                "locator_id": "ak:invite_locator:0196419b-0000-7000-8000-000000000000",
+                "ttl_seconds": null
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<InviteLocatorIssueRequestBody>(serde_json::json!({
+                "display_hint": null
+            }))
             .is_err()
         );
     }
