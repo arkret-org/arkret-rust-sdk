@@ -1,16 +1,17 @@
 //! SDK-local operation drafts and the registry-backed envelope builder.
 
+use arkret_models_collaboration::sync_frames::account_sync::DeviceMessageTarget;
 use arkret_models_crypto::mls_envelopes::{
     MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
 };
 use arkret_wire::{
-    Audience, CriticalExtension, Did, Event, EventId, EventRef, EventRequirements, GrantId, Hash,
-    Hlc, OPERATION_SCHEMA, OperationId, OperationType, Proof, ProofBindingRequirements, RealmId,
-    SignatureBindingPayload, canonical,
+    Audience, CriticalExtension, DeviceMessageId, Did, Event, EventId, EventRef, EventRequirements,
+    GrantId, Hash, Hlc, OPERATION_SCHEMA, OperationId, OperationType, Proof,
+    ProofBindingRequirements, ProtocolKind, RealmId, SignatureBindingPayload, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::registry::EventDraftKindRegistry;
 use crate::{EventDraftError, Result};
@@ -443,6 +444,47 @@ impl MlsEnvelopeOperationExt for MlsWelcomeEnvelope {
             self.group_id, self.epoch, self.recipient_principal_id, self.recipient_device_id
         ));
         Ok(operation)
+    }
+}
+
+/// Project an MLS Welcome transport envelope into a `DeviceMessageTarget`.
+///
+/// A `Welcome` is delivered out-of-band to the invitee's device via the
+/// to-device channel. The `DeviceMessageTarget` wire shape is owned by
+/// `arkret-models-collaboration`, so this binding lives on the event-draft
+/// side (which already depends on it) rather than in the OpenMLS-isolation
+/// layer (`arkret-mls`), which must not reach the collaboration crate.
+pub trait MlsWelcomeTargetExt {
+    /// Build the `ak.mls.welcome.v1` to-device target that carries this
+    /// Welcome to the recipient device.
+    fn welcome_device_message_target(
+        &self,
+        message_id: DeviceMessageId,
+        expires_at: DateTime<Utc>,
+    ) -> Result<DeviceMessageTarget>;
+}
+
+impl MlsWelcomeTargetExt for MlsWelcomeEnvelope {
+    fn welcome_device_message_target(
+        &self,
+        message_id: DeviceMessageId,
+        expires_at: DateTime<Utc>,
+    ) -> Result<DeviceMessageTarget> {
+        Ok(DeviceMessageTarget {
+            message_id,
+            kind: ProtocolKind::new("ak.mls.welcome.v1")
+                .map_err(|error| EventDraftError::Protocol(error.to_string()))?,
+            content: serde_json::from_value(json!({
+                "group_id": self.group_id,
+                "epoch": self.epoch,
+                "recipient_principal_id": self.recipient_principal_id,
+                "recipient_device_id": self.recipient_device_id,
+                "welcome": self.welcome,
+                "welcome_hash": self.welcome_hash,
+                "ratchet_tree": self.ratchet_tree,
+            }))?,
+            expires_at,
+        })
     }
 }
 

@@ -17,8 +17,8 @@ mod rank;
 mod registry;
 
 pub use operation::{
-    CausalRef, MlsEnvelopeOperationExt, Operation, OperationEnvelope, OperationEnvelopeBuilder,
-    OperationEventConversion, OperationSignature,
+    CausalRef, MlsEnvelopeOperationExt, MlsWelcomeTargetExt, Operation, OperationEnvelope,
+    OperationEnvelopeBuilder, OperationEventConversion, OperationSignature,
 };
 pub use payloads::{StrandCreateObject, StrandTracksUpdatePayload};
 pub use rank::{

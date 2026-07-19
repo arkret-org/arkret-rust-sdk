@@ -1,6 +1,6 @@
 use chrono::Utc;
 
-use crate::{Error, Result};
+use crate::{MlsError as Error, Result};
 
 /// Profile id whose Realms are subject to the SEC-08 minimal-metadata
 /// hardening (epoch lifetime ≤ 1h MUST + `aad_visibility=hidden` MUST).
@@ -26,16 +26,19 @@ pub fn minimal_metadata_max_epoch_lifetime() -> chrono::Duration {
 /// `aad_visibility=hidden`, per `crypto-media/encryption-and-audit.md` §2.9.
 ///
 /// When `is_minimal_metadata_realm` is true the §2.9 SHOULD on hidden AAD is a
-/// MUST: any visibility other than [`crate::EncryptedEnvelopeAadVisibility::Hidden`]
+/// MUST: any visibility other than [`arkret_models_crypto::EncryptedEnvelopeAadVisibility::Hidden`]
 /// is rejected with [`Error::Protocol`] so message-id exposure cannot widen reaction-frequency
 /// correlation from per-`target_ref` to per-message. Non-minimal Realms are
 /// unaffected (this helper returns `Ok(())`).
 pub fn enforce_minimal_metadata_aad(
-    visibility: &crate::EncryptedEnvelopeAadVisibility,
+    visibility: &arkret_models_crypto::EncryptedEnvelopeAadVisibility,
     is_minimal_metadata_realm: bool,
 ) -> Result<()> {
     if is_minimal_metadata_realm
-        && !matches!(visibility, crate::EncryptedEnvelopeAadVisibility::Hidden)
+        && !matches!(
+            visibility,
+            arkret_models_crypto::EncryptedEnvelopeAadVisibility::Hidden
+        )
     {
         return Err(Error::Protocol(format!(
             "{MINIMAL_METADATA_REALM_PROFILE} Realm MUST use aad_visibility=hidden \

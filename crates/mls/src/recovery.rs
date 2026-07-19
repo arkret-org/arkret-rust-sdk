@@ -1,7 +1,9 @@
+use arkret_models_crypto::{MlsCommitEnvelope, MlsCommitSource, MlsWelcomeEnvelope};
+use arkret_wire::{DeviceId, Did};
 use serde::{Deserialize, Serialize};
 
-use super::group::ArkretMlsGroup;
-use crate::{CryptoStore, DeviceId, Did, Error, MlsCommitEnvelope, MlsWelcomeEnvelope, Result};
+use crate::group::ArkretMlsGroup;
+use crate::{MlsError as Error, Result};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -141,7 +143,7 @@ impl EpochRecoveryOutcome {
 /// Build an epoch recovery response from a group that has the needed commits.
 pub fn build_epoch_recovery_response(
     group: &ArkretMlsGroup,
-    store: &impl CryptoStore,
+    store: &impl MlsCommitSource,
     request: &EpochRecoveryRequestBody,
 ) -> Result<EpochRecoveryOutcome> {
     request.validate()?;

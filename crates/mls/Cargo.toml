@@ -1,0 +1,54 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+description = "Arkret v1 MLS (RFC 9420) behavior layer over OpenMLS."
+edition = "2024"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+keywords = ["arkret", "mls", "e2ee", "openmls"]
+license = "Apache-2.0"
+name = "arkret-mls"
+readme = "README.md"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+arkret-canonical = {workspace = true}
+arkret-crypto = {workspace = true,features = ["aead"]}
+arkret-identifiers = {workspace = true}
+arkret-models-crypto = {workspace = true}
+arkret-models-identity = {workspace = true}
+arkret-signatures = {workspace = true,features = ["protocol"]}
+arkret-wire = {workspace = true}
+chacha20poly1305 = {workspace = true}
+chrono = {workspace = true,features = ["serde"]}
+hkdf = {workspace = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
+sha2 = {workspace = true}
+thiserror = {workspace = true}
+uuid = {workspace = true}
+zeroize = {workspace = true,default-features = true}
+
+# openmls is split per-target because the upstream crate hard-requires the
+# `js` cargo feature on wasm32 (it pulls fluvio_wasm_timer + js-sys for time
+# and randomness). Native targets must NOT enable `js` (no js-sys available).
+openmls_basic_credential = {workspace = true}
+openmls_rust_crypto = {workspace = true}
+tls_codec = {workspace = true}
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+openmls = {workspace = true}
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+openmls = {workspace = true,features = ["js"]}
+
+[dev-dependencies]
+# secret_share HPKE seal/open is exercised only by the history-sharing test.
+arkret-crypto = {workspace = true,features = ["aead", "secret-share"]}
+# embedded_json_artifact loads the private-kdf spec fixture in group.rs tests.
+arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
+hex = {workspace = true}
+x25519-dalek = {workspace = true}
+
+[lints]
+workspace = true

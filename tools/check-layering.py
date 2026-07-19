@@ -176,6 +176,10 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-keystore",
         "arkret-signatures",
         "arkret-crypto",
+        # Phase 2-c1: optional (mls-feature-only) edge so the facade `Error`
+        # can bridge `arkret_mls::MlsError`. openmls stays out of the default
+        # core graph.
+        "arkret-mls",
     },
     "arkret-ffi": {"arkret-core"},
     "arkret-sdk-fuzz": {"arkret-core", "arkret-signatures"},

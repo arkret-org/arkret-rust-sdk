@@ -12,7 +12,9 @@
 //! already-authenticated historical group-state view and never accepts a
 //! directory client or resolver callback, so a caller cannot accidentally
 //! wire a network fallback through it.
-use crate::{Did, Error};
+use arkret_wire::Did;
+
+use crate::MlsError as Error;
 
 /// Credential carried by an active leaf in an [`AuthorGroupStateView`].
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -65,7 +67,7 @@ pub struct MinimalMetadataAuthorClaim<'a> {
 }
 
 /// Which invariant failed. Diagnostic only — every variant maps to the single
-/// canonical wire reason [`arkret_core::ReasonCode::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID`].
+/// canonical wire reason [`arkret_wire::ReasonCode::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MinimalMetadataAuthorViolation {
     /// Envelope `group_id` does not equal the view's group id.
@@ -104,7 +106,7 @@ impl MinimalMetadataAuthorViolation {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
 #[error(
     "{}: {}",
-    arkret_core::ReasonCode::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID,
+    arkret_wire::ReasonCode::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID,
     .violation.as_str()
 )]
 pub struct MinimalMetadataAuthorError {
@@ -114,7 +116,7 @@ pub struct MinimalMetadataAuthorError {
 impl MinimalMetadataAuthorError {
     /// The canonical `failed_precondition` sub-reason for every failure mode.
     pub const fn reason_code(&self) -> &'static str {
-        arkret_core::ReasonCode::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID
+        arkret_wire::ReasonCode::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID
     }
 }
 
@@ -136,7 +138,7 @@ pub struct VerifiedAuthorLeaf {
 /// Accepts iff the envelope coordinates match the view exactly and the view
 /// contains exactly one active BasicCredential leaf whose identity equals
 /// `utf8(actor_id)` and whose `signature_key` equals the proof key. Every
-/// failure carries [`arkret_core::ReasonCode::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID`]; the
+/// failure carries [`arkret_wire::ReasonCode::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID`]; the
 /// caller MUST fail closed and MUST NOT fall back to a principal-scoped
 /// directory query.
 pub fn verify_minimal_metadata_author(
@@ -246,7 +248,7 @@ mod tests {
         );
         assert_eq!(
             err.reason_code(),
-            arkret_core::ReasonCode::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID
+            arkret_wire::ReasonCode::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID
         );
     }
 

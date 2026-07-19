@@ -1,12 +1,14 @@
+use arkret_models_crypto::{
+    EncryptedEnvelope, EncryptedEnvelopeAad, EncryptedEnvelopeAadVisibility,
+    EncryptedEnvelopeGroupStateRef, EncryptedEnvelopeKeyAlgorithm, EncryptedEnvelopeKeyRef,
+    EncryptedPayload,
+};
+use arkret_wire::{EncryptedPayloadScheme, EventId, Hash};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::group::{ArkretMlsGroup, decode};
-use crate::{
-    EncryptedEnvelope, EncryptedEnvelopeAad, EncryptedEnvelopeAadVisibility,
-    EncryptedEnvelopeGroupStateRef, EncryptedEnvelopeKeyAlgorithm, EncryptedEnvelopeKeyRef,
-    EncryptedPayload, EncryptedPayloadScheme, Error, EventId, Hash, Result,
-};
+use crate::group::{ArkretMlsGroup, decode};
+use crate::{MlsError as Error, Result};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EncryptedMessage {
@@ -49,7 +51,7 @@ pub fn encrypted_envelope_from_payload(
         content_type: payload.content_type.clone(),
         ciphertext: payload.ciphertext.clone(),
         aad_visibility_event_id: visibility,
-        aad_digest: Hash::new(crate::crypto::envelope_aad_digest(&aad)?)?,
+        aad_digest: Hash::new(arkret_crypto::envelope_aad_digest(&aad)?)?,
         aad,
         key_ref: EncryptedEnvelopeKeyRef {
             algorithm,
@@ -72,11 +74,12 @@ pub fn encrypted_envelope_to_payload(envelope: &EncryptedEnvelope) -> Result<Enc
         aad: Some(envelope.aad.clone()),
         payload_digest: envelope.payload_digest.clone(),
         key_ref: Some(match &envelope.scheme {
-            EncryptedPayloadScheme::MlsRfc9420 => {
-                arkret_core::KeyRefObject::mls_rfc9420(envelope.group_id.clone(), envelope.epoch)
-            }
+            EncryptedPayloadScheme::MlsRfc9420 => arkret_models_crypto::KeyRefObject::mls_rfc9420(
+                envelope.group_id.clone(),
+                envelope.epoch,
+            ),
             EncryptedPayloadScheme::MlsExporterAeadV1 => {
-                arkret_core::KeyRefObject::mls_exporter_aead(
+                arkret_models_crypto::KeyRefObject::mls_exporter_aead(
                     envelope.group_id.clone(),
                     envelope.epoch,
                 )
@@ -161,7 +164,7 @@ impl MessageCrypto {
                     Error::Protocol("encrypted payload AAD is missing".to_owned())
                 })?;
             let aad = serde_json::to_value(aad)?;
-            let actual = crate::crypto::json_aad_digest(&aad)?;
+            let actual = arkret_crypto::json_aad_digest(&aad)?;
             if actual != expected {
                 return Err(Error::Protocol(
                     "encrypted payload AAD digest mismatch".to_owned(),

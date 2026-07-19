@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
 use arkret_canonical::base64url_encode;
+use arkret_models_crypto::{MlsGovernanceBindingPayload, MlsKeyPackageRecord};
+use arkret_wire::{DeviceId, Did, Hash, canonical};
 use chrono::{Duration, Utc};
 use openmls::prelude::{
     BasicCredential, Ciphersuite, CredentialWithKey, GroupId, KeyPackage, KeyPackageIn, MlsGroup,
@@ -11,15 +13,13 @@ use openmls_rust_crypto::OpenMlsRustCrypto;
 use serde::{Deserialize, Serialize};
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
 
-use super::group::{
+use crate::group::{
     ArkretMlsGroup, decode, encode, governance_binding_group_context_extensions,
     governance_binding_last_resort_openmls_capabilities, governance_binding_openmls_capabilities,
     mls_error, restore_provider_storage, snapshot_provider_storage,
 };
-use super::recovery::{MlsDeviceWorkflowAction, MlsDeviceWorkflowStep};
-use crate::{
-    DeviceId, Did, Error, Hash, MlsGovernanceBindingPayload, MlsKeyPackageRecord, Result, canonical,
-};
+use crate::recovery::{MlsDeviceWorkflowAction, MlsDeviceWorkflowStep};
+use crate::{MlsError as Error, Result};
 
 pub const ARKRET_MLS_CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
@@ -131,7 +131,7 @@ impl ArkretMlsIdentity {
                 .iter()
                 .map(|capability| (*capability).to_owned())
                 .collect(),
-            state: arkret_core::MlsKeyPackageState::Published,
+            state: arkret_models_crypto::MlsKeyPackageState::Published,
             claim_id: None,
             created_at,
             expires_at: Some(created_at + Duration::days(7)),
@@ -292,11 +292,11 @@ pub(super) fn decode_key_package(
 /// cryptographically validated (RFC 9420 §10) before its leaf fields are
 /// trusted. `leaf_index` is caller-assigned — a wire KeyPackage carries no
 /// tree position; servers folding claimed KeyPackages into an
-/// [`super::AuthorGroupStateView`] number them by iteration order.
+/// [`crate::AuthorGroupStateView`] number them by iteration order.
 pub fn author_leaf_from_key_package_bytes(
     bytes: &[u8],
     leaf_index: u32,
-) -> Result<super::AuthorLeaf> {
+) -> Result<crate::AuthorLeaf> {
     let provider = OpenMlsRustCrypto::default();
     let key_package_in = KeyPackageIn::tls_deserialize_exact(bytes).map_err(mls_error)?;
     let key_package = key_package_in
@@ -306,15 +306,15 @@ pub fn author_leaf_from_key_package_bytes(
     let leaf_credential = leaf.credential();
     let credential = if leaf_credential.credential_type() == openmls::prelude::CredentialType::Basic
     {
-        super::AuthorLeafCredential::Basic {
+        crate::AuthorLeafCredential::Basic {
             identity: leaf_credential.serialized_content().to_vec(),
         }
     } else {
-        super::AuthorLeafCredential::Other {
+        crate::AuthorLeafCredential::Other {
             credential_type: format!("{:?}", leaf_credential.credential_type()),
         }
     };
-    Ok(super::AuthorLeaf {
+    Ok(crate::AuthorLeaf {
         leaf_index,
         credential,
         signature_key: leaf.signature_key().as_slice().to_vec(),
@@ -322,7 +322,7 @@ pub fn author_leaf_from_key_package_bytes(
 }
 
 pub fn revoke_key_package(record: &mut MlsKeyPackageRecord) -> MlsDeviceWorkflowStep {
-    record.state = arkret_core::MlsKeyPackageState::Revoked;
+    record.state = arkret_models_crypto::MlsKeyPackageState::Revoked;
     MlsDeviceWorkflowStep {
         action: MlsDeviceWorkflowAction::RevokeKeyPackage,
         principal_id: record.principal_id.clone(),

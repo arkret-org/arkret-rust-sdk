@@ -30,6 +30,7 @@ arkret-core = {version = "0.3.0",path = "crates/core",default-features = false}
 arkret-crypto = {version = "0.3.0",path = "crates/crypto",default-features = false}
 arkret-event-draft = {version = "0.3.0",path = "crates/event-draft",default-features = false}
 arkret-hlc = {version = "0.3.0",path = "crates/hlc",default-features = false}
+arkret-mls = {version = "0.3.0",path = "crates/mls",default-features = false}
 arkret-ffi = {version = "0.3.0",path = "crates/ffi",default-features = false}
 arkret-http-client = {version = "0.3.0",path = "crates/http-client",default-features = false}
 arkret-identifiers = {version = "0.3.0",path = "crates/identifiers",default-features = false}

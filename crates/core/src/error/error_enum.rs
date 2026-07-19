@@ -223,6 +223,22 @@ impl From<arkret_crypto::KeyBackupError> for Error {
     }
 }
 
+#[cfg(feature = "mls")]
+impl From<arkret_mls::MlsError> for Error {
+    fn from(error: arkret_mls::MlsError) -> Self {
+        match error {
+            arkret_mls::MlsError::Protocol(message) => Self::Protocol(message),
+            arkret_mls::MlsError::Crypto(message) => Self::Crypto(message),
+            arkret_mls::MlsError::Mls(message) => Self::Mls(message),
+            arkret_mls::MlsError::Wire(error) => error.into(),
+            arkret_mls::MlsError::Canonical(error) => error.into(),
+            arkret_mls::MlsError::Identifier(error) => error.into(),
+            arkret_mls::MlsError::Json(error) => Self::CanonicalJson(error),
+            _ => Self::Protocol(error.to_string()),
+        }
+    }
+}
+
 impl From<arkret_schema::SchemaError> for Error {
     fn from(error: arkret_schema::SchemaError) -> Self {
         match error {

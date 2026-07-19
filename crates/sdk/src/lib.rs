@@ -243,8 +243,13 @@ pub mod lattice_registry;
 pub mod media;
 #[cfg(feature = "full-surface")]
 pub mod membership;
+// The MLS (RFC 9420) behavior layer lives in the standalone `arkret-mls` crate
+// (the sole OpenMLS boundary). Keep the `arkret::mls::*` path stable by
+// re-exporting it here under the same feature gate it always carried.
 #[cfg(all(feature = "full-surface", feature = "mls"))]
-pub mod mls;
+pub mod mls {
+    pub use arkret_mls::*;
+}
 #[cfg(feature = "full-surface")]
 pub mod mls_move;
 #[cfg(feature = "full-surface")]
@@ -310,6 +315,12 @@ pub use arkret_core::hlc::{
     EXPECTED_FUTURE_SKEW_MS, HARD_FUTURE_SKEW_MS, HlcComponents, HlcFutureDrift, HlcGenerator,
     compare_hlc, parse_hlc, time_until_hlc, validate_hlc_format, validate_hlc_future_drift,
 };
+// The narrow MLS persistence ports are part of the `CryptoStore` supertrait
+// contract (owned by arkret-models-crypto, OpenMLS-free), so surface them on the
+// umbrella for any full-surface consumer (e.g. garth's crypto-store adapter),
+// independent of the heavier `mls` group-machine feature.
+#[cfg(feature = "full-surface")]
+pub use arkret_models_crypto::{MlsCommitSource, MlsGroupStateSink};
 #[cfg(all(
     feature = "full-surface",
     feature = "applet-runtime",

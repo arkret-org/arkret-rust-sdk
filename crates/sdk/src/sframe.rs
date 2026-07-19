@@ -67,7 +67,11 @@ impl MlsExporterSource for crate::mls::ArkretMlsGroup {
         context: &[u8],
         length: usize,
     ) -> Result<Zeroizing<Vec<u8>>> {
-        crate::mls::ArkretMlsGroup::export_secret(self, label, context, length)
+        // Bridge the MLS behavior-layer error into the facade `Error` (mls
+        // feature enables `From<MlsError> for arkret_core::Error`).
+        Ok(crate::mls::ArkretMlsGroup::export_secret(
+            self, label, context, length,
+        )?)
     }
 }
 

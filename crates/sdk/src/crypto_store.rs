@@ -6,6 +6,8 @@
 
 use std::collections::BTreeMap;
 
+use arkret_models_crypto::{MlsCommitSource, MlsGroupStateSink};
+use arkret_wire::WireError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -148,8 +150,15 @@ pub struct StoredDeviceVerification {
     pub updated_at: DateTime<Utc>,
 }
 
-pub trait CryptoStore: Send + Sync {
-    fn put_mls_group_state(&mut self, record: MlsGroupStateRecord) -> Result<()>;
+// `put_mls_group_state` / `commits_for_group` moved to the narrow
+// `arkret_models_crypto::{MlsGroupStateSink, MlsCommitSource}` ports so the MLS
+// behavior layer can persist / read those records without depending on the
+// umbrella crate — and so binding them here drags no OpenMLS into a full-surface
+// build. `CryptoStore` re-declares them as supertraits: any `impl CryptoStore`
+// still satisfies both ports, and existing `&mut impl CryptoStore` call sites
+// coerce unchanged. Direct callers of the two moved methods now need the port
+// trait in scope.
+pub trait CryptoStore: Send + Sync + MlsGroupStateSink + MlsCommitSource {
     fn mls_group_state(&self, group_id: &str) -> Option<&MlsGroupStateRecord>;
     fn put_key_package(&mut self, record: MlsKeyPackageRecord) -> Result<()>;
     fn key_package(&self, principal_id: &Did, device_id: &DeviceId)
@@ -161,7 +170,6 @@ pub trait CryptoStore: Send + Sync {
         device_id: &DeviceId,
     ) -> Vec<&MlsWelcomeEnvelope>;
     fn put_commit(&mut self, record: MlsCommitEnvelope) -> Result<()>;
-    fn commits_for_group(&self, group_id: &str) -> Vec<&MlsCommitEnvelope>;
     fn put_epoch_secret(&mut self, record: MlsEpochSecretRecord) -> Result<()>;
     fn epoch_secret(&self, group_id: &str, epoch: u64) -> Option<&MlsEpochSecretRecord>;
     fn put_device_verification(&mut self, record: StoredDeviceVerification) -> Result<()>;
@@ -220,19 +228,33 @@ impl MemoryCryptoStore {
     }
 }
 
-impl CryptoStore for MemoryCryptoStore {
-    fn put_mls_group_state(&mut self, record: MlsGroupStateRecord) -> Result<()> {
+impl MlsGroupStateSink for MemoryCryptoStore {
+    fn put_mls_group_state(
+        &mut self,
+        record: MlsGroupStateRecord,
+    ) -> std::result::Result<(), WireError> {
         if let Some(existing) = self.group_states.get(&record.group_id)
             && record.epoch < existing.epoch
         {
-            return Err(Error::Protocol(
+            return Err(WireError::Protocol(
                 "MLS group state rollback protection rejected older epoch".to_owned(),
             ));
         }
         self.group_states.insert(record.group_id.clone(), record);
         Ok(())
     }
+}
 
+impl MlsCommitSource for MemoryCryptoStore {
+    fn commits_for_group(&self, group_id: &str) -> Vec<&MlsCommitEnvelope> {
+        self.commits
+            .get(group_id)
+            .map(|commits| commits.iter().collect())
+            .unwrap_or_default()
+    }
+}
+
+impl CryptoStore for MemoryCryptoStore {
     fn mls_group_state(&self, group_id: &str) -> Option<&MlsGroupStateRecord> {
         self.group_states.get(group_id)
     }
@@ -310,13 +332,6 @@ impl CryptoStore for MemoryCryptoStore {
         }
         commits.push(record);
         Ok(())
-    }
-
-    fn commits_for_group(&self, group_id: &str) -> Vec<&MlsCommitEnvelope> {
-        self.commits
-            .get(group_id)
-            .map(|commits| commits.iter().collect())
-            .unwrap_or_default()
     }
 
     fn put_epoch_secret(&mut self, record: MlsEpochSecretRecord) -> Result<()> {
@@ -532,16 +547,29 @@ impl EncryptedMemoryCryptoStore {
     }
 }
 
-impl CryptoStore for EncryptedMemoryCryptoStore {
-    fn put_mls_group_state(&mut self, record: MlsGroupStateRecord) -> Result<()> {
+impl MlsGroupStateSink for EncryptedMemoryCryptoStore {
+    fn put_mls_group_state(
+        &mut self,
+        record: MlsGroupStateRecord,
+    ) -> std::result::Result<(), WireError> {
         let aad = format!("group_state:{}", record.group_id);
-        let encrypted = self.seal_record(&record, aad.as_bytes())?;
+        let encrypted = self
+            .seal_record(&record, aad.as_bytes())
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
         let group_id = record.group_id.clone();
         self.inner.put_mls_group_state(record)?;
         self.encrypted_group_states.insert(group_id, encrypted);
         Ok(())
     }
+}
 
+impl MlsCommitSource for EncryptedMemoryCryptoStore {
+    fn commits_for_group(&self, group_id: &str) -> Vec<&MlsCommitEnvelope> {
+        self.inner.commits_for_group(group_id)
+    }
+}
+
+impl CryptoStore for EncryptedMemoryCryptoStore {
     fn mls_group_state(&self, group_id: &str) -> Option<&MlsGroupStateRecord> {
         self.inner.mls_group_state(group_id)
     }
@@ -581,10 +609,6 @@ impl CryptoStore for EncryptedMemoryCryptoStore {
 
     fn put_commit(&mut self, record: MlsCommitEnvelope) -> Result<()> {
         self.inner.put_commit(record)
-    }
-
-    fn commits_for_group(&self, group_id: &str) -> Vec<&MlsCommitEnvelope> {
-        self.inner.commits_for_group(group_id)
     }
 
     fn put_epoch_secret(&mut self, record: MlsEpochSecretRecord) -> Result<()> {

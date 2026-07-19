@@ -1,6 +1,14 @@
 use std::collections::BTreeMap;
 
 use arkret_canonical::{base64url_decode, base64url_encode};
+use arkret_models_crypto::{
+    EncryptedPayload, MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsCommitEnvelope,
+    MlsGovernanceBindingExtension, MlsGovernanceBindingPayload,
+    MlsGovernanceBindingValidationContext, MlsGroupStateRecord, MlsGroupStateSink,
+    MlsKeyPackageRecord, MlsProposalEnvelope, MlsWelcomeEnvelope,
+    verify_mls_governance_binding_extension,
+};
+use arkret_wire::{DeviceId, Did, EncryptedPayloadScheme, Hash, canonical};
 use chacha20poly1305::XChaCha20Poly1305;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chrono::Utc;
@@ -14,20 +22,12 @@ use openmls::prelude::{
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use sha2::Sha256;
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
 use zeroize::Zeroizing;
 
-use super::identity::{ARKRET_MLS_CIPHERSUITE, ArkretMlsIdentity, decode_key_package};
-use crate::{
-    CryptoStore, DeviceId, DeviceMessageId, DeviceMessageTarget, Did, EncryptedPayload,
-    EncryptedPayloadScheme, Error, Hash, MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsCommitEnvelope,
-    MlsGovernanceBindingExtension, MlsGovernanceBindingPayload,
-    MlsGovernanceBindingValidationContext, MlsGroupStateRecord, MlsKeyPackageRecord,
-    MlsProposalEnvelope, MlsWelcomeEnvelope, Operation, OperationId, ProtocolKind, RealmId, Result,
-    canonical, verify_mls_governance_binding_extension,
-};
+use crate::identity::{ARKRET_MLS_CIPHERSUITE, ArkretMlsIdentity, decode_key_package};
+use crate::{MlsError as Error, Result};
 
 const ARKRET_OPENMLS_STATE_SNAPSHOT: &str = "arkret-openmls-provider-state-v1";
 
@@ -36,9 +36,9 @@ pub const MLS_EXPORTER_AEAD_CONTENT_SCHEME: &str = "mls-exporter-aead-v1";
 /// AAD / nonce-context `purpose` for the exporter-aead content scheme.
 pub const MLS_EXPORTER_AEAD_CONTENT_PURPOSE: &str = "mls_exporter_aead_content";
 /// MLS exporter label for the per-epoch history secret.
-const HISTORY_SECRET_LABEL: &str = crate::ExporterLabelId::HISTORY_V1;
+const HISTORY_SECRET_LABEL: &str = arkret_wire::ExporterLabelId::HISTORY_V1;
 /// HKDF-Expand label deriving the content key from the history secret.
-const CONTENT_KEY_LABEL: &str = crate::ExporterLabelId::CONTENT_V1;
+const CONTENT_KEY_LABEL: &str = arkret_wire::ExporterLabelId::CONTENT_V1;
 /// XChaCha20-Poly1305 key length, `AEAD.Nk`.
 const CONTENT_AEAD_KEY_LEN: usize = 32;
 /// XChaCha20-Poly1305 nonce length (24 bytes; §10.1 prefix || counter_be64).
@@ -97,24 +97,12 @@ pub struct MlsRemoveMemberResult {
     pub removed_principals: Vec<Did>,
 }
 
-impl MlsRemoveMemberResult {
-    /// Project the commit into a canonical `mls_commit` operation envelope,
-    /// matching the shape of `MlsAddMemberResult::commit_operation`.
-    pub fn commit_operation(
-        &self,
-        operation_id: OperationId,
-        realm_id: RealmId,
-    ) -> Result<Operation> {
-        let mut operation = Operation::create(
-            operation_id,
-            realm_id,
-            "mls_commit",
-            serde_json::to_value(&self.commit)?,
-        );
-        operation.object_id = Some(format!("{}:{}", self.commit.group_id, self.commit.epoch));
-        Ok(operation)
-    }
-}
+// NOTE: `MlsRemoveMemberResult` / `MlsAddMemberResult` / `MlsAddMembersResult`
+// no longer carry `commit_operation` / `welcome_device_message_target`
+// projections. The envelope -> repo-`Operation` and envelope ->
+// `DeviceMessageTarget` bindings live in `arkret-event-draft`
+// (`MlsEnvelopeOperationExt`, `MlsWelcomeTargetExt`) so this OpenMLS-isolation
+// layer never depends on the drafting / collaboration crates.
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct OpenMlsStateSnapshot {
@@ -139,62 +127,6 @@ struct OpenMlsStateSnapshot {
 
 fn is_zero_u64(value: &u64) -> bool {
     *value == 0
-}
-
-impl MlsAddMemberResult {
-    pub fn commit_operation(
-        &self,
-        operation_id: OperationId,
-        realm_id: RealmId,
-    ) -> Result<Operation> {
-        let mut operation = Operation::create(
-            operation_id,
-            realm_id,
-            "mls_commit",
-            serde_json::to_value(&self.commit)?,
-        );
-        operation.object_id = Some(format!("{}:{}", self.commit.group_id, self.commit.epoch));
-        Ok(operation)
-    }
-
-    pub fn welcome_device_message_target(
-        &self,
-        message_id: DeviceMessageId,
-        expires_at: chrono::DateTime<Utc>,
-    ) -> Result<DeviceMessageTarget> {
-        Ok(DeviceMessageTarget {
-            message_id,
-            kind: ProtocolKind::new("ak.mls.welcome.v1")
-                .map_err(|error| Error::Protocol(error.to_owned()))?,
-            content: serde_json::from_value(json!({
-                "group_id": self.welcome.group_id,
-                "epoch": self.welcome.epoch,
-                "recipient_principal_id": self.welcome.recipient_principal_id,
-                "recipient_device_id": self.welcome.recipient_device_id,
-                "welcome": self.welcome.welcome,
-                "welcome_hash": self.welcome.welcome_hash,
-                "ratchet_tree": self.welcome.ratchet_tree,
-            }))?,
-            expires_at,
-        })
-    }
-}
-
-impl MlsAddMembersResult {
-    pub fn commit_operation(
-        &self,
-        operation_id: OperationId,
-        realm_id: RealmId,
-    ) -> Result<Operation> {
-        let mut operation = Operation::create(
-            operation_id,
-            realm_id,
-            "mls_commit",
-            serde_json::to_value(&self.commit)?,
-        );
-        operation.object_id = Some(format!("{}:{}", self.commit.group_id, self.commit.epoch));
-        Ok(operation)
-    }
 }
 
 impl ArkretMlsGroup {
@@ -468,25 +400,25 @@ impl ArkretMlsGroup {
     /// purpose, followed by the big-endian counter.
     fn content_aead_nonce(&self, realm_id: &str, epoch: u64, counter: u64) -> Result<Vec<u8>> {
         let context = self.content_nonce_context(realm_id, epoch);
-        let context_bytes = crate::crypto::aead_sender_nonce_context_bytes(&context)?;
+        let context_bytes = arkret_crypto::aead_sender_nonce_context_bytes(&context)?;
         // Derive the sender_nonce_prefix from the MLS exporter (live MLS path),
         // mirroring `crypto::derive_aead_sender_nonce_prefix`'s exporter input.
         let mut info = Vec::with_capacity(
-            crate::crypto::AEAD_NONCE_EXPORTER_LABEL.len() + 1 + context_bytes.len(),
+            arkret_crypto::AEAD_NONCE_EXPORTER_LABEL.len() + 1 + context_bytes.len(),
         );
-        info.extend_from_slice(crate::crypto::AEAD_NONCE_EXPORTER_LABEL.as_bytes());
+        info.extend_from_slice(arkret_crypto::AEAD_NONCE_EXPORTER_LABEL.as_bytes());
         info.push(0x00);
         info.extend_from_slice(&context_bytes);
         let prefix = self.export_secret(
-            crate::crypto::AEAD_NONCE_EXPORTER_LABEL,
+            arkret_crypto::AEAD_NONCE_EXPORTER_LABEL,
             &info,
-            CONTENT_AEAD_NONCE_LEN - crate::crypto::AEAD_NONCE_COUNTER_LEN,
+            CONTENT_AEAD_NONCE_LEN - arkret_crypto::AEAD_NONCE_COUNTER_LEN,
         )?;
-        Ok(crate::crypto::compose_aead_nonce(&prefix, counter))
+        Ok(arkret_crypto::compose_aead_nonce(&prefix, counter))
     }
 
-    fn content_nonce_context(&self, realm_id: &str, epoch: u64) -> crate::crypto::AeadNonceContext {
-        crate::crypto::AeadNonceContext {
+    fn content_nonce_context(&self, realm_id: &str, epoch: u64) -> arkret_crypto::AeadNonceContext {
+        arkret_crypto::AeadNonceContext {
             key_ref: serde_json::json!({
                 "algorithm": MLS_EXPORTER_AEAD_CONTENT_SCHEME,
                 "realm_id": realm_id,
@@ -494,7 +426,7 @@ impl ArkretMlsGroup {
             epoch,
             device_id: self.identity.device_id.as_str().to_owned(),
             purpose: MLS_EXPORTER_AEAD_CONTENT_PURPOSE.to_owned(),
-            aead_profile: crate::crypto::AEAD_PROFILE_XCHACHA20_POLY1305.to_owned(),
+            aead_profile: arkret_crypto::AEAD_PROFILE_XCHACHA20_POLY1305.to_owned(),
         }
     }
 
@@ -526,23 +458,23 @@ impl ArkretMlsGroup {
     /// verification (encryption-and-audit.md §2.10.3). Unlike
     /// [`Self::member_principal_ids`] this does NOT dedupe — duplicate
     /// credential identities must stay visible so
-    /// [`super::verify_minimal_metadata_author`] can reject them.
-    pub fn active_author_leaves(&self) -> Vec<super::AuthorLeaf> {
+    /// [`crate::verify_minimal_metadata_author`] can reject them.
+    pub fn active_author_leaves(&self) -> Vec<crate::AuthorLeaf> {
         self.group
             .members()
             .map(|member| {
                 let credential = if member.credential.credential_type()
                     == openmls::prelude::CredentialType::Basic
                 {
-                    super::AuthorLeafCredential::Basic {
+                    crate::AuthorLeafCredential::Basic {
                         identity: member.credential.serialized_content().to_vec(),
                     }
                 } else {
-                    super::AuthorLeafCredential::Other {
+                    crate::AuthorLeafCredential::Other {
                         credential_type: format!("{:?}", member.credential.credential_type()),
                     }
                 };
-                super::AuthorLeaf {
+                crate::AuthorLeaf {
                     leaf_index: member.index.u32(),
                     credential,
                     signature_key: member.signature_key,
@@ -551,12 +483,12 @@ impl ArkretMlsGroup {
             .collect()
     }
 
-    /// Build the [`super::AuthorGroupStateView`] for this group's current
+    /// Build the [`crate::AuthorGroupStateView`] for this group's current
     /// state. The caller supplies the `group_state_ref` it has verified as
     /// the winning group state for this epoch (accepted genesis / winning
     /// commit event id).
-    pub fn author_group_state_view(&self, group_state_ref: &str) -> super::AuthorGroupStateView {
-        super::AuthorGroupStateView {
+    pub fn author_group_state_view(&self, group_state_ref: &str) -> crate::AuthorGroupStateView {
+        crate::AuthorGroupStateView {
             group_id: self.group_id(),
             epoch: self.epoch(),
             group_state_ref: group_state_ref.to_owned(),
@@ -590,7 +522,7 @@ impl ArkretMlsGroup {
         })
     }
 
-    pub fn persist_state(&self, store: &mut impl CryptoStore) -> Result<MlsGroupStateRecord> {
+    pub fn persist_state(&self, store: &mut impl MlsGroupStateSink) -> Result<MlsGroupStateRecord> {
         let record = self.export_state_record()?;
         store.put_mls_group_state(record.clone())?;
         Ok(record)
@@ -1089,7 +1021,7 @@ impl ArkretMlsGroup {
     pub fn encrypt_payload_with_aad(
         &mut self,
         content_type: impl Into<String>,
-        aad: Option<arkret_core::EncryptedEnvelopeAad>,
+        aad: Option<arkret_models_crypto::EncryptedEnvelopeAad>,
         plaintext: &[u8],
     ) -> Result<EncryptedPayload> {
         let content_type = content_type.into();
@@ -1114,7 +1046,7 @@ impl ArkretMlsGroup {
             ciphertext: encode(&message_bytes),
             aad,
             payload_digest,
-            key_ref: Some(arkret_core::KeyRefObject::mls_rfc9420(
+            key_ref: Some(arkret_models_crypto::KeyRefObject::mls_rfc9420(
                 self.group_id(),
                 epoch,
             )),
@@ -1136,7 +1068,7 @@ impl ArkretMlsGroup {
         content_type: impl Into<String>,
         realm_id: &str,
         aead_aad_bytes: &[u8],
-        payload_aad: Option<arkret_core::EncryptedEnvelopeAad>,
+        payload_aad: Option<arkret_models_crypto::EncryptedEnvelopeAad>,
         plaintext: &[u8],
     ) -> Result<EncryptedPayload> {
         let nonce_and_ct =
@@ -1158,7 +1090,7 @@ impl ArkretMlsGroup {
             ciphertext: encode(&nonce_and_ct),
             aad: payload_aad,
             payload_digest,
-            key_ref: Some(arkret_core::KeyRefObject::mls_exporter_aead(
+            key_ref: Some(arkret_models_crypto::KeyRefObject::mls_exporter_aead(
                 self.group_id(),
                 epoch,
             )),
@@ -1497,6 +1429,10 @@ pub(super) fn mls_error(error: impl std::fmt::Debug) -> Error {
 
 #[cfg(test)]
 mod content_scheme_anchor_tests {
+    use arkret_crypto::{
+        AEAD_PROFILE_XCHACHA20_POLY1305, AeadNonceContext, compose_aead_nonce,
+        derive_aead_sender_nonce_prefix,
+    };
     use chacha20poly1305::aead::{Aead, Payload};
     use serde_json::json;
 
@@ -1504,10 +1440,6 @@ mod content_scheme_anchor_tests {
         MLS_EXPORTER_AEAD_CONTENT_PURPOSE, MLS_EXPORTER_AEAD_CONTENT_SCHEME, content_aead_aad,
         content_cipher, content_nonce_array, decrypt_content_exporter_aead_standalone,
         derive_content_key, mls_kdf_label,
-    };
-    use crate::crypto::{
-        AEAD_PROFILE_XCHACHA20_POLY1305, AeadNonceContext, compose_aead_nonce,
-        derive_aead_sender_nonce_prefix,
     };
 
     fn hex(bytes: &[u8]) -> String {
@@ -1606,7 +1538,7 @@ mod content_scheme_anchor_tests {
     #[test]
     fn content_key_matches_registered_spec_vector() {
         let fixture =
-            crate::schema::embedded_json_artifact("fixtures/arkret-private-kdf-fixture.json")
+            arkret_schema::embedded_json_artifact("fixtures/arkret-private-kdf-fixture.json")
                 .unwrap();
         let case = &fixture["cases"][0];
         let history_secret =
@@ -1617,7 +1549,7 @@ mod content_scheme_anchor_tests {
         let expected_key = case["expected"]["content_key_hex"].as_str().unwrap();
 
         assert_eq!(
-            hex(&mls_kdf_label(32, crate::ExporterLabelId::CONTENT_V1, &[]).unwrap(),),
+            hex(&mls_kdf_label(32, arkret_wire::ExporterLabelId::CONTENT_V1, &[]).unwrap(),),
             expected_info
         );
         assert_eq!(

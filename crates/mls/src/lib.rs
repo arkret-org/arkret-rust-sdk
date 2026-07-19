@@ -1,4 +1,15 @@
+//! Arkret v1 MLS (RFC 9420) behavior layer.
+//!
+//! This crate is the sole OpenMLS boundary in the workspace: it owns the
+//! `ArkretMlsIdentity` / `ArkretMlsGroup` group machine, the MLS message /
+//! exporter-aead content schemes, epoch-recovery, and the minimal-metadata
+//! author-credential validator. It depends only on the wire / model / crypto
+//! data crates and inverts persistence through the narrow [`MlsGroupStateSink`]
+//! / [`MlsCommitSource`] ports so it never reaches up into the SDK
+//! `CryptoStore`.
+
 mod author_credential;
+mod error;
 mod group;
 mod identity;
 mod message;
@@ -6,30 +17,85 @@ mod recovery;
 mod security;
 
 pub use author_credential::*;
+pub use error::MlsError;
+// `Result` stays crate-internal: re-exporting a `Result` alias from the crate
+// root would collide with the umbrella's `arkret_core::Result` under
+// `pub use arkret_mls::*`. Public fn signatures resolve it to the concrete
+// `std::result::Result<_, MlsError>`, so external callers never need the alias.
+pub(crate) use error::Result;
 pub use group::*;
 pub use identity::*;
 pub use message::*;
 pub use recovery::*;
 pub use security::*;
 
+// The persistence ports the MLS layer inverts on live in `arkret-models-crypto`
+// (OpenMLS-free) so binding them in the SDK `CryptoStore` supertrait drags no
+// OpenMLS into a full-surface build. They are used internally (see `group.rs` /
+// `recovery.rs`) but intentionally NOT re-exported from this crate's root, so
+// the umbrella surfaces them exactly once (from models-crypto).
+
 pub const ARKRET_MLS_ALGORITHM: &str = "ak.mls.v1";
 
 #[cfg(test)]
 mod tests {
-    use arkret_core::{
+    use arkret_canonical::base64url_encode;
+    use arkret_models_crypto::{
         EncryptedEnvelope, EncryptedEnvelopeAadVisibility, EncryptedEnvelopeKeyAlgorithm,
+        MLS_GOVERNANCE_BINDING_FULL_PROFILE, MLS_GOVERNANCE_BINDING_RELAXED_PROFILE,
+        MlsCommitEnvelope, MlsCommitSource, MlsGovernanceBindingPayload,
+        MlsGovernanceBindingValidationContext, MlsGroupStateRecord, MlsGroupStateSink,
     };
+    use arkret_wire::{DeviceId, Did, EncryptedPayloadScheme, EventId, Hash, RealmId};
     use chrono::Utc;
 
     use super::*;
-    use crate::{
-        CryptoStore, DeviceId, DeviceMessageId, Did, EncryptedPayloadScheme, Error, EventId, Hash,
-        MLS_GOVERNANCE_BINDING_FULL_PROFILE, MLS_GOVERNANCE_BINDING_RELAXED_PROFILE,
-        MlsGovernanceBindingPayload, MlsGovernanceBindingValidationContext, OperationId, RealmId,
-        base64url_encode,
-    };
+    use crate::MlsError as Error;
 
     const GOVERNANCE_REDUCER_PROFILE: &str = "ak.reducer.v1";
+
+    /// Minimal in-crate store test double implementing the two persistence
+    /// ports the MLS layer inverts on. The SDK `MemoryCryptoStore` lives in the
+    /// umbrella crate (above this layer), so the group-state / recovery tests
+    /// use this narrow stand-in instead.
+    #[derive(Default)]
+    struct TestStore {
+        group_states: std::collections::BTreeMap<String, MlsGroupStateRecord>,
+        commits: Vec<MlsCommitEnvelope>,
+    }
+
+    impl TestStore {
+        fn new() -> Self {
+            Self::default()
+        }
+
+        fn put_commit(&mut self, record: MlsCommitEnvelope) {
+            self.commits.push(record);
+        }
+
+        fn mls_group_state(&self, group_id: &str) -> Option<&MlsGroupStateRecord> {
+            self.group_states.get(group_id)
+        }
+    }
+
+    impl MlsGroupStateSink for TestStore {
+        fn put_mls_group_state(
+            &mut self,
+            record: MlsGroupStateRecord,
+        ) -> std::result::Result<(), arkret_wire::WireError> {
+            self.group_states.insert(record.group_id.clone(), record);
+            Ok(())
+        }
+    }
+
+    impl MlsCommitSource for TestStore {
+        fn commits_for_group(&self, group_id: &str) -> Vec<&MlsCommitEnvelope> {
+            self.commits
+                .iter()
+                .filter(|commit| commit.group_id == group_id)
+                .collect()
+        }
+    }
 
     fn governance_realm() -> RealmId {
         RealmId::new("ak:realm:01904100-0000-7000-8000-00000000f1c0").unwrap()
@@ -302,7 +368,7 @@ mod tests {
 
         assert!(
             err.to_string()
-                .contains(crate::error::ErrorCode::PROFILE_UNSUPPORTED)
+                .contains(arkret_wire::ErrorCode::PROFILE_UNSUPPORTED)
         );
     }
 
@@ -335,7 +401,7 @@ mod tests {
 
         assert!(
             err.to_string()
-                .contains(crate::error::ErrorCode::PROFILE_UNSUPPORTED)
+                .contains(arkret_wire::ErrorCode::PROFILE_UNSUPPORTED)
         );
     }
 
@@ -368,7 +434,7 @@ mod tests {
 
         assert!(
             err.to_string()
-                .contains(crate::error::ReasonCode::MLS_GOVERNANCE_BINDING_STALE)
+                .contains(arkret_wire::ReasonCode::MLS_GOVERNANCE_BINDING_STALE)
         );
     }
 
@@ -482,10 +548,10 @@ mod tests {
 
         let realm = b"ak:realm:01904100-0000-7000-8000-1ad6479d4a41";
         let a = alice_group
-            .export_secret(crate::ExporterLabelId::REACTION_ROUTING_V1, realm, 32)
+            .export_secret(arkret_wire::ExporterLabelId::REACTION_ROUTING_V1, realm, 32)
             .unwrap();
         let b = bob_group
-            .export_secret(crate::ExporterLabelId::REACTION_ROUTING_V1, realm, 32)
+            .export_secret(arkret_wire::ExporterLabelId::REACTION_ROUTING_V1, realm, 32)
             .unwrap();
         assert_eq!(a.len(), 32);
         assert_eq!(
@@ -498,14 +564,18 @@ mod tests {
         assert_ne!(
             a,
             alice_group
-                .export_secret(crate::ExporterLabelId::REACTION_ROUTING_V1, other_realm, 32)
+                .export_secret(
+                    arkret_wire::ExporterLabelId::REACTION_ROUTING_V1,
+                    other_realm,
+                    32
+                )
                 .unwrap()
         );
         // Different label MUST diverge.
         assert_ne!(
             a,
             alice_group
-                .export_secret(crate::ExporterLabelId::RTC_FRAME_KEY_V1, realm, 32)
+                .export_secret(arkret_wire::ExporterLabelId::RTC_FRAME_KEY_V1, realm, 32)
                 .unwrap()
         );
     }
@@ -715,7 +785,7 @@ mod tests {
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
-        let aad = crate::EncryptedEnvelopeAad {
+        let aad = arkret_models_crypto::EncryptedEnvelopeAad {
             realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-65bef476aed3").unwrap(),
             event_kind: "ak.message.create".to_owned(),
             event_id: Some(EventId::new("ak:event:01904100-0000-7000-8000-d5afe7e3de96").unwrap()),
@@ -723,7 +793,7 @@ mod tests {
             causal_refs: Some(Vec::new()),
             causal_ref_digests: None,
         };
-        let aad_digest = crate::crypto::envelope_aad_digest(&aad).unwrap();
+        let aad_digest = arkret_crypto::envelope_aad_digest(&aad).unwrap();
 
         let encrypted = MessageCrypto::encrypt_with_aad(
             &mut alice_group,
@@ -759,7 +829,7 @@ mod tests {
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
-        let mut store = crate::MemoryCryptoStore::new();
+        let mut store = TestStore::new();
         let record = bob_group.persist_state(&mut store).unwrap();
         let mut restored_bob = ArkretMlsGroup::restore_from_state_record(&record).unwrap();
 
@@ -801,7 +871,7 @@ mod tests {
         let revoke_step = revoke_key_package(&mut revoked_package);
         assert_eq!(
             revoked_package.state,
-            arkret_core::MlsKeyPackageState::Revoked
+            arkret_models_crypto::MlsKeyPackageState::Revoked
         );
         assert_eq!(
             revoke_step.action,
@@ -834,45 +904,11 @@ mod tests {
         );
     }
 
-    #[test]
-    fn add_member_result_projects_to_repo_operation_and_to_device_message() {
-        let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
-        )
-        .unwrap();
-        let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
-        )
-        .unwrap();
-        let bob_key_package = bob.key_package_record().unwrap();
-
-        let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-4ecefcf31ad2")
-            .unwrap();
-        let add_result = alice_group.add_member(&bob_key_package).unwrap();
-        let operation = add_result
-            .commit_operation(
-                OperationId::new("ak:operation:01904100-0000-7000-8000-02369de2e9c6").unwrap(),
-                RealmId::new("ak:realm:01904100-0000-7000-8000-4ecefcf31ad2").unwrap(),
-            )
-            .unwrap();
-        let to_device = add_result
-            .welcome_device_message_target(
-                DeviceMessageId::new("ak:device_message:01904100-0000-7000-8000-000000000001")
-                    .unwrap(),
-                Utc::now(),
-            )
-            .unwrap();
-
-        assert_eq!(operation.object_type, "mls_commit");
-        assert_eq!(to_device.kind, "ak.mls.welcome.v1");
-        assert_eq!(
-            to_device.content["recipient_device_id"],
-            "ak:device:01904100-0000-7000-8000-00000000000e"
-        );
-    }
+    // NOTE: the "projects to repo operation + device-message target"
+    // integration test moved to `arkret-event-draft` (tests/mls_projection.rs):
+    // the envelope -> Operation / DeviceMessageTarget projection lives on the
+    // event-draft side, which this crate must not depend on. arkret-mls tests
+    // only that the MLS group operations emit correct envelope fields.
 
     #[test]
     fn message_crypto_preserves_encrypted_content_without_available_key() {
@@ -988,8 +1024,8 @@ mod tests {
         request.validate().unwrap();
 
         // Store the commits in a crypto store so we can build a response.
-        let mut store = crate::MemoryCryptoStore::new();
-        store.put_commit(charlie_add.commit).unwrap();
+        let mut store = TestStore::new();
+        store.put_commit(charlie_add.commit);
 
         // Alice (who has the commits) builds the recovery response.
         let response = build_epoch_recovery_response(&alice_group, &store, &request).unwrap();
@@ -1140,7 +1176,7 @@ mod tests {
             .unwrap();
 
         let realm_id = "ak:realm:01904100-0000-7000-8000-0abc0abc0abc";
-        let aad = crate::EncryptedEnvelopeAad::hidden(
+        let aad = arkret_models_crypto::EncryptedEnvelopeAad::hidden(
             RealmId::new(realm_id).unwrap(),
             "ak.message.create",
         );
@@ -1213,7 +1249,7 @@ mod tests {
         // payload_digest at encryption time.
         let mismatch = encrypted_envelope_from_payload(
             &payload,
-            crate::EncryptedEnvelopeAad::hidden(
+            arkret_models_crypto::EncryptedEnvelopeAad::hidden(
                 RealmId::new(realm_id).unwrap(),
                 "ak.strand.update",
             ),
@@ -1256,38 +1292,8 @@ mod tests {
         );
     }
 
-    /// T31 — `commit_operation` projects the result into the same
-    /// canonical operation shape that `MlsAddMemberResult` produces, so
-    /// audit pipelines can ingest both consistently.
-    #[test]
-    fn remove_result_commit_operation_uses_mls_commit_op_type() {
-        let alice = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
-        )
-        .unwrap();
-        let bob = ArkretMlsIdentity::new_basic(
-            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
-        )
-        .unwrap();
-        let bob_kp = bob.key_package_record().unwrap();
-
-        let mut alice_group = alice
-            .create_group(b"ak:realm:01904100-0000-7000-8000-bd49dfdbc804")
-            .unwrap();
-        let add_bob = alice_group.add_member(&bob_kp).unwrap();
-        let _bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
-        let result = alice_group
-            .remove_member_by_principal(&Did::new("did:webvh:z6mkfixture:bob.example").unwrap())
-            .unwrap();
-
-        let op_id = OperationId::new("ak:operation:01904100-0000-7000-8000-00a9123c0f9c").unwrap();
-        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-bd49dfdbc804").unwrap();
-        let op = result.commit_operation(op_id, realm_id).unwrap();
-        assert_eq!(op.object_type, "mls_commit");
-        assert!(op.object_id.unwrap().contains(&result.commit.group_id));
-    }
+    // NOTE: the Remove-result `commit_operation` projection test also moved to
+    // `arkret-event-draft` (tests/mls_projection.rs) — see the note above.
 
     // ── mls-exporter-aead-v1 content scheme ──────────────────────────────────
 
@@ -1333,7 +1339,7 @@ mod tests {
     #[test]
     fn encrypted_envelope_v1_binds_exporter_scheme_to_exporter_key_algorithm() {
         let mut group = exporter_aead_founder();
-        let envelope_aad = crate::EncryptedEnvelopeAad::hidden(
+        let envelope_aad = arkret_models_crypto::EncryptedEnvelopeAad::hidden(
             RealmId::new(HISTORY_REALM).unwrap(),
             "ak.message.create",
         );
@@ -1390,12 +1396,14 @@ mod tests {
             .iter()
             .map(|(epoch, secret)| (*epoch, secret.to_vec()))
             .collect();
-        let share_ciphertext =
-            crate::secret_share::seal_history_secret_to_device_pubkey(&receiver_pub, &range_plain)
-                .unwrap();
+        let share_ciphertext = arkret_crypto::secret_share::seal_history_secret_to_device_pubkey(
+            &receiver_pub,
+            &range_plain,
+        )
+        .unwrap();
 
         // Receiver unseals and recovers history_secret[N]...
-        let installed = crate::secret_share::open_history_secret_with_device_privkey(
+        let installed = arkret_crypto::secret_share::open_history_secret_with_device_privkey(
             receiver_priv.to_bytes().as_slice(),
             &share_ciphertext,
         )

@@ -21,15 +21,12 @@ default = []
 client = ["dep:arkret-http-client", "dep:reqwest", "dep:tokio", "arkret-core/client", "arkret-ffi/client"]
 signer = ["arkret-signatures/signer"]
 server = ["dep:arkret-server", "full-surface"]
-mls = [
-    "full-surface",
-    "arkret-core/mls",
-    "arkret-ffi/mls",
-    "dep:openmls",
-    "dep:openmls_basic_credential",
-    "dep:openmls_rust_crypto",
-    "dep:tls_codec",
-]
+mls = ["dep:arkret-mls", "full-surface", "arkret-core/mls", "arkret-ffi/mls"]
+# The `crypto_store` module's `CryptoStore` supertrait binds the
+# `arkret_models_crypto::{MlsGroupStateSink, MlsCommitSource}` persistence ports
+# (OpenMLS-free), so full-surface does NOT need arkret-mls. openmls therefore
+# enters the graph only via the dedicated `mls` feature (never through
+# full-surface / server / device-runtime / applet).
 full-surface = ["arkret-core/embedded-artifacts"]
 # TLS backend passthrough (`cargo add arkret --features client,tls-rustls`
 # gives a working https client out of the box). The SDK stays TLS-neutral
@@ -87,6 +84,7 @@ arkret-models-crypto = {workspace = true}
 arkret-http-client = {workspace = true,optional = true}
 arkret-keystore = {workspace = true}
 arkret-egress-policy = {workspace = true}
+arkret-mls = {workspace = true,optional = true}
 arkret-server = {workspace = true,optional = true}
 arkret-signatures = {workspace = true,features = ["protocol"]}
 arkret-state = {workspace = true}
@@ -96,8 +94,6 @@ getrandom = {workspace = true}
 hex = {workspace = true}
 hkdf = {workspace = true}
 hmac = {workspace = true}
-openmls_basic_credential = {workspace = true,optional = true}
-openmls_rust_crypto = {workspace = true,optional = true}
 parking_lot = {workspace = true}
 regex = {workspace = true}
 reqwest = {workspace = true,features = ["json", "gzip", "http2"],optional = true}
@@ -107,7 +103,6 @@ serde_json = {workspace = true}
 sha2 = {workspace = true}
 subtle = {workspace = true}
 thiserror = {workspace = true}
-tls_codec = {workspace = true,optional = true}
 tokio = {workspace = true,features = ["rt", "macros"],optional = true}
 tracing = {workspace = true,optional = true}
 url = {workspace = true,features = ["serde"],optional = true}
@@ -115,15 +110,11 @@ uuid = {workspace = true}
 x25519-dalek = {workspace = true}
 zeroize = {workspace = true,default-features = true}
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-openmls = {workspace = true,optional = true}
 # rt-multi-thread is required for tokio::task::block_in_place, which the
 # sync HttpDidResolver facade uses to block safely on multi-thread runtimes.
 # Native-only: the wasm32 build neither compiles http_did_resolver nor
 # supports the multi-thread scheduler.
 tokio = {workspace = true,features = ["rt-multi-thread"],optional = true}
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-openmls = {workspace = true,features = ["js"],optional = true}
 
 [dev-dependencies]
 tokio = {workspace = true,features = ["macros", "rt", "rt-multi-thread"]}
