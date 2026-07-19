@@ -383,7 +383,7 @@ SDK 实现 MUST 严格遵循。
   与 Move/Seal canonical bytes 同一编码 profile（key 排序、no whitespace、
   integer-only number、UTF-8）。
 - `Bottom` 序列化时 set `bottom.anchor_view = None` 后再 canonical_json，
-  避免自递归。这是 [`bottom.rs`](../crates/wire-base/src/bottom.rs) 已有的
+  避免自递归。这是 [`bottom.rs`](../crates/wire/src/bottom.rs) 已有的
   `#[serde(skip_serializing_if = "Option::is_none")]` 行为，无需特殊代码。
 - Merkle 树 SHOULD 用增量算法（只重算受影响 leaf 所在的分支）；wire 上的
   `state_root` 必须 byte-for-byte 等于全量重算结果——以全量重算结果作为

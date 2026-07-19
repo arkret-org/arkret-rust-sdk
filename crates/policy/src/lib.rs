@@ -1,6 +1,6 @@
 //! Arkret v1 authorization and profile semantics.
 
-use arkret_wire_base::*;
+use arkret_wire::*;
 
 pub mod authz;
 pub mod generated;
@@ -9,7 +9,7 @@ pub mod profile_feature_guard;
 pub mod profile_semantics;
 
 pub mod models {
-    pub use arkret_wire_base::primitives::Facet;
+    pub use arkret_wire::primitives::Facet;
 }
 
 pub use authz::*;

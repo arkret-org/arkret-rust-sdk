@@ -10,7 +10,7 @@
 //! sha256=bccf3c35a9a6be687d22f6691fb1dde2724b660b0d523eb5254bac2e24cec211 Entries: id_kinds=49,
 //! special_forms=9, actions=152, schemas=119, account_data_patterns=22
 
-use arkret_wire_base::CapabilityActionId;
+use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

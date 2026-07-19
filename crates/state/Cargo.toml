@@ -14,11 +14,11 @@ version.workspace = true
 
 [features]
 default = []
-salvo = ["arkret-wire-base/salvo-oapi", "dep:salvo"]
+salvo = ["arkret-wire/salvo-oapi", "dep:salvo"]
 
 [dependencies]
 arkret-canonical = {workspace = true}
-arkret-wire-base = {workspace = true}
+arkret-wire = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 hex = {workspace = true}
 salvo = {workspace = true,features = ["oapi"],optional = true}

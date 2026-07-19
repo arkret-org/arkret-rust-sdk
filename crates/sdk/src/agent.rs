@@ -1502,7 +1502,7 @@ mod tests {
     use arkret_canonical::canonical;
     use arkret_core::move_event::Move;
     use arkret_core::{MoveSignature, MoveSigner, UnsignedMove, proof_kind};
-    use arkret_wire_base::Result as WireResult;
+    use arkret_wire::Result as WireResult;
     use chrono::TimeZone;
     use ed25519_dalek::Verifier as _;
     use serde_json::json;

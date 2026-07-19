@@ -11,7 +11,7 @@ pub use arkret_identifiers::{
     RtcParticipantId, SnapshotId, SpaceId, StrandId, TransactionId, TypedAppealId,
     TypedTrustDomainId, ViewId, new_prefixed_uuid7,
 };
-pub use arkret_wire_base::{EvaluationClass, ServiceType, XExtensionMap};
+pub use arkret_wire::{EvaluationClass, ServiceType, XExtensionMap};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -32,7 +32,7 @@ mod blob;
 mod circle;
 mod conformance;
 mod constants {
-    pub use arkret_wire_base::constants::*;
+    pub use arkret_wire::constants::*;
 }
 mod cross_signing;
 mod delivery_binding;
@@ -65,7 +65,7 @@ mod moderation;
 mod moderation_appeal;
 mod moderation_queue;
 mod object_address {
-    pub use arkret_wire_base::object_address::*;
+    pub use arkret_wire::object_address::*;
 }
 mod object_lifecycle;
 mod operation;
@@ -74,10 +74,10 @@ mod patch;
 mod peer_contact;
 mod policy_check;
 mod primitives {
-    pub use arkret_wire_base::primitives::*;
+    pub use arkret_wire::primitives::*;
 }
 mod problem_details {
-    pub use arkret_wire_base::problem_details::*;
+    pub use arkret_wire::problem_details::*;
 }
 pub mod product;
 mod productivity;

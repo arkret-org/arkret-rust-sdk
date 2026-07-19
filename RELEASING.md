@@ -12,7 +12,7 @@ workspace dependency and manifest drift:
 ```text
 arkret-canonical
 arkret-identifiers
-arkret-wire-base
+arkret-wire
 arkret-wire-edge
 arkret-state
 arkret-schema

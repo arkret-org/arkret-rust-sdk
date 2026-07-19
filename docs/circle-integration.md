@@ -83,7 +83,7 @@ event.
 Once a Strand is bound to a Circle, the reducer **MUST** reject any
 attempt to change `scope_circle_id` with
 `failed_precondition reason=scope_rebind_forbidden`
-([`ReasonCode::SCOPE_REBIND_FORBIDDEN`](../crates/wire-base/src/error_codes/reason_code.rs)).
+([`ReasonCode::SCOPE_REBIND_FORBIDDEN`](../crates/wire/src/error_codes/reason_code.rs)).
 Profiles MAY permit an explicitly audited high-risk rebind path; in
 that case the caller MUST include a paired `ak.audit.accessed` event in
 the same batch.
@@ -131,7 +131,7 @@ Receivers (soland, sodmin, inkson, …) integrating the SDK MUST:
    `scope_circle_id` (or absence thereof) before applying any reducer
    state change. Mismatch is `schema_violation`
    reason=`circle_realm_mismatch`
-   ([`ReasonCode::CIRCLE_REALM_MISMATCH`](../crates/wire-base/src/error_codes/reason_code.rs)).
+   ([`ReasonCode::CIRCLE_REALM_MISMATCH`](../crates/wire/src/error_codes/reason_code.rs)).
 2. Enforce `Circle.members ⊆ Realm.members` (strict subset). The SDK
    exposes `Circle::assert_members_strict_subset(circle, realm)` for
    the membership check; reducer reason is

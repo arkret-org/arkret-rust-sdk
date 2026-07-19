@@ -20,12 +20,12 @@ pub mod receive_policy;
 pub mod service_description;
 
 pub mod error {
-    pub use arkret_wire_base::error_codes::*;
-    pub use arkret_wire_base::{Error, Result, WireError};
+    pub use arkret_wire::error_codes::*;
+    pub use arkret_wire::{Error, Result, WireError};
 }
 
 pub use arkret_canonical as canonical_encoding;
-pub use arkret_wire_base::*;
+pub use arkret_wire::*;
 pub use audit::{AccessKind, AuditPolicyAccessPayload};
 pub use integration::*;
 pub use models_push::*;

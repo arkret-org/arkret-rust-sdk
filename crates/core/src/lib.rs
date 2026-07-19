@@ -21,13 +21,13 @@ pub mod blind_payload_sanitizer {
     pub use arkret_wire_edge::blind_payload_sanitizer::*;
 }
 pub mod bottom {
-    pub use arkret_wire_base::bottom::*;
+    pub use arkret_wire::bottom::*;
 }
 pub mod canonical {
     pub use arkret_canonical::canonical::*;
 }
 pub mod cell {
-    pub use arkret_wire_base::cell::*;
+    pub use arkret_wire::cell::*;
 }
 pub mod cursor;
 pub mod error;
@@ -49,13 +49,13 @@ pub mod lattice {
 }
 pub mod models;
 pub mod move_event {
-    pub use arkret_wire_base::move_event::*;
+    pub use arkret_wire::move_event::*;
 }
 pub mod multibase {
     pub use arkret_canonical::multibase::*;
 }
 pub mod notary {
-    pub use arkret_wire_base::notary::*;
+    pub use arkret_wire::notary::*;
 }
 pub mod operations;
 pub mod ops {
@@ -84,7 +84,7 @@ pub mod schema {
 }
 pub mod sdk_conformance;
 pub mod seal {
-    pub use arkret_wire_base::seal::*;
+    pub use arkret_wire::seal::*;
 }
 pub mod serde_helpers {
     pub use arkret_canonical::serde_helpers::*;
@@ -92,7 +92,7 @@ pub mod serde_helpers {
 pub mod service;
 pub mod service_identity;
 pub mod signer {
-    pub use arkret_wire_base::signer::*;
+    pub use arkret_wire::signer::*;
 }
 pub mod stream_trace;
 pub mod sync;
@@ -111,7 +111,7 @@ pub use agent::{
 };
 pub use applet::*;
 pub use arkret_identifiers as identifiers;
-pub use arkret_wire_base::{
+pub use arkret_wire::{
     CapabilityActionId, DIGEST_SUITES, EXPORTER_LABELS, EvaluationClass, ExporterLabelId,
     HPKE_SUITES, MLS_CIPHERSUITES, MLS_EXTENSIONS, PROOF_CONTEXTS, ProofContextId,
     RELATION_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS, SERVICE_TYPE_DESCRIPTORS,

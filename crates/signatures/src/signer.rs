@@ -27,7 +27,7 @@ use arkret_core::{
     Did, Error, Hash, MoveSigner, Result, UnsignedMove, base64url_decode, base64url_encode,
     canonical,
 };
-use arkret_wire_base::{Error as WireError, Result as WireResult};
+use arkret_wire::{Error as WireError, Result as WireResult};
 use chrono::Utc;
 use ed25519_dalek::{Signer as _, SigningKey};
 

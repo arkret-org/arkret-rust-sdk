@@ -131,7 +131,7 @@ pub enum AuditPurpose {
 /// current audit release-session model (`ak.audit.applet_binding` + audit
 /// session lifecycle). The former `ak.audit.epoch_key_destruction` standing
 /// audit kind was removed (`removed-event-kinds.json`) and replaced by that
-/// model — see `crates/wire-base/src/generated/event_kinds.rs` and
+/// model — see `crates/wire/src/generated/event_kinds.rs` and
 /// zh/crypto-media/audited-e2ee.md §2 (attested_hardware binding).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

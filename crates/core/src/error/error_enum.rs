@@ -138,13 +138,13 @@ impl From<arkret_canonical::CanonicalError> for Error {
     }
 }
 
-impl From<arkret_wire_base::WireError> for Error {
-    fn from(error: arkret_wire_base::WireError) -> Self {
+impl From<arkret_wire::WireError> for Error {
+    fn from(error: arkret_wire::WireError) -> Self {
         match error {
-            arkret_wire_base::WireError::Protocol(message) => Self::Protocol(message),
-            arkret_wire_base::WireError::Canonical(error) => error.into(),
-            arkret_wire_base::WireError::Identifier(error) => error.into(),
-            arkret_wire_base::WireError::Json(error) => Self::CanonicalJson(error),
+            arkret_wire::WireError::Protocol(message) => Self::Protocol(message),
+            arkret_wire::WireError::Canonical(error) => error.into(),
+            arkret_wire::WireError::Identifier(error) => error.into(),
+            arkret_wire::WireError::Json(error) => Self::CanonicalJson(error),
             _ => Self::Protocol(error.to_string()),
         }
     }

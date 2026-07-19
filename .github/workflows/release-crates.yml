@@ -16,7 +16,7 @@ jobs:
       CRATES: >-
         arkret-canonical
         arkret-identifiers
-        arkret-wire-base
+        arkret-wire
         arkret-wire-edge
         arkret-state
         arkret-schema

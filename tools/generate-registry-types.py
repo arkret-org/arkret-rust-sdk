@@ -1329,15 +1329,15 @@ def generate_registry_descriptors(artifacts: Path) -> str:
 
 
 GENERATORS = {
-    "crates/wire-base/src/error_codes/error_code.rs": generate_error_codes,
-    "crates/wire-base/src/error_codes/reason_code.rs": generate_reason_codes,
-    "crates/wire-base/src/generated/operation_ids.rs": generate_operations,
-    "crates/wire-base/src/generated/service_types.rs": generate_service_types,
-    "crates/wire-base/src/generated/relation_kinds.rs": generate_relation_kinds,
-    "crates/wire-base/src/generated/security_strings.rs": (
+    "crates/wire/src/error_codes/error_code.rs": generate_error_codes,
+    "crates/wire/src/error_codes/reason_code.rs": generate_reason_codes,
+    "crates/wire/src/generated/operation_ids.rs": generate_operations,
+    "crates/wire/src/generated/service_types.rs": generate_service_types,
+    "crates/wire/src/generated/relation_kinds.rs": generate_relation_kinds,
+    "crates/wire/src/generated/security_strings.rs": (
         generate_security_strings
     ),
-    "crates/wire-base/src/generated/capability_actions.rs": (
+    "crates/wire/src/generated/capability_actions.rs": (
         generate_capability_actions
     ),
     "crates/schema/src/generated/registry_descriptors.rs": (

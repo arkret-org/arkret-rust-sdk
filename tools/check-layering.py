@@ -28,7 +28,6 @@ from pathlib import Path
 DATA_CRATES = (
     "arkret-canonical",
     "arkret-identifiers",
-    "arkret-wire-base",  # renamed to arkret-wire in phase 1A
     "arkret-wire",
     "arkret-wire-edge",  # deleted in phase 1A
     "arkret-models-identity",
@@ -54,7 +53,7 @@ FORBIDDEN_THIRD_PARTY = {
 }
 
 _BASE = {"arkret-canonical", "arkret-identifiers"}
-_WIRE = _BASE | {"arkret-wire", "arkret-wire-base"}
+_WIRE = _BASE | {"arkret-wire"}
 
 # Target allowed direct arkret->arkret edges (normal + optional deps).
 # Keys cover every current and planned workspace crate; the umbrella
@@ -63,7 +62,6 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     "arkret-canonical": set(),
     "arkret-identifiers": {"arkret-canonical"},
     "arkret-wire": _BASE,
-    "arkret-wire-base": _BASE,  # legacy name until phase 1A rename
     "arkret-models-identity": _WIRE,
     "arkret-models-crypto": _WIRE | {"arkret-models-identity"},
     "arkret-models-collaboration": _WIRE
@@ -138,15 +136,19 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-state",
     },
     # Legacy crates: retired in phase 1A (wire-edge) / phase 5 (core, ffi).
-    "arkret-wire-edge": {"arkret-canonical", "arkret-wire-base"},
+    "arkret-wire-edge": {"arkret-canonical", "arkret-wire"},
     "arkret-core": {
         "arkret-canonical",
         "arkret-identifiers",
         "arkret-policy",
         "arkret-schema",
         "arkret-state",
-        "arkret-wire-base",
+        "arkret-wire",
         "arkret-wire-edge",
+        # Transitional shim targets while core re-exports migrate (phase 5 removes core).
+        "arkret-models-integration",
+        "arkret-models-discovery",
+        "arkret-models-collaboration",
     },
     "arkret-ffi": {"arkret-core"},
     "arkret-sdk-fuzz": {"arkret-core", "arkret-signatures"},

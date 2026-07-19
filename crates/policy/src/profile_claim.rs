@@ -40,7 +40,7 @@
 //!
 //! ```rust
 //! use arkret_policy::{ProfileClaim, ProfileClaimKind, ProfileValidator};
-//! use arkret_wire_base::ServiceType;
+//! use arkret_wire::ServiceType;
 //!
 //! let validator = ProfileValidator::new(ServiceType::PushGateway);
 //! let claims = [

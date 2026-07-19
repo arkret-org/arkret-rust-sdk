@@ -1,7 +1,7 @@
 //! Arkret-native event taxonomy, reaction helpers, and redaction helpers.
 
 pub mod kinds {
-    pub use arkret_wire_base::events::kinds::*;
+    pub use arkret_wire::events::kinds::*;
 }
 pub mod reaction;
 pub mod redaction;

@@ -86,7 +86,7 @@ arkret-network-policy = {workspace = true}
 arkret-server = {workspace = true,optional = true}
 arkret-signatures = {workspace = true,features = ["protocol"]}
 arkret-state = {workspace = true}
-arkret-wire-base = {workspace = true}
+arkret-wire = {workspace = true}
 ed25519-dalek = {workspace = true}
 getrandom = {workspace = true}
 hex = {workspace = true}

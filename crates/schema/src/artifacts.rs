@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use arkret_wire_base::generated::{EVENT_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS};
+use arkret_wire::generated::{EVENT_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS};
 
 use super::*;
 use crate::generated::{
@@ -718,11 +718,11 @@ pub const SUPPORTED_SCHEMA_IDS: &[&str] = &[
 /// Every registered event kind has a generated typed representation and
 /// descriptor-backed validation in this SDK.
 pub const SUPPORTED_EVENT_KINDS: &[&str] =
-    arkret_wire_base::generated::REGISTERED_EVENT_KIND_WIRE_VALUES;
+    arkret_wire::generated::REGISTERED_EVENT_KIND_WIRE_VALUES;
 
 /// Every registered service operation has generated route and metadata support.
 pub const SUPPORTED_SERVICE_OPERATIONS: &[&str] =
-    arkret_wire_base::generated::REGISTERED_SERVICE_OPERATION_IDS;
+    arkret_wire::generated::REGISTERED_SERVICE_OPERATION_IDS;
 
 /// Profile IDs that still appear as hand-written SDK constants or service
 /// requirement fixtures and are therefore hard-checked against the profile

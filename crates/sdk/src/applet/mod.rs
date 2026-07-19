@@ -722,7 +722,7 @@ mod tests {
         use arkret_core::{
             Did as CoreDid, Hash as CoreHash, MoveSignature, MoveSigner, UnsignedMove, canonical,
         };
-        use arkret_wire_base::Result as WireResult;
+        use arkret_wire::Result as WireResult;
 
         struct StubSigner {
             did: CoreDid,

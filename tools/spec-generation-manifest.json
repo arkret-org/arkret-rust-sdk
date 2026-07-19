@@ -4,9 +4,9 @@
     {
       "generator": "event-kinds",
       "outputs": [
-        "crates/wire-base/src/generated/event_kinds.rs"
+        "crates/wire/src/generated/event_kinds.rs"
       ],
-      "owner": "arkret-wire-base",
+      "owner": "arkret-wire",
       "mode": "enum+descriptor",
       "artifacts": [
         "registry/event-kind-registry.json"
@@ -15,10 +15,10 @@
     {
       "generator": "registry-types",
       "outputs": [
-        "crates/wire-base/src/error_codes/error_code.rs",
-        "crates/wire-base/src/error_codes/reason_code.rs"
+        "crates/wire/src/error_codes/error_code.rs",
+        "crates/wire/src/error_codes/reason_code.rs"
       ],
-      "owner": "arkret-wire-base",
+      "owner": "arkret-wire",
       "mode": "enum+descriptor",
       "artifacts": [
         "registry/error-code-registry.json"
@@ -50,9 +50,9 @@
     {
       "generator": "registry-types",
       "outputs": [
-        "crates/wire-base/src/generated/operation_ids.rs"
+        "crates/wire/src/generated/operation_ids.rs"
       ],
-      "owner": "arkret-wire-base",
+      "owner": "arkret-wire",
       "mode": "enum+descriptor",
       "artifacts": [
         "registry/operation-registry.json"
@@ -61,9 +61,9 @@
     {
       "generator": "registry-types",
       "outputs": [
-        "crates/wire-base/src/generated/service_types.rs"
+        "crates/wire/src/generated/service_types.rs"
       ],
-      "owner": "arkret-wire-base",
+      "owner": "arkret-wire",
       "mode": "enum+descriptor",
       "artifacts": [
         "registry/service-type-registry.json"
@@ -72,9 +72,9 @@
     {
       "generator": "registry-types",
       "outputs": [
-        "crates/wire-base/src/generated/relation_kinds.rs"
+        "crates/wire/src/generated/relation_kinds.rs"
       ],
-      "owner": "arkret-wire-base",
+      "owner": "arkret-wire",
       "mode": "enum+descriptor",
       "artifacts": [
         "registry/relation-kind-registry.json"
@@ -83,9 +83,9 @@
     {
       "generator": "registry-types",
       "outputs": [
-        "crates/wire-base/src/generated/capability_actions.rs"
+        "crates/wire/src/generated/capability_actions.rs"
       ],
-      "owner": "arkret-wire-base",
+      "owner": "arkret-wire",
       "mode": "enum",
       "artifacts": [
         "registry/capability-action-registry.json"
@@ -94,9 +94,9 @@
     {
       "generator": "registry-types",
       "outputs": [
-        "crates/wire-base/src/generated/security_strings.rs"
+        "crates/wire/src/generated/security_strings.rs"
       ],
-      "owner": "arkret-wire-base",
+      "owner": "arkret-wire",
       "mode": "newtype+descriptor",
       "artifacts": [
         "registry/proof-context-registry.json",

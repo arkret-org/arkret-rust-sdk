@@ -156,7 +156,7 @@ mod tests {
         Audience, Did, Event, EventId, EventRequirements, Hash, Hlc, MoveSignature, MoveSigner,
         RealmId, UnsignedMove, canonical,
     };
-    use arkret_wire_base::Result as WireResult;
+    use arkret_wire::Result as WireResult;
     use chrono::{DateTime, TimeZone, Utc};
     use serde_json::json;
 

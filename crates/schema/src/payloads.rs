@@ -785,7 +785,7 @@ mod tests {
 
         assert_eq!(
             rule.payload_schema_id,
-            arkret_wire_base::AGENT_SELECTOR_CLAIM_SCHEMA
+            arkret_wire::AGENT_SELECTOR_CLAIM_SCHEMA
         );
         assert!(
             rule.required_fields
@@ -796,7 +796,7 @@ mod tests {
             catalog
                 .validate_payload(
                     events::EventKind::AGENT_SELECTOR_CLAIM,
-                    &json!({"schema": arkret_wire_base::AGENT_SELECTOR_CLAIM_SCHEMA})
+                    &json!({"schema": arkret_wire::AGENT_SELECTOR_CLAIM_SCHEMA})
                 )
                 .is_err(),
             "partial selector claims must fail the dedicated schema validator"

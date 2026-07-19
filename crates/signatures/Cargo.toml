@@ -25,7 +25,7 @@ base64 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 arkret-canonical = {workspace = true}
 arkret-core = {workspace = true,optional = true}
-arkret-wire-base = {workspace = true}
+arkret-wire = {workspace = true}
 ed25519-dalek = {workspace = true}
 rand_core = {workspace = true}
 serde = {workspace = true}

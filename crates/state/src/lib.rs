@@ -4,7 +4,7 @@
 //! mutable Move/Seal reducers, in-memory stores, compaction, and snapshot
 //! construction and verification.
 
-use arkret_wire_base::*;
+use arkret_wire::*;
 
 mod base64url {
     pub use arkret_canonical::base64url::*;
@@ -13,10 +13,10 @@ mod canonical {
     pub use arkret_canonical::canonical::*;
 }
 mod error {
-    pub use arkret_wire_base::error_codes::*;
+    pub use arkret_wire::error_codes::*;
 }
 mod models {
-    pub use arkret_wire_base::primitives::*;
+    pub use arkret_wire::primitives::*;
 }
 
 pub mod lattice;

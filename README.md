@@ -70,8 +70,8 @@ re-exports the public SDK surface:
 - `arkret-server`: framework-independent server handler contracts, service route metadata and endpoint fixture coverage
 - `arkret-signatures`: HTTP signatures, JWS/JWT and proof verification helpers
 - `arkret-state`: reducer, snapshot, lattice and state-transition primitives
-- `arkret-wire-base`: foundational wire constants, identifiers and protocol primitives
-- `arkret-wire-edge`: edge-facing wire contracts layered on `arkret-wire-base`
+- `arkret-wire`: foundational wire constants, identifiers and protocol primitives
+- `arkret-wire-edge`: edge-facing wire contracts layered on `arkret-wire`
 - `arkret`: umbrella SDK crate with high-level state managers and feature forwarding
 
 The workspace default members include all crates:
