@@ -29,7 +29,6 @@ DATA_CRATES = (
     "arkret-canonical",
     "arkret-identifiers",
     "arkret-wire",
-    "arkret-wire-edge",  # deleted in phase 1A
     "arkret-models-identity",
     "arkret-models-crypto",
     "arkret-models-collaboration",
@@ -78,8 +77,16 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     },
     "arkret-schema": _WIRE,
     # R2 (frozen): no policy -> state edge.
+    # Amendment 2026-07-19 (phase 1A): policy -> models-integration allowed —
+    # the blind-payload sanitizer consumes the push wire vocabulary owned by
+    # models-integration; behavior depending on data is the correct direction.
     "arkret-policy": _WIRE
-    | {"arkret-schema", "arkret-models-identity", "arkret-models-collaboration"},
+    | {
+        "arkret-schema",
+        "arkret-models-identity",
+        "arkret-models-collaboration",
+        "arkret-models-integration",
+    },
     "arkret-state": _WIRE
     | {"arkret-models-crypto", "arkret-models-collaboration"},
     "arkret-signatures": _WIRE | {"arkret-models-identity"},
@@ -136,7 +143,6 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-state",
     },
     # Legacy crates: retired in phase 1A (wire-edge) / phase 5 (core, ffi).
-    "arkret-wire-edge": {"arkret-canonical", "arkret-wire"},
     "arkret-core": {
         "arkret-canonical",
         "arkret-identifiers",
@@ -144,7 +150,6 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-schema",
         "arkret-state",
         "arkret-wire",
-        "arkret-wire-edge",
         # Transitional shim targets while core re-exports migrate (phase 5 removes core).
         "arkret-models-integration",
         "arkret-models-discovery",

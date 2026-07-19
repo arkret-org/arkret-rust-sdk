@@ -1,30 +1,26 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
-categories = ["algorithms", "data-structures"]
-description = "Arkret v1 authorization constraints and profile policy semantics."
+categories = ["api-bindings", "data-structures"]
+description = "Arkret v1 service description, capability advertisement, and discovery models."
 edition = "2024"
 homepage = "https://github.com/arkret-org/arkret-rust-sdk"
-keywords = ["arkret", "authorization", "policy"]
+keywords = ["arkret", "discovery", "service", "wire"]
 license = "Apache-2.0"
-name = "arkret-policy"
+name = "arkret-models-discovery"
 repository = "https://github.com/arkret-org/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 
 [features]
 default = []
-mls = []
-salvo-oapi = ["arkret-wire/salvo-oapi"]
+salvo-oapi = ["dep:salvo", "salvo/oapi", "arkret-wire/salvo-oapi"]
 
 [dependencies]
-arkret-schema = {workspace = true}
 arkret-wire = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
-chrono-tz = {workspace = true}
+salvo = {workspace = true,features = ["oapi"],optional = true}
 serde = {workspace = true}
-arkret-models-integration = {workspace = true}
 serde_json = {workspace = true}
-thiserror = {workspace = true}
 
 [lints]
 workspace = true

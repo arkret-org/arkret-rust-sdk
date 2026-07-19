@@ -3,10 +3,12 @@
 use arkret_wire::*;
 
 pub mod authz;
+pub mod blind_payload_sanitizer;
 pub mod generated;
 pub mod profile_claim;
 pub mod profile_feature_guard;
 pub mod profile_semantics;
+pub mod push_rule_core;
 
 pub mod models {
     pub use arkret_wire::primitives::Facet;

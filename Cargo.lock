@@ -172,11 +172,13 @@ version = "0.3.0"
 dependencies = [
  "arkret-canonical",
  "arkret-identifiers",
+ "arkret-models-collaboration",
+ "arkret-models-discovery",
+ "arkret-models-integration",
  "arkret-policy",
  "arkret-schema",
  "arkret-state",
  "arkret-wire",
- "arkret-wire-edge",
  "chrono",
  "chrono-tz",
  "criterion",
@@ -283,6 +285,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "arkret-models-collaboration"
+version = "0.3.0"
+dependencies = [
+ "arkret-wire",
+ "chrono",
+ "salvo",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "arkret-models-discovery"
+version = "0.3.0"
+dependencies = [
+ "arkret-wire",
+ "chrono",
+ "salvo",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "arkret-models-integration"
+version = "0.3.0"
+dependencies = [
+ "arkret-wire",
+ "chrono",
+ "proptest",
+ "salvo",
+ "serde",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
 name = "arkret-network-policy"
 version = "0.3.0"
 dependencies = [
@@ -294,12 +331,14 @@ dependencies = [
 name = "arkret-policy"
 version = "0.3.0"
 dependencies = [
+ "arkret-models-integration",
  "arkret-schema",
  "arkret-wire",
  "chrono",
  "chrono-tz",
  "serde",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -380,21 +419,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
-]
-
-[[package]]
-name = "arkret-wire-edge"
-version = "0.3.0"
-dependencies = [
- "arkret-canonical",
- "arkret-wire",
- "chrono",
- "proptest",
- "salvo",
- "serde",
- "serde_json",
- "thiserror",
- "tracing",
 ]
 
 [[package]]

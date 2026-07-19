@@ -83,7 +83,7 @@ pub mod product;
 mod productivity;
 mod profiles;
 mod push {
-    pub use arkret_wire_edge::models_push::*;
+    pub use arkret_models_integration::models_push::*;
 }
 mod queries;
 mod query_projection;
@@ -95,7 +95,7 @@ mod relation;
 mod resource_selector;
 mod runtime_identity;
 mod service_description {
-    pub use arkret_wire_edge::service_description::*;
+    pub use arkret_models_discovery::service_description::*;
 }
 mod session_credential;
 mod space;
@@ -116,9 +116,10 @@ pub use agent::*;
 pub use agent_participation::*;
 pub use applet::*;
 pub use applet_install_plan::*;
-pub use arkret_wire_edge::{
-    AccessKind, AuditPolicyAccessPayload, InviteReceiveAction, PlaintextDataClassKind,
-    ReceivePolicyConstraints, ReceivePolicySurface, UnknownInviteAction,
+pub use arkret_models_collaboration::governance::audit::{AccessKind, AuditPolicyAccessPayload};
+pub use arkret_wire::plaintext::PlaintextDataClassKind;
+pub use arkret_wire::receive_policy::{
+    InviteReceiveAction, ReceivePolicyConstraints, ReceivePolicySurface, UnknownInviteAction,
 };
 pub use artifacts::*;
 pub use attestation::*;

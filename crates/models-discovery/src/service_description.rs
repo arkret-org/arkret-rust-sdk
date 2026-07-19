@@ -1,4 +1,9 @@
-use super::*;
+use std::collections::BTreeMap;
+
+use arkret_wire::*;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
@@ -411,9 +416,6 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        Did, PROFILE_DIRECTORY_SERVICE, PROTOCOL_VERSION, RateLimitPolicy, TypedTrustDomainId,
-    };
 
     fn directory_description() -> ServiceDescribe {
         ServiceDescribe {

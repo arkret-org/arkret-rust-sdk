@@ -32,8 +32,10 @@ pub mod generated;
 pub mod move_event;
 pub mod notary;
 pub mod object_address;
+pub mod plaintext;
 pub mod primitives;
 pub mod problem_details;
+pub mod receive_policy;
 pub mod seal;
 pub mod service_type;
 pub mod signer;
@@ -59,8 +61,10 @@ pub use move_event::{
 };
 pub use notary::{ForensicAttribution, NotaryValue};
 pub use object_address::*;
+pub use plaintext::PlaintextDataClassKind;
 pub use primitives::{proof_kind, *};
 pub use problem_details::*;
+pub use receive_policy::*;
 pub use seal::{
     MultiSigKind, MultiSignature, NotarySig, SEAL_SIGNATURE_ALGS, Seal, SealKind, ThresholdSigKind,
     ThresholdSignature, compute_seal_id, seal_canonical_bytes,

@@ -1,7 +1,6 @@
+use arkret_wire::{Did, Error, EventId, RealmId, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-
-use crate::{Did, Error, EventId, RealmId, Result};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]

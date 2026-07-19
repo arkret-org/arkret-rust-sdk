@@ -1,12 +1,12 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "data-structures"]
-description = "Arkret v1 push, integration, and cross-deployment edge wire contracts."
+description = "Arkret v1 push gateway, webhook, and external integration exchange models."
 edition = "2024"
 homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "push", "integration", "wire"]
 license = "Apache-2.0"
-name = "arkret-wire-edge"
+name = "arkret-models-integration"
 repository = "https://github.com/arkret-org/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
@@ -16,13 +16,11 @@ default = []
 salvo-oapi = ["dep:salvo", "salvo/oapi", "arkret-wire/salvo-oapi"]
 
 [dependencies]
-arkret-canonical = {workspace = true}
 arkret-wire = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 salvo = {workspace = true,features = ["oapi"],optional = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
-thiserror = {workspace = true}
 tracing = {workspace = true}
 
 [dev-dependencies]

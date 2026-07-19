@@ -2,16 +2,14 @@
 
 use std::time::Duration;
 
+use arkret_wire::{DeviceId, Did, EventId, RealmId};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
 
 #[cfg(test)]
 use crate::integration::IntegrationDependencyDescriptor;
 use crate::integration::IntegrationDescribeOutcome;
-use crate::{
-    DeviceId, Did, EventId, PushNotifyOutcome, PushNotifyRejection, PushRegisterDeviceRequestBody,
-    RealmId,
-};
+use crate::models_push::{PushNotifyOutcome, PushNotifyRejection, PushRegisterDeviceRequestBody};
 
 fn list_contains_ignore_ascii_case(haystack: &[String], needle: &str) -> bool {
     haystack

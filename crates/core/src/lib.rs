@@ -18,7 +18,7 @@ pub mod binding_contexts {
     pub use arkret_canonical::binding_contexts::*;
 }
 pub mod blind_payload_sanitizer {
-    pub use arkret_wire_edge::blind_payload_sanitizer::*;
+    pub use arkret_policy::blind_payload_sanitizer::*;
 }
 pub mod bottom {
     pub use arkret_wire::bottom::*;
@@ -40,7 +40,7 @@ pub mod identity;
 pub mod identity_key_log;
 mod inbound;
 pub mod integration {
-    pub use arkret_wire_edge::integration::*;
+    pub use arkret_models_integration::integration::*;
 }
 pub mod key_transparency;
 pub mod keystore;
@@ -59,7 +59,7 @@ pub mod notary {
 }
 pub mod operations;
 pub mod ops {
-    pub use arkret_wire_edge::ops::*;
+    pub use arkret_models_discovery::ops::*;
 }
 pub mod platform;
 pub mod presence;
@@ -74,10 +74,10 @@ pub mod profile_semantics {
 }
 pub mod query_auth;
 pub mod push {
-    pub use arkret_wire_edge::push::*;
+    pub use arkret_models_integration::push::*;
 }
 pub mod push_rule_core {
-    pub use arkret_wire_edge::push_rule_core::*;
+    pub use arkret_policy::push_rule_core::*;
 }
 pub mod schema {
     pub use arkret_schema::*;

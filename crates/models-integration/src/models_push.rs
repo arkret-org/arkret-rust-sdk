@@ -1,4 +1,10 @@
-use super::*;
+use arkret_wire::{
+    DeviceId, Did, EventId, MessageId, PROFILE_ATTESTED_AUDIT_E2EE, PROFILE_DISCLOSED_AUDIT_E2EE,
+    PROFILE_E2EE_CLIENT, PROFILE_MLS_MINIMAL_METADATA_REALM, RealmId, StrandId,
+};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 fn is_false(value: &bool) -> bool {
     !*value
@@ -82,7 +88,7 @@ pub enum PushCountIndicator {
 }
 
 impl<'de> Deserialize<'de> for PushCountIndicator {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -430,9 +436,7 @@ pub fn is_phase_p2_agent_typed_id(value: &str) -> bool {
         .any(|prefix| value.starts_with(prefix))
 }
 
-pub fn validate_push_notify_contract_shape(
-    request: &PushNotifyRequestBody,
-) -> std::result::Result<(), String> {
+pub fn validate_push_notify_contract_shape(request: &PushNotifyRequestBody) -> Result<(), String> {
     let raw = serde_json::to_value(request)
         .map_err(|error| format!("push notify request serialization failed: {error}"))?;
     reject_forbidden_plaintext_fields("", &raw)?;
@@ -470,7 +474,7 @@ pub fn validate_push_notify_contract_shape(
     Ok(())
 }
 
-fn reject_forbidden_plaintext_fields(path: &str, value: &Value) -> std::result::Result<(), String> {
+fn reject_forbidden_plaintext_fields(path: &str, value: &Value) -> Result<(), String> {
     match value {
         Value::Object(map) => {
             for (key, nested) in map {
@@ -508,7 +512,7 @@ fn reject_forbidden_plaintext_fields(path: &str, value: &Value) -> std::result::
     }
 }
 
-fn validate_push_target_id(value: Option<&str>) -> std::result::Result<(), String> {
+fn validate_push_target_id(value: Option<&str>) -> Result<(), String> {
     const PREFIX: &str = "ak:pseudonym:push:";
     let Some(value) = value else {
         return Err("notification.push_target_id is required".to_owned());
@@ -532,7 +536,7 @@ fn validate_push_target_id(value: Option<&str>) -> std::result::Result<(), Strin
     Ok(())
 }
 
-fn validate_push_route_token(value: Option<&str>, path: &str) -> std::result::Result<(), String> {
+fn validate_push_route_token(value: Option<&str>, path: &str) -> Result<(), String> {
     let Some(value) = value else {
         return Ok(());
     };
@@ -548,7 +552,7 @@ fn validate_push_route_token(value: Option<&str>, path: &str) -> std::result::Re
     Ok(())
 }
 
-fn validate_wakeup_kind(value: Option<&str>) -> std::result::Result<(), String> {
+fn validate_wakeup_kind(value: Option<&str>) -> Result<(), String> {
     let Some(value) = value else {
         return Err("notification.wakeup_kind is required".to_owned());
     };
@@ -556,18 +560,16 @@ fn validate_wakeup_kind(value: Option<&str>) -> std::result::Result<(), String> 
     if value.is_empty() {
         return Err("notification.wakeup_kind must not be empty".to_owned());
     }
-    if !blind_payload_sanitizer::is_valid_wakeup_kind(value) {
+    if !crate::push_vocab::is_valid_wakeup_kind(value) {
         return Err(format!(
             "notification.wakeup_kind must be one of {}",
-            blind_payload_sanitizer::ALLOWED_WAKEUP_KINDS.join(", ")
+            crate::push_vocab::ALLOWED_WAKEUP_KINDS.join(", ")
         ));
     }
     Ok(())
 }
 
-fn validate_timing_profile_hint(
-    value: Option<PushTimingProfileHint>,
-) -> std::result::Result<(), String> {
+fn validate_timing_profile_hint(value: Option<PushTimingProfileHint>) -> Result<(), String> {
     let Some(_) = value else {
         return Err("notification.timing_profile_hint is required".to_owned());
     };
@@ -576,6 +578,8 @@ fn validate_timing_profile_hint(
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
 
     fn valid_request() -> PushNotifyRequestBody {
