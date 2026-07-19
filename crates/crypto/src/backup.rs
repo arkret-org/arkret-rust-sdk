@@ -39,9 +39,9 @@ use arkret_canonical::canonical::{
 use arkret_core::{
     BackupClass, BackupId, Base64UrlString, DeviceId, Did, Hash, KeyBackup, KeyBackupAead,
     KeyBackupAeadName, KeyBackupContentItem, KeyBackupDomainSeparation,
-    KeyBackupDomainSeparationAad, KeyBackupEncryption, KeyBackupFrontierRef, KeyBackupKdf,
-    KeyBackupKdfName, KeyBackupKdfParams, KeyBackupRecipientMethod, base64url_decode,
-    base64url_encode,
+    KeyBackupDomainSeparationAad, KeyBackupEncryption, KeyBackupFrontierGeneration,
+    KeyBackupFrontierRef, KeyBackupKdf, KeyBackupKdfName, KeyBackupKdfParams,
+    KeyBackupRecipientMethod, base64url_decode, base64url_encode,
 };
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
@@ -671,6 +671,7 @@ pub fn build_key_backup_successor_envelope(
     plaintext: &[u8],
     contents: &[(&str, Option<&str>)],
     frontier_ref: impl Into<String>,
+    frontier_generation: KeyBackupFrontierGeneration,
 ) -> Result<KeyBackup> {
     if backup_id == predecessor.backup_id {
         return Err(KeyBackupError::InvalidInput(
@@ -708,7 +709,7 @@ pub fn build_key_backup_successor_envelope(
     successor.frontier_ref = Some(KeyBackupFrontierRef {
         frontier_digest,
         seal_ref: None,
-        ssk_generation: None,
+        generation: frontier_generation,
     });
     Ok(successor)
 }
@@ -1036,6 +1037,7 @@ mod tests {
             b"successor",
             &[("recovery_secret", Some("successor"))],
             "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            KeyBackupFrontierGeneration::SskGeneration(std::num::NonZeroU64::new(1).unwrap()),
         )
         .unwrap();
         assert_eq!(successor.series_id, genesis.series_id);
