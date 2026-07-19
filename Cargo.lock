@@ -132,7 +132,6 @@ dependencies = [
  "hkdf 0.13.0",
  "hmac 0.13.0",
  "parking_lot",
- "regex",
  "reqwest",
  "salvo",
  "serde",
@@ -249,10 +248,12 @@ dependencies = [
  "hmac 0.13.0",
  "hpke",
  "rand_core 0.9.5",
+ "regex",
  "serde",
  "serde_json",
  "sha2 0.11.0",
  "thiserror",
+ "x25519-dalek",
  "zeroize",
 ]
 

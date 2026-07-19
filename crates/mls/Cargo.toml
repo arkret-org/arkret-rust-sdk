@@ -13,7 +13,7 @@ version.workspace = true
 
 [dependencies]
 arkret-canonical = {workspace = true}
-arkret-crypto = {workspace = true,features = ["aead"]}
+arkret-crypto = {workspace = true,features = ["aead", "sframe"]}
 arkret-identifiers = {workspace = true}
 arkret-models-crypto = {workspace = true}
 arkret-models-identity = {workspace = true}

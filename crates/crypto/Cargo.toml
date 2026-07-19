@@ -17,6 +17,29 @@ default = []
 # (`aead_nonce` module). Only pulls in HKDF-SHA256; kept behind a feature so the
 # bare `arkret-crypto` types crate stays light.
 aead = ["dep:hkdf"]
+# Principal-private Account Data value sealing (`account_data_crypto` module):
+# XChaCha20-Poly1305 + HKDF-SHA256 over canonical JSON. Pulls in the AEAD/KDF
+# stack and `regex` (canonical data-type validation) only when enabled.
+account-data = ["dep:chacha20poly1305", "dep:getrandom", "dep:hkdf", "dep:regex"]
+# Encrypted attachment codec (`blob_aead` module): `ak.blob.stream_aead.v1`
+# chunked streaming AEAD + `ak.blob.whole_file_aead.v1` whole-file AEAD, both
+# XChaCha20-Poly1305. Pulls in the AEAD stack only when enabled.
+blob-aead = ["dep:chacha20poly1305", "dep:getrandom"]
+# SFrame media frame-key / recording-key derivation (`sframe` module): the
+# `MlsExporterSource` trait + fixed-label context builders over canonical JSON.
+# Only needs zeroize for the returned key material; the MLS exporter impl lives
+# in `arkret-mls`.
+sframe = ["dep:zeroize"]
+# Stateless key-verification crypto (`key_verification` module): X25519 SAS key
+# agreement, HKDF/HMAC SAS derivation, and the `accept.commitment` hash. The
+# typed strand state machine and envelopes stay in the SDK.
+key-verification = [
+    "dep:getrandom",
+    "dep:hkdf",
+    "dep:hmac",
+    "dep:x25519-dalek",
+    "dep:zeroize",
+]
 # HPKE base-mode secret-share sealing (`secret_share` module): RFC 9180
 # single-shot seal/open + the typed `ak.secret.*` to-device content bodies.
 # Pulls in the `hpke` stack (`hpke`, `getrandom`, `rand_core` 0.9) only when
@@ -59,10 +82,12 @@ hkdf = {workspace = true,optional = true}
 hmac = {workspace = true,optional = true}
 hpke = {workspace = true,optional = true}
 rand_core_09 = {workspace = true,optional = true}
+regex = {workspace = true,optional = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
 sha2 = {workspace = true}
 thiserror = {workspace = true}
+x25519-dalek = {workspace = true,optional = true}
 zeroize = {workspace = true,optional = true}
 
 [lints]

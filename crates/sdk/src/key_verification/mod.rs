@@ -33,12 +33,14 @@
 
 mod commitment;
 mod envelopes;
-mod key_agreement;
 mod strand;
 
-pub use commitment::*;
+// The stateless key-verification crypto (X25519 SAS key agreement, SAS
+// derivation, and the `accept.commitment` hash) now lives in arkret-crypto.
+// Re-export it so the historical `arkret::key_verification::*` paths (incl. the
+// `key_agreement` submodule and `compute_key_commitment`) stay stable.
+pub use arkret_crypto::key_verification::*;
 pub use envelopes::*;
-pub use key_agreement::*;
 pub use strand::*;
 
 #[cfg(test)]

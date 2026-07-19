@@ -46,7 +46,7 @@ use arkret_models_crypto::key_backup::{
 use arkret_wire::{BackupId, Base64UrlString, DeviceId, Did, Hash};
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
-use chrono::{SubsecRound, Utc};
+use chrono::{DateTime, SubsecRound, Utc};
 use getrandom::fill;
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
@@ -744,6 +744,78 @@ pub fn commitment_digest(root: &[u8; VAULT_KDF_OUTPUT_LEN], backup_class: Backup
     let digest = arkret_canonical::canonical::sha256_bytes(commitment_key).to_vec();
     commitment_key.zeroize();
     digest
+}
+
+// ── key-backup subdomain KDF + commitment + AAD (key-management.md §7.2) ──────
+//
+// These small pure helpers were previously in the SDK `devices::backup` module.
+// They construct the recommended `key_commitment`, derive HKDF subdomain keys,
+// and build the canonical AEAD associated-data blob a key-backup envelope binds
+// to its origin. They live here so the whole key-backup crypto surface is in one
+// place, reachable without the umbrella client runtime.
+
+fn hkdf_sha256_32(input_key_material: &[u8], info: &[u8]) -> [u8; 32] {
+    let mut output = [0u8; 32];
+    Hkdf::<Sha256>::new(None, input_key_material)
+        .expand(info, &mut output)
+        .expect("32-byte HKDF-SHA256 output is always valid");
+    output
+}
+
+/// Recommended `key_commitment` construction
+/// (`key-management.md` §7.2):
+///
+/// ```text
+/// commitment_key = HKDF(derived_key, info="arkret-key-backup-commitment-v1")
+/// key_commitment = SHA256(commitment_key)
+/// ```
+///
+/// Used by callers to fail-fast when the user types a wrong passphrase.
+/// The server MUST NOT use this field for authentication.
+pub fn key_backup_commitment(derived_key: &[u8]) -> String {
+    let commitment_key = hkdf_sha256_32(derived_key, b"arkret-key-backup-commitment-v1");
+    sha256_digest(commitment_key)
+}
+
+/// HKDF subdomain key derivation per `key-management.md` §7.2.
+///
+/// Returns 32 bytes of a domain-isolated subkey suitable for AEAD or
+/// further key wrapping. Derives via HKDF-SHA256 over `derived_key`
+/// using `info = backup_class.hkdf_info(subdomain)`.
+pub fn key_backup_subdomain_key(
+    derived_key: &[u8],
+    backup_class: BackupClass,
+    subdomain: &str,
+) -> [u8; 32] {
+    let info = backup_class.hkdf_info(subdomain);
+    hkdf_sha256_32(derived_key, info.as_bytes())
+}
+
+/// Build the AEAD associated-data (AAD) blob that MUST bind a key-backup
+/// envelope to its origin per `key-management.md` §7.1.
+///
+/// Returns canonical-JSON bytes covering:
+/// `actor_id`, `device_id`, `backup_class`, `backup_version`,
+/// `item_type`, `schema_id`, and `created_at`.
+pub fn key_backup_aad(
+    actor_id: &Did,
+    device_id: Option<&DeviceId>,
+    backup_class: BackupClass,
+    backup_version: &str,
+    item_type: &str,
+    schema_id: &str,
+    created_at: DateTime<Utc>,
+) -> crate::Result<Vec<u8>> {
+    let aad = json!({
+        "actor_id": actor_id.as_str(),
+        "device_id": device_id.map(|d| d.as_str()),
+        "backup_class": backup_class.as_str(),
+        "backup_version": backup_version,
+        "item_type": item_type,
+        "schema_id": schema_id,
+        "created_at": created_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+    });
+    Ok(canonical_json_bytes(&aad)?)
 }
 
 #[cfg(test)]

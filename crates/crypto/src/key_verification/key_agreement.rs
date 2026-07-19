@@ -271,14 +271,14 @@ pub fn derive_sas_bytes(shared_secret: &[u8], info: &[u8]) -> ShortAuthenticatio
     }
 }
 
-pub(super) fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
+pub fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
     let mut mac =
         Hmac::<Sha256>::new_from_slice(key).expect("HMAC-SHA256 accepts keys of any length");
     mac.update(message);
     mac.finalize().into_bytes().into()
 }
 
-pub(super) fn hkdf_expand_sha256(prk: &[u8; 32], info: &[u8], output: &mut [u8]) {
+pub fn hkdf_expand_sha256(prk: &[u8; 32], info: &[u8], output: &mut [u8]) {
     Hkdf::<Sha256>::from_prk(prk)
         .expect("SHA-256 PRK has the required digest length")
         .expand(info, output)

@@ -1427,6 +1427,22 @@ pub(super) fn mls_error(error: impl std::fmt::Debug) -> Error {
     Error::Mls(format!("{error:?}"))
 }
 
+/// A live Arkret MLS group is the only authorized source for SFrame media
+/// frame / recording / transcript keys (`arkret_crypto::sframe`). The bound
+/// makes a non-MLS provenance unrepresentable at the type level.
+impl arkret_crypto::sframe::MlsExporterSource for ArkretMlsGroup {
+    fn export_secret(
+        &self,
+        label: &str,
+        context: &[u8],
+        length: usize,
+    ) -> arkret_crypto::Result<Zeroizing<Vec<u8>>> {
+        // Bridge the MLS behavior-layer error into the crypto-boundary error.
+        ArkretMlsGroup::export_secret(self, label, context, length)
+            .map_err(|error| arkret_crypto::Error::Crypto(error.to_string()))
+    }
+}
+
 #[cfg(test)]
 mod content_scheme_anchor_tests {
     use arkret_crypto::{

@@ -2833,7 +2833,7 @@
       "rust_field": "crates/sdk/src/devices/mod.rs::ToDeviceEnvelope.content",
       "crate": "sdk",
       "file": "crates/sdk/src/devices/mod.rs",
-      "line": 122,
+      "line": 121,
       "owner": "ToDeviceEnvelope",
       "field": "content",
       "rust_type": "Value",

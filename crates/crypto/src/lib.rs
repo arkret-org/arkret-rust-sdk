@@ -8,14 +8,22 @@
 //!   `crypto-media/key-management.md` §7). When the feature is off, the bare types crate stays free
 //!   of heavyweight crypto deps.
 
+#[cfg(feature = "account-data")]
+pub mod account_data_crypto;
 #[cfg(feature = "aead")]
 pub mod aead_nonce;
 #[cfg(feature = "backup")]
 pub mod backup;
+#[cfg(feature = "blob-aead")]
+pub mod blob_aead;
 #[cfg(feature = "identity-root")]
 pub mod identity_root;
+#[cfg(feature = "key-verification")]
+pub mod key_verification;
 #[cfg(feature = "secret-share")]
 pub mod secret_share;
+#[cfg(feature = "sframe")]
+pub mod sframe;
 
 mod cross_signing;
 mod device;

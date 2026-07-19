@@ -27,7 +27,11 @@ mls = ["dep:arkret-mls", "full-surface", "arkret-core/mls", "arkret-ffi/mls"]
 # (OpenMLS-free), so full-surface does NOT need arkret-mls. openmls therefore
 # enters the graph only via the dedicated `mls` feature (never through
 # full-surface / server / device-runtime / applet).
-full-surface = ["arkret-core/embedded-artifacts"]
+full-surface = [
+    "arkret-core/embedded-artifacts",
+    "arkret-crypto/blob-aead",
+    "arkret-crypto/sframe",
+]
 # TLS backend passthrough (`cargo add arkret --features client,tls-rustls`
 # gives a working https client out of the box). The SDK stays TLS-neutral
 # without this feature. PQ-hybrid TLS (X25519MLKEM768) is a MUST for all
@@ -53,7 +57,12 @@ applet-runtime = ["full-surface", "server"]
 # server handler contracts and the ready-made Salvo `Router` factory.
 # `cargo add arkret --features applet` is all an Applet service needs.
 applet = ["applet-runtime", "client", "server", "salvo"]
-device-runtime = ["full-surface", "arkret-crypto/secret-share"]
+device-runtime = [
+    "full-surface",
+    "arkret-crypto/backup",
+    "arkret-crypto/key-verification",
+    "arkret-crypto/secret-share",
+]
 sync-runtime = ["full-surface"]
 timeline-runtime = ["full-surface"]
 # Round 23 (2026-05-09): expose the platform KeyStore feature gates so apps
@@ -76,7 +85,7 @@ base64 = {workspace = true}
 chacha20poly1305 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 arkret-core = {workspace = true}
-arkret-crypto = {workspace = true,features = ["aead", "identity-root"]}
+arkret-crypto = {workspace = true,features = ["account-data", "aead", "identity-root"]}
 arkret-ffi = {workspace = true}
 # Direct dep so the SDK crypto store can re-export the MLS record shapes
 # (`MlsGroupStateRecord`) it previously owned; the shapes now live in
@@ -98,7 +107,6 @@ hex = {workspace = true}
 hkdf = {workspace = true}
 hmac = {workspace = true}
 parking_lot = {workspace = true}
-regex = {workspace = true}
 reqwest = {workspace = true,features = ["json", "gzip", "http2"],optional = true}
 salvo = {workspace = true,features = ["oapi"],optional = true}
 serde = {workspace = true}

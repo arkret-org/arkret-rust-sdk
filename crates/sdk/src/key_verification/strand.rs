@@ -4,7 +4,8 @@ use arkret_canonical::base64url::base64url_encode;
 use chrono::Utc;
 use zeroize::Zeroizing;
 
-use super::commitment::{compute_key_commitment, ct_eq};
+use super::commitment::ct_eq;
+use super::compute_key_commitment;
 use super::envelopes::{
     KeyVerificationAccept, KeyVerificationCancel, KeyVerificationDone, KeyVerificationKey,
     KeyVerificationMac, KeyVerificationStart, KeyVerificationState,
