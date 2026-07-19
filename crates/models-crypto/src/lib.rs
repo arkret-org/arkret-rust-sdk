@@ -18,6 +18,7 @@ pub mod keys;
 pub mod mls_envelopes;
 pub mod mls_governance_proof;
 pub mod mls_payloads;
+pub mod mls_records;
 
 pub use artifacts_keys::*;
 pub use encrypted_attachment::*;
@@ -29,3 +30,4 @@ pub use keys::*;
 pub use mls_envelopes::*;
 pub use mls_governance_proof::*;
 pub use mls_payloads::*;
+pub use mls_records::*;

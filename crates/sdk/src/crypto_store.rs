@@ -125,34 +125,11 @@ pub struct MlsRecoveryPlan {
     pub action: MlsRecoveryAction,
 }
 
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MlsGroupStateRecord {
-    pub group_id: String,
-    pub principal_id: Did,
-    pub device_id: DeviceId,
-    pub epoch: u64,
-    pub serialized_state: Vec<u8>,
-    pub updated_at: DateTime<Utc>,
-}
-
-// `serialized_state` is the full OpenMLS group snapshot (ratchet secrets +
-// retained history secrets): render it redacted so a stray `{record:?}` in a
-// log line can never leak decryptable key material.
-impl std::fmt::Debug for MlsGroupStateRecord {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MlsGroupStateRecord")
-            .field("group_id", &self.group_id)
-            .field("principal_id", &self.principal_id)
-            .field("device_id", &self.device_id)
-            .field("epoch", &self.epoch)
-            .field(
-                "serialized_state",
-                &format_args!("<redacted {} bytes>", self.serialized_state.len()),
-            )
-            .field("updated_at", &self.updated_at)
-            .finish()
-    }
-}
+// `MlsGroupStateRecord` moved to `arkret_models_crypto::mls_records` so the MLS
+// behavior layer can consume it without the SDK crypto store. Re-exported here
+// to keep the `crate::MlsGroupStateRecord` path and the `arkret::` surface
+// stable.
+pub use arkret_models_crypto::MlsGroupStateRecord;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MlsEpochSecretRecord {

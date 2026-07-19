@@ -17,25 +17,23 @@ pub const AEAD_ALGORITHM: &str = "xchacha20poly1305-hkdf-sha256-v1";
 /// HKDF salt that domain-separates the `seal`/`open` AEAD key derivation
 /// from any other use of the same key material.
 const AEAD_HKDF_SALT: &[u8] = b"arkret-aead-seal-hkdf-v1";
-pub const ENCRYPTED_ENVELOPE_AAD_CONTEXT: &str = "arkret-encrypted-envelope-aad-v1";
 pub const REDACTED_SECRET: &str = "<redacted>";
 const NONCE_LEN: usize = 24;
-pub const AEAD_NONCE_EXPORTER_LABEL: &str = crate::ExporterLabelId::AEAD_SENDER_NONCE_PREFIX_V1;
-pub const AEAD_NONCE_COUNTER_LEN: usize = 8;
 pub const AEAD_NONCE_XCHACHA20_POLY1305_LEN: usize = 24;
 pub const AEAD_NONCE_AES_GCM_LEN: usize = 12;
-pub const AEAD_PROFILE_XCHACHA20_POLY1305: &str = "mls_exporter_aead_xchacha20poly1305";
 pub const AEAD_PROFILE_AES_256_GCM: &str = "mls_exporter_aead_aes_256_gcm";
 
-/// Canonical context for v1 AEAD sender nonce prefix derivation.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AeadNonceContext {
-    pub key_ref: Value,
-    pub epoch: u64,
-    pub device_id: String,
-    pub purpose: String,
-    pub aead_profile: String,
-}
+// The MLS-Exporter AEAD nonce derivation + encrypted-envelope AAD digest
+// helpers (and `AeadNonceContext`) moved to `arkret_crypto::aead_nonce`.
+// Re-exported here so the `arkret::crypto::*` surface, this module's own
+// `verify_*` / replay helpers, and downstream call sites keep referring to
+// them unchanged.
+pub use arkret_crypto::aead_nonce::{
+    AEAD_NONCE_COUNTER_LEN, AEAD_NONCE_EXPORTER_LABEL, AEAD_PROFILE_XCHACHA20_POLY1305,
+    AeadNonceContext, ENCRYPTED_ENVELOPE_AAD_CONTEXT, aead_sender_nonce_context_bytes,
+    canonical_envelope_aad, compose_aead_nonce, derive_aead_sender_nonce_prefix,
+    envelope_aad_digest, json_aad_digest,
+};
 
 /// Receiver-side replay cache for per-sender AEAD counters.
 #[derive(Clone, Debug)]
@@ -337,72 +335,6 @@ fn protocol_error(reason: &str, detail: &str) -> Error {
     Error::Protocol(format!("{reason}: {detail}"))
 }
 
-fn aead_nonce_prefix_len(nonce_len: usize) -> Result<usize> {
-    if nonce_len <= AEAD_NONCE_COUNTER_LEN {
-        return Err(protocol_error(
-            arkret_core::error::ReasonCode::AEAD_NONCE_DERIVATION_INVALID,
-            "AEAD nonce length must reserve an 8-byte counter suffix",
-        ));
-    }
-    Ok(nonce_len - AEAD_NONCE_COUNTER_LEN)
-}
-
-fn validate_aead_nonce_context(context: &AeadNonceContext) -> Result<()> {
-    if context.key_ref.is_null() {
-        return Err(protocol_error(
-            arkret_core::error::ReasonCode::AEAD_NONCE_DERIVATION_INVALID,
-            "key_ref must be present in the AEAD nonce exporter context",
-        ));
-    }
-    if context.device_id.is_empty() || context.purpose.is_empty() || context.aead_profile.is_empty()
-    {
-        return Err(protocol_error(
-            arkret_core::error::ReasonCode::AEAD_NONCE_DERIVATION_INVALID,
-            "device_id, purpose and aead_profile must be non-empty",
-        ));
-    }
-    Ok(())
-}
-
-/// Canonical JSON bytes used as MLS-Exporter Context for v1 AEAD nonce prefixes.
-pub fn aead_sender_nonce_context_bytes(context: &AeadNonceContext) -> Result<Vec<u8>> {
-    validate_aead_nonce_context(context)?;
-    Ok(crate::canonical::canonical_json_bytes(context)?)
-}
-
-/// Derive the sender nonce prefix from a fixed exporter secret for tests and adapters.
-///
-/// Live MLS integrations should call the MLS exporter with
-/// `AEAD_NONCE_EXPORTER_LABEL`, [`aead_sender_nonce_context_bytes`] and
-/// `nonce_len - 8`. This helper mirrors that exporter input with HKDF-SHA256
-/// so conformance tests can pin deterministic bytes without a live MLS group.
-pub fn derive_aead_sender_nonce_prefix(
-    exporter_secret: &[u8],
-    context: &AeadNonceContext,
-    nonce_len: usize,
-) -> Result<Vec<u8>> {
-    let prefix_len = aead_nonce_prefix_len(nonce_len)?;
-    let context_bytes = aead_sender_nonce_context_bytes(context)?;
-    let mut info = Vec::with_capacity(AEAD_NONCE_EXPORTER_LABEL.len() + 1 + context_bytes.len());
-    info.extend_from_slice(AEAD_NONCE_EXPORTER_LABEL.as_bytes());
-    info.push(0x00);
-    info.extend_from_slice(&context_bytes);
-
-    let hkdf = Hkdf::<Sha256>::new(None, exporter_secret);
-    let mut prefix = vec![0u8; prefix_len];
-    hkdf.expand(&info, &mut prefix)
-        .map_err(|_| Error::Crypto("AEAD nonce prefix derivation failed".to_owned()))?;
-    Ok(prefix)
-}
-
-/// Compose `nonce = sender_nonce_prefix || device_nonce_counter_be64`.
-pub fn compose_aead_nonce(sender_nonce_prefix: &[u8], counter: u64) -> Vec<u8> {
-    let mut nonce = Vec::with_capacity(sender_nonce_prefix.len() + AEAD_NONCE_COUNTER_LEN);
-    nonce.extend_from_slice(sender_nonce_prefix);
-    nonce.extend_from_slice(&counter.to_be_bytes());
-    nonce
-}
-
 /// Reject if a supplied nonce does not equal the deterministic canonical nonce.
 pub fn verify_aead_nonce_derivation(expected_nonce: &[u8], supplied_nonce: &[u8]) -> Result<()> {
     if expected_nonce == supplied_nonce {
@@ -497,27 +429,6 @@ pub fn open(envelope: &[u8], key_material: &[u8], aad: &[u8]) -> Result<Vec<u8>>
             },
         )
         .map_err(|_| Error::Crypto("AEAD decryption failed".to_owned()))
-}
-
-/// Canonicalize encrypted-envelope AAD and bind it to a domain-separated context.
-pub fn canonical_envelope_aad(aad: &EncryptedEnvelopeAad) -> Result<Vec<u8>> {
-    let mut bytes = ENCRYPTED_ENVELOPE_AAD_CONTEXT.as_bytes().to_vec();
-    bytes.push(0);
-    bytes.extend_from_slice(&crate::canonical::canonical_json_bytes(aad)?);
-    Ok(bytes)
-}
-
-/// Compute a SHA-256 digest over canonical encrypted-envelope AAD.
-pub fn envelope_aad_digest(aad: &EncryptedEnvelopeAad) -> Result<String> {
-    Ok(sha256_prefixed(&canonical_envelope_aad(aad)?))
-}
-
-/// Compute a SHA-256 digest over arbitrary JSON AAD using canonical JSON.
-pub fn json_aad_digest(aad: &Value) -> Result<String> {
-    let mut bytes = ENCRYPTED_ENVELOPE_AAD_CONTEXT.as_bytes().to_vec();
-    bytes.push(0);
-    bytes.extend_from_slice(&crate::canonical::canonical_json_bytes(aad)?);
-    Ok(sha256_prefixed(&bytes))
 }
 
 /// Fail closed if the supplied AAD digest does not match the canonical AAD.

@@ -506,21 +506,10 @@ impl<'de> Deserialize<'de> for MlsGenesisPayload {
     }
 }
 
-/// Lifecycle of a published KeyPackage per `device-lifecycle.md` §2 /
-/// `encryption-and-audit.md` §2.6. Once a KeyPackage is `claimed` it
-/// MUST NOT be re-claimed; once `consumed` it MUST NOT return to
-/// `published`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum MlsKeyPackageState {
-    #[default]
-    Published,
-    Claimed,
-    Consumed,
-    Expired,
-    Revoked,
-}
+// `MlsKeyPackageState` moved to `arkret-models-crypto` (mls_records) so the MLS
+// behavior layer can reach it without depending on this crate. Re-exported here
+// to keep the `list_message_mimi_mls::MlsKeyPackageState` path stable.
+pub use arkret_models_crypto::MlsKeyPackageState;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/mls_keypackage_payload`.

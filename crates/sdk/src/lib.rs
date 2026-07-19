@@ -229,8 +229,11 @@ pub mod jws;
 pub mod key_backup_client;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub mod key_verification;
+// `secret_share` moved to `arkret-crypto` (HPKE base-mode seal). Re-exported
+// here to keep the `arkret::secret_share::*` / `crate::secret_share::*` paths
+// stable for `history_recovery` and the `mls` tests.
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
-pub mod secret_share;
+pub use arkret_crypto::secret_share;
 // `lattice_registry` is intentionally NOT feature-gated: inkson Move
 // pre-check + cotest fixtures need the spec-normative cell-family
 // registry independently of the higher-level full-surface client

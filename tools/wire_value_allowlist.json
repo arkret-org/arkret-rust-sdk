@@ -1219,7 +1219,7 @@
       "reason": "Presented claim values are deliberately claim-type-defined JSON."
     },
     {
-      "rust_field": "crates/sdk/src/crypto.rs::AeadNonceContext.key_ref",
+      "rust_field": "crates/crypto/src/aead_nonce.rs::AeadNonceContext.key_ref",
       "classification": "internal_or_fixture",
       "reason": "AEAD nonce context is an internal cryptographic derivation input."
     },

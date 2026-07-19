@@ -8,10 +8,14 @@
 //!   `crypto-media/key-management.md` §7). When the feature is off, the bare types crate stays free
 //!   of heavyweight crypto deps.
 
+#[cfg(feature = "aead")]
+pub mod aead_nonce;
 #[cfg(feature = "backup")]
 pub mod backup;
 #[cfg(feature = "identity-root")]
 pub mod identity_root;
+#[cfg(feature = "secret-share")]
+pub mod secret_share;
 
 mod cross_signing;
 mod device;
@@ -19,6 +23,8 @@ mod errors;
 mod session;
 
 // Crate-root re-export preserved from the original module layout.
+#[cfg(feature = "aead")]
+pub use aead_nonce::*;
 pub use arkret_signatures::{DetachedSignature, DetachedSignatureBinding, DetachedVerifier};
 // Re-export every moved public item at the crate root so the public API is
 // byte-identical to the pre-split single-file module.

@@ -13,6 +13,15 @@ version.workspace = true
 
 [features]
 default = []
+# MLS-Exporter AEAD nonce derivation + encrypted-envelope AAD digest helpers
+# (`aead_nonce` module). Only pulls in HKDF-SHA256; kept behind a feature so the
+# bare `arkret-crypto` types crate stays light.
+aead = ["dep:hkdf"]
+# HPKE base-mode secret-share sealing (`secret_share` module): RFC 9180
+# single-shot seal/open + the typed `ak.secret.*` to-device content bodies.
+# Pulls in the `hpke` stack (`hpke`, `getrandom`, `rand_core` 0.9) only when
+# enabled.
+secret-share = ["dep:hpke", "dep:getrandom", "dep:rand_core_09"]
 # Client-side key-backup helpers: Argon2id KDF + XChaCha20-Poly1305 AEAD +
 # typed `ak.schema.key_backup.v1` envelope builder + recovery-key codec.
 # Spec: crypto-media/key-management.md §7. Pulls in `argon2`,
@@ -49,6 +58,7 @@ getrandom = {workspace = true,optional = true}
 hkdf = {workspace = true,optional = true}
 hmac = {workspace = true,optional = true}
 hpke = {workspace = true,optional = true}
+rand_core_09 = {workspace = true,optional = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
 sha2 = {workspace = true}

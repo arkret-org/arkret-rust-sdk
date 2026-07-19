@@ -19,13 +19,14 @@
 //! vocabulary.
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
+use arkret_wire::DeviceId;
 use hpke::aead::ChaCha20Poly1305;
 use hpke::kdf::HkdfSha256;
 use hpke::kem::X25519HkdfSha256;
 use hpke::{Deserializable, OpModeR, OpModeS, Serializable, single_shot_open, single_shot_seal};
 use serde::{Deserialize, Serialize};
 
-use crate::{DeviceId, Error, Result};
+use crate::{Error, Result};
 
 /// Wire `kind` for the secret request (`ak.secret.request`).
 pub const SECRET_REQUEST_KIND: &str = "ak.secret.request";
