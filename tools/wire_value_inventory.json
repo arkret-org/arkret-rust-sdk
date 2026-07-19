@@ -6,16 +6,16 @@
       "crypto": 1,
       "event-draft": 2,
       "ffi": 1,
-      "models-collaboration": 109,
+      "models-collaboration": 110,
       "models-crypto": 6,
       "models-discovery": 17,
       "models-identity": 10,
       "models-integration": 17,
       "schema": 8,
-      "sdk": 30,
+      "sdk": 28,
       "server": 4,
       "signatures": 8,
-      "state": 8,
+      "state": 9,
       "wire": 13
     },
     "by_classification": {
@@ -1658,6 +1658,19 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
+      "rust_field": "crates/models-collaboration/src/resolved_state.rs::ResolvedStateEvent.content",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/resolved_state.rs",
+      "line": 30,
+      "owner": "ResolvedStateEvent",
+      "field": "content",
+      "rust_type": "Value",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "internal_or_fixture",
+      "reason": "Resolved state content is heterogeneous reducer output."
+    },
+    {
       "rust_field": "crates/models-collaboration/src/sync_frames/account_sync.rs::DeviceMessageContainer.extra",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/sync_frames/account_sync.rs",
@@ -2932,32 +2945,6 @@
       "reason": "Operation input reuses the core open Space field map."
     },
     {
-      "rust_field": "crates/sdk/src/resolver/snapshot.rs::ResolvedMessage.content",
-      "crate": "sdk",
-      "file": "crates/sdk/src/resolver/snapshot.rs",
-      "line": 131,
-      "owner": "ResolvedMessage",
-      "field": "content",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "internal_or_fixture",
-      "reason": "Resolved message content is a local projection."
-    },
-    {
-      "rust_field": "crates/sdk/src/resolver/snapshot.rs::ResolvedStateEvent.content",
-      "crate": "sdk",
-      "file": "crates/sdk/src/resolver/snapshot.rs",
-      "line": 119,
-      "owner": "ResolvedStateEvent",
-      "field": "content",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "internal_or_fixture",
-      "reason": "Resolved state content is heterogeneous reducer output."
-    },
-    {
       "rust_field": "crates/sdk/src/store.rs::StoredAccountData.content",
       "crate": "sdk",
       "file": "crates/sdk/src/store.rs",
@@ -3229,6 +3216,19 @@
       "schema_shape": "unknown",
       "classification": "internal_or_fixture",
       "reason": "Generic ordered-log values are an internal reducer representation."
+    },
+    {
+      "rust_field": "crates/state/src/resolver/snapshot.rs::ResolvedMessage.content",
+      "crate": "state",
+      "file": "crates/state/src/resolver/snapshot.rs",
+      "line": 117,
+      "owner": "ResolvedMessage",
+      "field": "content",
+      "rust_type": "Value",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "internal_or_fixture",
+      "reason": "Resolved message content is a local projection."
     },
     {
       "rust_field": "crates/state/src/snapshot/types.rs::SnapshotChunkPayload.conflict_records",

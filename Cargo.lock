@@ -116,6 +116,7 @@ dependencies = [
  "arkret-keystore",
  "arkret-mls",
  "arkret-models-crypto",
+ "arkret-policy",
  "arkret-server",
  "arkret-signatures",
  "arkret-state",
@@ -442,6 +443,8 @@ dependencies = [
 name = "arkret-policy"
 version = "0.3.0"
 dependencies = [
+ "arkret-canonical",
+ "arkret-models-collaboration",
  "arkret-models-integration",
  "arkret-schema",
  "arkret-wire",
@@ -514,6 +517,8 @@ name = "arkret-state"
 version = "0.3.0"
 dependencies = [
  "arkret-canonical",
+ "arkret-identifiers",
+ "arkret-models-collaboration",
  "arkret-wire",
  "chrono",
  "hex",

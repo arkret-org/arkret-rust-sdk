@@ -90,7 +90,7 @@ pub struct AuthzContext {
     /// [`Constraint::AllowedCircleIds`] to membership-test against the
     /// grant's allow-list.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub circle_id: Option<arkret_core::CircleId>,
+    pub circle_id: Option<arkret_wire::CircleId>,
     /// Applet interop session id for session-scoped writes.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub interop_session_id: Option<String>,
@@ -159,7 +159,7 @@ impl AuthzContext {
     /// Set the target Circle id for `AllowedCircleIds` constraint
     /// evaluation. Pass when the operation targets a Circle-management
     /// capability (`ak.circle.*`).
-    pub fn with_circle_id(mut self, circle_id: arkret_core::CircleId) -> Self {
+    pub fn with_circle_id(mut self, circle_id: arkret_wire::CircleId) -> Self {
         self.circle_id = Some(circle_id);
         self
     }
@@ -316,7 +316,7 @@ impl AuthzEngine {
     }
 
     /// Check authorization for a context against a list of spec wire-form
-    /// grants ([`arkret_core::CapabilityGrant`]).
+    /// grants ([`arkret_models_collaboration::governance::grant_constraint::CapabilityGrant`]).
     ///
     /// Each grant is projected into the engine's internal typed form first;
     /// a grant that fails projection is rejected with `schema_violation`
@@ -325,7 +325,7 @@ impl AuthzEngine {
     pub fn check_authorization(
         &mut self,
         ctx: &AuthzContext,
-        grants: &[arkret_core::CapabilityGrant],
+        grants: &[arkret_models_collaboration::governance::grant_constraint::CapabilityGrant],
     ) -> EngineDecision {
         // Project the wire form; schema-violating grants are excluded.
         let mut projections = Vec::with_capacity(grants.len());
@@ -365,20 +365,6 @@ impl AuthzEngine {
         decision
     }
 
-    /// Check authorization against grants reduced into a `RealmState` snapshot.
-    pub fn check_authorization_from_realm_state(
-        &mut self,
-        ctx: &AuthzContext,
-        state: &crate::RealmState,
-    ) -> EngineDecision {
-        match capability_grants_from_realm_state(state) {
-            Ok(grants) => self.check_authorization(ctx, &grants),
-            Err(err) => EngineDecision::Deny {
-                reason: format!("invalid capability state: {}", err),
-            },
-        }
-    }
-
     /// Combine local capability authorization with a policy-server response.
     ///
     /// Policy servers can only further restrict access. `NoAction` falls back to
@@ -386,7 +372,7 @@ impl AuthzEngine {
     pub fn check_authorization_with_policy(
         &mut self,
         ctx: &AuthzContext,
-        grants: &[arkret_core::CapabilityGrant],
+        grants: &[arkret_models_collaboration::governance::grant_constraint::CapabilityGrant],
         policy: &PolicyEvaluationResult,
     ) -> EngineDecision {
         apply_policy_response(self.check_authorization(ctx, grants), policy)
@@ -402,10 +388,12 @@ impl AuthzEngine {
     pub fn check_authorization_with_approvals(
         &mut self,
         ctx: &AuthzContext,
-        grants: &[arkret_core::CapabilityGrant],
+        grants: &[arkret_models_collaboration::governance::grant_constraint::CapabilityGrant],
         approvals: &ApprovalStrandManager,
     ) -> EngineDecision {
-        let eligible_grants: Vec<arkret_core::CapabilityGrant> = grants
+        let eligible_grants: Vec<
+            arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
+        > = grants
             .iter()
             .filter_map(|grant| {
                 if grant_requires_approval(grant) {
@@ -1249,20 +1237,24 @@ impl AuthzEngine {
     }
 
     /// Generate a cache key for the context.
-    fn cache_key(&self, ctx: &AuthzContext, grants: &[arkret_core::CapabilityGrant]) -> String {
-        let grants_digest = crate::canonical::canonical_sha256(&grants)
+    fn cache_key(
+        &self,
+        ctx: &AuthzContext,
+        grants: &[arkret_models_collaboration::governance::grant_constraint::CapabilityGrant],
+    ) -> String {
+        let grants_digest = arkret_canonical::canonical_sha256(&grants)
             .unwrap_or_else(|_| format!("grant-count:{}", grants.len()));
         let claims_digest =
-            crate::canonical::canonical_sha256(&(&ctx.verified_claims, &ctx.revoked_claim_ids))
+            arkret_canonical::canonical_sha256(&(&ctx.verified_claims, &ctx.revoked_claim_ids))
                 .unwrap_or_else(|_| format!("claim-count:{}", ctx.verified_claims.len()));
-        let resource_digest = crate::canonical::canonical_sha256(&ctx.resource)
+        let resource_digest = arkret_canonical::canonical_sha256(&ctx.resource)
             .unwrap_or_else(|_| ctx.resource.realm_id().to_owned());
-        let facets_digest = crate::canonical::canonical_sha256(&ctx.facets)
+        let facets_digest = arkret_canonical::canonical_sha256(&ctx.facets)
             .unwrap_or_else(|_| format!("facet-count:{}", ctx.facets.len()));
-        let frontier_digest = crate::canonical::canonical_sha256(&ctx.cache_frontier)
+        let frontier_digest = arkret_canonical::canonical_sha256(&ctx.cache_frontier)
             .unwrap_or_else(|_| "missing-authz-cache-frontier".to_owned());
         let field_digest =
-            crate::canonical::canonical_sha256(&(&ctx.read_fields, &ctx.write_fields))
+            arkret_canonical::canonical_sha256(&(&ctx.read_fields, &ctx.write_fields))
                 .unwrap_or_else(|_| {
                     format!(
                         "fields:{}:{}",
@@ -1270,7 +1262,7 @@ impl AuthzEngine {
                         ctx.write_fields.len()
                     )
                 });
-        let request_digest = crate::canonical::canonical_sha256(&(
+        let request_digest = arkret_canonical::canonical_sha256(&(
             &ctx.realm_id,
             &ctx.history_visibility,
             &ctx.blob_byte_count,
@@ -1464,7 +1456,9 @@ pub fn apply_policy_response(
 /// Operates on the spec wire form: an approval requirement is a constraint
 /// with `constraint_type = "claim_based"`, `subtype = "approval"` and
 /// `approval_required = true` (grant-constraint.schema.json).
-pub fn grant_requires_approval(grant: &arkret_core::CapabilityGrant) -> bool {
+pub fn grant_requires_approval(
+    grant: &arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
+) -> bool {
     grant
         .constraints
         .iter()
@@ -1472,9 +1466,11 @@ pub fn grant_requires_approval(grant: &arkret_core::CapabilityGrant) -> bool {
 }
 
 /// Spec-shape predicate for an `approval_required = true` constraint object.
-fn is_approval_required_constraint(constraint: &arkret_core::GrantConstraint) -> bool {
-    constraint.constraint_type == arkret_core::GrantConstraintType::ClaimBased
-        && constraint.subtype == Some(arkret_core::GrantConstraintSubtype::Approval)
+fn is_approval_required_constraint(
+    constraint: &arkret_models_collaboration::governance::grant_constraint::GrantConstraint,
+) -> bool {
+    constraint.constraint_type == arkret_models_collaboration::governance::grant_constraint::GrantConstraintType::ClaimBased
+        && constraint.subtype == Some(arkret_models_collaboration::governance::grant_constraint::GrantConstraintSubtype::Approval)
         && constraint.approval_required.unwrap_or(false)
 }
 
@@ -1502,7 +1498,8 @@ pub fn moderation_report_for_policy_outcome(
 
 #[cfg(test)]
 mod engine_wire_tests {
-    use arkret_core::{CAPABILITY_SCHEMA, CapabilitySubject, GrantId};
+    use arkret_models_collaboration::governance::grant_constraint::CapabilitySubject;
+    use arkret_wire::{CAPABILITY_SCHEMA, GrantId};
     use serde_json::json;
 
     use super::*;
@@ -1515,26 +1512,32 @@ mod engine_wire_tests {
         Did::new("did:webvh:z6mkfixture:bob.example").unwrap()
     }
 
-    fn proof(issuer: &Did) -> arkret_core::PayloadProof {
-        arkret_core::PayloadProof {
-            kind: arkret_core::proof_kind::DETACHED_JWS.to_owned(),
+    fn proof(issuer: &Did) -> arkret_wire::PayloadProof {
+        arkret_wire::PayloadProof {
+            kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
             alg: "EdDSA".to_owned(),
             verification_method: format!("{issuer}#device-1"),
-            payload_digest: arkret_core::Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+            payload_digest: arkret_wire::Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
             domain: None,
             audience: None,
-            proof_purpose: Some(arkret_core::PayloadProofPurpose::IssuerAttestation),
+            proof_purpose: Some(arkret_wire::PayloadProofPurpose::IssuerAttestation),
             jws: "eyJhbGciOiJFZERTQSJ9..signature".to_owned(),
         }
     }
 
-    fn constraint(value: Value) -> arkret_core::GrantConstraint {
+    fn constraint(
+        value: Value,
+    ) -> arkret_models_collaboration::governance::grant_constraint::GrantConstraint {
         serde_json::from_value(value).expect("valid grant constraint")
     }
 
-    fn wire_grant(constraints: Vec<arkret_core::GrantConstraint>) -> arkret_core::CapabilityGrant {
-        arkret_core::CapabilityGrant {
+    fn wire_grant(
+        constraints: Vec<
+            arkret_models_collaboration::governance::grant_constraint::GrantConstraint,
+        >,
+    ) -> arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
+        arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
             schema: CAPABILITY_SCHEMA.to_owned(),
             realm_id: None,
@@ -1656,7 +1659,12 @@ mod engine_wire_tests {
             "constraint_type": "telepathy",
             "effect": "allow",
         }]);
-        assert!(serde_json::from_value::<arkret_core::CapabilityGrant>(artifact).is_err());
+        assert!(
+            serde_json::from_value::<
+                arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
+            >(artifact)
+            .is_err()
+        );
     }
 
     #[test]

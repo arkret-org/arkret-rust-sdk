@@ -1294,12 +1294,12 @@
       "reason": "Operation input reuses the core open Space field map."
     },
     {
-      "rust_field": "crates/sdk/src/resolver/snapshot.rs::ResolvedMessage.content",
+      "rust_field": "crates/state/src/resolver/snapshot.rs::ResolvedMessage.content",
       "classification": "internal_or_fixture",
       "reason": "Resolved message content is a local projection."
     },
     {
-      "rust_field": "crates/sdk/src/resolver/snapshot.rs::ResolvedStateEvent.content",
+      "rust_field": "crates/models-collaboration/src/resolved_state.rs::ResolvedStateEvent.content",
       "classification": "internal_or_fixture",
       "reason": "Resolved state content is heterogeneous reducer output."
     },

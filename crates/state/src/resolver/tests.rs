@@ -1,7 +1,7 @@
+use arkret_wire::EventKind;
 use serde_json::json;
 
 use super::*;
-use crate::events::EventKind;
 use crate::{EventRequirements, Hlc, RealmId};
 
 fn realm_id() -> RealmId {
@@ -44,7 +44,7 @@ fn event(kind: &str, seq: u64, content: Value) -> Event {
 
 fn morph_event(seq: u64, morph_id: &str, title: &str) -> Event {
     event(
-        arkret_core::events::EventKind::MORPH_CREATE,
+        EventKind::MORPH_CREATE,
         seq,
         json!({
             "object": {
@@ -76,7 +76,7 @@ fn space_events_create_update_parent_and_tombstone() {
     let space_id = "ak:space:01904100-0000-7000-8000-1fb50799ad3f";
     let parent_space_id = "ak:space:01904100-0000-7000-8000-1fb50799ad40";
     let create = event(
-        arkret_core::events::EventKind::SPACE_CREATE,
+        EventKind::SPACE_CREATE,
         1,
         json!({
             "object": {
@@ -91,7 +91,7 @@ fn space_events_create_update_parent_and_tombstone() {
         }),
     );
     let mut update = event(
-        arkret_core::events::EventKind::SPACE_UPDATE,
+        EventKind::SPACE_UPDATE,
         2,
         json!({
             "space_id": space_id,
@@ -104,7 +104,7 @@ fn space_events_create_update_parent_and_tombstone() {
     );
     update.prev_refs.push(create.event_id.clone());
     let mut parent = event(
-        arkret_core::events::EventKind::SPACE_PARENT,
+        EventKind::SPACE_PARENT,
         3,
         json!({
             "space_id": space_id,
@@ -113,7 +113,7 @@ fn space_events_create_update_parent_and_tombstone() {
     );
     parent.prev_refs.push(update.event_id.clone());
     let mut tombstone = event(
-        arkret_core::events::EventKind::SPACE_TOMBSTONE,
+        EventKind::SPACE_TOMBSTONE,
         4,
         json!({ "space_id": space_id }),
     );
@@ -138,7 +138,7 @@ fn space_events_create_update_parent_and_tombstone() {
 
 fn space_create_event(seq: u64, space_id: &str) -> Event {
     event(
-        arkret_core::events::EventKind::SPACE_CREATE,
+        EventKind::SPACE_CREATE,
         seq,
         json!({
             "object": {
@@ -159,18 +159,10 @@ fn space_archive_then_restore_round_trip() {
     let space_id = "ak:space:01904100-0000-7000-8000-1fb50799ad42";
     let create = space_create_event(1, space_id);
 
-    let mut archive = event(
-        arkret_core::events::EventKind::SPACE_ARCHIVE,
-        2,
-        json!({ "space_id": space_id }),
-    );
+    let mut archive = event(EventKind::SPACE_ARCHIVE, 2, json!({ "space_id": space_id }));
     archive.prev_refs.push(create.event_id.clone());
 
-    let mut restore = event(
-        arkret_core::events::EventKind::SPACE_RESTORE,
-        3,
-        json!({ "space_id": space_id }),
-    );
+    let mut restore = event(EventKind::SPACE_RESTORE, 3, json!({ "space_id": space_id }));
     restore.prev_refs.push(archive.event_id.clone());
     let restore_at = restore.created_at;
 
@@ -187,11 +179,7 @@ fn space_restore_rejected_when_active() {
     let space_id = "ak:space:01904100-0000-7000-8000-1fb50799ad43";
     let create = space_create_event(1, space_id);
 
-    let mut restore = event(
-        arkret_core::events::EventKind::SPACE_RESTORE,
-        2,
-        json!({ "space_id": space_id }),
-    );
+    let mut restore = event(EventKind::SPACE_RESTORE, 2, json!({ "space_id": space_id }));
     restore.prev_refs.push(create.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
@@ -211,18 +199,14 @@ fn space_restore_rejected_when_tombstoned() {
     let create = space_create_event(1, space_id);
 
     let mut tombstone = event(
-        arkret_core::events::EventKind::SPACE_TOMBSTONE,
+        EventKind::SPACE_TOMBSTONE,
         2,
         json!({ "space_id": space_id }),
     );
     tombstone.prev_refs.push(create.event_id.clone());
     let tombstone_at = tombstone.created_at;
 
-    let mut restore = event(
-        arkret_core::events::EventKind::SPACE_RESTORE,
-        3,
-        json!({ "space_id": space_id }),
-    );
+    let mut restore = event(EventKind::SPACE_RESTORE, 3, json!({ "space_id": space_id }));
     restore.prev_refs.push(tombstone.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
@@ -241,7 +225,7 @@ fn space_restore_rejected_when_tombstoned() {
 
 fn strand_create_event(seq: u64, strand_id: &str) -> Event {
     event(
-        arkret_core::events::EventKind::STRAND_CREATE,
+        EventKind::STRAND_CREATE,
         seq,
         json!({
             "object": {
@@ -263,14 +247,14 @@ fn strand_archive_then_restore_round_trip() {
     let create = strand_create_event(1, strand_id);
 
     let mut archive = event(
-        arkret_core::events::EventKind::STRAND_ARCHIVE,
+        EventKind::STRAND_ARCHIVE,
         2,
         json!({ "target_ref": strand_id }),
     );
     archive.prev_refs.push(create.event_id.clone());
 
     let mut restore = event(
-        arkret_core::events::EventKind::STRAND_RESTORE,
+        EventKind::STRAND_RESTORE,
         3,
         json!({ "target_ref": strand_id }),
     );
@@ -291,7 +275,7 @@ fn strand_restore_rejected_when_active() {
     let create = strand_create_event(1, strand_id);
 
     let mut restore = event(
-        arkret_core::events::EventKind::STRAND_RESTORE,
+        EventKind::STRAND_RESTORE,
         2,
         json!({ "target_ref": strand_id }),
     );
@@ -321,14 +305,14 @@ fn morph_archive_then_restore_round_trip() {
     let create = morph_event(1, morph_id, "Task A");
 
     let mut archive = event(
-        arkret_core::events::EventKind::MORPH_ARCHIVE,
+        EventKind::MORPH_ARCHIVE,
         2,
         json!({ "target_ref": morph_id }),
     );
     archive.prev_refs.push(create.event_id.clone());
 
     let mut restore = event(
-        arkret_core::events::EventKind::MORPH_RESTORE,
+        EventKind::MORPH_RESTORE,
         3,
         json!({ "target_ref": morph_id }),
     );
@@ -347,7 +331,7 @@ fn morph_restore_rejected_when_active() {
     let create = morph_event(1, morph_id, "Task B");
 
     let mut restore = event(
-        arkret_core::events::EventKind::MORPH_RESTORE,
+        EventKind::MORPH_RESTORE,
         2,
         json!({ "target_ref": morph_id }),
     );
@@ -375,17 +359,9 @@ fn morph_restore_rejected_when_active() {
 fn space_archive_rejected_when_already_archived() {
     let space_id = "ak:space:01904100-0000-7000-8000-2fb50799ad42";
     let create = space_create_event(1, space_id);
-    let mut archive1 = event(
-        arkret_core::events::EventKind::SPACE_ARCHIVE,
-        2,
-        json!({ "space_id": space_id }),
-    );
+    let mut archive1 = event(EventKind::SPACE_ARCHIVE, 2, json!({ "space_id": space_id }));
     archive1.prev_refs.push(create.event_id.clone());
-    let mut archive2 = event(
-        arkret_core::events::EventKind::SPACE_ARCHIVE,
-        3,
-        json!({ "space_id": space_id }),
-    );
+    let mut archive2 = event(EventKind::SPACE_ARCHIVE, 3, json!({ "space_id": space_id }));
     archive2.prev_refs.push(archive1.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
@@ -408,16 +384,12 @@ fn space_archive_rejected_when_tombstoned() {
     let space_id = "ak:space:01904100-0000-7000-8000-2fb50799ad43";
     let create = space_create_event(1, space_id);
     let mut tombstone = event(
-        arkret_core::events::EventKind::SPACE_TOMBSTONE,
+        EventKind::SPACE_TOMBSTONE,
         2,
         json!({ "space_id": space_id }),
     );
     tombstone.prev_refs.push(create.event_id.clone());
-    let mut archive = event(
-        arkret_core::events::EventKind::SPACE_ARCHIVE,
-        3,
-        json!({ "space_id": space_id }),
-    );
+    let mut archive = event(EventKind::SPACE_ARCHIVE, 3, json!({ "space_id": space_id }));
     archive.prev_refs.push(tombstone.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
@@ -439,13 +411,13 @@ fn space_tombstone_rejected_when_already_terminal() {
     let space_id = "ak:space:01904100-0000-7000-8000-2fb50799ad44";
     let create = space_create_event(1, space_id);
     let mut tombstone1 = event(
-        arkret_core::events::EventKind::SPACE_TOMBSTONE,
+        EventKind::SPACE_TOMBSTONE,
         2,
         json!({ "space_id": space_id }),
     );
     tombstone1.prev_refs.push(create.event_id.clone());
     let mut tombstone2 = event(
-        arkret_core::events::EventKind::SPACE_TOMBSTONE,
+        EventKind::SPACE_TOMBSTONE,
         3,
         json!({ "space_id": space_id }),
     );
@@ -470,13 +442,13 @@ fn strand_archive_rejected_when_already_archived() {
     let strand_id = "ak:strand:01904100-0000-7000-8000-2fb50799ad50";
     let create = strand_create_event(1, strand_id);
     let mut archive1 = event(
-        arkret_core::events::EventKind::STRAND_ARCHIVE,
+        EventKind::STRAND_ARCHIVE,
         2,
         json!({ "target_ref": strand_id }),
     );
     archive1.prev_refs.push(create.event_id.clone());
     let mut archive2 = event(
-        arkret_core::events::EventKind::STRAND_ARCHIVE,
+        EventKind::STRAND_ARCHIVE,
         3,
         json!({ "target_ref": strand_id }),
     );
@@ -501,13 +473,13 @@ fn morph_archive_rejected_when_already_archived() {
     let morph_id = "ak:morph:01904100-0000-7000-8000-2fb50799ad60";
     let create = morph_event(1, morph_id, "Task C");
     let mut archive1 = event(
-        arkret_core::events::EventKind::MORPH_ARCHIVE,
+        EventKind::MORPH_ARCHIVE,
         2,
         json!({ "target_ref": morph_id }),
     );
     archive1.prev_refs.push(create.event_id.clone());
     let mut archive2 = event(
-        arkret_core::events::EventKind::MORPH_ARCHIVE,
+        EventKind::MORPH_ARCHIVE,
         3,
         json!({ "target_ref": morph_id }),
     );
@@ -531,14 +503,10 @@ fn morph_archive_rejected_when_already_archived() {
 fn space_update_rejected_when_archived() {
     let space_id = "ak:space:01904100-0000-7000-8000-3fb50799ad42";
     let create = space_create_event(1, space_id);
-    let mut archive = event(
-        arkret_core::events::EventKind::SPACE_ARCHIVE,
-        2,
-        json!({ "space_id": space_id }),
-    );
+    let mut archive = event(EventKind::SPACE_ARCHIVE, 2, json!({ "space_id": space_id }));
     archive.prev_refs.push(create.event_id.clone());
     let mut update = event(
-        arkret_core::events::EventKind::SPACE_UPDATE,
+        EventKind::SPACE_UPDATE,
         3,
         json!({ "space_id": space_id, "patch": { "title": "Renamed" } }),
     );
@@ -559,13 +527,13 @@ fn strand_update_rejected_when_archived() {
     let strand_id = "ak:strand:01904100-0000-7000-8000-3fb50799ad50";
     let create = strand_create_event(1, strand_id);
     let mut archive = event(
-        arkret_core::events::EventKind::STRAND_ARCHIVE,
+        EventKind::STRAND_ARCHIVE,
         2,
         json!({ "target_ref": strand_id }),
     );
     archive.prev_refs.push(create.event_id.clone());
     let mut update = event(
-        arkret_core::events::EventKind::STRAND_UPDATE,
+        EventKind::STRAND_UPDATE,
         3,
         json!({ "target_ref": strand_id, "patch": { "metadata": {"title": "New title"} } }),
     );
@@ -588,13 +556,13 @@ fn morph_update_rejected_when_archived() {
     let morph_id = "ak:morph:01904100-0000-7000-8000-3fb50799ad60";
     let create = morph_event(1, morph_id, "Original Title");
     let mut archive = event(
-        arkret_core::events::EventKind::MORPH_ARCHIVE,
+        EventKind::MORPH_ARCHIVE,
         2,
         json!({ "target_ref": morph_id }),
     );
     archive.prev_refs.push(create.event_id.clone());
     let mut update = event(
-        arkret_core::events::EventKind::MORPH_UPDATE,
+        EventKind::MORPH_UPDATE,
         3,
         json!({ "target_ref": morph_id, "patch": { "metadata.title": "Renamed Morph" } }),
     );
@@ -618,7 +586,7 @@ fn strand_events_create_update_and_default_view_relation() {
     let view_ref = "ak:view:01904100-0000-7000-8000-08ca7b733afd";
 
     let create = Event::new(
-        arkret_core::events::EventKind::STRAND_CREATE,
+        EventKind::STRAND_CREATE,
         realm_id(),
         actor_id(),
         1,
@@ -640,7 +608,7 @@ fn strand_events_create_update_and_default_view_relation() {
     )
     .unwrap();
     let mut update = Event::new(
-        arkret_core::events::EventKind::STRAND_UPDATE,
+        EventKind::STRAND_UPDATE,
         realm_id(),
         actor_id(),
         2,
@@ -658,7 +626,7 @@ fn strand_events_create_update_and_default_view_relation() {
     .unwrap();
     update.prev_refs.push(create.event_id.clone());
     let mut relation = Event::new(
-        arkret_core::events::EventKind::RELATION_CREATE,
+        EventKind::RELATION_CREATE,
         realm_id(),
         actor_id(),
         3,

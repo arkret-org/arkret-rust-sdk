@@ -264,8 +264,13 @@ pub mod push;
 pub mod realm;
 #[cfg(feature = "full-surface")]
 pub mod receipts;
+// State resolution + snapshot runtime now lives in `arkret-state`. This shim
+// keeps the historical `arkret::resolver::*` / `arkret_sdk::resolver::*` paths
+// stable for downstream consumers.
 #[cfg(feature = "full-surface")]
-pub mod resolver;
+pub mod resolver {
+    pub use arkret_state::resolver::*;
+}
 #[cfg(feature = "full-surface")]
 pub mod search;
 #[cfg(feature = "full-surface")]
@@ -361,16 +366,17 @@ pub use auth::{
 };
 #[cfg(feature = "full-surface")]
 pub use authz::{
-    ApprovalMode, ApprovalStrandManager, AuthzContext, AuthzEngine, CapabilityFrontierValidation,
-    CapabilityGrantBuilder, ClaimRequirement, Constraint, ConstraintDuration, ConstraintEffect,
-    ConstraintEntry, EngineDecision, FieldScope, GrantProposal, GrantRateLimitScope,
-    PolicyEvaluationRequest, PolicyEvaluationResult, PolicyModerationReport, PolicyServerEffect,
-    ProposalApproval, ProposalStatus, ProtocolResourceSelector, ProtocolResourceSelectorKind,
-    ProtocolResourceSelectorScope, Recurrence, Resource, ResourceSelector, ScopeLimitation,
-    VerifiedClaim, apply_policy_response, capability_grants_from_realm_state,
-    current_capability_action_registry_digest, grant_requires_approval,
-    moderation_report_for_policy_outcome, reject_unknown_critical_constraints,
-    validate_capability_action_registry_binding, validate_capability_frontier,
+    ApprovalMode, ApprovalStrandManager, AuthzContext, AuthzEngine, AuthzEngineRealmStateExt,
+    CapabilityFrontierValidation, CapabilityGrantBuilder, ClaimRequirement, Constraint,
+    ConstraintDuration, ConstraintEffect, ConstraintEntry, EngineDecision, FieldScope,
+    GrantProposal, GrantRateLimitScope, PolicyEvaluationRequest, PolicyEvaluationResult,
+    PolicyModerationReport, PolicyServerEffect, ProposalApproval, ProposalStatus,
+    ProtocolResourceSelector, ProtocolResourceSelectorKind, ProtocolResourceSelectorScope,
+    Recurrence, Resource, ResourceSelector, ScopeLimitation, VerifiedClaim, apply_policy_response,
+    capability_grants_from_realm_state, current_capability_action_registry_digest,
+    grant_requires_approval, moderation_report_for_policy_outcome,
+    reject_unknown_critical_constraints, validate_capability_action_registry_binding,
+    validate_capability_frontier,
 };
 #[cfg(feature = "full-surface")]
 pub use base::{

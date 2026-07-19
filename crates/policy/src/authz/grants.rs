@@ -1,8 +1,8 @@
 //! Capability grant wire form + engine-internal projection.
 //!
 //! The **only** wire shape for capability grants in this SDK is the core
-//! authority type [`arkret_core::CapabilityGrant`] (spec
-//! `capability-grant.schema.json`: required `id` / `schema` / `issuer` /
+//! authority type [`arkret_models_collaboration::governance::grant_constraint::CapabilityGrant`]
+//! (spec `capability-grant.schema.json`: required `id` / `schema` / `issuer` /
 //! `subject` / `actions` / `resources` / `proofs`; `resources` carrying spec
 //! selector objects and `constraints` carrying the core typed grant constraint
 //! DTO).
@@ -16,11 +16,13 @@
 //! `constraint_type = "delegation_control"` constraint with
 //! `max_delegation_depth` (no constraint ⇒ not delegable).
 
-use arkret_core::{CAPABILITY_SCHEMA, CapabilitySubject, GrantId, Hash};
+use arkret_models_collaboration::governance::grant_constraint::CapabilitySubject;
+use arkret_wire::{CAPABILITY_SCHEMA, GrantId, Hash};
 
 use super::*;
 
-/// Engine-internal projection of a spec [`arkret_core::CapabilityGrant`].
+/// Engine-internal projection of a spec
+/// [`arkret_models_collaboration::governance::grant_constraint::CapabilityGrant`].
 ///
 /// NOT a wire type: deliberately not serializable, crate-visible only. It
 /// exists so the evaluation hot path can pattern-match typed selectors and
@@ -49,7 +51,9 @@ impl GrantProjection {
     /// carries constraint / selector shapes this evaluator cannot enforce,
     /// which MUST fail closed) — callers reject the grant with
     /// `schema_violation` semantics.
-    pub(crate) fn from_wire(grant: &arkret_core::CapabilityGrant) -> Result<Self> {
+    pub(crate) fn from_wire(
+        grant: &arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
+    ) -> Result<Self> {
         if grant.schema != CAPABILITY_SCHEMA {
             return Err(Error::Protocol(format!(
                 "schema_violation: capability grant schema must be '{}', got '{}'",
@@ -146,13 +150,14 @@ impl GrantProjection {
 /// Return the JCS SHA-256 digest of the embedded complete capability-action
 /// registry snapshot.
 pub fn current_capability_action_registry_digest() -> Result<Hash> {
-    let registry =
-        arkret_core::schema::embedded_json_artifact("registry/capability-action-registry.json")
-            .map_err(|_| {
-                Error::Protocol(
-                    "capability_registry_basis_unavailable: embedded registry missing".to_owned(),
-                )
-            })?;
+    let registry = arkret_schema::embedded_json_artifact(
+        "registry/capability-action-registry.json",
+    )
+    .map_err(|_| {
+        Error::Protocol(
+            "capability_registry_basis_unavailable: embedded registry missing".to_owned(),
+        )
+    })?;
     let bytes = arkret_canonical::canonical_json_bytes(&registry).map_err(|error| {
         Error::Protocol(format!(
             "capability_registry_basis_unavailable: registry JCS failed: {error}"
@@ -174,7 +179,7 @@ pub fn validate_capability_action_registry_binding(
 ) -> Result<()> {
     let mut requires_binding = false;
     for action in actions {
-        let descriptor = arkret_core::schema::capability_action(action).ok_or_else(|| {
+        let descriptor = arkret_schema::capability_action(action).ok_or_else(|| {
             Error::Protocol(format!(
                 "schema_violation: capability action '{action}' is not registered"
             ))
@@ -213,11 +218,12 @@ pub struct CapabilityFrontierValidation {
 
 /// Validate capability frontier invariants before using reduced grants.
 ///
-/// Grants are the spec wire form ([`arkret_core::CapabilityGrant`]); each is
+/// Grants are the spec wire form
+/// ([`arkret_models_collaboration::governance::grant_constraint::CapabilityGrant`]); each is
 /// projected first, so schema violations (including any grant this evaluator
 /// cannot faithfully enforce) reject the whole frontier.
 pub fn validate_capability_frontier(
-    grants: &[arkret_core::CapabilityGrant],
+    grants: &[arkret_models_collaboration::governance::grant_constraint::CapabilityGrant],
 ) -> Result<CapabilityFrontierValidation> {
     let mut projections = Vec::with_capacity(grants.len());
     for grant in grants {
@@ -387,15 +393,13 @@ fn actions_are_narrowed(child: &[String], parent: &[String]) -> bool {
             if parent_action == child_action {
                 return true;
             }
-            let Some(parent_descriptor) = arkret_core::schema::capability_action(parent_action)
-            else {
+            let Some(parent_descriptor) = arkret_schema::capability_action(parent_action) else {
                 return false;
             };
             if parent_descriptor.event_mapping_kind != "aggregate_admin" {
                 return false;
             }
-            let Some(child_descriptor) = arkret_core::schema::capability_action(child_action)
-            else {
+            let Some(child_descriptor) = arkret_schema::capability_action(child_action) else {
                 return false;
             };
             child_descriptor.event_mapping_kind != "non_event_surface"
@@ -544,31 +548,15 @@ fn option_narrowed(child: Option<&String>, parent: Option<&String>) -> bool {
 /// Content carrying the removed top-level `delegable` boolean, or failing to
 /// deserialize into the core authority form, is rejected as
 /// `schema_violation`.
-pub fn capability_grants_from_realm_state(
-    state: &crate::RealmState,
-) -> Result<Vec<arkret_core::CapabilityGrant>> {
-    let mut grants = Vec::new();
-
-    for event in state.resolved_state.values() {
-        if !matches!(
-            event.kind.as_str(),
-            "ak.capability.grant" | "ak.capability.delegate"
-        ) {
-            continue;
-        }
-        grants.push(capability_grant_from_resolved_event(
-            event,
-            Some(state.realm_id.clone()),
-        )?);
-    }
-
-    Ok(grants)
-}
-
-fn capability_grant_from_resolved_event(
-    event: &crate::resolver::ResolvedStateEvent,
+/// Project a single resolved capability event into the spec wire-form
+/// [`CapabilityGrant`]. The reducer runtime (`arkret-state`) owns
+/// `RealmState`; the umbrella SDK iterates its `resolved_state` and calls
+/// this per event, keeping `arkret-policy` free of any dependency on the
+/// state runtime.
+pub fn capability_grant_from_resolved_event(
+    event: &arkret_models_collaboration::ResolvedStateEvent,
     default_realm_id: Option<RealmId>,
-) -> Result<arkret_core::CapabilityGrant> {
+) -> Result<arkret_models_collaboration::governance::grant_constraint::CapabilityGrant> {
     let content = event
         .content
         .as_object()
@@ -595,8 +583,8 @@ fn capability_grant_from_resolved_event(
                 .to_owned(),
         ));
     }
-    let mut grant: arkret_core::CapabilityGrant = serde_json::from_value(artifact.clone())
-        .map_err(|err| {
+    let mut grant: arkret_models_collaboration::governance::grant_constraint::CapabilityGrant =
+        serde_json::from_value(artifact.clone()).map_err(|err| {
             Error::Protocol(format!(
                 "schema_violation: invalid capability grant content: {err}"
             ))
@@ -755,7 +743,7 @@ pub(crate) fn constraint_entries_from_spec(
                 "blob_presign_scope",
             ])?;
             if let Some(circle_ids) = object.get("allowed_circle_ids") {
-                let allowed_circle_ids: std::collections::BTreeSet<arkret_core::CircleId> =
+                let allowed_circle_ids: std::collections::BTreeSet<arkret_wire::CircleId> =
                     serde_json::from_value(circle_ids.clone()).map_err(|err| {
                         Error::Protocol(format!("invalid allowed_circle_ids: {err}"))
                     })?;
@@ -1275,7 +1263,7 @@ fn parse_iso8601_duration(value: &str) -> Result<ConstraintDuration> {
 // ─── S-10 (savfox SDK gap): ak.capability.grant builder ───────────────────
 
 /// Build a `ak.capability.grant` Event Envelope around a spec
-/// [`arkret_core::CapabilityGrant`].
+/// [`arkret_models_collaboration::governance::grant_constraint::CapabilityGrant`].
 ///
 /// Chain verification (subject ⇒ issuer narrowing, action / resource
 /// narrowing, time-window narrowing, cycle detection) is already in
@@ -1290,14 +1278,18 @@ pub struct CapabilityGrantBuilder {
     realm_id: RealmId,
     /// The Envelope `actor_id` (signer / issuer of the grant).
     actor_id: Did,
-    grant: arkret_core::CapabilityGrant,
+    grant: arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
 }
 
 impl CapabilityGrantBuilder {
     /// Construct a new builder bound to the issuing Realm + actor.
     /// `grant.issuer` MUST equal `actor_id`; the builder enforces this
     /// at `build` time.
-    pub fn new(realm_id: RealmId, actor_id: Did, grant: arkret_core::CapabilityGrant) -> Self {
+    pub fn new(
+        realm_id: RealmId,
+        actor_id: Did,
+        grant: arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
+    ) -> Self {
         Self {
             realm_id,
             actor_id,
@@ -1348,11 +1340,11 @@ impl CapabilityGrantBuilder {
         prohibit_subdelegation: bool,
     ) -> Self {
         self.grant.constraints.retain(|constraint| {
-            constraint.constraint_type != arkret_core::GrantConstraintType::DelegationControl
+            constraint.constraint_type != arkret_models_collaboration::governance::grant_constraint::GrantConstraintType::DelegationControl
         });
         self.grant
             .constraints
-            .push(arkret_core::GrantConstraint::delegation_control(
+            .push(arkret_models_collaboration::governance::grant_constraint::GrantConstraint::delegation_control(
                 u64::from(max_delegation_depth),
                 prohibit_subdelegation,
             ));
@@ -1368,7 +1360,12 @@ impl CapabilityGrantBuilder {
     /// Replace the constraint list with spec-shaped typed
     /// `grant-constraint.schema.json` DTOs. They are validated at
     /// [`Self::build`] time via the engine projection.
-    pub fn with_constraints(mut self, constraints: Vec<arkret_core::GrantConstraint>) -> Self {
+    pub fn with_constraints(
+        mut self,
+        constraints: Vec<
+            arkret_models_collaboration::governance::grant_constraint::GrantConstraint,
+        >,
+    ) -> Self {
         self.grant.constraints = constraints;
         self
     }
@@ -1385,7 +1382,7 @@ impl CapabilityGrantBuilder {
 
     /// Attach the issuer proofs over the grant body (spec requires at least
     /// one).
-    pub fn with_proofs(mut self, proofs: Vec<arkret_core::PayloadProof>) -> Self {
+    pub fn with_proofs(mut self, proofs: Vec<arkret_wire::PayloadProof>) -> Self {
         self.grant.proofs = proofs;
         self
     }
@@ -1413,7 +1410,7 @@ impl CapabilityGrantBuilder {
             "grant": serde_json::to_value(&self.grant)?,
         });
         Ok(crate::Event::new(
-            arkret_core::events::EventKind::CAPABILITY_GRANT,
+            arkret_wire::EventKind::CAPABILITY_GRANT,
             self.realm_id,
             self.actor_id,
             actor_seq,
@@ -1445,22 +1442,22 @@ mod capability_grant_builder_tests {
         crate::Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()
     }
 
-    fn proof(issuer: &Did) -> arkret_core::PayloadProof {
-        arkret_core::PayloadProof {
-            kind: arkret_core::proof_kind::DETACHED_JWS.to_owned(),
+    fn proof(issuer: &Did) -> arkret_wire::PayloadProof {
+        arkret_wire::PayloadProof {
+            kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
             alg: "EdDSA".to_owned(),
             verification_method: format!("{issuer}#device-1"),
-            payload_digest: arkret_core::Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+            payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
             domain: None,
             audience: None,
-            proof_purpose: Some(arkret_core::PayloadProofPurpose::IssuerAttestation),
+            proof_purpose: Some(arkret_wire::PayloadProofPurpose::IssuerAttestation),
             jws: "eyJhbGciOiJFZERTQSJ9..signature".to_owned(),
         }
     }
 
-    fn base_grant() -> arkret_core::CapabilityGrant {
-        arkret_core::CapabilityGrant {
+    fn base_grant() -> arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
+        arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
             schema: CAPABILITY_SCHEMA.to_owned(),
             realm_id: None,
@@ -1487,7 +1484,7 @@ mod capability_grant_builder_tests {
         let event = CapabilityGrantBuilder::new(realm(), alice(), base_grant())
             .build(1, hlc())
             .unwrap();
-        assert_eq!(event.kind, arkret_core::events::EventKind::CAPABILITY_GRANT);
+        assert_eq!(event.kind, arkret_wire::EventKind::CAPABILITY_GRANT);
         // Canonical capability_grant_payload wrapper: {grant_id, grant}.
         assert_eq!(
             event.payload["grant_id"],
@@ -1513,10 +1510,10 @@ mod capability_grant_builder_tests {
             "the removed top-level delegable boolean must never reach the wire"
         );
         // Wrapper round-trips back into the core authority form.
-        let event_view = crate::resolver::ResolvedStateEvent {
+        let event_view = arkret_models_collaboration::ResolvedStateEvent {
             kind: event.kind.to_string(),
             subject: "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
-            source_event_id: arkret_core::EventId::new(
+            source_event_id: arkret_wire::EventId::new(
                 "ak:event:01904100-0000-7000-8000-bbbbbbbbbbbb",
             )
             .unwrap(),
@@ -1616,20 +1613,22 @@ mod capability_grant_builder_tests {
                 "constraint_type": "telepathy",
                 "effect": "allow",
         }]);
-        let err = serde_json::from_value::<arkret_core::CapabilityGrant>(artifact)
-            .expect_err("unknown constraint family must fail closed");
+        let err = serde_json::from_value::<
+            arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
+        >(artifact)
+        .expect_err("unknown constraint family must fail closed");
         assert!(format!("{err}").contains("unknown variant"));
     }
 
     #[test]
     fn capability_chain_verifier_accepts_narrowing_child() {
-        let parent = arkret_core::CapabilityGrant {
+        let parent = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000001").unwrap(),
             actions: vec!["ak.message.create".to_owned()],
-            constraints: vec![arkret_core::GrantConstraint::delegation_control(1, false)],
+            constraints: vec![arkret_models_collaboration::governance::grant_constraint::GrantConstraint::delegation_control(1, false)],
             ..base_grant()
         };
-        let child = arkret_core::CapabilityGrant {
+        let child = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000002").unwrap(),
             parent_grant_id: Some(parent.id.clone()),
             issuer: bob(),
@@ -1647,12 +1646,12 @@ mod capability_grant_builder_tests {
 
     #[test]
     fn capability_chain_verifier_rejects_parent_without_delegation_control() {
-        let parent = arkret_core::CapabilityGrant {
+        let parent = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000001").unwrap(),
             actions: vec!["ak.message.create".to_owned()],
             ..base_grant()
         };
-        let child = arkret_core::CapabilityGrant {
+        let child = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000002").unwrap(),
             parent_grant_id: Some(parent.id.clone()),
             issuer: bob(),
@@ -1674,10 +1673,10 @@ mod capability_grant_builder_tests {
             "grant_id": "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa",
             "grant": artifact,
         });
-        let event = crate::resolver::ResolvedStateEvent {
+        let event = arkret_models_collaboration::ResolvedStateEvent {
             kind: "ak.capability.grant".to_owned(),
             subject: "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
-            source_event_id: arkret_core::EventId::new(
+            source_event_id: arkret_wire::EventId::new(
                 "ak:event:01904100-0000-7000-8000-bbbbbbbbbbbb",
             )
             .unwrap(),

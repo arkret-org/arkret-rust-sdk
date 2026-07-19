@@ -390,7 +390,9 @@ impl Realm {
 
     /// Create a snapshot of the current space state.
     pub fn snapshot(&self) -> Result<crate::StateSnapshot> {
-        self.state.snapshot()
+        // `arkret-state` returns `arkret_wire::WireError`; bridge into the
+        // SDK's `arkret_core::Error` via the `?` From conversion.
+        Ok(self.state.snapshot()?)
     }
 
     /// Apply events to update the space state.

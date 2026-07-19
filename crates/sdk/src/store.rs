@@ -261,11 +261,13 @@ where
         .into_iter()
         .cloned()
         .collect();
-    RealmState::restore_snapshot_or_replay(
+    // `arkret-state` returns `arkret_wire::WireError`; bridge into the SDK's
+    // `arkret_core::Error` via the `?` From conversion.
+    Ok(RealmState::restore_snapshot_or_replay(
         store.state_snapshot(realm_id).cloned(),
         realm_id.clone(),
         &events,
-    )
+    )?)
 }
 
 /// Small LRU cache for store objects.

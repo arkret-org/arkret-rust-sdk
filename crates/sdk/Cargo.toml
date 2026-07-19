@@ -85,6 +85,7 @@ arkret-http-client = {workspace = true,optional = true}
 arkret-keystore = {workspace = true}
 arkret-egress-policy = {workspace = true}
 arkret-mls = {workspace = true,optional = true}
+arkret-policy = {workspace = true}
 arkret-server = {workspace = true,optional = true}
 arkret-signatures = {workspace = true,features = ["protocol"]}
 arkret-state = {workspace = true}

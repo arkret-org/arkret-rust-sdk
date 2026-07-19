@@ -1,6 +1,7 @@
+use arkret_wire::EventKind;
+
 use super::snapshot::{StateHashInput, state_digest_payload, state_merkle_root};
 use super::*;
-use crate::events::EventKind;
 
 mod events;
 mod helpers;

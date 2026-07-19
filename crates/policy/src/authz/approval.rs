@@ -22,7 +22,7 @@ pub struct GrantProposal {
     /// Unique proposal ID.
     pub proposal_id: String,
     /// The proposed grant (spec wire form).
-    pub grant: arkret_core::CapabilityGrant,
+    pub grant: arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
     /// Actor who proposed the grant.
     pub proposer: Did,
     /// Required approvers.
@@ -74,7 +74,7 @@ impl ApprovalStrandManager {
     /// Submit a new grant proposal for approval.
     pub fn submit_proposal(
         &mut self,
-        grant: arkret_core::CapabilityGrant,
+        grant: arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
         proposer: Did,
         required_approvers: Vec<Did>,
         approval_mode: ApprovalMode,

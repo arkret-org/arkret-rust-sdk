@@ -14,10 +14,12 @@
 //! These helpers operate on a [`Grant`] shape that intentionally mirrors
 //! soland's in-memory runtime form (stringly-typed `resource`, single
 //! [`GrantConstraint`] list, top-level `expires_at` + `delegated_from`). The
-//! wire-spec shape is the core authority [`arkret_core::CapabilityGrant`]
+//! wire-spec shape is the core authority
+//! [`arkret_models_collaboration::governance::grant_constraint::CapabilityGrant`]
 //! (`capability-grant.schema.json`) used at the canonical event boundary.
 //! The two shapes are siblings, not alternatives: typically a capability
-//! event resolves into a `arkret_core::CapabilityGrant`, then projects down
+//! event resolves into a
+//! `arkret_models_collaboration::governance::grant_constraint::CapabilityGrant`, then projects down
 //! to a `Grant` for fast in-memory check / delegation enforcement. The
 //! fields critical to delegation — `delegated_from` and `expires_at` — live
 //! on both shapes verbatim per
@@ -30,7 +32,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_core::{CircleId, Hash};
+use arkret_wire::{CircleId, Hash};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -418,7 +420,7 @@ pub fn create_delegated_grant(
     }
     let parent_binding_relevant = parent.capability_action_registry_digest.is_some()
         || parent.actions.iter().any(|action| {
-            arkret_core::schema::capability_action(action)
+            arkret_schema::capability_action(action)
                 .is_some_and(|row| row.event_mapping_kind == "aggregate_admin")
         });
     if parent_binding_relevant {
@@ -430,7 +432,7 @@ pub fn create_delegated_grant(
     }
     let child_binding_relevant = requested.capability_action_registry_digest.is_some()
         || requested.actions.iter().any(|action| {
-            arkret_core::schema::capability_action(action)
+            arkret_schema::capability_action(action)
                 .is_some_and(|row| row.event_mapping_kind == "aggregate_admin")
         });
     if child_binding_relevant {

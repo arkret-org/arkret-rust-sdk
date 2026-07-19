@@ -14,9 +14,11 @@ pub mod governance;
 pub mod http_bodies;
 mod internal_prelude;
 pub mod objects;
+pub mod resolved_state;
 pub mod sync_frames;
 
 pub use governance::audit::{AccessKind, AuditPolicyAccessPayload};
+pub use resolved_state::ResolvedStateEvent;
 
 /// Canonical object reference string (typed id / DID / content digest).
 pub type ObjectRef = String;

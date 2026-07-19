@@ -1,4 +1,8 @@
-use arkret_core::EventPayloadExt;
+use arkret_models_collaboration::events_payloads::moderation_morph_misc::MorphCreatePayload;
+use arkret_models_collaboration::events_payloads::morph_message::MorphUpdatePayload;
+use arkret_models_collaboration::events_payloads::object_create::StrandPatchPayload;
+use arkret_models_collaboration::events_payloads::strand_history_join::StrandCreatePayload;
+use arkret_wire::EventKind;
 
 use super::super::snapshot::{patch_fields, patch_state, patch_string, space_state_from_str};
 use super::super::*;
@@ -6,7 +10,9 @@ use super::RealmState;
 
 impl RealmState {
     pub(super) fn create_morph(&mut self, event: &Event) -> Result<()> {
-        let object = event.as_morph_create()?.object;
+        let object = event
+            .typed_payload::<MorphCreatePayload>(EventKind::MORPH_CREATE)?
+            .object;
         let morph_id = object.id;
         let morph_id_str = morph_id.as_str().to_owned();
         let schema_refs = object.schema_refs;
@@ -39,7 +45,7 @@ impl RealmState {
     }
 
     pub(super) fn update_morph(&mut self, event: &Event) -> Result<()> {
-        let payload = event.as_morph_update()?;
+        let payload = event.typed_payload::<MorphUpdatePayload>(EventKind::MORPH_UPDATE)?;
         let morph_id_str = payload.target_ref.as_str().to_owned();
         // Spec common-fields.md §5.1: update on non-active object MUST fail.
         if let Some(morph) = self.morphs.get(&morph_id_str)
@@ -417,9 +423,9 @@ impl RealmState {
         let rank = self.extract_optional_field(object, "rank");
         let fields = self.extract_fields(object)?;
         let scope_circle_id =
-            self.extract_optional_field::<arkret_core::CircleId>(object, "scope_circle_id");
+            self.extract_optional_field::<arkret_wire::CircleId>(object, "scope_circle_id");
         let effective_scope =
-            self.extract_optional_field::<arkret_core::EffectiveScope>(object, "effective_scope");
+            self.extract_optional_field::<arkret_wire::EffectiveScope>(object, "effective_scope");
 
         let relation = Relation {
             schema: "ak.schema.relation.v1".to_owned(),
@@ -455,7 +461,9 @@ impl RealmState {
     }
 
     pub(super) fn create_strand(&mut self, event: &Event) -> Result<()> {
-        let object = event.as_strand_create()?.object;
+        let object = event
+            .typed_payload::<StrandCreatePayload>(EventKind::STRAND_CREATE)?
+            .object;
         let strand_id = object.id;
         let strand_id_str = strand_id.as_str().to_owned();
         let metadata = object.metadata.unwrap_or_default();
@@ -495,7 +503,7 @@ impl RealmState {
     }
 
     pub(super) fn update_strand(&mut self, event: &Event) -> Result<()> {
-        let payload = event.as_strand_update()?;
+        let payload = event.typed_payload::<StrandPatchPayload>(EventKind::STRAND_UPDATE)?;
         let strand_id_str = payload.target_ref.as_str().to_owned();
         // Spec common-fields.md §5.1 final paragraph: update on a non-active
         // object MUST fail — otherwise an edit would silently revive an

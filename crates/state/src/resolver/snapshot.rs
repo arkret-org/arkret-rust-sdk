@@ -107,20 +107,6 @@ pub struct SnapshotRestore {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ResolvedStateEvent {
-    pub kind: String,
-    /// Cell subject derived from the event's typed payload per the spec
-    /// event-kind-registry's `cell_subject`. Empty string for singleton
-    /// kinds.
-    pub subject: String,
-    pub source_event_id: EventId,
-    pub actor_id: Did,
-    pub actor_seq: u64,
-    pub hlc: crate::Hlc,
-    pub content: Value,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResolvedMessage {
     pub message_id: String,
     pub source_event_id: EventId,
@@ -412,7 +398,7 @@ pub fn verify_snapshot_inclusion(
         } else {
             vec![running, sibling]
         };
-        running = arkret_state::merkle_root_from_hashes(leaves)?;
+        running = crate::merkle_root_from_hashes(leaves)?;
     }
     if running.as_str() == root {
         Ok(())
@@ -447,7 +433,7 @@ pub fn merkle_root(leaves: Vec<String>) -> Result<String> {
         .into_iter()
         .map(crate::Hash::new)
         .collect::<std::result::Result<Vec<_>, _>>()?;
-    Ok(arkret_state::merkle_root_from_hashes(leaves)?.into_string())
+    Ok(crate::merkle_root_from_hashes(leaves)?.into_string())
 }
 
 pub(super) struct StateHashInput<'a> {
