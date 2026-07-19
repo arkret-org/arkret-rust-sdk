@@ -1,5 +1,4 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::fmt;
 
 pub use arkret_identifiers::{
     ActorProfileId, AppletId, AttestationId, AuditBindingId, AuditReleaseId, AuditSessionId,
@@ -15,7 +14,6 @@ pub use arkret_wire::{EvaluationClass, ServiceType, XExtensionMap};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use sha2::Sha256;
 
 use crate::{Error, Result, SealId, canonical};
 
@@ -75,7 +73,9 @@ mod key_backup {
     pub use arkret_models_crypto::key_backup::*;
 }
 mod keys;
-mod media;
+mod media {
+    pub use arkret_models_collaboration::objects::media::*;
+}
 mod member_delivery_binding_candidate {
     pub use arkret_models_collaboration::governance::member_delivery_binding_candidate::*;
 }
@@ -83,7 +83,9 @@ mod member_identity;
 mod mention {
     pub use arkret_models_collaboration::events_payloads::mention::*;
 }
-mod mimi;
+mod mimi {
+    pub use arkret_models_collaboration::objects::mimi::*;
+}
 mod mls_governance_proof;
 mod mls_payloads;
 mod moderation;
@@ -107,15 +109,25 @@ mod problem_details {
     pub use arkret_wire::problem_details::*;
 }
 pub mod product;
-mod productivity;
+mod productivity {
+    pub use arkret_models_collaboration::objects::productivity::*;
+}
 mod profiles;
 mod push {
     pub use arkret_models_integration::models_push::*;
 }
-mod queries;
-mod query_projection;
-mod realm;
-mod realm_alias;
+mod queries {
+    pub use arkret_models_collaboration::objects::queries::*;
+}
+mod query_projection {
+    pub use arkret_models_collaboration::objects::query_projection::*;
+}
+mod realm {
+    pub use arkret_models_collaboration::objects::realm::*;
+}
+mod realm_alias {
+    pub use arkret_models_collaboration::objects::realm_alias::*;
+}
 mod realm_governance;
 mod registry;
 mod relation;
@@ -129,8 +141,12 @@ mod service_description {
 mod session_credential {
     pub use arkret_models_identity::session_credential::*;
 }
-mod space;
-mod strand;
+mod space {
+    pub use arkret_models_collaboration::objects::space::*;
+}
+mod strand {
+    pub use arkret_models_collaboration::objects::strand::*;
+}
 mod sync;
 #[cfg(test)]
 mod tests;

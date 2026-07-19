@@ -1,6 +1,12 @@
 //! View and space schema artifact counterparts.
 
-use super::*;
+use std::collections::BTreeMap;
+
+use arkret_wire::RealmId;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::objects::queries::SortSpec;
 
 /// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/query`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -10,6 +10,7 @@
 
 pub mod events_payloads;
 pub mod governance;
+pub mod objects;
 
 pub use governance::audit::{AccessKind, AuditPolicyAccessPayload};
 

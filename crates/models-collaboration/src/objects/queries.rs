@@ -1,7 +1,19 @@
-use super::*;
+//! Query, filter, and View definition wire shapes.
+
+use std::collections::BTreeMap;
+
+use arkret_wire::{
+    Cursor, Did, Error, Facet, FilterOp, NullsOrder, RealmId, RelationDirection, RelationKind,
+    Result, SortDirection, SpaceId, ViewId, ViewKind, ViewRenderer, ViewVisibility,
+};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::objects::view::DashboardConfig;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SortSpec {
     pub field: String,
     pub direction: SortDirection,
@@ -10,7 +22,7 @@ pub struct SortSpec {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct FieldFilter {
     pub field: String,
     pub op: FilterOp,
@@ -19,7 +31,7 @@ pub struct FieldFilter {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum Filter {
     Predicate(FieldFilter),
@@ -29,7 +41,7 @@ pub enum Filter {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RelationQuery {
     pub kind: RelationKind,
     pub direction: RelationDirection,
@@ -48,7 +60,7 @@ impl RelationQuery {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct QueryContext {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub event_kinds: Vec<String>,
@@ -59,14 +71,14 @@ pub struct QueryContext {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct QueryConsistency {
     pub wait_for: String,
     pub timeout_ms: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ViewQuery {
     pub realm_ids: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -96,7 +108,7 @@ pub struct ViewQuery {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct View {
     pub schema: String,
@@ -132,7 +144,7 @@ pub struct View {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub document: Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub dashboard: Option<DashboardConfig>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sort: Vec<SortSpec>,
@@ -145,7 +157,7 @@ pub struct View {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ViewState {
     Active,
@@ -170,7 +182,7 @@ impl View {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CollectionConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -190,7 +202,7 @@ pub struct CollectionConfig {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CollectionItemRender {
     Card,
@@ -202,7 +214,7 @@ pub enum CollectionItemRender {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CollectionCountPolicy {
     Omit,
@@ -211,7 +223,7 @@ pub enum CollectionCountPolicy {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CollectionGroupingMode {
     None,
@@ -222,7 +234,7 @@ pub enum CollectionGroupingMode {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CollectionGrouping {
     pub mode: CollectionGroupingMode,
@@ -249,7 +261,7 @@ pub struct CollectionGrouping {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct GraphViewConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub node_object_types: Vec<String>,
@@ -261,7 +273,7 @@ pub struct GraphViewConfig {
     pub edge_relation_kinds: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_depth: Option<u32>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }

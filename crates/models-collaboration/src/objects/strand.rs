@@ -1,6 +1,20 @@
 //! Strand model and shared object metadata.
 
-use super::*;
+use std::collections::BTreeMap;
+
+use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
+use arkret_wire::constants::STRAND_SCHEMA;
+use arkret_wire::{CircleId, Did, Error, ObjectStage, ObjectState, RealmId, Result, StrandId};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::events_payloads::morph_message::ContentBlock;
+use crate::governance::agent_participation::AgentParticipationPolicy;
+use crate::objects::profiles::{
+    STRAND_TRACK_NAME_DISCUSSION, STRAND_TRACK_NAME_SYNTHESIS, StrandTrackConfig,
+    resolve_primary_track, validate_strand_track_name,
+};
 
 /// Shared `metadata` shape for materialised objects that carry
 /// `metadata.title` / `metadata.summary` (Strand, Morph). Field set matches
@@ -10,7 +24,7 @@ use super::*;
 /// `metadata.fields` (e.g. Morph, which carries top-level `fields`) serialise
 /// identically to a metadata object without a `fields` member.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ObjectMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
@@ -18,7 +32,7 @@ pub struct ObjectMetadata {
     pub summary: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -36,17 +50,17 @@ impl ObjectMetadata {
 pub type StrandMetadata = ObjectMetadata;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MessageMetadata {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Strand {
     pub id: StrandId,
@@ -69,13 +83,13 @@ pub struct Strand {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<StrandMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub encrypted_metadata: Option<EncryptedEnvelope>,
     #[serde(rename = "content", skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub body: Option<ContentBlock>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub encrypted_content: Option<EncryptedEnvelope>,
     /// Active Strand tracks keyed by canonical track name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]

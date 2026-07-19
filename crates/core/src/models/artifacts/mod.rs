@@ -26,12 +26,16 @@ mod event_wire;
 mod interop;
 mod keys;
 mod moderation;
-mod object_facets;
+mod object_facets {
+    pub use arkret_models_collaboration::objects::object_facets::*;
+}
 mod push;
 mod self_ops;
 mod service;
 mod sync;
-mod view;
+mod view {
+    pub use arkret_models_collaboration::objects::view::*;
+}
 
 pub use account::*;
 pub use account_sync::*;

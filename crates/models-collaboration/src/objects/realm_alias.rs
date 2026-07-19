@@ -3,7 +3,8 @@
 //! Spec source: `discovery/object-addressing.md` §3.3 (canonical grammar shared
 //! with handle `identity/identity-handles.md` §3.1/§17).
 //!
-//! A realm alias is the realm-side counterpart of a user [`Handle`](super::Handle):
+//! A realm alias is the realm-side counterpart of a user
+//! [`Handle`](arkret_models_identity::handle::Handle):
 //!
 //! * Canonical wire form is `<localpart>:<domain>` — the SAME grammar as a handle (lowercase ASCII
 //!   localpart, ≥2-label domain). The canonical form carries NO sigil.
@@ -14,14 +15,15 @@
 //!   same `<localpart>:<domain>` MAY therefore be both a handle and a realm alias; the protocol
 //!   does NOT require global uniqueness across the two namespaces.
 //!
-//! Unlike [`Handle`](super::Handle), a realm alias has NO port form: it is a
-//! Directory-resolved label, not a service address, so exactly one `:` separates
+//! Unlike [`Handle`](arkret_models_identity::handle::Handle), a realm alias has NO port form: it is
+//! a Directory-resolved label, not a service address, so exactly one `:` separates
 //! localpart and domain.
 
 use std::fmt;
 
-use super::handle::{is_valid_domain, normalize_localpart_with_code};
-use super::*;
+use arkret_models_identity::handle::{is_valid_domain, normalize_localpart_with_code};
+use arkret_wire::{Error, ReasonCode, Result};
+use serde::{Deserialize, Serialize};
 
 /// Wire error-code prefix carried when a realm alias fails the homograph /
 /// confusable / mixed-script discipline (object-addressing.md §3.3). Mirrors
@@ -33,7 +35,7 @@ use super::*;
 /// [`RealmAlias::parse`] (canonical input) or [`RealmAlias::parse_display`]
 /// (tolerates a leading `#` share sigil).
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(try_from = "String", into = "String")]
 pub struct RealmAlias {
     canonical: String,
@@ -66,10 +68,8 @@ impl RealmAlias {
         // Shares the handle localpart discipline: rejects zero-width / bidi /
         // confusable / out-of-alphabet, lowercases, bounds length. Carries the
         // realm-alias wire error code on rejection.
-        let localpart = normalize_localpart_with_code(
-            local,
-            crate::ReasonCode::REALM_ALIAS_HOMOGRAPH_FORBIDDEN,
-        )?;
+        let localpart =
+            normalize_localpart_with_code(local, ReasonCode::REALM_ALIAS_HOMOGRAPH_FORBIDDEN)?;
         let domain = domain_part.to_ascii_lowercase();
         if !is_valid_domain(&domain) {
             return Err(Error::Protocol(format!(
@@ -107,8 +107,9 @@ impl RealmAlias {
     }
 
     /// Display / share form `#<localpart>:<domain>` favoured for UI surfaces —
-    /// the realm-side counterpart of [`Handle::display`](super::Handle::display)
-    /// (`@<localpart>:<domain>`).
+    /// the realm-side counterpart of
+    /// [`Handle::display`](arkret_models_identity::handle::Handle::display) (`@<localpart>:
+    /// <domain>`).
     pub fn display(&self) -> String {
         format!("#{}", self.canonical)
     }
@@ -135,6 +136,8 @@ impl From<RealmAlias> for String {
 
 #[cfg(test)]
 mod tests {
+    use arkret_models_identity::handle::Handle;
+
     use super::*;
 
     #[test]

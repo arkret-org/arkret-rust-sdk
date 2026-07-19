@@ -1,18 +1,15 @@
 //! Message-create payload and content-block validation retained by
 //! `arkret-core`.
 //!
-//! The `ContentBlock` wire family, morph-update payload, and
-//! disappearing-message expiry types migrated to
-//! `arkret-models-collaboration` (re-exported below).
-//! [`MessageCreatePayload`] stays because it embeds the (not yet
-//! migrated) `MessageMetadata` strand projection; the content-block
+//! The `ContentBlock` wire family, `MessageCreatePayload`, morph-update
+//! payload, and disappearing-message expiry types migrated to
+//! `arkret-models-collaboration` (re-exported below). The content-block
 //! validators stay because they consume the `PollBlock` /
 //! `PollResponseBlock` artifacts types.
 
 use std::fmt;
 
 pub use arkret_models_collaboration::events_payloads::morph_message::*;
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::*;
@@ -222,160 +219,4 @@ fn content_block_has_text_value(block: &ContentBlock) -> bool {
 
 fn json_integer(value: &Value) -> bool {
     value.is_i64() || value.is_u64()
-}
-
-/// Payload for `ak.message.create`.
-///
-/// Producers must choose exactly one of `content` or `encrypted_content`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MessageCreatePayload {
-    pub strand_id: StrandId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub message_id: Option<String>,
-    pub track_name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content: Option<ContentBlock>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub encrypted_content: Option<EncryptedEnvelope>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub metadata: Option<MessageMetadata>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub encrypted_metadata: Option<EncryptedEnvelope>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub blob_refs: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub mention_sidecar_hash: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reply_to: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expiry: Option<DisappearingMessageExpiry>,
-}
-
-impl MessageCreatePayload {
-    pub fn with_content(
-        strand_id: StrandId,
-        track_name: impl Into<String>,
-        content: ContentBlock,
-    ) -> Self {
-        Self {
-            strand_id,
-            message_id: None,
-            track_name: track_name.into(),
-            content: Some(content),
-            encrypted_content: None,
-            metadata: None,
-            encrypted_metadata: None,
-            blob_refs: Vec::new(),
-            mention_sidecar_hash: Vec::new(),
-            reply_to: None,
-            expiry: None,
-        }
-    }
-
-    pub fn with_encrypted_content(
-        strand_id: StrandId,
-        track_name: impl Into<String>,
-        encrypted_content: EncryptedEnvelope,
-    ) -> Self {
-        Self {
-            strand_id,
-            message_id: None,
-            track_name: track_name.into(),
-            content: None,
-            encrypted_content: Some(encrypted_content),
-            metadata: None,
-            encrypted_metadata: None,
-            blob_refs: Vec::new(),
-            mention_sidecar_hash: Vec::new(),
-            reply_to: None,
-            expiry: None,
-        }
-    }
-
-    pub fn with_message_id(mut self, message_id: impl Into<String>) -> Self {
-        self.message_id = Some(message_id.into());
-        self
-    }
-
-    pub fn with_reply_to(mut self, reply_to: impl Into<String>) -> Self {
-        self.reply_to = Some(reply_to.into());
-        self
-    }
-
-    pub fn with_expiry(mut self, expiry: DisappearingMessageExpiry) -> Self {
-        self.expiry = Some(expiry);
-        self
-    }
-
-    pub fn content_mut(&mut self) -> Option<&mut ContentBlock> {
-        self.content.as_mut()
-    }
-
-    pub fn content_block(&self) -> Result<Option<ContentBlock>> {
-        Ok(self.content.clone())
-    }
-
-    pub fn plain_body(&self) -> Result<String> {
-        Ok(self
-            .content_block()?
-            .map(|content| content.body)
-            .unwrap_or_default())
-    }
-
-    pub fn first_media_content_block(&self) -> Result<Option<ContentBlock>> {
-        let Some(content) = self.content_block()? else {
-            return Ok(None);
-        };
-        Ok(content.first_media_block().cloned())
-    }
-
-    pub fn first_media_attachment(&self) -> Result<Option<ContentBlockMediaAttachment>> {
-        let Some(content) = self.content_block()? else {
-            return Ok(None);
-        };
-        let Some(block) = content.first_media_block() else {
-            return Ok(None);
-        };
-        let Some(blob_ref) = block
-            .blob_ref()
-            .map(str::to_owned)
-            .or_else(|| self.blob_refs.first().cloned())
-        else {
-            return Ok(None);
-        };
-        let mime_type = block.mime_type().map(str::to_owned);
-        let filename = block.filename().map(str::to_owned);
-        let size_bytes = block.size_bytes();
-        let caption = content.body;
-        Ok(Some(ContentBlockMediaAttachment {
-            blob_ref,
-            mime_type,
-            filename,
-            size_bytes,
-            caption,
-        }))
-    }
-
-    pub fn to_value(&self) -> Result<Value> {
-        if self.metadata.is_some() && self.encrypted_metadata.is_some() {
-            return Err(Error::Protocol(
-                "message create payload must not carry both metadata and encrypted_metadata"
-                    .to_owned(),
-            ));
-        }
-        if let Some(expiry) = self.expiry.as_ref() {
-            expiry.validate()?;
-        }
-        match (self.content.is_some(), self.encrypted_content.is_some()) {
-            (true, false) | (false, true) => serde_json::to_value(self)
-                .map_err(|err| Error::Protocol(format!("message create payload serialize: {err}"))),
-            (false, false) => Err(Error::Protocol(
-                "message create payload requires content or encrypted_content".to_owned(),
-            )),
-            (true, true) => Err(Error::Protocol(
-                "message create payload must not carry both content and encrypted_content"
-                    .to_owned(),
-            )),
-        }
-    }
 }

@@ -91,23 +91,7 @@ pub struct CellLattice {
     pub sentinel_writers: Option<Vec<String>>,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/realm.schema.json#/$defs/sync_endpoint`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct SyncEndpoint {
-    pub did: Did,
-    pub endpoint: String,
-    pub role: String,
-    pub service_type: String,
-    pub plaintext_visible: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub visibility_scope: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_id: Option<PolicyId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
-}
+pub use arkret_models_collaboration::objects::realm::SyncEndpoint;
 
 /// Counterpart for `spec/v1/artifacts/schemas/snapshot.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

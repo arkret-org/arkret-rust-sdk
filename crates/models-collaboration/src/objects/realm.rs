@@ -1,12 +1,44 @@
 //! Realm security-boundary model.
 
-use super::*;
+use std::collections::BTreeMap;
+
+use arkret_wire::constants::{CORE_SCHEMA_PROFILE, REALM_SCHEMA_ID};
+use arkret_wire::notary::NotaryValue;
+use arkret_wire::{
+    BlobRef, Did, Discoverability, EncryptionProfile, Error, FederationPolicy, HistoryVisibility,
+    JoinRule, PolicyId, RealmId, Result, SecurityClass, TypedTrustDomainId, canonical,
+};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::governance::agent_participation::AgentParticipationPolicy;
+use crate::governance::circle::EncryptionFloor;
+use crate::objects::relation::RelationProfile;
+
+/// Counterpart for `spec/v1/artifacts/schemas/realm.schema.json#/$defs/sync_endpoint`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct SyncEndpoint {
+    pub did: Did,
+    pub endpoint: String,
+    pub role: String,
+    pub service_type: String,
+    pub plaintext_visible: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visibility_scope: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_id: Option<PolicyId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+}
 
 // Realm carries the security-boundary fields (`trust_domain` /
 // `security_class` / `federation_policy` / `history_visibility`; spec
 // realm.schema.json). Product container fields live on `Space`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 // Field declaration order mirrors `realm.schema.json` properties order
 // (`id, schema, title, summary, security_class, trust_domain, …`); local
@@ -74,17 +106,17 @@ pub struct Realm {
     /// discriminator must match the genesis `notary` cell value.
     pub notary_profile: NotaryProfile,
     #[serde(default)]
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = String)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = String)))]
     pub digest_algorithm: canonical::DigestSuite,
     /// Initial notary cell value (data-structures.md §4). Reducers seed the
     /// authoritative notary cell from this genesis value at Realm creation.
     /// Subsequent notary changes strand through Move on the
     /// `ak:cell:ak.component.notary.v1:<realm_id>` cell.
-    pub notary: crate::notary::NotaryValue,
+    pub notary: NotaryValue,
     /// Product/profile fields carried by `realm.schema.json`. Security
     /// discriminators such as `purpose=principal_control` are validated by
     /// the profile-specific admission path.
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
     /// Soft cap on how stale the latest Seal leaf may be before clients
@@ -131,7 +163,7 @@ pub struct Realm {
 /// public keys, NOT MLS members; granularity is expressed by organization
 /// composition, not a per-Realm knob.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DurabilityPolicy {
     pub mode: DurabilityMode,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -144,7 +176,7 @@ pub struct DurabilityPolicy {
 /// member loss = permanent loss); `OrgRecoveryKey` = single org RRK;
 /// `Threshold` = k-of-n recovery recipients.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DurabilityMode {
     None,
@@ -155,7 +187,7 @@ pub enum DurabilityMode {
 /// k-of-n threshold parameters for `DurabilityMode::Threshold`. `k <= n` and
 /// `n` MUST equal `recovery_recipients.len()`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DurabilityThreshold {
     pub k: u32,
     pub n: u32,
@@ -166,7 +198,7 @@ pub struct DurabilityThreshold {
 /// service entry published by `principal_id` (identity-did.md §8.3),
 /// domain-separated from the principal's `did_recovery` key.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RealmRecoveryRecipient {
     pub recipient_id: String,
     pub principal_id: Did,
@@ -182,7 +214,7 @@ pub struct RealmRecoveryRecipient {
 /// lives in the `ak:cell:ak.component.notary.v1:<realm_id>` cell. The
 /// hint exists so clients can pre-allocate state before observing the cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum NotaryProfile {
     /// Single DID notary signs every Seal. Lowest latency, single
@@ -204,7 +236,7 @@ pub enum NotaryProfile {
 /// declared lattice + bottom shape. Reducer-derived in practice; this is a
 /// **hint** so clients can set up bottom diagnostics surfaces upfront.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct CellLatticeDeclaration {
     /// `ak.component.<...>.v<N>` cell family identifier.
     pub cell_family: String,
@@ -219,7 +251,7 @@ pub struct CellLatticeDeclaration {
 /// Co-write policy declaration on `Realm` (Move/Seal/Lattice). Governs
 /// how concurrent Moves are ordered before reaching an Seal.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CoWritePolicy {
     /// Notary applies a deterministic order (HLC → issuer → id) before
@@ -244,7 +276,7 @@ impl Realm {
         created_by: Did,
         trust_domain: TypedTrustDomainId,
         notary_profile: NotaryProfile,
-        notary: crate::notary::NotaryValue,
+        notary: NotaryValue,
     ) -> Self {
         Self {
             id,
@@ -300,7 +332,7 @@ impl Realm {
     /// Builder: declare the initial notary cell value. Servers seed the
     /// `ak:cell:ak.component.notary.v1:<realm_id>` cell from this hint at
     /// Realm creation time. Subsequent rotations strand through Move.
-    pub fn with_notary(mut self, notary: crate::notary::NotaryValue) -> Self {
+    pub fn with_notary(mut self, notary: NotaryValue) -> Self {
         self.notary = notary;
         self
     }
@@ -353,19 +385,10 @@ impl Realm {
         self.notary.validate()?;
         if !matches!(
             (&self.notary_profile, &self.notary),
-            (
-                NotaryProfile::SingleDid,
-                crate::notary::NotaryValue::SingleDid { .. }
-            ) | (
-                NotaryProfile::Threshold,
-                crate::notary::NotaryValue::Threshold { .. }
-            ) | (
-                NotaryProfile::OpenSet,
-                crate::notary::NotaryValue::OpenSet { .. }
-            ) | (
-                NotaryProfile::Mixed,
-                crate::notary::NotaryValue::Mixed { .. }
-            )
+            (NotaryProfile::SingleDid, NotaryValue::SingleDid { .. })
+                | (NotaryProfile::Threshold, NotaryValue::Threshold { .. })
+                | (NotaryProfile::OpenSet, NotaryValue::OpenSet { .. })
+                | (NotaryProfile::Mixed, NotaryValue::Mixed { .. })
         ) {
             return Err(Error::Protocol(
                 "Realm notary_profile must match notary.type".to_owned(),

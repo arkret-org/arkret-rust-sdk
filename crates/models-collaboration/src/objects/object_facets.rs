@@ -1,6 +1,15 @@
 //! Object and productivity schema artifact counterparts.
 
-use super::*;
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::objects::productivity::{
+    BlindIndexQuery, EncryptedIndexManifest, PersonalProductivityValue, PinAddPayload,
+    PinRemovePayload, PinReorderPayload, ReminderValue, RsvpSetPayload, SavedItemValue,
+    ScheduledSendValue, SearchPolicy, SnoozeValue,
+};
 
 /// Counterpart for `spec/v1/artifacts/schemas/circle.schema.json#/$defs/display`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

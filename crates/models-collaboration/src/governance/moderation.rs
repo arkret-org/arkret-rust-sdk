@@ -2,9 +2,15 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{Did, Hash};
+use arkret_wire::constants::MODERATION_REPORT_SCHEMA;
+use arkret_wire::{Did, Hash, RealmId};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+fn now_utc_seconds() -> DateTime<Utc> {
+    DateTime::<Utc>::from_timestamp(Utc::now().timestamp(), 0).unwrap_or_else(Utc::now)
+}
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ModerationEvidencePackage {
@@ -32,4 +38,77 @@ pub struct ModerationReportOutcome {
     /// `service-http-binding.md`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub routed_to: Vec<Did>,
+}
+
+/// Moderation action (moderation.md §5.3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ModerationAction {
+    DenyJoin,
+    DenyInvite,
+    DenyWrite,
+    QuarantineMessage,
+    RequireReview,
+    RedactOnAccept,
+    ShadowCollapse,
+}
+
+/// Moderation report (moderation.md §3).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct ModerationReport {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema: Option<String>,
+    pub report_id: String,
+    pub realm_id: RealmId,
+    pub target_ref: String,
+    pub report_reason_code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub reporter: Did,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence_refs: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub franking_proof: Option<ModerationFrankingProof>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl ModerationReport {
+    pub fn new(
+        id: impl Into<String>,
+        realm_id: RealmId,
+        target_ref: impl Into<String>,
+        report_reason_code: impl Into<String>,
+        reporter: Did,
+    ) -> Self {
+        Self {
+            schema: Some(MODERATION_REPORT_SCHEMA.to_owned()),
+            report_id: id.into(),
+            realm_id,
+            target_ref: target_ref.into(),
+            report_reason_code: report_reason_code.into(),
+            description: None,
+            reporter,
+            evidence_refs: Vec::new(),
+            franking_proof: None,
+            created_at: now_utc_seconds(),
+        }
+    }
+}
+
+/// Moderation franking proof for E2EE content (moderation.md §3.4).
+///
+/// `franking_tag` MUST be a key-bound MAC of the reported ciphertext that
+/// only the reporter could have produced; spec leaves the algorithm open
+/// per profile — this struct just carries the wire shape.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct ModerationFrankingProof {
+    pub algorithm: String,
+    pub franking_tag: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub epoch: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_ref: Option<String>,
 }

@@ -1,11 +1,14 @@
-//! Contact and directory schema artifact counterparts.
+//! Contact and directory schema artifact counterparts retained by
+//! `arkret-core`.
+//!
+//! The pure `$defs` shapes migrated to `arkret-models-discovery`
+//! (re-exported below). The operation aggregation enums stay because
+//! they reference core HTTP body DTOs; [`PaginationRequest`] stays
+//! because it embeds the structured core [`crate::Cursor`].
+
+pub use arkret_models_discovery::directory_artifacts::*;
 
 use super::*;
-
-/// Counterpart for `spec/v1/artifacts/schemas/calendar-event.schema.json`.
-/// Counterpart for `spec/v1/artifacts/schemas/calendar-event.schema.json#/$defs/attendee`.
-/// Counterpart for `spec/v1/artifacts/schemas/common-ids.schema.json`.
-pub type CommonIds = BTreeMap<String, Value>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/contact-operations.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -22,20 +25,6 @@ pub enum ContactOperations {
     DirectConversationResolveRequestBody(crate::DirectConversationResolveRequestBody),
     DirectConversationResolveOutcome(crate::DirectConversationResolveOutcome),
 }
-
-/// Counterpart for `spec/v1/artifacts/schemas/contact-operations.schema.json#/$defs/consent_scope`.
-pub type ConsentScope = String;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/contact-operations.schema.json#/$defs/consent_scope_list`.
-pub type ConsentScopeList = Vec<ConsentScope>;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/contact-operations.schema.json#/$defs/consent_scopes`.
-pub type ConsentScopes = Vec<ConsentScope>;
-
-/// Counterpart for `spec/v1/artifacts/schemas/contact-operations.schema.json#/$defs/event_refs`.
-pub type EventRefs = Vec<EventId>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/directory-operations.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -68,71 +57,6 @@ pub enum DirectoryOperations {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/freshness_fields`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct FreshnessFields {
-    pub as_of: DateTime<Utc>,
-    pub source_refs: SourceRefs,
-    pub policy_revision: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stale: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub divergent: Option<bool>,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/intent`.
-pub type Intent = DirectoryIntent;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/invite_consent_handoff_stub`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct InviteConsentHandoffStub {
-    pub kind: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub consent_scope: Option<String>,
-    pub state: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state_digest: Option<NonEmptyString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub next_step: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/object_preview`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct ObjectPreview {
-    pub object_id: ObjectPreviewId,
-    pub object_kind: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub title: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub summary: Option<String>,
-    pub as_of: DateTime<Utc>,
-    pub source_refs: SourceRefs,
-    pub policy_revision: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stale: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub divergent: Option<bool>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(untagged)]
-pub enum ObjectPreviewId {
-    Strand(StrandId),
-    Message(MessageId),
-    Event(EventId),
-}
-
-/// Counterpart for
 /// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/pagination_request`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -142,13 +66,3 @@ pub struct PaginationRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<u64>,
 }
-
-/// Counterpart for `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/proofs`.
-pub type Proofs = Vec<Proof>;
-
-/// Counterpart for `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/source_refs`.
-pub type SourceRefs = Vec<EventId>;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/subscription_id`.
-pub type SubscriptionId = String;

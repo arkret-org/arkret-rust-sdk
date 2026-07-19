@@ -2,10 +2,11 @@
 
 use std::num::NonZeroU64;
 
-use super::*;
+use arkret_wire::{Base64UrlString, DeviceId, Did, Hash, MimiRoomUri, MlsGroupId, NonEmptyString};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MimiKeyPackage {
     pub device_id: DeviceId,
@@ -15,7 +16,7 @@ pub struct MimiKeyPackage {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MimiGroupInfo {
     pub mls_group_id: MlsGroupId,
@@ -24,19 +25,19 @@ pub struct MimiGroupInfo {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MimiFailure {
     pub reason_code: NonEmptyString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_ref: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = u64)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = u64)))]
     pub retry_after_ms: Option<NonZeroU64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MimiOpaquePayload {
     pub content_type: NonEmptyString,
@@ -46,7 +47,7 @@ pub struct MimiOpaquePayload {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MimiCiphertext {
     pub content_type: NonEmptyString,
@@ -55,7 +56,7 @@ pub struct MimiCiphertext {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MimiRoomUpdate {
     pub kind: NonEmptyString,
@@ -63,7 +64,7 @@ pub struct MimiRoomUpdate {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MimiNotification {
     pub kind: NonEmptyString,
@@ -74,7 +75,7 @@ pub struct MimiNotification {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MimiNotificationRouting {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -84,7 +85,7 @@ pub struct MimiNotificationRouting {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MimiDeliveryStatus {
     Accepted,
@@ -93,7 +94,7 @@ pub enum MimiDeliveryStatus {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MimiDelivery {
     pub status: MimiDeliveryStatus,
@@ -102,7 +103,7 @@ pub struct MimiDelivery {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MimiConsentTargetKind {
     Did,
@@ -112,7 +113,7 @@ pub enum MimiConsentTargetKind {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MimiConsentTarget {
     pub kind: MimiConsentTargetKind,
@@ -120,7 +121,7 @@ pub struct MimiConsentTarget {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MimiConsentPurpose {
     Invite,
@@ -132,7 +133,7 @@ pub enum MimiConsentPurpose {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MimiIdentifierKind {
     MimiUri,
@@ -144,7 +145,7 @@ pub enum MimiIdentifierKind {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MimiIdentifier {
     pub kind: MimiIdentifierKind,
@@ -152,7 +153,7 @@ pub struct MimiIdentifier {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MimiIdentifierMatch {
     pub identifier_commitment: Hash,
@@ -164,7 +165,7 @@ pub struct MimiIdentifierMatch {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MimiOhttpContext {
     pub context_id: NonEmptyString,
