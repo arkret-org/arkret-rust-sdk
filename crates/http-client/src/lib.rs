@@ -38,6 +38,12 @@ mod endpoints_data;
 mod endpoints_events;
 mod endpoints_identity;
 mod endpoints_misc;
+// Production reqwest + Tokio DID resolver. Leans on a live Tokio runtime,
+// blocking off-thread scheduling, and reqwest's native transport, none of
+// which exist on the wasm32 fetch backend — native-only.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod http_did_resolver;
+pub mod key_backup_client;
 
 pub use builder::ClientBuilder;
 #[cfg(not(target_arch = "wasm32"))]

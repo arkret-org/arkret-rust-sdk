@@ -1,6 +1,6 @@
 //! Production reqwest-based [`DidResolver`] for `did:web` and `did:webvh`.
 //!
-//! HTTP fetch + caching layer on top of [`crate::identity`]'s offline
+//! HTTP fetch + caching layer on top of [`arkret_identity`]'s offline
 //! helpers. Per `identity/identity-handles.md` §4 the resolver:
 //!
 //! - fetches `https://<host>/.well-known/did.json` for `did:web`,
@@ -21,16 +21,15 @@ use std::future::Future;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
-use reqwest::Client as HttpClient;
-use tokio::sync::OnceCell;
-
-use crate::identity::{
+use arkret_core::{Did, Error, Result};
+use arkret_identity::{
     DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidResolver, DidWebDocumentOutcome, DidWebResolver,
     DidWebvhDocumentOutcome, DidWebvhLogOutcome, DidWebvhResolver, ResolverFailMode,
     ResolverPolicy,
 };
-use crate::{Did, Error, Result};
+use chrono::{DateTime, Utc};
+use reqwest::Client as HttpClient;
+use tokio::sync::OnceCell;
 
 /// Default TTL applied to cached documents when the policy does not
 /// override it.

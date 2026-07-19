@@ -198,19 +198,20 @@ pub mod history_recovery;
 // The single source of truth now lives in `arkret-signatures`; this re-export
 // keeps the existing `arkret::http_signature::*` / `arkret_sdk::http_signature::*`
 // call paths stable.
-#[cfg(feature = "full-surface")]
-pub use arkret_signatures::http_signature;
 // HttpDidResolver leans on a live Tokio runtime, blocking off-thread
 // scheduling, and reqwest's native ClientBuilder transport knobs — none
-// of which are available on the wasm32 fetch backend. Gate the module out
-// on wasm32; web embedders should plug in a fetch-based resolver via
-// the `DidResolver` trait directly.
+// of which are available on the wasm32 fetch backend. It now lives in
+// arkret-http-client; this shim keeps the `arkret::http_did_resolver::*`
+// path stable. Gated out on wasm32; web embedders should plug in a
+// fetch-based resolver via the `DidResolver` trait directly.
 #[cfg(all(
     feature = "full-surface",
     feature = "client",
     not(target_arch = "wasm32")
 ))]
-pub mod http_did_resolver;
+pub use arkret_http_client::http_did_resolver;
+#[cfg(feature = "full-surface")]
+pub use arkret_signatures::http_signature;
 #[cfg(feature = "full-surface")]
 pub mod identity;
 #[cfg(feature = "full-surface")]
@@ -221,12 +222,14 @@ pub mod identity_link;
 /// on `identity::DidResolver`, so it's gated on `full-surface`.
 #[cfg(feature = "full-surface")]
 pub mod jws;
+// `key_backup_client` now lives in arkret-http-client; this shim keeps the
+// `arkret::key_backup_client::*` path stable.
 #[cfg(all(
     feature = "full-surface",
     feature = "device-runtime",
     feature = "client"
 ))]
-pub mod key_backup_client;
+pub use arkret_http_client::key_backup_client;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub mod key_verification;
 // `secret_share` moved to `arkret-crypto` (HPKE base-mode seal). Re-exported

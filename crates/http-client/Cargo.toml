@@ -45,6 +45,13 @@ url = {workspace = true,features = ["serde"]}
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 getrandom = {workspace = true}
+# Native-only: consumed exclusively by `http_did_resolver` (reqwest + Tokio DID
+# resolver), which is itself gated out on wasm32.
+arkret-identity = {workspace = true}
+# rt-multi-thread is required for tokio::task::block_in_place, which the sync
+# HttpDidResolver facade uses to block safely on multi-thread runtimes; sync
+# for OnceCell single-flight; rt for the current-thread fallback driver.
+tokio = {workspace = true,features = ["rt", "rt-multi-thread", "sync"]}
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tokio = {workspace = true,features = ["macros", "rt", "net", "io-util"]}

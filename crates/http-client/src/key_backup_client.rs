@@ -1,15 +1,15 @@
 //! Typed key-backup HTTP client for `ak.keys.backups.*`.
 
-use arkret_http_client::Client;
-
-use crate::{
+use arkret_core::{
     BackupId, KeyBackup, KeysBackupsDeleteRequestBody, KeysBackupsUnlockRequestBody,
     Result as SdkResult,
 };
 
-/// Typed key-backup HTTP client wrapping a [`arkret_http_client::Client`].
+use crate::Client;
+
+/// Typed key-backup HTTP client wrapping a [`crate::Client`].
 ///
-/// All methods return `Result<_, arkret_http_client::Error>` so the API and
+/// All methods return `Result<_, arkret_core::Error>` so the API and
 /// retry/backoff config strand through the underlying client builder. The
 /// caller is expected to construct the inner [`Client`] with the
 /// appropriate auth (Bearer / DeviceProof / ServiceSignature).
@@ -77,11 +77,12 @@ mod tests {
         let created_at = Utc::now();
         KeyBackup {
             backup_id: BackupId::new("ak:backup:01964137-0000-7000-8000-000000000000").unwrap(),
-            actor_id: crate::Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            actor_id: arkret_core::Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             device_id: Some(
-                crate::DeviceId::new("ak:device:01964137-0000-7000-8000-000000000000").unwrap(),
+                arkret_core::DeviceId::new("ak:device:01964137-0000-7000-8000-000000000000")
+                    .unwrap(),
             ),
-            backup_class: crate::BackupClass::SecretStorage,
+            backup_class: arkret_core::BackupClass::SecretStorage,
             mixed_secret_storage: false,
             backup_version: "kb_1".to_owned(),
             created_at,
@@ -92,7 +93,7 @@ mod tests {
                 recipient_key_ref: None,
                 kdf: Some(arkret_core::KeyBackupKdf {
                     name: arkret_core::KeyBackupKdfName::Argon2id,
-                    salt: crate::Base64UrlString::new("c2FsdA").unwrap(),
+                    salt: arkret_core::Base64UrlString::new("c2FsdA").unwrap(),
                     params: arkret_core::KeyBackupKdfParams {
                         memory_kib: Some(65_536),
                         iterations: Some(3),
@@ -106,8 +107,10 @@ mod tests {
                 aead: arkret_core::KeyBackupAead {
                     name: arkret_core::KeyBackupAeadName::Xchacha20Poly1305,
                     aead_profile: Some("ak.aead.xchacha20_poly1305.v1".to_owned()),
-                    nonce: Some(crate::Base64UrlString::new("nonce").unwrap()),
-                    nonce_salt: Some(crate::Base64UrlString::new("nonce_salt_value").unwrap()),
+                    nonce: Some(arkret_core::Base64UrlString::new("nonce").unwrap()),
+                    nonce_salt: Some(
+                        arkret_core::Base64UrlString::new("nonce_salt_value").unwrap(),
+                    ),
                     enc: None,
                     extra: Default::default(),
                 },
@@ -120,9 +123,9 @@ mod tests {
                 subdomain: "aead".to_owned(),
                 aead_aad: arkret_core::KeyBackupDomainSeparationAad {
                     schema: "ak.schema.key_backup.v1".to_owned(),
-                    actor_id: crate::Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+                    actor_id: arkret_core::Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
                     device_id: Some("ak:device:01964137-0000-7000-8000-000000000000".to_owned()),
-                    backup_class: crate::BackupClass::SecretStorage,
+                    backup_class: arkret_core::BackupClass::SecretStorage,
                     backup_version: "kb_1".to_owned(),
                     created_at,
                     item_types: vec!["recovery_secret".to_owned()],
@@ -133,7 +136,7 @@ mod tests {
                 },
                 extra: Default::default(),
             },
-            contents: vec![crate::KeyBackupContentItem {
+            contents: vec![arkret_core::KeyBackupContentItem {
                 item_type: "recovery_secret".to_owned(),
                 realm_id: None,
                 managed_principal_binding: None,
@@ -150,14 +153,16 @@ mod tests {
                 "sha256:2108421084217842908421084210842121084210842178429084210842108421".to_owned(),
             plaintext_commitment: None,
             auth_data: Some(arkret_core::KeyBackupAuthData {
-                device_id: crate::DeviceId::new("ak:device:01964137-0000-7000-8000-000000000000")
-                    .unwrap(),
-                verification_method: crate::DidUrl::new(
+                device_id: arkret_core::DeviceId::new(
+                    "ak:device:01964137-0000-7000-8000-000000000000",
+                )
+                .unwrap(),
+                verification_method: arkret_core::DidUrl::new(
                     "did:webvh:z6mkfixture:alice.example#device",
                 )
                 .unwrap(),
                 signature_algorithm: arkret_core::KeyBackupSignatureAlgorithm::Ed25519,
-                signature: crate::Base64UrlString::new("c2ln").unwrap(),
+                signature: arkret_core::Base64UrlString::new("c2ln").unwrap(),
                 ssk_generation: std::num::NonZeroU64::new(1),
                 device_authorize_event_id: None,
                 signed_fields: [
