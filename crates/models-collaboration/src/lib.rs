@@ -11,6 +11,7 @@
 pub mod events_payloads;
 pub mod federation;
 pub mod governance;
+pub mod http_bodies;
 mod internal_prelude;
 pub mod objects;
 pub mod sync_frames;

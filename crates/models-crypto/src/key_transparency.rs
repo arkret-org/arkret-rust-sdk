@@ -1,3 +1,7 @@
+//! Key-transparency evidence wire shapes (`ak.schema.key_transparency.v1`):
+//! log head, inclusion/consistency proofs, witness signatures, and their
+//! structural validation.
+
 use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};

@@ -2,35 +2,16 @@
 //!
 //! The protocol-invariant validator, trait, and error family migrated to
 //! `arkret-models-collaboration` (`sync_frames::stream_trace`, re-exported
-//! below). This module keeps the [`StreamTraceFrame`] impl for the core
-//! [`EventsSubscribeFrame`] HTTP body DTO and the bridge into the unified
-//! SDK [`Error`].
+//! below, together with the [`StreamTraceFrame`] impl for the
+//! [`EventsSubscribeFrame`] HTTP body DTO). This module keeps the bridge
+//! into the unified SDK [`Error`].
 
 pub use arkret_models_collaboration::sync_frames::stream_trace::{
     StreamTraceError, StreamTraceFrame, StreamTraceFrameKind, StreamTraceUpdate,
     StreamTraceValidator,
 };
 
-use crate::{Error, EventsSubscribeFrame, EventsSubscribeFrameKind};
-
-impl StreamTraceFrame for EventsSubscribeFrame {
-    fn trace_kind(&self) -> StreamTraceFrameKind {
-        match self.kind {
-            EventsSubscribeFrameKind::Event => StreamTraceFrameKind::Data,
-            EventsSubscribeFrameKind::Frontier => StreamTraceFrameKind::Frontier,
-            EventsSubscribeFrameKind::Heartbeat => StreamTraceFrameKind::Heartbeat,
-            EventsSubscribeFrameKind::CatchupComplete => StreamTraceFrameKind::CatchupComplete,
-            EventsSubscribeFrameKind::EpochRotation => StreamTraceFrameKind::EpochRotation,
-            EventsSubscribeFrameKind::Dropped => StreamTraceFrameKind::Dropped,
-            EventsSubscribeFrameKind::ResyncRequired => StreamTraceFrameKind::ResyncRequired,
-            EventsSubscribeFrameKind::Unauthorized => StreamTraceFrameKind::Unauthorized,
-        }
-    }
-
-    fn trace_cursor(&self) -> Option<&str> {
-        self.cursor.as_ref().map(|cursor| cursor.as_str())
-    }
-}
+use crate::Error;
 
 impl From<StreamTraceError> for Error {
     fn from(error: StreamTraceError) -> Self {
@@ -44,6 +25,7 @@ mod tests {
 
     use super::*;
     use crate::models::AccountSubscribeFrame;
+    use crate::{EventsSubscribeFrame, EventsSubscribeFrameKind};
 
     const FIXTURE_PATH: &str = "fixtures/sync-fixture.json";
 

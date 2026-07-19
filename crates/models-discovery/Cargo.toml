@@ -27,6 +27,7 @@ chrono = {workspace = true,features = ["serde"]}
 salvo = {workspace = true,features = ["oapi"],optional = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
+thiserror = {workspace = true}
 
 [lints]
 workspace = true

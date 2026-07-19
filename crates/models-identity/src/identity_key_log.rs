@@ -1,10 +1,11 @@
+use arkret_wire::serde_helpers::{deserialize_canonical_timestamp, serialize_canonical_timestamp};
+use arkret_wire::{Did, Error, Hash, Result, canonical};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use subtle::ConstantTimeEq;
 
-use crate::serde_helpers::{deserialize_canonical_timestamp, serialize_canonical_timestamp};
-use crate::{DetachedPayloadProof, Did, Error, Hash, Result, canonical};
+use crate::proof::DetachedPayloadProof;
 
 /// Normalized DID key-log operation kind
 /// (`did-key-log-entry.schema.json` `operation` enum). The DID

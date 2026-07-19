@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::artifacts_device_identity::IdentityReceipt;
+use crate::identity_key_log::DidKeyLogEntry;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
@@ -101,6 +102,18 @@ pub struct IdentityReceiptListOutcome {
     pub receipts: Vec<IdentityReceipt>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub threshold_met: Option<bool>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct IdentityLogListOutcome {
+    #[serde(default)]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
+    pub events: Vec<DidKeyLogEntry>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+    #[serde(default)]
+    pub has_more: bool,
 }
 
 #[cfg(test)]

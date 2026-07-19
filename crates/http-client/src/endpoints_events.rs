@@ -164,7 +164,7 @@ impl Client {
                 Ok(line) => match EventsSubscribeFrame::from_ndjson_line(&line) {
                     Ok(Some(frame)) => Some(Ok(frame)),
                     Ok(None) => None,
-                    Err(err) => Some(Err(err)),
+                    Err(err) => Some(Err(err.into())),
                 },
                 Err(err) => Some(Err(Error::Protocol(format!(
                     "events subscribe line read failed: {err}"

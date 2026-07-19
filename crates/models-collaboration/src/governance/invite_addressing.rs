@@ -11,9 +11,8 @@ use arkret_wire::serde_helpers::{
     serialize_canonical_timestamp, serialize_optional_canonical_timestamp,
 };
 use arkret_wire::{
-    Audience, BlobRef, Did, Error, EventId, Hash, INVITE_DELIVERY_REQUEST_SCHEMA,
-    InviteReceiveAction, PRINCIPAL_LOCATOR_SCHEMA, RealmId, Result, UnknownInviteAction,
-    is_lowercase_uuidv7,
+    BlobRef, Did, Error, EventId, Hash, INVITE_DELIVERY_REQUEST_SCHEMA, InviteReceiveAction,
+    PRINCIPAL_LOCATOR_SCHEMA, RealmId, Result, UnknownInviteAction, is_lowercase_uuidv7,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -414,25 +413,7 @@ pub struct PrincipalLocatorProof {
     pub proof: DetachedPayloadProof,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct DetachedPayloadProof {
-    pub kind: String,
-    pub verification_method: String,
-    pub alg: String,
-    pub payload_digest: Hash,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
-    pub created_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub domain: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub audience: Option<Audience>,
-    pub jws: String,
-}
+pub use arkret_models_identity::proof::DetachedPayloadProof;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]

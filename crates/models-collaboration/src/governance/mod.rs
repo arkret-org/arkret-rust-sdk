@@ -9,6 +9,7 @@ pub mod agent_participation;
 pub mod audit;
 pub mod circle;
 pub mod delivery_binding;
+pub mod erasure;
 pub mod grant_constraint;
 pub mod handle_claim;
 pub mod history_visibility;

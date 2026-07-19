@@ -37,12 +37,16 @@ pub mod generated;
 pub mod hlc;
 pub mod http;
 pub mod identity;
-pub mod identity_key_log;
+pub mod identity_key_log {
+    pub use arkret_models_identity::identity_key_log::*;
+}
 mod inbound;
 pub mod integration {
     pub use arkret_models_integration::integration::*;
 }
-pub mod key_transparency;
+pub mod key_transparency {
+    pub use arkret_models_crypto::key_transparency::*;
+}
 pub mod keystore;
 pub mod lattice {
     pub use arkret_state::lattice::*;
@@ -62,7 +66,9 @@ pub mod ops {
     pub use arkret_models_discovery::ops::*;
 }
 pub mod platform;
-pub mod presence;
+pub mod presence {
+    pub use arkret_models_discovery::presence::*;
+}
 pub mod profile_claim {
     pub use arkret_policy::profile_claim::*;
 }
@@ -97,6 +103,7 @@ pub mod signer {
 pub mod stream_trace;
 pub mod sync {
     pub use arkret_models_collaboration::sync_frames::client_sync::*;
+    pub use arkret_models_discovery::presence::{PresenceStatus, aggregate_presence_states};
 }
 
 pub use account_subscribe::{
