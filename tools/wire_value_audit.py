@@ -295,6 +295,8 @@ class SchemaResolver:
     def load(self, path: Path) -> Any:
         resolved = path.resolve()
         if resolved not in self.cache:
+            if resolved.is_dir():
+                raise FileNotFoundError(f"schema path is a directory: {resolved}")
             source = resolved.read_text(encoding="utf-8")
             if resolved.suffix.lower() in {".yaml", ".yml"}:
                 self.cache[resolved] = (

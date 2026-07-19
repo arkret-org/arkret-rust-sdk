@@ -173,42 +173,47 @@ def scan_sites(source_root: Path) -> list[DenySite]:
     return sorted(sites, key=lambda s: (s.file, s.line))
 
 
-def name_inferred_node(resolver: SchemaResolver, site: DenySite) -> tuple[str | None, Any]:
+def name_inferred_node(resolver: SchemaResolver, site: DenySite) -> tuple[str | None, Any, Path | None]:
     name = resolver.rust_name_to_schema_name(site.type_name)
     candidates = resolver.build_def_index().get(name, [])
     unique = list(dict.fromkeys((p, frag) for p, frag, _ in candidates))
     if len(unique) == 1:
         p, frag = unique[0]
         _, node = resolver.resolve_ref(p, resolver.pointer_node(f"{p.name}{frag}")[1] if frag else resolver.load(p))
-        return f"{p.name}{frag}", node
-    return None, None
+        return f"{p.name}{frag}", node, p
+    return None, None, None
 
 
-def resolve_owner_node(resolver: SchemaResolver, site: DenySite) -> tuple[str | None, Any]:
-    """Return (effective_pointer, resolved_node) for the type's Spec owner.
+def resolve_owner_node(resolver: SchemaResolver, site: DenySite) -> tuple[str | None, Any, Path | None]:
+    """Return (effective_pointer, resolved_node, schema_path) for the type's Spec owner.
 
     Prefer the declared doc pointer, but fall back to name inference whenever the
     pointer is missing or resolves to something whose openness is indefinite --
     the two strategies are complementary (a pointer may target a `oneOf` wrapper
-    schema, while name inference lands on the concrete object def).
+    schema, while name inference lands on the concrete object def). The schema
+    file path is threaded along so that composition branches with relative or
+    fragment-only `$ref`s resolve against the owning document, not the spec root
+    directory.
     """
-    pointer_result: tuple[str | None, Any] = (None, None)
+    pointer_result: tuple[str | None, Any, Path | None] = (None, None, None)
     if site.spec_pointer:
         try:
             path, node = resolver.pointer_node(site.spec_pointer)
             path, node = resolver.resolve_ref(path, node)
-            pointer_result = (site.spec_pointer, node)
+            pointer_result = (site.spec_pointer, node, path)
         except (FileNotFoundError, KeyError, json.JSONDecodeError, TypeError):
-            pointer_result = (None, None)
-    if pointer_result[1] is not None and object_openness(resolver, pointer_result[1]) in {"closed", "open"}:
+            pointer_result = (None, None, None)
+    if pointer_result[1] is not None and object_openness(
+        resolver, pointer_result[1], pointer_result[2]
+    ) in {"closed", "open"}:
         return pointer_result
     inferred = name_inferred_node(resolver, site)
-    if inferred[1] is not None and object_openness(resolver, inferred[1]) in {"closed", "open"}:
+    if inferred[1] is not None and object_openness(resolver, inferred[1], inferred[2]) in {"closed", "open"}:
         return inferred
     return pointer_result if pointer_result[1] is not None else inferred
 
 
-def object_openness(resolver: SchemaResolver, node: Any) -> str:
+def object_openness(resolver: SchemaResolver, node: Any, path: Path | None = None) -> str:
     """closed | open | unspecified | non_object."""
     if not isinstance(node, dict):
         return "unspecified"
@@ -229,9 +234,16 @@ def object_openness(resolver: SchemaResolver, node: Any) -> str:
         if isinstance(branches, list):
             shapes = set()
             for branch in branches:
-                bpath = resolver.root
-                _, resolved = resolver.resolve_ref(bpath, branch)
-                shapes.add(object_openness(resolver, resolved))
+                # Resolve branch $refs against the owning schema file when it
+                # is known; the spec root is a directory, so fragment-only or
+                # relative refs cannot resolve against it.
+                bpath = path if path is not None else resolver.root
+                try:
+                    bpath, resolved = resolver.resolve_ref(bpath, branch)
+                except (FileNotFoundError, KeyError, json.JSONDecodeError, TypeError):
+                    shapes.add("unspecified")
+                    continue
+                shapes.add(object_openness(resolver, resolved, bpath))
             if "open" in shapes:
                 return "open"
             if shapes <= {"closed"} and shapes:
@@ -258,8 +270,8 @@ def report(sites: list[DenySite], resolver: SchemaResolver, allowlist: dict[str,
     entries = []
     for site in sites:
         key = f"{site.file}::{site.type_name}"
-        pointer, node = resolve_owner_node(resolver, site)
-        openness = object_openness(resolver, node) if node is not None else "unresolved"
+        pointer, node, owner_path = resolve_owner_node(resolver, site)
+        openness = object_openness(resolver, node, owner_path) if node is not None else "unresolved"
         if openness == "closed":
             classification = a_or_b(site)
         elif openness == "open":
