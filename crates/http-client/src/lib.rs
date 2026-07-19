@@ -86,18 +86,6 @@ pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 /// waiting for the first newline on a hostile / misbehaving stream.
 pub(crate) const MAX_SUBSCRIBE_FRAME_BYTES: usize = 8 * 1024 * 1024;
 
-pub(crate) const QUERY_AUTH_KEYS: &[&str] = &[
-    "access_token",
-    "auth",
-    "authorization",
-    "bearer",
-    "id_token",
-    "refresh_token",
-    "session",
-    "session_token",
-    "token",
-];
-
 #[derive(Clone)]
 pub enum Auth {
     Bearer(String),

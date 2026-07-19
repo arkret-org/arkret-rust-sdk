@@ -288,14 +288,14 @@ impl PushGateway {
     ) -> PushPayload {
         let body = blind_push_body_for_wakeup_kind(wakeup_kind_for_event_kind(&event.event_kind))
             .to_owned();
-        let title = match token.platform {
-            PushPlatform::Apns => "Arkret",
-            PushPlatform::Fcm => "Arkret update",
-            PushPlatform::WebPush => "Arkret notification",
+        let title = match token.platform.as_str() {
+            "apns" => "Arkret",
+            "fcm" => "Arkret update",
+            _ => "Arkret notification",
         }
         .to_owned();
         PushPayload {
-            platform: token.platform,
+            platform: token.platform.clone(),
             push_key: token.token.clone(),
             title,
             body,
@@ -373,7 +373,7 @@ mod tests {
         gateway.register_token(PushToken {
             user_id: alice,
             device_id: device("phone"),
-            platform: PushPlatform::Apns,
+            platform: PushPlatform::apns(),
             token: "token1".to_owned(),
         });
         gateway.upsert_rule(PushRule {
@@ -407,7 +407,7 @@ mod tests {
         gateway.register_token(PushToken {
             user_id: alice,
             device_id: device("web"),
-            platform: PushPlatform::WebPush,
+            platform: PushPlatform::web_push(),
             token: "token2".to_owned(),
         });
         gateway.upsert_rule(PushRule {
@@ -432,10 +432,10 @@ mod tests {
         gateway.register_token(PushToken {
             user_id: alice.clone(),
             device_id: device("android"),
-            platform: PushPlatform::Fcm,
+            platform: PushPlatform::fcm(),
             token: "token3".to_owned(),
         });
-        assert!(gateway.unregister_token(&alice, &device("android"), PushPlatform::Fcm));
+        assert!(gateway.unregister_token(&alice, &device("android"), PushPlatform::fcm()));
     }
 
     #[test]
@@ -446,7 +446,7 @@ mod tests {
             .register_chime_payload(ChimePushRegistration::new(
                 alice.clone(),
                 device("ios"),
-                PushPlatform::Apns,
+                PushPlatform::apns(),
                 "chime-token",
             ))
             .unwrap();
@@ -467,7 +467,7 @@ mod tests {
                     version: "old".to_owned(),
                     user_id: alice,
                     device_id: device("ios"),
-                    platform: PushPlatform::Apns,
+                    platform: PushPlatform::apns(),
                     token: "token".to_owned(),
                     metadata: BTreeMap::new(),
                 })

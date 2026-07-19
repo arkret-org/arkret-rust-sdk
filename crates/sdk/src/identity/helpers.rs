@@ -67,37 +67,14 @@ pub(super) fn normalize_handle(handle: &str) -> String {
 }
 
 pub(super) fn did_web_document_url(did: &Did) -> Option<String> {
-    if did.method() != "web" {
-        return None;
-    }
-    let method_id = did.as_str().strip_prefix("did:web:")?;
-    if method_id.is_empty() || method_id.contains("//") || method_id.contains('?') {
-        return None;
-    }
-    let parts = method_id.split(':').collect::<Vec<_>>();
-    let host = parts.first()?;
-    if host.is_empty() || !host.contains('.') || host.contains('/') {
-        return None;
-    }
-    if !host
-        .bytes()
-        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'.' | b'-'))
-    {
-        return None;
-    }
+    let document_url = arkret_core::identity::did_web_document_url(did).ok()?;
+    let encoded_authority = did.as_str().strip_prefix("did:web:")?.split(':').next()?;
+    let authority = encoded_authority.replace("%3A", ":").replace("%3a", ":");
+    let host = authority.split(':').next()?;
     if !host_is_safe_for_outbound(host) {
         return None;
     }
-    if parts.len() == 1 {
-        return Some(format!("https://{host}/.well-known/did.json"));
-    }
-    if parts[1..]
-        .iter()
-        .any(|part| part.is_empty() || part.contains('/') || part.contains(".."))
-    {
-        return None;
-    }
-    Some(format!("https://{host}/{}/did.json", parts[1..].join("/")))
+    Some(document_url)
 }
 
 pub(super) fn is_allowed_did_web_content_type(content_type: &str) -> bool {

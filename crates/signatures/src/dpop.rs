@@ -1,7 +1,7 @@
 //! DPoP helper types for session-grant issuance and self-surface requests.
 
 use chrono::{DateTime, Utc};
-use ed25519_dalek::{Signer, SigningKey};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -11,6 +11,176 @@ use crate::{Error, Result};
 
 pub const DPOP_PROOF_TYP: &str = "dpop+jwt";
 pub const DPOP_PROOF_ALG: &str = "EdDSA";
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerifiedDpopClaims {
+    pub jti: String,
+    pub htm: String,
+    pub htu: String,
+    pub iat: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ath: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nonce: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VerifiedDpopProof {
+    pub jkt: String,
+    pub claims: VerifiedDpopClaims,
+    pub public_jwk: JsonWebKey,
+}
+
+#[derive(Clone, Debug)]
+pub struct DpopVerificationRequest<'a> {
+    pub proof_jwt: &'a str,
+    pub method: &'a str,
+    pub htu: &'a str,
+    pub access_token: Option<&'a str>,
+    pub now: DateTime<Utc>,
+    pub max_age: chrono::Duration,
+    pub max_future_skew: chrono::Duration,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum DpopVerificationError {
+    #[error("DPoP proof is not a compact JWS")]
+    Malformed,
+    #[error("DPoP proof segment is not valid base64url JSON")]
+    InvalidJson,
+    #[error("DPoP proof typ is not dpop+jwt")]
+    InvalidType,
+    #[error("DPoP proof alg is not EdDSA")]
+    InvalidAlgorithm,
+    #[error("DPoP proof header is missing a valid Ed25519 public JWK")]
+    InvalidJwk,
+    #[error("DPoP proof signature is invalid")]
+    InvalidSignature,
+    #[error("DPoP proof is missing claim {0}")]
+    MissingClaim(&'static str),
+    #[error("DPoP htm does not match the request method")]
+    MethodMismatch,
+    #[error("DPoP htu is not an absolute HTTP(S) URI")]
+    InvalidTargetUri,
+    #[error("DPoP htu does not match the request URI")]
+    TargetUriMismatch,
+    #[error("DPoP iat is outside the accepted freshness window")]
+    IssuedAtOutOfRange,
+    #[error("DPoP ath is required for the presented access token")]
+    MissingAccessTokenHash,
+    #[error("DPoP ath does not match the presented access token")]
+    AccessTokenHashMismatch,
+}
+
+#[derive(Deserialize)]
+struct DpopProtectedHeader {
+    typ: String,
+    alg: String,
+    jwk: JsonWebKey,
+}
+
+pub fn canonicalize_dpop_htu(input: &str) -> std::result::Result<String, DpopVerificationError> {
+    let mut uri =
+        url::Url::parse(input.trim()).map_err(|_| DpopVerificationError::InvalidTargetUri)?;
+    if !matches!(uri.scheme(), "http" | "https")
+        || uri.host_str().is_none()
+        || !uri.username().is_empty()
+        || uri.password().is_some()
+    {
+        return Err(DpopVerificationError::InvalidTargetUri);
+    }
+    uri.set_query(None);
+    uri.set_fragment(None);
+    Ok(uri.to_string())
+}
+
+pub fn verify_dpop_proof(
+    request: &DpopVerificationRequest<'_>,
+) -> std::result::Result<VerifiedDpopProof, DpopVerificationError> {
+    let mut parts = request.proof_jwt.trim().split('.');
+    let (header_b64, payload_b64, signature_b64) =
+        match (parts.next(), parts.next(), parts.next(), parts.next()) {
+            (Some(header), Some(payload), Some(signature), None) => (header, payload, signature),
+            _ => return Err(DpopVerificationError::Malformed),
+        };
+    let header: DpopProtectedHeader = serde_json::from_slice(
+        &arkret_canonical::base64url_decode(header_b64)
+            .map_err(|_| DpopVerificationError::InvalidJson)?,
+    )
+    .map_err(|_| DpopVerificationError::InvalidJson)?;
+    if header.typ != DPOP_PROOF_TYP {
+        return Err(DpopVerificationError::InvalidType);
+    }
+    if header.alg != DPOP_PROOF_ALG {
+        return Err(DpopVerificationError::InvalidAlgorithm);
+    }
+    let x = header
+        .jwk
+        .ed25519_x_for_verification()
+        .ok_or(DpopVerificationError::InvalidJwk)?;
+    let key_bytes: [u8; 32] = arkret_canonical::base64url_decode(x.as_str())
+        .map_err(|_| DpopVerificationError::InvalidJwk)?
+        .try_into()
+        .map_err(|_| DpopVerificationError::InvalidJwk)?;
+    let verifying_key =
+        VerifyingKey::from_bytes(&key_bytes).map_err(|_| DpopVerificationError::InvalidJwk)?;
+    let signature_bytes: [u8; 64] = arkret_canonical::base64url_decode(signature_b64)
+        .map_err(|_| DpopVerificationError::InvalidSignature)?
+        .try_into()
+        .map_err(|_| DpopVerificationError::InvalidSignature)?;
+    verifying_key
+        .verify(
+            format!("{header_b64}.{payload_b64}").as_bytes(),
+            &Signature::from_bytes(&signature_bytes),
+        )
+        .map_err(|_| DpopVerificationError::InvalidSignature)?;
+
+    let claims: VerifiedDpopClaims = serde_json::from_slice(
+        &arkret_canonical::base64url_decode(payload_b64)
+            .map_err(|_| DpopVerificationError::InvalidJson)?,
+    )
+    .map_err(|_| DpopVerificationError::InvalidJson)?;
+    for (name, value) in [
+        ("jti", claims.jti.as_str()),
+        ("htm", claims.htm.as_str()),
+        ("htu", claims.htu.as_str()),
+    ] {
+        if value.trim().is_empty() {
+            return Err(DpopVerificationError::MissingClaim(name));
+        }
+    }
+    if !claims.htm.eq_ignore_ascii_case(request.method) {
+        return Err(DpopVerificationError::MethodMismatch);
+    }
+    let expected_htu = canonicalize_dpop_htu(request.htu)?;
+    let actual_htu = canonicalize_dpop_htu(&claims.htu)?;
+    if actual_htu != expected_htu {
+        return Err(DpopVerificationError::TargetUriMismatch);
+    }
+    let issued_at = DateTime::<Utc>::from_timestamp(claims.iat, 0)
+        .ok_or(DpopVerificationError::IssuedAtOutOfRange)?;
+    if issued_at < request.now - request.max_age
+        || issued_at > request.now + request.max_future_skew
+    {
+        return Err(DpopVerificationError::IssuedAtOutOfRange);
+    }
+    if let Some(access_token) = request.access_token {
+        let actual = claims
+            .ath
+            .as_deref()
+            .ok_or(DpopVerificationError::MissingAccessTokenHash)?;
+        if actual != dpop_access_token_hash(access_token) {
+            return Err(DpopVerificationError::AccessTokenHashMismatch);
+        }
+    }
+
+    let jkt = dpop_jwk_thumbprint(&header.jwk).map_err(|_| DpopVerificationError::InvalidJwk)?;
+    Ok(VerifiedDpopProof {
+        jkt,
+        claims,
+        public_jwk: header.jwk,
+    })
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DpopProofRequest {
@@ -192,5 +362,66 @@ mod tests {
         assert_eq!(payload["htu"], "https://arkret.example/_arkret/self/events");
         assert_eq!(payload["ath"], dpop_access_token_hash("grant-token"));
         assert_eq!(payload["nonce"], "server-nonce");
+    }
+
+    #[test]
+    fn verifier_checks_full_target_and_access_token() {
+        let key = signing_key();
+        let now = Utc.timestamp_opt(1_780_000_000, 0).unwrap();
+        let proof = build_dpop_proof(
+            &DpopProofRequest::new(
+                "POST",
+                "https://Account.Example/_arkret/self/events?ignored=1#fragment",
+            )
+            .access_token("grant-token")
+            .issued_at(now)
+            .jti("proof-1"),
+            &key,
+        )
+        .unwrap();
+        let request = DpopVerificationRequest {
+            proof_jwt: &proof.proof_jwt,
+            method: "POST",
+            htu: "https://account.example/_arkret/self/events",
+            access_token: Some("grant-token"),
+            now,
+            max_age: chrono::Duration::seconds(300),
+            max_future_skew: chrono::Duration::seconds(30),
+        };
+        let verified = verify_dpop_proof(&request).unwrap();
+        assert_eq!(verified.jkt, proof.jkt);
+
+        let wrong_origin = DpopVerificationRequest {
+            htu: "https://other.example/_arkret/self/events",
+            ..request
+        };
+        assert_eq!(
+            verify_dpop_proof(&wrong_origin),
+            Err(DpopVerificationError::TargetUriMismatch)
+        );
+    }
+
+    #[test]
+    fn verifier_rejects_stale_proof() {
+        let key = signing_key();
+        let now = Utc.timestamp_opt(1_780_000_000, 0).unwrap();
+        let proof = build_dpop_proof(
+            &DpopProofRequest::new("GET", "https://account.example/_arkret/self")
+                .issued_at(now - chrono::Duration::seconds(301))
+                .jti("proof-2"),
+            &key,
+        )
+        .unwrap();
+        let error = verify_dpop_proof(&DpopVerificationRequest {
+            proof_jwt: &proof.proof_jwt,
+            method: "GET",
+            htu: "https://account.example/_arkret/self",
+            access_token: None,
+            now,
+            max_age: chrono::Duration::seconds(300),
+            max_future_skew: chrono::Duration::seconds(30),
+        })
+        .unwrap_err();
+        assert_eq!(error, DpopVerificationError::IssuedAtOutOfRange);
     }
 }

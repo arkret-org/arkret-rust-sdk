@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
 
 #[cfg(test)]
@@ -19,13 +19,42 @@ fn list_contains_ignore_ascii_case(haystack: &[String], needle: &str) -> bool {
         .any(|entry| entry.eq_ignore_ascii_case(needle))
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum PushPlatform {
-    Apns,
-    Fcm,
-    WebPush,
+#[serde(transparent)]
+pub struct PushPlatform(String);
+
+impl PushPlatform {
+    pub fn new(value: impl Into<String>) -> Option<Self> {
+        let value = value.into();
+        (!value.is_empty()).then_some(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+
+    pub fn apns() -> Self {
+        Self::new("apns").expect("apns is non-empty")
+    }
+
+    pub fn fcm() -> Self {
+        Self::new("fcm").expect("fcm is non-empty")
+    }
+
+    pub fn web_push() -> Self {
+        Self::new("web_push").expect("web_push is non-empty")
+    }
+}
+
+impl<'de> Deserialize<'de> for PushPlatform {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::new(value).ok_or_else(|| serde::de::Error::custom("push platform must be non-empty"))
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -61,7 +90,7 @@ impl Pusher {
                 .platform
                 .as_deref()
                 .and_then(parse_platform)
-                .unwrap_or(PushPlatform::WebPush),
+                .unwrap_or_else(PushPlatform::web_push),
             push_gateway: request.push_gateway,
             push_key: request.push_key,
             app_id: request.app_id,
@@ -215,14 +244,14 @@ pub fn format_push_payload(
 ) -> PushPayload {
     let wakeup_kind = wakeup_kind_for_event_kind(&notification.event_kind);
     let body = blind_push_body_for_wakeup_kind(wakeup_kind).to_owned();
-    let title = match pusher.platform {
-        PushPlatform::Apns => "Arkret",
-        PushPlatform::Fcm => "Arkret update",
-        PushPlatform::WebPush => "Arkret notification",
+    let title = match pusher.platform.as_str() {
+        "apns" => "Arkret",
+        "fcm" => "Arkret update",
+        _ => "Arkret notification",
     }
     .to_owned();
     PushPayload {
-        platform: pusher.platform,
+        platform: pusher.platform.clone(),
         push_key: pusher.push_key.clone(),
         title,
         body,
@@ -293,12 +322,7 @@ pub fn rejected_response(
 }
 
 fn parse_platform(value: &str) -> Option<PushPlatform> {
-    match value {
-        "apns" => Some(PushPlatform::Apns),
-        "fcm" => Some(PushPlatform::Fcm),
-        "web_push" | "webpush" => Some(PushPlatform::WebPush),
-        _ => None,
-    }
+    PushPlatform::new(value)
 }
 
 impl PushRulesConfig {
@@ -619,7 +643,7 @@ mod tests {
             recipient_service_id: None,
         };
         let pusher = Pusher::from_register(did("alice"), request);
-        assert_eq!(pusher.platform, PushPlatform::Fcm);
+        assert_eq!(pusher.platform, PushPlatform::fcm());
     }
 
     #[test]
@@ -627,7 +651,7 @@ mod tests {
         let pusher = Pusher {
             user_id: did("alice"),
             device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
-            platform: PushPlatform::Apns,
+            platform: PushPlatform::apns(),
             push_gateway: "https://push.example".to_owned(),
             push_key: "token".to_owned(),
             app_id: None,

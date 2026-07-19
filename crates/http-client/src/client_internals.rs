@@ -20,7 +20,7 @@ use url::Url;
 
 use crate::{
     Auth, Client, ClientBuilder, ClientRequestOptions, HEADER_IDEMPOTENCY_KEY, HEADER_REQUEST_ID,
-    HEADER_WAIT_FOR, QUERY_AUTH_KEYS, RetryConfig, retry_after_ms,
+    HEADER_WAIT_FOR, RetryConfig, retry_after_ms,
 };
 
 /// Wrap a reqwest transport error into the transport-agnostic
@@ -606,7 +606,7 @@ fn reject_absolute_path(path: &str) -> Result<()> {
 
 fn reject_query_auth_in_url(url: &Url) -> Result<()> {
     for (key, _) in url.query_pairs() {
-        if QUERY_AUTH_KEYS.contains(&key.to_ascii_lowercase().as_str()) {
+        if arkret_core::is_query_auth_parameter(key.as_ref()) {
             return Err(Error::Protocol(
                 "query string authentication material is not allowed".to_owned(),
             ));

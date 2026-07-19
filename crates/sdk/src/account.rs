@@ -51,8 +51,8 @@ pub struct AccountDataSetPayload {
 
 /// AKP R3 spec-sync (2026-05-27) — `ak.account.blocklist` payload shape.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AccountBlocklistPayload {
-    pub owner: Did,
     pub version: u64,
     #[serde(default)]
     pub entries: Vec<AccountBlocklistPayloadEntry>,
@@ -60,103 +60,203 @@ pub struct AccountBlocklistPayload {
 
 /// Single entry inside an [`AccountBlocklistPayload`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AccountBlocklistPayloadEntry {
-    /// DID of the blocked subject.
-    pub target: Did,
-    /// Block mode (`hide`, `mute`, `block`, ...). Reducer treats unknown
-    /// modes as `block` by default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entry_id: Option<NonEmptyString>,
+    pub target: AccountBlocklistTarget,
     pub mode: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub applies_to: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<NonEmptyString>,
     pub created_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub expires_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
 }
 
-/// Personal-blocklist entry.
-///
-/// The blocklist is **actor-private**: it MUST NOT be federated, MUST NOT
-/// influence Space-level moderation decisions, and only filters the local
-/// client's view. It complements (not replaces) Space `moderation_policy`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BlocklistEntry {
-    pub block_did: Did,
-    pub created_at: DateTime<Utc>,
-    /// Optional automatic expiration. When `None`, the block is permanent
-    /// until the local user removes it.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+#[serde(deny_unknown_fields)]
+pub struct AccountBlocklistTarget {
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub did: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub object_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<NonEmptyString>,
 }
 
-impl BlocklistEntry {
-    pub fn new(block_did: Did) -> Self {
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmRemarkSubject {
+    pub kind: String,
+    pub id: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmRemark {
+    #[serde(default = "default_remark_version")]
+    pub version: u32,
+    pub subject: RealmRemarkSubject,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub local_name: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub note: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub pinned: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verified_title_at_save: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub verified_owning_organizations_at_save: Vec<String>,
+    #[serde(default = "Utc::now")]
+    pub saved_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+impl RealmRemark {
+    pub fn new(realm_id: impl Into<String>, local_name: impl Into<String>) -> Self {
         Self {
-            block_did,
-            created_at: Utc::now(),
-            expires_at: None,
-            reason: None,
+            version: 1,
+            subject: RealmRemarkSubject {
+                kind: "realm".to_owned(),
+                id: realm_id.into(),
+            },
+            local_name: local_name.into(),
+            saved_at: Utc::now(),
+            ..Self::default()
         }
     }
 
-    pub fn with_ttl(mut self, expires_at: DateTime<Utc>) -> Self {
-        self.expires_at = Some(expires_at);
-        self
+    pub fn with_pinned_preserving_fields(
+        realm_id: impl Into<String>,
+        existing: Option<&Self>,
+        pinned: bool,
+        updated_at: Option<DateTime<Utc>>,
+    ) -> Self {
+        let realm_id = realm_id.into();
+        let mut next = existing
+            .cloned()
+            .unwrap_or_else(|| Self::new(realm_id.clone(), ""));
+        next.version = 1;
+        next.subject = RealmRemarkSubject {
+            kind: "realm".to_owned(),
+            id: realm_id,
+        };
+        next.pinned = pinned;
+        if let Some(updated_at) = updated_at {
+            next.updated_at = Some(updated_at);
+        }
+        next
     }
 
-    pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
-        self.reason = Some(reason.into());
-        self
+    pub fn is_empty(&self) -> bool {
+        self.local_name.trim().is_empty()
+            && self.note.trim().is_empty()
+            && self.tags.is_empty()
+            && !self.pinned
     }
 
-    pub fn is_active(&self, now: DateTime<Utc>) -> bool {
-        self.expires_at
-            .map(|deadline| now < deadline)
-            .unwrap_or(true)
+    pub fn display_name<'a>(&'a self, fallback: &'a str) -> &'a str {
+        let local_name = self.local_name.trim();
+        if local_name.is_empty() {
+            fallback
+        } else {
+            local_name
+        }
     }
 }
 
-/// Personal blocklist (`ak.account.blocklist`) — actor-private filter list
-/// kept in account data.
-///
-/// Storage rules per `moderation.md` §4.1:
-///
-/// - Persisted only as `ak.account.blocklist` account data (not as a shared Space state event).
-/// - MUST NOT be exfiltrated to federation peers, push gateways, or directory services.
-/// - When a Space is encrypted with MLS, the blocklist MAY be stored inside the actor's encrypted
-///   account data backup, never as plaintext on the principal server.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AccountBlocklist {
-    pub entries: BTreeMap<String, BlocklistEntry>,
+#[serde(deny_unknown_fields)]
+pub struct ContactRemarkSubject {
+    pub kind: String,
+    pub did: String,
 }
 
-impl AccountBlocklist {
-    pub fn new() -> Self {
-        Self::default()
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContactRemark {
+    #[serde(default = "default_remark_version")]
+    pub version: u32,
+    pub subject: ContactRemarkSubject,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub local_name: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub note: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub pinned: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verified_handle_at_save: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub saved_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<String>,
+}
+
+impl ContactRemark {
+    pub fn new(actor_did: impl Into<String>, local_name: impl Into<String>) -> Self {
+        Self {
+            version: 1,
+            subject: ContactRemarkSubject {
+                kind: "actor".to_owned(),
+                did: actor_did.into(),
+            },
+            local_name: local_name.into(),
+            ..Self::default()
+        }
     }
 
-    pub fn block(&mut self, entry: BlocklistEntry) {
-        self.entries
-            .insert(entry.block_did.as_str().to_owned(), entry);
+    pub fn with_pinned_preserving_fields(
+        actor_did: impl Into<String>,
+        existing: Option<&Self>,
+        pinned: bool,
+        updated_at: Option<String>,
+    ) -> Self {
+        let actor_did = actor_did.into();
+        let mut next = existing
+            .cloned()
+            .unwrap_or_else(|| Self::new(actor_did.clone(), ""));
+        next.version = 1;
+        next.subject = ContactRemarkSubject {
+            kind: "actor".to_owned(),
+            did: actor_did,
+        };
+        next.pinned = pinned;
+        if let Some(updated_at) = updated_at {
+            if next.saved_at.is_none() && !next.is_empty() {
+                next.saved_at = Some(updated_at.clone());
+            }
+            next.updated_at = Some(updated_at);
+        }
+        next
     }
 
-    pub fn unblock(&mut self, did: &Did) -> bool {
-        self.entries.remove(did.as_str()).is_some()
+    pub fn is_empty(&self) -> bool {
+        self.local_name.trim().is_empty()
+            && self.note.trim().is_empty()
+            && self.tags.is_empty()
+            && !self.pinned
     }
 
-    pub fn is_blocked(&self, did: &Did, now: DateTime<Utc>) -> bool {
-        self.entries
-            .get(did.as_str())
-            .is_some_and(|entry| entry.is_active(now))
+    pub fn display_name<'a>(&'a self, fallback: &'a str) -> &'a str {
+        let local_name = self.local_name.trim();
+        if local_name.is_empty() {
+            fallback
+        } else {
+            local_name
+        }
     }
+}
 
-    /// Drop expired entries; returns the number removed.
-    pub fn prune_expired(&mut self, now: DateTime<Utc>) -> usize {
-        let before = self.entries.len();
-        self.entries.retain(|_, entry| entry.is_active(now));
-        before - self.entries.len()
-    }
+fn default_remark_version() -> u32 {
+    1
 }
 
 /// Account data entry.
@@ -285,29 +385,11 @@ mod tests {
     }
 
     #[test]
-    fn blocklist_blocks_unblocks_and_expires() {
-        use chrono::Duration;
-        let alice = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
-        let bob = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
-        let now = Utc::now();
-        let mut bl = AccountBlocklist::new();
-        bl.block(BlocklistEntry::new(alice.clone()).with_reason("spam"));
-        bl.block(BlocklistEntry::new(bob.clone()).with_ttl(now + Duration::seconds(60)));
-
-        assert!(bl.is_blocked(&alice, now));
-        assert!(bl.is_blocked(&bob, now));
-
-        // After Bob's TTL elapses he is no longer blocked.
-        let later = now + Duration::seconds(120);
-        assert!(bl.is_blocked(&alice, later));
-        assert!(!bl.is_blocked(&bob, later));
-
-        // Pruning removes expired entries.
-        assert_eq!(bl.prune_expired(later), 1);
-        assert_eq!(bl.entries.len(), 1);
-
-        // Unblock alice removes her permanently.
-        assert!(bl.unblock(&alice));
-        assert!(!bl.is_blocked(&alice, later));
+    fn contact_remark_uses_canonical_subject_shape() {
+        let value =
+            serde_json::to_value(ContactRemark::new("did:web:alice.example", "Alice")).unwrap();
+        assert_eq!(value["subject"]["kind"], "actor");
+        assert_eq!(value["subject"]["did"], "did:web:alice.example");
+        assert!(value.get("actor_id").is_none());
     }
 }
