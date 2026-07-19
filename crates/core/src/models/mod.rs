@@ -51,6 +51,7 @@ mod did_continuity {
 mod direct_conversation;
 mod directory;
 mod ephemeral;
+mod event_accessors;
 mod event_query;
 mod event_sync;
 mod events;
@@ -153,6 +154,7 @@ pub use did_continuity::*;
 pub use direct_conversation::*;
 pub use directory::*;
 pub use ephemeral::*;
+pub use event_accessors::*;
 pub use event_query::*;
 pub use event_sync::*;
 pub use events::*;

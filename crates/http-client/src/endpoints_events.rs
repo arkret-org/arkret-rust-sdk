@@ -391,7 +391,10 @@ impl Client {
             next_request.expected_bundle_digest = Some(bundle_digest.clone());
             responses.push(self.mls_governance_proof(&next_request).await?);
         }
-        assemble_mls_governance_proof_chunks(&first_request, &responses)
+        Ok(assemble_mls_governance_proof_chunks(
+            &first_request,
+            &responses,
+        )?)
     }
 
     /// Submit a single signed Event Envelope via `ak.self.events.command.submit`

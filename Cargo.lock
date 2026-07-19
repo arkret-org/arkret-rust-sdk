@@ -313,9 +313,12 @@ dependencies = [
  "arkret-models-identity",
  "arkret-wire",
  "chrono",
+ "hex",
+ "regex",
  "salvo",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
 ]
 
 [[package]]

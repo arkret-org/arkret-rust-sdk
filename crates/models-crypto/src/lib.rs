@@ -13,9 +13,13 @@ pub mod encrypted_attachment;
 pub mod encrypted_envelope;
 pub mod key_backup;
 pub mod keys;
+pub mod mls_governance_proof;
+pub mod mls_payloads;
 
 pub use artifacts_keys::*;
 pub use encrypted_attachment::*;
 pub use encrypted_envelope::*;
 pub use key_backup::*;
 pub use keys::*;
+pub use mls_governance_proof::*;
+pub use mls_payloads::*;
