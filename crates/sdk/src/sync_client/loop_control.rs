@@ -108,6 +108,11 @@ pub enum SyncLoopStep {
         retry_after: Duration,
         error: String,
     },
+    /// Sync failed terminally; the caller should stop the loop and surface
+    /// the error rather than retry. Consumed by cursor-owning run loops
+    /// (e.g. garth) that distinguish retryable transport faults from
+    /// non-retryable protocol failures.
+    Failed { error: String },
     /// The caller requested cancellation before a transport request started.
     Cancelled,
     /// A request was deferred because the configured in-flight limit was reached.

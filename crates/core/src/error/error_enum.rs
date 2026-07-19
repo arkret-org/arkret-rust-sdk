@@ -109,6 +109,32 @@ impl Error {
             Some(crate::keystore::KeyStoreError::NotFound { .. })
         )
     }
+
+    /// True when this API error reports a cursor the server rejected —
+    /// invalid, expired, integrity-failed or unrecognized — so a
+    /// cursor-owning sync loop can clear or reconcile its cursor and retry
+    /// from a known position instead of failing the run. Matches the wire
+    /// `code` and any `reason_code` detail against the cursor error family.
+    pub fn is_invalid_cursor(&self) -> bool {
+        const CURSOR_CODES: [&str; 4] = [
+            "invalid_cursor",
+            "cursor_expired",
+            "cursor_integrity_invalid",
+            "cursor_unrecognized",
+        ];
+        let Self::Api { error, .. } = self else {
+            return false;
+        };
+        let detail = &error.error;
+        if CURSOR_CODES.contains(&detail.code.as_str()) {
+            return true;
+        }
+        detail
+            .details
+            .get("reason_code")
+            .and_then(|value| value.as_str())
+            .is_some_and(|reason| CURSOR_CODES.contains(&reason))
+    }
 }
 
 impl From<crate::keystore::KeyStoreError> for Error {
