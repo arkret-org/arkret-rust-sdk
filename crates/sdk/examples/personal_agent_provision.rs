@@ -7,13 +7,13 @@
 //! 3. `ak.self.agent.query.list`                    — confirm registry membership
 //! 4. `ak.self.agent.resource.get`                     — fetch the principal record
 //! 5. `ak.self.agent.command.pause`                   — quiesce the runtime
-//! 6. `ak.self.agent.command.resume`                  — un-quiesce
-//! 7. `ak.self.agent.command.renew_pairing`           — runtime replacement re-pairing (supersedes
-//!    old keys on completion)
-//! 8. `ak.self.agent.grant.command.attach`            — bind a delegation grant
-//! 9. `ak.self.agent.grant.resource.delete`            — release the grant
-//! 10. `ak.self.agent.sidecar_thread.command.ensure`  — pin a sidecar thread for tool calls
-//! 11. `ak.self.agent.command.deactivate`             — terminate the principal
+//! 6. `ak.self.agent.command.renew_pairing`           — open paused-only runtime replacement
+//! 7. `ak.gate.account.command.pair_agent_key`        — atomically supersede the old runtime key
+//! 8. `ak.self.agent.command.resume`                  — resume only after replacement completes
+//! 9. `ak.self.agent.grant.command.attach`            — bind a delegation grant
+//! 10. `ak.self.agent.grant.resource.delete`          — release the grant
+//! 11. `ak.self.agent.sidecar_thread.command.ensure`  — pin a sidecar thread for tool calls
+//! 12. `ak.self.agent.command.deactivate`              — terminate the principal
 //!
 //! The example does NOT require a live soland deployment. Each step is built
 //! from `arkret::agent::*` request-plan helpers so a reader can audit the exact
@@ -29,19 +29,19 @@
 use arkret::agent::{
     AgentProvisionRequestBuilder, AgentRequestPlan, agent_key_pair_proof_request_binding_digest,
     agent_key_pairing_request_binding_digest, agent_runtime_public_key_digest,
-    build_agent_key_authorize_event, plan_agent_deactivate, plan_agent_get,
-    plan_agent_grant_attach, plan_agent_grant_detach, plan_agent_key_pair, plan_agent_list,
-    plan_agent_pause, plan_agent_provision, plan_agent_renew_pairing, plan_agent_resume,
-    plan_agent_sidecar_thread_ensure,
+    build_agent_key_authorize_event, build_agent_pause_event, build_agent_resume_event,
+    plan_agent_deactivate, plan_agent_get, plan_agent_grant_attach, plan_agent_grant_detach,
+    plan_agent_key_pair, plan_agent_list, plan_agent_pause, plan_agent_provision,
+    plan_agent_renew_pairing, plan_agent_resume, plan_agent_sidecar_thread_ensure,
 };
 use arkret::{
     AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyApprovalEvidence,
     AgentKeyApprovalEvidenceKind, AgentKeyAuthorizePayload, AgentKeyPairRequestBody, AgentKeyScope,
-    AgentKeyScopeResource, AgentKeyScopeResourceKind, AgentPauseRequestBody,
+    AgentKeyScopeResource, AgentKeyScopeResourceKind, AgentKeySupersession, AgentPauseRequestBody,
     AgentRenewPairingRequestBody, AgentRequestedScopeDisclosure, AgentResumeRequestBody,
     AgentSidecarContextRef, AgentSidecarThreadEnsureRequestBody, CapabilityGrant,
-    CapabilitySubject, Did, GrantId, Hash, Hlc, NonEmptyString, PayloadProof, PayloadProofPurpose,
-    Proof, RealmId, RequestId, SealBasis, SealId, StrandId,
+    CapabilitySubject, Did, EventId, GrantId, Hash, Hlc, NonEmptyString, PayloadProof,
+    PayloadProofPurpose, Proof, RealmId, RequestId, SealBasis, SealId, StrandId,
 };
 use chrono::Utc;
 use serde::Serialize;
@@ -98,6 +98,11 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
         "ak.self.agent.command.resume" => json!({ "ok": true, "status": "active" }),
         "ak.self.agent.command.renew_pairing" => json!({
             "agent_id": "did:webvh:z6mkfixture:agent.example",
+            "principal_control_realm_id": "ak:realm:01964137-0000-7000-8000-000000000100",
+            "controller_authorization_ref": "did:webvh:z6mkfixture:agent.example#managed-controller",
+            "requested_scope_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pcr_recovery": { "status": "ready", "backup_id": "ak:backup:01964137-0000-7000-8000-000000000020", "series_id": "ak:backup_series:01964137-0000-7000-8000-000000000021", "series_seq": 1, "managed_frontier_ref": { "frontier_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "seal_ref": "ak:seal:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "mls_epoch": 1 } },
+            "pairing_mode": "replacement",
             "pairing_request_id": "agent_pairing_request:01964137-0000-7000-8000-000000000002",
             "pairing_code": "87654321",
             "expires_at": "2026-06-18T13:15:00Z",
@@ -196,7 +201,7 @@ fn main() -> arkret::Result<()> {
     }
     let provision_body = AgentProvisionRequestBuilder::new(
         agent_id.clone(),
-        principal_control_realm_id,
+        principal_control_realm_id.clone(),
         "summary",
         requested_scope.clone(),
         provision_events,
@@ -315,6 +320,7 @@ fn main() -> arkret::Result<()> {
     };
     requested_scope_disclosure.proofs[0].event_digest =
         requested_scope_disclosure.payload_digest()?;
+    let replacement_disclosure_template = requested_scope_disclosure.clone();
     let key_pair_body = AgentKeyPairRequestBody {
         pairing_request_id: NonEmptyString::new(pairing_request_id)
             .map_err(|reason| arkret::Error::Protocol(reason.to_owned()))?,
@@ -344,31 +350,168 @@ fn main() -> arkret::Result<()> {
     // 4. ak.self.agent.resource.get
     let _get = send_plan(plan_agent_get(agent_id.as_str()))?;
 
-    // 5-6. pause + resume
+    // 5. Pause before runtime replacement. Lifecycle commands carry the exact delegated
+    // Agent Event; the service never synthesizes an Agent-authored Event.
+    let lifecycle_authorization_ref = provisioned["controller_authorization_ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let pause_created_at = Utc::now();
+    let mut pause_event = build_agent_pause_event(
+        agent_id.clone(),
+        controller.clone(),
+        principal_control_realm_id.clone(),
+        lifecycle_authorization_ref.clone(),
+        Some("user_requested".to_owned()),
+        2,
+        Hlc::new("01970e589d21-0005-a13f9c2e")?,
+        pause_created_at,
+    )?;
+    pause_event.seal_basis = Some(seal_basis.clone());
+    arkret::signatures::sign_event(
+        &mut pause_event,
+        &signer,
+        &format!("{controller}#key-1"),
+        arkret::signatures::SignEventOptions::new().with_created_at(pause_created_at),
+    )?;
     let _paused = send_plan(plan_agent_pause(
         agent_id.as_str(),
         AgentPauseRequestBody {
             reason: Some("user_requested".to_owned()),
-        },
-    ))?;
-    let _resumed = send_plan(plan_agent_resume(
-        agent_id.as_str(),
-        AgentResumeRequestBody {
-            sidecar_exposure_ack: None,
+            lifecycle_event: pause_event,
         },
     ))?;
 
-    // 7. renew-pairing (runtime replacement re-pairing: the old key keeps
-    // working until the new pairing completes, at which point every prior
-    // active key is revoked with reason=superseded_by_repairing).
-    let _replacement_pairing = send_plan(plan_agent_renew_pairing(
+    // 6. Open a paused-only replacement handle.
+    let replacement_pairing = send_plan(plan_agent_renew_pairing(
         agent_id.as_str(),
         AgentRenewPairingRequestBody {
             pairing_ttl_ms: Some(15 * 60 * 1000),
         },
     ))?;
 
-    // 8. grant.attach
+    // 7. The replacement runtime generates K2. Its single controller-signed
+    // authorize Event names every old authorization it atomically supersedes.
+    let replacement_request_id = replacement_pairing["pairing_request_id"].as_str().unwrap();
+    let replacement_code = replacement_pairing["pairing_code"].as_str().unwrap();
+    let replacement_expires_at = replacement_pairing["expires_at"].as_str().unwrap();
+    let replacement_verification_method = format!("{agent_id}#runtime-key-2");
+    let replacement_public_key_value = json!({
+        "kind": "ed25519",
+        "key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    });
+    let replacement_pop_digest = agent_key_pair_proof_request_binding_digest(
+        replacement_request_id,
+        &agent_id,
+        &replacement_verification_method,
+        &replacement_public_key_value,
+        None,
+    )?;
+    let replacement_pairing_digest = agent_key_pairing_request_binding_digest(
+        &controller,
+        &agent_id,
+        &replacement_verification_method,
+        &agent_runtime_public_key_digest(&replacement_public_key_value)?,
+        replacement_request_id,
+        replacement_code,
+        replacement_expires_at,
+        "did:web:soland.local",
+    )?;
+    let mut replacement_authorize_event = build_agent_key_authorize_event(
+        &AgentKeyAuthorizePayload {
+            agent_id: agent_id.clone(),
+            key_id: "runtime-key-2".to_owned(),
+            verification_method: replacement_verification_method.clone(),
+            public_key_digest: Some(agent_runtime_public_key_digest(
+                &replacement_public_key_value,
+            )?),
+            accountable_principal_id: controller.clone(),
+            agent_key_scope: requested_scope.clone(),
+            audience: vec!["did:web:soland.local".to_owned()],
+            issued_at: Utc::now(),
+            expires_at: None,
+            approval_evidence: AgentKeyApprovalEvidence {
+                kind: AgentKeyApprovalEvidenceKind::PairingRequest,
+                evidence_ref: None,
+                request_canonical_digest: Some(replacement_pairing_digest),
+                pairing_request_id: Some(replacement_request_id.to_owned()),
+                approved_by: Some(controller.clone()),
+            },
+            supersedes: vec![AgentKeySupersession {
+                key_id: "runtime-key-1".to_owned(),
+                authorized_event_ref: EventId::new(
+                    "ak:event:01964137-0000-7000-8000-000000000101",
+                )?,
+            }],
+            revocation_check_ref: None,
+            runtime_attestation: None,
+        },
+        principal_control_realm_id.clone(),
+        agent_id.clone(),
+        controller.clone(),
+        lifecycle_authorization_ref.clone(),
+        3,
+        Hlc::new("01970e589d21-0006-a13f9c2e")?,
+    )?;
+    replacement_authorize_event.seal_basis = Some(seal_basis.clone());
+    let mut replacement_disclosure = replacement_disclosure_template;
+    let replacement_uuid = replacement_request_id
+        .strip_prefix("agent_pairing_request:")
+        .ok_or_else(|| {
+            arkret::Error::Protocol("replacement pairing id has invalid prefix".into())
+        })?;
+    replacement_disclosure.request_id = RequestId::new(format!("ak:request:{replacement_uuid}"))?;
+    replacement_disclosure.challenge = NonEmptyString::new(replacement_request_id.to_owned())
+        .map_err(|reason| arkret::Error::Protocol(reason.to_owned()))?;
+    replacement_disclosure.proofs[0].event_digest = replacement_disclosure.payload_digest()?;
+    let replacement_body = AgentKeyPairRequestBody {
+        pairing_request_id: NonEmptyString::new(replacement_request_id.to_owned())
+            .map_err(|reason| arkret::Error::Protocol(reason.to_owned()))?,
+        agent_id: agent_id.clone(),
+        verification_method: arkret::DidUrl::new(replacement_verification_method)
+            .map_err(|reason| arkret::Error::Protocol(reason.to_owned()))?,
+        public_key: serde_json::from_value(replacement_public_key_value)?,
+        proof_of_possession: serde_json::from_value(json!({
+            "challenge": replacement_request_id,
+            "audience": "did:web:soland.local",
+            "request_canonical_digest": replacement_pop_digest,
+            "expires_at": replacement_expires_at,
+            "signature": "ed25519-replacement-pop-signature",
+        }))?,
+        requested_scope_disclosure: replacement_disclosure,
+        runtime_attestation: None,
+        authorize_event: replacement_authorize_event,
+    };
+    let _replacement_key = send_plan(plan_agent_key_pair(replacement_body))?;
+
+    // 8. Resume only after the replacement pair commit has consumed the open handle.
+    let resume_created_at = Utc::now();
+    let mut resume_event = build_agent_resume_event(
+        agent_id.clone(),
+        controller.clone(),
+        principal_control_realm_id,
+        lifecycle_authorization_ref,
+        None,
+        4,
+        Hlc::new("01970e589d21-0007-a13f9c2e")?,
+        resume_created_at,
+    )?;
+    resume_event.seal_basis = Some(seal_basis.clone());
+    arkret::signatures::sign_event(
+        &mut resume_event,
+        &signer,
+        &format!("{controller}#key-1"),
+        arkret::signatures::SignEventOptions::new().with_created_at(resume_created_at),
+    )?;
+    let _resumed = send_plan(plan_agent_resume(
+        agent_id.as_str(),
+        AgentResumeRequestBody {
+            sidecar_exposure_ack: None,
+            lifecycle_event: resume_event,
+        },
+    ))?;
+
+    // 9. grant.attach
     let grant = send_plan(plan_agent_grant_attach(
         agent_id.as_str(),
         AgentGrantAttachRequestBody {

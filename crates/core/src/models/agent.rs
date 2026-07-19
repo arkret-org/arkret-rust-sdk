@@ -479,6 +479,9 @@ pub struct AgentView {
 pub struct AgentPauseRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    /// Closed Agent-PCR lifecycle Event authored by the Agent principal and
+    /// executed/signed by its controller delegation.
+    pub lifecycle_event: Event,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -486,6 +489,9 @@ pub struct AgentPauseRequestBody {
 pub struct AgentResumeRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sidecar_exposure_ack: Option<AgentSidecarExposureAck>,
+    /// Closed Agent-PCR lifecycle Event authored by the Agent principal and
+    /// executed/signed by its controller delegation.
+    pub lifecycle_event: Event,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

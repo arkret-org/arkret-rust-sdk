@@ -91,6 +91,10 @@ pub struct KeyState {
     pub requested_scope_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing_request_id: Option<String>,
+    /// Branch of the current unconsumed, unexpired pairing handle. Present
+    /// exactly when `pairing_request_id` and `pairing_expires_at` are present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pairing_mode: Option<AgentPairingMode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

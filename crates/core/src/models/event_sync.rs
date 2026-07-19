@@ -1,7 +1,7 @@
 //! Event frontier, submission, subscription, and snapshot wire models.
 
 use super::*;
-use crate::SealBasis;
+use crate::{Seal, SealBasis};
 
 // ── EventsFrontier 3-way split ──────────────────────────────────────────
 
@@ -26,13 +26,33 @@ pub enum FrontierPeerRole {
 /// Seal view (`{realm_id, seal_id, control_event_set_root, state_root,
 /// hlc?}`) — plus optional receipts. The Realm Seal view is the registered
 /// account-client source for minting a single-leaf Control Move `seal_basis`
-/// and a DataEvent `seal_ref`.
+/// and a DataEvent `seal_ref`. When accepted managed Agent PCR Events are
+/// ahead of their accepted Seal, the view remains that signed predecessor and
+/// `receipts` carries the full `ak.managed_agent_pcr.seal_head.v1` Seal needed
+/// by the controller device to author its successor.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventsFrontierAccountClientState {
     pub frontier: EventsFrontierView,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub receipts: Vec<BTreeMap<String, Value>>,
+    pub receipts: Vec<ManagedAgentPcrSealHeadReceipt>,
+}
+
+/// Typed, closed receipt carrying the last accepted controller-device-signed
+/// Seal for a managed Agent PCR whose Event log is ahead of Seal coverage.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ManagedAgentPcrSealHeadReceipt {
+    pub kind: ManagedAgentPcrSealHeadReceiptKind,
+    pub seal: Seal,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub enum ManagedAgentPcrSealHeadReceiptKind {
+    #[serde(rename = "ak.managed_agent_pcr.seal_head.v1")]
+    ManagedAgentPcrSealHeadV1,
 }
 
 /// Selector-dependent `frontier` object of
