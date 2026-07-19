@@ -237,9 +237,10 @@ impl ArkretMlsGroup {
     }
 
     pub fn current_governance_binding(&self) -> Result<Option<MlsGovernanceBindingPayload>> {
-        self.governance_binding_extension()
+        Ok(self
+            .governance_binding_extension()
             .map(|extension| extension.decode_payload())
-            .transpose()
+            .transpose()?)
     }
 
     pub fn verify_current_governance_binding(
@@ -247,7 +248,10 @@ impl ArkretMlsGroup {
         expected: &MlsGovernanceBindingValidationContext<'_>,
     ) -> Result<MlsGovernanceBindingPayload> {
         let extension = self.governance_binding_extension();
-        verify_mls_governance_binding_extension(extension.as_ref(), expected)
+        Ok(verify_mls_governance_binding_extension(
+            extension.as_ref(),
+            expected,
+        )?)
     }
 
     pub fn update_governance_binding(

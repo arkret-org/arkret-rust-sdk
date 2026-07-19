@@ -11,11 +11,6 @@
       "reason": "Conformance vectors are test inputs, not an Arkret wire DTO."
     },
     {
-      "rust_field": "crates/core/src/models/admin.rs::AdminDevice.payload",
-      "classification": "internal_or_fixture",
-      "reason": "Product-admin device payload is an internal Soland/Sodmin projection and has no Arkret protocol wire schema."
-    },
-    {
       "rust_field": "crates/schema/src/artifacts.rs::SpecArtifactBundle.schema_registry",
       "classification": "internal_or_fixture",
       "reason": "The schema catalog stores raw embedded artifact documents."
@@ -1136,11 +1131,6 @@
       "spec_pointer": "../openapi/arkret-service-api.openapi.yaml#/components/schemas/EventsSubscribeFrame/properties/payload",
       "classification": "open_json",
       "reason": "The OpenAPI stream frame payload is explicitly unconstrained JSON."
-    },
-    {
-      "rust_field": "crates/core/src/models/admin.rs::AdminAuditEntry.payload",
-      "classification": "internal_or_fixture",
-      "reason": "Internal administrative audit metadata has no Spec wire-schema counterpart."
     },
     {
       "rust_field": "crates/core/src/models/artifacts/interop.rs::ProviderDirectoryProof.extra",

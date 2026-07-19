@@ -1,19 +1,19 @@
 {
   "summary": {
-    "total": 634,
+    "total": 626,
     "by_classification": {
       "A": 21,
       "B": 338,
       "C_violation": 2,
-      "needs_review": 273
+      "needs_review": 265
     },
     "by_openness": {
       "closed": 359,
       "open": 2,
-      "unresolved": 273
+      "unresolved": 265
     },
     "by_crate": {
-      "core": 594,
+      "core": 586,
       "sdk": 9,
       "signatures": 7,
       "wire-base": 8,
@@ -629,110 +629,6 @@
       "spec_pointer": "actor-profile.schema.json",
       "schema_openness": "closed",
       "classification": "B",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/core/src/models/admin.rs::AdminActor",
-      "crate": "core",
-      "file": "crates/core/src/models/admin.rs",
-      "line": 39,
-      "kind": "struct",
-      "type_name": "AdminActor",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/core/src/models/admin.rs::AdminActorList",
-      "crate": "core",
-      "file": "crates/core/src/models/admin.rs",
-      "line": 80,
-      "kind": "struct",
-      "type_name": "AdminActorList",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/core/src/models/admin.rs::AdminAuditEntry",
-      "crate": "core",
-      "file": "crates/core/src/models/admin.rs",
-      "line": 103,
-      "kind": "struct",
-      "type_name": "AdminAuditEntry",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/core/src/models/admin.rs::AdminAuditList",
-      "crate": "core",
-      "file": "crates/core/src/models/admin.rs",
-      "line": 131,
-      "kind": "struct",
-      "type_name": "AdminAuditList",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/core/src/models/admin.rs::CapabilitySummary",
-      "crate": "core",
-      "file": "crates/core/src/models/admin.rs",
-      "line": 183,
-      "kind": "struct",
-      "type_name": "CapabilitySummary",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/core/src/models/admin.rs::AdminCapabilityList",
-      "crate": "core",
-      "file": "crates/core/src/models/admin.rs",
-      "line": 209,
-      "kind": "struct",
-      "type_name": "AdminCapabilityList",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/core/src/models/admin.rs::AdminDevice",
-      "crate": "core",
-      "file": "crates/core/src/models/admin.rs",
-      "line": 225,
-      "kind": "struct",
-      "type_name": "AdminDevice",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/core/src/models/admin.rs::AdminDeviceList",
-      "crate": "core",
-      "file": "crates/core/src/models/admin.rs",
-      "line": 247,
-      "kind": "struct",
-      "type_name": "AdminDeviceList",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
       "cfg_gated": false,
       "flatten_extra": false
     },

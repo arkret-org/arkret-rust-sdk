@@ -112,7 +112,6 @@ mod primitives {
 mod problem_details {
     pub use arkret_wire::problem_details::*;
 }
-pub mod product;
 mod productivity {
     pub use arkret_models_collaboration::objects::productivity::*;
 }
@@ -223,7 +222,6 @@ pub use peer_contact::*;
 pub use policy_check::*;
 pub use primitives::{proof_kind, *};
 pub use problem_details::*;
-pub use product::*;
 pub use productivity::*;
 pub use profiles::*;
 pub use push::*;
