@@ -11,6 +11,7 @@ mod error;
 mod grants;
 mod helpers;
 mod manager;
+pub mod session_grant;
 #[cfg(test)]
 mod tests;
 mod verification;

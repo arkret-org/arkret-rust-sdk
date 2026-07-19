@@ -14,6 +14,7 @@ version.workspace = true
 [dependencies]
 arkret-canonical = {workspace = true}
 arkret-identifiers = {workspace = true}
+arkret-models-collaboration = {workspace = true}
 arkret-models-identity = {workspace = true}
 arkret-signatures = {workspace = true,features = ["protocol"]}
 arkret-wire = {workspace = true}

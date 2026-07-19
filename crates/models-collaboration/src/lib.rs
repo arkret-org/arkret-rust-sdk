@@ -15,6 +15,7 @@ pub mod http_bodies;
 mod internal_prelude;
 pub mod objects;
 pub mod resolved_state;
+pub mod session_grant_bodies;
 pub mod sync_frames;
 
 pub use governance::audit::{AccessKind, AuditPolicyAccessPayload};
