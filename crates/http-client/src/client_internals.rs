@@ -5,12 +5,13 @@
 //! helpers. Endpoint modules call into these via `pub(crate)` visibility;
 //! they are not part of the public API.
 
-use arkret_core::{Error, ErrorEnvelope, Result};
+use arkret_core::{Error, Result};
 use arkret_signatures::http_signature::{
     Component, ContentDigest, ContentDigestAlgorithm, SignedRequestParts, canonical_message,
     format_signature_header, format_signature_input_component_list, parse_signature_input,
     sign_message,
 };
+use arkret_wire::ErrorEnvelope;
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
 use reqwest::{Method, RequestBuilder, Response};
 use serde::de::DeserializeOwned;

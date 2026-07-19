@@ -171,9 +171,11 @@ name = "arkret-core"
 version = "0.3.0"
 dependencies = [
  "arkret-canonical",
+ "arkret-crypto",
  "arkret-event-draft",
  "arkret-hlc",
  "arkret-identifiers",
+ "arkret-keystore",
  "arkret-models-collaboration",
  "arkret-models-crypto",
  "arkret-models-discovery",
@@ -181,6 +183,7 @@ dependencies = [
  "arkret-models-integration",
  "arkret-policy",
  "arkret-schema",
+ "arkret-signatures",
  "arkret-state",
  "arkret-wire",
  "chrono",
@@ -209,9 +212,11 @@ version = "0.3.0"
 dependencies = [
  "argon2",
  "arkret-canonical",
- "arkret-core",
+ "arkret-models-crypto",
+ "arkret-models-identity",
  "arkret-schema",
  "arkret-signatures",
+ "arkret-wire",
  "bip39",
  "chacha20poly1305",
  "chrono",
@@ -280,8 +285,10 @@ name = "arkret-http-client"
 version = "0.3.0"
 dependencies = [
  "arkret-core",
+ "arkret-models-crypto",
  "arkret-signatures",
  "arkret-state",
+ "arkret-wire",
  "chrono",
  "futures-util",
  "getrandom 0.4.2",
@@ -314,7 +321,6 @@ dependencies = [
 name = "arkret-keystore"
 version = "0.3.0"
 dependencies = [
- "arkret-core",
  "atomic-write-file",
  "chacha20poly1305",
  "getrandom 0.4.2",
@@ -322,6 +328,7 @@ dependencies = [
  "secret-service",
  "security-framework",
  "sha2 0.11.0",
+ "thiserror",
  "windows",
  "zeroize",
 ]
@@ -386,7 +393,9 @@ dependencies = [
  "salvo",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "subtle",
+ "url",
 ]
 
 [[package]]
@@ -436,8 +445,10 @@ version = "0.3.0"
 dependencies = [
  "arkret-canonical",
  "arkret-core",
+ "arkret-models-integration",
  "arkret-signatures",
  "arkret-state",
+ "arkret-wire",
  "chrono",
  "salvo",
  "serde",
@@ -450,7 +461,10 @@ name = "arkret-signatures"
 version = "0.3.0"
 dependencies = [
  "arkret-canonical",
- "arkret-core",
+ "arkret-models-collaboration",
+ "arkret-models-discovery",
+ "arkret-models-identity",
+ "arkret-schema",
  "arkret-wire",
  "base64",
  "chrono",

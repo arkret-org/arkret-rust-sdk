@@ -31,11 +31,15 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_core::{
-    CanonicalServiceUrl, Did, DidOperationSubmitRequestBody, Hash, IdentityCreationControlProof,
-    ServiceRegistrationKey, ServiceType, ServiceWebvhInceptionOperation, base64url_encode,
-    decode_ed25519_multibase, service_registration_local_id,
+use arkret_canonical::base64url::base64url_encode;
+use arkret_canonical::multibase::decode_ed25519_multibase;
+use arkret_models_identity::IdentityCreationControlProof;
+use arkret_models_identity::identity::DidOperationSubmitRequestBody;
+use arkret_models_identity::service_identity::{
+    CanonicalServiceUrl, ServiceRegistrationKey, ServiceWebvhInceptionOperation,
+    service_registration_local_id,
 };
+use arkret_wire::{Did, Hash, ServiceType};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{SECRET_KEY_LENGTH, Signature, Signer, SigningKey, VerifyingKey};
 use rand_core::RngCore;
@@ -275,7 +279,7 @@ pub fn validate_principal_inception_operation(
             .flatten()
             .find(|service| {
                 service.get("type").and_then(Value::as_str)
-                    == Some(arkret_core::service::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
+                    == Some(arkret_models_discovery::service_requirements::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
             })
             .and_then(|service| service.get("serviceEndpoint"))
             .and_then(Value::as_str)
@@ -286,7 +290,7 @@ pub fn validate_principal_inception_operation(
         None
     };
     let operation_digest = Hash::new(
-        arkret_core::canonical::canonical_sha256(request)
+        arkret_canonical::canonical::canonical_sha256(request)
             .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
     )
     .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
@@ -1264,7 +1268,7 @@ fn principal_document_value(
             })?;
             services.push(json!({
                 "id": format!("{did}#enrollment-authority"),
-                "type": arkret_core::service::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY,
+                "type": arkret_models_discovery::service_requirements::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY,
                 "serviceEndpoint": authority_did,
             }));
         }
@@ -1344,7 +1348,7 @@ pub fn validate_principal_did_document_profile(
         .iter()
         .filter(|service| {
             service.get("type").and_then(Value::as_str)
-                == Some(arkret_core::service::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
+                == Some(arkret_models_discovery::service_requirements::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
         })
         .collect::<Vec<_>>();
     if enrollment_services.len() > 1 {
@@ -1779,7 +1783,7 @@ fn valid_multibase_key(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use arkret_core::decode_base58btc;
+    use arkret_canonical::multibase::decode_base58btc;
     use ed25519_dalek::{PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH, Signature, VerifyingKey};
     use rand_chacha::ChaCha20Rng;
     use rand_chacha::rand_core::SeedableRng;
@@ -1990,10 +1994,11 @@ mod tests {
             .unwrap()
             .with_timezone(&Utc);
         let mut proof = IdentityCreationControlProof {
-            proof_kind: arkret_core::IdentityCreationControlProofKind::DidWebvhInceptionUpdateKey,
+            proof_kind:
+                arkret_models_identity::IdentityCreationControlProofKind::DidWebvhInceptionUpdateKey,
             challenge_id: "challenge_0123456789012345678901".to_owned(),
             challenge: "nonce_0123456789012345678901".to_owned(),
-            purpose: arkret_core::IdentityBindingPurpose::AccountBinding,
+            purpose: arkret_models_identity::IdentityBindingPurpose::AccountBinding,
             principal_id: validated.principal_id.clone(),
             operation_digest: validated.operation_digest,
             lease_id: "lease_0123456789012345678901".to_owned(),
@@ -2001,7 +2006,7 @@ mod tests {
             dpop_jkt: "a".repeat(43),
             audience: Did::new("did:web:coauth.example.com").unwrap(),
             origin: "https://coauth.example.com".to_owned(),
-            trust_domain: arkret_core::TypedTrustDomainId::new(
+            trust_domain: arkret_wire::TypedTrustDomainId::new(
                 "ak:trust_domain:example.com".to_owned(),
             )
             .unwrap(),
@@ -2061,7 +2066,7 @@ mod tests {
             .iter()
             .find(|svc| {
                 svc.get("type").and_then(Value::as_str)
-                    == Some(arkret_core::service::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
+                    == Some(arkret_models_discovery::service_requirements::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
             })
             .expect("enrollment-authority service entry present");
         assert_eq!(
@@ -2323,7 +2328,7 @@ mod tests {
         state["capabilityDelegation"] = json!([enrollment_method]);
         state["service"].as_array_mut().unwrap().push(json!({
             "id": format!("{did}#enrollment-authority"),
-            "type": arkret_core::service::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY,
+            "type": arkret_models_discovery::service_requirements::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY,
             "serviceEndpoint": "did:web:coauth.example.com"
         }));
         assert!(validate_principal_did_document_profile(did, &state, &[&root]).is_err());
@@ -2368,7 +2373,7 @@ mod tests {
         assert!(
             services.iter().all(|svc| {
                 svc.get("type").and_then(Value::as_str)
-                    != Some(arkret_core::service::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
+                    != Some(arkret_models_discovery::service_requirements::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
             }),
             "service DID document must not carry a device-enrollment-authority entry",
         );

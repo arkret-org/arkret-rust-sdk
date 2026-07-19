@@ -1,10 +1,10 @@
-//! Durable [`KeyStore`] backends for the Arkret v1 SDK.
+//! [`KeyStore`] contract and durable backends for the Arkret v1 SDK.
 //!
 //! The pure storage contract — the [`KeyStore`] trait, [`KeyStoreError`] and
-//! the dependency-free [`InMemoryKeyStore`] — lives in `arkret-core`. This
-//! crate adds the OS-native backends that carry platform IO and native OS
-//! dependencies, kept out of `arkret-core` so the core wire/model crate
-//! stays light and free of platform crates.
+//! the dependency-free [`InMemoryKeyStore`] — lives in [`contract`] (owned by
+//! this crate; `arkret-core` re-exports it transitionally). The sibling
+//! modules add the OS-native backends that carry platform IO and native OS
+//! dependencies.
 //!
 //! ## Backends
 //!
@@ -56,10 +56,11 @@
 //! like `"arkret:signer:<did>:<kid>"` so independent backends can share a
 //! namespace without collisions.
 
-// The pure storage contract is re-exported from `arkret-core` so consumers
-// of `arkret-keystore` get the trait + in-memory backend + error type from a
-// single import surface alongside the platform backends below.
-pub use arkret_core::keystore::{InMemoryKeyStore, KeyBytes, KeyStore, KeyStoreError};
+pub mod contract;
+
+pub use contract::{
+    InMemoryKeyStore, KeyBytes, KeyStore, KeyStoreError, service_name, validate_id,
+};
 
 #[cfg(feature = "keystore-encrypted-file")]
 mod encrypted_file;

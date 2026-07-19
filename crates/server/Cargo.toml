@@ -23,6 +23,8 @@ salvo = ["arkret-core/salvo", "arkret-state/salvo", "dep:salvo", "dep:tokio"]
 [dependencies]
 arkret-canonical = {workspace = true}
 arkret-core = {workspace = true}
+arkret-models-integration = {workspace = true}
+arkret-wire = {workspace = true}
 arkret-signatures = {workspace = true,features = ["protocol"]}
 arkret-state = {workspace = true}
 chrono = {workspace = true}

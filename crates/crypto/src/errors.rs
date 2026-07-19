@@ -1,19 +1,56 @@
-//! Crypto-machine validation errors and shared validation bounds/helpers.
+//! Crypto-machine boundary error, validation errors, and shared validation
+//! bounds/helpers.
 
-use arkret_core::{Error, Result};
+/// Result alias over the crate-boundary [`Error`].
+pub type Result<T> = std::result::Result<T, Error>;
+
+/// Crypto-machine boundary error.
+///
+/// This crate owns its boundary error instead of re-using
+/// `arkret_core::Error` (error-contract registry). The enum stays thin:
+/// typed passthrough for the lower layers this crate propagates, plus
+/// `Protocol` / `Crypto` for the violations it raises itself. `arkret-core`
+/// bridges this type into its facade `Error` via `From` so downstream `?`
+/// call sites keep compiling during the migration.
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum Error {
+    /// Crypto-protocol violation carrying the reason message verbatim.
+    #[error("protocol error: {0}")]
+    Protocol(String),
+
+    /// Cryptographic primitive failure (bad key material, AEAD / KDF / RNG
+    /// breakage).
+    #[error("cryptographic operation failed: {0}")]
+    Crypto(String),
+
+    #[error(transparent)]
+    Signature(#[from] arkret_signatures::Error),
+
+    #[error(transparent)]
+    Wire(#[from] arkret_wire::WireError),
+
+    #[error(transparent)]
+    Canonical(#[from] arkret_canonical::CanonicalError),
+
+    #[error(transparent)]
+    Identifier(#[from] arkret_wire::IdentifierError),
+
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
+}
 
 /// Typed crypto-machine validation errors.
 ///
 /// Round 2 (post-improve): introduced so call sites can branch on the
 /// specific validation failure (bounds vs replay vs key mismatch)
 /// instead of inspecting the free-form `Error::Protocol` string. The
-/// `From<CryptoError> for arkret_core::Error` impl below preserves
-/// the existing wire surface — every `CryptoError` still renders as
+/// `From<CryptoError> for Error` impl below preserves the existing wire
+/// surface — every `CryptoError` still renders as
 /// `Error::Protocol(<message>)` for callers that haven't migrated.
 ///
-/// New code SHOULD return `CryptoError` directly; bridge to
-/// `arkret_core::Error` only at the protocol-boundary using `?` or
-/// `Into::into`.
+/// New code SHOULD return `CryptoError` directly; bridge to [`Error`]
+/// only at the crate boundary using `?` or `Into::into`.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum CryptoError {
@@ -55,7 +92,7 @@ impl From<CryptoError> for Error {
 /// a failure. This enum lets callers branch on the concrete cause (KDF vs AEAD
 /// vs input validation vs envelope construction) and map deterministically to
 /// `FfiErrorCode` / fail-closed handling, and aligns backup with the
-/// `thiserror`-based error model used by `arkret-core` and `arkret-signatures`.
+/// `thiserror`-based error model used by `arkret-signatures`.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum KeyBackupError {

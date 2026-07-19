@@ -6,8 +6,8 @@
 //! behind the `signer` feature.
 //!
 //! ```
-//! use arkret_core::{Did, MoveSigner};
 //! use arkret_signatures::Ed25519MoveSigner;
+//! use arkret_wire::{Did, MoveSigner};
 //!
 //! let seed = [0u8; 32];
 //! let did = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
@@ -22,14 +22,14 @@
 //! );
 //! ```
 
-use arkret_core::move_event::{Move, MoveSignature};
-use arkret_core::{
-    Did, Error, Hash, MoveSigner, Result, UnsignedMove, base64url_decode, base64url_encode,
-    canonical,
-};
-use arkret_wire::{Error as WireError, Result as WireResult};
+use arkret_canonical::base64url::{base64url_decode, base64url_encode};
+use arkret_canonical::canonical;
+use arkret_wire::move_event::{Move, MoveSignature};
+use arkret_wire::{Did, Error as WireError, Hash, MoveSigner, Result as WireResult, UnsignedMove};
 use chrono::Utc;
 use ed25519_dalek::{Signer as _, SigningKey};
+
+use crate::{Error, Result};
 
 /// Ed25519 [`MoveSigner`] backend.
 ///
@@ -209,8 +209,8 @@ pub fn verify_ed25519_move_signature(
 
 #[cfg(test)]
 mod tests {
-    use arkret_core::move_event::{Effect, LatticeOp, LatticeOpType};
-    use arkret_core::{CellRef, Hlc, MoveId, NotarySig, RealmId, Seal, SealId, UnsignedMove};
+    use arkret_wire::move_event::{Effect, LatticeOp, LatticeOpType};
+    use arkret_wire::{CellRef, Hlc, MoveId, NotarySig, RealmId, Seal, SealId};
     use serde_json::json;
 
     use super::*;
@@ -243,8 +243,8 @@ mod tests {
         Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap()
     }
 
-    fn seal_basis(byte: u8) -> arkret_core::SealBasis {
-        arkret_core::SealBasis {
+    fn seal_basis(byte: u8) -> arkret_wire::SealBasis {
+        arkret_wire::SealBasis {
             leaves: vec![seal_id(byte)],
             control_event_set_root: hash(0xbb),
             state_root: hash(0xcc),

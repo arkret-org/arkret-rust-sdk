@@ -309,8 +309,8 @@ mod salvo_router {
     fn render_invalid_signature(res: &mut Response) {
         res.render(
             StatusError::unauthorized()
-                .brief(arkret_core::ErrorCode::INVALID_SIGNATURE)
-                .detail(arkret_core::ErrorCode::INVALID_SIGNATURE),
+                .brief(arkret_wire::ErrorCode::INVALID_SIGNATURE)
+                .detail(arkret_wire::ErrorCode::INVALID_SIGNATURE),
         );
     }
 
@@ -478,7 +478,7 @@ mod salvo_router {
         // pins the covered component set together with `created` / `expires`
         // / `keyid` / `alg`; the explicit fields are repeated for auditability.
         let anchor_tuple = serde_json::json!({
-            "operation_id": arkret_core::ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION,
+            "operation_id": arkret_wire::ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION,
             "direction": IdempotencyDirection::NodeToApplet.as_str(),
             "source_service_id": body.source_service_id,
             "destination_service_id": parts.destination_service_id,
@@ -607,8 +607,8 @@ mod salvo_router {
                 // with `duplicate_conflict` once authentication passed.
                 res.render(
                     StatusError::conflict()
-                        .brief(arkret_core::ErrorCode::DUPLICATE_CONFLICT)
-                        .detail(arkret_core::ErrorCode::DUPLICATE_CONFLICT),
+                        .brief(arkret_wire::ErrorCode::DUPLICATE_CONFLICT)
+                        .detail(arkret_wire::ErrorCode::DUPLICATE_CONFLICT),
                 );
             }
             TransactionDispatch::InFlight => {
@@ -669,11 +669,12 @@ mod tests {
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::time::Duration;
 
-    use arkret_core::{AppletPingOutcome, Did, TypedTrustDomainId};
+    use arkret_core::AppletPingOutcome;
     use arkret_signatures::{
         DidVerificationMethodResolver, StaticDidVerificationMethodResolver,
         VerificationMethodDocument,
     };
+    use arkret_wire::{Did, TypedTrustDomainId};
 
     use super::*;
     use crate::idempotency::IdempotencyDirection;
@@ -699,8 +700,9 @@ mod tests {
             &self,
             verification_method: &str,
         ) -> Result<VerificationMethodDocument> {
-            self.resolver
-                .resolve_verification_method(verification_method)
+            Ok(self
+                .resolver
+                .resolve_verification_method(verification_method)?)
         }
         fn ping(&self) -> Result<AppletPingOutcome> {
             Ok(AppletPingOutcome {
@@ -714,7 +716,7 @@ mod tests {
             let mut description = ServiceDescribe::development(
                 Did::new("did:webvh:QmSvc:svc.example").unwrap(),
                 TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-                arkret_core::ServiceType::AppletService,
+                arkret_wire::ServiceType::AppletService,
             );
             description.supported_profiles = vec!["ak.profile.applet.v1".to_owned()];
             description.supported_operations = vec!["ak.edge.applet.query.describe".to_owned()];
@@ -733,7 +735,7 @@ mod tests {
                 ok: true,
                 // Tag the outcome with the call ordinal so replay tests can
                 // prove the cached outcome (not a re-execution) is returned.
-                rejected: vec![arkret_core::RejectedItem {
+                rejected: vec![arkret_models_integration::artifacts_applet::RejectedItem {
                     event_id: None,
                     reason_code: format!("call_{call}"),
                     retry_after_ms: None,

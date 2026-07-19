@@ -85,20 +85,20 @@ impl AdminKeyStore {
     /// when no key has been provisioned.
     pub fn load_admin_key(&self, admin_did: &Did) -> Result<KeyBytes> {
         let id = Self::key_id(&self.application_id, admin_did);
-        self.inner.load(&id)
+        Ok(self.inner.load(&id)?)
     }
 
     /// Persist `key` as the signing seed for `admin_did`. Overwrites
     /// any existing key for the same admin.
     pub fn store_admin_key(&self, admin_did: &Did, key: &[u8]) -> Result<()> {
         let id = Self::key_id(&self.application_id, admin_did);
-        self.inner.store(&id, key)
+        Ok(self.inner.store(&id, key)?)
     }
 
     /// Drop the signing seed for `admin_did`. Idempotent.
     pub fn delete_admin_key(&self, admin_did: &Did) -> Result<()> {
         let id = Self::key_id(&self.application_id, admin_did);
-        self.inner.delete(&id)
+        Ok(self.inner.delete(&id)?)
     }
 
     /// True if `admin_did` has a signing key provisioned.
@@ -106,8 +106,8 @@ impl AdminKeyStore {
         let id = Self::key_id(&self.application_id, admin_did);
         match self.inner.load(&id) {
             Ok(_) => Ok(true),
-            Err(err) if err.is_key_store_not_found() => Ok(false),
-            Err(other) => Err(other),
+            Err(err) if err.is_not_found() => Ok(false),
+            Err(other) => Err(other.into()),
         }
     }
 

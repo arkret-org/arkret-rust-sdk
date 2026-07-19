@@ -4,8 +4,7 @@
 //! is disabled. Constructors return [`KeyStoreError::Unsupported`]; trait
 //! methods do the same so naive callers don't panic.
 
-use arkret_core::{KeyBytes, Result};
-
+use crate::contract::{KeyBytes, Result};
 use crate::{KeyStore, KeyStoreError};
 
 /// Linux Secret Service-backed [`KeyStore`] (off-target stub).
@@ -26,19 +25,27 @@ impl LinuxSecretServiceKeyStore {
 
 impl KeyStore for LinuxSecretServiceKeyStore {
     fn load(&self, _id: &str) -> Result<KeyBytes> {
-        Err(KeyStoreError::unsupported("LinuxSecretServiceKeyStore (stub)").into())
+        Err(KeyStoreError::unsupported(
+            "LinuxSecretServiceKeyStore (stub)",
+        ))
     }
 
     fn store(&self, _id: &str, _key: &[u8]) -> Result<()> {
-        Err(KeyStoreError::unsupported("LinuxSecretServiceKeyStore (stub)").into())
+        Err(KeyStoreError::unsupported(
+            "LinuxSecretServiceKeyStore (stub)",
+        ))
     }
 
     fn list(&self) -> Result<Vec<String>> {
-        Err(KeyStoreError::unsupported("LinuxSecretServiceKeyStore (stub)").into())
+        Err(KeyStoreError::unsupported(
+            "LinuxSecretServiceKeyStore (stub)",
+        ))
     }
 
     fn delete(&self, _id: &str) -> Result<()> {
-        Err(KeyStoreError::unsupported("LinuxSecretServiceKeyStore (stub)").into())
+        Err(KeyStoreError::unsupported(
+            "LinuxSecretServiceKeyStore (stub)",
+        ))
     }
 }
 

@@ -4,8 +4,7 @@
 //! is disabled. Constructors return [`KeyStoreError::Unsupported`]; trait
 //! methods do the same so naive callers don't panic.
 
-use arkret_core::{KeyBytes, Result};
-
+use crate::contract::{KeyBytes, Result};
 use crate::{KeyStore, KeyStoreError};
 
 /// macOS Keychain-backed [`KeyStore`] (off-target stub).
@@ -26,19 +25,19 @@ impl MacOsKeychainKeyStore {
 
 impl KeyStore for MacOsKeychainKeyStore {
     fn load(&self, _id: &str) -> Result<KeyBytes> {
-        Err(KeyStoreError::unsupported("MacOsKeychainKeyStore (stub)").into())
+        Err(KeyStoreError::unsupported("MacOsKeychainKeyStore (stub)"))
     }
 
     fn store(&self, _id: &str, _key: &[u8]) -> Result<()> {
-        Err(KeyStoreError::unsupported("MacOsKeychainKeyStore (stub)").into())
+        Err(KeyStoreError::unsupported("MacOsKeychainKeyStore (stub)"))
     }
 
     fn list(&self) -> Result<Vec<String>> {
-        Err(KeyStoreError::unsupported("MacOsKeychainKeyStore (stub)").into())
+        Err(KeyStoreError::unsupported("MacOsKeychainKeyStore (stub)"))
     }
 
     fn delete(&self, _id: &str) -> Result<()> {
-        Err(KeyStoreError::unsupported("MacOsKeychainKeyStore (stub)").into())
+        Err(KeyStoreError::unsupported("MacOsKeychainKeyStore (stub)"))
     }
 }
 

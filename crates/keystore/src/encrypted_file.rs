@@ -12,12 +12,13 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-use arkret_core::keystore::{KeyBytes, KeyStore, KeyStoreError, service_name, validate_id};
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use hkdf::Hkdf;
 use sha2::Sha256;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
+
+use crate::contract::{KeyBytes, KeyStore, KeyStoreError, Result, service_name, validate_id};
 
 const FILE_MAGIC: &[u8; 8] = b"ARKRETKS";
 const FILE_VERSION: u16 = 1;
@@ -77,7 +78,7 @@ impl EncryptedFileKeyStore {
         path: impl Into<PathBuf>,
         application_id: &str,
         master_key: [u8; 32],
-    ) -> Result<Self, KeyStoreError> {
+    ) -> Result<Self> {
         if application_id.is_empty() {
             return Err(KeyStoreError::invalid_id(
                 "application_id must be non-empty",
@@ -111,10 +112,7 @@ impl EncryptedFileKeyStore {
         &self.path
     }
 
-    fn with_exclusive_lock<T>(
-        &self,
-        operation: impl FnOnce() -> arkret_core::Result<T>,
-    ) -> arkret_core::Result<T> {
+    fn with_exclusive_lock<T>(&self, operation: impl FnOnce() -> Result<T>) -> Result<T> {
         let lock_file = open_lock_file(&self.lock_path).map_err(backend_io)?;
         lock_file.lock().map_err(backend_io)?;
         let result = operation();
@@ -126,7 +124,7 @@ impl EncryptedFileKeyStore {
         }
     }
 
-    fn read_entries(&self) -> arkret_core::Result<EntryMap> {
+    fn read_entries(&self) -> Result<EntryMap> {
         let mut file = match File::open(&self.path) {
             Ok(file) => file,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -162,7 +160,7 @@ impl EncryptedFileKeyStore {
         decode_payload(&plaintext?)
     }
 
-    fn write_entries(&self, entries: &EntryMap) -> arkret_core::Result<()> {
+    fn write_entries(&self, entries: &EntryMap) -> Result<()> {
         let plaintext = encode_payload(entries)?;
         let mut salt = [0u8; KDF_SALT_LEN];
         getrandom::fill(&mut salt)
@@ -214,7 +212,7 @@ impl EncryptedFileKeyStore {
         sync_parent_directory(&self.path).map_err(backend_io)
     }
 
-    fn derive_file_key(&self, salt: &[u8; KDF_SALT_LEN]) -> arkret_core::Result<[u8; 32]> {
+    fn derive_file_key(&self, salt: &[u8; KDF_SALT_LEN]) -> Result<[u8; 32]> {
         let hkdf = Hkdf::<Sha256>::new(Some(salt), &self.master_key);
         let mut key = [0u8; 32];
         hkdf.expand(HKDF_INFO, &mut key)
@@ -224,17 +222,17 @@ impl EncryptedFileKeyStore {
 }
 
 impl KeyStore for EncryptedFileKeyStore {
-    fn load(&self, id: &str) -> arkret_core::Result<KeyBytes> {
+    fn load(&self, id: &str) -> Result<KeyBytes> {
         validate_id(id)?;
         self.with_exclusive_lock(|| {
             self.read_entries()?
                 .get(&(self.namespace.clone(), id.to_owned()))
                 .cloned()
-                .ok_or_else(|| KeyStoreError::not_found(id).into())
+                .ok_or_else(|| KeyStoreError::not_found(id))
         })
     }
 
-    fn store(&self, id: &str, key: &[u8]) -> arkret_core::Result<()> {
+    fn store(&self, id: &str, key: &[u8]) -> Result<()> {
         validate_entry(id, key)?;
         self.with_exclusive_lock(|| {
             let mut entries = self.read_entries()?;
@@ -246,7 +244,7 @@ impl KeyStore for EncryptedFileKeyStore {
         })
     }
 
-    fn list(&self) -> arkret_core::Result<Vec<String>> {
+    fn list(&self) -> Result<Vec<String>> {
         self.with_exclusive_lock(|| {
             Ok(self
                 .read_entries()?
@@ -257,7 +255,7 @@ impl KeyStore for EncryptedFileKeyStore {
         })
     }
 
-    fn delete(&self, id: &str) -> arkret_core::Result<()> {
+    fn delete(&self, id: &str) -> Result<()> {
         validate_id(id)?;
         self.with_exclusive_lock(|| {
             let mut entries = self.read_entries()?;
@@ -272,7 +270,7 @@ impl KeyStore for EncryptedFileKeyStore {
     }
 }
 
-fn ensure_parent_directory(path: &Path) -> Result<(), KeyStoreError> {
+fn ensure_parent_directory(path: &Path) -> Result<()> {
     let Some(parent) = path
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
@@ -316,10 +314,12 @@ fn sync_parent_directory(_path: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-fn validate_entry(id: &str, key: &[u8]) -> arkret_core::Result<()> {
+fn validate_entry(id: &str, key: &[u8]) -> Result<()> {
     validate_id(id)?;
     if id.len() > MAX_ID_BYTES {
-        return Err(KeyStoreError::invalid_id(format!("id exceeds {MAX_ID_BYTES} bytes")).into());
+        return Err(KeyStoreError::invalid_id(format!(
+            "id exceeds {MAX_ID_BYTES} bytes"
+        )));
     }
     if key.len() > MAX_KEY_BYTES {
         return Err(backend(format!(
@@ -343,7 +343,7 @@ fn encode_header(
     header
 }
 
-fn decode_file(encoded: &[u8]) -> arkret_core::Result<DecodedFile<'_>> {
+fn decode_file(encoded: &[u8]) -> Result<DecodedFile<'_>> {
     if encoded.len() < FILE_HEADER_LEN || encoded.len() > MAX_FILE_BYTES {
         return Err(backend("encrypted key-store file has an invalid length"));
     }
@@ -381,7 +381,7 @@ fn decode_file(encoded: &[u8]) -> arkret_core::Result<DecodedFile<'_>> {
     ))
 }
 
-fn encode_payload(entries: &EntryMap) -> arkret_core::Result<Zeroizing<Vec<u8>>> {
+fn encode_payload(entries: &EntryMap) -> Result<Zeroizing<Vec<u8>>> {
     if entries.len() > MAX_ENTRIES {
         return Err(backend("encrypted key-store contains too many entries"));
     }
@@ -401,7 +401,7 @@ fn encode_payload(entries: &EntryMap) -> arkret_core::Result<Zeroizing<Vec<u8>>>
     Ok(plaintext)
 }
 
-fn decode_payload(plaintext: &[u8]) -> arkret_core::Result<EntryMap> {
+fn decode_payload(plaintext: &[u8]) -> Result<EntryMap> {
     let mut cursor = 0;
     if take(plaintext, &mut cursor, PAYLOAD_MAGIC.len())? != PAYLOAD_MAGIC {
         return Err(backend(
@@ -442,25 +442,20 @@ fn decode_payload(plaintext: &[u8]) -> arkret_core::Result<EntryMap> {
     Ok(entries)
 }
 
-fn push_bytes(output: &mut Vec<u8>, value: &[u8], label: &str) -> arkret_core::Result<()> {
+fn push_bytes(output: &mut Vec<u8>, value: &[u8], label: &str) -> Result<()> {
     push_u32(output, value.len(), label)?;
     output.extend_from_slice(value);
     Ok(())
 }
 
-fn push_u32(output: &mut Vec<u8>, value: usize, label: &str) -> arkret_core::Result<()> {
+fn push_u32(output: &mut Vec<u8>, value: usize, label: &str) -> Result<()> {
     let value = u32::try_from(value)
         .map_err(|_| backend(format!("encrypted key-store {label} is too large")))?;
     output.extend_from_slice(&value.to_be_bytes());
     Ok(())
 }
 
-fn read_string(
-    input: &[u8],
-    cursor: &mut usize,
-    maximum: usize,
-    label: &str,
-) -> arkret_core::Result<String> {
+fn read_string(input: &[u8], cursor: &mut usize, maximum: usize, label: &str) -> Result<String> {
     let bytes = read_bytes(input, cursor, maximum, label)?;
     std::str::from_utf8(bytes)
         .map(str::to_owned)
@@ -472,7 +467,7 @@ fn read_bytes<'a>(
     cursor: &mut usize,
     maximum: usize,
     label: &str,
-) -> arkret_core::Result<&'a [u8]> {
+) -> Result<&'a [u8]> {
     let length = read_u32(input, cursor)? as usize;
     if length > maximum {
         return Err(backend(format!(
@@ -482,28 +477,28 @@ fn read_bytes<'a>(
     take(input, cursor, length)
 }
 
-fn read_u16(input: &[u8], cursor: &mut usize) -> arkret_core::Result<u16> {
+fn read_u16(input: &[u8], cursor: &mut usize) -> Result<u16> {
     let bytes: [u8; 2] = take(input, cursor, 2)?
         .try_into()
         .map_err(|_| backend("encrypted key-store integer is truncated"))?;
     Ok(u16::from_be_bytes(bytes))
 }
 
-fn read_u32(input: &[u8], cursor: &mut usize) -> arkret_core::Result<u32> {
+fn read_u32(input: &[u8], cursor: &mut usize) -> Result<u32> {
     let bytes: [u8; 4] = take(input, cursor, 4)?
         .try_into()
         .map_err(|_| backend("encrypted key-store integer is truncated"))?;
     Ok(u32::from_be_bytes(bytes))
 }
 
-fn read_u64(input: &[u8], cursor: &mut usize) -> arkret_core::Result<u64> {
+fn read_u64(input: &[u8], cursor: &mut usize) -> Result<u64> {
     let bytes: [u8; 8] = take(input, cursor, 8)?
         .try_into()
         .map_err(|_| backend("encrypted key-store integer is truncated"))?;
     Ok(u64::from_be_bytes(bytes))
 }
 
-fn take<'a>(input: &'a [u8], cursor: &mut usize, length: usize) -> arkret_core::Result<&'a [u8]> {
+fn take<'a>(input: &'a [u8], cursor: &mut usize, length: usize) -> Result<&'a [u8]> {
     let end = cursor
         .checked_add(length)
         .ok_or_else(|| backend("encrypted key-store length overflow"))?;
@@ -514,11 +509,11 @@ fn take<'a>(input: &'a [u8], cursor: &mut usize, length: usize) -> arkret_core::
     Ok(value)
 }
 
-fn backend(message: impl Into<String>) -> arkret_core::Error {
-    KeyStoreError::backend(message).into()
+fn backend(message: impl Into<String>) -> KeyStoreError {
+    KeyStoreError::backend(message)
 }
 
-fn backend_io(error: std::io::Error) -> arkret_core::Error {
+fn backend_io(error: std::io::Error) -> KeyStoreError {
     backend(format!("encrypted key-store I/O failed: {error}"))
 }
 
@@ -604,7 +599,7 @@ mod tests {
         assert_eq!(first.load("same-id").unwrap().as_slice(), b"identity");
         assert_eq!(second.load("same-id").unwrap().as_slice(), b"admin");
         first.delete("same-id").unwrap();
-        assert!(first.load("same-id").unwrap_err().is_key_store_not_found());
+        assert!(first.load("same-id").unwrap_err().is_not_found());
         assert_eq!(second.load("same-id").unwrap().as_slice(), b"admin");
     }
 
@@ -618,13 +613,13 @@ mod tests {
             .unwrap();
 
         let wrong = EncryptedFileKeyStore::new(&path, "soland", [2u8; 32]).unwrap();
-        assert!(!wrong.load("key").unwrap_err().is_key_store_not_found());
+        assert!(!wrong.load("key").unwrap_err().is_not_found());
 
         let mut encoded = fs::read(&path).unwrap();
         *encoded.last_mut().unwrap() ^= 1;
         fs::write(&path, encoded).unwrap();
         let original = EncryptedFileKeyStore::new(&path, "soland", [1u8; 32]).unwrap();
-        assert!(!original.load("key").unwrap_err().is_key_store_not_found());
+        assert!(!original.load("key").unwrap_err().is_not_found());
     }
 
     #[test]
@@ -670,6 +665,6 @@ mod tests {
         assert!(store.list().unwrap().is_empty());
         store.delete("missing").unwrap();
         assert!(!path.exists());
-        assert!(store.load("missing").unwrap_err().is_key_store_not_found());
+        assert!(store.load("missing").unwrap_err().is_not_found());
     }
 }

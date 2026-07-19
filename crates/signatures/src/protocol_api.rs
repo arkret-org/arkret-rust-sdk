@@ -48,19 +48,22 @@ pub mod service_identity;
 pub mod realm_organization;
 use std::collections::BTreeMap;
 
+#[path = "error.rs"]
+pub mod error;
+
+use arkret_canonical::canonical;
 /// Production-grade proof algorithms this SDK can actually produce and verify.
 ///
-/// Re-export of the single source of truth in `arkret-core`
-/// ([`arkret_core::PRODUCTION_ALGORITHMS`]) so the structural gate
+/// Re-export of the single source of truth in `arkret-wire`
+/// ([`arkret_wire::PRODUCTION_ALGORITHMS`]) so the structural gate
 /// (`Proof::validate_production`) and this crate's verifiers can never
-/// diverge again. The v1 set is exactly `["EdDSA"]` — see the core constant's
+/// diverge again. The v1 set is exactly `["EdDSA"]` — see the wire constant's
 /// documentation for why the other registry-active rows are excluded.
-pub use arkret_core::PRODUCTION_ALGORITHMS;
-use arkret_core::{
-    Audience, Did, Hash, Proof, ProofBindingRequirements, SignatureBindingPayload, canonical,
-};
-pub use arkret_core::{Error, Proof as ProtocolProof, Result};
+pub use arkret_wire::PRODUCTION_ALGORITHMS;
+pub use arkret_wire::Proof as ProtocolProof;
+use arkret_wire::{Audience, Did, Hash, Proof, ProofBindingRequirements, SignatureBindingPayload};
 use chrono::{DateTime, Duration, Utc};
+pub use error::{Error, Result};
 pub use jwk::{JsonWebKey, JsonWebKeyOperation, JsonWebKeySet, JsonWebKeyUse};
 pub use jwt::{
     JsonWebTokenClaims, JsonWebTokenHeader, JwtAlgorithm, JwtAudience, JwtType,
@@ -367,11 +370,11 @@ pub fn validate_production_proof(proof: &Proof) -> Result<()> {
 
 /// Wire-form HTTP Message Signature container.
 ///
-/// The canonical struct now lives in `arkret-core` (`arkret_core::http`) so the
-/// federation wire contracts can embed it without depending on this crate. The
-/// canonical signature base (the bytes actually signed) is still built by the
-/// single RFC 9421 implementation in [`crate::http_signature`].
-pub use arkret_core::HttpMessageSignature;
+/// The canonical struct now lives in `arkret-wire` (`arkret_wire::http_signature`)
+/// so the federation wire contracts can embed it without depending on this
+/// crate. The canonical signature base (the bytes actually signed) is still
+/// built by the single RFC 9421 implementation in [`crate::http_signature`].
+pub use arkret_wire::HttpMessageSignature;
 
 #[cfg(test)]
 mod tests {

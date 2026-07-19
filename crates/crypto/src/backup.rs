@@ -15,8 +15,8 @@
 //! this passphrase builder.
 //!
 //! ```no_run
-//! use arkret_core::BackupClass;
 //! use arkret_crypto::backup::{build_key_backup_envelope, derive_vault_kek};
+//! use arkret_models_crypto::key_backup::BackupClass;
 //!
 //! let kek = derive_vault_kek(b"correct horse battery staple")?;
 //! let envelope = build_key_backup_envelope(
@@ -33,16 +33,17 @@
 //! ```
 
 use argon2::{Algorithm, Argon2, Params, Version};
+use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical::{
     canonical_json_bytes, canonical_sha256, format_timestamp_canonical, sha256_digest, sha256_hex,
 };
-use arkret_core::{
-    BackupClass, BackupId, Base64UrlString, DeviceId, Did, Hash, KeyBackup, KeyBackupAead,
-    KeyBackupAeadName, KeyBackupContentItem, KeyBackupDomainSeparation,
-    KeyBackupDomainSeparationAad, KeyBackupEncryption, KeyBackupFrontierGeneration,
-    KeyBackupFrontierRef, KeyBackupKdf, KeyBackupKdfName, KeyBackupKdfParams,
-    KeyBackupRecipientMethod, base64url_decode, base64url_encode,
+use arkret_models_crypto::key_backup::{
+    BackupClass, KeyBackup, KeyBackupAead, KeyBackupAeadName, KeyBackupContentItem,
+    KeyBackupDomainSeparation, KeyBackupDomainSeparationAad, KeyBackupEncryption,
+    KeyBackupFrontierGeneration, KeyBackupFrontierRef, KeyBackupKdf, KeyBackupKdfName,
+    KeyBackupKdfParams, KeyBackupRecipientMethod,
 };
+use arkret_wire::{BackupId, Base64UrlString, DeviceId, Did, Hash};
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use chrono::{SubsecRound, Utc};
@@ -624,7 +625,7 @@ pub fn build_key_backup_envelope(
     // genesis envelope by minting a fresh series_id and seq=0; successors are
     // built with `build_key_backup_successor_envelope`.
     let series_id =
-        arkret_core::BackupSeriesId::new(arkret_core::new_prefixed_uuid7("ak:backup_series:"))
+        arkret_wire::BackupSeriesId::new(arkret_wire::new_prefixed_uuid7("ak:backup_series:"))
             .map_err(|err| {
                 KeyBackupError::InvalidInput(format!("failed to mint backup_series id: {err}"))
             })?;

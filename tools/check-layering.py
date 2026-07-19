@@ -89,7 +89,17 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     },
     "arkret-state": _WIRE
     | {"arkret-models-crypto", "arkret-models-collaboration"},
-    "arkret-signatures": _WIRE | {"arkret-models-identity"},
+    # Phase 2-b: signatures behavior signs over data owned by three model
+    # crates ("behavior depends on data"): models-identity (service-identity /
+    # webvh inception contracts), models-collaboration (realm-organization
+    # statement family + ephemeral proof envelope), models-discovery (DID
+    # service-entry registry constants).
+    "arkret-signatures": _WIRE
+    | {
+        "arkret-models-identity",
+        "arkret-models-collaboration",
+        "arkret-models-discovery",
+    },
     "arkret-hlc": _BASE,
     "arkret-event-draft": _WIRE
     | {
@@ -116,8 +126,10 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-crypto",
         "arkret-signatures",
     },
-    # R1 (frozen): keystore owns trait + backends, standalone.
-    "arkret-keystore": _WIRE,
+    # R1 (frozen): keystore owns trait + backends, standalone. Phase 2-b
+    # moved the KeyStore contract (trait + error + in-memory backend) here
+    # from arkret-core; the crate now has no arkret dependencies at all.
+    "arkret-keystore": set(),
     "arkret-egress-policy": set(),
     "arkret-http-client": _WIRE
     | {
@@ -157,19 +169,45 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-models-integration",
         "arkret-models-discovery",
         "arkret-models-collaboration",
+        # Phase 2-b transitional edges: the KeyStore contract moved into
+        # arkret-keystore (core re-exports it), and signatures / crypto own
+        # their boundary errors (core keeps the `From` bridges into its
+        # facade `Error`). All three edges retire with core in phase 5.
+        "arkret-keystore",
+        "arkret-signatures",
+        "arkret-crypto",
     },
     "arkret-ffi": {"arkret-core"},
     "arkret-sdk-fuzz": {"arkret-core", "arkret-signatures"},
 }
 
 # Edges tolerated until the named phase removes them. Reported, not failed.
+#
+# Phase 2-b cleared signatures/crypto/keystore -> arkret-core (and the stale
+# crypto -> arkret-schema entry: schema is dev-dependency-only there). The two
+# remaining edges are endpoint-definition dependencies; their residual core
+# symbol surface and destination plan:
+#
+# arkret-http-client -> arkret-core:
+#   - `Error` / `Result` transport contract (`Error::Http` / `Error::Url` /
+#     `Error::Api` client variants) — splits out with the facade in phase 5;
+#   - `http::{paths, params, bodies}` endpoint DTO clusters consumed by every
+#     `endpoints_*.rs` module — follow the http-face extraction (pre-phase-5);
+#   - `models` aggregate re-exports (sync/event DTOs), `Cursor`,
+#     `StreamTraceValidator`, `is_query_auth_parameter` — move with their
+#     owning modules when core's leftover clusters are rehomed.
+#
+# arkret-server -> arkret-core:
+#   - `http` bodies/outcome DTO clusters + `ServiceDescribe` and the applet
+#     view aggregates re-exported by core (endpoint registry / dispatch);
+#   - `Cursor` / `CursorPurpose` (cursor authority), `ErrorEnvelope`
+#     constructors in `service`, `is_query_auth_parameter`;
+#   - `schema::SpecArtifactBundle` (embedded artifacts, tests only).
+#   Same destination: shrink alongside the http-face extraction, gone in
+#   phase 5 with the facade.
 LEGACY_EDGES: dict[tuple[str, str], str] = {
-    ("arkret-signatures", "arkret-core"): "phase 2",
-    ("arkret-crypto", "arkret-core"): "phase 2",
-    ("arkret-crypto", "arkret-schema"): "phase 2",
-    ("arkret-keystore", "arkret-core"): "phase 2",
-    ("arkret-http-client", "arkret-core"): "phase 2",
-    ("arkret-server", "arkret-core"): "phase 2",
+    ("arkret-http-client", "arkret-core"): "phase 5 (http face)",
+    ("arkret-server", "arkret-core"): "phase 5 (http face)",
 }
 
 UMBRELLA = "arkret"

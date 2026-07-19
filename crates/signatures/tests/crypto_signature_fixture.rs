@@ -24,12 +24,12 @@
 //! spec anchors while the transcript question is adjudicated.
 
 use arkret_canonical::{base64url_decode, base64url_encode, canonical};
-use arkret_core::schema::embedded_json_artifact;
-use arkret_core::{Did, Hash, Proof};
+use arkret_schema::embedded_json_artifact;
 use arkret_signatures::proof::{PublicKeyMaterial, verify_detached_ed25519_signature};
 use arkret_signatures::{
     FUTURE_ALGORITHMS, PRODUCTION_ALGORITHMS, verify_eddsa_detached_jws_proof,
 };
+use arkret_wire::{Did, Hash, Proof};
 use ed25519_dalek::Signer as _;
 use serde_json::Value;
 

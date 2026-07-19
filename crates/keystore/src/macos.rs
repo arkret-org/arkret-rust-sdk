@@ -14,13 +14,12 @@
 //! - `delete()` is idempotent — a "not found" error from the underlying `delete_generic_password`
 //!   is swallowed.
 
-use arkret_core::keystore::{service_name, validate_id};
-use arkret_core::{KeyBytes, Result};
 use security_framework::base::Error as SfError;
 use security_framework::passwords::{
     delete_generic_password, get_generic_password, set_generic_password,
 };
 
+use crate::contract::{KeyBytes, Result, service_name, validate_id};
 use crate::{KeyStore, KeyStoreError};
 
 /// macOS Keychain-backed [`KeyStore`].
@@ -66,8 +65,8 @@ impl KeyStore for MacOsKeychainKeyStore {
         validate_id(id)?;
         match get_generic_password(&self.service, id) {
             Ok(bytes) => Ok(KeyBytes::new(bytes)),
-            Err(err) if is_not_found(&err) => Err(KeyStoreError::not_found(id).into()),
-            Err(err) => Err(KeyStoreError::backend(format!("keychain: {err}")).into()),
+            Err(err) if is_not_found(&err) => Err(KeyStoreError::not_found(id)),
+            Err(err) => Err(KeyStoreError::backend(format!("keychain: {err}"))),
         }
     }
 
@@ -95,7 +94,7 @@ impl KeyStore for MacOsKeychainKeyStore {
             Ok(results) => results,
             Err(err) if is_not_found(&err) => return Ok(Vec::new()),
             Err(err) => {
-                return Err(KeyStoreError::backend(format!("keychain enum: {err}")).into());
+                return Err(KeyStoreError::backend(format!("keychain enum: {err}")));
             }
         };
 
@@ -120,7 +119,7 @@ impl KeyStore for MacOsKeychainKeyStore {
         match delete_generic_password(&self.service, id) {
             Ok(()) => Ok(()),
             Err(err) if is_not_found(&err) => Ok(()), // idempotent
-            Err(err) => Err(KeyStoreError::backend(format!("keychain delete: {err}")).into()),
+            Err(err) => Err(KeyStoreError::backend(format!("keychain delete: {err}"))),
         }
     }
 }
@@ -162,7 +161,7 @@ mod tests {
         assert_eq!(store.load(id).unwrap().as_slice(), b"keychain-secret-1");
         store.delete(id).unwrap();
         let err = store.load(id).unwrap_err();
-        assert!(err.is_key_store_not_found());
+        assert!(err.is_not_found());
     }
 
     #[test]

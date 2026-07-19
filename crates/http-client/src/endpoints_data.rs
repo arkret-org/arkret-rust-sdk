@@ -519,9 +519,9 @@ impl Client {
         }
         if let Some(class) = query.backup_class {
             let class_str = match class {
-                arkret_core::BackupClass::DidRecovery => "did_recovery",
-                arkret_core::BackupClass::SecretStorage => "secret_storage",
-                arkret_core::BackupClass::MlsHistory => "mls_history",
+                arkret_models_crypto::key_backup::BackupClass::DidRecovery => "did_recovery",
+                arkret_models_crypto::key_backup::BackupClass::SecretStorage => "secret_storage",
+                arkret_models_crypto::key_backup::BackupClass::MlsHistory => "mls_history",
             };
             builder = builder.query(&[("backup_class", class_str)]);
         }

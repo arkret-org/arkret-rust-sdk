@@ -3,18 +3,17 @@
 
 use std::collections::{BTreeMap, VecDeque};
 
-use arkret_core::{
-    BlobRef, DeviceId, Did, EncryptedPayload, EncryptedPayloadScheme, Error, EventId, Hash,
-    RealmId, Result,
-};
+use arkret_models_crypto::encrypted_envelope::EncryptedPayload;
+use arkret_wire::{BlobRef, DeviceId, Did, EncryptedPayloadScheme, EventId, Hash, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::device::{DeviceKeyBundle, DeviceTrustState, DeviceVerificationStrand};
 use crate::errors::{
-    MAX_ALGORITHM_NAME_LEN, MAX_IDENTIFIER_LEN, MAX_KEY_FIELD_LEN, MAX_ONE_TIME_KEY_CLAIM_COUNT,
-    MAX_REASON_LEN, validate_max_length, validate_nonempty_key,
+    Error, MAX_ALGORITHM_NAME_LEN, MAX_IDENTIFIER_LEN, MAX_KEY_FIELD_LEN,
+    MAX_ONE_TIME_KEY_CLAIM_COUNT, MAX_REASON_LEN, Result, validate_max_length,
+    validate_nonempty_key,
 };
 
 /// Discriminator for the request variants the crypto-machine plan

@@ -3,21 +3,25 @@
 //! The verifier (soland's `verify_realm_organization_proof_signature`) decodes
 //! `authorization.proof` with base64url (no padding) and runs
 //! `verify_strict(signing_bytes, signature)` where `signing_bytes` come from
-//! [`arkret_core::models::realm_organization_statement_signing_bytes`]. This
+//! [`realm_organization_statement_signing_bytes`]. This
 //! helper produces the byte-symmetric counterpart: a detached Ed25519 signature
 //! over those same `signing_bytes`, base64url-unpadded encoded, set as the
 //! `authorization.proof` `SignatureMaterial::NonEmptyString`.
 
 use arkret_canonical::base64url::base64url_encode;
-use arkret_core::models::{NonEmptyString, RealmOrganizationPayload, SignatureMaterial};
-use arkret_core::{Error, Result};
+use arkret_models_collaboration::events_payloads::preview_realm_reaction::{
+    RealmOrganizationPayload, SignatureMaterial, realm_organization_statement_signing_bytes,
+};
+use arkret_wire::NonEmptyString;
 use ed25519_dalek::{Signer, SigningKey};
+
+use crate::{Error, Result};
 
 /// Sign `payload` with `signing_key` and return a clone whose
 /// `authorization.proof` carries the detached Ed25519 signature.
 ///
 /// The signature is computed over
-/// [`arkret_core::models::realm_organization_statement_signing_bytes`] and
+/// [`realm_organization_statement_signing_bytes`] and
 /// encoded with base64url (no padding), so it round-trips through soland's
 /// `verify_realm_organization_proof_signature` (which decodes with
 /// `URL_SAFE_NO_PAD` and calls `verify_strict` over the same bytes).
@@ -30,7 +34,7 @@ pub fn realm_organization_statement_sign(
     payload: &RealmOrganizationPayload,
     signing_key: &SigningKey,
 ) -> Result<RealmOrganizationPayload> {
-    let signing_bytes = arkret_core::models::realm_organization_statement_signing_bytes(payload)?;
+    let signing_bytes = realm_organization_statement_signing_bytes(payload)?;
     let signature = signing_key.sign(&signing_bytes);
     let proof = NonEmptyString::new(base64url_encode(signature.to_bytes()))
         .map_err(|reason| Error::Protocol(reason.to_owned()))?;
@@ -45,11 +49,11 @@ pub fn realm_organization_statement_sign(
 #[cfg(test)]
 mod tests {
     use arkret_canonical::base64url::base64url_decode;
-    use arkret_core::identifiers::{Did, RealmId};
-    use arkret_core::models::{
+    use arkret_models_collaboration::events_payloads::preview_realm_reaction::{
         RealmOrganizationAuthorization, RealmOrganizationControlScope, RealmOrganizationIssuerRole,
         RealmOrganizationRelationship, RealmOrganizationStatus,
     };
+    use arkret_wire::{Did, RealmId};
     use chrono::{DateTime, TimeZone, Utc};
 
     use super::*;
@@ -87,7 +91,7 @@ mod tests {
             authorization: RealmOrganizationAuthorization {
                 issuer: org_did(),
                 issuer_role: RealmOrganizationIssuerRole::OrganizationDid,
-                verification_method: arkret_core::models::DidUrl::new(
+                verification_method: arkret_wire::DidUrl::new(
                     "did:webvh:example.test:orgs:org1#k1",
                 )
                 .unwrap(),
@@ -119,8 +123,7 @@ mod tests {
         let signature = ed25519_dalek::Signature::from_slice(&sig_bytes).expect("64-byte sig");
 
         let signing_bytes =
-            arkret_core::models::realm_organization_statement_signing_bytes(&signed)
-                .expect("signing bytes");
+            realm_organization_statement_signing_bytes(&signed).expect("signing bytes");
         verifying_key
             .verify_strict(&signing_bytes, &signature)
             .expect("verify_strict must pass");

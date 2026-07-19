@@ -2,14 +2,15 @@
 
 use std::collections::BTreeMap;
 
-use arkret_core::{DeviceId, Did, Error, Result};
 use arkret_signatures::DetachedSignature;
+use arkret_wire::{DeviceId, Did};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::errors::{
-    MAX_ALGORITHM_NAME_LEN, MAX_ALGORITHM_VALUE_LEN, MAX_ALGORITHMS_PER_BUNDLE, MAX_IDENTIFIER_LEN,
-    MAX_KEY_FIELD_LEN, MAX_VERIFICATION_METHODS, validate_max_length, validate_nonempty_key,
+    Error, MAX_ALGORITHM_NAME_LEN, MAX_ALGORITHM_VALUE_LEN, MAX_ALGORITHMS_PER_BUNDLE,
+    MAX_IDENTIFIER_LEN, MAX_KEY_FIELD_LEN, MAX_VERIFICATION_METHODS, Result, validate_max_length,
+    validate_nonempty_key,
 };
 
 /// Per-device public key bundle published via

@@ -10,8 +10,6 @@
 use std::ffi::OsString;
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 
-use arkret_core::keystore::{service_name, validate_id};
-use arkret_core::{KeyBytes, Result};
 use windows::Win32::Foundation::ERROR_NOT_FOUND;
 use windows::Win32::Security::Credentials::{
     CRED_PERSIST_LOCAL_MACHINE, CRED_TYPE_GENERIC, CREDENTIALW, CredDeleteW, CredEnumerateW,
@@ -19,6 +17,7 @@ use windows::Win32::Security::Credentials::{
 };
 use windows::core::PCWSTR;
 
+use crate::contract::{KeyBytes, Result, service_name, validate_id};
 use crate::{KeyStore, KeyStoreError};
 
 /// Windows Credential Manager-backed [`KeyStore`].
@@ -70,7 +69,7 @@ impl KeyStore for WindowsCredentialKeyStore {
         match res {
             Ok(()) => {
                 if cred_ptr.is_null() {
-                    return Err(KeyStoreError::not_found(id).into());
+                    return Err(KeyStoreError::not_found(id));
                 }
                 // SAFETY: CredReadW returned Ok and cred_ptr is non-null; the credential
                 // struct and its CredentialBlob buffer are valid until we call CredFree below.
@@ -89,9 +88,9 @@ impl KeyStore for WindowsCredentialKeyStore {
             }
             Err(err) => {
                 if err.code() == ERROR_NOT_FOUND.to_hresult() {
-                    Err(KeyStoreError::not_found(id).into())
+                    Err(KeyStoreError::not_found(id))
                 } else {
-                    Err(KeyStoreError::backend(format!("CredReadW: {err}")).into())
+                    Err(KeyStoreError::backend(format!("CredReadW: {err}")))
                 }
             }
         }
@@ -172,7 +171,7 @@ impl KeyStore for WindowsCredentialKeyStore {
                 if err.code() == ERROR_NOT_FOUND.to_hresult() {
                     return Ok(Vec::new());
                 }
-                Err(KeyStoreError::backend(format!("CredEnumerateW: {err}")).into())
+                Err(KeyStoreError::backend(format!("CredEnumerateW: {err}")))
             }
         }
     }
@@ -189,7 +188,7 @@ impl KeyStore for WindowsCredentialKeyStore {
                 if err.code() == ERROR_NOT_FOUND.to_hresult() {
                     Ok(()) // idempotent
                 } else {
-                    Err(KeyStoreError::backend(format!("CredDeleteW: {err}")).into())
+                    Err(KeyStoreError::backend(format!("CredDeleteW: {err}")))
                 }
             }
         }
@@ -249,7 +248,7 @@ mod tests {
         assert_eq!(store.load(id).unwrap().as_slice(), b"win-secret-1");
         store.delete(id).unwrap();
         let err = store.load(id).unwrap_err();
-        assert!(err.is_key_store_not_found());
+        assert!(err.is_not_found());
     }
 
     #[test]

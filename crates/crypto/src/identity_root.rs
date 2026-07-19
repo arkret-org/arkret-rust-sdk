@@ -241,7 +241,7 @@ fn multikey(prefix: &[u8; 2], public_key: &[u8; 32]) -> String {
     let mut bytes = [0u8; 34];
     bytes[..2].copy_from_slice(prefix);
     bytes[2..].copy_from_slice(public_key);
-    format!("z{}", arkret_core::encode_base58btc(bytes))
+    format!("z{}", arkret_canonical::multibase::encode_base58btc(bytes))
 }
 
 #[cfg(test)]

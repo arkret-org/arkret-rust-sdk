@@ -111,6 +111,12 @@ impl Error {
     }
 }
 
+impl From<crate::keystore::KeyStoreError> for Error {
+    fn from(err: crate::keystore::KeyStoreError) -> Self {
+        Error::KeyStore(err)
+    }
+}
+
 impl From<arkret_identifiers::IdentifierError> for Error {
     fn from(error: arkret_identifiers::IdentifierError) -> Self {
         match error {
@@ -170,6 +176,50 @@ impl From<arkret_wire::WireError> for Error {
             arkret_wire::WireError::Json(error) => Self::CanonicalJson(error),
             _ => Self::Protocol(error.to_string()),
         }
+    }
+}
+
+impl From<arkret_signatures::Error> for Error {
+    fn from(error: arkret_signatures::Error) -> Self {
+        match error {
+            arkret_signatures::Error::Protocol(message) => Self::Protocol(message),
+            arkret_signatures::Error::Crypto(message) => Self::Crypto(message),
+            arkret_signatures::Error::Wire(error) => error.into(),
+            arkret_signatures::Error::Canonical(error) => error.into(),
+            arkret_signatures::Error::Identifier(error) => error.into(),
+            arkret_signatures::Error::Json(error) => Self::CanonicalJson(error),
+            _ => Self::Protocol(error.to_string()),
+        }
+    }
+}
+
+impl From<arkret_crypto::Error> for Error {
+    fn from(error: arkret_crypto::Error) -> Self {
+        match error {
+            arkret_crypto::Error::Protocol(message) => Self::Protocol(message),
+            arkret_crypto::Error::Crypto(message) => Self::Crypto(message),
+            arkret_crypto::Error::Signature(error) => error.into(),
+            arkret_crypto::Error::Wire(error) => error.into(),
+            arkret_crypto::Error::Canonical(error) => error.into(),
+            arkret_crypto::Error::Identifier(error) => error.into(),
+            arkret_crypto::Error::Json(error) => Self::CanonicalJson(error),
+            _ => Self::Protocol(error.to_string()),
+        }
+    }
+}
+
+impl From<arkret_crypto::CryptoError> for Error {
+    fn from(error: arkret_crypto::CryptoError) -> Self {
+        // Preserve the v1 wire surface: typed crypto-machine errors still
+        // collapse to `Error::Protocol(<message>)` at the protocol boundary.
+        Self::Protocol(error.to_string())
+    }
+}
+
+impl From<arkret_crypto::KeyBackupError> for Error {
+    fn from(error: arkret_crypto::KeyBackupError) -> Self {
+        // Same boundary contract as `CryptoError`.
+        Self::Protocol(error.to_string())
     }
 }
 

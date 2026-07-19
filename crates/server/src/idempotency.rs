@@ -23,7 +23,8 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use arkret_core::{Error, Hash};
+use arkret_core::Error;
+use arkret_wire::Hash;
 
 /// Delivery direction component of the idempotency identity
 /// (`applet-integration.md` §7.3.1).
@@ -68,7 +69,7 @@ impl IdempotencyIdentity {
         idempotency_key: impl Into<String>,
     ) -> Self {
         Self {
-            operation_id: arkret_core::ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION
+            operation_id: arkret_wire::ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION
                 .to_owned(),
             direction,
             source_service_id: source_service_id.into(),

@@ -33,12 +33,14 @@
 
 use std::fmt;
 
-use arkret_core::{
-    EphemeralEnvelope, Error, Hash, Proof, Result, base64url_decode, base64url_encode, canonical,
-    proof_kind,
-};
+use arkret_canonical::base64url::{base64url_decode, base64url_encode};
+use arkret_canonical::canonical;
+use arkret_models_collaboration::events_payloads::ephemeral::EphemeralEnvelope;
+use arkret_wire::{Hash, Proof, proof_kind};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+
+use crate::{Error, Result};
 
 /// Wire-form public key material used by [`EventVerifier`] adapters.
 ///
@@ -155,7 +157,7 @@ struct DetachedJwsProtectedHeader {
 pub fn verify_eddsa_detached_jws_proof(
     proof: &Proof,
     canonical_bytes: &[u8],
-    actor_id: &arkret_core::Did,
+    actor_id: &arkret_wire::Did,
     public_key: &PublicKeyMaterial,
 ) -> std::result::Result<(), VerifierError> {
     verify_eddsa_detached_jws_proof_with_context(
@@ -192,7 +194,7 @@ pub fn verify_eddsa_detached_jws_ephemeral_proof(
 fn verify_eddsa_detached_jws_proof_with_context(
     proof: &Proof,
     canonical_bytes: &[u8],
-    actor_id: &arkret_core::Did,
+    actor_id: &arkret_wire::Did,
     public_key: &PublicKeyMaterial,
     ephemeral_context: bool,
 ) -> std::result::Result<(), VerifierError> {
@@ -424,7 +426,7 @@ impl EventProofBuilder {
     /// Strips `proofs` and `unsigned` so the bytes match what
     /// `Event::digest_payload` already produces. This wraps the same
     /// canonicalization rule callers would write by hand.
-    pub fn envelope_bytes(&self, event: &arkret_core::Event) -> Result<Vec<u8>> {
+    pub fn envelope_bytes(&self, event: &arkret_wire::Event) -> Result<Vec<u8>> {
         let payload = event.digest_payload()?;
         Ok(canonical::canonical_json_bytes(&payload)?)
     }
@@ -583,7 +585,8 @@ impl<V: EventVerifier> EventVerifier for ProductionVerifier<V> {
 }
 
 mod ed25519_jws {
-    use arkret_core::{base64url_decode, base64url_encode, canonical};
+    use arkret_canonical::base64url::{base64url_decode, base64url_encode};
+    use arkret_canonical::canonical;
     use ed25519_dalek::{Signer as _, SigningKey, VerifyingKey};
     use serde::Deserialize;
 
@@ -625,7 +628,7 @@ mod ed25519_jws {
 
         /// Produce a generic detached JWS over caller-supplied bytes.
         ///
-        /// This primitive does not assemble an Arkret event [`arkret_core::Proof`]. Event
+        /// This primitive does not assemble an Arkret event [`arkret_wire::Proof`]. Event
         /// proofs must be created with [`crate::sign_event`], which signs the
         /// protocol proof-binding object rather than raw event bytes.
         pub fn sign_detached_jws(&self, bytes: &[u8]) -> String {
@@ -839,7 +842,7 @@ pub fn build_proof_envelope(
     verification_method: impl Into<String>,
     payload_digest: Hash,
     domain: Option<String>,
-    audience: Option<arkret_core::Audience>,
+    audience: Option<arkret_wire::Audience>,
     jws: impl Into<String>,
 ) -> Proof {
     Proof {

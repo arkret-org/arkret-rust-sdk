@@ -13,11 +13,10 @@
 //! Collisions on `(service, account)` are resolved by overwriting the
 //! existing item (the Secret Service `replace` flag).
 
-use arkret_core::keystore::{service_name, validate_id};
-use arkret_core::{KeyBytes, Result};
 use secret_service::EncryptionType;
 use secret_service::blocking::SecretService;
 
+use crate::contract::{KeyBytes, Result, service_name, validate_id};
 use crate::{KeyStore, KeyStoreError};
 
 /// Linux Secret Service-backed [`KeyStore`].
@@ -195,7 +194,7 @@ mod tests {
         assert_eq!(store.load(id).unwrap().as_slice(), b"linux-secret-1");
         store.delete(id).unwrap();
         let err = store.load(id).unwrap_err();
-        assert!(err.is_key_store_not_found());
+        assert!(err.is_not_found());
     }
 
     #[test]

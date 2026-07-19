@@ -23,6 +23,7 @@ pub mod identity_key_log;
 pub mod identity_link_cache;
 pub mod member_identity;
 pub mod proof;
+pub mod service_identity;
 pub mod session_credential;
 
 pub use account::*;

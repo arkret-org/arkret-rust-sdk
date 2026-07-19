@@ -191,11 +191,11 @@ fn ed25519_vectors_round_trip_through_signer_and_verifier() {
 
 #[test]
 fn dev_proof_vectors_are_rejected_by_production_verifier() {
-    use arkret_core::Hash;
     use arkret_signatures::proof::{
         EventVerifier, ProductionVerifier, ProofType, PublicKeyMaterial, VerifierError,
         build_proof_envelope,
     };
+    use arkret_wire::Hash;
 
     let suite: DevProofVectors = read_vectors("dev_proofs.json");
     assert!(

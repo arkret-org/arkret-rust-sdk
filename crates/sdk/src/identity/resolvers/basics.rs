@@ -87,17 +87,33 @@ where
     fn resolve_verification_method(
         &self,
         verification_method: &str,
-    ) -> Result<arkret_signatures::VerificationMethodDocument> {
-        let did = verification_method_did(verification_method)?;
-        let document = self.resolver.resolve_did(&did)?;
+    ) -> arkret_signatures::Result<arkret_signatures::VerificationMethodDocument> {
+        let did = verification_method_did(verification_method).map_err(to_signature_error)?;
+        let document = self
+            .resolver
+            .resolve_did(&did)
+            .map_err(to_signature_error)?;
         let (method_id, public_key_value) =
-            lookup_verification_method_value(&document, verification_method)?;
+            lookup_verification_method_value(&document, verification_method)
+                .map_err(to_signature_error)?;
         Ok(arkret_signatures::VerificationMethodDocument {
             did: document.id,
             verification_method: method_id,
             public_key_multibase: public_key_value,
             controller: None,
         })
+    }
+}
+
+/// Downcast the SDK facade error into the signature-layer error for the
+/// resolver adapter above. The signatures crate owns its boundary error and
+/// (by design) has no `From<arkret_core::Error>`; the facade message is
+/// carried verbatim.
+fn to_signature_error(error: Error) -> arkret_signatures::Error {
+    match error {
+        Error::Protocol(message) => arkret_signatures::Error::Protocol(message),
+        Error::Crypto(message) => arkret_signatures::Error::Crypto(message),
+        other => arkret_signatures::Error::Protocol(other.to_string()),
     }
 }
 
@@ -119,17 +135,23 @@ where
     R: DidResolver + ?Sized,
 {
     let adapter = DidDocumentVerificationMethodResolver::new(resolver);
-    arkret_signatures::verify_proof_with_resolver(proof, context, &adapter, |method, proof| {
-        let public_key = public_key_material_from_did_document_value(&method.public_key_multibase)?;
-        arkret_signatures::verify_eddsa_detached_jws_proof(
-            proof,
-            canonical_bytes,
-            binding_actor_id,
-            &public_key,
-        )
-        .map_err(Error::from)?;
-        Ok(true)
-    })
+    Ok(arkret_signatures::verify_proof_with_resolver(
+        proof,
+        context,
+        &adapter,
+        |method, proof| {
+            let public_key =
+                public_key_material_from_did_document_value(&method.public_key_multibase)
+                    .map_err(to_signature_error)?;
+            arkret_signatures::verify_eddsa_detached_jws_proof(
+                proof,
+                canonical_bytes,
+                binding_actor_id,
+                &public_key,
+            )?;
+            Ok(true)
+        },
+    )?)
 }
 
 /// Verify an Event Envelope proof with DID-document key discovery.

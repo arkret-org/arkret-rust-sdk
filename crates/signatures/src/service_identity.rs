@@ -1,10 +1,14 @@
 //! Typed `ServiceRegistrationReceipt` proof signing and verification.
 
-use arkret_core::{
-    Error, Result, ServiceDidDocument, ServiceRegistrationReceipt, ServiceWebvhDataIntegrityProof,
+use arkret_canonical::multibase::{
     decode_ed25519_multibase, decode_multibase_base58btc, encode_base58btc,
 };
+use arkret_models_identity::service_identity::{
+    ServiceDidDocument, ServiceRegistrationReceipt, ServiceWebvhDataIntegrityProof,
+};
 use ed25519_dalek::{SIGNATURE_LENGTH, Signature, Signer, SigningKey, VerifyingKey};
+
+use crate::{Error, Result};
 
 /// Produce the canonical Provider proof for a typed service-registration
 /// receipt. Transcript construction remains owned by `arkret-core`.
@@ -78,10 +82,11 @@ pub fn verify_registration_receipt_proof(
 
 #[cfg(test)]
 mod tests {
-    use arkret_core::{
-        CanonicalServiceUrl, Did, ServiceDidVerificationMethod, ServiceRegistrationKey,
-        ServiceType, ed25519_pubkey_to_did_key_multibase,
+    use arkret_canonical::multibase::ed25519_pubkey_to_did_key_multibase;
+    use arkret_models_identity::service_identity::{
+        CanonicalServiceUrl, ServiceDidVerificationMethod, ServiceRegistrationKey,
     };
+    use arkret_wire::{Did, ServiceType};
 
     use super::*;
 

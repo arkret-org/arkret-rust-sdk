@@ -7,11 +7,11 @@
 //! not an early rejection.
 
 use arkret_canonical::canonical;
-use arkret_core::{Did, Hash};
 use arkret_signatures::proof::{
     PublicKeyMaterial, build_proof_envelope, sign_eddsa_detached_jws,
     verify_eddsa_detached_jws_proof,
 };
+use arkret_wire::{Did, Hash};
 use criterion::{Criterion, criterion_group, criterion_main};
 
 fn bench_proof_verify(c: &mut Criterion) {

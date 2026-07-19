@@ -4,8 +4,7 @@
 //! feature is disabled. Constructors return [`KeyStoreError::Unsupported`];
 //! trait methods do the same so naive callers don't panic.
 
-use arkret_core::{KeyBytes, Result};
-
+use crate::contract::{KeyBytes, Result};
 use crate::{KeyStore, KeyStoreError};
 
 /// Windows Credential Manager-backed [`KeyStore`] (off-target stub).
@@ -27,19 +26,27 @@ impl WindowsCredentialKeyStore {
 
 impl KeyStore for WindowsCredentialKeyStore {
     fn load(&self, _id: &str) -> Result<KeyBytes> {
-        Err(KeyStoreError::unsupported("WindowsCredentialKeyStore (stub)").into())
+        Err(KeyStoreError::unsupported(
+            "WindowsCredentialKeyStore (stub)",
+        ))
     }
 
     fn store(&self, _id: &str, _key: &[u8]) -> Result<()> {
-        Err(KeyStoreError::unsupported("WindowsCredentialKeyStore (stub)").into())
+        Err(KeyStoreError::unsupported(
+            "WindowsCredentialKeyStore (stub)",
+        ))
     }
 
     fn list(&self) -> Result<Vec<String>> {
-        Err(KeyStoreError::unsupported("WindowsCredentialKeyStore (stub)").into())
+        Err(KeyStoreError::unsupported(
+            "WindowsCredentialKeyStore (stub)",
+        ))
     }
 
     fn delete(&self, _id: &str) -> Result<()> {
-        Err(KeyStoreError::unsupported("WindowsCredentialKeyStore (stub)").into())
+        Err(KeyStoreError::unsupported(
+            "WindowsCredentialKeyStore (stub)",
+        ))
     }
 }
 

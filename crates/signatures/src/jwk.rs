@@ -2,8 +2,10 @@
 
 use std::collections::BTreeSet;
 
-use arkret_core::{Base64UrlString, Error, NonEmptyString, Result};
+use arkret_wire::{Base64UrlString, NonEmptyString};
 use serde::{Deserialize, Serialize};
+
+use crate::{Error, Result};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum JsonWebKeyUse {

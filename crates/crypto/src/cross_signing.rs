@@ -1,10 +1,12 @@
 //! Three-tier cross-signing key records and the stateless device chain verifier.
 
 use arkret_canonical::binding_contexts;
-use arkret_core::{CrossSigningPublish, DeviceId, Did, Result};
+use arkret_models_identity::CrossSigningPublish;
+use arkret_wire::{DeviceId, Did};
 use serde::{Deserialize, Serialize};
 
 use crate::device::DeviceTrustState;
+use crate::errors::Result;
 
 /// Round 4 (spec a77b995) — canonical cell_subject for the CAS-register
 /// guarding `ak.cross_signing.publish`. The wire form is the tuple

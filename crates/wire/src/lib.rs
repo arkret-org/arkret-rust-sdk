@@ -31,6 +31,7 @@ pub mod event_envelope;
 pub mod event_receipt;
 pub mod events;
 pub mod generated;
+pub mod http_signature;
 pub mod move_event;
 pub mod notary;
 pub mod object_address;
@@ -61,6 +62,7 @@ pub use generated::{
     RELATION_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS, SERVICE_TYPE_DESCRIPTORS,
     SIGNATURE_ALGORITHMS, ServiceOperationDescriptor, ServiceOperationId, ServiceTypeDescriptor,
 };
+pub use http_signature::HttpMessageSignature;
 pub use move_event::{
     Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,
     Predicate, PredicateOp, SealBasis, SemanticRef,

@@ -24,7 +24,6 @@ keystore-encrypted-file = [
     "dep:getrandom",
     "dep:hkdf",
     "dep:sha2",
-    "dep:zeroize",
 ]
 # Platform KeyStore native backends. Each pulls its target-specific dep
 # only on the matching target_os via `[target.*]` blocks below, so
@@ -34,13 +33,13 @@ keystore-linux = ["dep:secret-service"]
 keystore-windows = ["dep:windows"]
 
 [dependencies]
-arkret-core = {workspace = true}
 atomic-write-file = {workspace = true,optional = true}
 chacha20poly1305 = {workspace = true,optional = true}
 getrandom = {workspace = true,optional = true}
 hkdf = {workspace = true,optional = true}
 sha2 = {workspace = true,optional = true}
-zeroize = {workspace = true,optional = true}
+thiserror = {workspace = true}
+zeroize = {workspace = true,default-features = true}
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = {workspace = true,optional = true}

@@ -19,7 +19,7 @@ fn route_method(method: &'static str) -> &'static str {
 }
 
 static SERVICE_ROUTES: std::sync::LazyLock<Vec<ServiceRoute>> = std::sync::LazyLock::new(|| {
-    arkret_core::SERVICE_OPERATION_DESCRIPTORS
+    arkret_wire::SERVICE_OPERATION_DESCRIPTORS
         .iter()
         .map(|descriptor| ServiceRoute {
             operation_id: descriptor.id.as_str(),

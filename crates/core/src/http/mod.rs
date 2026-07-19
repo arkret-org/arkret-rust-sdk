@@ -8,12 +8,13 @@
 mod bodies;
 mod params;
 mod paths;
-mod signature;
 
 #[cfg(test)]
 mod tests;
 
+// Wire envelope moved to `arkret-wire`; re-exported here until the core
+// facade retires (phase 5).
+pub use arkret_wire::HttpMessageSignature;
 pub use bodies::*;
 pub use params::*;
 pub use paths::*;
-pub use signature::*;

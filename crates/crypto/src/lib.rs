@@ -3,9 +3,10 @@
 //! ## Feature flags
 //!
 //! * `backup` — pulls in the [`backup`] module, which provides client-side Argon2id KDF,
-//!   XChaCha20-Poly1305 AEAD, a recovery-key codec, and a typed [`arkret_core::KeyBackup`] envelope
-//!   builder (spec: `crypto-media/key-management.md` §7). When the feature is off, the bare types
-//!   crate stays free of heavyweight crypto deps.
+//!   XChaCha20-Poly1305 AEAD, a recovery-key codec, and a typed
+//!   [`arkret_models_crypto::key_backup::KeyBackup`] envelope builder (spec:
+//!   `crypto-media/key-management.md` §7). When the feature is off, the bare types crate stays free
+//!   of heavyweight crypto deps.
 
 #[cfg(feature = "backup")]
 pub mod backup;
@@ -34,13 +35,12 @@ pub use session::*;
 mod tests {
     use std::collections::BTreeMap;
 
-    use arkret_core::{
-        BlobRef, DeviceId, Did, EncryptedPayload, EncryptedPayloadScheme, Error, EventId, Hash,
-        RealmId,
-    };
+    use arkret_models_crypto::encrypted_envelope::EncryptedPayload;
+    use arkret_wire::{BlobRef, DeviceId, Did, EncryptedPayloadScheme, EventId, Hash, RealmId};
     use chrono::Utc;
 
     use super::*;
+    use crate::errors::Error;
 
     fn did(name: &str) -> Did {
         Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()

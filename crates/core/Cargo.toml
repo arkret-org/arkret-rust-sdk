@@ -30,6 +30,14 @@ salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono", "arkr
 arkret-canonical = {workspace = true}
 arkret-event-draft = {workspace = true}
 arkret-hlc = {workspace = true}
+# Transitional (phase 2-b): the KeyStore contract moved to arkret-keystore;
+# core re-exports it until the facade retires (phase 5).
+arkret-keystore = {workspace = true}
+# Transitional (phase 2-b): arkret-signatures and arkret-crypto own their
+# boundary errors now; core keeps `From` bridges into its facade `Error` so
+# downstream `?` call sites stay green until the facade retires (phase 5).
+arkret-signatures = {workspace = true}
+arkret-crypto = {workspace = true}
 arkret-policy = {workspace = true}
 arkret-schema = {workspace = true}
 arkret-state = {workspace = true}

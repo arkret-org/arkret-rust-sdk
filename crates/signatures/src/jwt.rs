@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::result::Result;
 
 use arkret_canonical::base64url_decode;
-use arkret_core::NonEmptyString;
+use arkret_wire::NonEmptyString;
 use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
