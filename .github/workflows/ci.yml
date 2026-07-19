@@ -23,8 +23,8 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo +nightly fmt --all -- --check
-      - name: Guard protocol leaf dependency direction
-        run: python tools/check-leaf-dependencies.py
+      - name: Guard crate layering (frozen phase-0 exit review rules)
+        run: python tools/check-layering.py
       - name: Guard weak wire types and closed-schema boundaries
         run: |
           python tools/wire_value_audit.py --check
