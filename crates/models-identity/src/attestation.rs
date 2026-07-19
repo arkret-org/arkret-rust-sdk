@@ -1,9 +1,11 @@
 //! Structured attestation evidence for audited E2EE and audit agents.
 
-use super::*;
+use arkret_wire::{Did, Hash, Proof, RealmId};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 /// Attestation chain item format identifier.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AttestationChainFormat {
     X509Der,
@@ -19,7 +21,7 @@ pub enum AttestationChainFormat {
     Tpm2Quote,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AttestationChainItem {
     pub format: AttestationChainFormat,
 
@@ -29,7 +31,7 @@ pub struct AttestationChainItem {
 }
 /// Platform family identifier for attestation evidence.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AttestationPlatformFamily {
     TeeSgx,
@@ -48,7 +50,7 @@ pub enum AttestationPlatformFamily {
     SoftwareTestOnly,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AttestationPlatform {
     pub family: AttestationPlatformFamily,
 
@@ -59,7 +61,7 @@ pub struct AttestationPlatform {
     pub firmware_version: Option<String>,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AttestationMeasurement {
     pub code_digest: Hash,
 
@@ -70,7 +72,7 @@ pub struct AttestationMeasurement {
     pub report_data: Option<String>,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AttestationKey {
     pub alg: String,
 
@@ -79,7 +81,7 @@ pub struct AttestationKey {
     pub kid: Option<String>,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AttestationValidity {
     pub not_before: DateTime<Utc>,
 
@@ -87,7 +89,7 @@ pub struct AttestationValidity {
 }
 /// Revocation check method for the attestation chain.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AttestationRevocationMethod {
     SgxPccsCrl,
@@ -101,7 +103,7 @@ pub enum AttestationRevocationMethod {
     NoneSupported,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AttestationRevocation {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub method: Option<AttestationRevocationMethod>,
@@ -114,7 +116,7 @@ pub struct AttestationRevocation {
 }
 /// Audit purpose declared by this attestation evidence.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AuditPurpose {
     ComplianceLawfulAccess,
@@ -134,7 +136,7 @@ pub enum AuditPurpose {
 /// model — see `crates/wire/src/generated/event_kinds.rs` and
 /// zh/crypto-media/audited-e2ee.md §2 (attested_hardware binding).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AttestationEvidence {
     pub evidence_id: String,
 

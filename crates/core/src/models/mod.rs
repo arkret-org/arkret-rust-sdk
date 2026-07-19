@@ -20,13 +20,17 @@ use sha2::Sha256;
 use crate::{Error, Result, SealId, canonical};
 
 mod account;
-mod actor_profile;
+mod actor_profile {
+    pub use arkret_models_identity::actor_profile::*;
+}
 mod agent;
 mod agent_participation;
 mod applet;
 mod applet_install_plan;
 mod artifacts;
-mod attestation;
+mod attestation {
+    pub use arkret_models_identity::attestation::*;
+}
 mod authorization;
 mod blob;
 mod circle;
@@ -36,8 +40,12 @@ mod constants {
 }
 mod cross_signing;
 mod delivery_binding;
-mod device_verification;
-mod did_continuity;
+mod device_verification {
+    pub use arkret_models_identity::device_verification::*;
+}
+mod did_continuity {
+    pub use arkret_models_identity::did_continuity::*;
+}
 mod direct_conversation;
 mod directory;
 mod ephemeral;
@@ -50,7 +58,9 @@ mod governance_payloads;
 mod handle;
 mod history_visibility;
 mod identity;
-mod identity_link_cache;
+mod identity_link_cache {
+    pub use arkret_models_identity::identity_link_cache::*;
+}
 mod invite_addressing;
 mod key_backup;
 mod keys;

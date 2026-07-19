@@ -125,6 +125,7 @@ pub use arkret_core::{
     service, sync, *,
 };
 pub use arkret_crypto::identity_root;
+pub use arkret_egress_policy as network_policy;
 pub use arkret_ffi as ffi;
 #[cfg(feature = "client")]
 pub use arkret_http_client as http_client;
@@ -134,7 +135,6 @@ pub use arkret_keystore::{
     BackendKind, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore, WindowsCredentialKeyStore,
     durable_platform_keystore, platform_default_keystore_with_kind,
 };
-pub use arkret_egress_policy as network_policy;
 #[cfg(feature = "server")]
 pub use arkret_server as server;
 pub use arkret_signatures as signatures;

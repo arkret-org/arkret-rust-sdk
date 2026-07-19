@@ -24,7 +24,7 @@ embedded-artifacts = ["arkret-schema/embedded-artifacts"]
 # lives in arkret-http-client (ARCHITECTURE.md: core is the wire-model layer).
 client = []
 mls = ["arkret-policy/mls"]
-salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono", "arkret-identifiers/salvo", "arkret-wire/salvo-oapi", "arkret-models-collaboration/salvo-oapi", "arkret-models-discovery/salvo-oapi", "arkret-models-integration/salvo-oapi", "arkret-schema/salvo-oapi", "arkret-policy/salvo-oapi"]
+salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono", "arkret-identifiers/salvo", "arkret-wire/salvo-oapi", "arkret-models-identity/salvo-oapi", "arkret-models-collaboration/salvo-oapi", "arkret-models-discovery/salvo-oapi", "arkret-models-integration/salvo-oapi", "arkret-schema/salvo-oapi", "arkret-policy/salvo-oapi"]
 
 [dependencies]
 arkret-canonical = {workspace = true}
@@ -32,6 +32,7 @@ arkret-policy = {workspace = true}
 arkret-schema = {workspace = true}
 arkret-state = {workspace = true}
 arkret-wire = {workspace = true}
+arkret-models-identity = {workspace = true}
 arkret-models-collaboration = {workspace = true}
 arkret-models-discovery = {workspace = true}
 arkret-models-integration = {workspace = true}

@@ -1,6 +1,9 @@
 //! Identity-link cache projection helpers.
 
-use super::*;
+use arkret_wire::{DeviceId, Did, RealmId, Result, canonical};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 /// Compute the canonical-JSON SHA-256 of the four policy-frontier fields
 /// that gate identity link routing. Round R2/R3.
 ///
@@ -40,7 +43,7 @@ pub fn compute_policy_frontier_digest(
 /// `minimal_metadata_mode`) have shifted at the policy frontier and the
 /// cached link must be re-derived.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct IdentityLinkCacheEntry {
     pub pairwise_did: Did,
 
@@ -67,7 +70,13 @@ mod serde_bytes_32_hex {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     pub fn serialize<S: Serializer>(value: &[u8; 32], s: S) -> Result<S::Ok, S::Error> {
-        let hex = hex::encode(value);
+        use std::fmt::Write as _;
+
+        let mut hex = String::with_capacity(64);
+
+        for byte in value {
+            write!(hex, "{byte:02x}").expect("writing hex into a String cannot fail");
+        }
 
         hex.serialize(s)
     }

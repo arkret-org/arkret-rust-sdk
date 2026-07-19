@@ -11,7 +11,10 @@
 
 use super::*;
 
-mod account;
+mod account {
+    pub use arkret_models_identity::artifacts_account::*;
+}
+mod account_sync;
 mod agent;
 mod applet;
 mod authorization;
@@ -31,6 +34,7 @@ mod sync;
 mod view;
 
 pub use account::*;
+pub use account_sync::*;
 pub use agent::*;
 pub use applet::*;
 pub use authorization::*;

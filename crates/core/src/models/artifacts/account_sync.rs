@@ -1,4 +1,9 @@
-//! Account and sync schema artifact counterparts.
+//! Account-subscribe sync frame artifact counterparts.
+//!
+//! The identity-face account-operations counterparts migrated to
+//! `arkret-models-identity` (`artifacts_account`); this file keeps the
+//! sync-frame containers that embed core-only types (`Event`,
+//! `MemberRosterEntry`, `EphemeralEnvelope`, `Patch`).
 
 use super::*;
 
@@ -19,48 +24,8 @@ pub enum AccountOperations {
     SessionRevokeOutcome(SessionRevokeOutcome),
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/device_summaries`.
-pub type DeviceSummaries = Vec<DeviceSummary>;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/device_summary`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DeviceSummary {
-    pub device_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<DisplayName>,
-    pub status: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorized_event_ref: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorized_at: Option<Timestamp>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub last_seen_at: Option<Timestamp>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revoked_at: Option<Timestamp>,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/display_name`.
-pub type DisplayName = String;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/handle_claim_digests`.
-pub type HandleClaimDigests = Vec<Hash>;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/handle_claim_ref`.
-pub type HandleClaimRef = String;
-
 /// Counterpart for `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/profile_patch`.
 pub type ProfilePatch = Patch;
-
-/// Counterpart for `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/sha256_digest`.
-pub type Sha256Digest = Hash;
-
-/// Counterpart for `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/timestamp`.
-pub type Timestamp = DateTime<Utc>;
 
 /// Closed action set for account notification projection deltas.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,0 +1,26 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+categories = ["api-bindings", "data-structures"]
+description = "Arkret v1 identity domain models: account, actor profile, device, DID continuity, and handle wire shapes."
+edition = "2024"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+keywords = ["arkret", "identity", "account", "wire"]
+license = "Apache-2.0"
+name = "arkret-models-identity"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+default = []
+salvo-oapi = ["dep:salvo", "salvo/oapi", "arkret-wire/salvo-oapi"]
+
+[dependencies]
+arkret-wire = {workspace = true}
+chrono = {workspace = true,features = ["serde"]}
+salvo = {workspace = true,features = ["oapi"],optional = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
+
+[lints]
+workspace = true

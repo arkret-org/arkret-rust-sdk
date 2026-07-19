@@ -1,9 +1,14 @@
 //! Actor profile model.
 
-use super::*;
+use std::collections::BTreeMap;
+
+use arkret_wire::{ActorKind, ActorProfileId, ActorStatus, BlobRef, Did, RealmId};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ActorProfile {
     pub id: ActorProfileId,
