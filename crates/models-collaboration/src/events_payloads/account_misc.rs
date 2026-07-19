@@ -3,7 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::*;
+use crate::internal_prelude::*;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json`.
 pub type EventPayload = GenericStandardPayload;

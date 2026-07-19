@@ -3,12 +3,14 @@
 use std::collections::BTreeMap;
 use std::num::NonZeroU64;
 
+use arkret_canonical::serde_helpers::{
+    deserialize_canonical_timestamp, serialize_canonical_timestamp,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::serde_helpers::{deserialize_canonical_timestamp, serialize_canonical_timestamp};
-use crate::*;
+use crate::internal_prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -502,6 +504,22 @@ impl<'de> Deserialize<'de> for MlsGenesisPayload {
             created_at: wire.created_at,
         })
     }
+}
+
+/// Lifecycle of a published KeyPackage per `device-lifecycle.md` §2 /
+/// `encryption-and-audit.md` §2.6. Once a KeyPackage is `claimed` it
+/// MUST NOT be re-claimed; once `consumed` it MUST NOT return to
+/// `published`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum MlsKeyPackageState {
+    #[default]
+    Published,
+    Claimed,
+    Consumed,
+    Expired,
+    Revoked,
 }
 
 /// Counterpart for

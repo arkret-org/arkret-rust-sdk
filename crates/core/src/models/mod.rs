@@ -50,7 +50,9 @@ mod device_verification {
 mod did_continuity {
     pub use arkret_models_identity::did_continuity::*;
 }
-mod direct_conversation;
+mod direct_conversation {
+    pub use arkret_models_collaboration::objects::direct_conversation::*;
+}
 mod directory;
 mod ephemeral;
 mod event_accessors;

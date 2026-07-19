@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::canonical::is_nfc;
 use crate::sync::PresenceStatus;
+pub use crate::sync::aggregate_presence_states;
 
 /// Account Data key holding the principal-private manual presence
 /// preference (profiles-presence.md §3.6). Written through
@@ -62,59 +63,6 @@ pub enum PresenceValidationError {
     StatusMessageControlChar,
     #[error("manual_state cannot be `offline`")]
     ManualStateOffline,
-}
-
-impl PresenceStatus {
-    /// Strict closed-set wire parse (§3.2). Unknown values return
-    /// `None` — the receiver MUST drop the update / fail closed with
-    /// `schema_violation`, never guess a nearby state (historic
-    /// `unavailable` / `busy` are not v1 wire values).
-    pub fn parse_wire(value: &str) -> Option<Self> {
-        match value {
-            "online" => Some(Self::Online),
-            "idle" => Some(Self::Idle),
-            "dnd" => Some(Self::Dnd),
-            "offline" => Some(Self::Offline),
-            _ => None,
-        }
-    }
-
-    /// Canonical wire string for this state.
-    pub fn as_wire(self) -> &'static str {
-        match self {
-            Self::Online => "online",
-            Self::Idle => "idle",
-            Self::Dnd => "dnd",
-            Self::Offline => "offline",
-        }
-    }
-
-    /// Multi-device aggregation priority (§3.3): `dnd > online >
-    /// idle > offline`. `dnd` only appears when pinned manually, so
-    /// it wins; an actively-used device beats an idle one.
-    fn aggregation_rank(self) -> u8 {
-        match self {
-            Self::Dnd => 3,
-            Self::Online => 2,
-            Self::Idle => 1,
-            Self::Offline => 0,
-        }
-    }
-}
-
-/// Aggregate the unexpired per-device states of one actor into the
-/// single displayed state (§3.3): highest priority wins
-/// (`dnd > online > idle`); no unexpired signal at all means
-/// `offline`. Callers filter expiry (`expires_at` / `ttl_ms`) before
-/// calling.
-pub fn aggregate_presence_states<I>(states: I) -> PresenceStatus
-where
-    I: IntoIterator<Item = PresenceStatus>,
-{
-    states
-        .into_iter()
-        .max_by_key(|state| state.aggregation_rank())
-        .unwrap_or(PresenceStatus::Offline)
 }
 
 /// Validate a `last_active_at` wire value (§3.3).

@@ -3,7 +3,9 @@
 //! and MIMI interop shapes, blob artifacts, productivity profiles, and
 //! read-cursor/read-receipt/notification wire shapes.
 
+pub mod account_status;
 pub mod blob;
+pub mod direct_conversation;
 pub mod interop;
 pub mod media;
 pub mod mimi;

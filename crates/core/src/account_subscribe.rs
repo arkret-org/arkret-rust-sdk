@@ -1,62 +1,19 @@
 //! Incremental folding for `ak.self.account.stream.subscribe` frames.
+//!
+//! The frame family and validated batch result types migrated to
+//! `arkret-models-collaboration` (`sync_frames::account_subscribe`,
+//! re-exported below). [`AccountSubscribeFolder`] stays here: it is the
+//! client consumption-side state machine over those frames.
+
+pub use arkret_models_collaboration::sync_frames::account_subscribe::{
+    AccountSubscribeBatch, AccountSubscribeReconnectAfter, AccountSubscribeSnapshotResult,
+    DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS, MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS,
+};
 
 use crate::{
     AccountSubscribeFrame, AccountSubscribeFrameKind, Error, Result, StreamTraceValidator,
     SyncRequestBody,
 };
-
-pub const DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS: u64 = 5_000;
-pub const MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS: u64 = 60_000;
-
-#[derive(Clone, Debug)]
-pub enum AccountSubscribeSnapshotResult {
-    Batch(AccountSubscribeBatch),
-    ReconnectAfter {
-        reconnect_after_ms: u64,
-        reconnect_cursor: Option<String>,
-        reason: Option<String>,
-        reset_cursor: bool,
-    },
-}
-
-/// Validated account-subscribe catch-up step.
-///
-/// `frames` may be empty when a bounded long-poll expires without account
-/// changes. In that case the wire trace contains a cursor-bearing `frontier`
-/// followed by `catchup_complete`; the cursor still advances the reconnect
-/// baseline while the projection update is intentionally empty.
-#[derive(Clone, Debug)]
-pub struct AccountSubscribeBatch {
-    pub frames: Vec<AccountSubscribeFrame>,
-    pub cursor: String,
-}
-
-#[derive(Clone, Debug)]
-pub struct AccountSubscribeReconnectAfter {
-    pub reconnect_after_ms: u64,
-    pub reconnect_cursor: Option<String>,
-    pub reason: Option<String>,
-    pub reset_cursor: bool,
-}
-
-impl std::fmt::Display for AccountSubscribeReconnectAfter {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.reason.as_deref() {
-            Some(reason) => write!(
-                formatter,
-                "account subscribe requested reconnect after {} ms: {}",
-                self.reconnect_after_ms, reason
-            ),
-            None => write!(
-                formatter,
-                "account subscribe requested reconnect after {} ms",
-                self.reconnect_after_ms
-            ),
-        }
-    }
-}
-
-impl std::error::Error for AccountSubscribeReconnectAfter {}
 
 fn clamp_reconnect_after_ms(raw: Option<u64>) -> u64 {
     raw.unwrap_or(DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS)

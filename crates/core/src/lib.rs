@@ -95,7 +95,9 @@ pub mod signer {
     pub use arkret_wire::signer::*;
 }
 pub mod stream_trace;
-pub mod sync;
+pub mod sync {
+    pub use arkret_models_collaboration::sync_frames::client_sync::*;
+}
 
 pub use account_subscribe::{
     AccountSubscribeBatch, AccountSubscribeFolder, AccountSubscribeReconnectAfter,

@@ -9,8 +9,11 @@
 //! plus the first event-payload faces migrated from `arkret-core`.
 
 pub mod events_payloads;
+pub mod federation;
 pub mod governance;
+mod internal_prelude;
 pub mod objects;
+pub mod sync_frames;
 
 pub use governance::audit::{AccessKind, AuditPolicyAccessPayload};
 

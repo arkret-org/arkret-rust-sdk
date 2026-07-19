@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::*;
+use crate::internal_prelude::*;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/call_participant`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

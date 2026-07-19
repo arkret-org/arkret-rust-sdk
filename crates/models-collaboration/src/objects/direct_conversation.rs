@@ -1,9 +1,9 @@
 //! Direct-conversation helpers shared by SDK consumers.
 
-use super::*;
+use crate::internal_prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationPairKeyParticipant {
     pub did: Did,

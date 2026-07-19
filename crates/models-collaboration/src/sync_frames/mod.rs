@@ -1,0 +1,12 @@
+//! Sync and subscription frame wire models.
+//!
+//! Client sync request/filter/subscription/backfill shapes, the
+//! account-subscribe NDJSON frame family and its validated batch results,
+//! the shared stream-trace sequence validator, account-subscribe frame
+//! containers, and snapshot/range-attestation artifact counterparts.
+
+pub mod account_subscribe;
+pub mod account_sync;
+pub mod client_sync;
+pub mod snapshot;
+pub mod stream_trace;

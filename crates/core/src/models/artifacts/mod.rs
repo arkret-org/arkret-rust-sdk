@@ -14,7 +14,37 @@ use super::*;
 mod account {
     pub use arkret_models_identity::artifacts_account::*;
 }
-mod account_sync;
+mod account_sync {
+    //! The sync-frame containers migrated to `arkret-models-collaboration`
+    //! (`sync_frames::account_sync`, re-exported below). The
+    //! account-operations aggregation stays: it composes the core account
+    //! HTTP body DTOs.
+
+    pub use arkret_models_collaboration::sync_frames::account_sync::*;
+
+    use super::*;
+
+    /// Counterpart for `spec/v1/artifacts/schemas/account-operations.schema.json`.
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    #[serde(untagged)]
+    pub enum AccountOperations {
+        AccountView(AccountView),
+        AccountHandoffRequestBody(AccountHandoffRequestBody),
+        AccountHandoffOutcome(AccountHandoffOutcome),
+        IdentityBindingChallengeRequestBody(IdentityBindingChallengeRequestBody),
+        IdentityBindingChallengeOutcome(IdentityBindingChallengeOutcome),
+        AccountRegisterRequestBody(AccountRegisterRequestBody),
+        AccountRegisterOutcome(AccountRegisterOutcome),
+        AccountUpdateProfileRequestBody(AccountUpdateProfileRequestBody),
+        AccountUpdateProfileOutcome(AccountUpdateProfileOutcome),
+        SessionRevokeRequestBody(SessionRevokeRequestBody),
+        SessionRevokeOutcome(SessionRevokeOutcome),
+    }
+
+    /// Counterpart for
+    /// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/profile_patch`.
+    pub type ProfilePatch = Patch;
+}
 mod agent;
 mod applet;
 mod authorization;
@@ -22,17 +52,23 @@ mod blob;
 mod contact_directory;
 mod device_identity;
 mod event_payload;
-mod event_wire;
+mod event_wire {
+    pub use arkret_models_collaboration::events_payloads::event_wire::*;
+}
 mod interop;
 mod keys;
-mod moderation;
+mod moderation {
+    pub use arkret_models_collaboration::events_payloads::moderation::*;
+}
 mod object_facets {
     pub use arkret_models_collaboration::objects::object_facets::*;
 }
 mod push;
 mod self_ops;
 mod service;
-mod sync;
+mod sync {
+    pub use arkret_models_collaboration::sync_frames::snapshot::*;
+}
 mod view {
     pub use arkret_models_collaboration::objects::view::*;
 }

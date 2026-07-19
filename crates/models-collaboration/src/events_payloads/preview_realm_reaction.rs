@@ -7,8 +7,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::models::{HistoryKeySource, RealmKeyWithheldReasonCode};
-use crate::*;
+use crate::internal_prelude::*;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/preview_policy_payload`.
@@ -198,7 +197,7 @@ pub struct RealmDisappearingPolicyPayload {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_freeze_payload`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmFreezePayload {
     pub frozen: bool,
@@ -271,7 +270,7 @@ pub struct RealmInheritancePolicyPayload {
 /// `relationship` discriminator for [`RealmOrganizationPayload`]
 /// (event-payload.schema.json `#/$defs/realm_organization_payload`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmOrganizationRelationship {
     Owner,
@@ -282,7 +281,7 @@ pub enum RealmOrganizationRelationship {
 
 /// `status` discriminator for [`RealmOrganizationPayload`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmOrganizationStatus {
     Active,
@@ -293,7 +292,7 @@ pub enum RealmOrganizationStatus {
 /// endorsement boundary only; actual Realm control still requires the matching
 /// Realm policy / notary / capability / service-binding event.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmOrganizationControlScope {
     OfficialBadge,
@@ -310,7 +309,7 @@ pub enum RealmOrganizationControlScope {
 
 /// `authorization.issuer_role` enum for [`RealmOrganizationAuthorization`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmOrganizationIssuerRole {
     OrganizationDid,
@@ -474,7 +473,7 @@ pub struct RealmKeyRequestScope {
 /// `ak.realm_key.share` `ciphertext`.
 ///
 /// `requested_source_class` reuses the authoritative
-/// [`crate::models::HistoryKeySource`] (defined in `history_visibility.rs`).
+/// [`HistoryKeySource`] (defined in `history_visibility.rs`).
 /// The direct request/share path is not allowed to request the
 /// [`HistoryKeySource::KeyBackup`] class — backup-derived history keys are out
 /// of scope here; [`RealmKeyRequestPayload::validate`] rejects it.
@@ -517,7 +516,7 @@ pub enum RealmKeySourceRef {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmKeyShareResult {
     Shared,
@@ -551,7 +550,7 @@ pub struct RealmKeyShareAuditPayload {
 /// (carries `recipient_verification_method` + `recovery_recipient_id`, never a
 /// device id) — see encryption-and-audit.md §2.10.8.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmKeyShareClass {
     MemberDevice,

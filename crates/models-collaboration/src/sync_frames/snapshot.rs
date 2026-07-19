@@ -1,6 +1,6 @@
 //! Sync, realm, and snapshot schema artifact counterparts.
 
-use super::*;
+use crate::internal_prelude::*;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/range-completeness-attestation.schema.json#/properties/event_range/
@@ -91,7 +91,7 @@ pub struct CellLattice {
     pub sentinel_writers: Option<Vec<String>>,
 }
 
-pub use arkret_models_collaboration::objects::realm::SyncEndpoint;
+pub use crate::objects::realm::SyncEndpoint;
 
 /// Counterpart for `spec/v1/artifacts/schemas/snapshot.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

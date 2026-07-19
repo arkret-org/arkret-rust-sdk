@@ -642,21 +642,7 @@ struct EncryptedPayloadDigestMetadata<'a> {
     pub aad: Option<&'a EncryptedEnvelopeAad>,
 }
 
-/// Lifecycle of a published KeyPackage per `device-lifecycle.md` §2 /
-/// `encryption-and-audit.md` §2.6. Once a KeyPackage is `claimed` it
-/// MUST NOT be re-claimed; once `consumed` it MUST NOT return to
-/// `published`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum MlsKeyPackageState {
-    #[default]
-    Published,
-    Claimed,
-    Consumed,
-    Expired,
-    Revoked,
-}
+pub use arkret_models_collaboration::events_payloads::list_message_mimi_mls::MlsKeyPackageState;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

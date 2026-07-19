@@ -1,6 +1,6 @@
 //! Moderation schema artifact counterparts.
 
-use super::*;
+use crate::internal_prelude::*;
 
 /// Counterpart for `spec/v1/artifacts/schemas/moderation-appeal.schema.json`.
 pub type ModerationAppeal = BTreeMap<String, Value>;

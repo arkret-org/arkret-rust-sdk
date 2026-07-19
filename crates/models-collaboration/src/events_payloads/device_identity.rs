@@ -7,7 +7,7 @@ use std::num::NonZeroU64;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::*;
+use crate::internal_prelude::*;
 
 pub const DEVICE_AUTHORIZE_BINDING_ONE_OF_REASON: &str = "device_authorize_binding_one_of";
 
@@ -569,11 +569,12 @@ impl DirectConversationBoundPayload {
 
 #[cfg(test)]
 mod tests {
+    use arkret_models_identity::artifacts_device_identity::DeviceEnrollmentAuthorityBindingKind;
     use serde_json::json;
 
     use super::*;
 
-    fn device_authorize_value() -> serde_json::Value {
+    fn device_authorize_value() -> Value {
         json!({
             "principal_id": "did:webvh:z6mkfixture:alice.example",
             "device_id": "ak:device:01904100-0000-7000-8000-a11ce0000001",

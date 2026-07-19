@@ -299,6 +299,7 @@ name = "arkret-models-collaboration"
 version = "0.3.0"
 dependencies = [
  "arkret-canonical",
+ "arkret-identifiers",
  "arkret-models-crypto",
  "arkret-models-identity",
  "arkret-wire",

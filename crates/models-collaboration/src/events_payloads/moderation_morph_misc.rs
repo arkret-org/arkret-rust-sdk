@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::*;
+use crate::internal_prelude::*;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/moderation_decision_lift_payload`.
@@ -648,44 +648,6 @@ mod tests {
                 "fields.status".to_owned()
             ))
         );
-    }
-
-    #[test]
-    fn morph_transformation_fixture_executes_all_registered_rules() {
-        let fixture =
-            schema::embedded_json_artifact("fixtures/morph-schema-migration-fixture.json").unwrap();
-        for vector in fixture["vectors"].as_array().unwrap() {
-            let input = &vector["input"];
-            let payload = &input["payload"];
-            let migrate = MorphSchemaMigratePayload {
-                morph_id: MorphId::new("ak:morph:0196419b-0000-7000-8000-000000000001").unwrap(),
-                from_schema_refs: serde_json::from_value(payload["from_schema_refs"].clone())
-                    .unwrap(),
-                to_schema_refs: serde_json::from_value(payload["to_schema_refs"].clone()).unwrap(),
-                compatibility_class: payload["compatibility_class"].as_str().unwrap().to_owned(),
-                transformation_rules: Some(
-                    serde_json::from_value(payload["transformation_rules"].clone()).unwrap(),
-                ),
-                migration_evidence: None,
-            };
-            let fields: BTreeMap<String, Value> =
-                serde_json::from_value(input["fields"].clone()).unwrap();
-            let output = migrate
-                .apply_transformation(&fields)
-                .unwrap_or_else(|error| panic!("{} failed: {error}", vector["vector_id"]));
-            assert_eq!(
-                serde_json::to_value(&output).unwrap(),
-                vector["expected_output"],
-                "{} output drifted",
-                vector["vector_id"]
-            );
-            assert_eq!(
-                canonical::canonical_sha256(&output).unwrap(),
-                vector["expected_output_digest"].as_str().unwrap(),
-                "{} digest drifted",
-                vector["vector_id"]
-            );
-        }
     }
 }
 

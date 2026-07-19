@@ -1,6 +1,6 @@
 //! Event wire schema artifact counterparts.
 
-use super::*;
+use crate::internal_prelude::*;
 
 /// Counterpart for `spec/v1/artifacts/schemas/disappearing-messages.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

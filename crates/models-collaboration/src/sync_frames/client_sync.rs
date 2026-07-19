@@ -12,14 +12,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{
-    DeviceId, Did, EphemeralEnvelope, Error, Event, EventId, Hlc, NotificationDelta, RealmId,
-    Result, canonical,
-};
+use crate::internal_prelude::*;
 
 /// Query parameters for `ak.self.account.stream.subscribe`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SyncRequestBody {
     /// Exclusive stream cursor used to resume account-aggregate delivery.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -44,7 +41,7 @@ pub struct SyncRequestBody {
 /// (fail closed) instead of guessing a nearby state; use
 /// [`PresenceStatus::parse_wire`] for that strict path.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PresenceStatus {
     Online,
@@ -53,9 +50,62 @@ pub enum PresenceStatus {
     Offline,
 }
 
+impl PresenceStatus {
+    /// Strict closed-set wire parse (§3.2). Unknown values return
+    /// `None` — the receiver MUST drop the update / fail closed with
+    /// `schema_violation`, never guess a nearby state (historic
+    /// `unavailable` / `busy` are not v1 wire values).
+    pub fn parse_wire(value: &str) -> Option<Self> {
+        match value {
+            "online" => Some(Self::Online),
+            "idle" => Some(Self::Idle),
+            "dnd" => Some(Self::Dnd),
+            "offline" => Some(Self::Offline),
+            _ => None,
+        }
+    }
+
+    /// Canonical wire string for this state.
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            Self::Online => "online",
+            Self::Idle => "idle",
+            Self::Dnd => "dnd",
+            Self::Offline => "offline",
+        }
+    }
+
+    /// Multi-device aggregation priority (§3.3): `dnd > online >
+    /// idle > offline`. `dnd` only appears when pinned manually, so
+    /// it wins; an actively-used device beats an idle one.
+    pub fn aggregation_rank(self) -> u8 {
+        match self {
+            Self::Dnd => 3,
+            Self::Online => 2,
+            Self::Idle => 1,
+            Self::Offline => 0,
+        }
+    }
+}
+
+/// Aggregate the unexpired per-device states of one actor into the
+/// single displayed state (§3.3): highest priority wins
+/// (`dnd > online > idle`); no unexpired signal at all means
+/// `offline`. Callers filter expiry (`expires_at` / `ttl_ms`) before
+/// calling.
+pub fn aggregate_presence_states<I>(states: I) -> PresenceStatus
+where
+    I: IntoIterator<Item = PresenceStatus>,
+{
+    states
+        .into_iter()
+        .max_by_key(|state| state.aggregation_rank())
+        .unwrap_or(PresenceStatus::Offline)
+}
+
 /// Sync filter for selective synchronization.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SyncFilter {
     /// Realm IDs to sync.
     #[serde(default)]
@@ -77,13 +127,13 @@ pub struct SyncFilter {
     pub not_event_types: Vec<String>,
     /// Forward-compatible service-specific filter extensions.
     #[serde(default, flatten)]
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub extra: BTreeMap<String, Value>,
 }
 
 /// Subscription configuration for realms.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SubscriptionConfig {
     /// Realm subscriptions.
     pub subscriptions: Vec<RealmSubscription>,
@@ -97,7 +147,7 @@ pub struct SubscriptionConfig {
 
 /// Realm subscription.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RealmSubscription {
     /// Realm ID.
     pub realm_id: RealmId,
@@ -111,7 +161,7 @@ pub struct RealmSubscription {
 
 /// Timeline filter options.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum TimelineFilter {
     /// All events
@@ -124,7 +174,7 @@ pub enum TimelineFilter {
 
 /// Backfill request for historical events.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct BackfillRequestBody {
     /// Realm ID to backfill.
     pub realm_id: RealmId,
@@ -140,7 +190,7 @@ pub struct BackfillRequestBody {
 
 /// Backfill starting point.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum BackfillFrom {
     /// Start from a cursor
@@ -153,7 +203,7 @@ pub enum BackfillFrom {
 
 /// Backfill direction.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum BackfillDirection {
     /// Backward (newer to older)
@@ -167,7 +217,7 @@ pub enum BackfillDirection {
 
 /// Backfill response.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct BackfillOutcome {
     /// Events in reverse chronological order
     pub events: Vec<Event>,
@@ -187,7 +237,7 @@ pub struct BackfillOutcome {
 /// Events sort by causal depth, HLC, actor ID, actor sequence and event ID. The
 /// caller supplies causal depth because it depends on the known event graph.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct TimelineOrderKey {
     /// Transitive causal depth in the local event graph.
     pub causal_depth: u64,
@@ -216,7 +266,7 @@ impl TimelineOrderKey {
 
 /// Stream position for one Realm at a sync boundary.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SyncStreamPosition {
     /// Realm covered by this position.
     pub realm_id: RealmId,
@@ -370,7 +420,7 @@ fn normalized_realm_subscription(subscription: &RealmSubscription) -> Value {
 
 /// Sync token binding context.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SyncTokenBinding {
     /// Opaque token received from the sync service.
     pub token: String,
@@ -443,7 +493,7 @@ impl SyncTokenBinding {
 
 /// Whether a request starts from scratch or resumes an existing token.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SyncMode {
     /// No `after` token. The response should establish full local state.
@@ -454,7 +504,7 @@ pub enum SyncMode {
 
 /// Client-visible sync semantics for one request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SyncSemantics {
     /// Initial or incremental.
     pub mode: SyncMode,
@@ -486,7 +536,7 @@ impl SyncSemantics {
 
 /// Realm membership bucket in sync responses and list projections.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MembershipBucket {
     /// Joined realms.
@@ -501,7 +551,7 @@ pub enum MembershipBucket {
 
 /// Reason a timeline gap exists locally.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SyncGapReason {
     /// Server returned `timeline.limited`.
@@ -514,7 +564,7 @@ pub enum SyncGapReason {
 
 /// Backfill gap descriptor created from a limited timeline or token expiry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SyncGap {
     /// Realm containing the gap.
     pub realm_id: RealmId,
@@ -533,7 +583,7 @@ pub struct SyncGap {
 
 /// Model for `timeline.limited` and the backfill work it creates.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct LimitedTimelineState {
     /// Realm containing the limited timeline.
     pub realm_id: RealmId,
@@ -549,7 +599,7 @@ pub struct LimitedTimelineState {
 
 impl LimitedTimelineState {
     /// Build limited timeline state from a sync timeline section.
-    pub fn from_timeline(realm_id: RealmId, timeline: &crate::models::Timeline) -> Self {
+    pub fn from_timeline(realm_id: RealmId, timeline: &Timeline) -> Self {
         let prev_event_id = timeline.events.first().map(|event| event.event_id.clone());
         let next_event_id = timeline.events.last().map(|event| event.event_id.clone());
         let gap = timeline.limited.then(|| SyncGap {
@@ -595,7 +645,7 @@ impl LimitedTimelineState {
 
 /// `X-Arkret-Wait-For` frontier wait request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct WaitForFrontier {
     /// Required positions before the server should return.
     #[serde(default)]
@@ -615,7 +665,7 @@ impl WaitForFrontier {
 
 /// To-device delivery acknowledgement state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ToDeviceAckStatus {
     /// Message was received by the client SDK.
@@ -628,7 +678,7 @@ pub enum ToDeviceAckStatus {
 
 /// Acknowledgement for one to-device message.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ToDeviceAck {
     /// Message ID from to-device content.
     pub message_id: String,
@@ -651,7 +701,7 @@ pub struct SyncUpdates {
     /// non-empty value indicates a misbehaving server.
     pub malformed_realms: Vec<String>,
     /// To-device messages
-    pub to_device: Vec<crate::models::DeviceMessageEnvelope>,
+    pub to_device: Vec<DeviceMessageEnvelope>,
     /// Opaque acknowledgement token for the delivered to-device batch.
     ///
     /// Issued by account subscribe when `to_device.messages[]` is non-empty
@@ -666,7 +716,7 @@ pub struct SyncUpdates {
     /// Whether the server reports an unacknowledged to-device queue gap.
     pub to_device_lost: bool,
     /// Device list changes
-    pub device_lists: crate::models::AccountSubscribeDeviceListChanges,
+    pub device_lists: AccountSubscribeDeviceListChanges,
     /// Broadcast presence signals from the dedicated ephemeral channel.
     pub presence: Vec<EphemeralEnvelope>,
     /// Account data
@@ -681,7 +731,7 @@ pub struct SyncUpdates {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RealmUpdate {
     pub realm_id: RealmId,
-    pub entry: crate::models::RealmSyncEntry,
+    pub entry: RealmSyncEntry,
 }
 
 #[cfg(test)]
@@ -689,7 +739,6 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-    use crate::RealmId;
 
     #[test]
     fn sync_request_serializes_correctly() {
@@ -942,7 +991,7 @@ mod tests {
             serde_json::json!({"body":"hello"}),
         )
         .unwrap();
-        let timeline = crate::models::Timeline {
+        let timeline = Timeline {
             events: vec![event],
             limited: true,
             prev_cursor: Some("backfill-token".to_owned()),
