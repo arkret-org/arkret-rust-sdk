@@ -5,7 +5,7 @@
 //! Conformance input version: 2026-07-13;
 //! sha256=a2db595ebe481e9408aff1ff3d21f38553b58b93f32c11626338b3bfdbb09b41; profiles=92.
 //! Reducer input version: 2026-07-16;
-//! sha256=60d745dc079d9a51724d4c44e1e4d806046ef3efce5bafbd58e498e84c0a3edb; active_profiles=5.
+//! sha256=786b49df5ea8f655e129b2dc102fdaf36f01816748ac60e83d282b2dacb5a13c; active_profiles=5.
 
 pub const PROFILE_IDS: &[&str] = &[
     "ak.profile.accountable_principals.strict_reject.v1",
@@ -110,7 +110,7 @@ pub fn is_profile_id(value: &str) -> bool {
 pub const REDUCER_PROFILE_DIGESTS: &[(&str, &str)] = &[
     (
         "ak.profile.chat_mvp.v1",
-        "sha256:12d87517ccb08246a4d042ba245321cc3ad742ca619e513d948e9e3a7d88435a",
+        "sha256:bb4527ddda88216ad778fb02883be6fdde54487dc67ed2c15aba293e4d4a1f76",
     ),
     (
         "ak.profile.core_event_store.v1",
@@ -118,7 +118,7 @@ pub const REDUCER_PROFILE_DIGESTS: &[(&str, &str)] = &[
     ),
     (
         "ak.profile.federation_minimal.v1",
-        "sha256:91452e3580ba25fa426005352d755ee1d3c2d4c90875aed1035da97dfaf82085",
+        "sha256:420b25dd41edb712bc8b9324431f094cb91e01d3f8cb3f93ad6d427f3b92f743",
     ),
     (
         "ak.profile.kanban_mvp.v1",
@@ -126,13 +126,13 @@ pub const REDUCER_PROFILE_DIGESTS: &[(&str, &str)] = &[
     ),
     (
         "ak.profile.principal_server.v1",
-        "sha256:edac7ea14102268a8b9b71b4964abaf5abbd58d23c21e07b2fe38704786b8d06",
+        "sha256:4d09076a2d796ba81747957085b457fe274b9283816850d170ddec3e216d937c",
     ),
 ];
 
 /// Spec-generated digest for k.profile.federation_minimal.v1.
 pub const FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST: &str =
-    "sha256:91452e3580ba25fa426005352d755ee1d3c2d4c90875aed1035da97dfaf82085";
+    "sha256:420b25dd41edb712bc8b9324431f094cb91e01d3f8cb3f93ad6d427f3b92f743";
 
 /// Returns the Spec-generated digest for an active reducer profile.
 pub fn reducer_profile_digest(profile_id: &str) -> Option<&'static str> {
