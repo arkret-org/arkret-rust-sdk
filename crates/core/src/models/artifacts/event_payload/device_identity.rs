@@ -233,7 +233,7 @@ impl DeviceAuthorizePayload {
                     .to_owned(),
             )
         })?;
-        binding.validate_against_event_anchor(executed_by, authorization_ref, accepted_at)
+        Ok(binding.validate_against_event_anchor(executed_by, authorization_ref, accepted_at)?)
     }
 }
 
@@ -380,72 +380,7 @@ fn parse_did_webvh_version_id(value: &str) -> std::result::Result<u64, &'static 
     Ok(number)
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/
-/// device_enrollment_authority_binding`.
-///
-/// Delegated-authority binding for a `service_attested` `ak.device.authorize`
-/// (managed-DID / account-authority onboarding). The cryptographic signer is the
-/// envelope proof (`verification_method` maps to `executed_by`); this object
-/// records the trust root. See `zh/crypto-media/device-lifecycle.md` §5.4.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct DeviceEnrollmentAuthorityBinding {
-    /// MUST be `"service_attested"`.
-    pub kind: DeviceEnrollmentAuthorityBindingKind,
-    /// DID of the enrollment authority that attested this device (equals the
-    /// envelope `executed_by`); designated by the principal DID document.
-    pub authority_did: Did,
-    /// Reference to the delegation designating `authority_did` (DID-document
-    /// service delegation, materialized grant, or delegation event id); equals
-    /// the envelope `authorization_ref`.
-    pub authorization_ref: NonEmptyString,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum DeviceEnrollmentAuthorityBindingKind {
-    ServiceAttested,
-}
-
-impl DeviceEnrollmentAuthorityBinding {
-    pub fn validate_against_event_anchor(
-        &self,
-        executed_by: Option<&Did>,
-        authorization_ref: Option<&str>,
-        _accepted_at: DateTime<Utc>,
-    ) -> Result<()> {
-        match executed_by {
-            Some(did) if did == &self.authority_did => {}
-            Some(_) => {
-                return Err(Error::Protocol(
-                    "service_attested executed_by does not match authority_did".to_owned(),
-                ));
-            }
-            None => {
-                return Err(Error::Protocol(
-                    "service_attested device authorize requires executed_by".to_owned(),
-                ));
-            }
-        }
-        match authorization_ref {
-            Some(value) if value == self.authorization_ref.as_str() => {}
-            Some(_) => {
-                return Err(Error::Protocol(
-                    "service_attested authorization_ref mismatch".to_owned(),
-                ));
-            }
-            None => {
-                return Err(Error::Protocol(
-                    "service_attested device authorize requires authorization_ref".to_owned(),
-                ));
-            }
-        }
-        Ok(())
-    }
-}
+use arkret_models_identity::artifacts_device_identity::DeviceEnrollmentAuthorityBinding;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/device_cross_signing_binding`.

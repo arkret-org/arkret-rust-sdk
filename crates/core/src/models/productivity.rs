@@ -388,7 +388,7 @@ impl CalendarEventLocation {
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::Plaintext(location) => location.validate(),
-            Self::Encrypted(envelope) => envelope.validate(),
+            Self::Encrypted(envelope) => Ok(envelope.validate()?),
         }
     }
 }

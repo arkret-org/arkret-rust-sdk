@@ -1,21 +1,10 @@
 use std::collections::BTreeMap;
 
+pub use arkret_models_identity::session_credential::SessionGrantProofKind;
 use arkret_wire::*;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum SessionGrantProofKind {
-    DidBoundSignature,
-    PairedDeviceProof,
-    PasskeyAssertion,
-    OidcCodeExchange,
-    PreRegistrationHandoff,
-    AgentKeyProof,
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]

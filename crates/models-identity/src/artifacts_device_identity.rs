@@ -1,12 +1,17 @@
-//! Identity-receipt schema artifact counterpart.
+//! Device identity schema artifact counterparts: identity receipt and
+//! cross-signing reset proof shapes.
 //!
 //! The remaining device-identity artifact counterparts (cross-signing
-//! publish/reset proofs, key-verification content, delivery-binding
-//! stale) stay in `arkret-core` because they embed core-only validated
-//! string scalars (`NonEmptyString`, `DidUrl`, `Base64UrlString`).
+//! publish, key-verification content, delivery-binding stale) stay in
+//! `arkret-core` until their sibling shapes migrate.
 
+use std::num::NonZeroU64;
+
+use arkret_canonical::binding_contexts;
 use arkret_wire::{
-    Audience, Did, Error, Hash, PayloadProof, ProofContextId, ReceiptId, Result, canonical,
+    AttestationId, Audience, Base64UrlString, DeviceId, Did, DidUrl, Error, Hash, NonEmptyString,
+    PayloadProof, ProofContextId, ReceiptId, RecoverySessionId, Result, TypedTrustDomainId,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -140,11 +145,382 @@ impl IdentityReceipt {
     }
 }
 
+/// Counterpart for `spec/v1/artifacts/schemas/cross-signing-publish.schema.json`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct CrossSigningPublish {
+    pub principal_id: Did,
+    pub trust_domain: TypedTrustDomainId,
+    pub principal_signing_key: PublishedKey,
+    pub self_signing_key: SubordinateSignedKey,
+    pub user_signing_key: SubordinateSignedKey,
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = u64)))]
+    pub generation: NonZeroU64,
+    pub expected_previous_generation: u64,
+    pub issued_at: DateTime<Utc>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CrossSigningPublishWire {
+    principal_id: Did,
+    trust_domain: TypedTrustDomainId,
+    principal_signing_key: PublishedKey,
+    self_signing_key: SubordinateSignedKey,
+    user_signing_key: SubordinateSignedKey,
+    generation: NonZeroU64,
+    expected_previous_generation: u64,
+    issued_at: DateTime<Utc>,
+}
+
+impl<'de> Deserialize<'de> for CrossSigningPublish {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = CrossSigningPublishWire::deserialize(deserializer)?;
+        let publish = Self {
+            principal_id: wire.principal_id,
+            trust_domain: wire.trust_domain,
+            principal_signing_key: wire.principal_signing_key,
+            self_signing_key: wire.self_signing_key,
+            user_signing_key: wire.user_signing_key,
+            generation: wire.generation,
+            expected_previous_generation: wire.expected_previous_generation,
+            issued_at: wire.issued_at,
+        };
+        publish
+            .validate_structure()
+            .map_err(serde::de::Error::custom)?;
+        Ok(publish)
+    }
+}
+
+impl CrossSigningPublish {
+    pub fn validate_structure(&self) -> Result<()> {
+        if self.self_signing_key.public_key == self.user_signing_key.public_key {
+            return Err(Error::Protocol(
+                "cross-signing publish requires distinct SSK and USK public keys".to_owned(),
+            ));
+        }
+        if self
+            .expected_previous_generation
+            .checked_add(1)
+            .is_none_or(|expected| expected != self.generation.get())
+        {
+            return Err(Error::Protocol(
+                "cross-signing publish generation must equal expected_previous_generation + 1"
+                    .to_owned(),
+            ));
+        }
+        if self.self_signing_key.binding.verification_method != self.principal_signing_key.kid {
+            return Err(Error::Protocol(
+                "self_signing_key binding must reference the published PSK kid".to_owned(),
+            ));
+        }
+        if self.user_signing_key.binding.verification_method != self.principal_signing_key.kid {
+            return Err(Error::Protocol(
+                "user_signing_key binding must reference the published PSK kid".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn self_signing_binding_input(&self) -> Result<Vec<u8>> {
+        self.subordinate_binding_input("self_signing", &self.self_signing_key)
+    }
+
+    pub fn user_signing_binding_input(&self) -> Result<Vec<u8>> {
+        self.subordinate_binding_input("user_signing", &self.user_signing_key)
+    }
+
+    fn subordinate_binding_input(
+        &self,
+        subordinate_kind: &'static str,
+        subordinate: &SubordinateSignedKey,
+    ) -> Result<Vec<u8>> {
+        let body = serde_json::json!({
+            "principal_id": self.principal_id.as_str(),
+            "trust_domain": self.trust_domain.as_str(),
+            "subordinate_key_kind": subordinate_kind,
+            "subordinate_kid": subordinate.kid.as_str(),
+            "subordinate_alg": subordinate.alg.as_str(),
+            "subordinate_public_key": subordinate.public_key.as_str(),
+            "generation": self.generation.get(),
+        });
+        let mut output = binding_contexts::CROSS_SIGNING_BIND_PREFIX.to_vec();
+        output.extend_from_slice(&canonical::canonical_json_bytes(&body)?);
+        Ok(output)
+    }
+}
+
+/// Counterpart for `spec/v1/artifacts/schemas/cross-signing-publish.schema.json#/$defs/key_format`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum KeyFormat {
+    Multibase,
+    Jwk,
+    RawBase64url,
+}
+
+impl KeyFormat {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Multibase => "multibase",
+            Self::Jwk => "jwk",
+            Self::RawBase64url => "raw_base64url",
+        }
+    }
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/cross-signing-publish.schema.json#/$defs/published_key`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PublishedKey {
+    pub kid: NonEmptyString,
+    pub alg: NonEmptyString,
+    pub public_key: NonEmptyString,
+    pub key_format: KeyFormat,
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/cross-signing-publish.schema.json#/$defs/subordinate_signed_key`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct SubordinateSignedKeyBinding {
+    pub verification_method: NonEmptyString,
+    pub alg: NonEmptyString,
+    pub signature: NonEmptyString,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct SubordinateSignedKey {
+    pub kid: NonEmptyString,
+    pub alg: NonEmptyString,
+    pub public_key: NonEmptyString,
+    pub key_format: KeyFormat,
+    pub binding: SubordinateSignedKeyBinding,
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/
+/// device_enrollment_authority_binding`.
+///
+/// Delegated-authority binding for a `service_attested` `ak.device.authorize`
+/// (managed-DID / account-authority onboarding). The cryptographic signer is the
+/// envelope proof (`verification_method` maps to `executed_by`); this object
+/// records the trust root. See `zh/crypto-media/device-lifecycle.md` §5.4.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct DeviceEnrollmentAuthorityBinding {
+    /// MUST be `"service_attested"`.
+    pub kind: DeviceEnrollmentAuthorityBindingKind,
+    /// DID of the enrollment authority that attested this device (equals the
+    /// envelope `executed_by`); designated by the principal DID document.
+    pub authority_did: Did,
+    /// Reference to the delegation designating `authority_did` (DID-document
+    /// service delegation, materialized grant, or delegation event id); equals
+    /// the envelope `authorization_ref`.
+    pub authorization_ref: NonEmptyString,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum DeviceEnrollmentAuthorityBindingKind {
+    ServiceAttested,
+}
+
+impl DeviceEnrollmentAuthorityBinding {
+    pub fn validate_against_event_anchor(
+        &self,
+        executed_by: Option<&Did>,
+        authorization_ref: Option<&str>,
+        _accepted_at: DateTime<Utc>,
+    ) -> Result<()> {
+        match executed_by {
+            Some(did) if did == &self.authority_did => {}
+            Some(_) => {
+                return Err(Error::Protocol(
+                    "service_attested executed_by does not match authority_did".to_owned(),
+                ));
+            }
+            None => {
+                return Err(Error::Protocol(
+                    "service_attested device authorize requires executed_by".to_owned(),
+                ));
+            }
+        }
+        match authorization_ref {
+            Some(value) if value == self.authorization_ref.as_str() => {}
+            Some(_) => {
+                return Err(Error::Protocol(
+                    "service_attested authorization_ref mismatch".to_owned(),
+                ));
+            }
+            None => {
+                return Err(Error::Protocol(
+                    "service_attested device authorize requires authorization_ref".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/cross-signing-reset.schema.json#/$defs/device_quorum_proof`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeviceQuorumSignature {
+    pub device_id: DeviceId,
+    pub verification_method: DidUrl,
+    pub alg: NonEmptyString,
+    pub signature: Base64UrlString,
+}
+
+/// Device quorum threshold constrained by the reset schema minimum of two.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(transparent)]
+pub struct DeviceQuorumThreshold(NonZeroU64);
+
+impl DeviceQuorumThreshold {
+    pub fn new(value: u64) -> std::result::Result<Self, &'static str> {
+        if value < 2 {
+            return Err("device quorum threshold must be at least 2");
+        }
+        Ok(Self(
+            NonZeroU64::new(value).expect("value was checked as non-zero"),
+        ))
+    }
+
+    pub fn get(self) -> u64 {
+        self.0.get()
+    }
+}
+
+impl<'de> Deserialize<'de> for DeviceQuorumThreshold {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = u64::deserialize(deserializer)?;
+        Self::new(value).map_err(serde::de::Error::custom)
+    }
+}
+
+/// High-risk proof for `ak.cross_signing.reset`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CrossSigningResetProof {
+    PrincipalSigning {
+        verification_method: DidUrl,
+        alg: NonEmptyString,
+        signature: Base64UrlString,
+    },
+    RecoveryUnlock {
+        recovery_session_id: RecoverySessionId,
+        recovery_secret_ref: NonEmptyString,
+        unlock_commitment: Hash,
+        alg: NonEmptyString,
+        signature: Base64UrlString,
+    },
+    DeviceQuorum {
+        threshold: DeviceQuorumThreshold,
+        signatures: Vec<DeviceQuorumSignature>,
+    },
+    TrustedRecoveryService {
+        recovery_session_id: RecoverySessionId,
+        service_id: Did,
+        verification_method: DidUrl,
+        alg: NonEmptyString,
+        signature: Base64UrlString,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        attestation_ref: Option<AttestationId>,
+    },
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
 
     use super::*;
+
+    fn publish_value() -> Value {
+        json!({
+            "principal_id": "did:webvh:z6mkfixture:alice.example",
+            "trust_domain": "ak:trust_domain:example.net",
+            "principal_signing_key": {
+                "kid": "did:webvh:z6mkfixture:alice.example#psk",
+                "alg": "EdDSA",
+                "public_key": "z6MkPrincipal",
+                "key_format": "multibase"
+            },
+            "self_signing_key": {
+                "kid": "did:webvh:z6mkfixture:alice.example#ssk",
+                "alg": "EdDSA",
+                "public_key": "z6MkSelf",
+                "key_format": "multibase",
+                "binding": {
+                    "verification_method": "did:webvh:z6mkfixture:alice.example#psk",
+                    "alg": "EdDSA",
+                    "signature": "c2ln"
+                }
+            },
+            "user_signing_key": {
+                "kid": "did:webvh:z6mkfixture:alice.example#usk",
+                "alg": "EdDSA",
+                "public_key": "z6MkUser",
+                "key_format": "multibase",
+                "binding": {
+                    "verification_method": "did:webvh:z6mkfixture:alice.example#psk",
+                    "alg": "EdDSA",
+                    "signature": "c2ln"
+                }
+            },
+            "generation": 1,
+            "expected_previous_generation": 0,
+            "issued_at": "2026-07-14T00:00:00Z"
+        })
+    }
+
+    #[test]
+    fn cross_signing_publish_rejects_closed_shape_and_relational_drift() {
+        assert!(serde_json::from_value::<CrossSigningPublish>(publish_value()).is_ok());
+
+        let mut zero_generation = publish_value();
+        zero_generation["generation"] = json!(0);
+        assert!(serde_json::from_value::<CrossSigningPublish>(zero_generation).is_err());
+
+        let mut skipped_generation = publish_value();
+        skipped_generation["generation"] = json!(3);
+        assert!(serde_json::from_value::<CrossSigningPublish>(skipped_generation).is_err());
+
+        let mut wrong_key_format = publish_value();
+        wrong_key_format["principal_signing_key"]["key_format"] = json!("pem");
+        assert!(serde_json::from_value::<CrossSigningPublish>(wrong_key_format).is_err());
+
+        let mut empty_kid = publish_value();
+        empty_kid["principal_signing_key"]["kid"] = json!("");
+        assert!(serde_json::from_value::<CrossSigningPublish>(empty_kid).is_err());
+
+        let mut wrong_binding = publish_value();
+        wrong_binding["self_signing_key"]["binding"]["verification_method"] =
+            json!("did:webvh:z6mkfixture:alice.example#other");
+        assert!(serde_json::from_value::<CrossSigningPublish>(wrong_binding).is_err());
+
+        let mut unknown = publish_value();
+        unknown["legacy"] = json!(true);
+        assert!(serde_json::from_value::<CrossSigningPublish>(unknown).is_err());
+    }
 
     #[test]
     fn identity_receipt_uses_non_event_payload_proof() {

@@ -1,15 +1,79 @@
+//! Key backup envelope, recovery policy, and recovery receipt wire models.
+
+use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroU64;
 
-use super::*;
+use arkret_canonical::{
+    decode_multibase_base58btc, decode_multicodec_varint, encode_multibase_base58btc,
+};
+use arkret_wire::{
+    BackupId, BackupSeriesId, Base64UrlString, Cursor, DeviceId, Did, DidUrl, Error, EventId,
+    HPKE_SUITES, Hash, NonEmptyString, PolicyId, RealmId, ReceiptId, RecoverySessionId, Result,
+    TypedTrustDomainId, XExtensionMap,
+};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::artifacts_keys::{KeyBackupUnlockProof, RecoveryPolicyRef, ShareShareCommitment};
+
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
+/// Backup class for key backup envelopes (key-management.md §7.1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum BackupClass {
+    DidRecovery,
+    SecretStorage,
+    MlsHistory,
+}
+
+impl BackupClass {
+    /// Canonical snake_case wire token used by `ak.schema.key_backup.v1`.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            BackupClass::DidRecovery => "did_recovery",
+            BackupClass::SecretStorage => "secret_storage",
+            BackupClass::MlsHistory => "mls_history",
+        }
+    }
+
+    /// HKDF info string per key-management.md §7.2.
+    pub fn hkdf_info(self, subdomain: &str) -> String {
+        let class = match self {
+            BackupClass::DidRecovery => "did_recovery",
+            BackupClass::SecretStorage => "secret_storage",
+            BackupClass::MlsHistory => "mls_history",
+        };
+        format!("arkret-key-backup/{class}/{subdomain}/v1")
+    }
+}
+
+/// Parse a `ak.schema.key_backup.v1` backup_class wire token.
+impl TryFrom<&str> for BackupClass {
+    type Error = String;
+
+    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+        match value {
+            "did_recovery" => Ok(Self::DidRecovery),
+            "secret_storage" => Ok(Self::SecretStorage),
+            "mls_history" => Ok(Self::MlsHistory),
+            other => Err(format!("unsupported backup_class {other}")),
+        }
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupPath {
     pub backup_id: BackupId,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupsListQuery {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub series_id: Option<BackupSeriesId>,
@@ -22,7 +86,7 @@ pub struct KeyBackupsListQuery {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeysBackupsList {
     #[serde(default)]
     pub backups: Vec<KeyBackupSummary>,
@@ -32,7 +96,7 @@ pub struct KeysBackupsList {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum KeyBackupDeleteProof {
     DetachedJws(KeyBackupDeleteDetachedJwsProof),
@@ -42,7 +106,7 @@ pub enum KeyBackupDeleteProof {
 pub const KEY_BACKUP_DELETE_DEVELOPMENT_PROOF_KIND: &str = "ak.key_backup.delete.development.v1";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupDeleteDevelopmentProof {
     pub kind: String,
@@ -59,7 +123,7 @@ impl KeyBackupDeleteDevelopmentProof {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupDeleteDetachedJwsProof {
     pub kind: String,
@@ -69,7 +133,7 @@ pub struct KeyBackupDeleteDetachedJwsProof {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeysBackupsDeleteRequestBody {
     pub proof: KeyBackupDeleteProof,
@@ -78,7 +142,7 @@ pub struct KeysBackupsDeleteRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeysBackupsDeleteOutcome {
     pub deleted: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -86,13 +150,13 @@ pub struct KeysBackupsDeleteOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeysBackupsUnlockRequestBody {
     pub proof: KeyBackupUnlockProof,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum KeyBackupPutStatus {
     Accepted,
@@ -100,7 +164,7 @@ pub enum KeyBackupPutStatus {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeysBackupsReplaceOutcome {
     pub status: KeyBackupPutStatus,
     pub backup_id: BackupId,
@@ -108,7 +172,7 @@ pub struct KeysBackupsReplaceOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupSummary {
     pub backup_id: BackupId,
     pub actor_id: Did,
@@ -137,7 +201,7 @@ pub struct KeyBackupSummary {
 /// The list-summary projection of [`KeyBackupEncryption`]: only the non-secret
 /// recipient fields survive into `ak.self.keys.backups.list` responses.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupSummaryEncryption {
     pub recipient_method: KeyBackupRecipientMethod,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -145,7 +209,7 @@ pub struct KeyBackupSummaryEncryption {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackup {
     pub backup_id: BackupId,
     pub actor_id: Did,
@@ -275,7 +339,7 @@ struct KeyBackupFrontierRefWire {
     device_generation_ref: Option<NonEmptyString>,
 }
 
-#[cfg(feature = "salvo")]
+#[cfg(feature = "salvo-oapi")]
 impl salvo::oapi::ToSchema for KeyBackupFrontierRef {
     fn to_schema(
         components: &mut salvo::oapi::Components,
@@ -342,7 +406,7 @@ impl<'de> Deserialize<'de> for KeyBackupFrontierRef {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum KeyBackupRecipientMethod {
     PassphraseKdf,
@@ -357,7 +421,7 @@ pub enum KeyBackupRecipientMethod {
 pub const DEFAULT_HPKE_SUITE: &str = "ak.hpke_x25519_aead_chacha20poly1305.v1";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(try_from = "KeyBackupEncryptionWire")]
 pub struct KeyBackupEncryption {
     pub recipient_method: KeyBackupRecipientMethod,
@@ -375,7 +439,7 @@ pub struct KeyBackupEncryption {
     /// symmetric methods (passphrase_kdf / secret_storage_key).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hpke_suite: Option<String>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
 }
@@ -521,44 +585,34 @@ impl KeyBackupEncryption {
     }
 }
 
-/// Return the AEAD name of an `active` `hpke-suite-registry.json` row, or
-/// `Ok(None)` when the suite id is absent / `status != "active"`. Reads the
-/// embedded registry snapshot so callers fail closed without a filesystem
-/// dependency.
+/// Return the AEAD name of an `active` HPKE suite registry row, or
+/// `Ok(None)` when the suite id is absent / `status != "active"`. The active
+/// set comes from the generated `hpke-suite-registry.json` snapshot embedded
+/// in `arkret_wire::HPKE_SUITES`; the per-suite AEAD binding mirrors the
+/// registry's `aead` column and fails closed on any active row it does not
+/// know, so a registry addition cannot silently pass validation here.
 fn active_hpke_suite_aead(suite_id: &str) -> Result<Option<String>> {
-    static ACTIVE_HPKE_SUITES: std::sync::OnceLock<
-        std::result::Result<BTreeMap<String, String>, String>,
-    > = std::sync::OnceLock::new();
-    match ACTIVE_HPKE_SUITES.get_or_init(|| {
-        let registry = crate::schema::embedded_json_artifact("registry/hpke-suite-registry.json")
-            .map_err(|error| error.to_string())?;
-        let suites = registry
-            .get("suites")
-            .and_then(Value::as_array)
-            .ok_or_else(|| "hpke-suite-registry.json missing `suites` array".to_owned())?;
-        let mut active = BTreeMap::new();
-        for suite in suites {
-            if suite.get("status").and_then(Value::as_str) != Some("active") {
-                continue;
-            }
-            let Some(canonical_id) = suite.get("canonical_id").and_then(Value::as_str) else {
-                continue;
-            };
-            let aead = suite
-                .get("aead")
-                .and_then(Value::as_str)
-                .ok_or_else(|| format!("hpke suite `{canonical_id}` missing `aead`"))?;
-            active.insert(canonical_id.to_owned(), aead.to_owned());
-        }
-        Ok(active)
-    }) {
-        Ok(active) => Ok(active.get(suite_id).cloned()),
-        Err(error) => Err(Error::Protocol(error.clone())),
+    let is_active = HPKE_SUITES
+        .iter()
+        .any(|suite| suite.canonical_id == suite_id && suite.status == "active");
+    if !is_active {
+        return Ok(None);
     }
+    let aead = match suite_id {
+        "ak.hpke_p256_aead_aes256gcm.v1" | "ak.hpke_x25519_aead_aes256gcm.v1" => "aes_256_gcm",
+        "ak.hpke_x25519_aead_chacha20poly1305.v1" => "chacha20_poly1305",
+        other => {
+            return Err(Error::Protocol(format!(
+                "key backup encryption: active hpke_suite `{other}` has no known aead binding \
+                 (unsupported_hpke_suite)"
+            )));
+        }
+    };
+    Ok(Some(aead.to_owned()))
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupDomainSeparation {
     pub hkdf_info: String,
     pub subdomain: String,
@@ -568,7 +622,7 @@ pub struct KeyBackupDomainSeparation {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupDomainSeparationAad {
     pub schema: String,
     pub actor_id: Did,
@@ -604,7 +658,7 @@ pub struct KeyBackupDomainSeparationAad {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ManagedFrontierRef {
     pub frontier_digest: Hash,
@@ -613,7 +667,7 @@ pub struct ManagedFrontierRef {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ManagedPrincipalBinding {
     pub managed_principal_id: Did,
@@ -624,7 +678,7 @@ pub struct ManagedPrincipalBinding {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum KeyBackupKdfName {
     Argon2id,
@@ -641,7 +695,7 @@ impl KeyBackupKdfName {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum KeyBackupKdfDigestAlgorithm {
     Sha256,
@@ -650,7 +704,7 @@ pub enum KeyBackupKdfDigestAlgorithm {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupKdfParams {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memory_kib: Option<u64>,
@@ -665,7 +719,7 @@ pub struct KeyBackupKdfParams {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(try_from = "KeyBackupKdfWire")]
 pub struct KeyBackupKdf {
     pub name: KeyBackupKdfName,
@@ -738,7 +792,7 @@ impl KeyBackupKdf {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum KeyBackupAeadName {
     Xchacha20Poly1305,
@@ -757,7 +811,7 @@ impl KeyBackupAeadName {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupAead {
     pub name: KeyBackupAeadName,
     /// AEAD profile selector binding algorithm version, nonce/tag/key lengths
@@ -783,7 +837,7 @@ pub struct KeyBackupAead {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupContentItem {
     pub item_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -811,14 +865,14 @@ pub struct KeyBackupContentItem {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupAuthData {
     pub device_id: DeviceId,
     pub verification_method: DidUrl,
     pub signature_algorithm: KeyBackupSignatureAlgorithm,
     pub signature: Base64UrlString,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = u64)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = u64)))]
     pub ssk_generation: Option<NonZeroU64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_authorize_event_id: Option<EventId>,
@@ -828,7 +882,7 @@ pub struct KeyBackupAuthData {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum KeyBackupSignatureAlgorithm {
     Ed25519,
     #[serde(rename = "ES256")]
@@ -848,7 +902,7 @@ impl KeyBackupSignatureAlgorithm {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupRetention {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delete_after: Option<DateTime<Utc>>,
@@ -856,7 +910,7 @@ pub struct KeyBackupRetention {
     pub legal_hold: Option<bool>,
     /// Open retention metadata permitted by
     /// `key-backup.schema.json#/properties/retention`.
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -873,7 +927,7 @@ pub struct KeyBackupRetention {
 /// by `allOf` when the matching `allowed_proof_kinds` entry is present;
 /// full conditional / signed-fields enforcement stays with schema validation.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryPolicy {
     /// Schema id (`ak.schema.recovery_policy.v1`).
     pub schema: String,
@@ -920,7 +974,7 @@ pub struct RecoveryPolicy {
     pub expires_at: Option<DateTime<Utc>>,
     pub auth_data: RecoveryPolicyAuthData,
     /// `x_*` extension fields (`patternProperties`).
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
 }
@@ -1086,7 +1140,7 @@ impl RecoveryPolicy {
 
 /// Read-model summary for the currently accepted recovery policy.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryPolicySummary {
     pub policy_id: PolicyId,
@@ -1108,7 +1162,7 @@ pub struct RecoveryPolicySummary {
 
 /// Principal control-stream frontier used by recovery policy read models.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryControlFrontier {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1121,7 +1175,7 @@ pub struct RecoveryControlFrontier {
 
 /// Response for `ak.root.identity.recovery_policy.resource.get`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryPolicyActiveOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1137,7 +1191,7 @@ pub struct RecoveryPolicyActiveOutcome {
 
 /// Response for `ak.root.identity.recovery_policy.command.publish`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryPolicyPublishOutcome {
     pub ok: bool,
@@ -1150,7 +1204,7 @@ pub struct RecoveryPolicyPublishOutcome {
 /// `recovery-policy.schema.json#/properties/threshold` — Shamir-style
 /// threshold recovery configuration.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryThresholdConfig {
     /// Minimum shares to reconstruct (MUST be >= 2).
     pub k: u32,
@@ -1164,7 +1218,7 @@ pub struct RecoveryThresholdConfig {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RecoveryReshareScheme {
     None,
@@ -1174,7 +1228,7 @@ pub enum RecoveryReshareScheme {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryResharePolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1185,7 +1239,7 @@ pub struct RecoveryResharePolicy {
 
 /// `recovery-policy.schema.json#/$defs/share` — single recovery share.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryShare {
     pub share_id: String,
     pub holder: Did,
@@ -1203,7 +1257,7 @@ pub struct RecoveryShare {
 
 /// `recovery-policy.schema.json#/properties/device_quorum`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryDeviceQuorumConfig {
     pub k: u32,
     pub members: Vec<DeviceId>,
@@ -1211,7 +1265,7 @@ pub struct RecoveryDeviceQuorumConfig {
 
 /// `recovery-policy.schema.json#/properties/trusted_recovery_services[]`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryTrustedService {
     pub service_id: Did,
     pub audience: String,
@@ -1227,7 +1281,7 @@ pub struct RecoveryTrustedService {
 /// proof references; the proof signature is verified under this entry's public
 /// key resolved via `verification_method`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryKeyEntry {
     /// DID URL identifying this recovery signing key
     /// (e.g. `did:webvh:...#recovery-1`). Unique within `recovery_keys[]`.
@@ -1268,7 +1322,7 @@ impl RecoveryKeyEntry {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum RecoveryKeySignatureAlgorithm {
     Ed25519,
     ES256,
@@ -1277,20 +1331,20 @@ pub enum RecoveryKeySignatureAlgorithm {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum RecoveryKeyAgreementAlgorithm {
     X25519,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RecoveryKeyAgreementUse {
     BackupHpke,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum RecoveryHpkeSuite {
     #[serde(rename = "ak.hpke_x25519_aead_chacha20poly1305.v1")]
     X25519ChaCha20Poly1305,
@@ -1300,7 +1354,7 @@ pub enum RecoveryHpkeSuite {
 
 /// `recovery-policy.schema.json#/$defs/recovery_key_agreement_entry`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryKeyAgreementEntry {
     pub key_agreement_ref: DidUrl,
@@ -1318,7 +1372,7 @@ pub struct RecoveryKeyAgreementEntry {
 impl RecoveryKeyAgreementEntry {
     pub fn validate(&self) -> Result<()> {
         let decoded = validate_canonical_multibase(self.public_key_multibase.as_str())?;
-        let (codec, header_len) = crate::decode_multicodec_varint(&decoded).ok_or_else(|| {
+        let (codec, header_len) = decode_multicodec_varint(&decoded).ok_or_else(|| {
             Error::Protocol("recovery key agreement has an invalid multicodec".to_owned())
         })?;
         if codec != 0xec || decoded.len().saturating_sub(header_len) != 32 {
@@ -1350,8 +1404,8 @@ impl RecoveryKeyAgreementEntry {
 }
 
 fn validate_canonical_multibase(value: &str) -> Result<Vec<u8>> {
-    let decoded = crate::decode_multibase_base58btc(value)?;
-    if decoded.is_empty() || crate::encode_multibase_base58btc(&decoded) != value {
+    let decoded = decode_multibase_base58btc(value)?;
+    if decoded.is_empty() || encode_multibase_base58btc(&decoded) != value {
         return Err(Error::Protocol(
             "public_key_multibase must use canonical non-empty base58btc".to_owned(),
         ));
@@ -1361,7 +1415,7 @@ fn validate_canonical_multibase(value: &str) -> Result<Vec<u8>> {
 
 /// `recovery-policy.schema.json#/properties/approval_requirement`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryApprovalRequirement {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_approvals: Option<u32>,
@@ -1373,7 +1427,7 @@ pub struct RecoveryApprovalRequirement {
 
 /// `recovery-policy.schema.json#/properties/audit`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryAuditConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audit_realm_id: Option<RealmId>,
@@ -1384,7 +1438,7 @@ pub struct RecoveryAuditConfig {
 /// `recovery-policy.schema.json#/properties/auth_data` — detached signature
 /// over the declared `signed_fields`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryPolicyAuthData {
     pub verification_method: String,
     pub signature_algorithm: String,
@@ -1397,7 +1451,7 @@ pub struct RecoveryPolicyAuthData {
 /// `proof_summary.kind`. Cryptographic proof validation is specified by
 /// device-lifecycle verifier rules and handled outside this discriminator.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RecoveryProofKind {
     /// Principal-key direct signature (sovereign deployments).
@@ -1443,7 +1497,7 @@ impl RecoveryProofKind {
 /// `new_device_id`, `proof_summary`, `backup_classes_unlocked`,
 /// `welcome_count`, `outcome`, `started_at`, `completed_at`, `auth_data`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryReceipt {
     /// Schema id (`ak.schema.recovery_receipt.v1`).
     pub schema: String,
@@ -1472,14 +1526,14 @@ pub struct RecoveryReceipt {
     pub completed_at: DateTime<Utc>,
     pub auth_data: RecoveryReceiptAuthData,
     /// `x_*` extension fields (`patternProperties`).
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
 }
 
 /// `recovery-receipt.schema.json#/properties/proof_summary`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryProofSummary {
     pub kind: RecoveryProofKind,
     pub proof_digest: Hash,
@@ -1493,7 +1547,7 @@ pub struct RecoveryProofSummary {
 
 /// `recovery-receipt.schema.json#/properties/backup_classes_unlocked[]`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryBackupClassUnlocked {
     /// `recovery-receipt.schema.json` backup-class discriminator; reuses the
     /// canonical §7.1 controlled vocabulary rather than a duplicate enum.
@@ -1505,7 +1559,7 @@ pub struct RecoveryBackupClassUnlocked {
 
 /// `recovery-receipt.schema.json#/properties/welcome_realm_summary[]`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryWelcomeRealmSummary {
     pub realm_id: RealmId,
     pub mls_group_id: String,
@@ -1514,7 +1568,7 @@ pub struct RecoveryWelcomeRealmSummary {
 
 /// `recovery-receipt.schema.json#/properties/outcome` enum.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RecoveryReceiptOutcome {
     Completed,
@@ -1527,7 +1581,7 @@ pub enum RecoveryReceiptOutcome {
 
 /// `recovery-receipt.schema.json#/properties/auth_data`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryReceiptAuthData {
     pub verification_method: String,
     pub signature_algorithm: String,

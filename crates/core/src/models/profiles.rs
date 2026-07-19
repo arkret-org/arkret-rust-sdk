@@ -1106,51 +1106,6 @@ mod erasure_receipt_tests {
     }
 }
 
-/// Backup class for key backup envelopes (key-management.md §7.1).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum BackupClass {
-    DidRecovery,
-    SecretStorage,
-    MlsHistory,
-}
-
-impl BackupClass {
-    /// Canonical snake_case wire token used by `ak.schema.key_backup.v1`.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            BackupClass::DidRecovery => "did_recovery",
-            BackupClass::SecretStorage => "secret_storage",
-            BackupClass::MlsHistory => "mls_history",
-        }
-    }
-
-    /// HKDF info string per key-management.md §7.2.
-    pub fn hkdf_info(self, subdomain: &str) -> String {
-        let class = match self {
-            BackupClass::DidRecovery => "did_recovery",
-            BackupClass::SecretStorage => "secret_storage",
-            BackupClass::MlsHistory => "mls_history",
-        };
-        format!("arkret-key-backup/{class}/{subdomain}/v1")
-    }
-}
-
-/// Parse a `ak.schema.key_backup.v1` backup_class wire token.
-impl TryFrom<&str> for BackupClass {
-    type Error = String;
-
-    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
-        match value {
-            "did_recovery" => Ok(Self::DidRecovery),
-            "secret_storage" => Ok(Self::SecretStorage),
-            "mls_history" => Ok(Self::MlsHistory),
-            other => Err(format!("unsupported backup_class {other}")),
-        }
-    }
-}
-
 /// Approval workflow mode (constraint-schema.md §9.1–§9.2).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

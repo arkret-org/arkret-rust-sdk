@@ -39,6 +39,7 @@ pub mod receive_policy;
 pub mod seal;
 pub mod service_type;
 pub mod signer;
+pub mod wire_strings;
 
 pub use arkret_identifiers::*;
 pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
@@ -71,3 +72,4 @@ pub use seal::{
 };
 pub use service_type::{EvaluationClass, ServiceType};
 pub use signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};
+pub use wire_strings::*;

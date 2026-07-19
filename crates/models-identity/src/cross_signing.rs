@@ -4,11 +4,15 @@ use std::collections::BTreeSet;
 use std::num::NonZeroU64;
 
 use arkret_canonical::binding_contexts;
+use arkret_wire::{DeviceId, Did, Error, EventId, Hash, Result, TypedTrustDomainId, canonical};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 
-use super::*;
+use crate::artifacts_device_identity::CrossSigningResetProof;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CrossSigningResetReason {
     Rotation,
@@ -34,21 +38,21 @@ impl CrossSigningResetReason {
 
 /// Typed payload for `ak.cross_signing.reset`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CrossSigningResetPayload {
     trust_domain: TypedTrustDomainId,
     reset_event_id: EventId,
     principal_id: Did,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = u64)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = u64)))]
     previous_generation: NonZeroU64,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = u64)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = u64)))]
     new_generation: NonZeroU64,
     #[serde(rename = "reset_reason_code")]
     reset_reason: CrossSigningResetReason,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     revoked_device_ids: Option<Vec<DeviceId>>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     proof: CrossSigningResetProof,
     issued_at: DateTime<Utc>,
 }

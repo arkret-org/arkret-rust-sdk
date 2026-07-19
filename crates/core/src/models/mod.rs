@@ -38,7 +38,9 @@ mod conformance;
 mod constants {
     pub use arkret_wire::constants::*;
 }
-mod cross_signing;
+mod cross_signing {
+    pub use arkret_models_identity::cross_signing::*;
+}
 mod delivery_binding;
 mod device_verification {
     pub use arkret_models_identity::device_verification::*;
@@ -62,7 +64,9 @@ mod identity_link_cache {
     pub use arkret_models_identity::identity_link_cache::*;
 }
 mod invite_addressing;
-mod key_backup;
+mod key_backup {
+    pub use arkret_models_crypto::key_backup::*;
+}
 mod keys;
 mod media;
 mod member_delivery_binding_candidate;
@@ -107,7 +111,9 @@ mod runtime_identity;
 mod service_description {
     pub use arkret_models_discovery::service_description::*;
 }
-mod session_credential;
+mod session_credential {
+    pub use arkret_models_identity::session_credential::*;
+}
 mod space;
 mod strand;
 mod sync;
@@ -118,7 +124,9 @@ mod third_party_invite;
 mod wire_dto_tests;
 #[cfg(test)]
 mod wire_model_tests;
-mod wire_strings;
+mod wire_strings {
+    pub use arkret_wire::wire_strings::*;
+}
 
 pub use account::*;
 pub use actor_profile::*;

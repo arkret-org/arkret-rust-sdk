@@ -151,6 +151,7 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-wire",
         # Transitional shim targets while core re-exports migrate (phase 5 removes core).
         "arkret-models-identity",
+        "arkret-models-crypto",
         "arkret-models-integration",
         "arkret-models-discovery",
         "arkret-models-collaboration",

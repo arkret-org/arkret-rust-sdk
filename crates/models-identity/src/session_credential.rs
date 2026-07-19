@@ -1,10 +1,22 @@
+use arkret_wire::{Did, Error, GrantId, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{Did, Error, GrantId, Result, SessionGrantProofKind};
-
 pub const SIGNED_SESSION_GRANT_TYPE: &str = "ak.session.grant";
+
+/// Proof kind presented with an `ak.session.grant` request.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum SessionGrantProofKind {
+    DidBoundSignature,
+    PairedDeviceProof,
+    PasskeyAssertion,
+    OidcCodeExchange,
+    PreRegistrationHandoff,
+    AgentKeyProof,
+}
 
 /// Signed credential claims carried by an `ak.session.grant` JWT.
 ///

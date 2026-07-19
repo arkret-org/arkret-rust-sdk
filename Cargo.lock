@@ -173,6 +173,7 @@ dependencies = [
  "arkret-canonical",
  "arkret-identifiers",
  "arkret-models-collaboration",
+ "arkret-models-crypto",
  "arkret-models-discovery",
  "arkret-models-identity",
  "arkret-models-integration",
@@ -305,9 +306,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "arkret-models-crypto"
+version = "0.3.0"
+dependencies = [
+ "arkret-canonical",
+ "arkret-models-identity",
+ "arkret-wire",
+ "chrono",
+ "salvo",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "arkret-models-discovery"
 version = "0.3.0"
 dependencies = [
+ "arkret-models-identity",
  "arkret-wire",
  "chrono",
  "salvo",
@@ -319,6 +334,7 @@ dependencies = [
 name = "arkret-models-identity"
 version = "0.3.0"
 dependencies = [
+ "arkret-canonical",
  "arkret-wire",
  "chrono",
  "salvo",
