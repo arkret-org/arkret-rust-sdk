@@ -18,13 +18,17 @@
 //!      e.g. invite token payload, organization member roster push.
 //!
 //! Any object lacking `proofs[]` MUST NOT be named a candidate.
-use super::*;
-use crate::canonical;
+use arkret_models_identity::handle::{Handle, HandleHintBindingSource};
+use arkret_wire::{Did, EventId, Hash, Proof, canonical};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+
+use crate::governance::handle_claim::DeliveryBindingHint;
 
 /// Builder entry-point hint. Advisory for audit / telemetry only; reducer
 /// behaviour MUST NOT branch on this.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CandidateIntent {
     MemberAdd,
@@ -116,7 +120,7 @@ pub enum CandidateError {
 /// `#[serde(deny_unknown_fields)]` so the SDK refuses to silently widen
 /// the wire shape.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MemberDeliveryBindingCandidate {
     pub subject_id: Did,
@@ -140,10 +144,7 @@ pub struct MemberDeliveryBindingCandidate {
 impl MemberDeliveryBindingCandidate {
     /// Run the §3.7.3 validator. The check order mirrors the spec so that
     /// audit logs emitted on failure stay aligned with the prose.
-    pub fn validate(
-        &self,
-        context: &CandidateValidationContext,
-    ) -> std::result::Result<(), CandidateError> {
+    pub fn validate(&self, context: &CandidateValidationContext) -> Result<(), CandidateError> {
         // (2) handle canonical — `Handle::parse` already accepted only
         //      the canonical `<localpart>:<domain>` form on construction,
         //      so reaching this point with a non-canonical value implies
@@ -215,13 +216,13 @@ impl MemberDeliveryBindingCandidate {
     }
 
     /// Canonical JSON bytes for signing / digesting per `encoding.md`.
-    pub fn canonical_json_bytes(&self) -> std::result::Result<Vec<u8>, CandidateError> {
+    pub fn canonical_json_bytes(&self) -> Result<Vec<u8>, CandidateError> {
         canonical::canonical_json_bytes(self).map_err(|e| CandidateError::Canonical(e.to_string()))
     }
 
     /// `sha256:<hex>` digest of the canonical-JSON encoding. Suitable as
     /// the `claim_digest` cache key called out in §3.7.1.
-    pub fn canonical_sha256(&self) -> std::result::Result<String, CandidateError> {
+    pub fn canonical_sha256(&self) -> Result<String, CandidateError> {
         canonical::canonical_sha256(self).map_err(|e| CandidateError::Canonical(e.to_string()))
     }
 }
@@ -233,6 +234,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+    use crate::governance::delivery_binding::{DeliveryMode, RecipientServiceType};
 
     fn fake_did(label: &str) -> Did {
         Did::new(format!("did:webvh:z6mkfixture:{label}.example")).unwrap()
@@ -354,8 +356,7 @@ mod tests {
         // MemberDeliveryBindingCandidate MUST fail because Handle::parse
         // rejects non-canonical input.
         value["handle"] = json!("acct:alice@acme.example");
-        let parsed: std::result::Result<MemberDeliveryBindingCandidate, _> =
-            serde_json::from_value(value);
+        let parsed: Result<MemberDeliveryBindingCandidate, _> = serde_json::from_value(value);
         assert!(
             parsed.is_err(),
             "non-canonical handle must be rejected at deserialisation"
@@ -383,8 +384,7 @@ mod tests {
         let c = sample_candidate();
         let mut value = serde_json::to_value(&c).unwrap();
         value["surprise"] = json!("should-be-rejected");
-        let parsed: std::result::Result<MemberDeliveryBindingCandidate, _> =
-            serde_json::from_value(value);
+        let parsed: Result<MemberDeliveryBindingCandidate, _> = serde_json::from_value(value);
         assert!(
             parsed.is_err(),
             "unknown fields MUST be rejected (#[serde(deny_unknown_fields)])"

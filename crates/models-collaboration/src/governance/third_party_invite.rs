@@ -1,6 +1,7 @@
 //! Third-party invite wire payloads.
 
-use super::*;
+use arkret_wire::{Did, Error, Hash, Result};
+use serde::{Deserialize, Serialize};
 
 // ── ThirdPartyInvite (3PID) ─────────────────────────────────────────────
 /// Round 4 — discriminator for the 3PID invite OOB mode.
@@ -11,7 +12,7 @@ use super::*;
 ///
 /// The plaintext 3PID (email / SMS) MUST NEVER appear on the wire.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ThirdPartyInviteOobKind {
     OfflineToken,
@@ -30,7 +31,7 @@ pub enum ThirdPartyInviteOobKind {
 /// guard against `pepper_id` reuse) is handled by verifier/reducer layers;
 /// the SDK model carries the wire shape.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ThirdPartyInvite {
     pub oob_code_kind: ThirdPartyInviteOobKind,
     /// `offline_token` mode — SHA-256 of `token | salt[salt_id]`.
@@ -114,7 +115,7 @@ impl ThirdPartyInvite {
 }
 /// Round 4 — terminal states for a 3PID invite (auth server side).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ThirdPartyInviteTerminalState {
     Claimed,

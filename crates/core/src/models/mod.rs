@@ -24,7 +24,9 @@ mod actor_profile {
     pub use arkret_models_identity::actor_profile::*;
 }
 mod agent;
-mod agent_participation;
+mod agent_participation {
+    pub use arkret_models_collaboration::governance::agent_participation::*;
+}
 mod applet;
 mod applet_install_plan;
 mod artifacts;
@@ -41,7 +43,9 @@ mod constants {
 mod cross_signing {
     pub use arkret_models_identity::cross_signing::*;
 }
-mod delivery_binding;
+mod delivery_binding {
+    pub use arkret_models_collaboration::governance::delivery_binding::*;
+}
 mod device_verification {
     pub use arkret_models_identity::device_verification::*;
 }
@@ -64,20 +68,28 @@ mod identity;
 mod identity_link_cache {
     pub use arkret_models_identity::identity_link_cache::*;
 }
-mod invite_addressing;
+mod invite_addressing {
+    pub use arkret_models_collaboration::governance::invite_addressing::*;
+}
 mod key_backup {
     pub use arkret_models_crypto::key_backup::*;
 }
 mod keys;
 mod media;
-mod member_delivery_binding_candidate;
+mod member_delivery_binding_candidate {
+    pub use arkret_models_collaboration::governance::member_delivery_binding_candidate::*;
+}
 mod member_identity;
-mod mention;
+mod mention {
+    pub use arkret_models_collaboration::events_payloads::mention::*;
+}
 mod mimi;
 mod mls_governance_proof;
 mod mls_payloads;
 mod moderation;
-mod moderation_appeal;
+mod moderation_appeal {
+    pub use arkret_models_collaboration::governance::moderation_appeal::*;
+}
 mod moderation_queue;
 mod object_address {
     pub use arkret_wire::object_address::*;
@@ -107,7 +119,9 @@ mod realm_alias;
 mod realm_governance;
 mod registry;
 mod relation;
-mod resource_selector;
+mod resource_selector {
+    pub use arkret_models_collaboration::governance::resource_selector::*;
+}
 mod runtime_identity;
 mod service_description {
     pub use arkret_models_discovery::service_description::*;
@@ -120,7 +134,9 @@ mod strand;
 mod sync;
 #[cfg(test)]
 mod tests;
-mod third_party_invite;
+mod third_party_invite {
+    pub use arkret_models_collaboration::governance::third_party_invite::*;
+}
 #[cfg(test)]
 mod wire_dto_tests;
 #[cfg(test)]

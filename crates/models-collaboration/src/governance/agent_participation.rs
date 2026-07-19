@@ -13,9 +13,8 @@
 //! gate. This module only supplies the wire vocabulary and the
 //! reducer-pure tighten-only validators that those layers call.
 
+use arkret_wire::{CircleId, RealmId, StrandId};
 use serde::{Deserialize, Serialize};
-
-use crate::{CircleId, RealmId, StrandId};
 
 /// Controller-owned account-data type carrying a per-scope participation
 /// selection (AKP-0010 §5.1).
@@ -24,7 +23,7 @@ pub const AGENT_PARTICIPATION_ACCOUNT_DATA_TYPE: &str = "ak.agent.participation.
 /// The three participation bits. Constructs a partial order under
 /// implication: `a ⊆ b` iff every bit set in `a` is set in `b`.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentParticipation {
     /// Agent may author `ak.message.create` / `ak.reaction.add` as
@@ -84,7 +83,7 @@ impl AgentParticipation {
 /// Optional per-bit governance ceiling declaration for Circle / Strand
 /// objects. Omitted bits inherit the parent ceiling independently.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentParticipationCeiling {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -99,7 +98,7 @@ pub struct AgentParticipationCeiling {
 /// Native personal-agent permissions are explicitly namespaced so future
 /// applet-agent policy cannot be confused with this ceiling.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentParticipationPolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -143,7 +142,7 @@ impl From<AgentParticipation> for AgentParticipationCeiling {
 /// Circle, or Strand — the three levels at which a controller can set a
 /// selection and at which governance can declare a ceiling.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AgentParticipationScope {
     Realm {
@@ -293,7 +292,7 @@ pub fn validate_selection_within_ceiling(
 /// Request body for `ak.self.agent.participation.resource.replace`
 /// (`PUT /_arkret/self/agents/{agent_id}/participation`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AgentParticipationReplaceRequestBody {
     #[serde(rename = "participation_scope")]
     pub scope: AgentParticipationScope,
@@ -303,7 +302,7 @@ pub struct AgentParticipationReplaceRequestBody {
 /// One resolved per-scope participation entry: the controller-set
 /// selection, the governance ceiling, and their effective intersection.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AgentParticipationEntry {
     #[serde(rename = "participation_scope")]
     pub scope: AgentParticipationScope,
@@ -314,7 +313,7 @@ pub struct AgentParticipationEntry {
 
 /// Response for `ak.self.agent.participation.{set,get}`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AgentParticipationOutcome {
     pub ok: bool,
     pub agent_id: String,

@@ -2,10 +2,16 @@
 //!
 //! Trunk crate of the model family: governance, collaboration objects,
 //! event payloads, and sync/federation frames, organized as semantic
-//! module directories. Phase 1A seeds the governance module with the
-//! receive-policy, audit, and plaintext-classification wire shapes; the
-//! remaining domains migrate from `arkret-core` in phase 1B.
+//! module directories. Phase 1A seeded the governance module with the
+//! receive-policy, audit, and plaintext-classification wire shapes;
+//! phase 1B-c2 lands the governance domain (realm governance, circle,
+//! invite addressing, moderation, grant constraints, delivery bindings)
+//! plus the first event-payload faces migrated from `arkret-core`.
 
+pub mod events_payloads;
 pub mod governance;
 
 pub use governance::audit::{AccessKind, AuditPolicyAccessPayload};
+
+/// Canonical object reference string (typed id / DID / content digest).
+pub type ObjectRef = String;

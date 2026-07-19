@@ -285,7 +285,7 @@ impl GhostActorProfileRequest {
     }
 
     pub fn profile_create_payload(&self) -> Result<Value> {
-        ObjectCreatePayload::new(self.to_actor_profile()?).to_value()
+        Ok(ObjectCreatePayload::new(self.to_actor_profile()?).to_value()?)
     }
 
     pub fn profile_create_event(

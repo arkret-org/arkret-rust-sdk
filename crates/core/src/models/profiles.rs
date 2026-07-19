@@ -1106,16 +1106,6 @@ mod erasure_receipt_tests {
     }
 }
 
-/// Approval workflow mode (constraint-schema.md §9.1–§9.2).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum ApprovalWorkflowMode {
-    BeforeCommit,
-    AfterCommitReview,
-    ProposalThenApprove,
-}
-
 /// Moderation action (moderation.md §5.3).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

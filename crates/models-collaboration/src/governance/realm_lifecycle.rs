@@ -1,8 +1,9 @@
+use arkret_wire::serde_helpers::serialize_optional_canonical_timestamp;
+use arkret_wire::{Error, HistoryVisibility, RealmId, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::canonical::serialize_optional_canonical_timestamp;
-use crate::*;
+use crate::ObjectRef;
 
 /// Strong type for `ak.realm.archive` payloads
 /// (`event-payload.schema.json#/$defs/realm_archive_payload`).
@@ -10,7 +11,7 @@ use crate::*;
 /// Reversible boolean register (there is no separate `ak.realm.restore`):
 /// `archived:false` un-archives. `additionalProperties:false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmArchivePayload {
     pub archived: bool,
@@ -55,7 +56,7 @@ impl RealmArchivePayload {
 /// `successor_realm_id` are both required by spec; callers without a successor
 /// must use [`RealmDestroyPayload`] instead. `additionalProperties:false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmTombstonePayload {
     pub reason: String,
@@ -95,7 +96,7 @@ impl RealmTombstonePayload {
 /// `verification_stub_required` defaults to `true` (omitted on the wire when
 /// unset so the reducer applies its default). `additionalProperties:false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmDestroyPayload {
     pub reason: String,
@@ -136,7 +137,7 @@ impl RealmDestroyPayload {
 /// target object is single-sourced by `target_ref`. Required: `target_ref`.
 /// `additionalProperties:false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ObjectLifecyclePayload {
     pub target_ref: ObjectRef,
@@ -192,7 +193,7 @@ impl ObjectLifecyclePayload {
 /// named schema def, so producers and validators share the same fail-closed
 /// shape.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct HistoryVisibilityPayload {
     pub value: HistoryVisibility,

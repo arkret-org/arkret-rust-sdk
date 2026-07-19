@@ -842,7 +842,10 @@ fn membership_payload_strong_type_passes_spec_validator() {
     // join missing delivery_status is rejected by to_value (conditional req).
     let mut bad = join;
     bad.delivery_status = None;
-    assert!(matches!(bad.to_value(), Err(crate::Error::Protocol(_))));
+    assert!(matches!(
+        bad.to_value(),
+        Err(arkret_wire::Error::Protocol(_))
+    ));
 
     // Unknown additive keys are reported but do not fail schema validation.
     let mut leaky = invite.to_value().unwrap();

@@ -298,11 +298,13 @@ dependencies = [
 name = "arkret-models-collaboration"
 version = "0.3.0"
 dependencies = [
+ "arkret-models-identity",
  "arkret-wire",
  "chrono",
  "salvo",
  "serde",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]

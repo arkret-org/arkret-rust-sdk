@@ -1,11 +1,15 @@
 //! Closed selector used by capability and widget token scopes.
 
-use serde::de;
+use arkret_wire::{
+    BlobRef, CircleId, Did, Error, EventId, InviteId, MessageId, MorphId, PolicyId, RealmId,
+    RelationId, Result, SpaceId, StrandId, ViewId,
+};
+use serde::{Deserialize, Serialize, de};
 
-use super::*;
+use crate::ObjectRef;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceSelectorKind {
     Realm,
@@ -30,7 +34,7 @@ pub enum ResourceSelectorKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceMatchScope {
     Exact,
@@ -40,7 +44,7 @@ pub enum ResourceMatchScope {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct WireResourceSelector {
     pub kind: ResourceSelectorKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
