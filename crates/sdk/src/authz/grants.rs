@@ -1412,14 +1412,14 @@ impl CapabilityGrantBuilder {
             "grant_id": self.grant.id,
             "grant": serde_json::to_value(&self.grant)?,
         });
-        crate::Event::new(
+        Ok(crate::Event::new(
             arkret_core::events::EventKind::CAPABILITY_GRANT,
             self.realm_id,
             self.actor_id,
             actor_seq,
             hlc,
             content,
-        )
+        )?)
     }
 }
 

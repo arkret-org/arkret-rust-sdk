@@ -148,13 +148,13 @@ impl AppletBridgeErrorBuilder {
         {
             content.insert("retry_after_ms".to_owned(), Value::from(retry_after_ms));
         }
-        Event::new(
+        Ok(Event::new(
             "ak.applet.bridge_error",
             self.realm_id,
             self.actor_id,
             actor_seq,
             hlc,
             Value::Object(content),
-        )
+        )?)
     }
 }

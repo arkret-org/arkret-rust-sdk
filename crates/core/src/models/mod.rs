@@ -26,7 +26,9 @@ mod agent_participation {
     pub use arkret_models_collaboration::governance::agent_participation::*;
 }
 mod applet;
-mod applet_install_plan;
+mod applet_install_plan {
+    pub use arkret_models_integration::applet_install_plan::*;
+}
 mod artifacts;
 mod attestation {
     pub use arkret_models_identity::attestation::*;

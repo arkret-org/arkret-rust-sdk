@@ -1,7 +1,7 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "data-structures"]
-description = "Arkret v1 push gateway, webhook, and external integration exchange models."
+description = "Arkret v1 push gateway, webhook, applet, and external integration exchange models."
 edition = "2024"
 homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "push", "integration", "wire"]

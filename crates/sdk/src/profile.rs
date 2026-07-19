@@ -599,7 +599,7 @@ impl ProfileCreateBuilder {
             updated_by: None,
             updated_at: None,
         };
-        ObjectCreatePayload::new(profile).to_value()
+        Ok(ObjectCreatePayload::new(profile).to_value()?)
     }
 
     fn update_payload(&self) -> Result<Value> {

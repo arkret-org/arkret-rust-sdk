@@ -1,7 +1,15 @@
-use super::*;
+//! `ak.schema.applet_install_plan.v1` wire object.
+
+use arkret_wire::{AppletId, Did, EffectiveScope, Error, Hash, Result, canonical};
+use serde::{Deserialize, Serialize};
+
+use crate::artifacts_applet::{
+    CapabilityConstraint, DeniedScope, E2eeEffect, EventSubmission, NamespaceConflict, ScopeGrant,
+    WidgetEffect,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum AppletInstallAppletId {
     Did(Did),
@@ -9,7 +17,7 @@ pub enum AppletInstallAppletId {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AppletInstallPlan {
     pub schema: String,

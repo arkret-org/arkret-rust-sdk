@@ -1,3 +1,5 @@
+use arkret_core::EventPayloadExt;
+
 use super::super::*;
 use super::RealmState;
 

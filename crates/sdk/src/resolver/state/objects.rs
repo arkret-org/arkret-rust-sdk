@@ -1,3 +1,5 @@
+use arkret_core::EventPayloadExt;
+
 use super::super::snapshot::{patch_fields, patch_state, patch_string, space_state_from_str};
 use super::super::*;
 use super::RealmState;

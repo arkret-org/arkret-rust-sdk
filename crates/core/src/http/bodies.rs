@@ -2,18 +2,20 @@
 //!
 //! The events/projection/blob/MIMI bodies migrated to
 //! `arkret-models-collaboration`, the key-package bodies to
-//! `arkret-models-crypto`, and the private-contact-discovery bodies to
-//! `arkret-models-discovery` (all re-exported below). This module keeps
-//! the auth/session and account-lifecycle bodies (phase 2:
-//! `arkret-auth`), the contact bodies bound to the core cursor type, the
-//! applet third-party lookups (applet carve-out), and the cross-domain
-//! transparent outcome wrappers used by the Salvo OpenAPI bindings.
+//! `arkret-models-crypto`, the private-contact-discovery bodies to
+//! `arkret-models-discovery`, and the applet third-party lookups to
+//! `arkret-models-integration` (all re-exported below). This module
+//! keeps the auth/session and account-lifecycle bodies (phase 2:
+//! `arkret-auth`), the contact bodies bound to the core cursor type, and
+//! the cross-domain transparent outcome wrappers used by the Salvo
+//! OpenAPI bindings.
 
 use std::collections::BTreeMap;
 
 pub use arkret_models_collaboration::http_bodies::*;
 pub use arkret_models_crypto::http_bodies::*;
 pub use arkret_models_discovery::http_bodies::*;
+pub use arkret_models_integration::http_bodies::*;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -781,26 +783,6 @@ pub struct AccountOidcCallbackOutcome {
     pub recovery_session_state: Option<SessionGrantOutcome>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redirect_url: Option<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AppletThirdPartyUserList {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<Did>,
-    pub exists: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub external_ref: Option<ExternalRef>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AppletThirdPartyLocationList {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
-    pub exists: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub external_ref: Option<ExternalRef>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
