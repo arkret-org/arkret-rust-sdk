@@ -20,6 +20,7 @@ pub mod moderation;
 pub mod moderation_appeal;
 pub mod moderation_queue;
 pub mod operation_wire;
+pub mod peer_contact;
 pub mod plaintext_visibility;
 pub mod realm_governance;
 pub mod realm_lifecycle;
