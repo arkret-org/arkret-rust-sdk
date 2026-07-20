@@ -11,6 +11,8 @@
 //!
 //! [`Event`]: arkret_wire::Event
 
+mod accountability;
+mod event_payload;
 pub mod federation;
 pub mod federation_transaction;
 mod operation;
@@ -19,6 +21,8 @@ mod payloads;
 mod rank;
 mod registry;
 
+pub use accountability::accountability_grant_event;
+pub use event_payload::{EventPayloadExt, MessageEventPayload};
 pub use federation_transaction::{
     FederationPullOperationsOutcome, FederationPushOperationsOutcome,
     FederationPushOperationsRequestBody, FederationTransactionOutcome,

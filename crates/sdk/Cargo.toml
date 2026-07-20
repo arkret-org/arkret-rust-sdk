@@ -63,8 +63,6 @@ device-runtime = [
     "arkret-crypto/key-verification",
     "arkret-crypto/secret-share",
 ]
-sync-runtime = ["full-surface"]
-timeline-runtime = ["full-surface"]
 # Round 23 (2026-05-09): expose the platform KeyStore feature gates so apps
 # embedding the umbrella `arkret` crate can opt into OS-native key storage
 # without a direct arkret-keystore dependency.
@@ -79,6 +77,7 @@ keystore-encrypted-file = ["arkret-keystore/keystore-encrypted-file"]
 # `js` cargo feature on wasm32 (it pulls fluvio_wasm_timer + js-sys for time
 # and randomness). Native targets must NOT enable `js` (no js-sys available).
 arkret-auth = {workspace = true}
+arkret-bootstrap = {workspace = true}
 argon2 = {workspace = true}
 arkret-canonical = {workspace = true}
 base64 = {workspace = true}
@@ -94,6 +93,7 @@ arkret-models-crypto = {workspace = true}
 arkret-http-client = {workspace = true,optional = true}
 arkret-identity = {workspace = true}
 arkret-keystore = {workspace = true}
+arkret-lattice-registry = {workspace = true}
 arkret-egress-policy = {workspace = true}
 arkret-mls = {workspace = true,optional = true}
 arkret-policy = {workspace = true}
@@ -131,14 +131,6 @@ tokio = {workspace = true,features = ["rt-multi-thread"],optional = true}
 tokio = {workspace = true,features = ["macros", "rt", "rt-multi-thread"]}
 
 [[example]]
-name = "basic_authenticated_client"
-required-features = ["full-surface"]
-
-[[example]]
-name = "durable_sync_client"
-required-features = ["full-surface"]
-
-[[example]]
 name = "encrypted_messaging_workflow"
 required-features = ["full-surface"]
 
@@ -149,14 +141,6 @@ required-features = ["full-surface"]
 [[example]]
 name = "personal_agent_provision"
 required-features = ["full-surface", "signer"]
-
-[[test]]
-name = "sdk_workflows"
-required-features = ["full-surface"]
-
-[[test]]
-name = "umbrella_smoke"
-required-features = ["full-surface"]
 
 [lints]
 workspace = true

@@ -1,16 +1,39 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_core::{
-    CellRef, Did, Discoverability, Effect, EncryptionFloor, EncryptionProfile, Event, EventId,
-    EventRef, EventRequirements, EventsSubmitRequestBody, Hash, HistoryVisibility, Hlc, JoinRule,
-    LatticeOp, LatticeOpType, MoveId, MoveSignature, MoveSigner, NotaryProfile, NotarySig, Realm,
-    RealmCreatePayload, RealmId, Seal, SealId, SealKind, SecurityClass, TypedTrustDomainId,
+use arkret_models_collaboration::agent_operations::AgentProvisionEvents;
+use arkret_models_collaboration::events_payloads::device_identity::{
+    DeviceAuthorizePayload, DeviceOrPrincipalRef,
 };
+use arkret_models_collaboration::events_payloads::preview_realm_reaction::RealmCreatePayload;
+use arkret_models_collaboration::governance::accountability::{
+    ACCOUNTABILITY_GRANT_SCHEMA, AccountabilityGrantPayload, AccountabilityScope,
+    AccountabilityScopeKind,
+};
+use arkret_models_collaboration::governance::circle::EncryptionFloor;
+use arkret_models_collaboration::http_bodies::EventsSubmitRequestBody;
+use arkret_models_collaboration::objects::realm::{NotaryProfile, Realm};
+#[cfg(test)]
+use arkret_models_identity::artifacts_device_identity::{
+    DeviceEnrollmentAuthorityBinding, DeviceEnrollmentAuthorityBindingKind,
+};
+use arkret_models_identity::claim_presentation::AgentSelectorClaim;
+use arkret_models_identity::did_document::principal_control_realm_id;
+use arkret_models_identity::handle::{HandleBindingState, HandleVisibility};
 use arkret_state::{CellRegistry, CellState, SealedOp, compute_state_root, control_event_set_root};
+use arkret_wire::{
+    AGENT_SELECTOR_CLAIM_SCHEMA, CellRef, Did, Discoverability, Effect, EncryptionProfile, Error,
+    Event, EventId, EventKind, EventRef, EventRequirements, Hash, HistoryVisibility, Hlc, JoinRule,
+    LatticeOp, LatticeOpType, MoveId, MoveSignature, MoveSigner, NotarySig, NotaryValue,
+    PayloadProof, REALM_SCHEMA_ID, RealmId, Result, Seal, SealId, SealKind, SecurityClass,
+    TypedTrustDomainId, composite_subject, proof_kind,
+};
+#[cfg(test)]
+use arkret_wire::{
+    DeviceId, Move, NonEmptyString, Proof, SemanticRefProof, SemanticRefProofKind, UnsignedMove,
+    WireError,
+};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
-
-use crate::{Error, Result};
 
 pub const PRINCIPAL_CONTROL_REALM_PROFILE: &str = "ak.profile.principal_control_realm.v1";
 pub const DID_INCEPTION_REF_ROLE: &str = "did_inception";
@@ -40,6 +63,172 @@ pub fn managed_agent_principal_control_create_effect(
     })
 }
 
+/// Envelope stamps supplied before the submit pipeline signs each Event envelope.
+#[derive(Clone, Debug)]
+pub struct AgentProvisionEventDraftOptions {
+    pub created_at: DateTime<Utc>,
+    pub accountability_actor_seq: u64,
+    pub accountability_hlc: Hlc,
+    pub selector_actor_seq: u64,
+    pub selector_hlc: Hlc,
+}
+
+fn provision_set_effect(cell_family: &str, subject_parts: &[&str], value: Value) -> Result<Effect> {
+    let subject = composite_subject(subject_parts)?;
+    Ok(Effect {
+        cell: CellRef::new(format!("ak:cell:{cell_family}:{subject}"))?,
+        op: LatticeOp {
+            op_type: LatticeOpType::Set,
+            tag: None,
+            value: Some(value),
+            from: None,
+            to: None,
+            reason: None,
+            issuer_seq: None,
+        },
+    })
+}
+
+/// Build the closed controller-owned managed-agent provisioning Event pair.
+pub fn build_agent_provision_event_drafts<S: MoveSigner + ?Sized>(
+    controller_id: &Did,
+    controller_realm_id: &RealmId,
+    agent_id: &Did,
+    agent_slug: &str,
+    options: AgentProvisionEventDraftOptions,
+    signer: &S,
+) -> Result<AgentProvisionEvents> {
+    if signer.signer_did() != controller_id {
+        return Err(Error::Protocol(format!(
+            "provision signer {} does not match controller {controller_id}",
+            signer.signer_did()
+        )));
+    }
+    let created_at = DateTime::<Utc>::from_timestamp(options.created_at.timestamp(), 0)
+        .ok_or_else(|| Error::Protocol("provision timestamp is outside the wire range".into()))?;
+    let verification_method = signer.verification_method_id().to_owned();
+    let placeholder_digest = Hash::new(format!("sha256:{}", "0".repeat(64)))?;
+    let mut accountability_payload = AccountabilityGrantPayload::new(
+        controller_id.clone(),
+        agent_id.clone(),
+        AccountabilityScope::Single(AccountabilityScopeKind::AgentOperator),
+        created_at,
+        None,
+        PayloadProof {
+            kind: proof_kind::DETACHED_JWS.to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: verification_method.clone(),
+            payload_digest: placeholder_digest,
+            created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "pending".to_owned(),
+        },
+    );
+    accountability_payload.proof.payload_digest = accountability_payload.payload_digest()?;
+    let proof_bytes = accountability_payload.canonical_proof_binding_bytes()?;
+    let signature = signer.sign_payload(&proof_bytes)?;
+    if signature.verification_method != verification_method {
+        return Err(Error::Protocol(
+            "provision signer changed verification_method while signing".to_owned(),
+        ));
+    }
+    let expected_signature_digest =
+        Hash::new(arkret_canonical::canonical::sha256_digest(&proof_bytes))?;
+    if signature.payload_digest != expected_signature_digest {
+        return Err(Error::Protocol(
+            "provision signer returned the wrong proof transcript digest".to_owned(),
+        ));
+    }
+    accountability_payload.proof.alg = signature.alg;
+    accountability_payload.proof.jws = signature.jws;
+
+    let accountability_value = serde_json::to_value(&accountability_payload)?;
+    let mut accountability_grant = Event::new_at(
+        EventKind::IDENTITY_ACCOUNTABILITY_GRANT,
+        controller_realm_id.clone(),
+        controller_id.clone(),
+        options.accountability_actor_seq,
+        options.accountability_hlc,
+        accountability_value.clone(),
+        created_at,
+    )?;
+    accountability_grant.effects = vec![provision_set_effect(
+        "ak.component.identity.accountability.v1",
+        &[controller_id.as_str(), agent_id.as_str(), "agent_operator"],
+        accountability_value,
+    )?];
+    accountability_grant.requirements.schema_profile_refs =
+        vec![ACCOUNTABILITY_GRANT_SCHEMA.to_owned()];
+
+    let mut selector_payload = AgentSelectorClaim {
+        schema: AGENT_SELECTOR_CLAIM_SCHEMA.to_owned(),
+        controller_subject: controller_id.clone(),
+        agent_slug: agent_slug.to_owned(),
+        subject: agent_id.clone(),
+        issuer: controller_id.clone(),
+        issuer_service_id: None,
+        binding_state: HandleBindingState::Pending,
+        visibility: HandleVisibility::Private,
+        audience: None,
+        claim_scope: Default::default(),
+        expires_at: None,
+        created_at,
+        verified_at: None,
+        source_refs: vec![accountability_grant.event_id.to_string()],
+        proofs: vec![PayloadProof {
+            kind: proof_kind::DETACHED_JWS.to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: verification_method.clone(),
+            payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64)))?,
+            created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "pending".to_owned(),
+        }],
+    };
+    selector_payload.proofs[0].payload_digest = selector_payload.payload_digest()?;
+    let selector_binding =
+        selector_payload.canonical_proof_binding_bytes(&selector_payload.proofs[0])?;
+    let selector_signature = signer.sign_payload(&selector_binding)?;
+    if selector_signature.verification_method != verification_method
+        || selector_signature.payload_digest
+            != Hash::new(arkret_canonical::canonical::sha256_digest(
+                &selector_binding,
+            ))?
+    {
+        return Err(Error::Protocol(
+            "provision signer returned an invalid selector proof signature".to_owned(),
+        ));
+    }
+    selector_payload.proofs[0].alg = selector_signature.alg;
+    selector_payload.proofs[0].jws = selector_signature.jws;
+    selector_payload.validate()?;
+    let selector_value = serde_json::to_value(&selector_payload)?;
+    let mut selector_claim = Event::new_at(
+        "ak.agent.selector_claim",
+        controller_realm_id.clone(),
+        controller_id.clone(),
+        options.selector_actor_seq,
+        options.selector_hlc,
+        selector_value.clone(),
+        created_at,
+    )?;
+    selector_claim.effects = vec![provision_set_effect(
+        "ak.component.agent.selector_claim.v1",
+        &[controller_id.as_str(), agent_slug],
+        selector_value,
+    )?];
+    selector_claim.requirements.schema_profile_refs = vec![AGENT_SELECTOR_CLAIM_SCHEMA.to_owned()];
+
+    Ok(AgentProvisionEvents {
+        accountability_grant,
+        selector_claim,
+    })
+}
+
 /// Public inputs required to construct the unsigned, root-anchored first
 /// Event of a self-principal PCR bootstrap unit.
 #[derive(Clone, Debug)]
@@ -56,9 +245,9 @@ pub struct SelfPrincipalPcrCreateInput {
 /// Construct the only unsigned `ak.realm.create` shape that an identity root
 /// may sign. Signing material remains entirely with the caller.
 pub fn build_self_principal_pcr_create(input: SelfPrincipalPcrCreateInput) -> Result<Event> {
-    let created_at = arkret_core::canonical::normalize_timestamp_millis_canonical(input.created_at);
-    let expected_realm_id =
-        RealmId::new(arkret_core::principal_control_realm_id(&input.principal_id))?;
+    let created_at =
+        arkret_canonical::canonical::normalize_timestamp_millis_canonical(input.created_at);
+    let expected_realm_id = RealmId::new(principal_control_realm_id(&input.principal_id))?;
     if input.realm_id != expected_realm_id {
         return Err(Error::Protocol(
             "self principal PCR realm_id does not match principal_id".to_owned(),
@@ -79,11 +268,11 @@ pub fn build_self_principal_pcr_create(input: SelfPrincipalPcrCreateInput) -> Re
         input.principal_id.clone(),
         input.trust_domain,
         NotaryProfile::SingleDid,
-        arkret_core::notary::NotaryValue::single_did(input.principal_id.clone()),
+        NotaryValue::single_did(input.principal_id.clone()),
     );
     realm.security_class = Some(SecurityClass::HighAssurance);
     realm.schema_refs = vec![
-        arkret_core::REALM_SCHEMA_ID.to_owned(),
+        REALM_SCHEMA_ID.to_owned(),
         PRINCIPAL_CONTROL_REALM_PROFILE.to_owned(),
     ];
     realm.default_discoverability = Discoverability::Secret;
@@ -116,7 +305,7 @@ pub fn build_self_principal_pcr_create(input: SelfPrincipalPcrCreateInput) -> Re
     };
     let mut event = Event::new_with_id_at(
         input.event_id,
-        arkret_core::events::EventKind::REALM_CREATE,
+        EventKind::REALM_CREATE,
         input.realm_id,
         input.principal_id,
         0,
@@ -240,7 +429,7 @@ pub fn materialize_managed_agent_pcr_control(
     let creates = events
         .iter()
         .filter(|event| {
-            event.kind == arkret_core::events::EventKind::REALM_CREATE
+            event.kind == EventKind::REALM_CREATE
                 && event
                     .effects
                     .iter()
@@ -282,7 +471,7 @@ pub fn materialize_managed_agent_pcr_control(
         .get("notary")
         .cloned()
         .ok_or_else(|| Error::Protocol("managed Agent PCR create omits notary".to_owned()))?;
-    let notary_value: arkret_core::NotaryValue = serde_json::from_value(notary.clone())?;
+    let notary_value: NotaryValue = serde_json::from_value(notary.clone())?;
     notary_value.validate()?;
     if !notary_value.includes_signer_as_primary(&create.actor_id) {
         return Err(Error::Protocol(
@@ -340,7 +529,7 @@ pub fn materialize_managed_agent_pcr_control(
         }
     }
 
-    let registry = crate::lattice_registry::build_sdk_cell_registry();
+    let registry = arkret_lattice_registry::build_sdk_cell_registry();
     let mut joined = BTreeMap::new();
     for (cell, mut ops) in ops_by_cell {
         ops.sort_by(|left, right| right.move_id.as_str().cmp(left.move_id.as_str()));
@@ -638,7 +827,7 @@ fn self_principal_bootstrap_state_root(
         )],
     );
 
-    let registry = crate::lattice_registry::build_sdk_cell_registry();
+    let registry = arkret_lattice_registry::build_sdk_cell_registry();
     let mut joined = BTreeMap::new();
     for (cell, mut ops) in ops_by_cell {
         ops.sort_by(|left, right| right.move_id.as_str().cmp(left.move_id.as_str()));
@@ -659,7 +848,7 @@ fn self_principal_bootstrap_state_root(
 
 pub fn validate_self_principal_bootstrap_unit(create: &Event, authorize: &Event) -> Result<()> {
     validate_self_principal_pcr_create(create, true)?;
-    if authorize.kind != arkret_core::events::EventKind::DEVICE_AUTHORIZE
+    if authorize.kind != EventKind::DEVICE_AUTHORIZE
         || authorize.realm_id != create.realm_id
         || authorize.actor_id != create.actor_id
         || authorize.actor_seq != 1
@@ -689,8 +878,7 @@ pub fn validate_self_principal_bootstrap_unit(create: &Event, authorize: &Event)
         ));
     }
     validate_event_proof_digests(authorize)?;
-    let payload: arkret_core::DeviceAuthorizePayload =
-        authorize.typed_payload(arkret_core::events::EventKind::DEVICE_AUTHORIZE)?;
+    let payload: DeviceAuthorizePayload = authorize.typed_payload(EventKind::DEVICE_AUTHORIZE)?;
     if payload.principal_id != create.actor_id
         || payload.cross_signing_binding.is_some()
         || payload.enrollment_authority_binding.is_none()
@@ -711,7 +899,7 @@ pub fn validate_self_principal_bootstrap_unit(create: &Event, authorize: &Event)
         .expect("checked above");
     let authorized_by_matches = matches!(
         &payload.authorized_by,
-        arkret_core::DeviceOrPrincipalRef::Did(did) if did == &binding.authority_did
+        DeviceOrPrincipalRef::Did(did) if did == &binding.authority_did
     );
     if !authorized_by_matches
         || authorize.proofs.len() != 1
@@ -726,8 +914,8 @@ pub fn validate_self_principal_bootstrap_unit(create: &Event, authorize: &Event)
 }
 
 fn validate_self_principal_pcr_create(event: &Event, require_proof: bool) -> Result<()> {
-    let expected_realm_id = RealmId::new(arkret_core::principal_control_realm_id(&event.actor_id))?;
-    if event.kind != arkret_core::events::EventKind::REALM_CREATE
+    let expected_realm_id = RealmId::new(principal_control_realm_id(&event.actor_id))?;
+    if event.kind != EventKind::REALM_CREATE
         || event.realm_id != expected_realm_id
         || event.actor_seq != 0
         || !event.prev_refs.is_empty()
@@ -795,10 +983,10 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
         && realm.fields.get("purpose").and_then(Value::as_str) == Some(PRINCIPAL_CONTROL_PURPOSE);
     let notary_matches = matches!(
         &realm.notary,
-        arkret_core::notary::NotaryValue::SingleDid { did, .. } if did == &event.actor_id
+        NotaryValue::SingleDid { did, .. } if did == &event.actor_id
     );
     if realm.id != event.realm_id
-        || realm.schema != arkret_core::REALM_SCHEMA_ID
+        || realm.schema != REALM_SCHEMA_ID
         || realm.created_by != event.actor_id
         || realm.created_at != event.created_at
         || realm.security_class != Some(SecurityClass::HighAssurance)
@@ -831,7 +1019,7 @@ fn validate_event_proof_digests(event: &Event) -> Result<()> {
     }
     let digest = event.event_digest()?;
     if event.proofs.iter().any(|proof| {
-        proof.kind != arkret_core::proof_kind::DETACHED_JWS
+        proof.kind != proof_kind::DETACHED_JWS
             || proof.event_digest.as_str() != digest
             || proof.jws.is_empty()
     }) {
@@ -865,10 +1053,7 @@ mod tests {
     }
 
     impl MoveSigner for FixtureSigner {
-        fn sign_move(
-            &self,
-            _unsigned: &arkret_core::UnsignedMove,
-        ) -> std::result::Result<arkret_core::Move, arkret_core::WireError> {
+        fn sign_move(&self, _unsigned: &UnsignedMove) -> std::result::Result<Move, WireError> {
             unreachable!("bootstrap Seal test does not sign Moves")
         }
 
@@ -883,11 +1068,13 @@ mod tests {
         fn sign_payload(
             &self,
             canonical_bytes: &[u8],
-        ) -> std::result::Result<MoveSignature, arkret_core::WireError> {
+        ) -> std::result::Result<MoveSignature, WireError> {
             Ok(MoveSignature {
                 alg: "EdDSA".to_owned(),
                 verification_method: self.verification_method.clone(),
-                payload_digest: Hash::new(arkret_core::canonical::sha256_digest(canonical_bytes))?,
+                payload_digest: Hash::new(arkret_canonical::canonical::sha256_digest(
+                    canonical_bytes,
+                ))?,
                 created_at: Utc::now(),
                 jws: "fixture.detached-signature".to_owned(),
             })
@@ -896,8 +1083,8 @@ mod tests {
 
     fn attach_fixture_proof(event: &mut Event, verification_method: &str) {
         let digest = Hash::new(event.event_digest().unwrap()).unwrap();
-        event.proofs = vec![arkret_core::Proof {
-            kind: arkret_core::proof_kind::DETACHED_JWS.to_owned(),
+        event.proofs = vec![Proof {
+            kind: proof_kind::DETACHED_JWS.to_owned(),
             alg: "EdDSA".to_owned(),
             verification_method: verification_method.to_owned(),
             event_digest: digest,
@@ -918,35 +1105,32 @@ mod tests {
         let authority =
             Did::new("did:key:z6MkgZb469vbyZCg3L7kx1PbQuUD4NToPpcy1utdLxUUfpsh").unwrap();
         let authorization_ref =
-            arkret_core::NonEmptyString::new(format!("{}#enrollment-authority", create.actor_id))
-                .unwrap();
-        let payload = arkret_core::DeviceAuthorizePayload {
+            NonEmptyString::new(format!("{}#enrollment-authority", create.actor_id)).unwrap();
+        let payload = DeviceAuthorizePayload {
             principal_id: create.actor_id.clone(),
-            device_id: arkret_core::DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001")
-                .unwrap(),
-            device_public_key: arkret_core::NonEmptyString::new("z6MkDeviceKey").unwrap(),
-            hpke_key: arkret_core::NonEmptyString::new("z6LSDeviceHpkeKey").unwrap(),
+            device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
+            device_public_key: NonEmptyString::new("z6MkDeviceKey").unwrap(),
+            hpke_key: NonEmptyString::new("z6LSDeviceHpkeKey").unwrap(),
             algorithms: vec![
-                arkret_core::NonEmptyString::new("ak.hpke_x25519_aead_chacha20poly1305.v1")
-                    .unwrap(),
+                NonEmptyString::new("ak.hpke_x25519_aead_chacha20poly1305.v1").unwrap(),
             ],
-            device_key_algorithm: Some(arkret_core::NonEmptyString::new("EdDSA").unwrap()),
-            authorized_by: arkret_core::DeviceOrPrincipalRef::Did(authority.clone()),
+            device_key_algorithm: Some(NonEmptyString::new("EdDSA").unwrap()),
+            authorized_by: DeviceOrPrincipalRef::Did(authority.clone()),
             scopes: None,
             not_before: create.created_at,
             expires_at: None,
             device_signature: None,
             proof: None,
             cross_signing_binding: None,
-            enrollment_authority_binding: Some(arkret_core::DeviceEnrollmentAuthorityBinding {
-                kind: arkret_core::DeviceEnrollmentAuthorityBindingKind::ServiceAttested,
+            enrollment_authority_binding: Some(DeviceEnrollmentAuthorityBinding {
+                kind: DeviceEnrollmentAuthorityBindingKind::ServiceAttested,
                 authority_did: authority.clone(),
                 authorization_ref: authorization_ref.clone(),
             }),
             recovery_session_id: None,
         };
         let mut authorize = Event::new(
-            arkret_core::events::EventKind::DEVICE_AUTHORIZE,
+            EventKind::DEVICE_AUTHORIZE,
             create.realm_id.clone(),
             create.actor_id.clone(),
             1,
@@ -969,7 +1153,7 @@ mod tests {
     fn input() -> SelfPrincipalPcrCreateInput {
         let principal_id = Did::new("did:webvh:z6mkfixture:users.example:alice").unwrap();
         SelfPrincipalPcrCreateInput {
-            realm_id: RealmId::new(arkret_core::principal_control_realm_id(&principal_id)).unwrap(),
+            realm_id: RealmId::new(principal_control_realm_id(&principal_id)).unwrap(),
             principal_id,
             trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             did_inception_ref: EventRef::new(
@@ -986,7 +1170,7 @@ mod tests {
     fn builder_emits_only_the_closed_unsigned_root_shape() {
         let event = build_self_principal_pcr_create(input()).unwrap();
 
-        assert_eq!(event.kind, arkret_core::events::EventKind::REALM_CREATE);
+        assert_eq!(event.kind, EventKind::REALM_CREATE);
         assert_eq!(event.actor_seq, 0);
         assert!(event.prev_refs.is_empty());
         assert!(event.proofs.is_empty());
@@ -1003,8 +1187,8 @@ mod tests {
         assert!(build_self_principal_pcr_create(wrong_realm).is_err());
 
         let mut indirect = input();
-        indirect.did_inception_ref.proof = Some(arkret_core::SemanticRefProof {
-            kind: arkret_core::SemanticRefProofKind::Rfc6962Merkle,
+        indirect.did_inception_ref.proof = Some(SemanticRefProof {
+            kind: SemanticRefProofKind::Rfc6962Merkle,
             leaf_digest: Hash::new(
                 "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             )
@@ -1072,7 +1256,7 @@ mod tests {
         let controller = Did::new("did:web:controller.example").unwrap();
         let authorization_ref = format!("{agent}#managed-controller");
         let mut create = Event::new(
-            arkret_core::events::EventKind::REALM_CREATE,
+            EventKind::REALM_CREATE,
             realm_id.clone(),
             agent.clone(),
             1,
@@ -1096,7 +1280,7 @@ mod tests {
         ];
 
         let mut genesis = Event::new(
-            arkret_core::events::EventKind::MLS_GENESIS,
+            EventKind::MLS_GENESIS,
             create.realm_id.clone(),
             create.actor_id.clone(),
             2,

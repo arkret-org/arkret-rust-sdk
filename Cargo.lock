@@ -108,6 +108,7 @@ version = "0.3.0"
 dependencies = [
  "argon2",
  "arkret-auth",
+ "arkret-bootstrap",
  "arkret-canonical",
  "arkret-core",
  "arkret-crypto",
@@ -116,6 +117,7 @@ dependencies = [
  "arkret-http-client",
  "arkret-identity",
  "arkret-keystore",
+ "arkret-lattice-registry",
  "arkret-mls",
  "arkret-models-crypto",
  "arkret-policy",
@@ -167,6 +169,21 @@ dependencies = [
  "subtle",
  "thiserror",
  "uuid",
+]
+
+[[package]]
+name = "arkret-bootstrap"
+version = "0.3.0"
+dependencies = [
+ "arkret-canonical",
+ "arkret-lattice-registry",
+ "arkret-models-collaboration",
+ "arkret-models-identity",
+ "arkret-state",
+ "arkret-wire",
+ "chrono",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -276,6 +293,7 @@ dependencies = [
  "arkret-identifiers",
  "arkret-models-collaboration",
  "arkret-models-crypto",
+ "arkret-models-integration",
  "arkret-wire",
  "chrono",
  "salvo",
@@ -387,6 +405,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "arkret-lattice-registry"
+version = "0.3.0"
+dependencies = [
+ "arkret-models-collaboration",
+ "arkret-schema",
+ "arkret-state",
+ "arkret-wire",
+ "serde_json",
+]
+
+[[package]]
 name = "arkret-mls"
 version = "0.3.0"
 dependencies = [
@@ -395,6 +424,7 @@ dependencies = [
  "arkret-identifiers",
  "arkret-models-crypto",
  "arkret-models-identity",
+ "arkret-policy",
  "arkret-schema",
  "arkret-signatures",
  "arkret-wire",
@@ -413,6 +443,17 @@ dependencies = [
  "uuid",
  "x25519-dalek",
  "zeroize",
+]
+
+[[package]]
+name = "arkret-models"
+version = "0.3.0"
+dependencies = [
+ "arkret-models-collaboration",
+ "arkret-models-crypto",
+ "arkret-models-discovery",
+ "arkret-models-identity",
+ "arkret-models-integration",
 ]
 
 [[package]]
@@ -501,6 +542,7 @@ version = "0.3.0"
 dependencies = [
  "arkret-canonical",
  "arkret-models-collaboration",
+ "arkret-models-crypto",
  "arkret-models-integration",
  "arkret-schema",
  "arkret-wire",

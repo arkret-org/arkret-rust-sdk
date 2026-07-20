@@ -14,8 +14,6 @@
 //! wire a network fallback through it.
 use arkret_wire::Did;
 
-use crate::MlsError as Error;
-
 /// Credential carried by an active leaf in an [`AuthorGroupStateView`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AuthorLeafCredential {
@@ -117,12 +115,6 @@ impl MinimalMetadataAuthorError {
     /// The canonical `failed_precondition` sub-reason for every failure mode.
     pub const fn reason_code(&self) -> &'static str {
         arkret_wire::ReasonCode::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID
-    }
-}
-
-impl From<MinimalMetadataAuthorError> for Error {
-    fn from(err: MinimalMetadataAuthorError) -> Self {
-        Error::Protocol(err.to_string())
     }
 }
 

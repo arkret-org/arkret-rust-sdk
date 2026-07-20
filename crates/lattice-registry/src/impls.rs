@@ -1,7 +1,7 @@
+use arkret_state::lattice::LatticeKind as SdkLatticeKind;
 use serde_json::Value;
 
 use super::types::*;
-use crate::lattice::LatticeKind as SdkLatticeKind;
 
 // ────────────────────────── Helper macros ──────────────────────────
 
@@ -572,7 +572,7 @@ impl LatticeKind for RealmLink {
                 cell_family: "ak.component.realm.link.v1",
                 field: "link_kind",
             })?;
-        crate::composite_subject(&[target_realm_id, link_kind])
+        arkret_wire::composite_subject(&[target_realm_id, link_kind])
             .map(Some)
             .map_err(|error| LatticeKindError::InvalidCompositeSubject {
                 cell_family: "ak.component.realm.link.v1",

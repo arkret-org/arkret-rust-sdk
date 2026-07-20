@@ -6,6 +6,10 @@
 use arkret_canonical::canonical;
 use arkret_wire::{EncryptedPayloadScheme, Error, EventId, Hash, RealmId, Result};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+/// Profile id whose Realms require the minimal-metadata MLS policy.
+pub const MINIMAL_METADATA_REALM_PROFILE: &str = "ak.profile.mls.minimal_metadata_realm.v1";
 
 /// Counterpart for `spec/v1/artifacts/schemas/encrypted-envelope.schema.json`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -148,6 +152,14 @@ impl EncryptedEnvelope {
         }
         Ok(())
     }
+}
+
+/// Decode and validate an encrypted envelope without initializing an MLS group machine.
+pub fn parse_and_validate_encrypted_envelope(value: Value) -> Result<EncryptedEnvelope> {
+    let envelope: EncryptedEnvelope = serde_json::from_value(value)
+        .map_err(|error| Error::Protocol(format!("encrypted envelope schema: {error}")))?;
+    envelope.validate()?;
+    Ok(envelope)
 }
 
 /// `major.minor` numeric version token (e.g. `1.0`); both parts non-empty and

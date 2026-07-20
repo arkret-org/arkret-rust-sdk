@@ -37,11 +37,12 @@ pub use types::*;
 
 #[cfg(test)]
 mod tests {
+    use arkret_state::lattice::LatticeKind as SdkLatticeKind;
+    use arkret_state::{BottomMode, CellRegistry, CellState, SealedOp};
+    use arkret_wire::{CellRef, LatticeOp, LatticeOpType, MoveId, RealmId, composite_subject};
     use serde_json::json;
 
     use super::*;
-    use crate::lattice::LatticeKind as SdkLatticeKind;
-    use crate::state::{BottomMode, CellRegistry};
 
     #[test]
     fn default_registry_covers_at_least_all_spec_normative_cell_families() {
@@ -102,7 +103,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             subject,
-            crate::composite_subject(&[
+            composite_subject(&[
                 "ak:realm:01904100-0000-7000-8000-000000000022",
                 "governed_by",
             ])
@@ -112,10 +113,8 @@ mod tests {
 
         let sdk_registry = build_sdk_cell_registry();
         let realm_id =
-            crate::RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011".to_owned())
-                .unwrap();
-        let cell =
-            crate::CellRef::new(format!("ak:cell:ak.component.realm.link.v1:{subject}")).unwrap();
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011".to_owned()).unwrap();
+        let cell = CellRef::new(format!("ak:cell:ak.component.realm.link.v1:{subject}")).unwrap();
         let binding = sdk_registry.resolve(&realm_id, &cell).unwrap();
         assert_eq!(binding.lattice.kind(), SdkLatticeKind::Fsm);
         assert_eq!(binding.bottom_mode, BottomMode::Reject);
@@ -124,17 +123,15 @@ mod tests {
     #[test]
     fn realm_member_fsm_uses_leave_as_the_normative_initial_state() {
         let registry = build_sdk_cell_registry();
-        let realm_id =
-            crate::RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011").unwrap();
-        let cell = crate::CellRef::new(
-            "ak:cell:ak.component.member.state.v1:did:web:bob.example".to_owned(),
-        )
-        .unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011").unwrap();
+        let cell =
+            CellRef::new("ak:cell:ak.component.member.state.v1:did:web:bob.example".to_owned())
+                .unwrap();
         let binding = registry.resolve(&realm_id, &cell).unwrap();
-        let invite = crate::SealedOp::new(
-            crate::MoveId::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
-            crate::LatticeOp {
-                op_type: crate::LatticeOpType::Transition,
+        let invite = SealedOp::new(
+            MoveId::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
+            LatticeOp {
+                op_type: LatticeOpType::Transition,
                 tag: None,
                 value: None,
                 from: Some(json!("leave")),
@@ -146,7 +143,7 @@ mod tests {
 
         assert_eq!(
             binding.lattice.join(&cell, &[invite]),
-            crate::CellState::Value(json!("invite"))
+            CellState::Value(json!("invite"))
         );
     }
 

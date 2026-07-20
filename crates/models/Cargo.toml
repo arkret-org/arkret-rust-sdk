@@ -1,0 +1,32 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+categories = ["api-bindings", "data-structures"]
+description = "Unified documentation and re-export surface for Arkret v1 protocol models."
+edition = "2024"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+keywords = ["arkret", "models", "protocol", "wire"]
+license = "Apache-2.0"
+name = "arkret-models"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+default = []
+salvo-oapi = [
+    "arkret-models-collaboration/salvo-oapi",
+    "arkret-models-crypto/salvo-oapi",
+    "arkret-models-discovery/salvo-oapi",
+    "arkret-models-identity/salvo-oapi",
+    "arkret-models-integration/salvo-oapi",
+]
+
+[dependencies]
+arkret-models-collaboration = {workspace = true}
+arkret-models-crypto = {workspace = true}
+arkret-models-discovery = {workspace = true}
+arkret-models-identity = {workspace = true}
+arkret-models-integration = {workspace = true}
+
+[lints]
+workspace = true

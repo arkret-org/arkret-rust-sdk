@@ -8,10 +8,48 @@ pub use arkret_models_collaboration::agent_operations::agent_requested_scope_dig
 use arkret_models_collaboration::governance::agent_artifacts::PublicKey;
 use arkret_wire::{Did, Hash, ServiceOperationId};
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::{Error, Result};
+
+/// Canonical transcript signed by an agent runtime when pairing its key.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AgentKeyPairProofSigningInput {
+    pub audience: String,
+    pub challenge: String,
+    pub expires_at: DateTime<Utc>,
+    pub request_canonical_digest: Hash,
+    pub verification_method: String,
+}
+
+impl AgentKeyPairProofSigningInput {
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
+        canonical::canonical_json_bytes(self).map_err(Into::into)
+    }
+
+    pub fn canonical_digest(&self) -> Result<Hash> {
+        Ok(Hash::new(canonical::sha256_digest(
+            self.canonical_bytes()?,
+        ))?)
+    }
+}
+
+pub fn agent_key_pair_proof_signing_input(
+    verification_method: impl Into<String>,
+    challenge: impl Into<String>,
+    audience: impl Into<String>,
+    expires_at: DateTime<Utc>,
+    request_canonical_digest: Hash,
+) -> AgentKeyPairProofSigningInput {
+    AgentKeyPairProofSigningInput {
+        audience: audience.into(),
+        challenge: challenge.into(),
+        expires_at,
+        request_canonical_digest,
+        verification_method: verification_method.into(),
+    }
+}
 
 #[derive(Serialize)]
 struct AgentKeyPairingRequestBinding<'a> {
