@@ -35,5 +35,8 @@ pub enum AuthError {
     Signature(#[from] arkret_signatures::Error),
 
     #[error(transparent)]
+    KeyStore(#[from] arkret_keystore::KeyStoreError),
+
+    #[error(transparent)]
     Json(#[from] serde_json::Error),
 }

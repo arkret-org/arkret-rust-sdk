@@ -1,7 +1,7 @@
 {
   "entries": [
     {
-      "rust_field": "crates/core/src/admin_signer.rs::SessionGrantIntrospection.audit_context",
+      "rust_field": "crates/models-identity/src/admin_grant.rs::SessionGrantIntrospection.audit_context",
       "classification": "internal_or_fixture",
       "reason": "Internal signer introspection metadata is not serialized onto a Spec-defined wire boundary."
     },

@@ -3,7 +3,7 @@
     "total": 263,
     "by_crate": {
       "auth": 1,
-      "core": 5,
+      "core": 4,
       "crypto": 1,
       "event-draft": 2,
       "ffi": 1,
@@ -11,7 +11,7 @@
       "models-collaboration": 126,
       "models-crypto": 6,
       "models-discovery": 17,
-      "models-identity": 17,
+      "models-identity": 18,
       "models-integration": 17,
       "schema": 9,
       "sdk": 22,
@@ -46,19 +46,6 @@
       "schema_shape": "open_map",
       "classification": "open_json",
       "reason": "Presented claim values are deliberately claim-type-defined JSON."
-    },
-    {
-      "rust_field": "crates/core/src/admin_signer.rs::SessionGrantIntrospection.audit_context",
-      "crate": "core",
-      "file": "crates/core/src/admin_signer.rs",
-      "line": 162,
-      "owner": "SessionGrantIntrospection",
-      "field": "audit_context",
-      "rust_type": "serde_json::Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "internal_or_fixture",
-      "reason": "Internal signer introspection metadata is not serialized onto a Spec-defined wire boundary."
     },
     {
       "rust_field": "crates/core/src/models/artifacts/event_payload/applet_audit.rs::AppletBridgeErrorPayload.external_ref",
@@ -2204,6 +2191,19 @@
       "schema_shape": "open_map",
       "classification": "open_json",
       "reason": "The exact Spec field is an open property map."
+    },
+    {
+      "rust_field": "crates/models-identity/src/admin_grant.rs::SessionGrantIntrospection.audit_context",
+      "crate": "models-identity",
+      "file": "crates/models-identity/src/admin_grant.rs",
+      "line": 65,
+      "owner": "SessionGrantIntrospection",
+      "field": "audit_context",
+      "rust_type": "serde_json::Value",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "internal_or_fixture",
+      "reason": "Internal signer introspection metadata is not serialized onto a Spec-defined wire boundary."
     },
     {
       "rust_field": "crates/models-identity/src/artifacts_device_identity.rs::KeyVerificationContent.device_metadata",

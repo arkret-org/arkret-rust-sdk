@@ -10,6 +10,7 @@
 
 pub mod account;
 pub mod actor_profile;
+pub mod admin_grant;
 pub mod artifacts_account;
 pub mod artifacts_device_identity;
 pub mod attestation;
@@ -37,6 +38,7 @@ pub mod session_credential;
 
 pub use account::*;
 pub use actor_profile::*;
+pub use admin_grant::*;
 pub use artifacts_account::*;
 pub use artifacts_device_identity::*;
 pub use attestation::*;

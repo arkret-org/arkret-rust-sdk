@@ -6,6 +6,7 @@
 //! transport-bound one-shot `login_did_proof` helper (which speaks the core
 //! http session-grant DTOs) stays in the SDK as `AuthManagerLoginExt`.
 
+pub mod admin_key;
 mod claims;
 mod error;
 mod grants;
@@ -19,6 +20,7 @@ mod verification;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt;
 
+pub use admin_key::AdminKeyStore;
 use arkret_models_identity::DidDocument;
 use arkret_wire::{DeviceId, Did, DidUrl, NonEmptyString, Proof};
 use chrono::{DateTime, Duration, Utc};
