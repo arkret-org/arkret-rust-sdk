@@ -8,9 +8,9 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    ConsentId, Cursor, DeviceId, Did, Error, Event, EventId, Hash, MimiRoomUri, MlsGroupId,
-    MorphId, MoveId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId, RelationId,
-    ReportId, Result, SealId, SpaceId, StrandId, canonical,
+    BlobRef, ConsentId, Cursor, DeviceId, Did, Error, Event, EventId, Hash, MimiRoomUri,
+    MlsGroupId, MorphId, MoveId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId,
+    RelationId, ReportId, Result, SealId, SpaceId, StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -21,7 +21,14 @@ use crate::objects::mimi::{
     MimiGroupInfo, MimiIdentifier, MimiIdentifierMatch, MimiKeyPackage, MimiNotification,
     MimiNotificationRouting, MimiOhttpContext, MimiOpaquePayload, MimiRoomUpdate,
 };
+use crate::session_grant_bodies::SessionGrantOutcome;
+use crate::sync_frames::client_sync::SyncRequestBody;
 use crate::sync_frames::stream_trace::{StreamTraceFrame, StreamTraceFrameKind};
+
+// is_false is used as a serde skip_serializing_if predicate in this module.
+fn is_false(value: &bool) -> bool {
+    !*value
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
@@ -783,3 +790,214 @@ mod mimi_consent_tests {
         assert!(request.signature_binding_bytes().is_err());
     }
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct EventsRangeCompleteness {
+    pub attestation_refs: Vec<EventId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attestations: Vec<Event>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ContactState {
+    PendingOutgoing,
+    PendingIncoming,
+    Accepted,
+    Rejected,
+    Tombstoned,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum DirectConversationBindingState {
+    Active,
+    Retired,
+    Duplicate,
+    NonCanonical,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum DirectConversationResolveState {
+    Found,
+    Created,
+    NotFound,
+    Retired,
+    NonCanonical,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct DirectConversationSummary {
+    pub realm_id: RealmId,
+    pub main_strand_id: StrandId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binding_event_ref: Option<EventId>,
+    pub state: DirectConversationBindingState,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct ContactAgentProjection {
+    pub agent_id: Did,
+    pub controller_id: Did,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_slug: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direct_conversation: Option<DirectConversationSummary>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct ContactListRow {
+    pub peer: Did,
+    pub state: ContactState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_event_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_event_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tombstone_event_ref: Option<EventId>,
+    #[serde(default)]
+    pub granted_by_me: Vec<String>,
+    #[serde(default)]
+    pub granted_to_me: Vec<String>,
+    #[serde(default)]
+    pub bidirectional_scopes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub effective_scopes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invite_consent_grant_ref: Option<EventId>,
+    /// Principal Server service DID hosting the peer, when known (e.g. learned
+    /// from a cross-Principal-Server contact delivery). Lets the holder address
+    /// responses/invites to the peer's home server. Omitted for
+    /// same-Principal-Server contacts (spec contact-operations.schema.json).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub peer_service_id: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direct_conversation: Option<DirectConversationSummary>,
+    /// Active agents controlled by this contact that currently accept direct
+    /// messages from the authenticated actor. This is a viewer-specific,
+    /// fail-closed projection; clients must not infer it from public selector
+    /// claims.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub agents: Vec<ContactAgentProjection>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct ContactRequestOutcome {
+    pub request_event_ref: EventId,
+    #[serde(default)]
+    pub requester_consent_refs: Vec<EventId>,
+    pub state: ContactState,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct ContactRespondRequestBody {
+    pub request_id: EventId,
+    pub requester: Did,
+    pub action: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub granted_scopes: Vec<String>,
+    /// Cross-Principal-Server addressing (spec §4.1): when the original
+    /// `requester` is hosted on a different Principal Server, the responder
+    /// supplies the requester's home service DID so the accept / reject fact
+    /// is federated back via `ak.peer.contacts.command.submit`. Omit for same-server
+    /// responses.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requester_service_id: Option<Did>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct ContactRespondOutcome {
+    pub response_event_ref: EventId,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub consent_grant_refs: Vec<EventId>,
+    pub state: ContactState,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct ContactTombstoneRequestBody {
+    pub contact: Did,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub revoke_scopes: Vec<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub full_peer_revoke: bool,
+    #[serde(default)]
+    pub block_peer: bool,
+    /// Cross-Principal-Server addressing (spec contact-and-direct-conversation.md
+    /// §4.1): when `contact` (the peer) is hosted on a different Principal
+    /// Server, the holder supplies the peer's home service DID so the
+    /// `ak.contact.tombstoned` fact is federated to the peer's server via
+    /// `ak.peer.contacts.command.submit`. Omit for same-server tombstones; when absent
+    /// the issuer falls back to the peer's recorded `peer_service_id` on the
+    /// stored contact row.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub peer_service_id: Option<Did>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct ContactTombstone {
+    pub tombstone_event_ref: EventId,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub consent_revoke_refs: Vec<EventId>,
+    pub state: ContactState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub partial_revoke: Option<bool>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct DirectConversationResolveRequestBody {
+    pub peer: Did,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub create: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub idempotency_key: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct DirectConversationResolveOutcome {
+    pub state: DirectConversationResolveState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub main_strand_id: Option<StrandId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binding_event_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created: Option<bool>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct AccountOidcCallbackOutcome {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub principal_id: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recovery_session_state: Option<SessionGrantOutcome>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redirect_url: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = SyncRequestBody)))]
+pub struct AccountSubscribeRequestBody(pub SyncRequestBody);

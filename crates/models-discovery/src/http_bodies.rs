@@ -5,6 +5,24 @@
 use arkret_wire::BatchId;
 use serde::{Deserialize, Serialize};
 
+use crate::service_description::ServiceDescribe;
+
+/// Transparent wrapper over `ServiceDescribe` for
+/// `ak.gate.service.query.describe` (Principal Server) Salvo OpenAPI bindings.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = ServiceDescribe)))]
+pub struct ServerDescribeOutcome(pub ServiceDescribe);
+
+/// Transparent wrapper over `ServiceDescribe` for
+/// `ak.find.directory.query.describe` (directory service) Salvo OpenAPI bindings.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = ServiceDescribe)))]
+pub struct DirectoryDescribeOutcome(pub ServiceDescribe);
+
 /// Two-round RFC 9497 VOPRF request for
 /// `ak.find.directory.query.private_contact_discovery`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

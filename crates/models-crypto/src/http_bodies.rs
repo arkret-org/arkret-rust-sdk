@@ -12,6 +12,7 @@ use crate::artifacts_keys::{
     Failure, KeyOperationSignature, KeyPackageClaimRecord, KeyPackageRefArray,
     KeyPackageUploadEntry,
 };
+use crate::key_backup::KeyBackup;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
@@ -124,3 +125,19 @@ pub struct KeyPackagesRevokeOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<Failure>,
 }
+
+/// Transparent wrapper over `KeyBackup` for the `ak.self.keys.command.put_backup`
+/// request body Salvo OpenAPI bindings.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = KeyBackup)))]
+pub struct KeysBackupsPutRequestBody(pub KeyBackup);
+
+/// Transparent wrapper over `KeyBackup` for the `ak.self.keys.query.get_backup`
+/// outcome Salvo OpenAPI bindings.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = KeyBackup)))]
+pub struct KeysBackupsGetOutcome(pub KeyBackup);
