@@ -8,7 +8,7 @@ pub use arkret_identifiers::{
     FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId, MessageId,
     ModerationQueueItemId, MorphId, NotificationId, OperationId, PolicyId, PresentationId,
     ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId,
-    RtcParticipantId, SnapshotId, SpaceId, StrandId, TransactionId, TypedAppealId,
+    RtcParticipantId, SidecarId, SnapshotId, SpaceId, StrandId, TransactionId, TypedAppealId,
     TypedTrustDomainId, ViewId, new_prefixed_uuid7,
 };
 pub use arkret_wire::{EvaluationClass, ServiceType, XExtensionMap};

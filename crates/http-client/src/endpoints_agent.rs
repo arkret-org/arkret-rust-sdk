@@ -10,12 +10,14 @@ use arkret_models_collaboration::agent_operations::{
     AgentRenewPairingOutcome, AgentRenewPairingRequestBody, AgentResumeRequestBody,
     AgentRuntimeApprovalOutcome, AgentRuntimeApprovalRequestBody,
     AgentRuntimeApprovalStatusOutcome, AgentRuntimeApprovalStatusRequestBody,
-    AgentSidecarThreadEnsureOutcome, AgentSidecarThreadEnsureRequestBody, AgentView,
+    AgentSidecarEnsureOutcome, AgentSidecarEnsureRequestBody, AgentSidecarList, AgentSidecarView,
+    AgentView,
 };
 use arkret_models_collaboration::governance::agent_participation::{
     AgentParticipationOutcome, AgentParticipationReplaceRequestBody,
 };
-use arkret_wire::GrantId;
+use arkret_wire::{GrantId, RealmId, SidecarId};
+use reqwest::Method;
 use serde_json::Value;
 
 use crate::{Client, Error, Result, retry_after_ms};
@@ -26,7 +28,8 @@ const AGENT_PAIRING_RUNTIME_KEY_REQUESTS_PATH: &str =
 const AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH: &str =
     "/_arkret/open/agent-pairing/runtime-key-requests/status";
 const AGENTS_PATH: &str = "/_arkret/self/agents";
-const AGENT_SIDECAR_THREAD_ENSURE_PATH: &str = "/_arkret/self/agent-sidecar-threads:ensure";
+const AGENT_SIDECARS_PATH: &str = "/_arkret/self/agent-sidecars";
+const AGENT_SIDECAR_ENSURE_PATH: &str = "/_arkret/self/agent-sidecars:ensure";
 
 #[derive(Clone, Debug)]
 pub struct AgentRuntimeApprovalStatusResponse {
@@ -50,7 +53,7 @@ impl Client {
         request: &AgentKeyPairRequestBody,
     ) -> Result<AgentKeyPairOutcome> {
         let builder = self
-            .request(reqwest::Method::POST, AGENT_KEY_PAIR_PATH)?
+            .request(Method::POST, AGENT_KEY_PAIR_PATH)?
             .header("Idempotency-Key", request.authorize_event.event_id.as_str())
             .json(request);
         self.send_json(builder).await
@@ -73,10 +76,7 @@ impl Client {
         request: &AgentRuntimeApprovalStatusRequestBody,
     ) -> Result<AgentRuntimeApprovalStatusResponse> {
         let builder = self
-            .request(
-                reqwest::Method::POST,
-                AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH,
-            )?
+            .request(Method::POST, AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH)?
             .json(request);
         let (outcome, headers) = self.send_json_with_headers(builder).await?;
         Ok(AgentRuntimeApprovalStatusResponse {
@@ -215,13 +215,37 @@ impl Client {
         self.put(&path, request).await
     }
 
-    /// `POST /_arkret/self/agent-sidecar-threads:ensure`
-    /// (`ak.self.agent.sidecar_thread.command.ensure`).
-    pub async fn agent_sidecar_thread_ensure(
+    /// `POST /_arkret/self/agent-sidecars:ensure`
+    /// (`ak.self.agent.sidecar.command.ensure`).
+    pub async fn agent_sidecar_ensure(
         &self,
-        request: &AgentSidecarThreadEnsureRequestBody,
-    ) -> Result<AgentSidecarThreadEnsureOutcome> {
-        self.post(AGENT_SIDECAR_THREAD_ENSURE_PATH, request).await
+        request: &AgentSidecarEnsureRequestBody,
+    ) -> Result<AgentSidecarEnsureOutcome> {
+        self.post(AGENT_SIDECAR_ENSURE_PATH, request).await
+    }
+
+    /// `GET /_arkret/self/agent-sidecars/{sidecar_id}`
+    /// (`ak.self.agent.sidecar.resource.get`).
+    pub async fn agent_sidecar_get(&self, sidecar_id: &SidecarId) -> Result<AgentSidecarView> {
+        self.get(&format!("{AGENT_SIDECARS_PATH}/{sidecar_id}"))
+            .await
+    }
+
+    /// `GET /_arkret/self/agent-sidecars`
+    /// (`ak.self.agent.sidecar.query.list`).
+    pub async fn agent_sidecar_list(
+        &self,
+        realm_id: Option<&RealmId>,
+        cursor: Option<&str>,
+    ) -> Result<AgentSidecarList> {
+        let mut builder = self.request(Method::GET, AGENT_SIDECARS_PATH)?;
+        if let Some(realm_id) = realm_id {
+            builder = builder.query(&[("realm_id", realm_id.as_str())]);
+        }
+        if let Some(cursor) = cursor {
+            builder = builder.query(&[("cursor", cursor)]);
+        }
+        self.send_json(builder).await
     }
 }
 

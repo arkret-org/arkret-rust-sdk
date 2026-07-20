@@ -894,8 +894,7 @@ mod tests {
         let realm_id =
             RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000002".to_owned()).unwrap();
         let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
-        let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
-        circle.profile_ref = Some("ak.profile.agent_sidecar_thread.v1".to_owned());
+        let circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         let json = serde_json::to_value(&circle).unwrap();
         let parsed: Circle = serde_json::from_value(json).unwrap();
         assert_eq!(parsed.schema, CIRCLE_SCHEMA);

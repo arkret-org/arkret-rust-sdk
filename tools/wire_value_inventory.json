@@ -233,7 +233,7 @@
       "rust_field": "crates/models-collaboration/src/agent_operations.rs::KeyState.pending_runtime_key_request",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/agent_operations.rs",
-      "line": 677,
+      "line": 1154,
       "owner": "KeyState",
       "field": "pending_runtime_key_request",
       "rust_type": "Option<BTreeMap<String, Value>>",

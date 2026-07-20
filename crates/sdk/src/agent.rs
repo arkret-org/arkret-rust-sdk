@@ -24,12 +24,12 @@ use crate::{
     AgentPausePayload, AgentPauseRequestBody, AgentProvisionEvents, AgentProvisionRequestBody,
     AgentRenewPairingRequestBody, AgentRequestedScopeDisclosure, AgentResumePayload,
     AgentResumeRequestBody, AgentRuntimeApprovalRequestBody, AgentRuntimeApprovalStatusRequestBody,
-    AgentSelectorClaim, AgentSidecarExposureAck, AgentSidecarThreadEnsureRequestBody,
-    CapabilityGrant, CellRef, Did, DidUrl, Effect, Error, Event, GrantId, HandleBindingState,
-    HandleVisibility, Hash, Hlc, LatticeOp, LatticeOpType, MoveSigner, NonEmptyJsonObject,
-    NonEmptyString, PayloadProof, PublicKey, RealmId, Result, SessionGrantAgentScopeRequest,
+    AgentSelectorClaim, AgentSidecarEnsureRequestBody, AgentSidecarExposureAck, CapabilityGrant,
+    CellRef, Did, DidUrl, Effect, Error, Event, GrantId, HandleBindingState, HandleVisibility,
+    Hash, Hlc, LatticeOp, LatticeOpType, MoveSigner, NonEmptyJsonObject, NonEmptyString,
+    PayloadProof, PublicKey, RealmId, Result, SessionGrantAgentScopeRequest,
     SessionGrantDpopBindingProof, SessionGrantProofKind, SessionGrantRequestBody,
-    SessionGrantRequestProof, proof_kind,
+    SessionGrantRequestProof, SidecarId, proof_kind,
 };
 
 pub const AGENT_KEY_PROOF_KIND: &str = "agent_key_proof";
@@ -507,7 +507,8 @@ pub const AGENT_PAIRING_RUNTIME_KEY_REQUESTS_PATH: &str =
 pub const AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH: &str =
     "/_arkret/open/agent-pairing/runtime-key-requests/status";
 pub const AGENTS_PATH: &str = "/_arkret/self/agents";
-pub const AGENT_SIDECAR_THREAD_ENSURE_PATH: &str = "/_arkret/self/agent-sidecar-threads:ensure";
+pub const AGENT_SIDECARS_PATH: &str = "/_arkret/self/agent-sidecars";
+pub const AGENT_SIDECAR_ENSURE_PATH: &str = "/_arkret/self/agent-sidecars:ensure";
 
 /// Percent-encode one path component for the personal-agent HTTP surface.
 pub fn agent_path_component(value: &str) -> String {
@@ -1288,14 +1289,52 @@ pub fn plan_agent_grant_detach(agent_id: &str, grant_id: &GrantId) -> AgentReque
     )
 }
 
-pub fn plan_agent_sidecar_thread_ensure(
-    body: AgentSidecarThreadEnsureRequestBody,
-) -> AgentRequestPlan<AgentSidecarThreadEnsureRequestBody> {
+pub fn plan_agent_sidecar_ensure(
+    body: AgentSidecarEnsureRequestBody,
+) -> AgentRequestPlan<AgentSidecarEnsureRequestBody> {
     AgentRequestPlan::with_body(
-        arkret_core::ServiceOperationId::SELF_AGENT_SIDECAR_THREAD_COMMAND_ENSURE,
+        arkret_core::ServiceOperationId::SELF_AGENT_SIDECAR_COMMAND_ENSURE,
         AgentHttpMethod::Post,
-        AGENT_SIDECAR_THREAD_ENSURE_PATH,
+        AGENT_SIDECAR_ENSURE_PATH,
         body,
+    )
+}
+
+pub fn plan_agent_sidecar_get(sidecar_id: &SidecarId) -> AgentRequestPlan<()> {
+    AgentRequestPlan::without_body(
+        arkret_core::ServiceOperationId::SELF_AGENT_SIDECAR_RESOURCE_GET,
+        AgentHttpMethod::Get,
+        format!(
+            "{}/{}",
+            AGENT_SIDECARS_PATH,
+            agent_path_component(sidecar_id.as_str())
+        ),
+    )
+}
+
+pub fn plan_agent_sidecar_list(
+    realm_id: Option<&RealmId>,
+    cursor: Option<&str>,
+) -> AgentRequestPlan<()> {
+    let mut query = Vec::new();
+    if let Some(realm_id) = realm_id {
+        query.push(format!(
+            "realm_id={}",
+            agent_path_component(realm_id.as_str())
+        ));
+    }
+    if let Some(cursor) = cursor {
+        query.push(format!("cursor={}", agent_path_component(cursor)));
+    }
+    let path = if query.is_empty() {
+        AGENT_SIDECARS_PATH.to_owned()
+    } else {
+        format!("{}?{}", AGENT_SIDECARS_PATH, query.join("&"))
+    };
+    AgentRequestPlan::without_body(
+        arkret_core::ServiceOperationId::SELF_AGENT_SIDECAR_QUERY_LIST,
+        AgentHttpMethod::Get,
+        path,
     )
 }
 
@@ -1755,6 +1794,49 @@ mod tests {
         assert_eq!(
             detach.path,
             "/_arkret/self/agents/did%3Awebvh%3Az6mkfixture%3Aagent.example/grants/ak%3Agrant%3A01964137-0000-7000-8000-000000000010"
+        );
+
+        let realm_id =
+            RealmId::new("ak:realm:01964137-0000-7000-8000-000000000020".to_owned()).unwrap();
+        let sidecar_id =
+            SidecarId::new("ak:sidecar:01964137-0000-7000-8000-000000000021".to_owned()).unwrap();
+        let ensure = plan_agent_sidecar_ensure(AgentSidecarEnsureRequestBody {
+            controller_id: did("controller"),
+            addressed_agent_ids: vec![did("agent")],
+            context_ref: crate::AgentSidecarContextRef::strand(
+                realm_id.clone(),
+                crate::StrandId::new("ak:strand:01964137-0000-7000-8000-000000000022".to_owned())
+                    .unwrap(),
+            ),
+        });
+        assert_eq!(
+            ensure.operation_id,
+            arkret_core::ServiceOperationId::SELF_AGENT_SIDECAR_COMMAND_ENSURE
+        );
+        assert_eq!(ensure.path, AGENT_SIDECAR_ENSURE_PATH);
+        assert_eq!(
+            ensure.body_value().unwrap().unwrap()["context_ref"]["realm_id"],
+            realm_id.as_str()
+        );
+
+        let get_sidecar = plan_agent_sidecar_get(&sidecar_id);
+        assert_eq!(
+            get_sidecar.operation_id,
+            arkret_core::ServiceOperationId::SELF_AGENT_SIDECAR_RESOURCE_GET
+        );
+        assert_eq!(
+            get_sidecar.path,
+            "/_arkret/self/agent-sidecars/ak%3Asidecar%3A01964137-0000-7000-8000-000000000021"
+        );
+
+        let list_sidecars = plan_agent_sidecar_list(Some(&realm_id), Some("next cursor"));
+        assert_eq!(
+            list_sidecars.operation_id,
+            arkret_core::ServiceOperationId::SELF_AGENT_SIDECAR_QUERY_LIST
+        );
+        assert_eq!(
+            list_sidecars.path,
+            "/_arkret/self/agent-sidecars?realm_id=ak%3Arealm%3A01964137-0000-7000-8000-000000000020&cursor=next%20cursor"
         );
     }
 

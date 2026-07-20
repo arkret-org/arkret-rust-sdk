@@ -1182,6 +1182,7 @@ def generate_registry_descriptors(artifacts: Path) -> str:
             "    pub key_pattern: &'static str,",
             "    pub scope: &'static str,",
             "    pub storage: &'static str,",
+            "    pub plaintext_schema: Option<&'static str>,",
             "    pub write_event_kinds: &'static [&'static str],",
             "}",
             "",
@@ -1265,6 +1266,7 @@ def generate_registry_descriptors(artifacts: Path) -> str:
                 f"        key_pattern: {rust_string(row['key_pattern'])},",
                 f"        scope: {rust_string(row['scope'])},",
                 f"        storage: {rust_string(row['storage'])},",
+                f"        plaintext_schema: {rust_option(row.get('plaintext_schema'))},",
                 f"        write_event_kinds: {rust_slice(row['write_event_kinds'])},",
                 "    },",
             ]

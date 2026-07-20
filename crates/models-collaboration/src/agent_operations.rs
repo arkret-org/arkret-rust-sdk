@@ -6,12 +6,12 @@
 //! (`arkret-models-crypto`), all reachable within the collaboration layering
 //! edge. `arkret-core` re-exports them for path stability.
 
+use std::collections::BTreeSet;
+
 use crate::events_payloads::agent::{
     AgentKeyAuthorizePayloadRuntimeAttestation, AgentKeyScope, AgentSidecarExposureAck,
 };
-use crate::governance::agent_artifacts::{
-    AgentKeyAuthorizationState, GrantSnapshot, PendingMemberReconciliationItem, PublicKey,
-};
+use crate::governance::agent_artifacts::{AgentKeyAuthorizationState, GrantSnapshot, PublicKey};
 use crate::http_bodies::{AccountDevicePairOutcome, AccountDevicePairRequestBody};
 use crate::internal_prelude::*;
 
@@ -536,62 +536,537 @@ pub struct AgentGrantDetachOutcome {
     pub revoked_at: DateTime<Utc>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct AgentSidecarContextRef {
+pub struct AgentSidecarStrandContextRef {
     pub realm_id: RealmId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub strand_id: Option<StrandId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub track_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub message_id: Option<MessageId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub relation_id: Option<RelationId>,
+    pub strand_id: StrandId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarRelationContextRef {
+    pub realm_id: RealmId,
+    pub relation_id: RelationId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(untagged)]
+pub enum AgentSidecarContextRef {
+    Strand(AgentSidecarStrandContextRef),
+    Relation(AgentSidecarRelationContextRef),
 }
 
 impl AgentSidecarContextRef {
     pub fn strand(realm_id: RealmId, strand_id: StrandId) -> Self {
-        Self {
+        Self::Strand(AgentSidecarStrandContextRef {
             realm_id,
-            strand_id: Some(strand_id),
-            track_name: None,
-            message_id: None,
-            relation_id: None,
-        }
+            strand_id,
+        })
     }
 
     pub fn relation(realm_id: RealmId, relation_id: RelationId) -> Self {
-        Self {
+        Self::Relation(AgentSidecarRelationContextRef {
             realm_id,
-            strand_id: None,
-            track_name: None,
-            message_id: None,
-            relation_id: Some(relation_id),
+            relation_id,
+        })
+    }
+
+    pub fn realm_id(&self) -> &RealmId {
+        match self {
+            Self::Strand(value) => &value.realm_id,
+            Self::Relation(value) => &value.realm_id,
         }
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct AgentSidecarThreadEnsureRequestBody {
+pub struct AgentSidecarEnsureRequestBody {
     pub controller_id: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub addressed_agent_ids: Vec<Did>,
     pub context_ref: AgentSidecarContextRef,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+impl AgentSidecarEnsureRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .addressed_agent_ids
+            .iter()
+            .collect::<BTreeSet<_>>()
+            .len()
+            != self.addressed_agent_ids.len()
+            || self
+                .addressed_agent_ids
+                .iter()
+                .any(|agent_id| agent_id == &self.controller_id)
+        {
+            return Err(Error::Protocol(
+                "addressed Sidecar Agents must be unique and exclude the controller".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-pub struct AgentSidecarThreadEnsureOutcome {
+#[serde(rename_all = "snake_case")]
+pub enum AgentSidecarAccessReadiness {
+    Opening,
+    AccessReconciliationPending,
+    KeyMaterialPending,
+    EpochUpdateRequired,
+    Ready,
+    Failed,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum PendingSidecarAccessReconciliationStage {
+    BackingScopeMembership,
+    MlsWelcome,
+    MlsRemove,
+    EpochRotation,
+    DeviceKeyMaterial,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PendingSidecarAccessReconciliationItem {
+    pub agent_id: Did,
+    pub stage: PendingSidecarAccessReconciliationStage,
+    pub reason: NonEmptyString,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarEnsureOutcome {
     pub ok: bool,
-    pub private_circle_id: CircleId,
+    pub sidecar_id: SidecarId,
     pub private_strand_id: StrandId,
     pub private_relation_id: RelationId,
+    pub access_readiness: AgentSidecarAccessReadiness,
+    pub pending_access_reconciliations: Vec<PendingSidecarAccessReconciliationItem>,
+}
+
+impl AgentSidecarEnsureOutcome {
+    pub fn validate(&self) -> Result<()> {
+        if !self.ok {
+            return Err(Error::Protocol(
+                "successful Sidecar ensure outcome requires ok=true".to_owned(),
+            ));
+        }
+        if self.access_readiness == AgentSidecarAccessReadiness::Ready
+            && !self.pending_access_reconciliations.is_empty()
+        {
+            return Err(Error::Protocol(
+                "ready Sidecar ensure outcome cannot have pending reconciliation".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub enum AgentSidecarSchema {
+    #[serde(rename = "ak.schema.agent_sidecar.v1")]
+    V1,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub enum AgentSidecarEncryptionProfile {
+    #[serde(rename = "mls_rfc9420")]
+    MlsRfc9420,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentSidecarState {
+    Active,
+    Suspended,
+    Tombstoned,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecar {
+    pub id: SidecarId,
+    pub schema: AgentSidecarSchema,
+    pub realm_id: RealmId,
+    pub controller_id: Did,
+    pub backing_circle_id: CircleId,
+    pub encryption_profile: AgentSidecarEncryptionProfile,
+    pub state: AgentSidecarState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_changed_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+impl AgentSidecar {
+    pub fn validate(&self) -> Result<()> {
+        if self.state != AgentSidecarState::Active && self.state_changed_at.is_none() {
+            return Err(Error::Protocol(
+                "non-active Sidecar requires state_changed_at".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarView {
+    pub sidecar: AgentSidecar,
+    pub desired_agent_ids: Vec<Did>,
+    pub effective_agent_ids: Vec<Did>,
+    pub access_readiness: AgentSidecarAccessReadiness,
+    pub pending_access_reconciliations: Vec<PendingSidecarAccessReconciliationItem>,
+}
+
+impl AgentSidecarView {
+    pub fn validate(&self) -> Result<()> {
+        self.sidecar.validate()?;
+        let desired = self.desired_agent_ids.iter().collect::<BTreeSet<_>>();
+        if desired.len() != self.desired_agent_ids.len()
+            || self
+                .effective_agent_ids
+                .iter()
+                .collect::<BTreeSet<_>>()
+                .len()
+                != self.effective_agent_ids.len()
+            || self
+                .effective_agent_ids
+                .iter()
+                .any(|agent_id| !desired.contains(agent_id))
+        {
+            return Err(Error::Protocol(
+                "sidecar effective access must be a unique subset of desired access".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarList {
+    pub items: Vec<AgentSidecarView>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<NonEmptyString>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentSidecarDisplayMode {
+    #[default]
+    ContextMerged,
+    SidecarOnly,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentSidecarTrackMergePolicy {
+    TimelineInterleave,
+    SharedBasePrivateOverlay,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentSidecarProjectionProvenance {
+    Shared,
+    Private,
+    PrivateEcho,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub enum AgentSidecarViewStateSchema {
+    #[serde(rename = "ak.schema.agent_sidecar_view_state.v1")]
+    V1,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarViewState {
+    pub schema: AgentSidecarViewStateSchema,
+    pub controller_id: Did,
+    pub sidecar_id: SidecarId,
+    pub context_ref: AgentSidecarStrandContextRef,
+    pub display_mode: AgentSidecarDisplayMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pinned: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub collapsed: Option<bool>,
+    pub updated_hlc: Hlc,
+    pub origin_device_id: DeviceId,
+}
+
+impl AgentSidecarViewState {
+    pub fn account_data_type(&self) -> String {
+        format!(
+            "ak.agent.sidecar_view_state.v1:{}:{}:{}",
+            self.controller_id, self.context_ref.realm_id, self.context_ref.strand_id
+        )
+    }
+
+    pub fn validate_account_data_type(&self, data_type: &str) -> Result<()> {
+        if data_type == self.account_data_type() {
+            Ok(())
+        } else {
+            Err(Error::Protocol(
+                "Sidecar view-state account-data key does not match plaintext".to_owned(),
+            ))
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AgentSidecarExchangeId(String);
+
+impl AgentSidecarExchangeId {
+    pub fn new(value: impl Into<String>) -> Result<Self> {
+        let value = value.into();
+        if (22..=128).contains(&value.len())
+            && value
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"._~=-".contains(&byte))
+        {
+            Ok(Self(value))
+        } else {
+            Err(Error::Protocol("invalid Sidecar exchange id".to_owned()))
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for AgentSidecarExchangeId {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl Serialize for AgentSidecarExchangeId {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for AgentSidecarExchangeId {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+
+#[cfg(feature = "salvo-oapi")]
+impl salvo::oapi::ToSchema for AgentSidecarExchangeId {
+    fn to_schema(
+        _components: &mut salvo::oapi::Components,
+    ) -> salvo::oapi::RefOr<salvo::oapi::Schema> {
+        salvo::oapi::Object::new()
+            .schema_type(salvo::oapi::BasicType::String)
+            .pattern(r"^[A-Za-z0-9._~=-]{22,128}$")
+            .into()
+    }
+}
+
+#[cfg(feature = "salvo-oapi")]
+impl salvo::oapi::ComposeSchema for AgentSidecarExchangeId {
+    fn compose(
+        components: &mut salvo::oapi::Components,
+        _generics: Vec<salvo::oapi::RefOr<salvo::oapi::Schema>>,
+    ) -> salvo::oapi::RefOr<salvo::oapi::Schema> {
+        <Self as salvo::oapi::ToSchema>::to_schema(components)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarSourceTrackRef {
+    pub realm_id: RealmId,
+    pub strand_id: StrandId,
+    pub track_name: String,
+}
+
+impl AgentSidecarSourceTrackRef {
+    pub fn validate(&self) -> Result<()> {
+        let value = self.track_name.as_bytes();
+        if value.is_empty()
+            || value.len() > 64
+            || !value[0].is_ascii_lowercase()
+            || value
+                .iter()
+                .any(|byte| !(byte.is_ascii_lowercase() || byte.is_ascii_digit() || *byte == b'_'))
+        {
+            return Err(Error::Protocol("invalid Sidecar Track name".to_owned()));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentSidecarExchangeOrigin {
+    SourceTrackRouted,
+    SidecarNative,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentSidecarExchangeStatus {
+    Pending,
+    Delivered,
+    Responding,
+    Complete,
+    Failed,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub enum AgentSidecarExchangeProjectionSchema {
+    #[serde(rename = "ak.schema.agent_sidecar_exchange_projection.v1")]
+    V1,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarExchangeProjection {
+    pub schema: AgentSidecarExchangeProjectionSchema,
+    pub controller_id: Did,
+    pub sidecar_id: SidecarId,
+    pub private_strand_id: StrandId,
+    pub exchange_id: AgentSidecarExchangeId,
+    pub origin: AgentSidecarExchangeOrigin,
+    pub source_track_ref: AgentSidecarSourceTrackRef,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_frontier_anchor: Option<EventId>,
+    pub source_hlc: Hlc,
+    pub client_order_key: NonEmptyString,
+    pub addressed_agent_ids: Vec<Did>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub pending_member_reconciliations: Vec<PendingMemberReconciliationItem>,
+    pub participating_agent_ids: Vec<Did>,
+    pub private_request_event_id: EventId,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub user_facing_response_event_ids: Vec<EventId>,
+    pub status: AgentSidecarExchangeStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_code: Option<NonEmptyString>,
+    pub updated_hlc: Hlc,
+}
+
+impl AgentSidecarExchangeProjection {
+    pub fn account_data_type(&self) -> String {
+        format!(
+            "ak.agent.sidecar_projection.v1:{}:{}:{}:{}",
+            self.controller_id,
+            self.source_track_ref.realm_id,
+            self.source_track_ref.strand_id,
+            self.exchange_id
+        )
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.source_track_ref.validate()?;
+        let order_key = self.client_order_key.as_str().as_bytes();
+        if order_key.len() > 128
+            || order_key
+                .iter()
+                .any(|byte| !(byte.is_ascii_alphanumeric() || b"._~=-".contains(byte)))
+        {
+            return Err(Error::Protocol(
+                "invalid Sidecar client order key".to_owned(),
+            ));
+        }
+        if self.origin != AgentSidecarExchangeOrigin::SourceTrackRouted {
+            return Err(Error::Protocol(
+                "sidecar-native Events must not create source echo projections".to_owned(),
+            ));
+        }
+        if self.status == AgentSidecarExchangeStatus::Failed && self.failure_code.is_none() {
+            return Err(Error::Protocol(
+                "failed Sidecar exchange projection requires failure_code".to_owned(),
+            ));
+        }
+        if let Some(failure_code) = &self.failure_code {
+            let value = failure_code.as_str().as_bytes();
+            if value.len() > 64
+                || !value[0].is_ascii_lowercase()
+                || value.iter().any(|byte| {
+                    !(byte.is_ascii_lowercase() || byte.is_ascii_digit() || *byte == b'_')
+                })
+            {
+                return Err(Error::Protocol("invalid Sidecar failure code".to_owned()));
+            }
+        }
+        if self.status == AgentSidecarExchangeStatus::Complete
+            && self.user_facing_response_event_ids.is_empty()
+        {
+            return Err(Error::Protocol(
+                "complete Sidecar exchange projection requires a user-facing response".to_owned(),
+            ));
+        }
+        for values in [&self.addressed_agent_ids, &self.participating_agent_ids] {
+            if values.iter().collect::<BTreeSet<_>>().len() != values.len() {
+                return Err(Error::Protocol(
+                    "Sidecar Agent id arrays must be unique".to_owned(),
+                ));
+            }
+        }
+        if self
+            .user_facing_response_event_ids
+            .iter()
+            .collect::<BTreeSet<_>>()
+            .len()
+            != self.user_facing_response_event_ids.len()
+        {
+            return Err(Error::Protocol(
+                "Sidecar response Event ids must be unique".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_account_data_type(&self, data_type: &str) -> Result<()> {
+        if data_type == self.account_data_type() {
+            Ok(())
+        } else {
+            Err(Error::Protocol(
+                "Sidecar exchange account-data key does not match plaintext".to_owned(),
+            ))
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -644,8 +1119,10 @@ pub enum AgentOperations {
     AgentGrantAttachRequestBody(AgentGrantAttachRequestBody),
     AgentGrantAttachOutcome(AgentGrantAttachOutcome),
     AgentGrantDetachOutcome(AgentGrantDetachOutcome),
-    AgentSidecarThreadEnsureRequestBody(AgentSidecarThreadEnsureRequestBody),
-    AgentSidecarThreadEnsureOutcome(AgentSidecarThreadEnsureOutcome),
+    AgentSidecarEnsureRequestBody(AgentSidecarEnsureRequestBody),
+    AgentSidecarEnsureOutcome(AgentSidecarEnsureOutcome),
+    AgentSidecarView(Box<AgentSidecarView>),
+    AgentSidecarList(AgentSidecarList),
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/key_state`.
@@ -733,8 +1210,8 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_thread_ensure_request_uses_context_ref_shape() {
-        let request = AgentSidecarThreadEnsureRequestBody {
+    fn sidecar_ensure_request_uses_strand_level_context_ref_shape() {
+        let request = AgentSidecarEnsureRequestBody {
             controller_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice").unwrap(),
             addressed_agent_ids: vec![Did::new("did:webvh:z6mkfixture:agent.example").unwrap()],
             context_ref: AgentSidecarContextRef::strand(
@@ -761,6 +1238,69 @@ mod tests {
             value["context_ref"]["strand_id"],
             "ak:strand:01964137-0000-7000-8000-000000000031"
         );
+
+        for forbidden in ["track_name", "message_id"] {
+            let mut invalid = value.clone();
+            invalid["context_ref"][forbidden] = serde_json::json!("discussion");
+            assert!(
+                serde_json::from_value::<AgentSidecarEnsureRequestBody>(invalid).is_err(),
+                "{forbidden} must not participate in Sidecar context identity"
+            );
+        }
+    }
+
+    #[test]
+    fn sidecar_exchange_projection_is_per_exchange_and_fail_closed() {
+        let projection = AgentSidecarExchangeProjection {
+            schema: AgentSidecarExchangeProjectionSchema::V1,
+            controller_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice").unwrap(),
+            sidecar_id: SidecarId::new(
+                "ak:sidecar:01964137-0000-7000-8000-000000000032".to_owned(),
+            )
+            .unwrap(),
+            private_strand_id: StrandId::new(
+                "ak:strand:01964137-0000-7000-8000-000000000033".to_owned(),
+            )
+            .unwrap(),
+            exchange_id: AgentSidecarExchangeId::new("Abcdefghijklmnopqrstuv").unwrap(),
+            origin: AgentSidecarExchangeOrigin::SourceTrackRouted,
+            source_track_ref: AgentSidecarSourceTrackRef {
+                realm_id: RealmId::new("ak:realm:01964137-0000-7000-8000-000000000030".to_owned())
+                    .unwrap(),
+                strand_id: StrandId::new(
+                    "ak:strand:01964137-0000-7000-8000-000000000031".to_owned(),
+                )
+                .unwrap(),
+                track_name: "discussion".to_owned(),
+            },
+            source_frontier_anchor: None,
+            source_hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
+            client_order_key: NonEmptyString::new("device-1-1").unwrap(),
+            addressed_agent_ids: vec![],
+            participating_agent_ids: vec![],
+            private_request_event_id: EventId::new(
+                "ak:event:01964137-0000-7000-8000-000000000034".to_owned(),
+            )
+            .unwrap(),
+            user_facing_response_event_ids: vec![],
+            status: AgentSidecarExchangeStatus::Pending,
+            failure_code: None,
+            updated_hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
+        };
+        projection.validate().unwrap();
+        assert_eq!(
+            projection.account_data_type(),
+            "ak.agent.sidecar_projection.v1:did:webvh:z6mkfixture:example.com:users:alice:ak:realm:01964137-0000-7000-8000-000000000030:ak:strand:01964137-0000-7000-8000-000000000031:Abcdefghijklmnopqrstuv"
+        );
+
+        let mut native = projection.clone();
+        native.origin = AgentSidecarExchangeOrigin::SidecarNative;
+        assert!(native.validate().is_err());
+
+        let mut unknown = serde_json::to_value(&projection).unwrap();
+        unknown["private_circle_id"] =
+            serde_json::json!("ak:circle:01964137-0000-7000-8000-000000000035");
+        assert!(serde_json::from_value::<AgentSidecarExchangeProjection>(unknown).is_err());
     }
 
     #[test]

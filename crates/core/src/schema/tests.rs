@@ -800,13 +800,14 @@ fn relation_create_payload_strong_type_passes_spec_validator() {
         .validate_payload("ak.relation.create", &payload.to_value().unwrap())
         .unwrap();
 
-    // Unknown additive keys are reported but do not fail schema validation.
+    // Closed payload schemas reject unknown additive keys.
     let mut leaky = payload.to_value().unwrap();
     leaky["fields"] = json!({"role": "x"});
-    let warnings = catalog
-        .validate_payload_with_warnings("ak.relation.create", &leaky)
-        .unwrap();
-    assert_warns_additional_field(&warnings, "fields");
+    assert!(
+        catalog
+            .validate_payload("ak.relation.create", &leaky)
+            .is_err()
+    );
 }
 
 #[test]
@@ -847,13 +848,10 @@ fn membership_payload_strong_type_passes_spec_validator() {
         Err(arkret_wire::Error::Protocol(_))
     ));
 
-    // Unknown additive keys are reported but do not fail schema validation.
+    // Closed payload schemas reject unknown additive keys.
     let mut leaky = invite.to_value().unwrap();
     leaky["handle"] = json!("bob:example.com");
-    let warnings = catalog
-        .validate_payload_with_warnings("ak.member.state", &leaky)
-        .unwrap();
-    assert_warns_additional_field(&warnings, "handle");
+    assert!(catalog.validate_payload("ak.member.state", &leaky).is_err());
 }
 
 #[test]
@@ -948,13 +946,14 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
         .validate_payload("ak.realm.destroy", &destroy.to_value().unwrap())
         .unwrap();
 
-    // Unknown additive keys are reported but do not fail schema validation.
+    // Closed payload schemas reject unknown additive keys.
     let mut leaky = archive.to_value().unwrap();
     leaky["successor_realm_id"] = json!("ak:realm:01904100-0000-7000-8000-444444444444");
-    let warnings = catalog
-        .validate_payload_with_warnings("ak.realm.archive", &leaky)
-        .unwrap();
-    assert_warns_additional_field(&warnings, "successor_realm_id");
+    assert!(
+        catalog
+            .validate_payload("ak.realm.archive", &leaky)
+            .is_err()
+    );
 }
 
 #[test]
@@ -1042,13 +1041,10 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
         )
         .unwrap();
 
-    // Unknown additive keys are reported but do not fail schema validation.
+    // Closed payload schemas reject unknown additive keys.
     let mut leaky = mv.to_value().unwrap();
     leaky["list_space_id"] = json!("ak:space:01904100-0000-7000-8000-222222222222");
-    let warnings = catalog
-        .validate_payload_with_warnings("ak.strand.move", &leaky)
-        .unwrap();
-    assert_warns_additional_field(&warnings, "list_space_id");
+    assert!(catalog.validate_payload("ak.strand.move", &leaky).is_err());
 }
 
 #[test]
@@ -1575,13 +1571,14 @@ fn schema_registry_enforces_json_schema_composition_and_value_rules() {
             )
             .is_err()
     );
-    let warnings = registry
-        .validate_value_with_warnings(
-            "ak.schema.deep_test.v1",
-            &json!({"kind": "demo", "items": ["alpha"], "target": "user", "extra": true}),
-        )
-        .unwrap();
-    assert_warns_additional_field(&warnings, "extra");
+    assert!(
+        registry
+            .validate_value(
+                "ak.schema.deep_test.v1",
+                &json!({"kind": "demo", "items": ["alpha"], "target": "user", "extra": true}),
+            )
+            .is_err()
+    );
     assert!(
         registry
             .validate_value(

@@ -141,9 +141,11 @@ mod tests {
                 "cursor": "ak:cursor:complete",
             })))
             .unwrap_err();
-        assert!(
-            matches!(error, Error::Protocol(message) if message.contains("catchup_complete_before_delta"))
-        );
+        assert!(matches!(
+            error,
+            Error::StreamTrace(error)
+                if error.violation() == "catchup_complete_before_delta"
+        ));
     }
 
     #[test]
@@ -268,9 +270,10 @@ mod tests {
         let error = folder
             .push(frame(serde_json::json!({"kind": "dropped"})))
             .unwrap_err();
-        assert!(
-            matches!(error, Error::Protocol(message) if message.contains("dropped_missing_cursor"))
-        );
+        assert!(matches!(
+            error,
+            Error::StreamTrace(error) if error.violation() == "dropped_missing_cursor"
+        ));
     }
 
     #[test]
