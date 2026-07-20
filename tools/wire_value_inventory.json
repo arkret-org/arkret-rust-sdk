@@ -1052,7 +1052,7 @@
       "rust_field": "crates/models-collaboration/src/http_bodies.rs::AccountDevicePairOutcome.key_backup_hint",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1083,
+      "line": 1111,
       "owner": "AccountDevicePairOutcome",
       "field": "key_backup_hint",
       "rust_type": "Option<BTreeMap<String, Value>>",

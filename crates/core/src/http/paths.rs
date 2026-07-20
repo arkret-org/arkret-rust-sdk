@@ -1,8 +1,5 @@
-pub const PATH_SELF_CONTACTS_REQUEST: &str = "/_arkret/self/contacts/request";
-pub const PATH_SELF_CONTACTS_RESPOND: &str = "/_arkret/self/contacts/respond";
-pub const PATH_SELF_CONTACTS: &str = "/_arkret/self/contacts";
-pub const PATH_SELF_CONTACTS_TOMBSTONE: &str = "/_arkret/self/contacts/tombstone";
-pub const PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE: &str =
-    "/_arkret/self/direct-conversations/resolve";
-pub const PATH_SELF_CONSENT_CELLS: &str = "/_arkret/self/consent/cells";
-pub const PATH_SELF_CONSENT_REQUEST: &str = "/_arkret/self/consent/request";
+//! Self contact / consent / direct-conversation protocol path constants.
+//!
+//! These moved to `arkret-wire` (protocol vocabulary reachable by every model
+//! and transport crate); re-exported here to keep the `arkret_core` path stable.
+pub use arkret_wire::self_contact_paths::*;

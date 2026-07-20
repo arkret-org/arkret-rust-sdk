@@ -25,6 +25,7 @@ pub mod serde_helpers {
 
 pub mod bottom;
 pub mod cell;
+pub mod consent_scope;
 pub mod constants;
 pub mod cursor;
 pub mod error_codes;
@@ -43,6 +44,7 @@ pub mod problem_details;
 pub mod query_auth;
 pub mod receive_policy;
 pub mod seal;
+pub mod self_contact_paths;
 pub mod service_type;
 pub mod signer;
 pub mod wire_strings;
@@ -50,6 +52,7 @@ pub mod wire_strings;
 pub use arkret_identifiers::*;
 pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
 pub use cell::{CellId, composite_subject, composite_subject_pipe};
+pub use consent_scope::*;
 pub use constants::*;
 pub use error::{Error, Result, WireError};
 pub use error_codes::*;
@@ -83,6 +86,7 @@ pub use seal::{
     MultiSigKind, MultiSignature, NotarySig, SEAL_SIGNATURE_ALGS, Seal, SealKind, ThresholdSigKind,
     ThresholdSignature, compute_seal_id, seal_canonical_bytes,
 };
+pub use self_contact_paths::*;
 pub use service_type::{EvaluationClass, ServiceType};
 pub use signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};
 pub use wire_strings::*;

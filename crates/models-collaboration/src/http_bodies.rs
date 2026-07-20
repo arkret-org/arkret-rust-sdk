@@ -915,6 +915,34 @@ pub struct ContactListRow {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "salvo-oapi",
+    derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema)
+)]
+pub struct ContactListQuery {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo-oapi", salvo(parameter(parameter_in = Query)))]
+    pub state: Option<ContactState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo-oapi", salvo(parameter(parameter_in = Query)))]
+    pub cursor: Option<arkret_wire::cursor::Cursor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo-oapi", salvo(parameter(parameter_in = Query)))]
+    pub limit: Option<u32>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct ContactList {
+    #[serde(default)]
+    pub contacts: Vec<ContactListRow>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<arkret_wire::cursor::Cursor>,
+    #[serde(default)]
+    pub has_more: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ContactRequestOutcome {
     pub request_event_ref: EventId,

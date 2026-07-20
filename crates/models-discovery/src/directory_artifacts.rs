@@ -15,16 +15,10 @@ use crate::directory::DirectoryIntent;
 /// Counterpart for `spec/v1/artifacts/schemas/common-ids.schema.json`.
 pub type CommonIds = BTreeMap<String, Value>;
 
-/// Counterpart for `spec/v1/artifacts/schemas/contact-operations.schema.json#/$defs/consent_scope`.
-pub type ConsentScope = String;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/contact-operations.schema.json#/$defs/consent_scope_list`.
-pub type ConsentScopeList = Vec<ConsentScope>;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/contact-operations.schema.json#/$defs/consent_scopes`.
-pub type ConsentScopes = Vec<ConsentScope>;
+// The `ConsentScope` family moved to `arkret-wire` so the account consent-cell
+// bodies in `arkret-models-collaboration` reach it within their layering edge;
+// re-exported here to keep the discovery artifact path stable.
+pub use arkret_wire::{ConsentScope, ConsentScopeList, ConsentScopes};
 
 /// Counterpart for `spec/v1/artifacts/schemas/contact-operations.schema.json#/$defs/event_refs`.
 pub type EventRefs = Vec<EventId>;

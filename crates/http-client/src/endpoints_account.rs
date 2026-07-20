@@ -7,18 +7,23 @@ use arkret_core::{
     AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountDeviceEnrollOutcome,
     AccountDeviceEnrollRequestBody, AccountDevicePairOutcome, AccountDevicePairRequestBody,
     AccountHandoffOutcome, AccountHandoffRequestBody, AccountLogoutOutcome,
-    AccountLogoutRequestBody, AccountRegisterOutcome, AccountRegisterRequestBody,
-    AccountSubscribeBatch, AccountSubscribeFolder, AccountSubscribeFrame,
+    AccountLogoutRequestBody, AccountSubscribeBatch, AccountSubscribeFolder, AccountSubscribeFrame,
     AccountSubscribeFrameKind, AccountSubscribeSnapshotResult, AccountUpdateProfileOutcome,
-    AccountUpdateProfileRequestBody, AccountView, ContactList, ContactRequestOutcome,
-    ContactRequestRequestBody, ContactRespondOutcome, ContactRespondRequestBody, ContactTombstone,
-    ContactTombstoneRequestBody, DirectConversationResolveOutcome,
-    DirectConversationResolveRequestBody, Error, IdentityBindingChallengeOutcome,
-    IdentityBindingChallengeRequestBody, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
-    PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
-    PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, Result, ServiceDescribe, SessionGrantOutcome,
-    SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
-    SyncRequestBody,
+    ContactRequestOutcome, ContactRequestRequestBody, ContactRespondOutcome,
+    ContactRespondRequestBody, ContactTombstone, ContactTombstoneRequestBody,
+    DirectConversationResolveOutcome, DirectConversationResolveRequestBody, Error,
+    IdentityBindingChallengeOutcome, IdentityBindingChallengeRequestBody, Result, ServiceDescribe,
+    SessionGrantOutcome, SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody,
+    SessionGrantRequestBody, SyncRequestBody,
+};
+use arkret_models_collaboration::account_lifecycle::{
+    AccountRegisterOutcome, AccountRegisterRequestBody, AccountUpdateProfileRequestBody,
+    AccountView,
+};
+use arkret_models_collaboration::http_bodies::ContactList;
+use arkret_wire::{
+    PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST, PATH_SELF_CONTACTS_RESPOND,
+    PATH_SELF_CONTACTS_TOMBSTONE, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use reqwest::Response;
