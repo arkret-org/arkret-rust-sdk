@@ -114,6 +114,7 @@ pub const CIRCLE_CAPABILITY_ACTIONS: &[&str] = &[
 /// MUST reject writes from non-controller actors.
 pub const ACCOUNT_DATA_TYPE_AGENT_DRAFT: &str = "ak.agent.draft.v1";
 pub const ACCOUNT_DATA_TYPE_AGENT_SIDECAR_PROJECTION: &str = "ak.agent.sidecar_projection.v1";
+pub const ACCOUNT_DATA_TYPE_AGENT_SIDECAR_VIEW_STATE: &str = "ak.agent.sidecar_view_state.v1";
 pub const ACCOUNT_DATA_TYPE_REMINDER: &str = "ak.reminders.v1";
 pub const ACCOUNT_DATA_TYPE_SCHEDULED_SEND: &str = "ak.scheduled_send.v1";
 pub const ACCOUNT_DATA_TYPE_SNOOZE: &str = "ak.snooze.v1";
@@ -129,21 +130,7 @@ pub const ACCOUNT_DATA_TYPE_CONTACTS_REALM: &str = "ak.contacts.realm";
 pub const RECOVERY_POLICY_SCHEMA: &str = "ak.schema.recovery_policy.v1";
 pub const RECOVERY_RECEIPT_SCHEMA: &str = "ak.schema.recovery_receipt.v1";
 
-/// AKP-0008 / AKP-0009 — agent sidecar thread profile id.
-///
-/// Per AKP-0009, the sidecar home is derived from `context_ref.realm_id`.
-/// The profile label remains `context_realm_preferred` for registry
-/// compatibility, but v1 ensure requests carry a required context Realm and
-/// do not fall back to the controller's home Realm.
-pub const PROFILE_AGENT_SIDECAR_THREAD: &str = "ak.profile.agent_sidecar_thread.v1";
-pub const AGENT_SIDECAR_HOME_POLICY_CONTEXT_REALM_PREFERRED: &str = "context_realm_preferred";
-
-pub fn select_agent_sidecar_home_realm<'a>(
-    context_realm_id: Option<&'a str>,
-    _controller_home_realm_id: &'a str,
-) -> Option<&'a str> {
-    context_realm_id
-}
+pub const PROFILE_AGENT_SIDECAR: &str = "ak.profile.agent_sidecar.v1";
 
 fn base32_lower_no_pad(bytes: &[u8]) -> String {
     const ALPHABET: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
@@ -166,19 +153,15 @@ fn base32_lower_no_pad(bytes: &[u8]) -> String {
     out
 }
 
-pub fn agent_sidecar_circle_key(realm_id: &str, controller_id: &str) -> String {
-    let transcript = format!("ak.agent_sidecar_circle.v1\n{realm_id}\n{controller_id}");
+pub fn agent_sidecar_backing_circle_short_name(sidecar_id: &str) -> String {
+    let transcript = format!("ak.sidecar.backing_circle.v1\n{sidecar_id}");
     let digest = crate::canonical::sha256_bytes(transcript.as_bytes());
-    base32_lower_no_pad(&digest).chars().take(24).collect()
-}
-
-pub fn agent_sidecar_short_name(controller_agent_circle_key: &str) -> String {
-    let suffix = controller_agent_circle_key
+    let suffix = base32_lower_no_pad(&digest)
         .chars()
-        .take(12)
+        .take(16)
         .collect::<String>()
         .to_ascii_uppercase();
-    format!("AI-{suffix}")
+    format!("SC-{suffix}")
 }
 
 // Morph event kinds.
@@ -378,7 +361,9 @@ pub const AGENT_RUNTIME_SURFACE_OPERATIONS: &[&str] = &[
     ServiceOperationId::SELF_AGENT_COMMAND_DEACTIVATE,
     ServiceOperationId::SELF_AGENT_GRANT_COMMAND_ATTACH,
     ServiceOperationId::SELF_AGENT_GRANT_RESOURCE_DELETE,
-    ServiceOperationId::SELF_AGENT_SIDECAR_THREAD_COMMAND_ENSURE,
+    ServiceOperationId::SELF_AGENT_SIDECAR_COMMAND_ENSURE,
+    ServiceOperationId::SELF_AGENT_SIDECAR_QUERY_LIST,
+    ServiceOperationId::SELF_AGENT_SIDECAR_RESOURCE_GET,
 ];
 
 /// Round 4 (2026-05-20) — canonical signal_type enum values carried in the
@@ -445,28 +430,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn agent_sidecar_home_prefers_context_realm() {
-        assert_eq!(
-            select_agent_sidecar_home_realm(Some("ak:realm:context"), "ak:realm:home"),
-            Some("ak:realm:context")
+    fn agent_sidecar_backing_circle_short_name_is_stable() {
+        let short_name = agent_sidecar_backing_circle_short_name(
+            "ak:sidecar:01964137-0000-7000-8000-000000000001",
         );
-        assert_eq!(select_agent_sidecar_home_realm(None, "ak:realm:home"), None);
-    }
-
-    #[test]
-    fn agent_sidecar_circle_key_is_stable_and_short_name_derives() {
-        let key = agent_sidecar_circle_key(
-            "ak:realm:context",
-            "did:webvh:z6mkfixture:example.com:users:alice",
-        );
-        assert_eq!(key.len(), 24);
+        assert_eq!(short_name.len(), 19);
+        assert!(short_name.starts_with("SC-"));
         assert!(
-            key.chars()
-                .all(|ch| { ch.is_ascii_lowercase() || matches!(ch, '2'..='7') })
-        );
-        assert_eq!(
-            agent_sidecar_short_name(&key),
-            format!("AI-{}", key[..12].to_ascii_uppercase())
+            short_name[3..]
+                .chars()
+                .all(|ch| ch.is_ascii_uppercase() || matches!(ch, '2'..='7'))
         );
     }
 }

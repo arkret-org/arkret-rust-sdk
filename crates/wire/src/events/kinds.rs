@@ -81,6 +81,7 @@ pub enum EventProductClass {
     Realm,
     Relation,
     Schema,
+    Sidecar,
     Sovereign,
     Space,
     View,
@@ -110,6 +111,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::SelfAgentPause
         | EventKind::SelfAgentResume
         | EventKind::AgentSelectorClaim => EventProductClass::Agent,
+        EventKind::SidecarCreate => EventProductClass::Sidecar,
         EventKind::AppletBridgeError
         | EventKind::AppletDiscovery
         | EventKind::AppletRegistration => EventProductClass::Applet,

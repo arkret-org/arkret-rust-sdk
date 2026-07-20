@@ -12,7 +12,7 @@
 //! 8. `ak.self.agent.command.resume`                  — resume only after replacement completes
 //! 9. `ak.self.agent.grant.command.attach`            — bind a delegation grant
 //! 10. `ak.self.agent.grant.resource.delete`          — release the grant
-//! 11. `ak.self.agent.sidecar_thread.command.ensure`  — pin a sidecar thread for tool calls
+//! 11. `ak.self.agent.sidecar.command.ensure`         — ensure the controller's Sidecar context
 //! 12. `ak.self.agent.command.deactivate`              — terminate the principal
 //!
 //! The example does NOT require a live soland deployment. Each step is built
@@ -32,16 +32,16 @@ use arkret::agent::{
     build_agent_key_authorize_event, build_agent_pause_event, build_agent_resume_event,
     plan_agent_deactivate, plan_agent_get, plan_agent_grant_attach, plan_agent_grant_detach,
     plan_agent_key_pair, plan_agent_list, plan_agent_pause, plan_agent_provision,
-    plan_agent_renew_pairing, plan_agent_resume, plan_agent_sidecar_thread_ensure,
+    plan_agent_renew_pairing, plan_agent_resume, plan_agent_sidecar_ensure,
 };
 use arkret::{
     AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyApprovalEvidence,
     AgentKeyApprovalEvidenceKind, AgentKeyAuthorizePayload, AgentKeyPairRequestBody, AgentKeyScope,
     AgentKeyScopeResource, AgentKeyScopeResourceKind, AgentKeySupersession, AgentPauseRequestBody,
     AgentRenewPairingRequestBody, AgentRequestedScopeDisclosure, AgentResumeRequestBody,
-    AgentSidecarContextRef, AgentSidecarThreadEnsureRequestBody, CapabilityGrant,
-    CapabilitySubject, Did, EventId, GrantId, Hash, Hlc, NonEmptyString, PayloadProof,
-    PayloadProofPurpose, Proof, RealmId, RequestId, SealBasis, SealId, StrandId,
+    AgentSidecarContextRef, AgentSidecarEnsureRequestBody, CapabilityGrant, CapabilitySubject, Did,
+    EventId, GrantId, Hash, Hlc, NonEmptyString, PayloadProof, PayloadProofPurpose, Proof, RealmId,
+    RequestId, SealBasis, SealId, StrandId,
 };
 use chrono::Utc;
 use serde::Serialize;
@@ -115,12 +115,13 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
             "ok": true,
             "revoked_at": "2026-06-18T12:05:00Z",
         }),
-        "ak.self.agent.sidecar_thread.command.ensure" => json!({
+        "ak.self.agent.sidecar.command.ensure" => json!({
             "ok": true,
-            "private_circle_id": "ak:circle:01964137-0000-7000-8000-000000000020",
+            "sidecar_id": "ak:sidecar:01964137-0000-7000-8000-000000000020",
             "private_strand_id": "ak:strand:01964137-0000-7000-8000-000000000021",
             "private_relation_id": "ak:relation:01964137-0000-7000-8000-000000000022",
-            "pending_member_reconciliations": [],
+            "access_readiness": "ready",
+            "pending_access_reconciliations": [],
         }),
         "ak.self.agent.command.deactivate" => json!({ "ok": true, "status": "deactivated" }),
         _ => Value::Null,
@@ -564,16 +565,14 @@ fn main() -> arkret::Result<()> {
     // 9. grant.detach
     let _detached = send_plan(plan_agent_grant_detach(agent_id.as_str(), &grant_id))?;
 
-    // 10. sidecar_thread.ensure
+    // 10. sidecar.ensure
     let realm_id = RealmId::new("ak:realm:01964137-0000-7000-8000-000000000030")?;
     let context_strand_id = StrandId::new("ak:strand:01964137-0000-7000-8000-000000000031")?;
-    let _sidecar = send_plan(plan_agent_sidecar_thread_ensure(
-        AgentSidecarThreadEnsureRequestBody {
-            controller_id: controller,
-            addressed_agent_ids: vec![agent_id.clone()],
-            context_ref: AgentSidecarContextRef::strand(realm_id, context_strand_id),
-        },
-    ))?;
+    let _sidecar = send_plan(plan_agent_sidecar_ensure(AgentSidecarEnsureRequestBody {
+        controller_id: controller,
+        addressed_agent_ids: vec![agent_id.clone()],
+        context_ref: AgentSidecarContextRef::strand(realm_id, context_strand_id),
+    }))?;
 
     // 11. deactivate
     let _deactivated = send_plan(plan_agent_deactivate(

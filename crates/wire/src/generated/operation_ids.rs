@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-07-13;
-//! sha256=3e64391fd31f1a126ef43cd94fdae374f7c63abfb4cb6a6c1f05c7b261ddd949 Entries: registered=188
+//! Input: registry/operation-registry.json; version=2026-07-20;
+//! sha256=b50eb4877a6802c3e4a88d7c3eca2ab9bf0315d56b69dc8119dbf40f72e10a65 Entries: registered=190
 
 use serde::{Deserialize, Serialize};
 
@@ -106,7 +106,9 @@ pub enum ServiceOperationId {
     SelfAgentParticipationResourceReplace,
     SelfAgentQueryList,
     SelfAgentResourceGet,
-    SelfAgentSidecarThreadCommandEnsure,
+    SelfAgentSidecarCommandEnsure,
+    SelfAgentSidecarQueryList,
+    SelfAgentSidecarResourceGet,
     SelfAppletCommandInstall,
     SelfAppletCommandRevoke,
     SelfAppletGhostCommandProvision,
@@ -297,7 +299,9 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.self.agent.participation.resource.replace",
     "ak.self.agent.query.list",
     "ak.self.agent.resource.get",
-    "ak.self.agent.sidecar_thread.command.ensure",
+    "ak.self.agent.sidecar.command.ensure",
+    "ak.self.agent.sidecar.query.list",
+    "ak.self.agent.sidecar.resource.get",
     "ak.self.applet.command.install",
     "ak.self.applet.command.revoke",
     "ak.self.applet.ghost.command.provision",
@@ -504,7 +508,9 @@ impl ServiceOperationId {
         Self::SelfAgentParticipationResourceReplace,
         Self::SelfAgentQueryList,
         Self::SelfAgentResourceGet,
-        Self::SelfAgentSidecarThreadCommandEnsure,
+        Self::SelfAgentSidecarCommandEnsure,
+        Self::SelfAgentSidecarQueryList,
+        Self::SelfAgentSidecarResourceGet,
         Self::SelfAppletCommandInstall,
         Self::SelfAppletCommandRevoke,
         Self::SelfAppletGhostCommandProvision,
@@ -754,8 +760,10 @@ impl ServiceOperationId {
         "ak.self.agent.participation.resource.replace";
     pub const SELF_AGENT_QUERY_LIST: &'static str = "ak.self.agent.query.list";
     pub const SELF_AGENT_RESOURCE_GET: &'static str = "ak.self.agent.resource.get";
-    pub const SELF_AGENT_SIDECAR_THREAD_COMMAND_ENSURE: &'static str =
-        "ak.self.agent.sidecar_thread.command.ensure";
+    pub const SELF_AGENT_SIDECAR_COMMAND_ENSURE: &'static str =
+        "ak.self.agent.sidecar.command.ensure";
+    pub const SELF_AGENT_SIDECAR_QUERY_LIST: &'static str = "ak.self.agent.sidecar.query.list";
+    pub const SELF_AGENT_SIDECAR_RESOURCE_GET: &'static str = "ak.self.agent.sidecar.resource.get";
     pub const SELF_APPLET_COMMAND_INSTALL: &'static str = "ak.self.applet.command.install";
     pub const SELF_APPLET_COMMAND_REVOKE: &'static str = "ak.self.applet.command.revoke";
     pub const SELF_APPLET_GHOST_COMMAND_PROVISION: &'static str =
@@ -1028,9 +1036,9 @@ impl ServiceOperationId {
             }
             Self::SelfAgentQueryList => "ak.self.agent.query.list",
             Self::SelfAgentResourceGet => "ak.self.agent.resource.get",
-            Self::SelfAgentSidecarThreadCommandEnsure => {
-                "ak.self.agent.sidecar_thread.command.ensure"
-            }
+            Self::SelfAgentSidecarCommandEnsure => "ak.self.agent.sidecar.command.ensure",
+            Self::SelfAgentSidecarQueryList => "ak.self.agent.sidecar.query.list",
+            Self::SelfAgentSidecarResourceGet => "ak.self.agent.sidecar.resource.get",
             Self::SelfAppletCommandInstall => "ak.self.applet.command.install",
             Self::SelfAppletCommandRevoke => "ak.self.applet.command.revoke",
             Self::SelfAppletGhostCommandProvision => "ak.self.applet.ghost.command.provision",
@@ -1299,9 +1307,9 @@ impl ServiceOperationId {
             }
             "ak.self.agent.query.list" => Some(Self::SelfAgentQueryList),
             "ak.self.agent.resource.get" => Some(Self::SelfAgentResourceGet),
-            "ak.self.agent.sidecar_thread.command.ensure" => {
-                Some(Self::SelfAgentSidecarThreadCommandEnsure)
-            }
+            "ak.self.agent.sidecar.command.ensure" => Some(Self::SelfAgentSidecarCommandEnsure),
+            "ak.self.agent.sidecar.query.list" => Some(Self::SelfAgentSidecarQueryList),
+            "ak.self.agent.sidecar.resource.get" => Some(Self::SelfAgentSidecarResourceGet),
             "ak.self.applet.command.install" => Some(Self::SelfAppletCommandInstall),
             "ak.self.applet.command.revoke" => Some(Self::SelfAppletCommandRevoke),
             "ak.self.applet.ghost.command.provision" => Some(Self::SelfAppletGhostCommandProvision),
@@ -3064,20 +3072,46 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAgentSidecarThreadCommandEnsure,
+        id: ServiceOperationId::SelfAgentSidecarCommandEnsure,
         http_method: "POST",
-        http_path: "/_arkret/self/agent-sidecar-threads:ensure",
-        grpc: Some("SelfAgent/SidecarThreadEnsure"),
-        mq: Some("self.agent.sidecar_thread.command.ensure"),
+        http_path: "/_arkret/self/agent-sidecars:ensure",
+        grpc: Some("SelfAgent/SidecarEnsure"),
+        mq: Some("self.agent.sidecar.command.ensure"),
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_sidecar_thread_ensure_request_body",
+            "schemas/agent-operations.schema.json#/$defs/agent_sidecar_ensure_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_sidecar_thread_ensure_outcome",
+            "schemas/agent-operations.schema.json#/$defs/agent_sidecar_ensure_outcome",
         ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfAgentSidecarQueryList,
+        http_method: "GET",
+        http_path: "/_arkret/self/agent-sidecars",
+        grpc: Some("SelfAgent/SidecarList"),
+        mq: Some("self.agent.sidecar.query.list"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_sidecar_list"),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfAgentSidecarResourceGet,
+        http_method: "GET",
+        http_path: "/_arkret/self/agent-sidecars/{sidecar_id}",
+        grpc: Some("SelfAgent/SidecarGet"),
+        mq: Some("self.agent.sidecar.resource.get"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_sidecar_view"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {

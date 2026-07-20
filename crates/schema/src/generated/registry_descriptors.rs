@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-07-13;
-//! sha256=a345e045bd7514aea98bf65a88e767f49a5916e7150bfb56fa93125c083a1605 Input: registry/
-//! capability-action-registry.json; version=2026-07-13;
-//! sha256=f2f7ec3dd9ac9d12fd7f2c028d65d88448931e1f62935f319498913bdc1e564e Input: registry/
-//! schema-registry.json; version=2026-07-13;
-//! sha256=eea4266d2fa350d424a63a02c5fe29821f57f277e1e2a6e2f7d1330da25d7062 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-07-20;
+//! sha256=4b8f8b5f6cec4c67f15eca1febbfd256fab86ec90165a1e82e3ee909a69192f1 Input: registry/
+//! capability-action-registry.json; version=2026-07-20;
+//! sha256=467b314e3f9fe21aba8fac5c8b5df948a91c8932850d6ef21def3ff019b68563 Input: registry/
+//! schema-registry.json; version=2026-07-20;
+//! sha256=35d08a300540bae83f8becf2d62bf42eb91093aaf123d88db2435f3da315f2b2 Input: registry/
 //! account-data-type-registry.json; version=2026-07-03;
-//! sha256=bccf3c35a9a6be687d22f6691fb1dde2724b660b0d523eb5254bac2e24cec211 Entries: id_kinds=49,
-//! special_forms=9, actions=152, schemas=119, account_data_patterns=22
+//! sha256=90662737689befb83dab6d6570abc38d62d6b05b45901cc23ec80938e3bffd55 Entries: id_kinds=50,
+//! special_forms=9, actions=152, schemas=122, account_data_patterns=23
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -66,6 +66,7 @@ pub struct AccountDataPatternDescriptor {
     pub key_pattern: &'static str,
     pub scope: &'static str,
     pub storage: &'static str,
+    pub plaintext_schema: Option<&'static str>,
     pub write_event_kinds: &'static [&'static str],
 }
 
@@ -286,6 +287,11 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:rtc_participant:<uuid>",
     },
     IdKindDescriptor {
+        kind: "sidecar",
+        category: "core_object",
+        wire_form: "ak:sidecar:<uuid>",
+    },
+    IdKindDescriptor {
         kind: "snapshot",
         category: "snapshot",
         wire_form: "ak:snapshot:<uuid>",
@@ -421,21 +427,21 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::AgentSidecarThreadPublish,
+        action: CapabilityActionId::AgentSidecarPublish,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &["expires_at", "approval_required"],
         target_event_kinds: &["ak.message.create"],
-        profile: Some("ak.profile.agent_sidecar_thread.v1"),
+        profile: Some("ak.profile.agent_sidecar.v1"),
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::AgentSidecarThreadWrite,
+        action: CapabilityActionId::AgentSidecarWrite,
         category: "general",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &["allowed_strand_ids"],
         target_event_kinds: &["ak.message.create"],
-        profile: Some("ak.profile.agent_sidecar_thread.v1"),
+        profile: Some("ak.profile.agent_sidecar.v1"),
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -1507,17 +1513,18 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::SelfAgentSidecarThreadCommandEnsure,
+        action: CapabilityActionId::SelfAgentSidecarCommandEnsure,
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
         target_event_kinds: &[
+            "ak.sidecar.create",
             "ak.circle.create",
             "ak.circle.member.state",
             "ak.strand.create",
             "ak.relation.create",
         ],
-        profile: Some("ak.profile.agent_sidecar_thread.v1"),
+        profile: Some("ak.profile.agent_sidecar.v1"),
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
@@ -1823,6 +1830,18 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: "ak.schema.agent_selector_claim.v1",
         file: "schemas/agent-selector-claim.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.agent_sidecar.v1",
+        file: "schemas/agent-sidecar.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.agent_sidecar_exchange_projection.v1",
+        file: "schemas/agent-sidecar-exchange-projection.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.agent_sidecar_view_state.v1",
+        file: "schemas/agent-sidecar-view-state.schema.json",
     },
     SchemaDescriptor {
         schema_id: "ak.schema.applet.v1",
@@ -2267,132 +2286,161 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         key_pattern: "ak.account.blocklist",
         scope: "principal_private_policy",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set", "ak.account.blocklist"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.account.invite_quarantine",
         scope: "actor_private",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.agent.draft.v1:<agent_id>:<draft_id>",
         scope: "controller_private_state",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.agent.action_approve", "ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.agent.participation.v1:<agent_id>:<scope_key>",
         scope: "controller_private_state",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
-        key_pattern: "ak.agent.sidecar_projection.v1:<controller_id>:<target_realm_id>:<target_strand_id>",
+        key_pattern: "ak.agent.sidecar_projection.v1:<controller_id>:<target_realm_id>:<target_strand_id>:<exchange_id>",
+        scope: "controller_private_state",
+        storage: "encrypted_account_data",
+        plaintext_schema: Some("ak.schema.agent_sidecar_exchange_projection.v1"),
+        write_event_kinds: &["ak.account_data.set"],
+    },
+    AccountDataPatternDescriptor {
+        key_pattern: "ak.agent.sidecar_view_state.v1:<controller_id>:<target_realm_id>:<target_strand_id>",
         scope: "controller_private_preference",
         storage: "encrypted_account_data",
+        plaintext_schema: Some("ak.schema.agent_sidecar_view_state.v1"),
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.client.ui_state",
         scope: "device_or_principal_private_preference",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.collections.stickers",
         scope: "principal_private_preference",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.contacts.actor.<did>",
         scope: "principal_private_preference",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.contacts.realm.<realm_id>",
         scope: "realm_private_preference",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.dnd_schedule",
         scope: "principal_private_preference",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.draft.v1:<kind>:<target_key>:<slot_key>",
         scope: "principal_private_draft_state",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.file_transfer.v1:<transfer_key>",
         scope: "principal_private_file_transfer_state",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.presence.preference",
         scope: "principal_private_preference",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.presence.visibility",
         scope: "principal_private_policy",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.push_rules",
         scope: "principal_private_preference",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.read_receipt.preferences",
         scope: "principal_private_preference",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.reminders.v1:<id>",
         scope: "principal_private_productivity_state",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.saved.v1:<collection_key>:<target_key>",
         scope: "principal_private_productivity_state",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.scheduled_send.v1:<planned_message_id>",
         scope: "principal_private_productivity_state",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.search.index_manifest.v1:<realm_key>",
         scope: "principal_private_search_state",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.snooze.v1:<target_key>",
         scope: "principal_private_productivity_state",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.tags.realm.<realm_id>",
         scope: "realm_private_preference",
         storage: "encrypted_account_data",
+        plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
     },
 ];

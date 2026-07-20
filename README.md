@@ -1,6 +1,6 @@
 # Arkret Rust SDK
 
-> **Spec target**: [arkret-spec @ 074aefee](../arkret-spec) (v1 artifacts 2026-06-23)
+> **Spec target**: [arkret-spec @ 431f6acd](../arkret-spec) (v1 artifacts 2026-07-20)
 
 [![codecov](https://codecov.io/gh/arkret-org/arkret-rust-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/arkret-org/arkret-rust-sdk)
 

@@ -143,21 +143,19 @@ receipts cannot be replayed against a rotated frontier. The
 first-backup gate (below) ensures recovery cannot land before the controller
 has staged at least one chain envelope.
 
-### Sidecar Circle boundary
+### Sidecar backing-scope boundary
 
-*Threat model.* Sidecar threads are how an agent collaborates with external
-tools without exposing the controller's full space membership. The risk is
-that a sidecar thread leaks events out of its parent Circle, or that a
-hostile agent fabricates a sidecar thread referencing a Circle it does not
-have a grant for.
+*Threat model.* A Sidecar is a controller-owned private AI object. The risk is
+that its events or private locators leak into the source Strand, or that a
+caller fabricates or enumerates the reducer-managed backing Circle.
 
-*Mitigations.* `ak.profile.agent_sidecar_thread.v1` requires every
-`ak.self.agent.sidecar_thread.command.ensure` request to carry a `SidecarCircleId`
-bounded by the controller's existing membership in the parent
-`CircleId`; the reducer cross-checks the bound circle's policy before
-creating the thread. The sidecar's audit log is isolated from the parent
-Circle's audit log even though both strand through the same store, so
-visibility violations are loud failures rather than silent join-and-leak.
+*Mitigations.* `ak.profile.agent_sidecar.v1` exposes only the self-scoped
+`ak.self.agent.sidecar.command.ensure` aggregate and dedicated get/list reads.
+The reducer derives the Sidecar singleton, backing Circle and independent MLS
+group; callers cannot supply or manage the Circle. Source echoes are encrypted
+controller-private projections, never source-Strand events. Closed SDK types
+separate desired/effective access, view state, routed exchanges and explicit
+user-facing responses, while shared publish rejects every private locator.
 
 ### First-backup gate
 

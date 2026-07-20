@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=1ee3932c62a88794d1d8c90ce850fa7b27f54385450a2c005f455ab64553efab
-//! Entries: reason_codes=415
+//! sha256=c2c0d1e0f78baf870b78f2171ea19b6382c7ebf59ba94b86b5a0e95d888390d0
+//! Entries: reason_codes=416
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -345,6 +345,7 @@ pub enum ReasonCode {
     RelationScopeUnresolved,
     RelaxedWindowExceedsCeiling,
     RequiresOrganizationApproval,
+    ReservedCircleShortName,
     ResetEventIdMismatch,
     RevocationFreshnessUnknown,
     RevokeOrderUnknownRequiresBackfillOrReview,
@@ -848,6 +849,7 @@ impl ReasonCode {
     pub const RELATION_SCOPE_UNRESOLVED: &'static str = "relation_scope_unresolved";
     pub const RELAXED_WINDOW_EXCEEDS_CEILING: &'static str = "relaxed_window_exceeds_ceiling";
     pub const REQUIRES_ORGANIZATION_APPROVAL: &'static str = "requires_organization_approval";
+    pub const RESERVED_CIRCLE_SHORT_NAME: &'static str = "reserved_circle_short_name";
     pub const RESET_EVENT_ID_MISMATCH: &'static str = "reset_event_id_mismatch";
     pub const REVOCATION_FRESHNESS_UNKNOWN: &'static str = "revocation_freshness_unknown";
     pub const REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW: &'static str =
@@ -1331,6 +1333,7 @@ impl ReasonCode {
             Self::RelationScopeUnresolved => "relation_scope_unresolved",
             Self::RelaxedWindowExceedsCeiling => "relaxed_window_exceeds_ceiling",
             Self::RequiresOrganizationApproval => "requires_organization_approval",
+            Self::ReservedCircleShortName => "reserved_circle_short_name",
             Self::ResetEventIdMismatch => "reset_event_id_mismatch",
             Self::RevocationFreshnessUnknown => "revocation_freshness_unknown",
             Self::RevokeOrderUnknownRequiresBackfillOrReview => {
@@ -1816,6 +1819,7 @@ impl ReasonCode {
             "relation_scope_unresolved" => Self::RelationScopeUnresolved,
             "relaxed_window_exceeds_ceiling" => Self::RelaxedWindowExceedsCeiling,
             "requires_organization_approval" => Self::RequiresOrganizationApproval,
+            "reserved_circle_short_name" => Self::ReservedCircleShortName,
             "reset_event_id_mismatch" => Self::ResetEventIdMismatch,
             "revocation_freshness_unknown" => Self::RevocationFreshnessUnknown,
             "revoke_order_unknown_requires_backfill_or_review" => {
@@ -1980,7 +1984,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "agent_grant_constraint_missing",
         applies_to: &["event_envelope"],
-        description: "A capability grant whose subject is an agent/service principal is missing a typed constraint listed in the action's capability-action-registry required_constraints (for example allowed_strand_ids on ak.agent.sidecar_thread.write). The reducer rejects with failed_precondition.",
+        description: "A capability grant whose subject is an agent/service principal is missing a typed constraint listed in the action's capability-action-registry required_constraints (for example allowed_strand_ids on ak.agent.sidecar.write). The reducer rejects with failed_precondition.",
     },
     ReasonCodeDescriptor {
         code: "agent_grant_exceeds_requested_scope",
@@ -2310,7 +2314,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "circle_short_name_taken",
         applies_to: &["schema_validation", "state_resolution", "service_call"],
-        description: "Non-sidecar Circle creation or display update failed the reducer-enforced case-insensitive uniqueness of display.short_name within (realm_id, short_name). Returned as a failed_precondition for ordinary Circle short_name collisions; sidecar Circle short_name collisions use sidecar_create_denied to avoid existence side channels. See zh/models/circle.md §4.",
+        description: "Ordinary Circle creation or display update failed the reducer-enforced case-insensitive uniqueness of display.short_name within (realm_id, short_name). Sidecar backing Circle names are reducer-derived and any collision is hidden behind sidecar_create_denied. See zh/models/circle.md §4.",
     },
     ReasonCodeDescriptor {
         code: "claim_failed",
@@ -3621,6 +3625,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Sub-reason for failed_precondition when a Realm moderation-policy override would relax an action forbidden by inherited organization policy without embedding a valid organization approval. See zh/sync/service-http-binding.md §2.3.",
     },
     ReasonCodeDescriptor {
+        code: "reserved_circle_short_name",
+        applies_to: &["schema_validation", "state_resolution", "service_call"],
+        description: "Ordinary Circle create/update attempted to use the SC- short-name prefix reserved for reducer-managed Agent Sidecar backing Circles. The write is rejected as schema_violation. See zh/models/circle.md §4 and zh/models/sidecar.md §5.",
+    },
+    ReasonCodeDescriptor {
         code: "reset_event_id_mismatch",
         applies_to: &["schema_violation"],
         description: "ak.cross_signing.reset payload's reset_event_id does not match the enclosing Event Envelope's event_id. Binding reset_event_id into proof transcript prevents wrapping the same proof bytes into a different Event shell; receivers MUST reject the reset on any mismatch. See zh/crypto-media/device-lifecycle.md §14.1.",
@@ -3767,12 +3776,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "sidecar_create_denied",
         applies_to: &["auth_decision", "state_resolution", "service_call"],
-        description: "Agent sidecar Circle creation was denied without revealing whether the derived short_name or target sidecar already exists. Returned as a generic failed_precondition sub-reason to avoid existence side channels. See zh/models/circle.md §11.",
+        description: "Agent Sidecar ensure was denied without revealing whether the Sidecar, backing scope, context-private Strand, or a derived internal name already exists. Returned as a generic failed_precondition sub-reason to avoid existence side channels. See zh/models/sidecar.md §3 and §7.",
     },
     ReasonCodeDescriptor {
         code: "sidecar_exposure_ack_required",
         applies_to: &["auth_decision", "state_resolution", "service_call"],
-        description: "ak.self.agent.command.resume was rejected because the agent gained eligibility for one or more ak.profile.agent_sidecar_thread.v1 sidecar Circles created or joined during pause, and the controller has not yet supplied the matching sidecar_exposure_ack re-disclosure. Returned as a failed_precondition sub-reason; the controller MUST re-read the sidecar exposure disclosure and resubmit resume with the acknowledgement before the agent silently inherits access. See zh/identity/key-management.md §3.6.1.",
+        description: "ak.self.agent.command.resume was rejected because the Agent entered the desired-exposure set of one or more Agent Sidecar objects while paused, and the controller has not supplied the matching sidecar_exposure_ack re-disclosure. The controller MUST re-read the disclosure and resubmit; effective access still waits for backing-scope and MLS reconciliation. See zh/identity/key-management.md §3.6.1.",
     },
     ReasonCodeDescriptor {
         code: "snapshot_issuer_revoked",

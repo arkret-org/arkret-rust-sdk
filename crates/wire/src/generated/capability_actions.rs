@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-07-13;
-//! sha256=f2f7ec3dd9ac9d12fd7f2c028d65d88448931e1f62935f319498913bdc1e564e Entries: registered=152
+//! Input: registry/capability-action-registry.json; version=2026-07-20;
+//! sha256=467b314e3f9fe21aba8fac5c8b5df948a91c8932850d6ef21def3ff019b68563 Entries: registered=152
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -13,8 +13,8 @@ pub enum CapabilityActionId {
     AgentKeyAuthorize,
     AgentKeyRevoke,
     AgentSelectorClaim,
-    AgentSidecarThreadPublish,
-    AgentSidecarThreadWrite,
+    AgentSidecarPublish,
+    AgentSidecarWrite,
     ApprovalVote,
     AuditAccessed,
     AuditAppletBinding,
@@ -128,7 +128,7 @@ pub enum CapabilityActionId {
     SelfAgentGrantCommandAttach,
     SelfAgentGrantResourceDelete,
     SelfAgentParticipationResourceReplace,
-    SelfAgentSidecarThreadCommandEnsure,
+    SelfAgentSidecarCommandEnsure,
     SelfBlobCommandPresign,
     SelfBlobResourceGet,
     SelfBlobResourceHead,
@@ -169,8 +169,8 @@ impl CapabilityActionId {
         Self::AgentKeyAuthorize,
         Self::AgentKeyRevoke,
         Self::AgentSelectorClaim,
-        Self::AgentSidecarThreadPublish,
-        Self::AgentSidecarThreadWrite,
+        Self::AgentSidecarPublish,
+        Self::AgentSidecarWrite,
         Self::ApprovalVote,
         Self::AuditAccessed,
         Self::AuditAppletBinding,
@@ -284,7 +284,7 @@ impl CapabilityActionId {
         Self::SelfAgentGrantCommandAttach,
         Self::SelfAgentGrantResourceDelete,
         Self::SelfAgentParticipationResourceReplace,
-        Self::SelfAgentSidecarThreadCommandEnsure,
+        Self::SelfAgentSidecarCommandEnsure,
         Self::SelfBlobCommandPresign,
         Self::SelfBlobResourceGet,
         Self::SelfBlobResourceHead,
@@ -323,8 +323,8 @@ impl CapabilityActionId {
     pub const AGENT_KEY_AUTHORIZE: &'static str = "ak.agent.key.authorize";
     pub const AGENT_KEY_REVOKE: &'static str = "ak.agent.key.revoke";
     pub const AGENT_SELECTOR_CLAIM: &'static str = "ak.agent.selector_claim";
-    pub const AGENT_SIDECAR_THREAD_PUBLISH: &'static str = "ak.agent.sidecar_thread.publish";
-    pub const AGENT_SIDECAR_THREAD_WRITE: &'static str = "ak.agent.sidecar_thread.write";
+    pub const AGENT_SIDECAR_PUBLISH: &'static str = "ak.agent.sidecar.publish";
+    pub const AGENT_SIDECAR_WRITE: &'static str = "ak.agent.sidecar.write";
     pub const APPROVAL_VOTE: &'static str = "ak.approval.vote";
     pub const AUDIT_ACCESSED: &'static str = "ak.audit.accessed";
     pub const AUDIT_APPLET_BINDING: &'static str = "ak.audit.applet_binding";
@@ -442,8 +442,8 @@ impl CapabilityActionId {
         "ak.self.agent.grant.resource.delete";
     pub const SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE: &'static str =
         "ak.self.agent.participation.resource.replace";
-    pub const SELF_AGENT_SIDECAR_THREAD_COMMAND_ENSURE: &'static str =
-        "ak.self.agent.sidecar_thread.command.ensure";
+    pub const SELF_AGENT_SIDECAR_COMMAND_ENSURE: &'static str =
+        "ak.self.agent.sidecar.command.ensure";
     pub const SELF_BLOB_COMMAND_PRESIGN: &'static str = "ak.self.blob.command.presign";
     pub const SELF_BLOB_RESOURCE_GET: &'static str = "ak.self.blob.resource.get";
     pub const SELF_BLOB_RESOURCE_HEAD: &'static str = "ak.self.blob.resource.head";
@@ -484,8 +484,8 @@ impl CapabilityActionId {
             Self::AgentKeyAuthorize => "ak.agent.key.authorize",
             Self::AgentKeyRevoke => "ak.agent.key.revoke",
             Self::AgentSelectorClaim => "ak.agent.selector_claim",
-            Self::AgentSidecarThreadPublish => "ak.agent.sidecar_thread.publish",
-            Self::AgentSidecarThreadWrite => "ak.agent.sidecar_thread.write",
+            Self::AgentSidecarPublish => "ak.agent.sidecar.publish",
+            Self::AgentSidecarWrite => "ak.agent.sidecar.write",
             Self::ApprovalVote => "ak.approval.vote",
             Self::AuditAccessed => "ak.audit.accessed",
             Self::AuditAppletBinding => "ak.audit.applet_binding",
@@ -601,9 +601,7 @@ impl CapabilityActionId {
             Self::SelfAgentParticipationResourceReplace => {
                 "ak.self.agent.participation.resource.replace"
             }
-            Self::SelfAgentSidecarThreadCommandEnsure => {
-                "ak.self.agent.sidecar_thread.command.ensure"
-            }
+            Self::SelfAgentSidecarCommandEnsure => "ak.self.agent.sidecar.command.ensure",
             Self::SelfBlobCommandPresign => "ak.self.blob.command.presign",
             Self::SelfBlobResourceGet => "ak.self.blob.resource.get",
             Self::SelfBlobResourceHead => "ak.self.blob.resource.head",
@@ -645,8 +643,8 @@ impl CapabilityActionId {
             "ak.agent.key.authorize" => Some(Self::AgentKeyAuthorize),
             "ak.agent.key.revoke" => Some(Self::AgentKeyRevoke),
             "ak.agent.selector_claim" => Some(Self::AgentSelectorClaim),
-            "ak.agent.sidecar_thread.publish" => Some(Self::AgentSidecarThreadPublish),
-            "ak.agent.sidecar_thread.write" => Some(Self::AgentSidecarThreadWrite),
+            "ak.agent.sidecar.publish" => Some(Self::AgentSidecarPublish),
+            "ak.agent.sidecar.write" => Some(Self::AgentSidecarWrite),
             "ak.approval.vote" => Some(Self::ApprovalVote),
             "ak.audit.accessed" => Some(Self::AuditAccessed),
             "ak.audit.applet_binding" => Some(Self::AuditAppletBinding),
@@ -762,9 +760,7 @@ impl CapabilityActionId {
             "ak.self.agent.participation.resource.replace" => {
                 Some(Self::SelfAgentParticipationResourceReplace)
             }
-            "ak.self.agent.sidecar_thread.command.ensure" => {
-                Some(Self::SelfAgentSidecarThreadCommandEnsure)
-            }
+            "ak.self.agent.sidecar.command.ensure" => Some(Self::SelfAgentSidecarCommandEnsure),
             "ak.self.blob.command.presign" => Some(Self::SelfBlobCommandPresign),
             "ak.self.blob.resource.get" => Some(Self::SelfBlobResourceGet),
             "ak.self.blob.resource.head" => Some(Self::SelfBlobResourceHead),

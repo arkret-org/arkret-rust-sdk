@@ -4,10 +4,10 @@
 > Coverage is credited only from explicit evidence in `tools/operation-coverage-evidence.json`.
 
 - Claimable profiles: 65 (implementation + deployment + hardening profiles)
-- Effective profile/operation requirements: 497
+- Effective profile/operation requirements: 499
 - Complete rows: 10
 - Partial rows: 8
-- Gap rows: 479
+- Gap rows: 481
 
 `gap` is an explicit non-claim: registry recognition or a generated constant is not SDK implementation evidence. Inherited requirements are expanded into every claiming child profile.
 
@@ -39,17 +39,19 @@
 | `ak.profile.agent_runtime.v1` | `server` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.agent_runtime.v1` | `server` | `ak.self.events.query.scan` | `GET /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.agent_runtime.v1` | `server` | `ak.server.query.describe` | `GET /_arkret/describe` | — | — | — | gap |
-| `ak.profile.agent_sidecar_thread.v1` | `server` | `ak.gate.account.command.pair_agent_key` | `POST /_arkret/gate/account/agent-key-pair` | — | — | — | gap |
-| `ak.profile.agent_sidecar_thread.v1` | `server` | `ak.self.agent.command.provision` | `POST /_arkret/self/agents` | — | — | — | gap |
-| `ak.profile.agent_sidecar_thread.v1` | `server` | `ak.self.agent.command.renew_pairing` | `POST /_arkret/self/agents/{agent_id}/renew-pairing` | — | — | — | gap |
-| `ak.profile.agent_sidecar_thread.v1` | `server` | `ak.self.agent.sidecar_thread.command.ensure` | `POST /_arkret/self/agent-sidecar-threads:ensure` | — | — | — | gap |
-| `ak.profile.agent_sidecar_thread.v1` | `server` | `ak.self.authz.query.check` | `POST /_arkret/self/authz/check` | — | — | — | gap |
-| `ak.profile.agent_sidecar_thread.v1` | `server` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
-| `ak.profile.agent_sidecar_thread.v1` | `server` | `ak.self.events.query.scan` | `GET /_arkret/self/events` | — | — | — | gap |
-| `ak.profile.agent_sidecar_thread.v1` | `server` | `ak.self.keys.backups.command.unlock` | `POST /_arkret/self/keys/backups/{backup_id}/unlock` | — | — | — | gap |
-| `ak.profile.agent_sidecar_thread.v1` | `server` | `ak.self.keys.backups.query.list` | `GET /_arkret/self/keys/backups` | — | — | — | gap |
-| `ak.profile.agent_sidecar_thread.v1` | `server` | `ak.self.keys.backups.resource.replace` | `PUT /_arkret/self/keys/backups/{backup_id}` | — | — | — | gap |
-| `ak.profile.agent_sidecar_thread.v1` | `server` | `ak.server.query.describe` | `GET /_arkret/describe` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.gate.account.command.pair_agent_key` | `POST /_arkret/gate/account/agent-key-pair` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.agent.command.provision` | `POST /_arkret/self/agents` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.agent.command.renew_pairing` | `POST /_arkret/self/agents/{agent_id}/renew-pairing` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.agent.sidecar.command.ensure` | `POST /_arkret/self/agent-sidecars:ensure` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.agent.sidecar.query.list` | `GET /_arkret/self/agent-sidecars` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.agent.sidecar.resource.get` | `GET /_arkret/self/agent-sidecars/{sidecar_id}` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.authz.query.check` | `POST /_arkret/self/authz/check` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.events.query.scan` | `GET /_arkret/self/events` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.keys.backups.command.unlock` | `POST /_arkret/self/keys/backups/{backup_id}/unlock` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.keys.backups.query.list` | `GET /_arkret/self/keys/backups` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.keys.backups.resource.replace` | `PUT /_arkret/self/keys/backups/{backup_id}` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.server.query.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.applet_bridge.v1` | `server` | `ak.edge.applet.actor.query.resolve` | `GET /_arkret/edge/applet/actors/{actor_id}` | `crates/server/src/applet.rs::AppletHandler::resolve_actor` | `crates/server/src/applet.rs::actor_handler` | — | partial |
 | `ak.profile.applet_bridge.v1` | `server` | `ak.edge.applet.command.transaction` | `POST /_arkret/edge/applet/transactions` | `crates/server/src/applet.rs::AppletHandler::handle_transaction` | `crates/server/src/applet.rs::transactions_handler` | `crates/server/src/applet.rs::dispatch_replays_duplicates_and_fails_closed_on_conflicts` | complete |
 | `ak.profile.applet_bridge.v1` | `server` | `ak.edge.applet.query.describe` | `GET /_arkret/edge/applet/describe` | `crates/server/src/applet.rs::AppletHandler::describe` | `crates/server/src/applet.rs::describe_handler` | — | partial |

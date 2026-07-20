@@ -410,6 +410,7 @@ uuid_id_type!(ChunkId, "ak:chunk:");
 // sub-boundary; see spec artifacts/registry/id-kind-registry.json and
 // zh/models/circle.md.
 uuid_id_type!(CircleId, "ak:circle:");
+uuid_id_type!(SidecarId, "ak:sidecar:");
 uuid_id_type!(ClaimId, "ak:claim:");
 uuid_id_type!(DeviceMessageId, "ak:device_message:");
 uuid_id_type!(StrandId, "ak:strand:");
@@ -699,6 +700,7 @@ mod tests {
         assert_id!(PresentationId, "ak:presentation:");
         assert_id!(ReceiptId, "ak:receipt:");
         assert_id!(RelationId, "ak:relation:");
+        assert_id!(SidecarId, "ak:sidecar:");
         assert_id!(ReportId, "ak:report:");
         assert_id!(ReadCursorId, "ak:read_cursor:");
         assert_id!(RequestId, "ak:request:");
