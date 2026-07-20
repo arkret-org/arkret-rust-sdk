@@ -12,54 +12,10 @@ pub use arkret_models_collaboration::governance::realm_governance::*;
 
 use super::*;
 
-/// One projected `ak.realm.organization` relationship row surfaced by
-/// `ak.self.realm_organization.query.list`. Mirrors the canonical
-/// `realm_organization_payload` field order; `lifecycle_phase` is
-/// reducer-derived. A row here is a projection only: an organization
-/// relationship is only verified when `lifecycle_phase=verified_active`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct RealmOrganizationRelationshipRow {
-    pub statement_id: String,
-    pub organization_id: Did,
-    pub relationship: RealmOrganizationRelationship,
-    pub status: RealmOrganizationStatus,
-    pub control_scopes: Vec<RealmOrganizationControlScope>,
-    pub issued_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub not_before: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub supersedes_statement_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revokes_statement_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_frontier_digest: Option<Hash>,
-    pub issuer_role: RealmOrganizationIssuerRole,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delegation_ref: Option<String>,
-    pub lifecycle_phase: RealmOrganizationLifecyclePhase,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub updated_at: Option<DateTime<Utc>>,
-}
-
-/// Response DTO for `ak.self.realm_organization.query.list`
-/// (`realm-organization-operations.schema.json#/$defs/realm_organization_relationship_list`).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct RealmOrganizationRelationshipList {
-    pub realm_id: RealmId,
-    #[serde(default)]
-    pub relationships: Vec<RealmOrganizationRelationshipRow>,
-    /// `owning_organizations` declared hints with no verified statement. These
-    /// are unverified claims and MUST NOT be rendered as official / governed /
-    /// endorsed.
-    #[serde(default)]
-    pub declared_organization_hints: Vec<Did>,
-}
+// The `RealmOrganizationRelationshipRow` / `RealmOrganizationRelationshipList`
+// projection DTOs migrated to `arkret-models-collaboration`
+// (`governance::realm_governance`, re-exported above). The SDK-ORG-06
+// statement verifier below stays here.
 
 // ── SDK-ORG-06 — ak.realm.organization statement verifier ──────────────
 //

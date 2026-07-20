@@ -9,6 +9,7 @@
 //! plus the first event-payload faces migrated from `arkret-core`.
 
 pub mod account_lifecycle;
+pub mod agent_operations;
 pub mod events_payloads;
 pub mod federation;
 pub mod governance;

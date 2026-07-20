@@ -55,6 +55,19 @@ pub struct EventsSubmitRequestBody {
     pub events: Vec<Event>,
 }
 
+/// Round 4 — batch `/events/submit` request. Multiple envelopes
+/// submitted in a single round trip. The receiver MUST process each
+/// envelope independently; partial-success returns the per-envelope
+/// rejected list.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct EventsSubmitBatchRequestBody {
+    pub events: Vec<Event>,
+    /// Optional idempotency key for the entire batch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub idempotency_key: Option<String>,
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome`
 /// `rejected` array items: `{id, reason_code, detail?}`.

@@ -205,18 +205,9 @@ pub fn federation_minimal_reducer_profile_digest() -> &'static str {
 
 // ── EventsSubmit variants ───────────────────────────────────────────────
 
-/// Round 4 — batch `/events/submit` request. Multiple envelopes
-/// submitted in a single round trip. The receiver MUST process each
-/// envelope independently; partial-success returns the per-envelope
-/// rejected list.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct EventsSubmitBatchRequestBody {
-    pub events: Vec<Event>,
-    /// Optional idempotency key for the entire batch.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub idempotency_key: Option<String>,
-}
+// `EventsSubmitBatchRequestBody` migrated to `arkret-models-collaboration`
+// (`http_bodies`, re-exported below).
+pub use arkret_models_collaboration::http_bodies::EventsSubmitBatchRequestBody;
 
 /// Round 4 — federation `/events/submit` request. Used when a remote
 /// service forwards events from another principal server. MUST carry

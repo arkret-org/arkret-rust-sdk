@@ -15,7 +15,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::{Error, Result, SealId, canonical};
+#[cfg(test)]
+use crate::canonical;
+use crate::{Error, Result, SealId};
 
 mod account;
 mod actor_profile {

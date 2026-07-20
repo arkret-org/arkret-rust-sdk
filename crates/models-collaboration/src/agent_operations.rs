@@ -1,0 +1,791 @@
+//! Personal-Agent lifecycle wire models and the requested-scope commitment
+//! digest, relocated from `arkret-core`. These bind agent-key payloads
+//! (`events_payloads::agent`), grant / key-state artifacts
+//! (`governance::agent_artifacts`), capability grants
+//! (`governance::grant_constraint`), and the managed-frontier reference
+//! (`arkret-models-crypto`), all reachable within the collaboration layering
+//! edge. `arkret-core` re-exports them for path stability.
+
+use crate::events_payloads::agent::{
+    AgentKeyAuthorizePayloadRuntimeAttestation, AgentKeyScope, AgentSidecarExposureAck,
+};
+use crate::governance::agent_artifacts::{
+    AgentKeyAuthorizationState, GrantSnapshot, PendingMemberReconciliationItem, PublicKey,
+};
+use crate::http_bodies::{AccountDevicePairOutcome, AccountDevicePairRequestBody};
+use crate::internal_prelude::*;
+
+pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_SCHEMA: &str =
+    "ak.schema.agent_requested_scope_disclosure.v1";
+
+/// Controller-signed, verifier-bound private disclosure of an Agent's
+/// immutable requested-scope ceiling.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentRequestedScopeDisclosure {
+    pub schema: String,
+    pub request_id: RequestId,
+    pub agent_id: Did,
+    pub controller_id: Did,
+    pub requested_scope: AgentKeyScope,
+    pub requested_scope_digest: Hash,
+    pub verifier_did: Did,
+    pub audience: NonEmptyString,
+    pub challenge: NonEmptyString,
+    pub issued_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub proofs: Vec<Proof>,
+}
+
+impl AgentRequestedScopeDisclosure {
+    pub fn canonical_bytes_without_proofs(&self) -> Result<Vec<u8>> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .expect("AgentRequestedScopeDisclosure serializes as an object")
+            .remove("proofs");
+        Ok(canonical::canonical_json_bytes(&value)?)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        Hash::new(canonical::sha256_digest(
+            &self.canonical_bytes_without_proofs()?,
+        ))
+        .map_err(|reason| Error::Protocol(reason.to_string()))
+    }
+
+    pub fn canonical_proof_binding_bytes(&self, proof: &Proof) -> Result<Vec<u8>> {
+        let payload_digest = self.payload_digest()?;
+        if proof.event_digest != payload_digest {
+            return Err(Error::Protocol(
+                "agent requested-scope disclosure proof digest mismatch".to_owned(),
+            ));
+        }
+        Ok(canonical::canonical_json_bytes(&serde_json::json!({
+            "context": "ak.agent-requested-scope-disclosure-proof-v1",
+            "payload_digest": payload_digest,
+            "agent_id": self.agent_id,
+            "controller_id": self.controller_id,
+            "verifier_did": self.verifier_did,
+            "audience": self.audience,
+            "challenge": self.challenge,
+            "verification_method": proof.verification_method,
+            "created_at": proof.created_at,
+        }))?)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.schema != AGENT_REQUESTED_SCOPE_DISCLOSURE_SCHEMA {
+            return Err(Error::Protocol(
+                "agent requested-scope disclosure schema is invalid".to_owned(),
+            ));
+        }
+        if self.challenge.as_str().len() < 16 {
+            return Err(Error::Protocol(
+                "agent requested-scope disclosure challenge must contain at least 16 bytes"
+                    .to_owned(),
+            ));
+        }
+        let lifetime = self.expires_at.signed_duration_since(self.issued_at);
+        if lifetime <= chrono::Duration::zero() || lifetime > chrono::Duration::seconds(300) {
+            return Err(Error::Protocol(
+                "agent requested-scope disclosure lifetime must be within 1..=300 seconds"
+                    .to_owned(),
+            ));
+        }
+        if self.proofs.is_empty() {
+            return Err(Error::Protocol(
+                "agent requested-scope disclosure requires a controller proof".to_owned(),
+            ));
+        }
+        let payload_digest = self.payload_digest()?;
+        if self
+            .proofs
+            .iter()
+            .any(|proof| proof.event_digest != payload_digest)
+        {
+            return Err(Error::Protocol(
+                "agent requested-scope disclosure proof digest mismatch".to_owned(),
+            ));
+        }
+        let expected = agent_requested_scope_digest(
+            &self.agent_id,
+            &self.controller_id,
+            &self.requested_scope,
+        )?;
+        if self.requested_scope_digest != expected {
+            return Err(Error::Protocol(
+                "agent requested-scope disclosure digest does not match its scope".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentKeyPairRequestBody {
+    pub pairing_request_id: NonEmptyString,
+    pub agent_id: Did,
+    pub verification_method: DidUrl,
+    pub public_key: PublicKey,
+    pub proof_of_possession: NonEmptyJsonObject,
+    pub requested_scope_disclosure: AgentRequestedScopeDisclosure,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
+    pub authorize_event: Event,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct AgentKeyPairOutcome {
+    pub ok: bool,
+    pub authorized_event_ref: EventId,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentRuntimeApprovalRequestBody {
+    pub pairing_code: NonEmptyString,
+    pub pairing_request_id: NonEmptyString,
+    pub agent_id: Did,
+    pub verification_method: DidUrl,
+    pub public_key: PublicKey,
+    pub proof_of_possession: NonEmptyJsonObject,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentRuntimeApprovalOutcome {
+    pub ok: bool,
+    pub approval_request_id: String,
+    pub status: AgentStatus,
+}
+
+/// Runtime-side poll for the controller decision on a previously submitted
+/// runtime key request. The `pairing_request_id` + `pairing_code` +
+/// `agent_id` triple is the query credential; a record miss and a
+/// mismatch are indistinguishable (both not_found). Mirrors
+/// `agent-operations.schema.json#/$defs/agent_runtime_approval_status_request_body`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentRuntimeApprovalStatusRequestBody {
+    pub pairing_request_id: String,
+    pub pairing_code: String,
+    pub agent_id: Did,
+}
+
+/// Controller-decision status for an agent runtime key pairing request.
+/// Once approved, `authorized_event_ref` plus the authorized key binding
+/// fields are present; the runtime MUST compare
+/// `authorized_public_key_digest` against its own key and treat a mismatch
+/// as paired-by-another-runtime. Mirrors
+/// `agent-operations.schema.json#/$defs/agent_runtime_approval_status_outcome`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentRuntimeApprovalStatusOutcome {
+    pub ok: bool,
+    pub status: AgentStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_request_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorized_event_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorized_verification_method: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorized_public_key_digest: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(tag = "phase", rename_all = "snake_case")]
+pub enum AgentProvisionRequestBody {
+    Prepare {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        display_name: Option<String>,
+        slug: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        avatar_blob_ref: Option<BlobRef>,
+        requested_scope: AgentKeyScope,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pairing_ttl_ms: Option<u64>,
+    },
+    Commit {
+        agent_id: Did,
+        principal_control_realm_id: RealmId,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        display_name: Option<String>,
+        slug: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        avatar_blob_ref: Option<BlobRef>,
+        requested_scope: AgentKeyScope,
+        provision_events: Box<AgentProvisionEvents>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pairing_ttl_ms: Option<u64>,
+    },
+}
+
+/// Closed controller-signed Event pair committed by personal-Agent
+/// provisioning. The server validates semantic cross-bindings and admits both
+/// envelopes through the ordinary Event pipeline; it never authors a proof on
+/// the controller's behalf.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentProvisionEvents {
+    pub accountability_grant: Event,
+    pub selector_claim: Event,
+}
+
+// NOTE: `AgentKeyScope` is the spec object `{actions, resources, constraints?}`
+// defined in `models/artifacts/event_payload/agent.rs`
+// (`event-payload.schema.json#/$defs/agent_key_scope`, `$ref`'d by
+// `agent-operations.schema.json#/$defs/agent_provision_request_body.requested_scope`).
+// The former SDK-local `account/realm/applet/limited` enum was off-spec and
+// has been removed.
+
+/// Re-open pairing on any non-terminal agent. The service issues a fresh
+/// one-time pairing handle and every previously issued handle becomes
+/// permanently unresolvable. `pending_runtime_key` / `pairing_expired`
+/// re-open bootstrap pairing; `active` / `paused` perform runtime
+/// replacement re-pairing (existing keys stay valid until the new pairing
+/// completes, then are atomically superseded by the single accepted
+/// authorization Event).
+/// `deactivated` rejects. Mirrors
+/// `agent-operations.schema.json#/$defs/agent_renew_pairing_request_body`.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentRenewPairingRequestBody {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pairing_ttl_ms: Option<u64>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentPcrRecoveryStatus {
+    Pending,
+    Ready,
+    Stale,
+}
+
+/// Recovery coverage for a managed Agent Principal Control Realm. The tagged
+/// representation preserves the schema invariant that only ready/stale states
+/// carry an accepted backup reference.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+pub enum AgentPcrRecoveryState {
+    Pending,
+    Ready {
+        backup_id: BackupId,
+        series_id: BackupSeriesId,
+        series_seq: u64,
+        managed_frontier_ref: ManagedFrontierRef,
+    },
+    Stale {
+        backup_id: BackupId,
+        series_id: BackupSeriesId,
+        series_seq: u64,
+        managed_frontier_ref: ManagedFrontierRef,
+    },
+}
+
+impl AgentPcrRecoveryState {
+    pub const fn status(&self) -> AgentPcrRecoveryStatus {
+        match self {
+            Self::Pending => AgentPcrRecoveryStatus::Pending,
+            Self::Ready { .. } => AgentPcrRecoveryStatus::Ready,
+            Self::Stale { .. } => AgentPcrRecoveryStatus::Stale,
+        }
+    }
+
+    pub const fn is_ready(&self) -> bool {
+        matches!(self, Self::Ready { .. })
+    }
+}
+
+/// Provisioning is the raw allocation stage, so its recovery projection is
+/// constrained to pending and carries no backup reference.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentProvisionPcrRecovery {
+    pub status: AgentProvisionPcrRecoveryStatus,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentProvisionPcrRecoveryStatus {
+    #[default]
+    Pending,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentPairingMode {
+    Bootstrap,
+    Replacement,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+pub enum AgentProvisionOutcome {
+    AwaitingControllerEvents {
+        agent_id: Did,
+        principal_control_realm_id: RealmId,
+        controller_realm_id: RealmId,
+        controller_authorization_ref: String,
+        requested_scope_digest: Hash,
+    },
+    Complete {
+        #[serde(flatten)]
+        outcome: AgentProvisionComplete,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentProvisionComplete {
+    pub agent_id: Did,
+    pub principal_control_realm_id: RealmId,
+    pub controller_authorization_ref: String,
+    pub requested_scope_digest: Hash,
+    pub pcr_recovery: AgentProvisionPcrRecovery,
+    pub pairing_request_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pairing_code: Option<String>,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentRenewPairingOutcome {
+    pub agent_id: Did,
+    pub principal_control_realm_id: RealmId,
+    pub controller_authorization_ref: String,
+    pub requested_scope_digest: Hash,
+    pub pcr_recovery: AgentPcrRecoveryState,
+    pub pairing_mode: AgentPairingMode,
+    pub pairing_request_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pairing_code: Option<String>,
+    pub expires_at: DateTime<Utc>,
+}
+
+/// One-time bootstrap material handed to a personal agent runtime after
+/// provisioning. Mirrors `agent-operations.schema.json#/$defs/agent_pairing_bootstrap`
+/// and AKP-0008 §4.4: a short-lived, revocable pairing input only. It is not a
+/// session grant, capability grant or long-term secret, and it deliberately
+/// carries no scope payload (the authoritative ceiling lives in
+/// `ak.agent.key.authorize` and the effective-permission intersection).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentPairingBootstrap {
+    pub arkret_base_url: String,
+    pub service_id: Did,
+    pub agent_id: Did,
+    pub pairing_request_id: String,
+    pub pairing_code: String,
+    pub pairing_expires_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentPairingResolveRequestBody {
+    pub pairing_token: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentStatus {
+    PendingRuntimeKey,
+    Active,
+    PairingExpired,
+    Paused,
+    Deactivated,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentProjection {
+    pub agent_id: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    pub slug: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
+    pub status: AgentStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentLifecycleState {
+    #[default]
+    Active,
+    Paused,
+    Deactivated,
+}
+
+impl AgentLifecycleState {
+    pub fn as_wire_str(self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::Paused => "paused",
+            Self::Deactivated => "deactivated",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentLifecycleOutcome {
+    pub ok: bool,
+    pub status: AgentLifecycleState,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct AgentList {
+    #[serde(default)]
+    pub agents: Vec<AgentProjection>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<cursor::Cursor>,
+    pub has_more: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct AgentView {
+    pub agent: AgentProjection,
+    pub status: AgentStatus,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub grants: Vec<GrantSnapshot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_state: Option<KeyState>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct AgentPauseRequestBody {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    /// Closed Agent-PCR lifecycle Event authored by the Agent principal and
+    /// executed/signed by its controller delegation.
+    pub lifecycle_event: Event,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct AgentResumeRequestBody {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sidecar_exposure_ack: Option<AgentSidecarExposureAck>,
+    /// Closed Agent-PCR lifecycle Event authored by the Agent principal and
+    /// executed/signed by its controller delegation.
+    pub lifecycle_event: Event,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct AgentDeactivateRequestBody {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct AgentGrantAttachRequestBody {
+    pub grant: CapabilityGrant,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct AgentGrantAttachOutcome {
+    pub ok: bool,
+    pub grant_id: GrantId,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct AgentGrantDetachOutcome {
+    pub ok: bool,
+    pub revoked_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarContextRef {
+    pub realm_id: RealmId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub strand_id: Option<StrandId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub track_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message_id: Option<MessageId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relation_id: Option<RelationId>,
+}
+
+impl AgentSidecarContextRef {
+    pub fn strand(realm_id: RealmId, strand_id: StrandId) -> Self {
+        Self {
+            realm_id,
+            strand_id: Some(strand_id),
+            track_name: None,
+            message_id: None,
+            relation_id: None,
+        }
+    }
+
+    pub fn relation(realm_id: RealmId, relation_id: RelationId) -> Self {
+        Self {
+            realm_id,
+            strand_id: None,
+            track_name: None,
+            message_id: None,
+            relation_id: Some(relation_id),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarThreadEnsureRequestBody {
+    pub controller_id: Did,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub addressed_agent_ids: Vec<Did>,
+    pub context_ref: AgentSidecarContextRef,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct AgentSidecarThreadEnsureOutcome {
+    pub ok: bool,
+    pub private_circle_id: CircleId,
+    pub private_strand_id: StrandId,
+    pub private_relation_id: RelationId,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pending_member_reconciliations: Vec<PendingMemberReconciliationItem>,
+}
+
+#[derive(Serialize)]
+struct AgentRequestedScopeCommitment<'a> {
+    agent_id: &'a str,
+    controller_id: &'a str,
+    kind: &'static str,
+    requested_scope: &'a AgentKeyScope,
+}
+
+/// Compute the immutable provision ceiling commitment fixed in the accepted
+/// Agent DID `ArkretPrincipalControlRealm` service entry.
+pub fn agent_requested_scope_digest(
+    agent_id: &Did,
+    controller_id: &Did,
+    requested_scope: &AgentKeyScope,
+) -> Result<Hash> {
+    Hash::new(canonical::canonical_sha256(
+        &AgentRequestedScopeCommitment {
+            agent_id: agent_id.as_str(),
+            controller_id: controller_id.as_str(),
+            kind: "ak.agent.requested_scope_commitment.v1",
+            requested_scope,
+        },
+    )?)
+    .map_err(Error::from)
+}
+
+/// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AgentOperations {
+    AccountDevicePairRequestBody(AccountDevicePairRequestBody),
+    AccountDevicePairOutcome(AccountDevicePairOutcome),
+    AgentKeyPairRequestBody(Box<AgentKeyPairRequestBody>),
+    AgentKeyPairOutcome(AgentKeyPairOutcome),
+    AgentRuntimeApprovalRequestBody(AgentRuntimeApprovalRequestBody),
+    AgentRuntimeApprovalOutcome(AgentRuntimeApprovalOutcome),
+    AgentProvisionRequestBody(Box<AgentProvisionRequestBody>),
+    AgentProvisionOutcome(AgentProvisionOutcome),
+    AgentRenewPairingRequestBody(AgentRenewPairingRequestBody),
+    AgentRenewPairingOutcome(AgentRenewPairingOutcome),
+    AgentPairingBootstrap(AgentPairingBootstrap),
+    AgentList(AgentList),
+    AgentView(Box<AgentView>),
+    AgentPauseRequestBody(AgentPauseRequestBody),
+    AgentLifecycleState(AgentLifecycleOutcome),
+    AgentResumeRequestBody(AgentResumeRequestBody),
+    AgentDeactivateRequestBody(AgentDeactivateRequestBody),
+    AgentGrantAttachRequestBody(AgentGrantAttachRequestBody),
+    AgentGrantAttachOutcome(AgentGrantAttachOutcome),
+    AgentGrantDetachOutcome(AgentGrantDetachOutcome),
+    AgentSidecarThreadEnsureRequestBody(AgentSidecarThreadEnsureRequestBody),
+    AgentSidecarThreadEnsureOutcome(AgentSidecarThreadEnsureOutcome),
+}
+
+/// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/key_state`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct KeyState {
+    pub agent_id: Did,
+    pub controller_id: Did,
+    pub principal_control_realm_id: RealmId,
+    pub controller_authorization_ref: String,
+    pub status: AgentStatus,
+    pub pcr_recovery: AgentPcrRecoveryState,
+    /// Immutable global Agent ceiling captured by provisioning.
+    pub requested_scope: AgentKeyScope,
+    /// Digest of the immutable ceiling committed by the accepted Agent DID.
+    pub requested_scope_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pairing_request_id: Option<String>,
+    /// Branch of the current unconsumed, unexpired pairing handle. Present
+    /// exactly when `pairing_request_id` and `pairing_expires_at` are present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pairing_mode: Option<AgentPairingMode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pairing_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pairing_expires_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_request_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending_runtime_key_request: Option<BTreeMap<String, Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_requested_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorized_event_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub active_authorizations: Vec<AgentKeyAuthorizationState>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn runtime_approval_request(runtime_attestation: Value) -> Value {
+        serde_json::json!({
+            "pairing_code": "12345678",
+            "pairing_request_id": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
+            "agent_id": "did:webvh:z6mkfixture:agent.example",
+            "verification_method": "did:webvh:z6mkfixture:agent.example#runtime-key-1",
+            "public_key": {
+                "kty": "OKP",
+                "kid": "did:webvh:z6mkfixture:agent.example#runtime-key-1",
+                "alg": "Ed25519",
+                "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "proof_of_possession": { "signature": "c2ln" },
+            "runtime_attestation": runtime_attestation
+        })
+    }
+
+    #[test]
+    fn runtime_attestation_is_closed_to_the_v1_self_asserted_shape() {
+        let accepted: AgentRuntimeApprovalRequestBody =
+            serde_json::from_value(runtime_approval_request(serde_json::json!({
+                "kind": "self_asserted",
+                "software": "arkret-agent"
+            })))
+            .expect("registered self_asserted attestation accepts");
+        assert!(accepted.runtime_attestation.is_some());
+
+        assert!(
+            serde_json::from_value::<AgentRuntimeApprovalRequestBody>(runtime_approval_request(
+                serde_json::json!({ "kind": "tee" })
+            ))
+            .is_err(),
+            "unknown attestation kinds must fail closed"
+        );
+        assert!(
+            serde_json::from_value::<AgentRuntimeApprovalRequestBody>(runtime_approval_request(
+                serde_json::json!({ "kind": "self_asserted", "unregistered": true })
+            ))
+            .is_err(),
+            "unregistered attestation fields must fail closed"
+        );
+    }
+
+    #[test]
+    fn sidecar_thread_ensure_request_uses_context_ref_shape() {
+        let request = AgentSidecarThreadEnsureRequestBody {
+            controller_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice").unwrap(),
+            addressed_agent_ids: vec![Did::new("did:webvh:z6mkfixture:agent.example").unwrap()],
+            context_ref: AgentSidecarContextRef::strand(
+                RealmId::new("ak:realm:01964137-0000-7000-8000-000000000030").unwrap(),
+                StrandId::new("ak:strand:01964137-0000-7000-8000-000000000031").unwrap(),
+            ),
+        };
+        let value = serde_json::to_value(request).unwrap();
+        assert!(value.get("realm_id").is_none());
+        assert!(value.get("agent_id").is_none());
+        assert_eq!(
+            value["controller_id"],
+            "did:webvh:z6mkfixture:example.com:users:alice"
+        );
+        assert_eq!(
+            value["addressed_agent_ids"][0],
+            "did:webvh:z6mkfixture:agent.example"
+        );
+        assert_eq!(
+            value["context_ref"]["realm_id"],
+            "ak:realm:01964137-0000-7000-8000-000000000030"
+        );
+        assert_eq!(
+            value["context_ref"]["strand_id"],
+            "ak:strand:01964137-0000-7000-8000-000000000031"
+        );
+    }
+
+    #[test]
+    fn requested_scope_commitment_is_domain_separated_and_stable() {
+        let agent_id = Did::new("did:webvh:z6mkagent:agent.example").unwrap();
+        let controller_id = Did::new("did:webvh:z6mkcontroller:controller.example").unwrap();
+        let requested_scope: AgentKeyScope = serde_json::from_value(serde_json::json!({
+            "actions": [
+                "ak.event.read",
+                "ak.self.events.stream.subscribe"
+            ],
+            "resources": [
+                {
+                    "kind": "operation",
+                    "operation": "ak.self.events.stream.subscribe"
+                }
+            ]
+        }))
+        .unwrap();
+        let digest =
+            agent_requested_scope_digest(&agent_id, &controller_id, &requested_scope).unwrap();
+
+        assert_eq!(
+            digest.as_str(),
+            "sha256:fc25a74d604984484de924bf889d612ba574d4bb4970620c70dc603adf22a042"
+        );
+    }
+}
