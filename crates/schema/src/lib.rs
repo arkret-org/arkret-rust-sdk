@@ -34,11 +34,13 @@ pub use protocol::{
 
 mod artifacts;
 mod catalog;
+pub mod conformance;
 mod payloads;
 pub mod sdk_conformance;
 
 pub use artifacts::*;
 pub use catalog::*;
+pub use conformance::*;
 pub use payloads::*;
 
 pub const CORE_SCHEMA_IDS: &[&str] = &[

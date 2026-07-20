@@ -425,6 +425,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "hmac 0.13.0",
+ "regex",
  "salvo",
  "serde",
  "serde_json",

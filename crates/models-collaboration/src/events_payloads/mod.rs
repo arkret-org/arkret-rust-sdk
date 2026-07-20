@@ -17,5 +17,6 @@ pub mod moderation_morph_misc;
 pub mod morph_message;
 pub mod object_create;
 pub mod preview_realm_reaction;
+pub mod redaction;
 pub mod strand_history_join;
 pub mod strand_ops;

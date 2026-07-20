@@ -1257,3 +1257,21 @@ mod recovery_completion_tests {
         assert!(serde_json::from_value::<RecoverySessionState>(cross_signing).is_ok());
     }
 }
+
+// ── Keypackage operations aggregate ──────────────────────────────────────
+// Migrated from `arkret-core` (`models/artifacts/keys.rs`); a shim there
+// re-exports this enum to preserve the `arkret_core::` path.
+
+/// Counterpart for `spec/v1/artifacts/schemas/keypackage-operations.schema.json`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum KeyPackageOperations {
+    KeyPackagesUploadRequestBody(crate::http_bodies::KeyPackagesUploadRequestBody),
+    KeyPackagesUploadOutcome(crate::http_bodies::KeyPackagesUploadOutcome),
+    KeyPackagesClaimRequestBody(crate::http_bodies::KeyPackagesClaimRequestBody),
+    KeyPackagesClaimOutcome(crate::http_bodies::KeyPackagesClaimOutcome),
+    KeyPackagesConsumeRequestBody(crate::http_bodies::KeyPackagesConsumeRequestBody),
+    KeyPackagesConsumeOutcome(crate::http_bodies::KeyPackagesConsumeOutcome),
+    KeyPackagesRevokeRequestBody(crate::http_bodies::KeyPackagesRevokeRequestBody),
+    KeyPackagesRevokeOutcome(crate::http_bodies::KeyPackagesRevokeOutcome),
+}

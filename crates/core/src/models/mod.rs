@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 pub use arkret_identifiers::{
     ActorProfileId, AppletId, AttestationId, AuditBindingId, AuditReleaseId, AuditSessionId,
@@ -13,7 +13,9 @@ pub use arkret_identifiers::{
 pub use arkret_wire::{EvaluationClass, ServiceType, XExtensionMap};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::Value;
+#[cfg(test)]
+use serde_json::json;
 
 #[cfg(test)]
 use crate::canonical;
@@ -117,9 +119,10 @@ mod productivity {
     pub use arkret_models_collaboration::objects::productivity::*;
 }
 mod profiles;
-mod push {
-    pub use arkret_models_integration::models_push::*;
-}
+// The push wire DTOs and the push artifact-counterpart aggregate reach the
+// core namespace via `artifacts::push` (a re-export of
+// `arkret_models_integration::models_push`), so no separate `push` module is
+// declared here.
 mod queries {
     pub use arkret_models_collaboration::objects::queries::*;
 }
@@ -224,7 +227,6 @@ pub use primitives::{proof_kind, *};
 pub use problem_details::*;
 pub use productivity::*;
 pub use profiles::*;
-pub use push::*;
 pub use queries::*;
 pub use query_projection::*;
 pub use realm::*;
@@ -246,7 +248,3 @@ pub type BooleanFilter = Filter;
 pub type QueryFilter = Filter;
 pub use third_party_invite::*;
 pub use wire_strings::*;
-
-fn is_false(value: &bool) -> bool {
-    !*value
-}

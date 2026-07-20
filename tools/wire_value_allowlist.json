@@ -29,25 +29,25 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/artifacts/device_identity.rs::KeyVerificationContent.device_metadata",
+      "rust_field": "crates/models-identity/src/artifacts_device_identity.rs::KeyVerificationContent.device_metadata",
       "spec_pointer": "device-message.schema.json#/$defs/key_verification_content/properties/device_metadata",
       "classification": "open_json",
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
     {
-      "rust_field": "crates/core/src/models/artifacts/device_identity.rs::KeyVerificationContent.extra",
+      "rust_field": "crates/models-identity/src/artifacts_device_identity.rs::KeyVerificationContent.extra",
       "spec_pointer": "device-message.schema.json#/$defs/key_verification_content/additionalProperties",
       "classification": "open_json",
       "reason": "The exact Spec object permits arbitrary additional properties."
     },
     {
-      "rust_field": "crates/core/src/models/artifacts/device_identity.rs::KeyVerificationContent.signatures",
+      "rust_field": "crates/models-identity/src/artifacts_device_identity.rs::KeyVerificationContent.signatures",
       "spec_pointer": "device-message.schema.json#/$defs/key_verification_content/properties/signatures",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/artifacts/device_identity.rs::KeyVerificationContentNewDevicePubkey.extra",
+      "rust_field": "crates/models-identity/src/artifacts_device_identity.rs::KeyVerificationContentNewDevicePubkey.extra",
       "spec_pointer": "device-message.schema.json#/$defs/key_verification_content/additionalProperties",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
@@ -125,30 +125,30 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/conformance.rs::ConformanceCase.vector",
+      "rust_field": "crates/schema/src/conformance.rs::ConformanceCase.vector",
       "classification": "internal_or_fixture",
       "reason": "Conformance vectors are test inputs, not an Arkret wire DTO."
     },
     {
-      "rust_field": "crates/core/src/models/ephemeral.rs::CallSignalPayload.data",
+      "rust_field": "crates/models-collaboration/src/events_payloads/ephemeral.rs::CallSignalPayload.data",
       "spec_pointer": "ephemeral-envelope.schema.json#/allOf/0/then/properties/payload/properties/data",
       "classification": "open_json",
       "reason": "Call signalling data is explicitly unconstrained JSON in the Spec."
     },
     {
-      "rust_field": "crates/core/src/models/event_query.rs::EventsQueryPostRequestBody.filters",
+      "rust_field": "crates/models-collaboration/src/event_query.rs::EventsQueryPostRequestBody.filters",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventsQueryPostRequestBody/properties/filters",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/event_sync.rs::EventsFrontierFederationPeerState.signature",
+      "rust_field": "crates/models-collaboration/src/event_sync.rs::EventsFrontierFederationPeerState.signature",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventsFrontierFederationPeerState/properties/signature",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/event_sync.rs::EventsFrontierFederationPeerState.witness_receipts",
+      "rust_field": "crates/models-collaboration/src/event_sync.rs::EventsFrontierFederationPeerState.witness_receipts",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventsFrontierFederationPeerState/properties/witness_receipts",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."

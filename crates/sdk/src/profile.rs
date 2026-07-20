@@ -644,7 +644,7 @@ impl ProfileCreateBuilder {
                     payload
                 }
             })?;
-        payload.to_value()
+        Ok(payload.to_value()?)
     }
 
     fn validate_authorization_fields(&self) -> Result<()> {

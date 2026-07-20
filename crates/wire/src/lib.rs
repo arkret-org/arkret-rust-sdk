@@ -40,6 +40,7 @@ pub mod notary;
 pub mod object_address;
 pub mod patch;
 pub mod plaintext;
+pub mod platform;
 pub mod primitives;
 pub mod problem_details;
 pub mod query_auth;
@@ -79,6 +80,7 @@ pub use notary::{ForensicAttribution, NotaryValue};
 pub use object_address::*;
 pub use patch::*;
 pub use plaintext::PlaintextDataClassKind;
+pub use platform::{WasmHttpRequestBody, WasmHttpResponseBody};
 pub use primitives::{proof_kind, *};
 pub use problem_details::*;
 pub use query_auth::{
