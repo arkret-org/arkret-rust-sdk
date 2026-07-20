@@ -36,6 +36,8 @@ pub enum RealmBootstrapValidationError {
     RealmFoundingGrantMissing,
     InvalidRealmFoundingGrant,
     OutOfOrderBootstrap,
+    EffectsPayloadMismatch,
+    PlaneCrossWrite,
 }
 
 impl RealmBootstrapValidationError {
@@ -45,6 +47,8 @@ impl RealmBootstrapValidationError {
             Self::RealmFoundingGrantMissing => "realm_founding_grant_missing",
             Self::InvalidRealmFoundingGrant => "invalid_realm_founding_grant",
             Self::OutOfOrderBootstrap => "out_of_order_bootstrap",
+            Self::EffectsPayloadMismatch => "effects_payload_mismatch",
+            Self::PlaneCrossWrite => "plane_cross_write",
         }
     }
 }
@@ -112,6 +116,19 @@ pub fn validate_realm_bootstrap_unit(
         {
             return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
         }
+        let descriptor = followup.kind.descriptor();
+        if descriptor.is_some_and(|descriptor| {
+            descriptor.reducer_input && descriptor.lattice == Some("cas_register")
+        }) {
+            arkret_schema::validate_single_target_set_event_contract_in_context(
+                followup,
+                arkret_schema::EventCellContractContext::OrdinaryRealmBootstrap,
+            )
+            .map_err(|error| match error.reason_code() {
+                "plane_cross_write" => RealmBootstrapValidationError::PlaneCrossWrite,
+                _ => RealmBootstrapValidationError::EffectsPayloadMismatch,
+            })?;
+        }
     }
     Ok(ValidatedRealmBootstrap {
         realm_id: realm_id.to_owned(),
@@ -145,6 +162,7 @@ fn validate_founding_grant_payload(
         "subject",
         "actions",
         "resources",
+        "capability_action_registry_digest",
         "issued_at",
         "proofs",
     ];
@@ -172,6 +190,16 @@ fn validate_founding_grant_payload(
         .into_iter()
         .collect::<BTreeSet<_>>();
     if actual_actions != expected_actions || actions.len() != expected_actions.len() {
+        return Err(invalid);
+    }
+    let registry_digest = grant
+        .get("capability_action_registry_digest")
+        .and_then(serde_json::Value::as_str)
+        .and_then(|value| arkret_wire::Hash::new(value.to_owned()).ok())
+        .ok_or(invalid)?;
+    let expected_registry_digest =
+        crate::current_capability_action_registry_digest().map_err(|_| invalid)?;
+    if registry_digest != expected_registry_digest {
         return Err(invalid);
     }
     let resources = grant
@@ -231,6 +259,7 @@ mod tests {
     }
 
     fn founding(subject: &str) -> Event {
+        let registry_digest = crate::current_capability_action_registry_digest().unwrap();
         event(
             EventKind::CAPABILITY_GRANT,
             json!({
@@ -242,6 +271,7 @@ mod tests {
                     "issuer": ACTOR,
                     "subject": subject,
                     "actions": REALM_FOUNDING_GRANT_ACTIONS,
+                    "capability_action_registry_digest": registry_digest,
                     "resources": [{
                         "kind": "realm",
                         "realm_id": REALM,
@@ -254,16 +284,25 @@ mod tests {
         )
     }
 
+    fn history_sharing_followup() -> Event {
+        let value = json!({"version": 1});
+        let mut event = event(
+            EventKind::REALM_HISTORY_SHARING_POLICY,
+            json!({"value": value}),
+        );
+        event.effects = serde_json::from_value(json!([{
+            "cell": format!(
+                "ak:cell:ak.component.realm.history_sharing_policy.v1:{REALM}"
+            ),
+            "op": {"kind": "set", "value": value}
+        }]))
+        .unwrap();
+        event
+    }
+
     #[test]
     fn accepts_closed_founding_grant_and_history_sharing_followup() {
-        let events = vec![
-            create(),
-            founding(ACTOR),
-            event(
-                EventKind::REALM_HISTORY_SHARING_POLICY,
-                json!({"value": {"version": 1}}),
-            ),
-        ];
+        let events = vec![create(), founding(ACTOR), history_sharing_followup()];
         assert!(validate_realm_bootstrap_unit(&events).is_ok());
     }
 
@@ -287,6 +326,39 @@ mod tests {
         let events = vec![create(), founding("did:web:other.example")];
         assert_eq!(
             validate_realm_bootstrap_unit(&events),
+            Err(RealmBootstrapValidationError::InvalidRealmFoundingGrant)
+        );
+    }
+
+    #[test]
+    fn rejects_founding_grant_without_registry_basis() {
+        let mut founding = founding(ACTOR);
+        founding
+            .payload
+            .get_mut("grant")
+            .and_then(serde_json::Value::as_object_mut)
+            .unwrap()
+            .remove("capability_action_registry_digest");
+        assert_eq!(
+            validate_realm_bootstrap_unit(&[create(), founding]),
+            Err(RealmBootstrapValidationError::InvalidRealmFoundingGrant)
+        );
+    }
+
+    #[test]
+    fn rejects_founding_grant_with_unknown_registry_basis() {
+        let mut founding = founding(ACTOR);
+        founding
+            .payload
+            .get_mut("grant")
+            .and_then(serde_json::Value::as_object_mut)
+            .unwrap()
+            .insert(
+                "capability_action_registry_digest".to_owned(),
+                serde_json::json!(format!("sha256:{}", "0".repeat(64))),
+            );
+        assert_eq!(
+            validate_realm_bootstrap_unit(&[create(), founding]),
             Err(RealmBootstrapValidationError::InvalidRealmFoundingGrant)
         );
     }

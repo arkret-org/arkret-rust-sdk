@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 mod error;
+mod event_cell_contract;
 pub mod generated;
 pub mod protocol;
 
@@ -21,6 +22,10 @@ pub use arkret_wire::{
     SEARCH_SERVICE_SCHEMA, SNAPSHOT_SCHEMA, SPACE_SCHEMA, STRAND_SCHEMA, VIEW_SCHEMA, events,
 };
 pub use error::{Error, Result, SchemaError};
+pub use event_cell_contract::{
+    EventCellContractContext, EventCellContractError, validate_single_target_set_event_contract,
+    validate_single_target_set_event_contract_in_context,
+};
 pub use generated::*;
 pub use protocol::{
     GeneratedSchemaField, GeneratedSchemaValidator, GeneratedSchemaValueType,

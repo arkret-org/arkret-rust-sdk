@@ -523,9 +523,9 @@ impl ProtocolSchemaRegistry {
                     match additional {
                         Value::Bool(true) => {}
                         Value::Bool(false) => {
-                            warnings.push(format!(
-                                "schema '{root_id}' has additional field '{field}' at {path}"
-                            ));
+                            return Err(Error::Protocol(format!(
+                                "schema '{root_id}' rejects additional field '{field}' at {path}"
+                            )));
                         }
                         schema => {
                             self.validate_schema(

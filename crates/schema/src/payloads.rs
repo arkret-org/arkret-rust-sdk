@@ -249,8 +249,6 @@ fn generic_standard_payload_fallback_allowed(event_kind: &str) -> bool {
             | "ak.presence"
             | "ak.realm.asset_privacy_policy"
             | "ak.realm.delivery_binding_policy"
-            | "ak.realm.discovery"
-            | "ak.realm.join_rule"
             | "ak.realm.media_service"
             | "ak.realm.moderation_policy"
             | "ak.realm.plaintext_visible_services"
@@ -606,8 +604,6 @@ mod tests {
         "ak.presence",
         "ak.realm.asset_privacy_policy",
         "ak.realm.delivery_binding_policy",
-        "ak.realm.discovery",
-        "ak.realm.join_rule",
         "ak.realm.media_service",
         "ak.realm.moderation_policy",
         "ak.realm.plaintext_visible_services",
@@ -841,6 +837,59 @@ mod tests {
                 }),
             )
             .unwrap();
+    }
+
+    #[cfg(feature = "embedded-artifacts")]
+    #[test]
+    fn realm_join_rule_and_discovery_use_closed_payloads() {
+        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        assert_eq!(
+            catalog.rules["ak.realm.join_rule"].payload_schema_id,
+            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/realm_join_rule_payload")
+        );
+        assert_eq!(
+            catalog.rules["ak.realm.discovery"].payload_schema_id,
+            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/realm_discovery_payload")
+        );
+
+        for value in [
+            "public",
+            "invite",
+            "knock",
+            "restricted",
+            "knock_restricted",
+            "closed",
+        ] {
+            catalog
+                .validate_payload("ak.realm.join_rule", &json!({"value": value}))
+                .unwrap();
+        }
+        for value in [
+            "public",
+            "listed",
+            "restricted",
+            "unlisted",
+            "invite_only",
+            "secret",
+        ] {
+            catalog
+                .validate_payload("ak.realm.discovery", &json!({"value": value}))
+                .unwrap();
+        }
+        for (kind, payload) in [
+            ("ak.realm.join_rule", json!({"value": "open"})),
+            ("ak.realm.discovery", json!({"value": "private"})),
+            ("ak.realm.join_rule", json!({"value": 1})),
+            (
+                "ak.realm.discovery",
+                json!({"value": "listed", "unexpected": true}),
+            ),
+        ] {
+            assert!(
+                catalog.validate_payload(kind, &payload).is_err(),
+                "{kind} unexpectedly accepted {payload}"
+            );
+        }
     }
 
     fn service_attested_device_authorize_payload() -> Value {

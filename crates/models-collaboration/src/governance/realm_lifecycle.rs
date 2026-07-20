@@ -5,6 +5,70 @@ use serde_json::Value;
 
 use crate::ObjectRef;
 
+/// Closed v1 value set for `ak.realm.join_rule`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RealmJoinRuleValue {
+    Public,
+    Invite,
+    Knock,
+    Restricted,
+    KnockRestricted,
+    Closed,
+}
+
+/// Strong payload for `ak.realm.join_rule`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmJoinRulePayload {
+    pub value: RealmJoinRuleValue,
+}
+
+impl RealmJoinRulePayload {
+    pub fn new(value: RealmJoinRuleValue) -> Self {
+        Self { value }
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("realm join-rule payload serialize: {err}")))
+    }
+}
+
+/// Closed v1 value set for `ak.realm.discovery`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RealmDiscoveryValue {
+    Public,
+    Listed,
+    Restricted,
+    Unlisted,
+    InviteOnly,
+    Secret,
+}
+
+/// Strong payload for `ak.realm.discovery`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmDiscoveryPayload {
+    pub value: RealmDiscoveryValue,
+}
+
+impl RealmDiscoveryPayload {
+    pub fn new(value: RealmDiscoveryValue) -> Self {
+        Self { value }
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("realm discovery payload serialize: {err}")))
+    }
+}
+
 /// Strong type for `ak.realm.archive` payloads
 /// (`event-payload.schema.json#/$defs/realm_archive_payload`).
 ///

@@ -39,7 +39,7 @@ if ($Check) {
 }
 
 try {
-    $eventOutput = Join-Path $targetRoot 'crates/wire-base/src/generated/event_kinds.rs'
+    $eventOutput = Join-Path $targetRoot 'crates/wire/src/generated/event_kinds.rs'
     $profileOutput = Join-Path $targetRoot 'crates/policy/src/generated/profiles.rs'
     $requirementsOutput = Join-Path $targetRoot 'crates/schema/src/generated/profile_requirements.rs'
     @(
@@ -87,8 +87,8 @@ try {
     }
 
     $generatedRoots = @(
-        'crates/wire-base/src/generated',
-        'crates/wire-base/src/error_codes',
+        'crates/wire/src/generated',
+        'crates/wire/src/error_codes',
         'crates/policy/src/generated',
         'crates/schema/src/generated'
     )

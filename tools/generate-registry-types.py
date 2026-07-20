@@ -1126,7 +1126,7 @@ def generate_registry_descriptors(artifacts: Path) -> str:
     lines = header(loaded, counts)
     lines.extend(
         [
-            "use arkret_wire_base::CapabilityActionId;",
+            "use arkret_wire::CapabilityActionId;",
             "use serde::{Deserialize, Serialize};",
             "",
             "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",

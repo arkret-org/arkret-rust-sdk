@@ -1,9 +1,9 @@
 param(
     [string]$ArtifactsDir = (Join-Path $PSScriptRoot "..\..\arkret-spec\spec\v1\artifacts"),
-    [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\wire-base\src\generated\event_kinds.rs")
+    [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\wire\src\generated\event_kinds.rs")
 )
 
-# Emits crates/wire-base/src/generated/event_kinds.rs from
+# Emits crates/wire/src/generated/event_kinds.rs from
 # arkret-spec/spec/v1/artifacts/registry/event-kind-registry.json.
 #
 # Outputs the strongly-typed `EventKind` enum: one PascalCase variant per
@@ -81,6 +81,11 @@ foreach ($k in $arr) {
         PayloadSchema = if ($null -eq $row.payload_schema) { $null } else { [string]$row.payload_schema }
         PayloadSchemaRef = if ($null -eq $row.payload_schema_ref) { $null } else { [string]$row.payload_schema_ref }
         CellFamily = if ($null -eq $row.cell_family) { $null } else { [string]$row.cell_family }
+        CellSubjectRule = if ($null -eq $row.cell_subject) { $null } else { ($row.cell_subject | ConvertTo-Json -Compress -Depth 20) }
+        Lattice = if ($null -eq $row.lattice) { $null } else { [string]$row.lattice }
+        Bottom = if ($null -eq $row.bottom) { $null } else { [string]$row.bottom }
+        Plane = if ($null -eq $row.plane) { $null } else { [string]$row.plane }
+        Sealed = [bool]$row.sealed
     }) | Out-Null
 }
 
@@ -132,6 +137,12 @@ foreach ($category in $categories) {
 & $add "    pub payload_schema: Option<&'static str>,"
 & $add "    pub payload_schema_ref: Option<&'static str>,"
 & $add "    pub cell_family: Option<&'static str>,"
+& $add "    /// JSON cell-subject rule; ``None`` means the envelope ``realm_id``."
+& $add "    pub cell_subject_rule: Option<&'static str>,"
+& $add "    pub lattice: Option<&'static str>,"
+& $add "    pub bottom: Option<&'static str>,"
+& $add "    pub plane: Option<&'static str>,"
+& $add "    pub sealed: bool,"
 & $add "}"
 & $add ""
 & $add '/// Strongly-typed Arkret event kind. One variant per active `ak.*` kind in'
@@ -330,6 +341,11 @@ foreach ($e in $entries) {
     $payloadSchema = if ($null -eq $e.PayloadSchema) { "None" } else { "Some(`"$($e.PayloadSchema)`")" }
     $payloadSchemaRef = if ($null -eq $e.PayloadSchemaRef) { "None" } else { "Some(`"$($e.PayloadSchemaRef)`")" }
     $cellFamily = if ($null -eq $e.CellFamily) { "None" } else { "Some(`"$($e.CellFamily)`")" }
+    $cellSubjectRule = if ($null -eq $e.CellSubjectRule) { "None" } else { "Some(r#`"$($e.CellSubjectRule)`"#)" }
+    $lattice = if ($null -eq $e.Lattice) { "None" } else { "Some(`"$($e.Lattice)`")" }
+    $bottom = if ($null -eq $e.Bottom) { "None" } else { "Some(`"$($e.Bottom)`")" }
+    $plane = if ($null -eq $e.Plane) { "None" } else { "Some(`"$($e.Plane)`")" }
+    $sealed = if ($e.Sealed) { "true" } else { "false" }
     & $add "    EventKindDescriptor {"
     & $add "        kind: `"$($e.Kind)`","
     & $add "        category: EventRegistryCategory::$($e.CategoryVariant),"
@@ -338,6 +354,11 @@ foreach ($e in $entries) {
     & $add "        payload_schema: $payloadSchema,"
     & $add "        payload_schema_ref: $payloadSchemaRef,"
     & $add "        cell_family: $cellFamily,"
+    & $add "        cell_subject_rule: $cellSubjectRule,"
+    & $add "        lattice: $lattice,"
+    & $add "        bottom: $bottom,"
+    & $add "        plane: $plane,"
+    & $add "        sealed: $sealed,"
     & $add "    },"
 }
 & $add "];"
