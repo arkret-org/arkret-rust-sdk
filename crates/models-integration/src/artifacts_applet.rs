@@ -1,14 +1,16 @@
 //! Applet schema artifact counterparts.
 //!
-//! Aggregate operation enums that embed `arkret-core`-entangled request
-//! bodies (`AppletEdgeOperations`, `AppletInstallOperations`) and the
-//! widget declaration shapes (`Widget`, `WidgetTokenScope`, bound to the
-//! collaboration-owned `WireResourceSelector`) stay in `arkret-core`.
+//! Includes the widget declaration shapes (`Widget`, `WidgetTokenScope`),
+//! which bind the resource selector now owned by `arkret-wire`
+//! (`WireResourceSelector`). The `AppletEdgeOperations` /
+//! `AppletInstallOperations` aggregate enums stay in `arkret-core` because
+//! their variants span request bodies rehomed across model crates.
 
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    CircleId, Did, EventId, EventProofAudience, Hash, NonEmptyString, RealmId, XExtensionMap,
+    CircleId, Did, EventId, EventProofAudience, Hash, NonEmptyString, RealmId,
+    WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -310,5 +312,36 @@ pub struct Applet {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest: Option<BTreeMap<String, Value>>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: XExtensionMap,
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/applet-widget-declaration.schema.json#/properties/token_scope`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct WidgetTokenScope {
+    pub actions: Vec<String>,
+    pub resources: Vec<WireResourceSelector>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_ids: Option<Vec<RealmId>>,
+    pub expires_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_ttl_seconds: Option<u64>,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
+    pub extra: XExtensionMap,
+}
+
+/// Counterpart for `spec/v1/artifacts/schemas/applet-widget-declaration.schema.json`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct Widget {
+    pub schema: String,
+    pub widget_origin: String,
+    pub csp: String,
+    pub token_scope: WidgetTokenScope,
+    pub requires_consent: bool,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub extra: XExtensionMap,
 }

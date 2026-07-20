@@ -2,9 +2,8 @@
 //! helper methods on [`Client`].
 
 use arkret_core::{
-    AppletActorView, AppletInstallOutcome, AppletInstallPlan, AppletInstallPreviewRequestBody,
-    AppletInstallRequestBody, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
-    AppletRevokeOutcome, AppletRevokeRequestBody, AppletThirdPartyLocationList,
+    AppletActorView, AppletInstallOutcome, AppletInstallPlan, AppletPingOutcome,
+    AppletProtocolMetadata, AppletRealmView, AppletRevokeOutcome, AppletThirdPartyLocationList,
     AppletThirdPartyUserList, AppletTransactionOutcome, AppletTransactionRequestBody,
     CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody, CircleCreateRequestBody,
     CircleLifecycleRequestBody, CircleList, CircleMemberRequestBody, CircleMembershipOutcome,
@@ -15,6 +14,8 @@ use arkret_core::{
     PushNotifyRequestBody, PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody,
     PushUnregisterDeviceRequestBody, Result, ServiceDescribe, canonical,
 };
+use arkret_models_collaboration::account_lifecycle::AppletRevokeRequestBody;
+use arkret_models_integration::{AppletInstallPreviewRequestBody, AppletInstallRequestBody};
 use arkret_signatures::http_signature::{
     Component, ContentDigest, ContentDigestAlgorithm, Ed25519SigningKey, SignedRequestParts,
     canonical_message, format_signature_header, format_signature_input_component_list,

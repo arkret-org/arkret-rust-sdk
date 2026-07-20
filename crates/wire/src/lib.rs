@@ -23,6 +23,7 @@ pub mod serde_helpers {
     pub use arkret_canonical::serde_helpers::*;
 }
 
+pub mod applet_revoke_mode;
 pub mod bottom;
 pub mod cell;
 pub mod consent_scope;
@@ -43,12 +44,14 @@ pub mod primitives;
 pub mod problem_details;
 pub mod query_auth;
 pub mod receive_policy;
+pub mod resource_selector;
 pub mod seal;
 pub mod self_contact_paths;
 pub mod service_type;
 pub mod signer;
 pub mod wire_strings;
 
+pub use applet_revoke_mode::AppletRevokeMode;
 pub use arkret_identifiers::*;
 pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
 pub use cell::{CellId, composite_subject, composite_subject_pipe};
@@ -82,6 +85,7 @@ pub use query_auth::{
     QUERY_AUTH_PARAMETER_NAMES, contains_query_auth_material, is_query_auth_parameter,
 };
 pub use receive_policy::*;
+pub use resource_selector::{ResourceMatchScope, ResourceSelectorKind, WireResourceSelector};
 pub use seal::{
     MultiSigKind, MultiSignature, NotarySig, SEAL_SIGNATURE_ALGS, Seal, SealKind, ThresholdSigKind,
     ThresholdSignature, compute_seal_id, seal_canonical_bytes,

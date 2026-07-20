@@ -144,6 +144,7 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-models-crypto",
         "arkret-models-collaboration",
         "arkret-models-discovery",
+        "arkret-models-integration",
         "arkret-identity",
         "arkret-signatures",
         "arkret-state",

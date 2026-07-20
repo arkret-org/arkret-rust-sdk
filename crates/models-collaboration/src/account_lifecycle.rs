@@ -17,7 +17,7 @@ use arkret_models_identity::account::{
 use arkret_models_identity::actor_profile::ActorProfile;
 use arkret_wire::patch::Patch;
 use arkret_wire::{
-    AppletId, ConsentScope, DeviceId, Did, EffectiveScope, GrantId, Hash, Result,
+    AppletId, AppletRevokeMode, ConsentScope, DeviceId, Did, EffectiveScope, GrantId, Hash, Result,
     ServiceOperationId, canonical,
 };
 use chrono::{DateTime, Utc};
@@ -256,4 +256,19 @@ pub struct SessionRevokeOutcome {
     pub revoked_count: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub revoked_grant_ids: Vec<GrantId>,
+}
+
+/// `ak.self.applet.command.revoke` request body. Binds the account-lifecycle
+/// proof (`AccountLifecycleProof`) alongside the applet revoke mode
+/// (`AppletRevokeMode`, `arkret-wire`), so it lives in the collaboration domain
+/// which reaches both. `arkret-core` re-exports it for path stability.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AppletRevokeRequestBody {
+    pub effective_scope: EffectiveScope,
+    pub reason_code: String,
+    pub revoke_mode: AppletRevokeMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof: Option<AccountLifecycleProof>,
 }

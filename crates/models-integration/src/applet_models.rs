@@ -1,17 +1,20 @@
 //! Applet install / edge operation body DTOs.
 //!
-//! The transaction and install request bodies that embed
-//! collaboration-owned or `arkret-core`-entangled aggregates
-//! (`AppletTransactionRequestBody`, `AppletInstallPreviewRequestBody`,
-//! `AppletInstallRequestBody`, `AppletRevokeRequestBody`) stay in
-//! `arkret-core`.
+//! The install preview / install request bodies embed the applet package
+//! (`AppletPackage`, this crate's `applet::registration`), so they live here.
+//! `AppletTransactionRequestBody` (binds `EphemeralEnvelope`) and
+//! `AppletRevokeRequestBody` (binds `AccountLifecycleProof`) live in
+//! `arkret-models-collaboration`.
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{AppletId, BlobRef, Did, EventId, GrantId, Hash, RealmId};
+use arkret_wire::{AppletId, BlobRef, Did, EffectiveScope, EventId, GrantId, Hash, RealmId};
 use serde::{Deserialize, Serialize};
 
-use crate::artifacts_applet::{ExternalRef, FieldType, ProtocolInstance, RejectedItem};
+use crate::applet::AppletPackage;
+use crate::artifacts_applet::{
+    E2eePolicy, ExternalRef, FieldType, ProtocolInstance, RejectedItem, ScopeGrant,
+};
 
 /// Round 4 typed `applet_id`. Accepts either a DID
 /// (`did:webvh:applet.example`) or a strictly-validated
@@ -135,15 +138,10 @@ pub struct AppletInstallOutcome {
     pub rejected: Vec<AppletRejectedItem>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum AppletRevokeMode {
-    RevokeAll,
-    RevokeRuntimeOnly,
-    RevokeWidgetOnly,
-    RevokeDelegatedSessions,
-}
+// `AppletRevokeMode` relocated to `arkret-wire` (`applet_revoke_mode`) so the
+// collaboration-owned `AppletRevokeRequestBody` can name it. Re-exported here
+// for path stability.
+pub use arkret_wire::AppletRevokeMode;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
@@ -189,4 +187,29 @@ pub struct AppletProtocolMetadata {
     pub field_types: BTreeMap<String, FieldType>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub instances: Vec<ProtocolInstance>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AppletInstallPreviewRequestBody {
+    pub applet_package: AppletPackage,
+    pub effective_scope: EffectiveScope,
+    pub approval_request: AppletApprovalRequest,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AppletInstallRequestBody {
+    pub plan_digest: Hash,
+    pub applet_package: AppletPackage,
+    pub effective_scope: EffectiveScope,
+    pub approved_scopes: Vec<ScopeGrant>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor_policy: Option<AppletActorPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub e2ee_policy: Option<E2eePolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub widget_policy: Option<AppletWidgetPolicy>,
 }

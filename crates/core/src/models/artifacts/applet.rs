@@ -1,10 +1,10 @@
 //! Applet schema artifact counterparts retained by `arkret-core`.
 //!
-//! The leaf artifact shapes migrated to `arkret-models-integration`
+//! The leaf artifact shapes and the widget declaration shapes (`Widget`,
+//! `WidgetTokenScope`) migrated to `arkret-models-integration`
 //! (`artifacts_applet`, re-exported below). Kept here: the aggregate
-//! operation enums whose variants embed core-retained request bodies,
-//! and the widget declaration shapes bound to the collaboration-owned
-//! `WireResourceSelector`.
+//! operation enums whose variants embed request bodies rehomed across the
+//! integration / collaboration model crates.
 
 pub use arkret_models_integration::artifacts_applet::*;
 
@@ -36,35 +36,4 @@ pub enum AppletInstallOperations {
     AppletInstallOutcome(AppletInstallOutcome),
     AppletRevokeRequestBody(AppletRevokeRequestBody),
     AppletRevokeOutcome(AppletRevokeOutcome),
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/applet-widget-declaration.schema.json#/properties/token_scope`.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct WidgetTokenScope {
-    pub actions: Vec<String>,
-    pub resources: Vec<WireResourceSelector>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_ids: Option<Vec<RealmId>>,
-    pub expires_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_ttl_seconds: Option<u64>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub extra: XExtensionMap,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/applet-widget-declaration.schema.json`.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct Widget {
-    pub schema: String,
-    pub widget_origin: String,
-    pub csp: String,
-    pub token_scope: WidgetTokenScope,
-    pub requires_consent: bool,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub extra: XExtensionMap,
 }
