@@ -279,9 +279,10 @@ fn subject_error(kind: &str, message: &str) -> EventCellContractError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use arkret_wire::events::kinds::EventKind;
     use serde_json::json;
+
+    use super::*;
 
     fn realm_facet(kind: &str, family: &str, payload: Value, value: Value) -> Event {
         serde_json::from_value(json!({

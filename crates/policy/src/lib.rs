@@ -5,6 +5,7 @@ use arkret_wire::*;
 pub mod authz;
 pub mod blind_payload_sanitizer;
 pub mod generated;
+pub mod history_visibility;
 pub mod http_params;
 pub mod profile_claim;
 pub mod profile_feature_guard;
