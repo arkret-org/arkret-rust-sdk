@@ -1530,7 +1530,7 @@ mod content_scheme_anchor_tests {
         );
 
         // Round-trip through the standalone decrypt path.
-        let mut nonce_and_ct = nonce.clone();
+        let mut nonce_and_ct = nonce;
         nonce_and_ct.extend_from_slice(&ciphertext);
         let recovered = decrypt_content_exporter_aead_standalone(
             &history_secret,

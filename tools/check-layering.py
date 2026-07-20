@@ -230,7 +230,6 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         # the edge is cycle-free. Retires with core.
         "arkret-http-client",
     },
-    "arkret-ffi": {"arkret-core"},
     "arkret-sdk-fuzz": {"arkret-core", "arkret-signatures"},
 }
 

@@ -61,7 +61,6 @@ re-exports the public SDK surface:
 - `arkret-core`: protocol identifiers, canonical JSON, wire models, sync/cursor types, service metadata and the shared wire-contract DTOs (identity, federation and push gateway integration)
 - `arkret-canonical`: canonical JSON, digest, base64url and multibase primitives
 - `arkret-crypto`: local encryption, backup and key-management helpers
-- `arkret-ffi`: C ABI surface for core identifiers, canonical helpers and runtime bridges
 - `arkret-identifiers`: validated DIDs, typed IDs, hashes, cursors and HLC values
 - `arkret-http-client`: HTTP transport bindings
 - `arkret-keystore`: platform KeyStore backends behind target-specific feature gates

@@ -233,7 +233,7 @@ impl DeviceAuthorizePayload {
                     .to_owned(),
             )
         })?;
-        Ok(binding.validate_against_event_anchor(executed_by, authorization_ref, accepted_at)?)
+        binding.validate_against_event_anchor(executed_by, authorization_ref, accepted_at)
     }
 }
 

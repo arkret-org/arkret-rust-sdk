@@ -358,7 +358,7 @@ fn filtered_control_state_root(
             filtered.insert(cell_ref.clone(), state.clone());
         }
     }
-    Ok(compute_state_root(&filtered)?)
+    compute_state_root(&filtered)
 }
 
 fn ensure_canonical_order<'a>(

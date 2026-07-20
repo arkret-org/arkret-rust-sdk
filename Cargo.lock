@@ -113,7 +113,6 @@ dependencies = [
  "arkret-core",
  "arkret-crypto",
  "arkret-egress-policy",
- "arkret-ffi",
  "arkret-http-client",
  "arkret-identity",
  "arkret-keystore",
@@ -300,15 +299,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
-]
-
-[[package]]
-name = "arkret-ffi"
-version = "0.3.0"
-dependencies = [
- "arkret-core",
- "serde",
- "serde_json",
 ]
 
 [[package]]

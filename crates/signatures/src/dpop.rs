@@ -98,11 +98,11 @@ pub fn verify_dpop_proof(
     request: &DpopVerificationRequest<'_>,
 ) -> std::result::Result<VerifiedDpopProof, DpopVerificationError> {
     let mut parts = request.proof_jwt.trim().split('.');
-    let (header_b64, payload_b64, signature_b64) =
-        match (parts.next(), parts.next(), parts.next(), parts.next()) {
-            (Some(header), Some(payload), Some(signature), None) => (header, payload, signature),
-            _ => return Err(DpopVerificationError::Malformed),
-        };
+    let (Some(header_b64), Some(payload_b64), Some(signature_b64), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return Err(DpopVerificationError::Malformed);
+    };
     let header: DpopProtectedHeader = serde_json::from_slice(
         &arkret_canonical::base64url_decode(header_b64)
             .map_err(|_| DpopVerificationError::InvalidJson)?,

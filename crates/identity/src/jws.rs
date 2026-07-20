@@ -703,7 +703,7 @@ mod tests {
         let did = Did::new(format!("did:key:{multibase}")).unwrap();
         let resolver = StubResolver {
             did: did.clone(),
-            material: multibase.clone(),
+            material: multibase,
         };
         // A reference with a mismatched fragment still resolves via the
         // single-key fallback for did:key.

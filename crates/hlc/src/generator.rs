@@ -10,7 +10,9 @@
 //! future-drift classification) live in `arkret_identifiers::hlc` next to
 //! the validated [`Hlc`] newtype.
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use arkret_identifiers::Hlc;
 use arkret_identifiers::hlc::{HLC_MAX_LOGICAL, HLC_MAX_PHYSICAL_MS, HlcFutureDrift};

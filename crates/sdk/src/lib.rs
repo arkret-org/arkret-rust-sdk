@@ -83,7 +83,6 @@ pub use arkret_core::{
 };
 pub use arkret_crypto::identity_root;
 pub use arkret_egress_policy as network_policy;
-pub use arkret_ffi as ffi;
 #[cfg(feature = "client")]
 pub use arkret_http_client as http_client;
 #[cfg(feature = "keystore-encrypted-file")]
@@ -130,7 +129,6 @@ pub mod crypto;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub mod devices;
 #[cfg(feature = "full-surface")]
-pub mod discovery;
 #[cfg(feature = "full-surface")]
 pub mod e2ee;
 #[cfg(feature = "full-surface")]
@@ -196,7 +194,6 @@ pub use arkret_lattice_registry as lattice_registry;
 #[cfg(feature = "full-surface")]
 pub mod media;
 #[cfg(feature = "full-surface")]
-#[cfg(feature = "full-surface")]
 pub mod membership;
 // The MLS (RFC 9420) behavior layer lives in the standalone `arkret-mls` crate
 // (the sole OpenMLS boundary). Keep the `arkret::mls::*` path stable by
@@ -208,9 +205,6 @@ pub mod mls {
 #[cfg(feature = "full-surface")]
 pub mod mls_move;
 #[cfg(feature = "full-surface")]
-pub mod platform;
-#[cfg(feature = "full-surface")]
-#[cfg(feature = "full-surface")]
 pub mod push;
 #[cfg(feature = "full-surface")]
 // State resolution + snapshot runtime now lives in `arkret-state`. This shim
@@ -221,7 +215,6 @@ pub mod resolver {
     pub use arkret_state::resolver::*;
 }
 #[cfg(feature = "full-surface")]
-pub mod search;
 #[cfg(feature = "full-surface")]
 pub mod session_grant;
 #[cfg(feature = "full-surface")]
@@ -342,7 +335,6 @@ pub use devices::{
     device_verification_commitment, verify_device_cross_signing_chain,
 };
 #[cfg(feature = "full-surface")]
-pub use discovery::{DirectoryService, DirectoryUser, OpenGraphPreview, UrlPreviewCache};
 #[cfg(feature = "full-surface")]
 pub use e2ee::{
     AuditAction, AuditEntry, E2eeGroup, E2eeKeyBackup, E2eeKeyRecord, E2eeManager, E2eeMessage,
@@ -429,13 +421,6 @@ pub use membership::{
 #[cfg(all(feature = "full-surface", feature = "mls"))]
 pub use mls::*;
 #[cfg(feature = "full-surface")]
-pub use platform::{
-    FfiCallbackAction, FfiCallbackResult, FfiCancellationHandle, FfiError, FfiErrorCode, FfiEvent,
-    FfiEventSink, FfiHandle, FfiHandleKind, IndexedDbStoreDescriptor, IndexedDbStoreKind,
-    WasmBrowserHttpTransport, WasmHttpRequestBody, WasmHttpResponseBody, WasmRuntimeContract,
-    WebCryptoKeyHandle, WebCryptoOperation,
-};
-#[cfg(feature = "full-surface")]
 pub use push::{
     CHIME_PUSH_REGISTRATION_VERSION, ChimePushRegistration, DndPeriod, DndSchedule, DndSettings,
     EncryptedPushPayload, PushCondition, PushEventNotification, PushGateway, PushPayload,
@@ -449,7 +434,6 @@ pub use resolver::{
     verify_snapshot_chunks,
 };
 #[cfg(feature = "full-surface")]
-pub use search::{RealmSearchEntry, RealmSearchIndex, RealmSearchQuery};
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use secret_share::{
     HPKE_SECRET_SHARE_SCHEME, SECRET_ID_MLS_ACCOUNT, SECRET_REQUEST_KIND, SECRET_SEND_KIND,

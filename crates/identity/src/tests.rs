@@ -99,13 +99,13 @@ fn vector_sign_entry(mut entry: Value, signing_key: &SigningKey) -> Value {
 /// Build a fully valid 2-entry `did:webvh` log signed by `key1` (entry 1)
 /// then rotated to `key2` (entry 2). Returns `(did, jsonl_body)`.
 fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
-    let host = "starid.local:users:alice";
+    let host = "starid.example.com:users:alice";
     let update1 = vector_update_key(key1);
     let update2 = vector_update_key(key2);
     let update2_commitment = arkret_signatures::webvh::webvh_next_key_hash(&update2).unwrap();
 
     // --- entry 1: derive SCID from the placeholder form ------------------
-    let prelim_state = json!({ "id": "did:webvh:{SCID}:starid.local:users:alice" });
+    let prelim_state = json!({ "id": "did:webvh:{SCID}:starid.example.com:users:alice" });
     let prelim_entry1 = json!({
         "versionId": "{SCID}",
         "versionTime": "2026-05-06T00:00:00Z",
@@ -119,7 +119,7 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
     });
     let scid = vector_derive_scid(&prelim_entry1);
     let did = Did::new(format!("did:webvh:{scid}:{host}")).unwrap();
-    let state1 = json!({ "id": format!("did:webvh:{scid}:starid.local:users:alice") });
+    let state1 = json!({ "id": format!("did:webvh:{scid}:starid.example.com:users:alice") });
 
     // versionId hash for entry 1 commits to body with versionId = scid.
     let mut entry1_body = json!({
@@ -179,14 +179,14 @@ fn vector_log_response(did: &Did, body: Vec<u8>) -> DidWebvhLogOutcome {
 
 #[test]
 fn webvh_resolver_validates_url_shape() {
-    let did = Did::new("did:webvh:zabc:starid.local:users:alice").unwrap();
+    let did = Did::new("did:webvh:zabc:starid.example.com:users:alice").unwrap();
     assert_eq!(
         DidWebvhResolver::document_url(&did).unwrap(),
-        "https://starid.local/users/alice/did.json"
+        "https://starid.example.com/users/alice/did.json"
     );
     assert_eq!(
         DidWebvhResolver::log_url(&did).unwrap(),
-        "https://starid.local/users/alice/did.jsonl"
+        "https://starid.example.com/users/alice/did.jsonl"
     );
 }
 
@@ -224,7 +224,7 @@ fn canonical_principal_builders_produce_a_verified_rotation_chain() {
     let next_key = vector_update_key(&SigningKey::from_bytes(&next_seed));
     let authority_key = vector_update_key(&SigningKey::from_bytes(&[13u8; 32]));
     let authority_did = format!("did:key:{authority_key}");
-    let endpoint = "https://starid.local/".parse().unwrap();
+    let endpoint = "https://starid.example.com/".parse().unwrap();
     let inception = prepare_principal_inception(&PrincipalInceptionInput {
         principal_endpoint: &endpoint,
         local_id: "alice",
@@ -363,7 +363,7 @@ fn webvh_rejects_wrong_scid_in_did() {
     let key2 = SigningKey::from_bytes(&[9u8; 32]);
     let (_did, body) = vector_valid_log(&key1, &key2);
     // Resolve against a DID whose SCID does not derive from the log.
-    let wrong = Did::new("did:webvh:zNOTtheRealScid:starid.local:users:alice").unwrap();
+    let wrong = Did::new("did:webvh:zNOTtheRealScid:starid.example.com:users:alice").unwrap();
     let mut resolver = DidWebvhResolver::new();
     assert!(
         resolver
@@ -379,7 +379,7 @@ fn webvh_rejects_unauthorized_key_rotation() {
     let key1 = SigningKey::from_bytes(&[7u8; 32]);
     let key2 = SigningKey::from_bytes(&[9u8; 32]);
     let attacker = SigningKey::from_bytes(&[3u8; 32]);
-    let host = "starid.local:users:alice";
+    let host = "starid.example.com:users:alice";
     let update1 = vector_update_key(&key1);
     let update2 = vector_update_key(&key2);
     let update2_commitment = arkret_signatures::webvh::webvh_next_key_hash(&update2).unwrap();
@@ -393,11 +393,11 @@ fn webvh_rejects_unauthorized_key_rotation() {
             "updateKeys": [update1],
             "nextKeyHashes": [update2_commitment]
         },
-        "state": json!({ "id": "did:webvh:{SCID}:starid.local:users:alice" }),
+        "state": json!({ "id": "did:webvh:{SCID}:starid.example.com:users:alice" }),
     });
     let scid = vector_derive_scid(&prelim_entry1);
     let did = Did::new(format!("did:webvh:{scid}:{host}")).unwrap();
-    let state = json!({ "id": format!("did:webvh:{scid}:starid.local:users:alice") });
+    let state = json!({ "id": format!("did:webvh:{scid}:starid.example.com:users:alice") });
 
     let mut e1 = json!({
         "versionId": scid,

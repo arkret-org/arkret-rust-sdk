@@ -182,11 +182,6 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/ffi/src/lib.rs::FfiEvent.payload",
-      "classification": "internal_or_fixture",
-      "reason": "FFI event payload dispatch is an internal language-boundary representation."
-    },
-    {
       "rust_field": "crates/models-collaboration/src/events_payloads/call.rs::CallPayload.signal",
       "spec_pointer": "event-payload.schema.json#/$defs/call_payload/properties/signal",
       "classification": "open_json",
@@ -1171,23 +1166,6 @@
       "reason": "Schema validation vectors intentionally carry arbitrary test input."
     },
     {
-      "rust_field": "crates/sdk/src/account.rs::AccountData.content",
-      "classification": "internal_or_fixture",
-      "reason": "This SDK account-data wrapper is an application projection, not the wire owner."
-    },
-    {
-      "rust_field": "crates/sdk/src/account.rs::AccountDataSetPayload.body",
-      "spec_pointer": "event-payload.schema.json#/$defs/account_data_set_payload/properties/body",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
-      "rust_field": "crates/sdk/src/account.rs::AccountDataSetPayload.encrypted_payload",
-      "spec_pointer": "event-payload.schema.json#/$defs/account_data_set_payload/properties/encrypted_payload",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
       "rust_field": "crates/sdk/src/agent.rs::AgentPrincipal.metadata",
       "classification": "internal_or_fixture",
       "reason": "Agent runtime metadata is local application state."
@@ -1259,41 +1237,6 @@
       "reason": "Verified WebVH evidence preserves complete external log entries for fork comparison."
     },
     {
-      "rust_field": "crates/sdk/src/profile.rs::PairwiseControlMessage.payload",
-      "classification": "internal_or_fixture",
-      "reason": "Pairwise control payload is locally encrypted application data."
-    },
-    {
-      "rust_field": "crates/sdk/src/realm/mod.rs::BatchCreateMorph.fields",
-      "classification": "internal_or_fixture",
-      "reason": "Batch input is an SDK helper over the core open Morph field map."
-    },
-    {
-      "rust_field": "crates/sdk/src/realm/mod.rs::BatchUpdateMorph.fields",
-      "classification": "internal_or_fixture",
-      "reason": "Batch input is an SDK helper over the core open Morph field map."
-    },
-    {
-      "rust_field": "crates/sdk/src/realm/mod.rs::MorphVersion.fields",
-      "classification": "internal_or_fixture",
-      "reason": "Historical Morph projection fields reuse the core open Morph field map."
-    },
-    {
-      "rust_field": "crates/sdk/src/realm/relation.rs::RelationOperationInput.fields",
-      "classification": "internal_or_fixture",
-      "reason": "Operation input reuses the core open Relation field map."
-    },
-    {
-      "rust_field": "crates/sdk/src/realm/space.rs::SpaceCreateMetadata.fields",
-      "classification": "internal_or_fixture",
-      "reason": "Operation input reuses the core open Space field map."
-    },
-    {
-      "rust_field": "crates/sdk/src/realm/space.rs::SpaceUpdateMetadata.fields",
-      "classification": "internal_or_fixture",
-      "reason": "Operation input reuses the core open Space field map."
-    },
-    {
       "rust_field": "crates/state/src/resolver/snapshot.rs::ResolvedMessage.content",
       "classification": "internal_or_fixture",
       "reason": "Resolved message content is a local projection."
@@ -1302,31 +1245,6 @@
       "rust_field": "crates/models-collaboration/src/resolved_state.rs::ResolvedStateEvent.content",
       "classification": "internal_or_fixture",
       "reason": "Resolved state content is heterogeneous reducer output."
-    },
-    {
-      "rust_field": "crates/sdk/src/store.rs::StoredAccountData.content",
-      "classification": "internal_or_fixture",
-      "reason": "Stored account data is a persistence representation."
-    },
-    {
-      "rust_field": "crates/sdk/src/sync_client/send_queue.rs::LocalEcho.content",
-      "classification": "internal_or_fixture",
-      "reason": "Local echo content is client queue state."
-    },
-    {
-      "rust_field": "crates/sdk/src/sync_client/send_queue.rs::SendQueueItem.content",
-      "classification": "internal_or_fixture",
-      "reason": "Send queue content is client persistence state."
-    },
-    {
-      "rust_field": "crates/sdk/src/timeline.rs::CachedEvent.raw",
-      "classification": "internal_or_fixture",
-      "reason": "Cached raw events are client persistence state."
-    },
-    {
-      "rust_field": "crates/sdk/src/timeline.rs::TimelineItem.content",
-      "classification": "internal_or_fixture",
-      "reason": "Timeline item content is a local UI projection."
     },
     {
       "rust_field": "crates/server/src/cursor_authority.rs::CursorBindingRecord.positions",

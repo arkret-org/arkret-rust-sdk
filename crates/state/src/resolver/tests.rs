@@ -83,7 +83,7 @@ fn space_events_create_update_parent_and_tombstone() {
                 "id": space_id,
                 "schema": crate::SPACE_SCHEMA,
                 "realm_id": realm_id().as_str(),
-                "kind": "board",
+                "kind": "list",
                 "title": "Roadmap",
                 "created_by": actor_id().as_str(),
                 "created_at": "2026-05-02T00:00:00.000Z"
@@ -98,7 +98,7 @@ fn space_events_create_update_parent_and_tombstone() {
             "patch": {
                 "title": "Roadmap 2026",
                 "rank": "a0",
-                "fields": {"wip_limit": 5}
+                "fields": {"wip_limit": 5, "wip_limit_enforcement": "reject"}
             }
         }),
     );
@@ -125,7 +125,7 @@ fn space_events_create_update_parent_and_tombstone() {
         .unwrap();
 
     let space = state.spaces.get(space_id).unwrap();
-    assert_eq!(space.kind, "board");
+    assert_eq!(space.kind, "list");
     assert_eq!(space.title, "Roadmap 2026");
     assert_eq!(
         space.parent_space_id.as_ref().map(|p| p.as_str()),
@@ -133,6 +133,7 @@ fn space_events_create_update_parent_and_tombstone() {
     );
     assert_eq!(space.rank.as_deref(), Some("a0"));
     assert_eq!(space.fields["wip_limit"], 5);
+    assert_eq!(space.fields["wip_limit_enforcement"], "reject");
     assert_eq!(space.state, Some(crate::models::SpaceState::Tombstoned));
 }
 

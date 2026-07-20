@@ -8,7 +8,7 @@ attestation; it is the evidence bundle a reviewer needs before the local
 
 ## Scope
 
-- Workspace crates: `arkret-identifiers`, `arkret-core`, `arkret-ffi`,
+- Workspace crates: `arkret-identifiers`, `arkret-core`,
   `arkret-http-client`, `arkret-signatures`,
   `arkret-crypto`, `arkret-contracts`, `arkret-server`, and
   `arkret`.

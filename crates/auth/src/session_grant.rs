@@ -9,12 +9,182 @@
 //! (`oidc_code_exchange`) uses [`oidc_session_grant_request`].
 
 use arkret_models_collaboration::session_grant_bodies::{
-    SessionGrantAppletDelegation, SessionGrantDpopBindingProof, SessionGrantRequestBody,
-    SessionGrantRequestProof,
+    SessionGrantAgentScopeRequest, SessionGrantAppletDelegation, SessionGrantDpopBindingProof,
+    SessionGrantRequestBody, SessionGrantRequestProof,
 };
 use arkret_models_identity::SessionGrantProofKind;
 use arkret_wire::{DeviceId, Did, Hash};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AgentKeyProofSigningInput {
+    pub audience: Did,
+    pub challenge: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nonce: Option<String>,
+    pub expires_at: DateTime<Utc>,
+    pub request_canonical_digest: Hash,
+    pub verification_method: String,
+}
+
+impl AgentKeyProofSigningInput {
+    pub fn canonical_bytes(&self) -> crate::Result<Vec<u8>> {
+        arkret_canonical::canonical::canonical_json_bytes(self).map_err(Into::into)
+    }
+
+    pub fn canonical_digest(&self) -> crate::Result<Hash> {
+        Ok(Hash::new(arkret_canonical::canonical::sha256_digest(
+            self.canonical_bytes()?,
+        ))?)
+    }
+}
+
+pub fn agent_key_proof_request_binding_digest(
+    body: &SessionGrantRequestBody,
+) -> crate::Result<Hash> {
+    let mut value = serde_json::to_value(body)?;
+    let proof = value
+        .get_mut("proof")
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| {
+            crate::AuthError::Protocol("session grant proof must be an object".to_owned())
+        })?;
+    proof.remove("signature");
+    proof.remove("request_canonical_digest");
+    Ok(Hash::new(arkret_canonical::canonical::canonical_sha256(
+        &value,
+    )?)?)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn agent_key_proof_signing_input_for_session_grant(
+    principal_id: &Did,
+    requested_scope: &[String],
+    agent_key_authorization_ref: &str,
+    agent_scope_request: &SessionGrantAgentScopeRequest,
+    dpop_binding_proof: &SessionGrantDpopBindingProof,
+    verification_method: impl Into<String>,
+    challenge: impl Into<String>,
+    nonce: impl Into<String>,
+    audience: Did,
+    expires_at: DateTime<Utc>,
+) -> crate::Result<AgentKeyProofSigningInput> {
+    let verification_method = verification_method.into();
+    let challenge = challenge.into();
+    let nonce = nonce.into();
+    let mut body = agent_key_proof_unsigned_session_grant_request(
+        principal_id.clone(),
+        requested_scope.to_vec(),
+        agent_key_authorization_ref,
+        agent_scope_request.clone(),
+        dpop_binding_proof.clone(),
+        verification_method.clone(),
+        challenge.clone(),
+        nonce.clone(),
+        audience.clone(),
+        expires_at,
+    )?;
+    let request_canonical_digest = agent_key_proof_request_binding_digest(&body)?;
+    body.proof.request_canonical_digest = request_canonical_digest.clone();
+    Ok(AgentKeyProofSigningInput {
+        audience,
+        challenge,
+        nonce: Some(nonce),
+        expires_at,
+        request_canonical_digest,
+        verification_method,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn agent_key_proof_session_grant_request(
+    principal_id: Did,
+    requested_scope: Vec<String>,
+    agent_key_authorization_ref: impl Into<String>,
+    agent_scope_request: SessionGrantAgentScopeRequest,
+    dpop_binding_proof: SessionGrantDpopBindingProof,
+    verification_method: impl Into<String>,
+    challenge: impl Into<String>,
+    nonce: impl Into<String>,
+    audience: Did,
+    expires_at: DateTime<Utc>,
+    signature: impl Into<String>,
+) -> crate::Result<SessionGrantRequestBody> {
+    let agent_key_authorization_ref = agent_key_authorization_ref.into();
+    let verification_method = verification_method.into();
+    let challenge = challenge.into();
+    let nonce = nonce.into();
+    let signing_input = agent_key_proof_signing_input_for_session_grant(
+        &principal_id,
+        &requested_scope,
+        &agent_key_authorization_ref,
+        &agent_scope_request,
+        &dpop_binding_proof,
+        verification_method.clone(),
+        challenge.clone(),
+        nonce.clone(),
+        audience.clone(),
+        expires_at,
+    )?;
+    let mut request = agent_key_proof_unsigned_session_grant_request(
+        principal_id,
+        requested_scope,
+        agent_key_authorization_ref,
+        agent_scope_request,
+        dpop_binding_proof,
+        verification_method,
+        challenge,
+        nonce,
+        audience,
+        expires_at,
+    )?;
+    request.proof.request_canonical_digest = signing_input.request_canonical_digest;
+    request.proof.signature = signature.into();
+    Ok(request)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn agent_key_proof_unsigned_session_grant_request(
+    principal_id: Did,
+    requested_scope: Vec<String>,
+    agent_key_authorization_ref: impl Into<String>,
+    agent_scope_request: SessionGrantAgentScopeRequest,
+    dpop_binding_proof: SessionGrantDpopBindingProof,
+    verification_method: impl Into<String>,
+    challenge: impl Into<String>,
+    nonce: impl Into<String>,
+    audience: Did,
+    expires_at: DateTime<Utc>,
+) -> crate::Result<SessionGrantRequestBody> {
+    let request_canonical_digest = Hash::new(format!("sha256:{}", "0".repeat(64)))?;
+    Ok(SessionGrantRequestBody {
+        principal_id,
+        device_id: None,
+        requested_scope,
+        agent_key_authorization_ref: Some(agent_key_authorization_ref.into()),
+        agent_scope_request: Some(agent_scope_request),
+        dpop_binding_proof: Some(dpop_binding_proof),
+        applet_delegation: None,
+        proof: SessionGrantRequestProof {
+            proof_kind: SessionGrantProofKind::AgentKeyProof,
+            challenge: challenge.into(),
+            request_canonical_digest,
+            audience,
+            expires_at: Some(expires_at),
+            signature: String::new(),
+            verification_method: Some(verification_method.into()),
+            issuer: None,
+            client_id: None,
+            redirect_uri: None,
+            state: None,
+            nonce: Some(nonce.into()),
+            authorization_code: None,
+            code_verifier: None,
+        },
+    })
+}
 
 /// Shared signature-carrying proof fields for the signature-based session-grant
 /// proof kinds. Mirrors the `SessionGrantRequestProof` subset those kinds

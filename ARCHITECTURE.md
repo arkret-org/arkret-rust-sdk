@@ -9,23 +9,23 @@ application
     |
 arkret (umbrella SDK)
     |-- arkret-identifiers: validated DIDs, typed IDs, hashes, cursors and HLC values
-    |-- arkret-core: wire models, canonical JSON, sync/cursor, service metadata and the protocol-adjacent service / product DTOs
+    |-- arkret-core: transitional compatibility facade pending retirement
     |-- arkret-crypto: local encryption, backup and key-management helpers
-    |-- arkret-ffi: C ABI bindings and runtime bridge helpers
     |-- arkret-http-client: HTTP transport for Arkret service endpoints
     |-- arkret-keystore: platform KeyStore backends behind target feature gates
     |-- arkret-server: endpoint registry, routed dispatch, server middleware, adapter contracts, OpenAPI helpers and optional Salvo router
     |-- arkret-signatures: HTTP signatures, JWS/JWT and proof verification
-    |-- base + sync_client: local client state, response processing and account subscribe
-    |-- membership/devices/receipts: client business state
-    |-- content/media/profile/settings/search/discovery: feature helpers
+    |-- focused model/behavior crates: protocol types and semantic operations
     |-- auth/identity/e2ee/push: production protocol services
     |-- federation: discovery, replay/fork quarantine and digest helpers (the
     |   protocol federation wire surface is the spec `ak.peer.*` family)
     |-- typing/webrtc: realtime client features
     |-- mls: OpenMLS-backed group encryption and epoch handling
-    `-- store: local persistence traits and in-memory implementation
+    `-- arkret-bootstrap / arkret-lattice-registry: bootstrap and lattice behavior
 ```
+
+Client runtime, synchronization, timeline and persistence orchestration live in
+Garth rather than this SDK workspace.
 
 ## Protocol Model
 

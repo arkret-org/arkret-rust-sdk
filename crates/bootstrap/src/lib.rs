@@ -1008,7 +1008,7 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
             "self principal PCR create payload violates create-locked profile".to_owned(),
         ));
     }
-    Ok(realm.validate_kind_invariants()?)
+    realm.validate_kind_invariants()
 }
 
 fn validate_event_proof_digests(event: &Event) -> Result<()> {

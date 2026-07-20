@@ -136,7 +136,7 @@ pub struct RealmNotaryPayload {
 
 impl RealmNotaryPayload {
     pub fn validate(&self) -> Result<()> {
-        Ok(self.notary.validate()?)
+        self.notary.validate()
     }
 }
 

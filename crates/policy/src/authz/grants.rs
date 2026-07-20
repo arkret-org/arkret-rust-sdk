@@ -84,7 +84,7 @@ impl GrantProjection {
             .iter()
             .map(|value| {
                 let value = serde_json::to_value(value)?;
-                ResourceSelector::from_spec_value(&value).map_err(Into::into)
+                ResourceSelector::from_spec_value(&value)
             })
             .collect::<Result<Vec<_>>>()
             .map_err(|err| Error::Protocol(format!("schema_violation: {err}")))?;
@@ -1409,14 +1409,14 @@ impl CapabilityGrantBuilder {
             "grant_id": self.grant.id,
             "grant": serde_json::to_value(&self.grant)?,
         });
-        Ok(crate::Event::new(
+        crate::Event::new(
             arkret_wire::EventKind::CAPABILITY_GRANT,
             self.realm_id,
             self.actor_id,
             actor_seq,
             hlc,
             content,
-        )?)
+        )
     }
 }
 

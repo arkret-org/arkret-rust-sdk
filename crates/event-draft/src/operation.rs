@@ -473,7 +473,7 @@ impl MlsWelcomeTargetExt for MlsWelcomeEnvelope {
         Ok(DeviceMessageTarget {
             message_id,
             kind: ProtocolKind::new("ak.mls.welcome.v1")
-                .map_err(|error| EventDraftError::Protocol(error.to_string()))?,
+                .map_err(|error| EventDraftError::Protocol(error.to_owned()))?,
             content: serde_json::from_value(json!({
                 "group_id": self.group_id,
                 "epoch": self.epoch,

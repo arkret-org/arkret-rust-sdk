@@ -74,7 +74,7 @@ impl ObjectPatchPayload {
                 "object_patch_payload.object_ref is not canonical; use target_ref".to_owned(),
             ));
         }
-        Ok(validate_patch_semantic_safety(&self.patch)?)
+        validate_patch_semantic_safety(&self.patch)
     }
 
     /// Serialize after validating the same constraints enforced by the

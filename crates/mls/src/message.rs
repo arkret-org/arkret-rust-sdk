@@ -91,7 +91,7 @@ pub enum MessageCryptoDecrypt {
     },
     Encrypted {
         message_id: String,
-        payload: EncryptedPayload,
+        payload: Box<EncryptedPayload>,
         reason: MessageCryptoUnavailable,
     },
 }
@@ -184,7 +184,7 @@ impl MessageCrypto {
         let Some(group) = group else {
             return Ok(MessageCryptoDecrypt::Encrypted {
                 message_id,
-                payload: message.payload,
+                payload: Box::new(message.payload),
                 reason: MessageCryptoUnavailable::NoSession,
             });
         };
@@ -192,7 +192,7 @@ impl MessageCrypto {
         if message.payload.group_id != group.group_id() {
             return Ok(MessageCryptoDecrypt::Encrypted {
                 message_id,
-                payload: message.payload.clone(),
+                payload: Box::new(message.payload.clone()),
                 reason: MessageCryptoUnavailable::WrongGroup {
                     expected: group.group_id(),
                     actual: message.payload.group_id,
@@ -202,14 +202,14 @@ impl MessageCrypto {
         if !group.is_active() {
             return Ok(MessageCryptoDecrypt::Encrypted {
                 message_id,
-                payload: message.payload,
+                payload: Box::new(message.payload),
                 reason: MessageCryptoUnavailable::Removed,
             });
         }
         if message.payload.epoch > group.epoch() {
             return Ok(MessageCryptoDecrypt::Encrypted {
                 message_id,
-                payload: message.payload.clone(),
+                payload: Box::new(message.payload.clone()),
                 reason: MessageCryptoUnavailable::EpochUnavailable {
                     local_epoch: group.epoch(),
                     required_epoch: message.payload.epoch,
@@ -225,7 +225,7 @@ impl MessageCrypto {
             }),
             Err(error) => Ok(MessageCryptoDecrypt::Encrypted {
                 message_id,
-                payload: message.payload,
+                payload: Box::new(message.payload),
                 reason: MessageCryptoUnavailable::KeyUnavailable(error.to_string()),
             }),
         }

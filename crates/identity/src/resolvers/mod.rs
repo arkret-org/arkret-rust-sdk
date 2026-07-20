@@ -17,7 +17,6 @@ pub use policy::*;
 mod caching_tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use Freshness;
     use chrono::Utc;
 
     use super::*;
