@@ -15,6 +15,11 @@ version.workspace = true
 arkret-canonical = {workspace = true}
 arkret-egress-policy = {workspace = true}
 arkret-identifiers = {workspace = true}
+# Batch 4c (core retirement): the service identity bundle backends (file +
+# KeyStore persistence) moved here from arkret-core. They wrap a `KeyStore`
+# from arkret-keystore, a leaf crate (no arkret deps), so the edge is
+# cycle-free.
+arkret-keystore = {workspace = true}
 arkret-models-identity = {workspace = true}
 arkret-signatures = {workspace = true,features = ["protocol"]}
 arkret-wire = {workspace = true}

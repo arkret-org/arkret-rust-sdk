@@ -35,6 +35,12 @@ pub enum IdentityError {
     #[error(transparent)]
     Signature(#[from] arkret_signatures::Error),
 
+    /// KeyStore-backed persistence failure. Added in batch 4c when the service
+    /// identity bundle backends (which wrap a `KeyStore`) moved from
+    /// `arkret-core` into this crate.
+    #[error(transparent)]
+    KeyStore(#[from] arkret_keystore::KeyStoreError),
+
     #[error(transparent)]
     Json(#[from] serde_json::Error),
 }

@@ -12,6 +12,7 @@ pub(crate) mod helpers;
 pub mod jws;
 mod records;
 mod resolvers;
+pub mod service_identity;
 #[cfg(test)]
 mod tests;
 

@@ -113,8 +113,18 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # arkret-egress-policy carries the outbound SSRF host/IP deny-list
     # classifier (STA-05-001) the did:web / did:webvh resolvers guard fetches
     # with; it is a leaf crate (no arkret deps), so the edge is cycle-free.
+    # Batch 4c (core retirement): the service identity bundle backends
+    # (FileIdentityBundleBackend + KeyStoreIdentityBundleBackend) moved from
+    # arkret-core to arkret-identity. The KeyStore-backed backend wraps a
+    # `KeyStore` from arkret-keystore (a leaf crate, no arkret deps — the edge
+    # is cycle-free), mirroring the batch 4b auth->keystore precedent.
     "arkret-identity": _WIRE
-    | {"arkret-models-identity", "arkret-signatures", "arkret-egress-policy"},
+    | {
+        "arkret-models-identity",
+        "arkret-signatures",
+        "arkret-egress-policy",
+        "arkret-keystore",
+    },
     # Batch 4b (core retirement): the per-admin signing-key store (AdminKeyStore)
     # moved from arkret-core to arkret-auth. It wraps a `KeyStore` backend keyed
     # by admin DID, so auth consumes the storage contract from arkret-keystore
