@@ -12,18 +12,6 @@ pub enum AccountDataOperations {
     AccountDataDeleteOutcome(AccountDataDeleteOutcome),
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/availability-receipt.schema.json`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AvailabilityReceipt {
-    pub realm_id: RealmId,
-    pub event_id: EventId,
-    pub bytes_digest: Hash,
-    pub holder_id: Did,
-    pub retention_expires_at: DateTime<Utc>,
-    pub signature: PayloadProof,
-}
-
 /// Counterpart for `spec/v1/artifacts/schemas/circle-operations.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
