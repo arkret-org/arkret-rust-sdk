@@ -26,6 +26,7 @@ pub mod serde_helpers {
 pub mod bottom;
 pub mod cell;
 pub mod constants;
+pub mod cursor;
 pub mod error_codes;
 pub mod event_envelope;
 pub mod event_receipt;

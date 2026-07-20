@@ -100,7 +100,10 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-models-collaboration",
         "arkret-models-discovery",
     },
-    "arkret-hlc": _BASE,
+    # Phase 5-e: the issuing-service `Cursor` mint/validate surface (a wire
+    # sync token) moved to arkret-wire; arkret-hlc keeps a thin re-export
+    # shim for API stability, hence the wire edge.
+    "arkret-hlc": _WIRE,
     "arkret-event-draft": _WIRE
     | {
         "arkret-models-identity",

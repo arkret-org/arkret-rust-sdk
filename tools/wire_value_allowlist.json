@@ -355,13 +355,13 @@
       "reason": "The Spec recurrence object explicitly permits extension properties."
     },
     {
-      "rust_field": "crates/models-collaboration/src/governance/handle_claim.rs::HandleClaim.claim_scope",
+      "rust_field": "crates/models-identity/src/handle_claim.rs::HandleClaim.claim_scope",
       "spec_pointer": "handle-claim.schema.json#/properties/claim_scope",
       "classification": "open_json",
       "reason": "The exact Spec field is an open property map."
     },
     {
-      "rust_field": "crates/models-collaboration/src/governance/handle_claim.rs::HandleClaim.claims",
+      "rust_field": "crates/models-identity/src/handle_claim.rs::HandleClaim.claims",
       "spec_pointer": "handle-claim.schema.json#/properties/claims",
       "classification": "open_json",
       "reason": "The exact Spec field is an array of unconstrained JSON values."

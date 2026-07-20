@@ -297,9 +297,9 @@ version = "0.3.0"
 dependencies = [
  "arkret-canonical",
  "arkret-identifiers",
+ "arkret-wire",
  "chrono",
  "getrandom 0.4.2",
- "salvo",
  "serde",
  "serde_json",
  "thiserror",
@@ -585,6 +585,7 @@ dependencies = [
  "arkret-canonical",
  "arkret-identifiers",
  "chrono",
+ "getrandom 0.4.2",
  "hex",
  "salvo",
  "serde",
