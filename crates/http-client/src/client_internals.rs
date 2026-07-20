@@ -5,7 +5,6 @@
 //! helpers. Endpoint modules call into these via `pub(crate)` visibility;
 //! they are not part of the public API.
 
-use arkret_core::{Error, Result};
 use arkret_signatures::http_signature::{
     Component, ContentDigest, ContentDigestAlgorithm, SignedRequestParts, canonical_message,
     format_signature_header, format_signature_input_component_list, parse_signature_input,
@@ -20,15 +19,13 @@ use tokio::time::sleep;
 use url::Url;
 
 use crate::{
-    Auth, Client, ClientBuilder, ClientRequestOptions, HEADER_IDEMPOTENCY_KEY, HEADER_REQUEST_ID,
-    HEADER_WAIT_FOR, RetryConfig, retry_after_ms,
+    Auth, Client, ClientBuilder, ClientRequestOptions, Error, HEADER_IDEMPOTENCY_KEY,
+    HEADER_REQUEST_ID, HEADER_WAIT_FOR, Result, RetryConfig, retry_after_ms,
 };
 
-/// Wrap a reqwest transport error into the transport-agnostic
-/// `arkret_core::Error::Http` variant at the crate boundary. arkret-core
-/// deliberately carries no reqwest dependency (ARCHITECTURE.md: core is the
-/// wire-model layer; the HTTP stack lives in this crate), so the conversion
-/// is explicit here instead of a `#[from]` impl on the core error type.
+/// Wrap a reqwest transport error into the crate [`Error::Http`] variant at
+/// the crate boundary. The wire-model layer carries no reqwest dependency, so
+/// the conversion is explicit here instead of a `#[from]` impl.
 pub(crate) fn transport_error(error: reqwest::Error) -> Error {
     Error::Http(error.to_string())
 }
@@ -607,7 +604,7 @@ fn reject_absolute_path(path: &str) -> Result<()> {
 
 fn reject_query_auth_in_url(url: &Url) -> Result<()> {
     for (key, _) in url.query_pairs() {
-        if arkret_core::is_query_auth_parameter(key.as_ref()) {
+        if arkret_wire::is_query_auth_parameter(key.as_ref()) {
             return Err(Error::Protocol(
                 "query string authentication material is not allowed".to_owned(),
             ));

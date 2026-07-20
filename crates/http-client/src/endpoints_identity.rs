@@ -1,26 +1,32 @@
 //! Server-describe, identity, and directory endpoint methods on [`Client`].
 
-use arkret_core::{
-    DidOperationSubmitOutcome, DidOperationSubmitRequestBody, DirectoryActorSearchOutcome,
-    DirectoryAgentSelectorResolutionOutcome, DirectoryHandleResolutionOutcome,
-    DirectoryListHandlesForSubjectRequestBody, DirectoryOrganizationResolutionOutcome,
-    DirectoryOrganizationSearchOutcome, DirectoryPrivateContactDiscoveryOutcome,
-    DirectoryPrivateContactDiscoveryRequestBody, DirectoryRealmResolutionOutcome,
-    DirectoryRealmSearchOutcome, DirectoryResolveAgentSelectorRequestBody,
-    DirectoryResolveHandleRequestBody, DirectoryResolveOrganizationRequestBody,
-    DirectoryResolveRealmRequestBody, DirectoryResolveTargetRequestBody,
-    DirectorySearchActorsRequestBody, DirectorySearchOrganizationsRequestBody,
-    DirectorySearchRealmsRequestBody, DirectorySearchUsersRequestBody, DirectorySubjectHandleList,
-    DirectoryTargetResolutionOutcome, DirectoryUserSearchOutcome, IdentityDescription,
-    IdentityDocumentView, IdentityLogListOutcome, IdentityReceiptListOutcome,
-    IdentityResolveOutcome, IdentityResolveRequestBody, Result, SERVICE_REGISTRATION_ENSURE_PATH,
-    SERVICE_REGISTRATION_GET_PATH, ServiceDescribe, ServiceEndpointBinding, ServiceIdAllowlist,
-    ServiceRegistrationEnsureRequestBody, ServiceRegistrationKey, ServiceRegistrationOutcome,
-    ServiceRequirements, ServiceType,
+use arkret_models_discovery::{
+    DirectoryActorSearchOutcome, DirectoryAgentSelectorResolutionOutcome,
+    DirectoryHandleResolutionOutcome, DirectoryListHandlesForSubjectRequestBody,
+    DirectoryOrganizationResolutionOutcome, DirectoryOrganizationSearchOutcome,
+    DirectoryPrivateContactDiscoveryOutcome, DirectoryPrivateContactDiscoveryRequestBody,
+    DirectoryRealmResolutionOutcome, DirectoryRealmSearchOutcome,
+    DirectoryResolveAgentSelectorRequestBody, DirectoryResolveHandleRequestBody,
+    DirectoryResolveOrganizationRequestBody, DirectoryResolveRealmRequestBody,
+    DirectoryResolveTargetRequestBody, DirectorySearchActorsRequestBody,
+    DirectorySearchOrganizationsRequestBody, DirectorySearchRealmsRequestBody,
+    DirectorySearchUsersRequestBody, DirectorySubjectHandleList, DirectoryTargetResolutionOutcome,
+    DirectoryUserSearchOutcome, ServiceDescribe, ServiceEndpointBinding, ServiceIdAllowlist,
+    ServiceRequirements,
 };
+use arkret_models_identity::service_identity::{
+    SERVICE_REGISTRATION_ENSURE_PATH, SERVICE_REGISTRATION_GET_PATH,
+    ServiceRegistrationEnsureRequestBody, ServiceRegistrationKey, ServiceRegistrationOutcome,
+};
+use arkret_models_identity::{
+    DidOperationSubmitOutcome, DidOperationSubmitRequestBody, IdentityDescription,
+    IdentityDocumentView, IdentityLogListOutcome, IdentityReceiptListOutcome,
+    IdentityResolveOutcome, IdentityResolveRequestBody,
+};
+use arkret_wire::ServiceType;
 use reqwest::Method;
 
-use crate::Client;
+use crate::{Client, Error, Result};
 
 impl Client {
     pub async fn describe(&self) -> Result<ServiceDescribe> {
@@ -31,7 +37,7 @@ impl Client {
     /// Fetches the description for exactly one co-located service role.
     pub async fn describe_for_role(&self, service_type: ServiceType) -> Result<ServiceDescribe> {
         if !service_type.valid_in("service_describe") {
-            return Err(arkret_core::Error::Protocol(format!(
+            return Err(Error::Protocol(format!(
                 "service_type {} is not valid for service describe",
                 service_type.as_str()
             )));
@@ -74,7 +80,7 @@ impl Client {
         binding: &ServiceEndpointBinding,
     ) -> Result<ServiceDescribe> {
         if binding.service_type != service_type {
-            return Err(arkret_core::Error::Protocol(format!(
+            return Err(Error::Protocol(format!(
                 "service binding role {} does not match requested role {}",
                 binding.service_type, service_type
             )));
@@ -168,7 +174,7 @@ impl Client {
         let outcome: ServiceRegistrationOutcome = self.send_json(builder).await?;
         outcome.validate_for(key)?;
         if outcome.created {
-            return Err(arkret_core::Error::Protocol(
+            return Err(Error::Protocol(
                 "service-registration GET response must set created=false".to_owned(),
             ));
         }
@@ -209,9 +215,9 @@ impl Client {
     /// R3.3 (AKP-0011, arkret-spec @ cced4b8) — `ak.find.directory.query.resolve_target`.
     /// Resolve a client-agnostic shareable object address (Realm / Strand /
     /// Message) to a preview. The `address` and any `token` should be derived
-    /// from [`arkret_core::models::parse_address`]; invite and preview tokens
+    /// from [`arkret_wire::parse_address`]; invite and preview tokens
     /// MUST be bound to the resolved object server-side via
-    /// [`arkret_core::models::verify_token_target`].
+    /// [`arkret_wire::verify_token_target`].
     pub async fn directory_resolve_target(
         &self,
         request: &DirectoryResolveTargetRequestBody,

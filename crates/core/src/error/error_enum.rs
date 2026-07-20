@@ -325,3 +325,34 @@ impl From<arkret_schema::SchemaError> for Error {
         }
     }
 }
+
+// Transitional bridge: `arkret-http-client` owns its transport `Error`; the
+// core facade absorbs it (behind the `client` feature, so reqwest stays out of
+// the default core graph) so downstream `?` call sites that funnel HTTP-client
+// results through the core facade stay green. The mapping is variant-for-variant
+// structure-preserving; the `#[from]` wrapper variants delegate to the core
+// boundary bridges already declared above.
+#[cfg(feature = "client")]
+impl From<arkret_http_client::Error> for Error {
+    fn from(error: arkret_http_client::Error) -> Self {
+        match error {
+            arkret_http_client::Error::Api { status, error } => Self::Api { status, error },
+            arkret_http_client::Error::Http(message) => Self::Http(message),
+            arkret_http_client::Error::InsecureUrl(message) => Self::InsecureUrl(message),
+            arkret_http_client::Error::AccountStreamInterrupt(interrupt) => {
+                Self::AccountStreamInterrupt(interrupt)
+            }
+            arkret_http_client::Error::Protocol(message) => Self::Protocol(message),
+            arkret_http_client::Error::Url(source) => Self::Url(source),
+            arkret_http_client::Error::Wire(source) => source.into(),
+            arkret_http_client::Error::Canonical(source) => source.into(),
+            arkret_http_client::Error::Signature(source) => source.into(),
+            arkret_http_client::Error::Identifier(source) => source.into(),
+            arkret_http_client::Error::Json(source) => source.into(),
+            arkret_http_client::Error::StreamTrace(source) => source.into(),
+            #[cfg(not(target_arch = "wasm32"))]
+            arkret_http_client::Error::Identity(source) => source.into(),
+            _ => Self::Protocol(error.to_string()),
+        }
+    }
+}

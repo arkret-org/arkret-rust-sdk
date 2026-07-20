@@ -22,13 +22,18 @@ embedded-artifacts = ["arkret-schema/embedded-artifacts"]
 # Client-side URL handling + the transport-agnostic `Error::Http`/`Error::Url`
 # variants. Deliberately does NOT pull in a concrete HTTP stack — reqwest
 # lives in arkret-http-client (ARCHITECTURE.md: core is the wire-model layer).
-client = []
+client = ["dep:arkret-http-client"]
 mls = ["arkret-policy/mls", "dep:arkret-mls"]
 salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono", "arkret-identifiers/salvo", "arkret-hlc/salvo", "arkret-event-draft/salvo-oapi", "arkret-wire/salvo-oapi", "arkret-models-identity/salvo-oapi", "arkret-models-collaboration/salvo-oapi", "arkret-models-crypto/salvo-oapi", "arkret-models-discovery/salvo-oapi", "arkret-models-integration/salvo-oapi", "arkret-schema/salvo-oapi", "arkret-policy/salvo-oapi"]
 
 [dependencies]
 arkret-canonical = {workspace = true}
 arkret-event-draft = {workspace = true}
+# Transitional (phase 5): the transport `Error` moved to arkret-http-client;
+# core keeps a `From` bridge into its facade `Error` under the `client` feature
+# so downstream `?` call sites stay green. Optional so reqwest stays out of the
+# default core graph. Retires when the facade retires.
+arkret-http-client = {workspace = true, optional = true}
 arkret-hlc = {workspace = true}
 # Transitional (phase 2-b): the KeyStore contract moved to arkret-keystore;
 # core re-exports it until the facade retires (phase 5).

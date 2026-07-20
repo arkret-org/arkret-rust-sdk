@@ -209,7 +209,11 @@ impl AsyncSyncTransport for crate::Client {
         &'a self,
         request: SyncRequestBody,
     ) -> BoxSyncFuture<'a, AccountSubscribeBatch> {
-        Box::pin(async move { self.account_subscribe_batch(&request).await })
+        Box::pin(async move {
+            self.account_subscribe_batch(&request)
+                .await
+                .map_err(Error::from)
+        })
     }
 }
 
@@ -227,7 +231,9 @@ impl EventsSubscribeTransport for crate::Client {
             if let Some(from) = from {
                 options = options.after(from).catchup(true);
             }
-            self.events_subscribe_frames(&options).await
+            self.events_subscribe_frames(&options)
+                .await
+                .map_err(Error::from)
         })
     }
 }

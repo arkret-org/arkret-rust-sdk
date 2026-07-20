@@ -449,7 +449,9 @@ pub use history_recovery::{
     seal_history_secrets_to_recovery_recipient,
 };
 #[cfg(feature = "client")]
-pub use http_client::{Auth, Client, ClientBuilder, ClientRequestOptions, RetryConfig};
+pub use http_client::{
+    AccountSubscribeFolder, Auth, Client, ClientBuilder, ClientRequestOptions, RetryConfig,
+};
 #[cfg(all(
     feature = "full-surface",
     feature = "client",

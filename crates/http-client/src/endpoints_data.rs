@@ -1,17 +1,25 @@
 //! Blob, key, key-backup, and device-message endpoint methods on [`Client`].
 
-use arkret_core::{
-    BackupId, BlobMetadata, BlobPresignOutcome, BlobPresignRequestBody, BlobRef,
-    BlobUploadMetadata, BlobUploadOutcome, DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody,
-    DeviceMessagesGetOutcome, DeviceMessagesSendOutcome, DeviceMessagesSendRequestBody, Error,
+use arkret_canonical::base64url::base64_standard_encode;
+use arkret_models_collaboration::objects::blob::{
+    BlobPresignOutcome, BlobPresignRequestBody, BlobUploadMetadata, BlobUploadOutcome,
+};
+use arkret_models_collaboration::objects::read_receipts::BlobMetadata;
+use arkret_models_collaboration::sync_frames::account_sync::{
+    DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody, DeviceMessagesGetOutcome,
+    DeviceMessagesSendOutcome, DeviceMessagesSendRequestBody,
+};
+use arkret_models_crypto::{
     KeyBackup, KeyBackupSummary, KeyBackupsListQuery, KeyPackagesClaimOutcome,
     KeyPackagesClaimRequestBody, KeyPackagesConsumeOutcome, KeyPackagesConsumeRequestBody,
     KeyPackagesRevokeOutcome, KeyPackagesRevokeRequestBody, KeyPackagesUploadOutcome,
     KeyPackagesUploadRequestBody, KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody,
     KeysBackupsList, KeysBackupsReplaceOutcome, KeysBackupsUnlockRequestBody, KeysClaimOutcome,
     KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody, KeysUploadOutcome,
-    KeysUploadRequestBody, Result, ServiceDescribe, base64_standard_encode,
+    KeysUploadRequestBody,
 };
+use arkret_models_discovery::ServiceDescribe;
+use arkret_wire::{BackupId, BlobRef};
 use reqwest::Method;
 use reqwest::header::{HeaderMap, RANGE};
 use url::Url;
@@ -19,7 +27,7 @@ use url::Url;
 use crate::client_internals::{
     MAX_RESPONSE_BODY_BYTES, read_body_limited, validate_base_url, validate_header_value,
 };
-use crate::{Client, ClientRequestOptions};
+use crate::{Client, ClientRequestOptions, Error, Result};
 
 /// Protocol-level feature id the server must advertise before a caller uses
 /// the optional tus upload binding.

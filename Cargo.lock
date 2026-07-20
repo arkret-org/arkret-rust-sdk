@@ -194,6 +194,7 @@ dependencies = [
  "arkret-crypto",
  "arkret-event-draft",
  "arkret-hlc",
+ "arkret-http-client",
  "arkret-identifiers",
  "arkret-identity",
  "arkret-keystore",
@@ -309,10 +310,12 @@ dependencies = [
 name = "arkret-http-client"
 version = "0.3.0"
 dependencies = [
- "arkret-core",
+ "arkret-canonical",
  "arkret-identity",
  "arkret-models-collaboration",
  "arkret-models-crypto",
+ "arkret-models-discovery",
+ "arkret-models-identity",
  "arkret-models-integration",
  "arkret-signatures",
  "arkret-state",
@@ -323,6 +326,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "tokio-util",
  "tracing",

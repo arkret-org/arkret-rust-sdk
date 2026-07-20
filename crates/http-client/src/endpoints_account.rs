@@ -1,26 +1,34 @@
 //! Session-grant, account-subscribe, contacts, and direct-conversation
 //! endpoint methods on [`Client`].
 
-#[cfg(not(target_arch = "wasm32"))]
-use arkret_core::StreamTraceValidator;
-use arkret_core::{
-    AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountDeviceEnrollOutcome,
-    AccountDeviceEnrollRequestBody, AccountDevicePairOutcome, AccountDevicePairRequestBody,
-    AccountHandoffOutcome, AccountHandoffRequestBody, AccountLogoutOutcome,
-    AccountLogoutRequestBody, AccountSubscribeBatch, AccountSubscribeFolder, AccountSubscribeFrame,
-    AccountSubscribeFrameKind, AccountSubscribeSnapshotResult, AccountUpdateProfileOutcome,
-    ContactRequestOutcome, ContactRequestRequestBody, ContactRespondOutcome,
-    ContactRespondRequestBody, ContactTombstone, ContactTombstoneRequestBody,
-    DirectConversationResolveOutcome, DirectConversationResolveRequestBody, Error,
-    IdentityBindingChallengeOutcome, IdentityBindingChallengeRequestBody, Result, ServiceDescribe,
-    SessionGrantOutcome, SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody,
-    SessionGrantRequestBody, SyncRequestBody,
-};
 use arkret_models_collaboration::account_lifecycle::{
     AccountRegisterOutcome, AccountRegisterRequestBody, AccountUpdateProfileRequestBody,
     AccountView,
 };
-use arkret_models_collaboration::http_bodies::ContactList;
+use arkret_models_collaboration::http_bodies::{
+    AccountDevicePairOutcome, AccountDevicePairRequestBody, ContactList, ContactRequestOutcome,
+    ContactRequestRequestBody, ContactRespondOutcome, ContactRespondRequestBody, ContactTombstone,
+    ContactTombstoneRequestBody, DirectConversationResolveOutcome,
+    DirectConversationResolveRequestBody,
+};
+use arkret_models_collaboration::session_grant_bodies::{
+    SessionGrantOutcome, SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody,
+    SessionGrantRequestBody,
+};
+use arkret_models_collaboration::sync_frames::account_subscribe::{
+    AccountSubscribeBatch, AccountSubscribeFrame, AccountSubscribeFrameKind,
+    AccountSubscribeSnapshotResult,
+};
+use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
+#[cfg(not(target_arch = "wasm32"))]
+use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceValidator;
+use arkret_models_discovery::ServiceDescribe;
+use arkret_models_identity::{
+    AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountDeviceEnrollOutcome,
+    AccountDeviceEnrollRequestBody, AccountHandoffOutcome, AccountHandoffRequestBody,
+    AccountLogoutOutcome, AccountLogoutRequestBody, AccountUpdateProfileOutcome,
+    IdentityBindingChallengeOutcome, IdentityBindingChallengeRequestBody,
+};
 use arkret_wire::{
     PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST, PATH_SELF_CONTACTS_RESPOND,
     PATH_SELF_CONTACTS_TOMBSTONE, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE,
@@ -31,7 +39,7 @@ use reqwest::header::CONTENT_TYPE;
 use reqwest::{Method, RequestBuilder};
 
 use crate::client_internals::{transport_error, trim_ascii};
-use crate::{Client, MAX_SUBSCRIBE_FRAME_BYTES};
+use crate::{AccountSubscribeFolder, Client, Error, MAX_SUBSCRIBE_FRAME_BYTES, Result};
 
 #[cfg(not(target_arch = "wasm32"))]
 type BoxAccountSubscribeFrameStream =
@@ -451,7 +459,10 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
-    use arkret_core::{RealmId, SubscriptionConfig, SyncFilter, WaitForFrontier};
+    use arkret_models_collaboration::sync_frames::client_sync::{
+        SubscriptionConfig, SyncFilter, WaitForFrontier,
+    };
+    use arkret_wire::RealmId;
     use url::Url;
 
     use super::*;

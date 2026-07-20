@@ -1,32 +1,45 @@
 //! Push, policy, media, moderation, mimi, applet, and the generic HTTP-verb
 //! helper methods on [`Client`].
 
-use arkret_core::{
-    AppletActorView, AppletInstallOutcome, AppletInstallPlan, AppletPingOutcome,
-    AppletProtocolMetadata, AppletRealmView, AppletRevokeOutcome, AppletThirdPartyLocationList,
-    AppletThirdPartyUserList, AppletTransactionOutcome, AppletTransactionRequestBody,
-    CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody, CircleCreateRequestBody,
-    CircleLifecycleRequestBody, CircleList, CircleMemberRequestBody, CircleMembershipOutcome,
-    CircleScopeRotateOutcome, CircleScopeRotateRequestBody, CircleView, Did, Error,
-    MediaIceConfigOutcome, MediaIceConfigRequestBody, MimiReportAbuseOutcome,
-    MimiReportAbuseRequestBody, ModerationReportOutcome, ModerationReportRequestBody, OkOutcome,
-    PolicyCheckOutcome, PolicyCheckRequestBody, ProviderDirectory, PushNotifyOutcome,
-    PushNotifyRequestBody, PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody,
-    PushUnregisterDeviceRequestBody, Result, ServiceDescribe, canonical,
-};
 use arkret_models_collaboration::account_lifecycle::AppletRevokeRequestBody;
-use arkret_models_integration::{AppletInstallPreviewRequestBody, AppletInstallRequestBody};
+use arkret_models_collaboration::governance::circle::{
+    CircleCreateRequestBody, CircleLifecycleRequestBody, CircleList, CircleMemberRequestBody,
+    CircleMembershipOutcome, CircleScopeRotateOutcome, CircleScopeRotateRequestBody, CircleView,
+};
+use arkret_models_collaboration::governance::moderation::{
+    ModerationReportOutcome, ModerationReportRequestBody,
+};
+use arkret_models_collaboration::governance::policy_check::{
+    PolicyCheckOutcome, PolicyCheckRequestBody,
+};
+use arkret_models_collaboration::http_bodies::{
+    AppletTransactionRequestBody, MimiReportAbuseOutcome, MimiReportAbuseRequestBody,
+};
+use arkret_models_collaboration::objects::interop::ProviderDirectory;
+use arkret_models_collaboration::objects::media::{
+    CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody, MediaIceConfigOutcome,
+    MediaIceConfigRequestBody,
+};
+use arkret_models_discovery::ServiceDescribe;
+use arkret_models_integration::{
+    AppletActorView, AppletInstallOutcome, AppletInstallPlan, AppletInstallPreviewRequestBody,
+    AppletInstallRequestBody, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
+    AppletRevokeOutcome, AppletThirdPartyLocationList, AppletThirdPartyUserList,
+    AppletTransactionOutcome, OkOutcome, PushNotifyOutcome, PushNotifyRequestBody,
+    PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody,
+};
 use arkret_signatures::http_signature::{
     Component, ContentDigest, ContentDigestAlgorithm, Ed25519SigningKey, SignedRequestParts,
     canonical_message, format_signature_header, format_signature_input_component_list,
     parse_signature_input, sign_message,
 };
+use arkret_wire::{Did, canonical};
 use reqwest::Method;
 use reqwest::header::CONTENT_TYPE;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use crate::{Client, ClientRequestOptions, reject_path_segment};
+use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment};
 
 pub struct SignedAppletTransactionOptions<'a> {
     pub source_service_id: &'a Did,

@@ -22,7 +22,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use arkret_core::Result;
 use arkret_signatures::http_signature::Ed25519SigningKey;
 use reqwest::Method;
 #[cfg(any(not(target_arch = "wasm32"), test))]
@@ -30,6 +29,7 @@ use reqwest::StatusCode;
 use reqwest::header::{HeaderMap, RETRY_AFTER};
 use url::Url;
 
+pub mod account_subscribe;
 mod builder;
 mod client_internals;
 mod endpoints_account;
@@ -38,6 +38,7 @@ mod endpoints_data;
 mod endpoints_events;
 mod endpoints_identity;
 mod endpoints_misc;
+mod error;
 // Production reqwest + Tokio DID resolver. Leans on a live Tokio runtime,
 // blocking off-thread scheduling, and reqwest's native transport, none of
 // which exist on the wasm32 fetch backend — native-only.
@@ -45,6 +46,7 @@ mod endpoints_misc;
 pub mod http_did_resolver;
 pub mod key_backup_client;
 
+pub use account_subscribe::AccountSubscribeFolder;
 pub use builder::ClientBuilder;
 #[cfg(not(target_arch = "wasm32"))]
 pub use builder::RedirectPolicy;
@@ -64,6 +66,7 @@ pub use endpoints_data::{
 };
 pub use endpoints_events::{EventsSubscribeFrameStream, EventsSubscribeOptions};
 pub use endpoints_misc::SignedAppletTransactionOptions;
+pub use error::{Error, Result};
 
 pub const HEADER_REQUEST_ID: &str = "X-Arkret-Request-Id";
 pub const HEADER_WAIT_FOR: &str = "X-Arkret-Wait-For";
@@ -461,11 +464,11 @@ fn standard_retry_statuses() -> Vec<u16> {
 
 #[cfg(test)]
 mod tests {
-    use arkret_core::Error;
     use reqwest::Method;
     use reqwest::header::{HeaderValue, USER_AGENT};
 
     use super::*;
+    use crate::Error;
 
     #[test]
     fn auth_debug_redacts_all_credentials() {
@@ -834,13 +837,20 @@ mod tests {
     mod events_submit_tests {
         use std::collections::BTreeMap;
 
-        use arkret_core::{
-            BlobRef, BlobUploadMetadata, Did, DirectConversationResolveRequestBody,
+        use arkret_models_collaboration::http_bodies::{
+            DirectConversationResolveRequestBody, MimiReportAbuseRequestBody,
+        };
+        use arkret_models_collaboration::objects::blob::BlobUploadMetadata;
+        use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
+        use arkret_models_crypto::{
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE, MlsGovernanceProofRequest,
+        };
+        use arkret_models_discovery::{
             DirectoryPrivateContactDiscoveryOutcome, DirectoryPrivateContactDiscoveryRequestBody,
-            EffectiveScope, Event, EventId, EventRequirements, Hash, Hlc,
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE, MimiReportAbuseRequestBody, MimiRoomUri,
-            MlsGovernanceProofRequest, NonEmptyString, RealmId, ServiceType, StrandId,
-            SyncRequestBody,
+        };
+        use arkret_wire::{
+            BlobRef, Did, EffectiveScope, Event, EventId, EventRequirements, Hash, Hlc,
+            MimiRoomUri, NonEmptyString, RealmId, ServiceType, StrandId,
         };
         use serde_json::{Value, json};
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -986,7 +996,7 @@ mod tests {
 
             assert!(matches!(
                 response.status,
-                arkret_core::EventsSubmitStatus::Accepted
+                arkret_models_collaboration::http_bodies::EventsSubmitStatus::Accepted
             ));
             assert_eq!(response.accepted.len(), 1);
 
@@ -1022,7 +1032,7 @@ mod tests {
                 next_epoch: 0,
                 binding_profile: MLS_GOVERNANCE_BINDING_FULL_PROFILE.to_owned(),
                 reducer_profile: "ak.reducer.v1".to_owned(),
-                trusted_anchor_seal_id: arkret_core::SealId::new(
+                trusted_anchor_seal_id: arkret_wire::SealId::new(
                     "ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )
                 .unwrap(),
@@ -1318,7 +1328,7 @@ mod tests {
             let response = client.events_submit_batch(&events).await.unwrap();
             assert!(matches!(
                 response.status,
-                arkret_core::EventsSubmitStatus::Accepted
+                arkret_models_collaboration::http_bodies::EventsSubmitStatus::Accepted
             ));
 
             let raw = capture.await.unwrap();
@@ -1408,14 +1418,14 @@ mod tests {
         async fn list_key_backups_includes_series_id_query() {
             let (client, capture) =
                 spawn_capture_server(r#"{"backups":[],"has_more":false}"#).await;
-            let query = arkret_core::KeyBackupsListQuery {
+            let query = arkret_models_crypto::KeyBackupsListQuery {
                 series_id: Some(
-                    arkret_core::BackupSeriesId::new(
+                    arkret_wire::BackupSeriesId::new(
                         "ak:backup_series:01964137-0000-7000-8000-000000000777",
                     )
                     .unwrap(),
                 ),
-                backup_class: Some(arkret_core::BackupClass::DidRecovery),
+                backup_class: Some(arkret_models_crypto::BackupClass::DidRecovery),
                 cursor: None,
                 limit: Some(25),
             };
@@ -1447,7 +1457,7 @@ mod tests {
             .await;
             let request = DirectoryPrivateContactDiscoveryRequestBody::Blind {
                 profile: "ak.private_contact_discovery.v1".to_owned(),
-                batch_id: arkret_core::BatchId::new(
+                batch_id: arkret_wire::BatchId::new(
                     "ak:batch:01964137-0000-7000-8000-000000000777",
                 )
                 .unwrap(),
@@ -1514,7 +1524,7 @@ mod tests {
             let response = client.direct_conversation_resolve(&request).await.unwrap();
             assert_eq!(
                 response.state,
-                arkret_core::DirectConversationResolveState::Found
+                arkret_models_collaboration::http_bodies::DirectConversationResolveState::Found
             );
             assert_eq!(
                 response.binding_event_ref.as_ref().map(|id| id.as_str()),
@@ -1621,7 +1631,10 @@ mod tests {
                 .unwrap();
 
             assert!(
-                matches!(response.status, arkret_core::EventsSubmitStatus::Partial),
+                matches!(
+                    response.status,
+                    arkret_models_collaboration::http_bodies::EventsSubmitStatus::Partial
+                ),
                 "expected Partial status, got {:?}",
                 response.status
             );
@@ -1678,7 +1691,7 @@ mod tests {
 
         #[tokio::test]
         async fn account_subscribe_frames_yields_one_frame_per_line() {
-            use arkret_core::AccountSubscribeFrame;
+            use arkret_models_collaboration::sync_frames::account_subscribe::AccountSubscribeFrame;
 
             // Four frames split across chunks; the frontier frame
             // straddles a chunk boundary mid-line so the codec must
@@ -1715,7 +1728,7 @@ mod tests {
                     .kind
             );
             assert!(got[1].cursor.is_some());
-            assert_eq!(got[2].kind, arkret_core::AccountSubscribeFrameKind::Delta);
+            assert_eq!(got[2].kind, arkret_models_collaboration::sync_frames::account_subscribe::AccountSubscribeFrameKind::Delta);
             assert!(got[3].is_catchup_complete());
             assert_eq!(stream.reconnect_cursor(), Some("ak:cursor:live-0"));
         }
@@ -1805,7 +1818,7 @@ mod tests {
 
         #[tokio::test]
         async fn account_subscribe_batch_surfaces_dropped_interrupt() {
-            use arkret_core::AccountStreamInterrupt;
+            use arkret_models_collaboration::sync_frames::account_subscribe::AccountStreamInterrupt;
 
             // Benign keepalive first, then a `dropped` control frame: the
             // dropped frame must surface as a structured interrupt instead
@@ -1840,7 +1853,7 @@ mod tests {
 
         #[tokio::test]
         async fn account_subscribe_batch_surfaces_unauthorized_interrupt() {
-            use arkret_core::AccountStreamInterrupt;
+            use arkret_models_collaboration::sync_frames::account_subscribe::AccountStreamInterrupt;
 
             let parts = vec!["{\"kind\":\"unauthorized\"}\n"];
             let client = spawn_chunked_ndjson_server(parts).await;

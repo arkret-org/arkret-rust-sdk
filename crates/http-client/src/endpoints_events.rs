@@ -1,19 +1,28 @@
 //! Event stream / query / submit, snapshot, and authz endpoint methods
 //! on [`Client`].
 
-use arkret_core::{
-    AuthzCheckOutcome, AuthzCheckRequestBody, AuthzInviteList, CollectionProjectionView,
-    DocumentMorphProjectionOutcome, Error, Event, EventSealSubmitOutcome, EventsQueryOutcome,
-    EventsSubmitBatchRequestBody, EventsSubmitOutcome, EventsSubscribeFrame, GrantList,
+use arkret_models_collaboration::governance::authorization::{
+    AuthzCheckOutcome, AuthzCheckRequestBody, AuthzInviteList, GrantList,
+};
+use arkret_models_collaboration::governance::realm_governance::RealmOrganizationRelationshipList;
+use arkret_models_collaboration::http_bodies::{
+    EventSealSubmitOutcome, EventsQueryOutcome, EventsSubmitBatchRequestBody, EventsSubmitOutcome,
+    EventsSubscribeFrame, ProjectionSpaceList, ProjectionStrandList,
+};
+use arkret_models_collaboration::objects::query_projection::{
+    CollectionProjectionView, DocumentMorphProjectionOutcome, ViewProjectionRequestBody,
+};
+use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceValidator;
+use arkret_models_crypto::{
     MaterializedMlsGovernanceProofBundle, MlsGovernanceProofBundle, MlsGovernanceProofRequest,
-    ProjectionSpaceList, ProjectionStrandList, RealmOrganizationRelationshipList, Result, Seal,
-    ServiceDescribe, StreamTraceValidator, ViewProjectionRequestBody,
     assemble_mls_governance_proof_chunks,
 };
+use arkret_models_discovery::ServiceDescribe;
 use arkret_state::SnapshotManifest;
+use arkret_wire::{Event, Seal};
 use reqwest::{Method, Response};
 
-use crate::{Client, ClientRequestOptions, reject_path_segment};
+use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment};
 
 const MAX_EVENTS_QUERY_PAGES: usize = 100;
 
@@ -673,7 +682,10 @@ mod tests {
         }
 
         assert_eq!(got.len(), 2, "expected 2 frames, got {got:?}");
-        assert_eq!(got[0].kind, arkret_core::EventsSubscribeFrameKind::Event);
+        assert_eq!(
+            got[0].kind,
+            arkret_models_collaboration::http_bodies::EventsSubscribeFrameKind::Event
+        );
         assert!(got[1].is_catchup_complete());
         assert_eq!(stream.reconnect_cursor(), Some("ak:cursor:event-1"));
     }

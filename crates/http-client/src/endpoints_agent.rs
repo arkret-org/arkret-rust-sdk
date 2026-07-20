@@ -3,20 +3,22 @@
 use std::ops::Deref;
 use std::time::Duration;
 
-use arkret_core::{
+use arkret_models_collaboration::agent_operations::{
     AgentDeactivateRequestBody, AgentGrantAttachOutcome, AgentGrantAttachRequestBody,
     AgentGrantDetachOutcome, AgentKeyPairOutcome, AgentKeyPairRequestBody, AgentLifecycleOutcome,
-    AgentList, AgentParticipationOutcome, AgentParticipationReplaceRequestBody,
-    AgentPauseRequestBody, AgentProvisionOutcome, AgentProvisionRequestBody,
+    AgentList, AgentPauseRequestBody, AgentProvisionOutcome, AgentProvisionRequestBody,
     AgentRenewPairingOutcome, AgentRenewPairingRequestBody, AgentResumeRequestBody,
     AgentRuntimeApprovalOutcome, AgentRuntimeApprovalRequestBody,
     AgentRuntimeApprovalStatusOutcome, AgentRuntimeApprovalStatusRequestBody,
-    AgentSidecarThreadEnsureOutcome, AgentSidecarThreadEnsureRequestBody, AgentView, Error,
-    GrantId, Result,
+    AgentSidecarThreadEnsureOutcome, AgentSidecarThreadEnsureRequestBody, AgentView,
 };
+use arkret_models_collaboration::governance::agent_participation::{
+    AgentParticipationOutcome, AgentParticipationReplaceRequestBody,
+};
+use arkret_wire::GrantId;
 use serde_json::Value;
 
-use crate::{Client, retry_after_ms};
+use crate::{Client, Error, Result, retry_after_ms};
 
 const AGENT_KEY_PAIR_PATH: &str = "/_arkret/gate/account/agent-key-pair";
 const AGENT_PAIRING_RUNTIME_KEY_REQUESTS_PATH: &str =

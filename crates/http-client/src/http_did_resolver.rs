@@ -21,15 +21,17 @@ use std::future::Future;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use arkret_core::{Did, Error, Result};
 use arkret_identity::{
     DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidResolver, DidWebDocumentOutcome, DidWebResolver,
     DidWebvhDocumentOutcome, DidWebvhLogOutcome, DidWebvhResolver, ResolverFailMode,
     ResolverPolicy,
 };
+use arkret_wire::Did;
 use chrono::{DateTime, Utc};
 use reqwest::Client as HttpClient;
 use tokio::sync::OnceCell;
+
+use crate::{Error, Result};
 
 /// Default TTL applied to cached documents when the policy does not
 /// override it.

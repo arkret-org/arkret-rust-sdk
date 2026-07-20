@@ -127,6 +127,7 @@ mod login_ext {
                     },
                 })
                 .await
+                .map_err(Error::from)
         }
     }
 }

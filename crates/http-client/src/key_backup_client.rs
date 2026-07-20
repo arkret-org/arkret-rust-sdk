@@ -1,15 +1,13 @@
 //! Typed key-backup HTTP client for `ak.keys.backups.*`.
 
-use arkret_core::{
-    BackupId, KeyBackup, KeysBackupsDeleteRequestBody, KeysBackupsUnlockRequestBody,
-    Result as SdkResult,
-};
+use arkret_models_crypto::{KeyBackup, KeysBackupsDeleteRequestBody, KeysBackupsUnlockRequestBody};
+use arkret_wire::BackupId;
 
-use crate::Client;
+use crate::{Client, Result as SdkResult};
 
 /// Typed key-backup HTTP client wrapping a [`crate::Client`].
 ///
-/// All methods return `Result<_, arkret_core::Error>` so the API and
+/// All methods return `Result<_, crate::Error>` so the API and
 /// retry/backoff config strand through the underlying client builder. The
 /// caller is expected to construct the inner [`Client`] with the
 /// appropriate auth (Bearer / DeviceProof / ServiceSignature).
@@ -35,7 +33,7 @@ impl KeyBackupClient {
         &self,
         backup_id: &str,
         record: &KeyBackup,
-    ) -> SdkResult<arkret_core::KeysBackupsReplaceOutcome> {
+    ) -> SdkResult<arkret_models_crypto::KeysBackupsReplaceOutcome> {
         let path = format!("/_arkret/self/keys/backups/{backup_id}");
         self.client.put(&path, record).await
     }
@@ -52,7 +50,7 @@ impl KeyBackupClient {
 
     /// `GET /_arkret/self/keys/backups` (list current backups for the
     /// authenticated principal).
-    pub async fn list_key_backups(&self) -> SdkResult<arkret_core::KeysBackupsList> {
+    pub async fn list_key_backups(&self) -> SdkResult<arkret_models_crypto::KeysBackupsList> {
         self.client.get("/_arkret/self/keys/backups").await
     }
 
@@ -61,7 +59,7 @@ impl KeyBackupClient {
         &self,
         backup_id: &str,
         request: &KeysBackupsDeleteRequestBody,
-    ) -> SdkResult<arkret_core::KeysBackupsDeleteOutcome> {
+    ) -> SdkResult<arkret_models_crypto::KeysBackupsDeleteOutcome> {
         let backup_id = BackupId::new(backup_id.to_owned())?;
         self.client.delete_key_backup(&backup_id, request).await
     }
@@ -77,24 +75,24 @@ mod tests {
         let created_at = Utc::now();
         KeyBackup {
             backup_id: BackupId::new("ak:backup:01964137-0000-7000-8000-000000000000").unwrap(),
-            actor_id: arkret_core::Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            actor_id: arkret_wire::Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             device_id: Some(
-                arkret_core::DeviceId::new("ak:device:01964137-0000-7000-8000-000000000000")
+                arkret_wire::DeviceId::new("ak:device:01964137-0000-7000-8000-000000000000")
                     .unwrap(),
             ),
-            backup_class: arkret_core::BackupClass::SecretStorage,
+            backup_class: arkret_models_crypto::BackupClass::SecretStorage,
             mixed_secret_storage: false,
             backup_version: "kb_1".to_owned(),
             created_at,
             updated_at: None,
             expires_at: None,
-            encryption: arkret_core::KeyBackupEncryption {
-                recipient_method: arkret_core::KeyBackupRecipientMethod::PassphraseKdf,
+            encryption: arkret_models_crypto::KeyBackupEncryption {
+                recipient_method: arkret_models_crypto::KeyBackupRecipientMethod::PassphraseKdf,
                 recipient_key_ref: None,
-                kdf: Some(arkret_core::KeyBackupKdf {
-                    name: arkret_core::KeyBackupKdfName::Argon2id,
-                    salt: arkret_core::Base64UrlString::new("c2FsdA").unwrap(),
-                    params: arkret_core::KeyBackupKdfParams {
+                kdf: Some(arkret_models_crypto::KeyBackupKdf {
+                    name: arkret_models_crypto::KeyBackupKdfName::Argon2id,
+                    salt: arkret_wire::Base64UrlString::new("c2FsdA").unwrap(),
+                    params: arkret_models_crypto::KeyBackupKdfParams {
                         memory_kib: Some(65_536),
                         iterations: Some(3),
                         parallelism: Some(1),
@@ -104,12 +102,12 @@ mod tests {
                     degraded_profile_reason: None,
                     extra: Default::default(),
                 }),
-                aead: arkret_core::KeyBackupAead {
-                    name: arkret_core::KeyBackupAeadName::Xchacha20Poly1305,
+                aead: arkret_models_crypto::KeyBackupAead {
+                    name: arkret_models_crypto::KeyBackupAeadName::Xchacha20Poly1305,
                     aead_profile: Some("ak.aead.xchacha20_poly1305.v1".to_owned()),
-                    nonce: Some(arkret_core::Base64UrlString::new("nonce").unwrap()),
+                    nonce: Some(arkret_wire::Base64UrlString::new("nonce").unwrap()),
                     nonce_salt: Some(
-                        arkret_core::Base64UrlString::new("nonce_salt_value").unwrap(),
+                        arkret_wire::Base64UrlString::new("nonce_salt_value").unwrap(),
                     ),
                     enc: None,
                     extra: Default::default(),
@@ -118,25 +116,27 @@ mod tests {
                 hpke_suite: None,
                 extra: Default::default(),
             },
-            domain_separation: arkret_core::KeyBackupDomainSeparation {
+            domain_separation: arkret_models_crypto::KeyBackupDomainSeparation {
                 hkdf_info: "arkret-key-backup/secret_storage/aead/v1".to_owned(),
                 subdomain: "aead".to_owned(),
-                aead_aad: arkret_core::KeyBackupDomainSeparationAad {
+                aead_aad: arkret_models_crypto::KeyBackupDomainSeparationAad {
                     schema: "ak.schema.key_backup.v1".to_owned(),
-                    actor_id: arkret_core::Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+                    actor_id: arkret_wire::Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
                     device_id: Some("ak:device:01964137-0000-7000-8000-000000000000".to_owned()),
-                    backup_class: arkret_core::BackupClass::SecretStorage,
+                    backup_class: arkret_models_crypto::BackupClass::SecretStorage,
                     backup_version: "kb_1".to_owned(),
                     created_at,
                     item_types: vec!["recovery_secret".to_owned()],
                     managed_principal_bindings: Vec::new(),
-                    recipient_method: Some(arkret_core::KeyBackupRecipientMethod::PassphraseKdf),
+                    recipient_method: Some(
+                        arkret_models_crypto::KeyBackupRecipientMethod::PassphraseKdf,
+                    ),
                     recipient_key_ref: None,
                     extra: Default::default(),
                 },
                 extra: Default::default(),
             },
-            contents: vec![arkret_core::KeyBackupContentItem {
+            contents: vec![arkret_models_crypto::KeyBackupContentItem {
                 item_type: "recovery_secret".to_owned(),
                 realm_id: None,
                 managed_principal_binding: None,
@@ -152,17 +152,17 @@ mod tests {
             ciphertext_digest:
                 "sha256:2108421084217842908421084210842121084210842178429084210842108421".to_owned(),
             plaintext_commitment: None,
-            auth_data: Some(arkret_core::KeyBackupAuthData {
-                device_id: arkret_core::DeviceId::new(
+            auth_data: Some(arkret_models_crypto::KeyBackupAuthData {
+                device_id: arkret_wire::DeviceId::new(
                     "ak:device:01964137-0000-7000-8000-000000000000",
                 )
                 .unwrap(),
-                verification_method: arkret_core::DidUrl::new(
+                verification_method: arkret_wire::DidUrl::new(
                     "did:webvh:z6mkfixture:alice.example#device",
                 )
                 .unwrap(),
-                signature_algorithm: arkret_core::KeyBackupSignatureAlgorithm::Ed25519,
-                signature: arkret_core::Base64UrlString::new("c2ln").unwrap(),
+                signature_algorithm: arkret_models_crypto::KeyBackupSignatureAlgorithm::Ed25519,
+                signature: arkret_wire::Base64UrlString::new("c2ln").unwrap(),
                 ssk_generation: std::num::NonZeroU64::new(1),
                 device_authorize_event_id: None,
                 signed_fields: [
@@ -182,7 +182,7 @@ mod tests {
                 extra: Default::default(),
             }),
             retention: None,
-            series_id: arkret_core::BackupSeriesId::new(
+            series_id: arkret_wire::BackupSeriesId::new(
                 "ak:backup_series:01964137-0000-7000-8000-000000000000",
             )
             .unwrap(),
@@ -210,14 +210,18 @@ mod tests {
     fn key_backup_put_response_round_trips() {
         let record = backup_record();
         let backup_id = record.backup_id.clone();
-        let response = arkret_core::KeysBackupsReplaceOutcome {
-            status: arkret_core::KeyBackupPutStatus::Accepted,
+        let response = arkret_models_crypto::KeysBackupsReplaceOutcome {
+            status: arkret_models_crypto::KeyBackupPutStatus::Accepted,
             backup_id: backup_id.clone(),
             ciphertext_digest: record.ciphertext_digest,
         };
         let json = serde_json::to_value(&response).unwrap();
-        let back: arkret_core::KeysBackupsReplaceOutcome = serde_json::from_value(json).unwrap();
+        let back: arkret_models_crypto::KeysBackupsReplaceOutcome =
+            serde_json::from_value(json).unwrap();
         assert_eq!(back.backup_id, backup_id);
-        assert_eq!(back.status, arkret_core::KeyBackupPutStatus::Accepted);
+        assert_eq!(
+            back.status,
+            arkret_models_crypto::KeyBackupPutStatus::Accepted
+        );
     }
 }

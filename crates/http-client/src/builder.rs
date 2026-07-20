@@ -7,13 +7,12 @@
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
 
-use arkret_core::{Error, Result};
 use url::Url;
 
 use crate::client_internals::{
     transport_error, validate_auth, validate_base_url, validate_header_value,
 };
-use crate::{Auth, Client, HttpMessageSigner, RetryConfig};
+use crate::{Auth, Client, Error, HttpMessageSigner, Result, RetryConfig};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{DEFAULT_CONNECT_TIMEOUT, DEFAULT_REQUEST_TIMEOUT};
 

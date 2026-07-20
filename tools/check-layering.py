@@ -196,6 +196,11 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         # signatures/crypto/mls). Retire with core in phase 5.
         "arkret-identity",
         "arkret-auth",
+        # Phase 5-i: the transport `Error` moved to arkret-http-client; core
+        # keeps an optional (client-feature-only) `From` bridge into its facade
+        # `Error`. One-directional (http-client no longer depends on core), so
+        # the edge is cycle-free. Retires with core.
+        "arkret-http-client",
     },
     "arkret-ffi": {"arkret-core"},
     "arkret-sdk-fuzz": {"arkret-core", "arkret-signatures"},
@@ -222,9 +227,7 @@ ALLOWED_EDGES: dict[str, set[str]] = {
 # (federation transaction bodies), error handling uses `arkret_wire::WireError`,
 # and `SpecArtifactBundle` (tests only) comes from arkret-schema as a
 # dev-dependency.
-LEGACY_EDGES: dict[tuple[str, str], str] = {
-    ("arkret-http-client", "arkret-core"): "phase 5 (http face)",
-}
+LEGACY_EDGES: dict[tuple[str, str], str] = {}
 
 UMBRELLA = "arkret"
 
