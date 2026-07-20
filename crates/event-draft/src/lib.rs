@@ -12,6 +12,7 @@
 //! [`Event`]: arkret_wire::Event
 
 mod operation;
+pub mod operations;
 mod payloads;
 mod rank;
 mod registry;
