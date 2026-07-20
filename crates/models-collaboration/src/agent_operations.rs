@@ -8,6 +8,11 @@
 
 use std::collections::BTreeSet;
 
+use arkret_wire::serde_helpers::{
+    deserialize_canonical_timestamp, deserialize_optional_canonical_timestamp,
+    serialize_canonical_timestamp, serialize_optional_canonical_timestamp,
+};
+
 use crate::events_payloads::agent::{
     AgentKeyAuthorizePayloadRuntimeAttestation, AgentKeyScope, AgentSidecarExposureAck,
 };
@@ -33,7 +38,15 @@ pub struct AgentRequestedScopeDisclosure {
     pub verifier_did: Did,
     pub audience: NonEmptyString,
     pub challenge: NonEmptyString,
+    #[serde(
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     pub proofs: Vec<Proof>,
 }
@@ -368,6 +381,10 @@ pub struct AgentProvisionComplete {
     pub pairing_request_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
+    #[serde(
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
 }
 
@@ -384,6 +401,10 @@ pub struct AgentRenewPairingOutcome {
     pub pairing_request_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
+    #[serde(
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
 }
 
@@ -402,6 +423,10 @@ pub struct AgentPairingBootstrap {
     pub agent_id: Did,
     pub pairing_request_id: String,
     pub pairing_code: String,
+    #[serde(
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
+    )]
     pub pairing_expires_at: DateTime<Utc>,
 }
 
@@ -434,9 +459,19 @@ pub struct AgentProjection {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
     pub status: AgentStatus,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_optional_canonical_timestamp",
+        deserialize_with = "deserialize_optional_canonical_timestamp"
+    )]
     pub created_at: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_optional_canonical_timestamp",
+        deserialize_with = "deserialize_optional_canonical_timestamp"
+    )]
     pub updated_at: Option<DateTime<Utc>>,
 }
 
@@ -533,6 +568,10 @@ pub struct AgentGrantAttachOutcome {
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AgentGrantDetachOutcome {
     pub ok: bool,
+    #[serde(
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
+    )]
     pub revoked_at: DateTime<Utc>,
 }
 
@@ -710,10 +749,24 @@ pub struct AgentSidecar {
     pub backing_circle_id: CircleId,
     pub encryption_profile: AgentSidecarEncryptionProfile,
     pub state: AgentSidecarState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_optional_canonical_timestamp",
+        deserialize_with = "deserialize_optional_canonical_timestamp"
+    )]
     pub state_changed_at: Option<DateTime<Utc>>,
+    #[serde(
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_optional_canonical_timestamp",
+        deserialize_with = "deserialize_optional_canonical_timestamp"
+    )]
     pub updated_at: Option<DateTime<Utc>>,
 }
 
@@ -1148,13 +1201,23 @@ pub struct KeyState {
     pub pairing_mode: Option<AgentPairingMode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_optional_canonical_timestamp",
+        deserialize_with = "deserialize_optional_canonical_timestamp"
+    )]
     pub pairing_expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_request_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pending_runtime_key_request: Option<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_optional_canonical_timestamp",
+        deserialize_with = "deserialize_optional_canonical_timestamp"
+    )]
     pub approval_requested_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_event_ref: Option<EventId>,
@@ -1164,6 +1227,8 @@ pub struct KeyState {
 
 #[cfg(test)]
 mod tests {
+    use chrono::{TimeZone, Timelike};
+
     use super::*;
 
     fn runtime_approval_request(runtime_attestation: Value) -> Value {
@@ -1247,6 +1312,38 @@ mod tests {
                 "{forbidden} must not participate in Sidecar context identity"
             );
         }
+    }
+
+    #[test]
+    fn sidecar_timestamps_are_canonical_at_the_wire_boundary() {
+        let timestamp = Utc
+            .with_ymd_and_hms(2026, 7, 20, 12, 34, 56)
+            .unwrap()
+            .with_nanosecond(987_654_321)
+            .unwrap();
+        let sidecar = AgentSidecar {
+            id: SidecarId::new("ak:sidecar:01964137-0000-7000-8000-000000000021").unwrap(),
+            schema: AgentSidecarSchema::V1,
+            realm_id: RealmId::new("ak:realm:01964137-0000-7000-8000-000000000020").unwrap(),
+            controller_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice").unwrap(),
+            backing_circle_id: CircleId::new("ak:circle:01964137-0000-7000-8000-000000000022")
+                .unwrap(),
+            encryption_profile: AgentSidecarEncryptionProfile::MlsRfc9420,
+            state: AgentSidecarState::Active,
+            state_changed_at: Some(timestamp),
+            created_at: timestamp,
+            updated_at: Some(timestamp),
+        };
+
+        let value = serde_json::to_value(&sidecar).unwrap();
+        for field in ["state_changed_at", "created_at", "updated_at"] {
+            assert_eq!(value[field], "2026-07-20T12:34:56Z", "{field}");
+            canonical::validate_timestamp_canonical(value[field].as_str().unwrap()).unwrap();
+        }
+
+        let mut non_canonical = value;
+        non_canonical["created_at"] = serde_json::json!("2026-07-20T12:34:56.987654Z");
+        assert!(serde_json::from_value::<AgentSidecar>(non_canonical).is_err());
     }
 
     #[test]
