@@ -18,11 +18,26 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
-salvo = ["arkret-core/salvo", "arkret-state/salvo", "dep:salvo", "dep:tokio"]
+salvo = [
+    "arkret-state/salvo",
+    "arkret-wire/salvo-oapi",
+    "arkret-event-draft/salvo-oapi",
+    "arkret-models-identity/salvo-oapi",
+    "arkret-models-crypto/salvo-oapi",
+    "arkret-models-collaboration/salvo-oapi",
+    "arkret-models-discovery/salvo-oapi",
+    "arkret-models-integration/salvo-oapi",
+    "dep:salvo",
+    "dep:tokio",
+]
 
 [dependencies]
 arkret-canonical = {workspace = true}
-arkret-core = {workspace = true}
+arkret-event-draft = {workspace = true}
+arkret-models-collaboration = {workspace = true}
+arkret-models-crypto = {workspace = true}
+arkret-models-discovery = {workspace = true}
+arkret-models-identity = {workspace = true}
 arkret-models-integration = {workspace = true}
 arkret-wire = {workspace = true}
 arkret-signatures = {workspace = true,features = ["protocol"]}
@@ -34,7 +49,7 @@ serde_json = {workspace = true}
 tokio = {workspace = true,features = ["rt"],optional = true}
 
 [dev-dependencies]
-arkret-core = {workspace = true,features = ["embedded-artifacts"]}
+arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
 
 [lints]
 workspace = true

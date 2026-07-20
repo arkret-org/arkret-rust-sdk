@@ -155,8 +155,11 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-models-collaboration",
         "arkret-models-integration",
         "arkret-models-discovery",
-        "arkret-identity",
-        "arkret-policy",
+        # Phase 5-f: the federation transaction bodies bind
+        # `arkret_event_draft::Operation`, so the server endpoint contracts
+        # consume them from arkret-event-draft directly (behavior depends on
+        # data). event-draft has no server dep, so the edge is cycle-free.
+        "arkret-event-draft",
         "arkret-signatures",
         "arkret-state",
     },
@@ -213,17 +216,13 @@ ALLOWED_EDGES: dict[str, set[str]] = {
 #     `StreamTraceValidator`, `is_query_auth_parameter` — move with their
 #     owning modules when core's leftover clusters are rehomed.
 #
-# arkret-server -> arkret-core:
-#   - `http` bodies/outcome DTO clusters + `ServiceDescribe` and the applet
-#     view aggregates re-exported by core (endpoint registry / dispatch);
-#   - `Cursor` / `CursorPurpose` (cursor authority), `ErrorEnvelope`
-#     constructors in `service`, `is_query_auth_parameter`;
-#   - `schema::SpecArtifactBundle` (embedded artifacts, tests only).
-#   Same destination: shrink alongside the http-face extraction, gone in
-#   phase 5 with the facade.
+# Phase 5-f cleared arkret-server -> arkret-core: the endpoint contracts now
+# import their DTO clusters from the owning model crates + arkret-event-draft
+# (federation transaction bodies), error handling uses `arkret_wire::WireError`,
+# and `SpecArtifactBundle` (tests only) comes from arkret-schema as a
+# dev-dependency.
 LEGACY_EDGES: dict[tuple[str, str], str] = {
     ("arkret-http-client", "arkret-core"): "phase 5 (http face)",
-    ("arkret-server", "arkret-core"): "phase 5 (http face)",
 }
 
 UMBRELLA = "arkret"

@@ -100,7 +100,7 @@ impl ProtocolServerFixture {
         for strand in &self.strands {
             for operation_id in fixture_operations(*strand) {
                 let route = routes_by_operation.get(operation_id).ok_or_else(|| {
-                    arkret_core::Error::Protocol(format!(
+                    arkret_wire::Error::Protocol(format!(
                         "fixture operation '{operation_id}' is missing from service route registry"
                     ))
                 })?;

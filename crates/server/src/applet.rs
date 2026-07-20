@@ -18,11 +18,14 @@
 
 use std::sync::Arc;
 
-use arkret_core::{
+use arkret_models_collaboration::http_bodies::AppletTransactionRequestBody;
+use arkret_models_discovery::service_description::ServiceDescribe;
+use arkret_models_integration::applet_models::{
     AppletActorView, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
-    AppletTransactionOutcome, AppletTransactionRequestBody, Error, Hash, Result, ServiceDescribe,
+    AppletTransactionOutcome,
 };
 use arkret_signatures::VerificationMethodDocument;
+use arkret_wire::{Error, Hash, Result};
 
 use crate::idempotency::{
     IdempotencyIdentity, IdempotencyWindow, TransactionClaim, TransactionIdempotencyStore,
@@ -400,8 +403,12 @@ mod salvo_router {
         let signature_input = parse_signature_input(signature_input_header)
             .map_err(|err| Error::Protocol(format!("parse Signature-Input: {err}")))?;
         let resolver = HandlerResolver(service.handler.as_ref());
-        let resolved = resolver.resolve_verification_method(&signature_input.key_id)?;
-        let key_bytes = public_key_material(&resolved.public_key_multibase)?.ed25519_bytes()?;
+        let resolved = resolver
+            .resolve_verification_method(&signature_input.key_id)
+            .map_err(|err| Error::Protocol(err.to_string()))?;
+        let key_bytes = public_key_material(&resolved.public_key_multibase)?
+            .ed25519_bytes()
+            .map_err(|err| Error::Protocol(err.to_string()))?;
         let public_key = public_key_from_bytes(&key_bytes)
             .map_err(|err| Error::Protocol(format!("source service verifying key: {err}")))?;
 
@@ -444,7 +451,9 @@ mod salvo_router {
             }
             for proof in &event.proofs {
                 let builder = EventProofBuilder::new();
-                let canonical_bytes = builder.envelope_bytes(event)?;
+                let canonical_bytes = builder
+                    .envelope_bytes(event)
+                    .map_err(|err| Error::Protocol(err.to_string()))?;
                 let expected_digest = Hash::new(canonical::sha256_digest(&canonical_bytes))?;
                 let signing_actor = event
                     .executed_by
@@ -464,7 +473,8 @@ mod salvo_router {
                             &public_key,
                         )?;
                         Ok(true)
-                    })?;
+                    })
+                    .map_err(|err| Error::Protocol(err.to_string()))?;
                 if !verification.valid {
                     return Err(Error::Protocol("event proof signature invalid".to_owned()));
                 }
@@ -675,7 +685,7 @@ mod tests {
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::time::Duration;
 
-    use arkret_core::AppletPingOutcome;
+    use arkret_models_integration::applet_models::AppletPingOutcome;
     use arkret_signatures::{
         DidVerificationMethodResolver, StaticDidVerificationMethodResolver,
         VerificationMethodDocument,
@@ -706,9 +716,9 @@ mod tests {
             &self,
             verification_method: &str,
         ) -> Result<VerificationMethodDocument> {
-            Ok(self
-                .resolver
-                .resolve_verification_method(verification_method)?)
+            self.resolver
+                .resolve_verification_method(verification_method)
+                .map_err(|err| Error::Protocol(err.to_string()))
         }
         fn ping(&self) -> Result<AppletPingOutcome> {
             Ok(AppletPingOutcome {

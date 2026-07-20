@@ -16,6 +16,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::events_payloads::ephemeral::EphemeralEnvelope;
 use crate::governance::agent_artifacts::{DeviceMetadata, GrantSnapshot, PublicKey};
 use crate::governance::authorization::GrantList;
 use crate::governance::peer_contact::ContactIntroductionEvidence;
@@ -90,6 +91,20 @@ pub struct EventsSubmitOutcome {
     pub cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub original_outcome: Option<Box<EventsSubmitOutcome>>,
+}
+
+/// `ak.edge.applet.command.transaction` request body. Carries wire `Event`s
+/// plus the collaboration `EphemeralEnvelope` batch, so it lives here rather
+/// than with the other applet DTOs in `arkret-models-integration` (which does
+/// not depend on this crate).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct AppletTransactionRequestBody {
+    pub source_service_id: Did,
+    #[serde(default)]
+    pub events: Vec<Event>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ephemeral: Option<Vec<EphemeralEnvelope>>,
 }
 
 /// Result of `ak.self.events.command.submit_seal` after the receiver has

@@ -3,10 +3,12 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::constants::MODERATION_REPORT_SCHEMA;
-use arkret_wire::{Did, Hash, RealmId};
+use arkret_wire::{Did, EffectiveScope, Hash, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+use crate::events_payloads::moderation::FrankingProof;
 
 fn now_utc_seconds() -> DateTime<Utc> {
     DateTime::<Utc>::from_timestamp(Utc::now().timestamp(), 0).unwrap_or_else(Utc::now)
@@ -52,6 +54,29 @@ pub enum ModerationAction {
     RequireReview,
     RedactOnAccept,
     ShadowCollapse,
+}
+
+/// `ak.self.moderation.command.report` request body. Embeds the
+/// `FrankingProof` artifacts type owned by `events_payloads::moderation`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct ModerationReportRequestBody {
+    pub realm_id: RealmId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_scope: Option<EffectiveScope>,
+    pub target_ref: String,
+    pub report_reason_code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub reporter: Did,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
+    pub evidence_package: Option<ModerationEvidencePackage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
+    pub franking_proof: Option<FrankingProof>,
 }
 
 /// Moderation report (moderation.md §3).

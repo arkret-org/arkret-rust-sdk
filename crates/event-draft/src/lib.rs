@@ -11,12 +11,18 @@
 //!
 //! [`Event`]: arkret_wire::Event
 
+pub mod federation_transaction;
 mod operation;
 pub mod operations;
 mod payloads;
 mod rank;
 mod registry;
 
+pub use federation_transaction::{
+    FederationPullOperationsOutcome, FederationPushOperationsOutcome,
+    FederationPushOperationsRequestBody, FederationTransactionOutcome,
+    FederationTransactionRequestBody,
+};
 pub use operation::{
     CausalRef, MlsEnvelopeOperationExt, MlsWelcomeTargetExt, Operation, OperationEnvelope,
     OperationEnvelopeBuilder, OperationEventConversion, OperationSignature,

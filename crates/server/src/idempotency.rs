@@ -23,8 +23,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use arkret_core::Error;
-use arkret_wire::Hash;
+use arkret_wire::{Error, Hash};
 
 /// Delivery direction component of the idempotency identity
 /// (`applet-integration.md` §7.3.1).

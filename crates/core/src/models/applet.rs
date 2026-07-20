@@ -2,24 +2,15 @@
 //!
 //! The install / edge outcome DTOs migrated to
 //! `arkret-models-integration` (`applet_models`, re-exported below). The
-//! request bodies kept here are entangled with core-only or
-//! collaboration-owned types: the transaction body (`EphemeralEnvelope`),
-//! the install preview / install bodies (`AppletPackage`), and the revoke
-//! body (`AccountLifecycleProof`).
+//! transaction body binds the collaboration-owned `EphemeralEnvelope`, so it
+//! moved to `arkret-models-collaboration` (`http_bodies`, re-exported below).
+//! The install preview / install bodies (`AppletPackage`) and the revoke
+//! body (`AccountLifecycleProof`) stay here: they bind core-local types.
 
+pub use arkret_models_collaboration::http_bodies::AppletTransactionRequestBody;
 pub use arkret_models_integration::applet_models::*;
 
 use super::*;
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AppletTransactionRequestBody {
-    pub source_service_id: Did,
-    #[serde(default)]
-    pub events: Vec<Event>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ephemeral: Option<Vec<EphemeralEnvelope>>,
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

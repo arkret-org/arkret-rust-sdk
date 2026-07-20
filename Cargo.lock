@@ -523,8 +523,13 @@ name = "arkret-server"
 version = "0.3.0"
 dependencies = [
  "arkret-canonical",
- "arkret-core",
+ "arkret-event-draft",
+ "arkret-models-collaboration",
+ "arkret-models-crypto",
+ "arkret-models-discovery",
+ "arkret-models-identity",
  "arkret-models-integration",
+ "arkret-schema",
  "arkret-signatures",
  "arkret-state",
  "arkret-wire",
