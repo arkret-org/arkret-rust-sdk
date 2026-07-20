@@ -496,6 +496,7 @@ dependencies = [
  "arkret-wire",
  "chrono",
  "chrono-tz",
+ "salvo",
  "serde",
  "serde_json",
  "thiserror",
