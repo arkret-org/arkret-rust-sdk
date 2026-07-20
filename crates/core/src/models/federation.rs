@@ -1,5 +1,15 @@
+//! Federation transaction / push / pull operation bodies retained by
+//! `arkret-core`.
+//!
+//! These bind `arkret_event_draft::Operation`, which the model crates must
+//! not depend on, so they stay here. The realm-membership listing and
+//! actor-verification DTOs (`FederationRealmMemberList`, `MemberRef`,
+//! `FederationVerifyActor*`) migrated to `arkret-models-collaboration`
+//! (`federation::wire_dtos`, re-exported below).
+
+pub use arkret_models_collaboration::federation::wire_dtos::*;
+
 use super::*;
-use crate::federation::VerifyActorChallengeSignature;
 use crate::http::EventsSubmitRejectedItem;
 
 fn is_false(value: &bool) -> bool {
@@ -71,52 +81,4 @@ pub struct FederationPullOperationsOutcome {
     pub next_cursor: Option<String>,
     #[serde(default)]
     pub has_more: bool,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct FederationRealmMemberList {
-    #[serde(default)]
-    pub members: Vec<MemberRef>,
-    pub membership_frontier: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MemberRef {
-    pub principal_id: Did,
-    pub membership: MembershipState,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct FederationVerifyActorRequestBody {
-    pub actor_id: Did,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub challenge: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub signed_payload_digest: Option<Hash>,
-    pub signature: VerifyActorChallengeSignature,
-    pub purpose: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct FederationVerifyActorOutcome {
-    pub valid: bool,
-    pub actor_id: Did,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub verified_key_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub key_log_head: Option<Hash>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub did_document_ref: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
-    #[serde(default)]
-    pub warnings: Vec<String>,
 }

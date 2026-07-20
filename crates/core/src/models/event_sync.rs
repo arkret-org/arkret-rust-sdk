@@ -231,24 +231,9 @@ pub struct EventsSubmitFederationRequestBody {
     pub idempotency_key: Option<String>,
 }
 
-/// Snapshot acceleration hint returned by event range queries and federation
-/// pulls. The referenced snapshot manifest remains the authoritative signed
-/// object; consumers must verify it before applying any snapshot state.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SnapshotBootstrap {
-    pub snapshot_ref: SnapshotId,
-    pub state_digest: Hash,
-    pub snapshot_frontier: Vec<EventId>,
-    pub created_by: Did,
-    pub created_at: DateTime<Utc>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub authority_binding: SnapshotAuthorityBinding,
-    pub signature: PayloadProof,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub verification_hints: Option<SnapshotVerificationHintsValue>,
-}
+// `SnapshotBootstrap` migrated to `arkret-models-collaboration`
+// (`sync_frames::snapshot`). It reaches the `arkret_core::SnapshotBootstrap`
+// path via the `artifacts::sync` re-export, so no shim is needed here.
 
 #[cfg(test)]
 mod tests {

@@ -1,4 +1,13 @@
 //! Agent lifecycle schema artifact counterparts.
+//!
+//! The public-key / grant-snapshot / device-metadata / key-authorization /
+//! seal-signature leaf shapes migrated to `arkret-models-collaboration`
+//! (`governance::agent_artifacts`, re-exported below). The `AgentOperations`
+//! aggregation enum and `KeyState` stay here because they bind the agent
+//! lifecycle status/scope enums (`AgentStatus`, `AgentPcrRecoveryState`,
+//! `AgentPairingMode`) that remain core-resident.
+
+pub use arkret_models_collaboration::governance::agent_artifacts::*;
 
 use super::*;
 
@@ -28,50 +37,6 @@ pub enum AgentOperations {
     AgentGrantDetachOutcome(AgentGrantDetachOutcome),
     AgentSidecarThreadEnsureRequestBody(AgentSidecarThreadEnsureRequestBody),
     AgentSidecarThreadEnsureOutcome(AgentSidecarThreadEnsureOutcome),
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/base64url`.
-pub type Base64url = String;
-
-/// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/grant_snapshot`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct GrantSnapshot {
-    pub grant_id: GrantId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub grant_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct DeviceMetadata {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<NonEmptyString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub platform: Option<NonEmptyString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub app_id: Option<NonEmptyString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub app_version: Option<NonEmptyString>,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/agent_key_authorization_state`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct AgentKeyAuthorizationState {
-    pub key_id: String,
-    pub verification_method: String,
-    pub authorized_event_ref: EventId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/key_state`.
@@ -109,57 +74,4 @@ pub struct KeyState {
     pub authorized_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub active_authorizations: Vec<AgentKeyAuthorizationState>,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/opaque_local_id`.
-pub type OpaqueLocalId = String;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/operation_status_outcome`.
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/
-/// pending_member_reconciliation_item`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct PendingMemberReconciliationItem {
-    pub agent_id: Did,
-    pub reason: NonEmptyString,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/public_key`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct PublicKey {
-    pub kty: NonEmptyString,
-    pub kid: NonEmptyString,
-    pub alg: NonEmptyString,
-    pub key: Base64UrlString,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub key_digest: Option<Hash>,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/runtime_attestation`
-/// (`$ref` to `event-payload.schema.json#/$defs/agent_key_authorize_payload`
-/// `properties/runtime_attestation`).
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/sidecar_exposure_ack`.
-/// Counterpart for `spec/v1/artifacts/schemas/seal.schema.json#/$defs/seal_ref`.
-pub type SealRef = String;
-
-/// Counterpart for `spec/v1/artifacts/schemas/seal.schema.json#/$defs/event_digest`.
-pub type EventDigest = Hash;
-
-/// Counterpart for `spec/v1/artifacts/schemas/seal.schema.json#/$defs/signature`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Signature {
-    pub verification_method: Did,
-    pub alg: String,
-    pub payload_digest: Hash,
-    pub created_at: DateTime<Utc>,
-    pub jws: String,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
 }

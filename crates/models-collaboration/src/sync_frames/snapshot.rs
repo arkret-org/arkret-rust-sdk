@@ -182,3 +182,22 @@ pub struct Snapshot {
     pub authority_binding: SnapshotAuthorityBinding,
     pub signature: PayloadProof,
 }
+
+/// Snapshot acceleration hint returned by event range queries and federation
+/// pulls. The referenced snapshot manifest remains the authoritative signed
+/// object; consumers must verify it before applying any snapshot state.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct SnapshotBootstrap {
+    pub snapshot_ref: SnapshotId,
+    pub state_digest: Hash,
+    pub snapshot_frontier: Vec<EventId>,
+    pub created_by: Did,
+    pub created_at: DateTime<Utc>,
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
+    pub authority_binding: SnapshotAuthorityBinding,
+    pub signature: PayloadProof,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
+    pub verification_hints: Option<SnapshotVerificationHintsValue>,
+}

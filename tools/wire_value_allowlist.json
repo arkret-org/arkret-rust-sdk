@@ -6,7 +6,7 @@
       "reason": "Internal signer introspection metadata is not serialized onto a Spec-defined wire boundary."
     },
     {
-      "rust_field": "crates/core/src/http/bodies.rs::AccountDevicePairOutcome.key_backup_hint",
+      "rust_field": "crates/models-collaboration/src/http_bodies.rs::AccountDevicePairOutcome.key_backup_hint",
       "spec_pointer": "agent-operations.schema.json#/$defs/account_device_pair_outcome/properties/key_backup_hint",
       "classification": "open_json",
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
@@ -23,7 +23,7 @@
       "reason": "The Spec pins this field to the closed agent_runtime_approval_controller_projection object while the Rust counterpart still transports the controller-safe projection as an opaque map."
     },
     {
-      "rust_field": "crates/core/src/models/artifacts/agent.rs::Signature.extra",
+      "rust_field": "crates/models-collaboration/src/governance/agent_artifacts.rs::Signature.extra",
       "spec_pointer": "seal.schema.json#/$defs/signature/additionalProperties",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
@@ -77,49 +77,49 @@
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
     {
-      "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckOutcome.applied_constraints",
+      "rust_field": "crates/models-collaboration/src/governance/authorization.rs::AuthzCheckOutcome.applied_constraints",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/applied_constraints",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckOutcome.frontier",
+      "rust_field": "crates/models-collaboration/src/governance/authorization.rs::AuthzCheckOutcome.frontier",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/frontier",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckOutcome.matched_grants",
+      "rust_field": "crates/models-collaboration/src/governance/authorization.rs::AuthzCheckOutcome.matched_grants",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/matched_grants",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckOutcome.missing_proofs",
+      "rust_field": "crates/models-collaboration/src/governance/authorization.rs::AuthzCheckOutcome.missing_proofs",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/missing_proofs",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckOutcome.obligations",
+      "rust_field": "crates/models-collaboration/src/governance/authorization.rs::AuthzCheckOutcome.obligations",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/obligations",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckOutcome.policy_results",
+      "rust_field": "crates/models-collaboration/src/governance/authorization.rs::AuthzCheckOutcome.policy_results",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/policy_results",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckRequestBody.context",
+      "rust_field": "crates/models-collaboration/src/governance/authorization.rs::AuthzCheckRequestBody.context",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckRequestBody/properties/context",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckRequestBody.resource",
+      "rust_field": "crates/models-collaboration/src/governance/authorization.rs::AuthzCheckRequestBody.resource",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckRequestBody/properties/resource",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
@@ -164,19 +164,19 @@
       "reason": "Internal operation envelope dispatch is dynamic and is not serialized as a standalone Spec schema."
     },
     {
-      "rust_field": "crates/core/src/models/policy_check.rs::PolicyCheckOutcome.obligations",
+      "rust_field": "crates/models-collaboration/src/governance/policy_check.rs::PolicyCheckOutcome.obligations",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/PolicyCheckOutcome/properties/obligations",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/policy_check.rs::PolicyCheckRequestBody.auth_context",
+      "rust_field": "crates/models-collaboration/src/governance/policy_check.rs::PolicyCheckRequestBody.auth_context",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/PolicyCheckRequestBody/properties/auth_context",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/policy_check.rs::PolicyCheckRequestBody.event_preview",
+      "rust_field": "crates/models-collaboration/src/governance/policy_check.rs::PolicyCheckRequestBody.event_preview",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/PolicyCheckRequestBody/properties/event_preview",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."

@@ -34,7 +34,6 @@ mod attestation {
     pub use arkret_models_identity::attestation::*;
 }
 mod authorization;
-mod blob;
 mod circle;
 mod conformance;
 mod constants {
@@ -178,7 +177,6 @@ pub use arkret_wire::receive_policy::{
 pub use artifacts::*;
 pub use attestation::*;
 pub use authorization::*;
-pub use blob::*;
 pub use circle::*;
 pub use conformance::*;
 pub use constants::*;

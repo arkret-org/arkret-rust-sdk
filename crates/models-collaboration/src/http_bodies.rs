@@ -8,14 +8,18 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    BlobRef, ConsentId, Cursor, DeviceId, Did, Error, Event, EventId, Hash, MimiRoomUri,
-    MlsGroupId, MorphId, MoveId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId,
-    RelationId, ReportId, Result, SealId, SpaceId, StrandId, canonical,
+    Base64UrlString, BlobRef, ConsentId, Cursor, DeviceId, Did, Error, Event, EventId, Hash,
+    MimiRoomUri, MlsGroupId, MorphId, MoveId, NonEmptyString, PayloadProof, Proof, ProofContextId,
+    RealmId, RelationId, ReportId, Result, SealId, SpaceId, StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::governance::agent_artifacts::{DeviceMetadata, GrantSnapshot, PublicKey};
+use crate::governance::authorization::GrantList;
+use crate::governance::peer_contact::ContactIntroductionEvidence;
+use crate::objects::blob::BlobUploadMetadata;
 use crate::objects::mimi::{
     MimiCiphertext, MimiConsentPurpose, MimiConsentTarget, MimiDelivery, MimiFailure,
     MimiGroupInfo, MimiIdentifier, MimiIdentifierMatch, MimiKeyPackage, MimiNotification,
@@ -23,6 +27,7 @@ use crate::objects::mimi::{
 };
 use crate::session_grant_bodies::SessionGrantOutcome;
 use crate::sync_frames::client_sync::SyncRequestBody;
+use crate::sync_frames::snapshot::SnapshotBootstrap;
 use crate::sync_frames::stream_trace::{StreamTraceFrame, StreamTraceFrameKind};
 
 // is_false is used as a serde skip_serializing_if predicate in this module.
@@ -1001,3 +1006,78 @@ pub struct AccountOidcCallbackOutcome {
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = SyncRequestBody)))]
 pub struct AccountSubscribeRequestBody(pub SyncRequestBody);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct EventsQueryOutcome {
+    #[serde(default)]
+    pub events: Vec<Event>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub snapshot_bootstrap: Option<SnapshotBootstrap>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prev_cursor: Option<String>,
+    #[serde(default)]
+    pub has_more: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub range_completeness: Option<EventsRangeCompleteness>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct ContactRequestRequestBody {
+    pub target: Did,
+    #[serde(default)]
+    pub requested_scopes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub idempotency_key: Option<String>,
+    /// Cross-Principal-Server addressing (spec contact-and-direct-conversation.md
+    /// §4.1): when `target` is hosted on a different Principal Server, the
+    /// requester MUST supply the target's home service DID so the issuer-side
+    /// server can federate the signed `ak.contact.requested` fact via
+    /// `ak.peer.contacts.command.submit`. Omit for same-server requests.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recipient_service_id: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub introduction_evidence: Option<ContactIntroductionEvidence>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountDevicePairRequestBody {
+    pub pairing_code: NonEmptyString,
+    pub new_device_pubkey: PublicKey,
+    pub challenge_signature: Base64UrlString,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_metadata: Option<DeviceMetadata>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountDevicePairOutcome {
+    pub device_id: DeviceId,
+    pub authorized_event_ref: EventId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_grant: Option<GrantSnapshot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_backup_hint: Option<BTreeMap<String, Value>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = BlobUploadMetadata)))]
+pub struct BlobUploadRequestBody(pub BlobUploadMetadata);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = GrantList)))]
+pub struct GrantListOutcome(pub GrantList);

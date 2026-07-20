@@ -5,8 +5,10 @@
 //! (cross-domain: consumed by governance invite processing and discovery
 //! service descriptions).
 
+pub mod agent_artifacts;
 pub mod agent_participation;
 pub mod audit;
+pub mod authorization;
 pub mod circle;
 pub mod delivery_binding;
 pub mod erasure;
@@ -22,6 +24,7 @@ pub mod moderation_queue;
 pub mod operation_wire;
 pub mod peer_contact;
 pub mod plaintext_visibility;
+pub mod policy_check;
 pub mod realm_governance;
 pub mod realm_lifecycle;
 pub mod resource_selector;
