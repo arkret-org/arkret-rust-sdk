@@ -1,3 +1,4 @@
+#[cfg(test)]
 use std::collections::BTreeMap;
 
 pub use arkret_identifiers::{
@@ -13,13 +14,14 @@ pub use arkret_identifiers::{
 pub use arkret_wire::{EvaluationClass, ServiceType, XExtensionMap};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use serde_json::Value;
 #[cfg(test)]
 use serde_json::json;
 
 #[cfg(test)]
 use crate::canonical;
-use crate::{Error, Result, SealId};
+use crate::{Error, Result};
 
 mod account;
 mod actor_profile {

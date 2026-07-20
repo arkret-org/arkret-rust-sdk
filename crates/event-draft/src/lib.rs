@@ -11,6 +11,7 @@
 //!
 //! [`Event`]: arkret_wire::Event
 
+pub mod federation;
 pub mod federation_transaction;
 mod operation;
 pub mod operations;

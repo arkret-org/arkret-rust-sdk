@@ -10,6 +10,7 @@
 
 pub mod account_lifecycle;
 pub mod agent_operations;
+pub mod applet_service;
 pub mod event_query;
 pub mod event_sync;
 pub mod events_payloads;
@@ -24,6 +25,7 @@ pub mod object_patch;
 pub mod objects;
 pub mod resolved_state;
 pub mod runtime_identity;
+pub mod seal_transparency;
 pub mod session_grant_bodies;
 pub mod sync_frames;
 

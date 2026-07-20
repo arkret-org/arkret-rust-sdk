@@ -467,7 +467,7 @@
       "rust_field": "crates/models-collaboration/src/events_payloads/morph_message.rs::ContentBlock.extra",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/events_payloads/morph_message.rs",
-      "line": 86,
+      "line": 87,
       "owner": "ContentBlock",
       "field": "extra",
       "rust_type": "BTreeMap<String, Value>",

@@ -7,6 +7,7 @@ pub mod account_misc;
 pub mod agent;
 pub mod call;
 pub mod capability_circle_consent_contact;
+pub mod content_block_poll;
 pub mod device_identity;
 pub mod ephemeral;
 pub mod event_wire;

@@ -182,3 +182,14 @@ pub struct BlobPresignEnvelope {
     pub payload: BlobPresignPayload,
     pub proof: BlobPresignDetachedJwsProof,
 }
+
+/// Counterpart for `spec/v1/artifacts/schemas/blob-operations.schema.json`.
+///
+/// Aggregates the blob upload request/response bodies; migrated from
+/// `arkret-core` (`models::artifacts::blob`).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum BlobOperations {
+    BlobUploadRequestBody(crate::http_bodies::BlobUploadRequestBody),
+    BlobUploadOutcome(BlobUploadOutcome),
+}
