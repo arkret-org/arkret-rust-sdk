@@ -16,34 +16,14 @@ mod account {
 }
 mod account_sync {
     //! The sync-frame containers migrated to `arkret-models-collaboration`
-    //! (`sync_frames::account_sync`, re-exported below). The
-    //! account-operations aggregation stays: it composes the core account
-    //! HTTP body DTOs.
+    //! (`sync_frames::account_sync`), re-exported here for path stability.
+    //!
+    //! The account-operations aggregator enum and the `ProfilePatch` alias that
+    //! previously lived here had no runtime consumer and were removed. Schema
+    //! coverage is preserved by `arkret-schema`, which mirrors the spec JSON
+    //! artifacts directly.
 
     pub use arkret_models_collaboration::sync_frames::account_sync::*;
-
-    use super::*;
-
-    /// Counterpart for `spec/v1/artifacts/schemas/account-operations.schema.json`.
-    #[derive(Clone, Debug, Serialize, Deserialize)]
-    #[serde(untagged)]
-    pub enum AccountOperations {
-        AccountView(AccountView),
-        AccountHandoffRequestBody(AccountHandoffRequestBody),
-        AccountHandoffOutcome(AccountHandoffOutcome),
-        IdentityBindingChallengeRequestBody(IdentityBindingChallengeRequestBody),
-        IdentityBindingChallengeOutcome(IdentityBindingChallengeOutcome),
-        AccountRegisterRequestBody(AccountRegisterRequestBody),
-        AccountRegisterOutcome(AccountRegisterOutcome),
-        AccountUpdateProfileRequestBody(AccountUpdateProfileRequestBody),
-        AccountUpdateProfileOutcome(AccountUpdateProfileOutcome),
-        SessionRevokeRequestBody(SessionRevokeRequestBody),
-        SessionRevokeOutcome(SessionRevokeOutcome),
-    }
-
-    /// Counterpart for
-    /// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/profile_patch`.
-    pub type ProfilePatch = Patch;
 }
 mod agent;
 mod applet;
@@ -65,7 +45,6 @@ mod object_facets {
 }
 mod push;
 mod self_ops;
-mod service;
 mod sync {
     pub use arkret_models_collaboration::sync_frames::snapshot::*;
 }
@@ -89,6 +68,5 @@ pub use moderation::*;
 pub use object_facets::*;
 pub use push::*;
 pub use self_ops::*;
-pub use service::*;
 pub use sync::*;
 pub use view::*;
