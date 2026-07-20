@@ -17,6 +17,7 @@ arkret-crypto = {workspace = true,features = ["aead", "sframe"]}
 arkret-identifiers = {workspace = true}
 arkret-models-crypto = {workspace = true}
 arkret-models-identity = {workspace = true}
+arkret-policy = {workspace = true}
 arkret-signatures = {workspace = true,features = ["protocol"]}
 arkret-wire = {workspace = true}
 chacha20poly1305 = {workspace = true}

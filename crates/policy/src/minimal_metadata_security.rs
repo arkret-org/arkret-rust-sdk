@@ -1,10 +1,8 @@
-use chrono::Utc;
-
-use crate::{MlsError as Error, Result};
-
 /// Profile id whose Realms are subject to the SEC-08 minimal-metadata
 /// hardening (epoch lifetime ≤ 1h MUST + `aad_visibility=hidden` MUST).
-pub const MINIMAL_METADATA_REALM_PROFILE: &str = "ak.profile.mls.minimal_metadata_realm.v1";
+pub use arkret_models_crypto::MINIMAL_METADATA_REALM_PROFILE;
+use arkret_wire::{Error, Result};
+use chrono::Utc;
 
 /// SEC-08 — maximum MLS epoch lifetime for a `minimal_metadata_realm` Realm,
 /// per `crypto-media/encryption-and-audit.md` §2.9.

@@ -1,8 +1,7 @@
-pub use arkret_core::schema::Criticality;
+pub use arkret_schema::Criticality;
+use arkret_state::lattice::LatticeKind as SdkLatticeKind;
+use arkret_state::state::BottomMode;
 use serde_json::Value;
-
-use crate::lattice::LatticeKind as SdkLatticeKind;
-use crate::state::BottomMode;
 
 /// Cell-cardinality declared by a [`LatticeKind`] — corresponds to the
 /// arkret-spec event-kind-registry's `cell_subject` shape.

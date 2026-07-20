@@ -177,14 +177,9 @@ where
     if has("salvo") && !has("server") {
         violations.push(UnsafeFeatureCombination::SalvoWithoutServer);
     }
-    if [
-        "applet-runtime",
-        "device-runtime",
-        "sync-runtime",
-        "timeline-runtime",
-    ]
-    .iter()
-    .any(|feature| has(feature))
+    if ["applet-runtime", "device-runtime"]
+        .iter()
+        .any(|feature| has(feature))
         && !has("full-surface")
     {
         violations.push(UnsafeFeatureCombination::RuntimeWithoutFullSurface);
@@ -222,12 +217,6 @@ pub fn current_feature_safety_report() -> FeatureSafetyReport {
     }
     if cfg!(feature = "device-runtime") {
         features.push("device-runtime");
-    }
-    if cfg!(feature = "sync-runtime") {
-        features.push("sync-runtime");
-    }
-    if cfg!(feature = "timeline-runtime") {
-        features.push("timeline-runtime");
     }
     feature_safety_report(features)
 }

@@ -37,44 +37,6 @@
 //! # }
 //! ```
 //!
-//! Run one in-memory sync-loop step with `sync-runtime` enabled:
-//!
-//! ```rust
-//! # #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
-//! # fn main() {
-//! use arkret::{
-//!     AccountSubscribeBatch, AccountSubscribeFrame, AccountSubscribeFrameKind, SyncLoop,
-//!     SyncLoopStep, SyncRequestBody,
-//! };
-//!
-//! let mut sync_loop = SyncLoop::new();
-//! let mut transport = |_request: SyncRequestBody| {
-//!     Ok(AccountSubscribeBatch {
-//!         cursor: "s1".to_owned(),
-//!         frames: vec![AccountSubscribeFrame {
-//!             kind: AccountSubscribeFrameKind::Delta,
-//!             cursor: Some("s1".to_owned()),
-//!             realms: None,
-//!             to_device: None,
-//!             device_lists: None,
-//!             account_data: None,
-//!             presence: None,
-//!             notifications: None,
-//!             partial: None,
-//!             priority: None,
-//!             reconnect_after_ms: None,
-//!         }],
-//!     })
-//! };
-//! assert!(matches!(
-//!     sync_loop.step(&mut transport),
-//!     SyncLoopStep::Updates(_)
-//! ));
-//! # }
-//! # #[cfg(not(all(feature = "full-surface", feature = "sync-runtime")))]
-//! # fn main() {}
-//! ```
-//!
 //! Invalid typed IDs should be constructed with validators, not assigned from
 //! raw strings:
 //!
@@ -103,16 +65,11 @@ compile_error!(
 #[cfg(all(feature = "salvo", not(feature = "server")))]
 compile_error!("feature `salvo` requires `server` (see crates/sdk/Cargo.toml feature graph)");
 #[cfg(all(
-    any(
-        feature = "applet-runtime",
-        feature = "device-runtime",
-        feature = "sync-runtime",
-        feature = "timeline-runtime"
-    ),
+    any(feature = "applet-runtime", feature = "device-runtime"),
     not(feature = "full-surface")
 ))]
 compile_error!(
-    "runtime features (applet/device/sync/timeline) require `full-surface` \
+    "runtime features (applet/device) require `full-surface` \
      (see crates/sdk/Cargo.toml feature graph)"
 );
 
@@ -153,8 +110,6 @@ pub use arkret_state::{snapshot, state, *};
 // re-exports these symbols, but listing them explicitly keeps them
 // visible in `cargo doc` and signals the supported surface to
 // downstream crates that depend only on `arkret` (not `arkret-core`).
-#[cfg(feature = "full-surface")]
-pub mod account;
 pub mod account_data_crypto;
 #[cfg(feature = "full-surface")]
 pub mod agent;
@@ -164,8 +119,6 @@ pub mod applet;
 pub mod auth;
 #[cfg(feature = "full-surface")]
 pub mod authz;
-#[cfg(feature = "full-surface")]
-pub mod base;
 /// Canonical encrypted attachment codec (`ak.blob.stream_aead.v1` /
 /// `ak.blob.whole_file_aead.v1`, `media-and-blob.md` §3.2/§3.3).
 #[cfg(feature = "full-surface")]
@@ -174,8 +127,6 @@ pub mod blob_aead;
 pub mod consent;
 #[cfg(feature = "full-surface")]
 pub mod crypto;
-#[cfg(feature = "full-surface")]
-pub mod crypto_store;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub mod devices;
 #[cfg(feature = "full-surface")]
@@ -241,9 +192,10 @@ pub use arkret_crypto::secret_share;
 // pre-check + cotest fixtures need the spec-normative cell-family
 // registry independently of the higher-level full-surface client
 // runtime.
-pub mod lattice_registry;
+pub use arkret_lattice_registry as lattice_registry;
 #[cfg(feature = "full-surface")]
 pub mod media;
+#[cfg(feature = "full-surface")]
 #[cfg(feature = "full-surface")]
 pub mod membership;
 // The MLS (RFC 9420) behavior layer lives in the standalone `arkret-mls` crate
@@ -258,15 +210,9 @@ pub mod mls_move;
 #[cfg(feature = "full-surface")]
 pub mod platform;
 #[cfg(feature = "full-surface")]
-pub mod presence;
-#[cfg(feature = "full-surface")]
-pub mod profile;
 #[cfg(feature = "full-surface")]
 pub mod push;
 #[cfg(feature = "full-surface")]
-pub mod realm;
-#[cfg(feature = "full-surface")]
-pub mod receipts;
 // State resolution + snapshot runtime now lives in `arkret-state`. This shim
 // keeps the historical `arkret::resolver::*` / `arkret_sdk::resolver::*` paths
 // stable for downstream consumers.
@@ -279,28 +225,14 @@ pub mod search;
 #[cfg(feature = "full-surface")]
 pub mod session_grant;
 #[cfg(feature = "full-surface")]
-pub mod settings;
 #[cfg(feature = "full-surface")]
 pub mod sframe;
 #[cfg(feature = "full-surface")]
 pub mod snapshot_v1;
 #[cfg(feature = "full-surface")]
-pub mod store;
-#[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
-pub mod sync_client;
-#[cfg(all(feature = "full-surface", feature = "timeline-runtime"))]
-pub mod timeline;
-#[cfg(feature = "full-surface")]
-pub mod typing;
-#[cfg(feature = "full-surface")]
 pub mod webrtc;
-
 #[cfg(feature = "full-surface")]
-pub use account::{
-    ACCOUNT_DATA_BLOCKLIST, AccountBlocklistPayload, AccountBlocklistPayloadEntry,
-    AccountBlocklistTarget, AccountDataManager, AccountDataSetPayload, ContactRemark,
-    ContactRemarkSubject, RealmRemark, RealmRemarkSubject,
-};
+#[cfg(feature = "full-surface")]
 #[cfg(feature = "full-surface")]
 pub use agent::{
     AgentPrincipal, AgentRun, AgentRunState, AgentToolAuditAction, AgentToolAuditEntry,
@@ -382,11 +314,6 @@ pub use authz::{
     validate_capability_frontier,
 };
 #[cfg(feature = "full-surface")]
-pub use base::{
-    BaseClient, BootstrapSequence, BootstrapStep, BootstrapStepKind, BootstrapStepStatus,
-    ClientRealm, RealmMembershipState, SessionMeta, SessionRestore,
-};
-#[cfg(feature = "full-surface")]
 pub use blob_aead::{
     ALG_STREAM_XCHACHA, ALG_WHOLE_FILE_XCHACHA, DEFAULT_SEGMENT_SIZE, EncryptedAttachmentEnvelope,
     MAX_SEGMENT_COUNT, MAX_SEGMENT_SIZE, MIN_SEGMENT_SIZE, SCHEME_STREAM, SCHEME_WHOLE_FILE,
@@ -403,13 +330,6 @@ pub use crypto::{
     encrypted_envelope_digest_report, envelope_aad_digest, feature_safety_report,
     is_sensitive_log_key, json_aad_digest, redact_log_value, verify_aead_nonce_derivation,
     verify_aead_sender_nonce, verify_envelope_aad_digest,
-};
-#[cfg(feature = "full-surface")]
-pub use crypto_store::{
-    CRYPTO_STORE_BACKUP_VERSION, CryptoStore, CryptoStoreBackupEnvelope, CryptoStoreKeyRotation,
-    EncryptedMemoryCryptoStore, MemoryCryptoStore, MlsEpochSecretRecord, MlsGroupStateRecord,
-    MlsRecoveryAction, MlsRecoveryPlan, PlatformKeyStoreDescriptor, PlatformKeyStoreKind,
-    StoredDeviceVerification,
 };
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use devices::{
@@ -516,30 +436,10 @@ pub use platform::{
     WebCryptoKeyHandle, WebCryptoOperation,
 };
 #[cfg(feature = "full-surface")]
-pub use presence::{Presence, PresenceManager};
-#[cfg(feature = "full-surface")]
-pub use profile::{
-    DataClassification, ExternalDeviceApprovalMode, PairwiseControlMessage,
-    PairwiseControlMessageKind, ProfileCreateBuilder, ProfileEventKind, ProfileManager,
-    RealmExportManifest, RealmImportValidation, ServiceReplacementPlan, SovereignDeploymentPolicy,
-    TspTrustBinding, UserProfile, validate_realm_import,
-};
-#[cfg(feature = "full-surface")]
 pub use push::{
     CHIME_PUSH_REGISTRATION_VERSION, ChimePushRegistration, DndPeriod, DndSchedule, DndSettings,
     EncryptedPushPayload, PushCondition, PushEventNotification, PushGateway, PushPayload,
     PushPlatform, PushPriority, PushPrivacyPolicy, PushRule, PushRulesConfig, PushToken,
-};
-#[cfg(feature = "full-surface")]
-pub use realm::{
-    BatchCreateMorph, BatchUpdateMorph, GraphTraversal, MorphAggregation, MorphQuery, MorphVersion,
-    MorphVersionDiff, Realm, RelationOperationInput,
-};
-#[cfg(feature = "full-surface")]
-pub use receipts::{
-    ReadReceipt, ReadReceiptDisclosure, ReadReceiptPolicy, ReadReceiptPolicyChildViolation,
-    ReadReceiptPreferences, ReadReceiptVisibility, ReceiptDecision, ReceiptManager, ScopePref,
-    should_send_receipt,
 };
 #[cfg(feature = "full-surface")]
 pub use resolver::{
@@ -564,10 +464,6 @@ pub use server::{
     WireConformanceVector, protocol_golden_vectors, reject_query_auth, wire_negative_vectors,
 };
 #[cfg(feature = "full-surface")]
-pub use settings::{
-    ClientSettings, NotificationPreferences, PrivacySettings, SettingsManager, ThemeSetting,
-};
-#[cfg(feature = "full-surface")]
 pub use sframe::{
     FRAME_KEY_LABEL, FrameKeyContext, MEDIA_KEY_LEN, MlsExporterSource, RECORDING_KEY_LABEL,
     RecordingKeyContext, TRANSCRIPT_KEY_LABEL, TranscriptKeyContext, derive_frame_key,
@@ -578,31 +474,6 @@ pub use snapshot_v1::{
     sign_snapshot_manifest_ed25519, verify_snapshot_manifest as verify_snapshot_manifest_v1,
     verify_snapshot_manifest_signature,
 };
-#[cfg(feature = "full-surface")]
-pub use store::{
-    AccountSessionStore, AuditLogStore, BlobMetadataStore, EventCacheStore, MemoryPersistenceStore,
-    StateSnapshotStore, StoreCache, StoreEncryptionKey, StoredAccountData,
-    rebuild_realm_state_from_events, restore_realm_state_from_persistence,
-};
-#[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
-pub use sync_client::{
-    AsyncSyncTransport, BackoffConfig, BackpressureConfig, BoxSyncFuture, CancellationToken,
-    EphemeralDeviceKeyResolver, EventsSubscribeTransport, ExponentialBackoff, LocalEcho,
-    ProcessedRealm, RealmListChange, RealmListEntry, RealmListFilter, RealmListService,
-    RealmListSnapshot, RealmListSort, SendQueue, SendQueueItem, SendQueueItemKind,
-    SendQueueSnapshot, SendQueueStatus, SlidingSync, SlidingWindow, SyncGapStrategy, SyncLoop,
-    SyncLoopControl, SyncLoopSnapshot, SyncLoopStep, SyncRecoveryAction, SyncResponseProcessor,
-    SyncTransport,
-};
-#[cfg(all(feature = "full-surface", feature = "timeline-runtime"))]
-pub use timeline::{
-    CachedEvent, EventCache, EventCacheInsert, EventCacheUpdate, FocusedTimeline,
-    TimelineDirection, TimelineEvent, TimelineFrom, TimelineGap, TimelineItem, TimelineItemKind,
-    TimelineOptions, TimelineReactionSummary, TimelineReadReceipt, TimelineStore,
-    TimelineTypingUpdate,
-};
-#[cfg(feature = "full-surface")]
-pub use typing::{TypingManager, TypingNotification};
 #[cfg(feature = "full-surface")]
 pub use webrtc::{
     CallSessionDescription, IceCandidate, IceConfig, MediaStateData, MediaTrackSet,

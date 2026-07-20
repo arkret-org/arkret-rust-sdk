@@ -5,6 +5,7 @@
 //! (cross-domain: consumed by governance invite processing and discovery
 //! service descriptions).
 
+pub mod accountability;
 pub mod agent_artifacts;
 pub mod agent_participation;
 pub mod audit;

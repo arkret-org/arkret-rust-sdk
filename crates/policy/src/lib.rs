@@ -7,6 +7,8 @@ pub mod blind_payload_sanitizer;
 pub mod generated;
 pub mod history_visibility;
 pub mod http_params;
+pub mod minimal_metadata_author;
+pub mod minimal_metadata_security;
 pub mod profile_claim;
 pub mod profile_feature_guard;
 pub mod profile_semantics;
@@ -19,6 +21,8 @@ pub mod models {
 
 pub use authz::*;
 pub use http_params::*;
+pub use minimal_metadata_author::*;
+pub use minimal_metadata_security::*;
 pub use profile_claim::{ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator};
 pub use profile_feature_guard::*;
 pub use profile_semantics::*;

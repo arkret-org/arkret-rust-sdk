@@ -1,7 +1,9 @@
+use arkret_models_collaboration::governance::realm_governance::REALM_LINK_ALLOWED_TRANSITIONS;
+use arkret_state::lattice::LatticeKind as SdkLatticeKind;
+use arkret_state::state::{BottomMode, MemoryCellRegistry};
+
 use super::impls::*;
 use super::registry::*;
-use crate::lattice::LatticeKind as SdkLatticeKind;
-use crate::state::{BottomMode, MemoryCellRegistry};
 
 /// Build a [`LatticeRegistry`] pre-populated with every spec-normative
 /// cell family covered by this module. Downstream Move/Seal receive
@@ -272,7 +274,7 @@ pub fn build_sdk_cell_registry() -> MemoryCellRegistry {
     sdk_registry.register_fsm(
         "ak.component.realm.link.v1",
         None,
-        crate::REALM_LINK_ALLOWED_TRANSITIONS
+        REALM_LINK_ALLOWED_TRANSITIONS
             .iter()
             .map(|(from, to)| (json!(from.as_str()), json!(to.as_str())))
             .collect(),

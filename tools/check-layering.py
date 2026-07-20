@@ -84,11 +84,22 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     | {
         "arkret-schema",
         "arkret-models-identity",
+        "arkret-models-crypto",
         "arkret-models-collaboration",
         "arkret-models-integration",
     },
     "arkret-state": _WIRE
     | {"arkret-models-crypto", "arkret-models-collaboration"},
+    "arkret-lattice-registry": _WIRE
+    | {"arkret-models-collaboration", "arkret-schema", "arkret-state"},
+    "arkret-bootstrap": {
+        "arkret-canonical",
+        "arkret-lattice-registry",
+        "arkret-models-collaboration",
+        "arkret-models-identity",
+        "arkret-state",
+        "arkret-wire",
+    },
     # Phase 2-b: signatures behavior signs over data owned by three model
     # crates ("behavior depends on data"): models-identity (service-identity /
     # webvh inception contracts), models-collaboration (realm-organization
@@ -109,6 +120,7 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-models-identity",
         "arkret-models-crypto",
         "arkret-models-collaboration",
+        "arkret-models-integration",
     },
     # arkret-egress-policy carries the outbound SSRF host/IP deny-list
     # classifier (STA-05-001) the did:web / did:webvh resolvers guard fetches
@@ -146,6 +158,7 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-models-identity",
         "arkret-models-crypto",
         "arkret-crypto",
+        "arkret-policy",
         "arkret-signatures",
     },
     # R1 (frozen): keystore owns trait + backends, standalone. Phase 2-b

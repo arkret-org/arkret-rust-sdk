@@ -5,7 +5,6 @@ use arkret_models_crypto::{
 };
 use arkret_wire::{EncryptedPayloadScheme, EventId, Hash};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::group::{ArkretMlsGroup, decode};
 use crate::{MlsError as Error, Result};
@@ -16,12 +15,7 @@ pub struct EncryptedMessage {
     pub payload: EncryptedPayload,
 }
 
-pub fn parse_and_validate_encrypted_envelope(value: Value) -> Result<EncryptedEnvelope> {
-    let envelope: EncryptedEnvelope = serde_json::from_value(value)
-        .map_err(|err| Error::Protocol(format!("encrypted envelope schema: {err}")))?;
-    envelope.validate()?;
-    Ok(envelope)
-}
+pub use arkret_models_crypto::parse_and_validate_encrypted_envelope;
 
 pub fn encrypted_envelope_from_payload(
     payload: &EncryptedPayload,

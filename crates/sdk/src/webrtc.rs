@@ -14,7 +14,6 @@ use serde::{Deserialize, Serialize};
 
 /// SDP description type used by the SDK's WebRTC transport helpers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SdpType {
     Offer,
@@ -22,14 +21,12 @@ pub enum SdpType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CallSessionDescription {
     pub sdp_type: SdpType,
     pub sdp: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IceCandidate {
     pub candidate: String,
     #[serde(skip_serializing_if = "Option::is_none")]

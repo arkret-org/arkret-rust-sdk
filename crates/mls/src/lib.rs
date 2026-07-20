@@ -8,15 +8,19 @@
 //! / [`MlsCommitSource`] ports so it never reaches up into the SDK
 //! `CryptoStore`.
 
-mod author_credential;
 mod error;
 mod group;
 mod identity;
 mod message;
 mod recovery;
-mod security;
 
-pub use author_credential::*;
+pub use arkret_policy::{
+    AuthorGroupStateView, AuthorLeaf, AuthorLeafCredential,
+    MINIMAL_METADATA_MAX_EPOCH_LIFETIME_SECS, MINIMAL_METADATA_REALM_PROFILE,
+    MinimalMetadataAuthorClaim, MinimalMetadataAuthorError, MinimalMetadataAuthorViolation,
+    VerifiedAuthorLeaf, enforce_minimal_metadata_aad, minimal_metadata_epoch_overdue,
+    minimal_metadata_max_epoch_lifetime, verify_minimal_metadata_author,
+};
 pub use error::MlsError;
 // `Result` stays crate-internal: re-exporting a `Result` alias from the crate
 // root would collide with the umbrella's `arkret_core::Result` under
@@ -27,7 +31,6 @@ pub use group::*;
 pub use identity::*;
 pub use message::*;
 pub use recovery::*;
-pub use security::*;
 
 // The persistence ports the MLS layer inverts on live in `arkret-models-crypto`
 // (OpenMLS-free) so binding them in the SDK `CryptoStore` supertrait drags no
