@@ -131,7 +131,10 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
     }
 
     pub fn public_key_digest(&self) -> Result<Hash> {
-        agent_runtime_public_key_digest(&self.public_key()?)
+        // `agent_runtime_public_key_digest` moved to arkret-signatures
+        // (core-retirement batch 2) and now returns `signatures::Error`;
+        // coerce it into the SDK facade error via `?`.
+        Ok(agent_runtime_public_key_digest(&self.public_key()?)?)
     }
 
     pub fn build_approval_request(

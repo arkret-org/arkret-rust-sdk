@@ -11,12 +11,14 @@
 
 pub mod cursor;
 pub mod generator;
+pub mod sync_tracker;
 
 pub use cursor::{
     CURSOR_HANDLE_MIN_LEN, Cursor, CursorPurpose, RealmSyncPosition, SyncPositions,
     generate_cursor_handle,
 };
 pub use generator::HlcGenerator;
+pub use sync_tracker::SyncTracker;
 
 /// Result alias for this crate's fallible generator and cursor operations.
 pub type Result<T> = std::result::Result<T, HlcError>;
