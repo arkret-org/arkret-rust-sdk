@@ -39,6 +39,7 @@ pub mod patch;
 pub mod plaintext;
 pub mod primitives;
 pub mod problem_details;
+pub mod query_auth;
 pub mod receive_policy;
 pub mod seal;
 pub mod service_type;
@@ -73,6 +74,9 @@ pub use patch::*;
 pub use plaintext::PlaintextDataClassKind;
 pub use primitives::{proof_kind, *};
 pub use problem_details::*;
+pub use query_auth::{
+    QUERY_AUTH_PARAMETER_NAMES, contains_query_auth_material, is_query_auth_parameter,
+};
 pub use receive_policy::*;
 pub use seal::{
     MultiSigKind, MultiSignature, NotarySig, SEAL_SIGNATURE_ALGS, Seal, SealKind, ThresholdSigKind,
