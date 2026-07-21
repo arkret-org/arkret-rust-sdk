@@ -1133,6 +1133,10 @@ pub struct DirectConversationMaterializationDraft {
     pub peer_member_event: Event,
     pub main_strand_event: Event,
     pub binding_event: Event,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
 }
 

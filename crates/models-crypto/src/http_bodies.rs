@@ -109,6 +109,10 @@ pub struct PeerKeyPackageRequesterAuthorization {
     pub ssk_generation: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_authorize_event_id: Option<NonEmptyString>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub signed_at: DateTime<Utc>,
     pub signature: KeyOperationSignature,
 }
@@ -125,6 +129,10 @@ pub struct PeerKeyPackagesClaimUnsignedRequest {
     pub claim_purpose: PeerKeyPackageClaimPurpose,
     pub required_capabilities: Vec<NonEmptyString>,
     pub claim_nonce: Base64UrlString,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub target_device_ids: Vec<DeviceId>,
@@ -170,6 +178,10 @@ pub struct PeerKeyPackagesClaimRequestBody {
     pub claim_purpose: PeerKeyPackageClaimPurpose,
     pub required_capabilities: Vec<NonEmptyString>,
     pub claim_nonce: Base64UrlString,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub target_device_ids: Vec<DeviceId>,
@@ -258,7 +270,15 @@ pub struct PeerKeyPackageClaimReceipt {
     pub source_service_id: Did,
     pub destination_service_id: Did,
     pub request: PeerKeyPackagesClaimUnsignedRequest,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub claimed_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     pub signature: KeyOperationSignature,
 }
@@ -467,6 +487,7 @@ struct PeerKeyPackageAuthorizationMetadata<'a> {
     ssk_generation: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     device_authorize_event_id: Option<&'a NonEmptyString>,
+    #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     signed_at: DateTime<Utc>,
 }
 
@@ -499,7 +520,9 @@ struct PeerKeyPackageClaimReceiptUnsigned<'a> {
     source_service_id: &'a Did,
     destination_service_id: &'a Did,
     request: &'a PeerKeyPackagesClaimUnsignedRequest,
+    #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     claimed_at: DateTime<Utc>,
+    #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     expires_at: DateTime<Utc>,
 }
 
