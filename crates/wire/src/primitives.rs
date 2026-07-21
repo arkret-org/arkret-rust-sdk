@@ -960,8 +960,8 @@ pub struct Proof {
     pub verification_method: String,
     pub event_digest: Hash,
     #[serde(
-        serialize_with = "crate::serde_helpers::serialize_canonical_timestamp_millis",
-        deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp_millis"
+        serialize_with = "crate::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp"
     )]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1195,9 +1195,7 @@ impl Proof {
         );
         obj.insert(
             "created_at".to_owned(),
-            Value::String(canonical::format_timestamp_millis_canonical(
-                self.created_at,
-            )),
+            Value::String(canonical::format_timestamp_canonical(self.created_at)),
         );
         if let Some(domain) = &self.domain {
             obj.insert("domain".to_owned(), Value::String(domain.clone()));
@@ -1370,6 +1368,10 @@ pub struct FactChainEcho {
     pub commit_digest: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub previous_echo_hash: Option<Hash>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub observed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proofs: Vec<Proof>,
@@ -1422,6 +1424,10 @@ pub struct SignatureBindingPayload {
     pub payload_digest: Hash,
     pub actor_id: Did,
     pub verification_method: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,

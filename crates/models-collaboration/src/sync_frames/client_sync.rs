@@ -368,6 +368,10 @@ pub struct SyncTokenBinding {
     #[serde(default)]
     pub positions: Vec<SyncStreamPosition>,
     /// Expiry time for the token.
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
 }
 
@@ -619,6 +623,10 @@ pub struct ToDeviceAck {
     /// Acknowledgement status.
     pub status: ToDeviceAckStatus,
     /// Client acknowledgement time.
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub acknowledged_at: DateTime<Utc>,
 }
 

@@ -472,6 +472,10 @@ pub struct ServiceRegistrationReceipt {
     pub version_id: String,
     pub log_head_digest: String,
     pub control_key_digest: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
     pub provider_service_id: Did,
     pub proof: ServiceWebvhDataIntegrityProof,
@@ -487,7 +491,7 @@ impl ServiceRegistrationReceipt {
             "version_id": &self.version_id,
             "log_head_digest": &self.log_head_digest,
             "control_key_digest": &self.control_key_digest,
-            "issued_at": self.issued_at,
+            "issued_at": canonical::format_timestamp_canonical(self.issued_at),
             "provider_service_id": &self.provider_service_id,
         });
         let digest = sha256_canonical(&claims)?;

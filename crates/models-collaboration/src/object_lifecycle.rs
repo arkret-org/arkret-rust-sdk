@@ -18,6 +18,10 @@ pub struct SpaceStateTransitionPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub effective_at: Option<DateTime<Utc>>,
 }
 
@@ -34,6 +38,10 @@ pub struct SpaceObjectTombstonePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replacement_event: Option<EventRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub effective_at: Option<DateTime<Utc>>,
 }
 

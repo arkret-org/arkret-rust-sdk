@@ -58,8 +58,16 @@ pub struct AccountabilityGrantPayload {
     pub issuer: Did,
     pub subject: Did,
     pub accountability_scope: AccountabilityScope,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub not_before: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     pub grant_status: AccountabilityGrantStatus,
     pub proof: PayloadProof,

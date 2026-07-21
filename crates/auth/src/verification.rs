@@ -23,6 +23,10 @@ pub struct AuthRateLimitContext {
     pub user_id: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub now: DateTime<Utc>,
 }
 
@@ -110,6 +114,10 @@ pub struct OidcVerifiedIdentity {
     pub subject: String,
     pub email: Option<String>,
     pub email_verified: bool,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
 }
 
@@ -145,6 +153,10 @@ pub struct PasskeyVerificationRequestBody {
     pub response: WebAuthnPasskeyOutcome,
     pub origin: String,
     pub relying_party_id: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub now: DateTime<Utc>,
 }
 

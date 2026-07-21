@@ -43,6 +43,10 @@ pub struct ContentMappingReceipt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub arkret_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub accepted_at: Option<DateTime<Utc>>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,

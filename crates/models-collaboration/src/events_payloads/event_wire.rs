@@ -75,6 +75,10 @@ pub struct VerificationStub {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub legal_hold_ref: Option<LegalHoldRef>,
     pub receipt_id: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub completed_at: DateTime<Utc>,
 }
 
@@ -134,17 +138,33 @@ pub struct Message {
     pub encrypted_metadata: Option<EncryptedEnvelope>,
     pub state: MessageLifecycleState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub state_changed_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revision_root: Option<MessageId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub edited_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub redaction_ref: Option<EventId>,
     pub created_by: Did,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub updated_by: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub updated_at: Option<DateTime<Utc>>,
 }

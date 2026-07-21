@@ -19,7 +19,15 @@ pub struct ParticipantBinding {
     pub actor_id: Did,
     pub device_id: String,
     pub participant_identity: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     pub issuer_kid: Did,
     pub sig: String,
@@ -42,6 +50,10 @@ pub struct CallParticipant {
     pub actor_id: Did,
     pub device_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub joined_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub foci_preferred: Option<Vec<String>>,
@@ -59,6 +71,10 @@ pub struct RemovedCallParticipant {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<String>,
     pub action: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub removed_at: DateTime<Utc>,
 }
 
@@ -71,6 +87,10 @@ pub struct ParticipantMuteOverride {
     pub audio_muted: bool,
     pub video_muted: bool,
     pub muted_by: Did,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub muted_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -253,6 +273,10 @@ pub struct CallRecordingEncryption {
 #[serde(deny_unknown_fields)]
 pub struct CallRecordingRetention {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub retention_expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deletion_trigger: Option<CallRecordingDeletionTrigger>,
@@ -271,8 +295,16 @@ pub struct CallRecordingDeletionAudit {
     pub requested_by: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trigger_event_id: Option<EventId>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub requested_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub completed_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub erasure_receipt_ref: Option<String>,
@@ -304,6 +336,10 @@ pub struct CallRecordingArtifact {
     pub retention: CallRecordingRetention,
     pub produced_by: Did,
     pub recording_initiator_capability_ref: GrantId,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deletion_audit: Option<CallRecordingDeletionAudit>,
@@ -743,7 +779,7 @@ mod tests {
             "removed_participants": [{
                 "actor_id": "did:webvh:z6mkfixture:bob.example",
                 "action": "ban",
-                "removed_at": "2026-06-22T00:00:00Z"
+                "removed_at": "2026-06-22T00:00:00.000Z"
             }]
         });
         let payload: CallStatePayload = serde_json::from_value(value).unwrap();
@@ -774,7 +810,7 @@ mod tests {
                 "audio_muted": true,
                 "video_muted": false,
                 "muted_by": "did:webvh:z6mkfixture:mod.example",
-                "muted_at": "2026-06-22T00:00:00Z",
+                "muted_at": "2026-06-22T00:00:00.000Z",
                 "reason": "moderation"
             }]
         });

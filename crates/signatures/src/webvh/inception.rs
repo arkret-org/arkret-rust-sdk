@@ -1887,7 +1887,7 @@ mod tests {
             principal_endpoint: &endpoint,
             local_id: "01krmccd3cehqbtvzg383m3maf",
             also_known_as: &["acct:user@local.host".to_owned()],
-            version_time: DateTime::parse_from_rfc3339("2026-05-15T00:00:00Z")
+            version_time: DateTime::parse_from_rfc3339("2026-05-15T00:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
             root_seed: &root_seed,
@@ -1990,7 +1990,7 @@ mod tests {
             Some("did:web:coauth.example.com")
         );
 
-        let issued_at = DateTime::parse_from_rfc3339("2026-05-15T00:01:00Z")
+        let issued_at = DateTime::parse_from_rfc3339("2026-05-15T00:01:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
         let mut proof = IdentityCreationControlProof {
@@ -2140,7 +2140,7 @@ mod tests {
             did: &genesis.did,
             local_id: &genesis.local_id,
             previous_entries: std::slice::from_ref(&genesis.log_entry),
-            version_time: DateTime::parse_from_rfc3339("2026-05-16T00:00:00Z")
+            version_time: DateTime::parse_from_rfc3339("2026-05-16T00:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
             current_root_seed: &[2; SECRET_KEY_LENGTH],
@@ -2202,7 +2202,7 @@ mod tests {
             did: &genesis.did,
             local_id: &genesis.local_id,
             previous_entries: std::slice::from_ref(&genesis.log_entry),
-            version_time: DateTime::parse_from_rfc3339("2026-05-16T00:00:00Z")
+            version_time: DateTime::parse_from_rfc3339("2026-05-16T00:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
             current_root_seed: &[2; SECRET_KEY_LENGTH],
@@ -2216,7 +2216,7 @@ mod tests {
             did: &genesis.did,
             local_id: &genesis.local_id,
             previous_entries: &history,
-            version_time: DateTime::parse_from_rfc3339("2026-05-17T00:00:00Z")
+            version_time: DateTime::parse_from_rfc3339("2026-05-17T00:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
             current_root_seed: &[3; SECRET_KEY_LENGTH],
@@ -2341,7 +2341,7 @@ mod tests {
             principal_endpoint: &endpoint,
             local_id: "service",
             also_known_as: &[],
-            version_time: DateTime::parse_from_rfc3339("2026-07-05T00:00:00Z")
+            version_time: DateTime::parse_from_rfc3339("2026-07-05T00:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
             did_key_fragment: None,
@@ -2401,7 +2401,7 @@ mod tests {
                 provider_endpoint: &provider_endpoint,
                 registration_key: &registration_key,
                 also_known_as: &[],
-                version_time: DateTime::parse_from_rfc3339("2026-07-15T00:00:00Z")
+                version_time: DateTime::parse_from_rfc3339("2026-07-15T00:00:00.000Z")
                     .unwrap()
                     .with_timezone(&Utc),
                 did_key_fragment: None,
@@ -2430,7 +2430,7 @@ mod tests {
             principal_endpoint: &endpoint,
             local_id: "service",
             also_known_as: &[],
-            version_time: DateTime::parse_from_rfc3339("2026-07-05T00:00:00Z")
+            version_time: DateTime::parse_from_rfc3339("2026-07-05T00:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
             did_key_fragment: Some("notary-key"),

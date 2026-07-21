@@ -108,7 +108,7 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
     let prelim_state = json!({ "id": "did:webvh:{SCID}:starid.example.com:users:alice" });
     let prelim_entry1 = json!({
         "versionId": "{SCID}",
-        "versionTime": "2026-05-06T00:00:00Z",
+        "versionTime": "2026-05-06T00:00:00.000Z",
         "parameters": {
             "method": "did:webvh:1.0",
             "scid": "{SCID}",
@@ -124,7 +124,7 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
     // versionId hash for entry 1 commits to body with versionId = scid.
     let mut entry1_body = json!({
         "versionId": scid,
-        "versionTime": "2026-05-06T00:00:00Z",
+        "versionTime": "2026-05-06T00:00:00.000Z",
         "parameters": {
             "method": "did:webvh:1.0",
             "scid": scid,
@@ -145,7 +145,7 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
     // The controller proof is signed by the current key2, never key1. -----
     let mut entry2_body = json!({
         "versionId": version1,
-        "versionTime": "2026-05-07T00:00:00Z",
+        "versionTime": "2026-05-07T00:00:00.000Z",
         "parameters": {
             "method": "did:webvh:1.0",
             "scid": scid,
@@ -229,7 +229,7 @@ fn canonical_principal_builders_produce_a_verified_rotation_chain() {
         principal_endpoint: &endpoint,
         local_id: "alice",
         also_known_as: &[],
-        version_time: DateTime::parse_from_rfc3339("2026-05-06T00:00:00Z")
+        version_time: DateTime::parse_from_rfc3339("2026-05-06T00:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc),
         root_seed: &root_seed,
@@ -243,7 +243,7 @@ fn canonical_principal_builders_produce_a_verified_rotation_chain() {
         did: &inception.did,
         local_id: &inception.local_id,
         previous_entries: std::slice::from_ref(&inception.log_entry),
-        version_time: DateTime::parse_from_rfc3339("2026-05-07T00:00:00Z")
+        version_time: DateTime::parse_from_rfc3339("2026-05-07T00:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc),
         current_root_seed: &current_seed,
@@ -386,7 +386,7 @@ fn webvh_rejects_unauthorized_key_rotation() {
 
     let prelim_entry1 = json!({
         "versionId": "{SCID}",
-        "versionTime": "2026-05-06T00:00:00Z",
+        "versionTime": "2026-05-06T00:00:00.000Z",
         "parameters": {
             "method": "did:webvh:1.0",
             "scid": "{SCID}",
@@ -401,7 +401,7 @@ fn webvh_rejects_unauthorized_key_rotation() {
 
     let mut e1 = json!({
         "versionId": scid,
-        "versionTime": "2026-05-06T00:00:00Z",
+        "versionTime": "2026-05-06T00:00:00.000Z",
         "parameters": {
             "method": "did:webvh:1.0",
             "scid": scid,
@@ -418,7 +418,7 @@ fn webvh_rejects_unauthorized_key_rotation() {
 
     let mut e2 = json!({
         "versionId": v1,
-        "versionTime": "2026-05-07T00:00:00Z",
+        "versionTime": "2026-05-07T00:00:00.000Z",
         "parameters": { "method": "did:webvh:1.0", "scid": scid, "updateKeys": [update2] },
         "state": state,
     });
@@ -1163,7 +1163,7 @@ fn pairwise_did_store_insert_resolve_and_purge() {
     // Expired binding is invalid
     let pairwise2 = pairwise_did("pairwisealicebobx");
     let expired = PairwiseDidBinding::new(pairwise2.clone(), alice, bob, Some("x".to_owned()))
-        .with_expiry("2020-01-01T00:00:00Z".parse().unwrap());
+        .with_expiry("2020-01-01T00:00:00.000Z".parse().unwrap());
     store.insert(expired).unwrap();
     assert!(!store.is_valid(&pairwise2));
 

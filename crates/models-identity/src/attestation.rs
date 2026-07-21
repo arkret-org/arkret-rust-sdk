@@ -27,6 +27,10 @@ pub struct AttestationChainItem {
 
     pub bytes_b64u: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub issued_at: Option<DateTime<Utc>>,
 }
 /// Platform family identifier for attestation evidence.
@@ -83,8 +87,16 @@ pub struct AttestationKey {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AttestationValidity {
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub not_before: DateTime<Utc>,
 
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
 }
 /// Revocation check method for the attestation chain.
@@ -110,8 +122,16 @@ pub struct AttestationRevocation {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub endpoint: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub last_checked_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub next_check_before: Option<DateTime<Utc>>,
 }
 /// Audit purpose declared by this attestation evidence.
@@ -166,6 +186,10 @@ pub struct AttestationEvidence {
 
     pub audit_policy_version_digest: Hash,
 
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
 
     pub proofs: Vec<Proof>,

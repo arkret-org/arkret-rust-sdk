@@ -118,6 +118,11 @@ pub struct RateLimitMetadata {
     pub limit: u64,
     pub remaining: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub reset_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,

@@ -61,6 +61,10 @@ pub struct LocalServiceIdentity {
     pub active_signing_key_ref: ServiceIdentityKeyRef,
     pub control_key_ref: ServiceIdentityKeyRef,
     pub version_id: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub last_verified_at: DateTime<Utc>,
 }
 
@@ -84,6 +88,10 @@ pub struct StoredServiceIdentity {
     pub identity: LocalServiceIdentity,
     pub did_document: ServiceDidDocument,
     pub registration_receipt: ServiceRegistrationReceipt,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub stored_at: DateTime<Utc>,
 }
 
@@ -113,6 +121,10 @@ pub struct ServiceIdentityBundle {
     pub identity: StoredServiceIdentity,
     pub webvh_history: Vec<ServiceWebvhInceptionOperation>,
     pub receipt_chain: Vec<ServiceRegistrationReceipt>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub exported_at: DateTime<Utc>,
 }
 
@@ -173,11 +185,19 @@ pub enum ServiceIdentityState {
     },
     DegradedStored {
         identity: LocalServiceIdentity,
+        #[serde(
+            serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+            deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+        )]
         retry_at: DateTime<Utc>,
         last_error: String,
     },
     WaitingProvider {
         registration_key: ServiceRegistrationKey,
+        #[serde(
+            serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+            deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+        )]
         retry_at: DateTime<Utc>,
     },
     RegistrationKeyDrift {
@@ -270,8 +290,16 @@ pub struct ResolvedService {
     pub service_type: ServiceType,
     pub endpoint: CanonicalServiceUrl,
     pub supported_operations: Vec<String>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub resolved_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
 }
 
@@ -465,7 +493,7 @@ mod tests {
         let signing_id = format!("{did}#did-key-1");
         ServiceWebvhInceptionOperation {
             version_id: "1-QmVersion".to_owned(),
-            version_time: "2026-07-15T00:00:00Z".parse().unwrap(),
+            version_time: "2026-07-15T00:00:00.000Z".parse().unwrap(),
             parameters: ServiceWebvhInceptionParameters {
                 scid: "QmScid".to_owned(),
                 method: "did:webvh:1.0".to_owned(),
@@ -511,7 +539,7 @@ mod tests {
             version_id: operation.version_id.clone(),
             log_head_digest: operation.log_head_digest().unwrap(),
             control_key_digest: operation.control_key_digest().unwrap(),
-            issued_at: "2026-07-15T00:00:01Z".parse().unwrap(),
+            issued_at: "2026-07-15T00:00:01.000Z".parse().unwrap(),
             provider_service_id: provider_service_id.clone(),
             proof: ServiceWebvhDataIntegrityProof {
                 proof_type: "DataIntegrityProof".to_owned(),
@@ -540,11 +568,11 @@ mod tests {
                 active_signing_key_ref: ServiceIdentityKeyRef::new("signing-key").unwrap(),
                 control_key_ref: ServiceIdentityKeyRef::new("control-key").unwrap(),
                 version_id: operation.version_id.clone(),
-                last_verified_at: "2026-07-15T00:00:01Z".parse().unwrap(),
+                last_verified_at: "2026-07-15T00:00:01.000Z".parse().unwrap(),
             },
             did_document: operation.state,
             registration_receipt: receipt,
-            stored_at: "2026-07-15T00:00:01Z".parse().unwrap(),
+            stored_at: "2026-07-15T00:00:01.000Z".parse().unwrap(),
         }
     }
 
@@ -647,7 +675,7 @@ mod tests {
             receipt_chain: vec![stored.registration_receipt.clone()],
             identity: stored,
             webvh_history: vec![operation],
-            exported_at: "2026-07-15T00:00:02Z".parse().unwrap(),
+            exported_at: "2026-07-15T00:00:02.000Z".parse().unwrap(),
         };
         let backend = KeyStoreIdentityBundleBackend::new(
             Arc::new(InMemoryKeyStore::new()),
@@ -663,7 +691,7 @@ mod tests {
     #[test]
     fn degraded_stored_runs_but_cannot_mutate_identity() {
         let identity = stored_identity().identity;
-        let retry_at: DateTime<Utc> = "2026-07-15T00:05:00Z".parse().unwrap();
+        let retry_at: DateTime<Utc> = "2026-07-15T00:05:00.000Z".parse().unwrap();
         let state = ServiceIdentityState::DegradedStored {
             identity,
             retry_at,
@@ -674,7 +702,7 @@ mod tests {
         state.validate().unwrap();
         assert_eq!(
             serde_json::to_value(&state).unwrap()["retry_at"],
-            "2026-07-15T00:05:00Z"
+            "2026-07-15T00:05:00.000Z"
         );
     }
 

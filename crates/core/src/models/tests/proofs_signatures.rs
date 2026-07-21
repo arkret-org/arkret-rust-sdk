@@ -15,7 +15,7 @@ fn valid_proof() -> Proof {
             "sha256:0000000000000000000000000000000000000000000000000000000000000000",
         )
         .unwrap(),
-        created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+        created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
         domain: None,
         audience: None,
         jws: "header.payload.signature".to_owned(),
@@ -464,7 +464,7 @@ fn proof_validate_binding_rejects_excessive_time_drift() {
     let proof = valid_proof();
     let mut expected =
         proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
-    expected.created_at = "2026-04-26T01:00:00Z".parse().unwrap();
+    expected.created_at = "2026-04-26T01:00:00.000Z".parse().unwrap();
     assert!(proof.validate_binding(&expected).is_err());
 }
 

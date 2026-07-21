@@ -54,6 +54,7 @@ pub struct CrossSigningResetPayload {
     revoked_device_ids: Option<Vec<DeviceId>>,
     #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     proof: CrossSigningResetProof,
+    #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     issued_at: DateTime<Utc>,
 }
 
@@ -70,6 +71,7 @@ struct CrossSigningResetPayloadWire {
     #[serde(default)]
     revoked_device_ids: Option<Vec<DeviceId>>,
     proof: CrossSigningResetProof,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     issued_at: DateTime<Utc>,
 }
 
@@ -379,7 +381,7 @@ mod tests {
                 "alg": "EdDSA",
                 "signature": "AAAA"
             },
-            "issued_at": "2026-05-30T00:00:00Z"
+            "issued_at": "2026-05-30T00:00:00.000Z"
         })
     }
 

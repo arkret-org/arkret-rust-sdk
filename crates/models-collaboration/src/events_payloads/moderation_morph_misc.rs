@@ -21,6 +21,10 @@ pub struct ModerationDecisionLiftPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub effective_at: Option<DateTime<Utc>>,
 }
 
@@ -44,6 +48,10 @@ pub struct ModerationDecisionPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub modify_decision_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub effective_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<NullableTimestamp>,

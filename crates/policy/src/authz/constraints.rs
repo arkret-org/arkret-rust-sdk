@@ -91,8 +91,16 @@ pub enum Constraint {
     /// Temporal constraint
     Temporal {
         #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(
+            serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+            deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+        )]
         not_before: Option<DateTime<Utc>>,
         #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(
+            serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+            deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+        )]
         expires_at: Option<DateTime<Utc>>,
         #[serde(skip_serializing_if = "Option::is_none")]
         recurrence: Option<Recurrence>,
@@ -714,12 +722,28 @@ pub struct VerifiedClaim {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub roles: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub issued_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub revoked_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub refreshed_at: Option<DateTime<Utc>>,
 }
 
@@ -892,7 +916,7 @@ mod constraint_parse_error_tests {
     #[test]
     fn recurrence_allows_outside_window_returns_outside_window_variant() {
         // 02:00 UTC on a Wednesday is outside a 09:00-17:00 UTC window.
-        let now = "2026-04-29T02:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        let now = "2026-04-29T02:00:00.000Z".parse::<DateTime<Utc>>().unwrap();
         let recurrence = Recurrence {
             frequency: Some("daily".to_owned()),
             days: None,
@@ -908,7 +932,7 @@ mod constraint_parse_error_tests {
     #[test]
     fn recurrence_allows_outside_days_returns_outside_recurrence_days_variant() {
         // 2026-04-29 is a Wednesday; allow-list only Monday.
-        let now = "2026-04-29T12:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        let now = "2026-04-29T12:00:00.000Z".parse::<DateTime<Utc>>().unwrap();
         let recurrence = Recurrence {
             frequency: Some("weekly".to_owned()),
             days: Some(vec!["mon".to_owned()]),

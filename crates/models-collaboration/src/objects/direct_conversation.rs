@@ -427,7 +427,7 @@ mod tests {
             trust_domain(),
             NotaryProfile::SingleDid,
             NotaryValue::single_did(creator),
-            DateTime::parse_from_rfc3339("2026-07-21T00:00:00Z")
+            DateTime::parse_from_rfc3339("2026-07-21T00:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
         );
@@ -467,7 +467,7 @@ mod tests {
             contact_refs: vec![event_id("301")],
             member_event_refs: vec![event_id("302"), event_id("303")],
             main_strand_create_ref: event_id("304"),
-            created_at: DateTime::parse_from_rfc3339("2026-07-21T00:00:00Z")
+            created_at: DateTime::parse_from_rfc3339("2026-07-21T00:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
             supersedes_binding_ref,

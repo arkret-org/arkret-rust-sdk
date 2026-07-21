@@ -159,6 +159,7 @@ pub struct CrossSigningPublish {
     #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = u64)))]
     pub generation: NonZeroU64,
     pub expected_previous_generation: u64,
+    #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
 }
 
@@ -172,6 +173,7 @@ struct CrossSigningPublishWire {
     user_signing_key: SubordinateSignedKey,
     generation: NonZeroU64,
     expected_previous_generation: u64,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     issued_at: DateTime<Utc>,
 }
 
@@ -489,7 +491,7 @@ mod tests {
             },
             "generation": 1,
             "expected_previous_generation": 0,
-            "issued_at": "2026-07-14T00:00:00Z"
+            "issued_at": "2026-07-14T00:00:00.000Z"
         })
     }
 
@@ -534,14 +536,14 @@ mod tests {
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "registry_service_id": "did:webvh:z6mkfixture:registry.example",
             "witness_role": "writer",
-            "created_at": "2026-07-15T00:00:00Z",
+            "created_at": "2026-07-15T00:00:00.000Z",
             "signature": {
                 "kind": "detached_jws",
                 "alg": "EdDSA",
                 "verification_method": "did:webvh:z6mkfixture:registry.example#service-key",
                 "payload_digest":
                     "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-                "created_at": "2026-07-15T00:00:00Z",
+                "created_at": "2026-07-15T00:00:00.000Z",
                 "jws": "a..b"
             }
         });
@@ -568,14 +570,14 @@ mod tests {
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "registry_service_id": "did:webvh:z6mkfixture:registry.example",
             "witness_role": "writer",
-            "created_at": "2026-07-15T00:00:00Z",
+            "created_at": "2026-07-15T00:00:00.000Z",
             "signature": {
                 "kind": "detached_jws",
                 "alg": "EdDSA",
                 "verification_method": "did:webvh:z6mkfixture:registry.example#service-key",
                 "payload_digest":
                     "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-                "created_at": "2026-07-15T00:00:00Z",
+                "created_at": "2026-07-15T00:00:00.000Z",
                 "jws": "a..b"
             }
         }))
@@ -591,7 +593,7 @@ mod tests {
         );
         assert_eq!(binding["did"], receipt.did.as_str());
 
-        receipt.signature.created_at = "2026-07-15T00:00:01Z".parse().unwrap();
+        receipt.signature.created_at = "2026-07-15T00:00:01.000Z".parse().unwrap();
         assert!(receipt.validate_proof_binding().is_err());
     }
 }
@@ -648,8 +650,16 @@ pub struct KeyVerificationContent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub method: Option<ProtocolKind>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub timestamp: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub purpose: Option<KeyVerificationPurpose>,

@@ -46,6 +46,10 @@ pub struct ThirdPartyIdentifierBinding {
     pub did: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proofs: Vec<Proof>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub bound_at: DateTime<Utc>,
 }
 

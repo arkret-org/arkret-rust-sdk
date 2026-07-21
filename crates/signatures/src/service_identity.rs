@@ -104,7 +104,7 @@ mod tests {
             version_id: "1-QmVersion".to_owned(),
             log_head_digest: format!("sha256:{}", "a".repeat(64)),
             control_key_digest: format!("sha256:{}", "b".repeat(64)),
-            issued_at: "2026-07-15T00:00:01Z".parse().unwrap(),
+            issued_at: "2026-07-15T00:00:01.000Z".parse().unwrap(),
             provider_service_id: provider_service_id.clone(),
             proof: ServiceWebvhDataIntegrityProof {
                 proof_type: "DataIntegrityProof".to_owned(),

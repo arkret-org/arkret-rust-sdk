@@ -102,7 +102,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
             "capabilities": ["ak.mls.profile.full"],
             "capabilities_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             "ssk_generation": 3,
-            "expires_at": "2100-01-01T00:00:00Z",
+            "expires_at": "2100-01-01T00:00:00.000Z",
             "device_signature": {
                 "kid": "did:webvh:z6mkfixture:alice.example#ak:device:01904100-0000-7000-8000-000000000001",
                 "alg": "EdDSA",
@@ -133,7 +133,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
             "capabilities": ["ak.mls.profile.full"],
             "capabilities_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             "ssk_generation": 3,
-            "expires_at": "2100-01-01T00:00:00Z",
+            "expires_at": "2100-01-01T00:00:00.000Z",
             "device_signature": {"kid": "did:webvh:z6mkfixture:alice.example#device", "sig": "c2ln"},
             "unexpected": true
         }]

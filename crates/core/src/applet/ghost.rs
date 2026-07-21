@@ -41,10 +41,18 @@ pub struct GhostActorProfileRequest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub accountable_principal_ids: Vec<Did>,
     pub profile_fields: GhostActorProfileFields,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub updated_at: Option<DateTime<Utc>>,
 }
 

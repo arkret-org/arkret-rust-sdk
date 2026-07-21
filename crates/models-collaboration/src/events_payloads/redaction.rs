@@ -44,7 +44,10 @@ pub fn redaction_tombstone_message_value(
     strip_redaction_derived_fields(object);
     object.insert("redacted".to_owned(), json!(true));
     object.insert("state".to_owned(), json!(REDACTED_MESSAGE_STATE));
-    object.insert("redacted_at".to_owned(), json!(redacted_at.to_rfc3339()));
+    object.insert(
+        "redacted_at".to_owned(),
+        json!(arkret_canonical::format_timestamp_canonical(redacted_at)),
+    );
     if let Some(redaction_ref) = redaction_ref
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -107,13 +110,13 @@ mod tests {
             "message_id": "ak:message:01970e58-0004-7000-8000-0000000005a1",
             "realm_id": "ak:realm:01970e58-0004-7000-8000-000000000001",
             "sender": "did:webvh:z6mkfixture:bob.example",
-            "created_at": "2026-04-26T00:00:00Z",
+            "created_at": "2026-04-26T00:00:00.000Z",
             "content": {"kind": "ak.content.text", "body": "secret"},
             "reactions": [{"actor": "did:webvh:z6mkfixture:alice.example", "key": "+1"}],
             "reply_to": "ak:event:01970e58-0004-7000-8000-0000000005a0",
             "mentions": [{"actor_id": "did:webvh:z6mkfixture:alice.example"}],
         });
-        let redacted_at = DateTime::parse_from_rfc3339("2026-04-26T00:05:00Z")
+        let redacted_at = DateTime::parse_from_rfc3339("2026-04-26T00:05:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
 
@@ -141,7 +144,7 @@ mod tests {
         assert!(event.get("reactions").is_none());
         assert!(event.get("reply_to").is_none());
         assert!(event.get("mentions").is_none());
-        assert_eq!(event["created_at"], json!("2026-04-26T00:00:00Z"));
+        assert_eq!(event["created_at"], json!("2026-04-26T00:00:00.000Z"));
     }
 
     #[test]

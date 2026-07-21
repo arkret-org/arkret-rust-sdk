@@ -284,6 +284,7 @@ struct ParticipantBindingSigningFields<'a> {
     actor_id: &'a Did,
     call_id: &'a CallId,
     device_id: &'a DeviceId,
+    #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     expires_at: DateTime<Utc>,
     focus_id: &'a str,
     participant_identity: &'a str,
@@ -520,6 +521,10 @@ pub struct MediaMetadata {
     /// Uploading user.
     pub uploaded_by: Did,
     /// Upload time.
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub uploaded_at: DateTime<Utc>,
     /// Realm seal for download authorization and GC (B-23,
     /// `media-and-blob.md` §2). `None` only for global blobs.
@@ -603,7 +608,15 @@ pub struct AuthenticatedDownloadGrant {
     pub subject: Did,
     pub issuer: Did,
     pub scope: DownloadGrantScope,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     pub max_uses: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]

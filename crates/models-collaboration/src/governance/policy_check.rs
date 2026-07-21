@@ -107,12 +107,20 @@ pub struct PolicyCheckOutcome {
     pub bound_to: PolicyCheckBoundTo,
     pub reason_code: String,
     pub freshness_state: FreshnessState,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     pub auth_state_digest: Hash,
     pub policy_frontier_digest: Hash,
     pub membership_frontier_digest: Hash,
     pub signature: PolicyCheckSignature,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub next_retry_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub obligations: Vec<Value>,

@@ -30,6 +30,10 @@ pub struct UploadReceipt {
     pub blob_ref: BlobRef,
     pub content_digest: Hash,
     pub size_bytes: u64,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub received_at: DateTime<Utc>,
     pub issuer_service_id: Did,
     pub signature: SignatureValue,
@@ -52,10 +56,18 @@ pub struct Blob {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thumbnail_blob_ref: Option<BlobId>,
     pub created_by: Did,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub updated_by: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub updated_at: Option<DateTime<Utc>>,
 }
 
@@ -129,6 +141,10 @@ pub struct BlobPresignRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct BlobPresignOutcome {
     pub url: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub purpose: Option<String>,
@@ -156,7 +172,15 @@ pub struct BlobPresignPayload {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     pub issuer_service_id: Did,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     pub purpose: String,
     pub nonce: String,

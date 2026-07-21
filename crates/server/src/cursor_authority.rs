@@ -87,16 +87,14 @@ impl CursorAuthority {
         let token = cursor
             .encode()
             .map_err(|error| CursorAuthorityError::InvalidParam(error.to_string()))?;
-        let issued_at_ms = chrono::DateTime::parse_from_rfc3339(&cursor.t)
-            .map_err(|error| CursorAuthorityError::InvalidParam(error.to_string()))?
-            .timestamp_millis();
+        let issued_at_ms = cursor.issued_at.timestamp_millis();
         let record = CursorBindingRecord {
             handle: cursor.h.clone(),
             context,
             purpose: CursorPurpose::Stream,
             positions,
             issued_at_ms,
-            expires_at_ms: cursor.x,
+            expires_at_ms: cursor.expires_at.timestamp_millis(),
         };
         Ok((token, record))
     }
@@ -124,14 +122,12 @@ impl CursorAuthority {
         record: Option<&CursorBindingRecord>,
     ) -> Result<Value, CursorAuthorityError> {
         let record = record.ok_or(CursorAuthorityError::IntegrityInvalid)?;
-        let cursor_issued_at_ms = chrono::DateTime::parse_from_rfc3339(&cursor.t)
-            .map_err(|_| CursorAuthorityError::InvalidParam("invalid cursor timestamp".to_owned()))?
-            .timestamp_millis();
+        let cursor_issued_at_ms = cursor.issued_at.timestamp_millis();
         if cursor.purpose != CursorPurpose::Stream
             || record.purpose != CursorPurpose::Stream
             || record.handle != cursor.h
             || record.issued_at_ms != cursor_issued_at_ms
-            || record.expires_at_ms != cursor.x
+            || record.expires_at_ms != cursor.expires_at.timestamp_millis()
             || &record.context != expected
         {
             return Err(CursorAuthorityError::IntegrityInvalid);
@@ -257,8 +253,8 @@ mod tests {
         let token = Cursor {
             v: "1".to_owned(),
             purpose: CursorPurpose::Stream,
-            t: arkret_canonical::format_timestamp_canonical(chrono::Utc::now()),
-            x: record.expires_at_ms,
+            issued_at: arkret_canonical::normalize_timestamp_canonical(chrono::Utc::now()),
+            expires_at: chrono::DateTime::from_timestamp_millis(record.expires_at_ms).unwrap(),
             h: record.handle,
         }
         .encode()
@@ -279,9 +275,7 @@ mod tests {
         let (token, record) =
             CursorAuthority::mint_stream(context.clone(), json!({"offset": 20}), 60_000).unwrap();
         let mut cursor = CursorAuthority::decode_stream(&token).unwrap();
-        let changed =
-            chrono::DateTime::parse_from_rfc3339(&cursor.t).unwrap() - chrono::Duration::seconds(1);
-        cursor.t = arkret_canonical::format_timestamp_canonical(changed.into());
+        cursor.issued_at -= chrono::Duration::seconds(1);
         let tampered = cursor.encode().unwrap();
         let decoded = CursorAuthority::decode_stream(&tampered).unwrap();
         assert_eq!(

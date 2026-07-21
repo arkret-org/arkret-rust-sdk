@@ -42,7 +42,7 @@ fn manifest_for_items(
         .into_iter()
         .map(|chunk| chunk.descriptor)
         .collect::<Vec<_>>();
-    let created_at = "2026-06-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
+    let created_at = "2026-06-01T00:00:00.000Z".parse::<DateTime<Utc>>().unwrap();
     let mut manifest = SnapshotManifest {
         id: snapshot_v1_id(),
         realm_id: realm(),
@@ -102,7 +102,7 @@ fn snapshot_v1_manifest_and_chunk_verify() {
         &manifest,
         &payloads,
         &SnapshotVerifyOptions::standard(
-            "2026-06-02T00:00:00Z".parse::<DateTime<Utc>>().unwrap(),
+            "2026-06-02T00:00:00.000Z".parse::<DateTime<Utc>>().unwrap(),
             SNAPSHOT_REDUCER_PROFILE_V1,
         ),
     )
@@ -120,7 +120,7 @@ fn snapshot_v1_covered_seals_mismatch_rejects() {
         &manifest,
         &payloads,
         &SnapshotVerifyOptions::standard(
-            "2026-06-02T00:00:00Z".parse::<DateTime<Utc>>().unwrap(),
+            "2026-06-02T00:00:00.000Z".parse::<DateTime<Utc>>().unwrap(),
             SNAPSHOT_REDUCER_PROFILE_V1,
         ),
     )
@@ -135,7 +135,7 @@ fn snapshot_v1_stale_standard_manifest_rejects() {
         &manifest,
         &payloads,
         &SnapshotVerifyOptions::standard(
-            "2026-07-15T00:00:00Z".parse::<DateTime<Utc>>().unwrap(),
+            "2026-07-15T00:00:00.000Z".parse::<DateTime<Utc>>().unwrap(),
             SNAPSHOT_REDUCER_PROFILE_V1,
         ),
     )

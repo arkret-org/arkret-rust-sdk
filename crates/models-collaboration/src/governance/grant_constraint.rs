@@ -318,8 +318,16 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub applies_to_actions: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub not_before: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recurrence: Option<GrantConstraintRecurrence>,
@@ -789,7 +797,7 @@ mod tests {
         ] {
             assert_eq!(
                 wire.pointer(pointer).and_then(Value::as_str),
-                Some("2026-07-14T12:34:56Z")
+                Some("2026-07-14T12:34:56.789Z")
             );
         }
     }

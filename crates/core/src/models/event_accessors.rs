@@ -148,7 +148,7 @@ mod event_payload_accessor_tests {
             realm_id: realm(),
             actor_id: alice(),
             actor_seq: 1,
-            created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+            created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             prev_refs: Vec::new(),
             effective_scope: None,

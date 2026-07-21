@@ -145,6 +145,11 @@ pub struct ErasurePeerReceipt {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub receipt_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub acknowledged_at: Option<DateTime<Utc>>,
 }
 
@@ -164,8 +169,17 @@ pub struct ErasureReceipt {
     pub retained_stub: Option<VerificationStub>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub legal_hold_ref: Option<String>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub completed_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub issued_at: Option<DateTime<Utc>>,
     pub proofs: Vec<ErasureReceiptProof>,
     /// Cross-Principal-Server erasure fanout aggregate status. Absent on

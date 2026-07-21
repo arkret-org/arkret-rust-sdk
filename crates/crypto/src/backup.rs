@@ -46,7 +46,7 @@ use arkret_models_crypto::key_backup::{
 use arkret_wire::{BackupId, Base64UrlString, DeviceId, Did, Hash};
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
-use chrono::{DateTime, SubsecRound, Utc};
+use chrono::{DateTime, Utc};
 use getrandom::fill;
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
@@ -251,7 +251,7 @@ impl VaultBinding {
             "device_id": self.aead_aad.device_id.as_deref(),
             "backup_class": self.backup_class_wire(),
             "backup_version": self.aead_aad.backup_version.as_str(),
-            "created_at": format_timestamp_canonical(self.aead_aad.created_at.trunc_subsecs(0)),
+            "created_at": format_timestamp_canonical(self.aead_aad.created_at),
             "aead": "xchacha20_poly1305",
             "aead_profile": VAULT_AEAD_PROFILE,
             "nonce_salt": nonce_salt_b64,
@@ -532,7 +532,7 @@ pub fn build_key_backup_envelope(
 
     // Truncate to whole seconds so the binding's canonical timestamp
     // round-trips byte-for-byte through the persisted `created_at`.
-    let created_at = Utc::now().trunc_subsecs(0);
+    let created_at = arkret_canonical::normalize_timestamp_canonical(Utc::now());
     let aead_aad = KeyBackupDomainSeparationAad {
         schema: VAULT_SCHEMA_ID.to_owned(),
         actor_id: actor_id.clone(),
@@ -813,7 +813,7 @@ pub fn key_backup_aad(
         "backup_version": backup_version,
         "item_type": item_type,
         "schema_id": schema_id,
-        "created_at": created_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        "created_at": format_timestamp_canonical(created_at),
     });
     Ok(canonical_json_bytes(&aad)?)
 }
@@ -851,7 +851,7 @@ mod tests {
                 device_id: None,
                 backup_class: class,
                 backup_version: "kb_1".to_owned(),
-                created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+                created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
                 item_types: vec![item.to_owned()],
                 managed_principal_bindings: vec![],
                 recipient_method: None,

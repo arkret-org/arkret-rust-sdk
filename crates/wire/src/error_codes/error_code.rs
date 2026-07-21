@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=e1844ead69ba1bc1f96a4c56baa87bf296e17b9282f2319d4177edd68f16d633 Entries: error_codes=244
+//! sha256=af9a6c5a71c9fba70d870740c7bbd59a0bae0370ef3216b2dcd45a51007e5004 Entries: error_codes=244
 
 use serde::{Deserialize, Serialize};
 
@@ -1691,7 +1691,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 400,
         scope: "endpoint",
         applies_to: &[],
-        description: "Cursor integrity check failed for the v1 stateful opaque handle (client-sync §12.1, canonical body `{v, purpose, t, x, h}`): the `h` handle is unknown / revoked / expired / cross-bound, or its stored binding (principal, device, service, filter_digest, purpose) does not match the authenticated request. Distinct from cursor_expired (TTL) and cursor_unrecognized (cross-service portability miss). Client MUST clear local cursor cache and restart from initial /account/subscribe.",
+        description: "Cursor integrity check failed for the v1 stateful opaque handle (client-sync §12.1, canonical body `{v, purpose, issued_at, expires_at, h}`): the `h` handle is unknown / revoked / expired / cross-bound, or its stored binding (principal, device, service, filter_digest, purpose) does not match the authenticated request. Distinct from cursor_expired (TTL) and cursor_unrecognized (cross-service portability miss). Client MUST clear local cursor cache and restart from initial /account/subscribe.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CursorInvalid,

@@ -204,8 +204,16 @@ pub struct RealmFreezePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub effective_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub freeze_expires_at: Option<DateTime<Utc>>,
 }
 
@@ -348,6 +356,10 @@ pub struct RealmOrganizationAuthorization {
     /// Does not become the organization principal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub executed_by: Option<Did>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub signed_at: DateTime<Utc>,
     /// Signature, threshold transcript, or governance-service attestation over
     /// the canonical organization statement.
@@ -377,11 +389,23 @@ pub struct RealmOrganizationPayload {
     /// Machine-readable scopes covered by the organization's consent
     /// (non-empty, unique).
     pub control_scopes: Vec<RealmOrganizationControlScope>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub not_before: Option<DateTime<Utc>>,
     /// Nullable expiry — `Some(None)` and absence both mean "no expiry".
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supersedes_statement_id: Option<String>,
@@ -487,6 +511,10 @@ pub struct RealmKeyRequestPayload {
     pub requested_source_class: HistoryKeySource,
     pub target_source_ref: RealmKeySourceRef,
     pub target_principal_id: Did,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
 }
 
@@ -540,6 +568,10 @@ pub struct RealmKeyShareAuditPayload {
     pub recipient_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audit_digest: Option<Hash>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub recorded_at: DateTime<Utc>,
 }
 
@@ -590,7 +622,15 @@ pub struct RealmKeySharePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aad_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
 }
 
@@ -635,6 +675,10 @@ pub struct RealmKeyWithheldPayload {
     pub key_scope: Option<RealmKeyScope>,
     pub withheld_reason_code: RealmKeyWithheldReasonCode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub created_at: Option<DateTime<Utc>>,
 }
 
@@ -873,12 +917,12 @@ mod realm_organization_tests {
             "relationship": "owner",
             "status": "active",
             "control_scopes": ["official_badge", "realm_admin"],
-            "issued_at": "2026-06-25T00:00:00Z",
+            "issued_at": "2026-06-25T00:00:00.000Z",
             "authorization": {
                 "issuer": "did:webvh:example.test:orgs:01J0000000000000000000000A",
                 "issuer_role": "organization_did",
                 "verification_method": "did:webvh:example.test:orgs:01J0000000000000000000000A#k1",
-                "signed_at": "2026-06-25T00:00:00Z",
+                "signed_at": "2026-06-25T00:00:00.000Z",
                 "proof": "c2ln"
             }
         })
@@ -911,14 +955,14 @@ mod realm_organization_tests {
 
     #[test]
     fn validity_window_helpers() {
-        let now = DateTime::parse_from_rfc3339("2026-06-25T12:00:00Z")
+        let now = DateTime::parse_from_rfc3339("2026-06-25T12:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
         let mut payload: RealmOrganizationPayload = serde_json::from_value(active_value()).unwrap();
         assert!(payload.is_effective_active(now));
 
         payload.not_before = Some(
-            DateTime::parse_from_rfc3339("2026-06-26T00:00:00Z")
+            DateTime::parse_from_rfc3339("2026-06-26T00:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
         );
@@ -927,7 +971,7 @@ mod realm_organization_tests {
 
         payload.not_before = None;
         payload.expires_at = Some(
-            DateTime::parse_from_rfc3339("2026-06-25T06:00:00Z")
+            DateTime::parse_from_rfc3339("2026-06-25T06:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
         );
@@ -969,11 +1013,18 @@ struct OrganizationStatementTranscript<'a> {
     relationship: &'a RealmOrganizationRelationship,
     status: &'a RealmOrganizationStatus,
     control_scopes: &'a [RealmOrganizationControlScope],
-    issued_at: &'a DateTime<Utc>,
+    #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
+    issued_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    not_before: Option<&'a DateTime<Utc>>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp"
+    )]
+    not_before: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    expires_at: Option<&'a DateTime<Utc>>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp"
+    )]
+    expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     supersedes_statement_id: Option<&'a String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1011,9 +1062,9 @@ pub fn realm_organization_statement_signing_bytes(
         relationship: &payload.relationship,
         status: &payload.status,
         control_scopes: &payload.control_scopes,
-        issued_at: &payload.issued_at,
-        not_before: payload.not_before.as_ref(),
-        expires_at: payload.expires_at.as_ref(),
+        issued_at: payload.issued_at,
+        not_before: payload.not_before,
+        expires_at: payload.expires_at,
         supersedes_statement_id: payload.supersedes_statement_id.as_ref(),
         revokes_statement_id: payload.revokes_statement_id.as_ref(),
         realm_frontier_digest: payload.realm_frontier_digest.as_ref(),

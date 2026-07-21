@@ -57,6 +57,10 @@ pub struct Mention {
     pub mention_text_original: Option<String>,
     /// When the handle was resolved. Audit metadata.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub resolved_at: Option<DateTime<Utc>>,
 }
 
@@ -125,6 +129,10 @@ pub struct AudienceMention {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mention_text_original: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub resolved_at: Option<DateTime<Utc>>,
 }
 

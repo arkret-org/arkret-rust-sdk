@@ -34,12 +34,26 @@ pub struct Relation {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<RelationState>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub state_changed_at: Option<DateTime<Utc>>,
     pub created_by: Did,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub updated_at: Option<DateTime<Utc>>,
 }
 

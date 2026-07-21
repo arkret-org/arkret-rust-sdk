@@ -175,6 +175,10 @@ pub struct EventsFrontierAnonymousHealthState {
     pub healthy: bool,
     /// Wall-clock instant the frontier snapshot was generated. Used for
     /// staleness detection only — not signed.
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub generated_at: DateTime<Utc>,
 }
 

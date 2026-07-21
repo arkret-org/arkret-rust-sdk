@@ -93,7 +93,7 @@ fn expired_recovery_cursors_fail_closed_at_decode() {
     let fixture = fixture();
 
     // Both the gap-recovery `after` and the stale cursor share the same
-    // past-expiry (`x` = 2026-01-01) token; the fixture promises
+    // past-expiry (`expires_at` = 2026-01-01) token; the fixture promises
     // `cursor_expired` and forbids reuse. `Cursor::decode` enforces TTL
     // expiry at decode, so both must reject.
     let gap_after = fixture["cursor_gap_recovery"]["request"]["after"]

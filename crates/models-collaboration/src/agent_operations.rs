@@ -9,9 +9,8 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::serde_helpers::{
-    deserialize_canonical_timestamp, deserialize_canonical_timestamp_millis,
-    deserialize_optional_canonical_timestamp, serialize_canonical_timestamp,
-    serialize_canonical_timestamp_millis, serialize_optional_canonical_timestamp,
+    deserialize_canonical_timestamp, deserialize_optional_canonical_timestamp,
+    serialize_canonical_timestamp, serialize_optional_canonical_timestamp,
 };
 
 use crate::events_payloads::agent::{
@@ -40,13 +39,13 @@ pub struct AgentRequestedScopeDisclosure {
     pub audience: NonEmptyString,
     pub challenge: NonEmptyString,
     #[serde(
-        serialize_with = "serialize_canonical_timestamp_millis",
-        deserialize_with = "deserialize_canonical_timestamp_millis"
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
     )]
     pub issued_at: DateTime<Utc>,
     #[serde(
-        serialize_with = "serialize_canonical_timestamp_millis",
-        deserialize_with = "deserialize_canonical_timestamp_millis"
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
     )]
     pub expires_at: DateTime<Utc>,
     pub proofs: Vec<Proof>,
@@ -383,8 +382,8 @@ pub struct AgentProvisionComplete {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
     #[serde(
-        serialize_with = "serialize_canonical_timestamp_millis",
-        deserialize_with = "deserialize_canonical_timestamp_millis"
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
     )]
     pub expires_at: DateTime<Utc>,
 }
@@ -403,8 +402,8 @@ pub struct AgentRenewPairingOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
     #[serde(
-        serialize_with = "serialize_canonical_timestamp_millis",
-        deserialize_with = "deserialize_canonical_timestamp_millis"
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
     )]
     pub expires_at: DateTime<Utc>,
 }
@@ -425,8 +424,8 @@ pub struct AgentPairingBootstrap {
     pub pairing_request_id: String,
     pub pairing_code: String,
     #[serde(
-        serialize_with = "serialize_canonical_timestamp_millis",
-        deserialize_with = "deserialize_canonical_timestamp_millis"
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
     )]
     pub pairing_expires_at: DateTime<Utc>,
 }
@@ -1203,6 +1202,10 @@ pub struct KeyState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub pairing_expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_request_id: Option<String>,
@@ -1333,7 +1336,7 @@ mod tests {
 
         let value = serde_json::to_value(&sidecar).unwrap();
         for field in ["state_changed_at", "created_at", "updated_at"] {
-            assert_eq!(value[field], "2026-07-20T12:34:56Z", "{field}");
+            assert_eq!(value[field], "2026-07-20T12:34:56.987Z", "{field}");
             canonical::validate_timestamp_canonical(value[field].as_str().unwrap()).unwrap();
         }
 

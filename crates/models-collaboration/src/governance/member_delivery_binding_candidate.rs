@@ -132,7 +132,15 @@ pub struct MemberDeliveryBindingCandidate {
     pub member_delivery_binding: DeliveryBindingHint,
     pub issuer_service_id: Did,
     pub audience: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
     pub source_refs: Vec<EventId>,
     pub proofs: Vec<Proof>,
@@ -275,7 +283,7 @@ mod tests {
                 alg: "EdDSA".to_owned(),
                 verification_method: "did:webvh:z6mkfixture:principal.example#key-1".to_owned(),
                 event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-                created_at: "2026-05-19T00:00:00Z".parse().unwrap(),
+                created_at: "2026-05-19T00:00:00.000Z".parse().unwrap(),
                 domain: None,
                 audience: None,
                 jws: "aaa.bbb.ccc".to_owned(),

@@ -381,6 +381,7 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["audit", "accessed" | "ryw_receipt"] => candidates.push("audit_payload".to_owned()),
         ["call", "signal"] => candidates.push("call_payload".to_owned()),
         ["invite", ..] => candidates.push("invite_payload".to_owned()),
+        ["profile", "create"] => candidates.push("actor_profile_create_payload".to_owned()),
         ["profile", "update" | "realm_override"] => {
             candidates.push("object_patch_payload".to_owned());
         }
@@ -645,7 +646,6 @@ mod tests {
         "ak.policy.action",
         "ak.policy.rule",
         "ak.policy.set",
-        "ak.profile.create",
         "ak.schema.define",
         "ak.schema.update",
         "ak.sovereign.did_policy",
@@ -900,7 +900,7 @@ mod tests {
             "hpke_key": "z6LSdevicehpke",
             "algorithms": ["ed25519", "x25519-hpke"],
             "authorized_by": "did:webvh:z6mkfixture:authority.example",
-            "not_before": "2026-06-30T00:00:00Z",
+            "not_before": "2026-06-30T00:00:00.000Z",
             "enrollment_authority_binding": {
                 "kind": "service_attested",
                 "authority_did": "did:webvh:z6mkfixture:authority.example",
@@ -932,12 +932,12 @@ mod tests {
             "relationship": "owner",
             "status": "active",
             "control_scopes": ["official_badge", "realm_admin"],
-            "issued_at": "2026-06-25T00:00:00Z",
+            "issued_at": "2026-06-25T00:00:00.000Z",
             "authorization": {
                 "issuer": "did:webvh:example.test:orgs:org1",
                 "issuer_role": "organization_did",
                 "verification_method": "did:webvh:example.test:orgs:org1#k1",
-                "signed_at": "2026-06-25T00:00:00Z",
+                "signed_at": "2026-06-25T00:00:00.000Z",
                 "proof": "c2ln"
             }
         })

@@ -277,7 +277,7 @@ mod tests {
                         "realm_id": REALM,
                         "match_scope": "realm_wide"
                     }],
-                    "issued_at": "2026-07-20T00:00:00Z",
+                    "issued_at": "2026-07-20T00:00:00.000Z",
                     "proofs": []
                 }
             }),

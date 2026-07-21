@@ -371,7 +371,15 @@ pub struct RealmLinkEntry {
     pub label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub commitment: Option<String>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub updated_at: DateTime<Utc>,
 }
 
@@ -434,6 +442,10 @@ pub struct RealmLifecycleView {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub successor_realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub freeze_expires_at: Option<DateTime<Utc>>,
 }
 
@@ -443,6 +455,10 @@ pub struct RealmLifecycleView {
 pub struct RealmExport {
     pub schema: String,
     pub realm_id: RealmId,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub generated_at: DateTime<Utc>,
     #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub operations: Vec<BTreeMap<String, Value>>,
@@ -504,6 +520,10 @@ pub struct RealmModerationPolicyDocument {
     #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub policy: BTreeMap<String, Value>,
     pub updated_by: Did,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub updated_at: DateTime<Utc>,
 }
 
@@ -525,6 +545,10 @@ pub struct RealmPolicyServerView {
     pub cache_ttl_seconds: u64,
     pub timeout_ms: u64,
     pub on_timeout: RealmPolicyServerOnTimeout,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub updated_at: DateTime<Utc>,
     pub from_org_fallback: bool,
 }
@@ -648,10 +672,22 @@ pub struct RealmOrganizationRelationshipRow {
     pub relationship: RealmOrganizationRelationship,
     pub status: RealmOrganizationStatus,
     pub control_scopes: Vec<RealmOrganizationControlScope>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub not_before: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supersedes_statement_id: Option<String>,
@@ -664,6 +700,10 @@ pub struct RealmOrganizationRelationshipRow {
     pub delegation_ref: Option<String>,
     pub lifecycle_phase: RealmOrganizationLifecyclePhase,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub updated_at: Option<DateTime<Utc>>,
 }
 

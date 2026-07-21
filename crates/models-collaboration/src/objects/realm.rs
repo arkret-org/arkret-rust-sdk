@@ -31,6 +31,10 @@ pub struct SyncEndpoint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub policy_id: Option<PolicyId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
 }
 
@@ -151,10 +155,19 @@ pub struct Realm {
     /// (common-fields §3.2): `created_by` lives in the trailing audit cluster
     /// `… avatar_blob_ref, created_by, created_at, updated_by, updated_at`.
     pub created_by: Did,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub updated_at: Option<DateTime<Utc>>,
 }
 

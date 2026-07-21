@@ -187,7 +187,7 @@ mod tests {
             vec![covered_event.clone()],
         )
         .unwrap();
-        let created_at = "2026-06-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        let created_at = "2026-06-01T00:00:00.000Z".parse::<DateTime<Utc>>().unwrap();
         let mut manifest = SnapshotManifest {
             id: snapshot_id(),
             realm_id: realm(),

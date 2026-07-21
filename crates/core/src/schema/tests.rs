@@ -881,7 +881,7 @@ fn invite_payload_strong_types_pass_spec_validator() {
         .unwrap();
     InviteCreatePayload::from_wire_value(&create_value).unwrap();
     let mut leaky_create = create_value;
-    leaky_create["hlc"] = json!("2026-06-14T10:00:00Z/node/1");
+    leaky_create["hlc"] = json!("2026-06-14T10:00:00.000Z/node/1");
     assert!(InviteCreatePayload::from_wire_value(&leaky_create).is_err());
 
     // invite_id ref form (accept / cancel / revoke).
@@ -1411,7 +1411,7 @@ fn artifact_payload_catalog_enforces_invite_create_payload_shape() {
             "recipient_service_type": "principal_server"
         },
         "introduction_evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
-        "expires_at": "2026-06-14T10:00:00Z",
+        "expires_at": "2026-06-14T10:00:00.000Z",
         "x_role": "member"
     });
 
@@ -1489,7 +1489,7 @@ fn artifact_payload_catalog_enforces_external_schema_refs_and_enums() {
                 "user_signing_key": subordinate_key,
                 "expected_previous_generation": 0,
                 "generation": 1,
-                "issued_at": "2026-05-02T00:00:00Z"
+                "issued_at": "2026-05-02T00:00:00.000Z"
             }),
         )
         .unwrap();
@@ -1503,7 +1503,7 @@ fn artifact_payload_catalog_enforces_external_schema_refs_and_enums() {
                     "self_signing_key": subordinate_key,
                     "user_signing_key": subordinate_key,
                     "generation": 0,
-                    "issued_at": "2026-05-02T00:00:00Z"
+                    "issued_at": "2026-05-02T00:00:00.000Z"
                 }),
             )
             .is_err()

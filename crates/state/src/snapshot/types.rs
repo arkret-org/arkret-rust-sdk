@@ -39,6 +39,10 @@ pub struct SnapshotManifest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verification_hints: Option<SnapshotVerificationHints>,
     pub created_by: Did,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     pub authority_binding: AuthorityBinding,
     pub signature: DetachedJwsProof,
@@ -59,6 +63,7 @@ pub struct UnsignedSnapshotManifest<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verification_hints: Option<&'a SnapshotVerificationHints>,
     pub created_by: &'a Did,
+    #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub authority_binding: &'a AuthorityBinding,
 }
@@ -202,6 +207,10 @@ pub struct AuthorityBinding {
     pub auth_state_digest: Hash,
     #[serde(default)]
     pub auth_frontier: Vec<EventId>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub checked_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub witness_attestations: Vec<crate::models::Proof>,
@@ -223,6 +232,10 @@ pub struct DetachedJwsProof {
     pub alg: String,
     pub verification_method: String,
     pub payload_digest: Hash,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     pub jws: String,
 }

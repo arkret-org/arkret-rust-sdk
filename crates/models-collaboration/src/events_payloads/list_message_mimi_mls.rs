@@ -379,6 +379,10 @@ pub struct MimiRoomBindingPayload {
     pub policy_root: Option<Hash>,
     pub status: MimiRoomBindingStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub created_at: Option<DateTime<Utc>>,
 }
 
@@ -398,6 +402,10 @@ pub struct MlsCommitFailedPayload {
     pub error_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub diagnostic_digest: Option<Hash>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub failed_at: DateTime<Utc>,
 }
 
@@ -431,6 +439,7 @@ pub struct MlsGenesisPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial_keypackage_refs: Option<Vec<ObjectRef>>,
     pub governance_binding: MlsGovernanceBindingPayload,
+    #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
 }
 
@@ -454,6 +463,7 @@ struct MlsGenesisPayloadWire {
     #[serde(default)]
     initial_keypackage_refs: Option<Vec<ObjectRef>>,
     governance_binding: MlsGovernanceBindingPayload,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     created_at: DateTime<Utc>,
 }
 
@@ -528,7 +538,15 @@ pub struct MlsKeypackagePayload {
     pub state: MlsKeyPackageState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub claim_id: Option<NonEmptyString>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     pub device_signature: SignatureMaterial,
 }
@@ -1115,7 +1133,7 @@ mod tests {
     }
 
     #[test]
-    fn welcome_claim_envelope_timestamp_serializes_canonical_seconds() {
+    fn welcome_claim_envelope_timestamp_serializes_canonical_milliseconds() {
         let created_at = DateTime::parse_from_rfc3339("2026-06-23T07:51:12.729Z")
             .unwrap()
             .with_timezone(&Utc);
@@ -1123,18 +1141,18 @@ mod tests {
 
         let value = serde_json::to_value(&envelope).unwrap();
 
-        assert_eq!(value["created_at"], "2026-06-23T07:51:12Z");
+        assert_eq!(value["created_at"], "2026-06-23T07:51:12.729Z");
     }
 
     #[test]
-    fn welcome_claim_envelope_timestamp_rejects_fractional_seconds() {
+    fn welcome_claim_envelope_timestamp_rejects_missing_milliseconds() {
         let mut value = serde_json::to_value(test_claim_envelope(
-            DateTime::parse_from_rfc3339("2026-06-23T07:51:12Z")
+            DateTime::parse_from_rfc3339("2026-06-23T07:51:12.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
         ))
         .unwrap();
-        value["created_at"] = serde_json::json!("2026-06-23T07:51:12.729Z");
+        value["created_at"] = serde_json::json!("2026-06-23T07:51:12Z");
 
         assert!(serde_json::from_value::<MlsWelcomeClaimEnvelope>(value).is_err());
     }

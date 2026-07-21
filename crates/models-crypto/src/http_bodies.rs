@@ -23,6 +23,11 @@ pub struct KeyPackagesUploadRequestBody {
     pub key_packages: Vec<KeyPackageUploadEntry>,
     pub device_signature: KeyOperationSignature,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
@@ -50,6 +55,10 @@ pub struct KeyPackagesClaimRequestBody {
     pub requester: Did,
     pub required_capabilities: Vec<String>,
     pub claim_nonce: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub target_device_ids: Vec<DeviceId>,

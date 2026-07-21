@@ -5,6 +5,9 @@ use arkret_wire::{CallId, DeviceId, Did, GrantId, Hash, RealmId, XExtensionMap};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+/// Domain separator for the canonical ICE configuration signature transcript.
+pub const MEDIA_ICE_CONFIG_SIGNING_LABEL: &str = "ak.media.ice_config.v1";
+
 fn is_false(value: &bool) -> bool {
     !*value
 }
@@ -39,20 +42,65 @@ pub struct MediaIceConfigOutcome {
     pub ice_servers: Vec<MediaIceServer>,
     pub ttl_seconds: u32,
     pub refresh_lead_seconds: u32,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub issued_at_bucket: DateTime<Utc>,
     pub bucket_seconds: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub force_turn: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub constraints: Option<MediaIceConstraints>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub next_retry_at: Option<DateTime<Utc>>,
     pub signature: MediaIceConfigSignature,
     #[serde(default, flatten)]
     pub extensions: XExtensionMap,
+}
+
+impl MediaIceConfigOutcome {
+    /// Canonicalize the signed response payload after removing the detached
+    /// signature container. Timestamp spelling is enforced by this model's
+    /// canonical serializers before JCS encoding.
+    pub fn canonical_signature_payload(&self) -> arkret_canonical::Result<Vec<u8>> {
+        let mut value = serde_json::to_value(self)?;
+        let object = value.as_object_mut().ok_or_else(|| {
+            arkret_canonical::CanonicalError::Protocol(
+                "ICE configuration must serialize as an object".to_owned(),
+            )
+        })?;
+        object.remove("signature");
+        arkret_canonical::canonical_json_bytes(&value)
+    }
+
+    /// Build the single protocol-defined signature transcript.
+    pub fn signature_input(&self) -> arkret_canonical::Result<Vec<u8>> {
+        let payload = self.canonical_signature_payload()?;
+        let mut input =
+            Vec::with_capacity(MEDIA_ICE_CONFIG_SIGNING_LABEL.len() + payload.len() + 1);
+        input.extend_from_slice(MEDIA_ICE_CONFIG_SIGNING_LABEL.as_bytes());
+        input.push(0x00);
+        input.extend_from_slice(&payload);
+        Ok(input)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -201,7 +249,15 @@ pub struct CallMediaParticipantBinding {
     pub actor_id: Did,
     pub device_id: DeviceId,
     pub participant_identity: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
 }
 
@@ -230,6 +286,10 @@ pub struct CallMediaTokenExchangeOutcome {
     pub backend_token: String,
     pub participant_identity: String,
     pub participant_binding: CallMediaParticipantBinding,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     pub service_signature: CallMediaServiceSignature,
 }

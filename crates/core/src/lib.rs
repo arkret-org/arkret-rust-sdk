@@ -25,6 +25,7 @@ pub mod bottom {
 }
 pub mod canonical {
     pub use arkret_canonical::canonical::*;
+    pub use arkret_canonical::serde_helpers::*;
 }
 pub mod cell {
     pub use arkret_wire::cell::*;

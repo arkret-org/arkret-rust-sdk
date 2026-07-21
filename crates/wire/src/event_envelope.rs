@@ -292,7 +292,7 @@ pub struct Event {
     pub realm_id: RealmId,
     pub actor_id: Did,
     pub actor_seq: u64,
-    #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp_millis")]
+    #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub hlc: Hlc,
     pub prev_refs: Vec<EventId>,
@@ -380,7 +380,7 @@ struct EventWire {
     pub realm_id: RealmId,
     pub actor_id: Did,
     pub actor_seq: u64,
-    #[serde(deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp_millis")]
+    #[serde(deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub hlc: Hlc,
     pub prev_refs: Vec<EventId>,
@@ -760,7 +760,7 @@ impl Event {
             realm_id,
             actor_id,
             actor_seq,
-            created_at: canonical::normalize_timestamp_millis_canonical(created_at),
+            created_at: canonical::normalize_timestamp_canonical(created_at),
             hlc,
             prev_refs: Vec::new(),
             effective_scope: None,
@@ -807,7 +807,7 @@ mod event_wire_surface_tests {
             realm_id: realm(),
             actor_id: alice(),
             actor_seq: 1,
-            created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+            created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             prev_refs: Vec::new(),
             effective_scope: None,
@@ -846,7 +846,7 @@ mod event_wire_surface_tests {
             json!({"body": "hello"}),
         )
         .unwrap();
-        let whole_second = "2026-06-03T12:34:56Z".parse().unwrap();
+        let whole_second = "2026-06-03T12:34:56.000Z".parse().unwrap();
         event.created_at = whole_second;
         event.proofs.push(Proof {
             kind: "detached_jws".to_owned(),
@@ -863,7 +863,7 @@ mod event_wire_surface_tests {
 
         assert_eq!(created_at, "2026-06-03T12:34:56.000Z");
         assert_eq!(value["proofs"][0]["created_at"], created_at);
-        canonical::validate_timestamp_millis_canonical(created_at).unwrap();
+        canonical::validate_timestamp_canonical(created_at).unwrap();
         serde_json::from_value::<Event>(value.clone()).unwrap();
 
         let mut seconds = value.clone();
@@ -910,7 +910,7 @@ mod event_wire_surface_tests {
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             json!({"body": "hello"}),
-            "2026-06-03T12:34:56Z".parse().unwrap(),
+            "2026-06-03T12:34:56.000Z".parse().unwrap(),
         )
         .unwrap();
 

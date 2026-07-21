@@ -18,8 +18,8 @@ use serde_json::Value;
 
 use crate::{EventDraftError, Result};
 
-fn now_utc_seconds() -> DateTime<Utc> {
-    DateTime::<Utc>::from_timestamp(Utc::now().timestamp(), 0).unwrap_or_else(Utc::now)
+fn now_utc_canonical() -> DateTime<Utc> {
+    arkret_canonical::normalize_timestamp_canonical(Utc::now())
 }
 
 /// Current wire object carried by `ak.strand.create`.
@@ -47,10 +47,18 @@ pub struct StrandCreateObject {
     pub state: Option<ObjectState>,
     pub stage: ObjectStage,
     pub created_by: Did,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub updated_at: Option<DateTime<Utc>>,
 }
 
@@ -70,7 +78,7 @@ impl StrandCreateObject {
             state: None,
             stage: ObjectStage::Draft,
             created_by,
-            created_at: now_utc_seconds(),
+            created_at: now_utc_canonical(),
             updated_by: None,
             updated_at: None,
         }

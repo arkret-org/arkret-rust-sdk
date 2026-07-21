@@ -175,6 +175,11 @@ pub struct EphemeralSubmitOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dispatched_to: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub server_received_at: Option<DateTime<Utc>>,
 }
 
@@ -211,10 +216,25 @@ pub struct ProjectionSpaceRow {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub created_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub updated_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub state_changed_at: Option<DateTime<Utc>>,
 }
 
@@ -237,6 +257,11 @@ pub struct ProjectionStrandRow {
     pub realm_id: RealmId,
     pub state: ProjectionObjectState,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub state_changed_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
@@ -266,10 +291,20 @@ pub struct ProjectionStrandRow {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub created_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub updated_at: Option<DateTime<Utc>>,
     /// COT-06-004 — derived flag: `true` when this Strand is the Realm's
     /// default Strand (`strand_id == Realm.default_strand_id`). Computed at query
@@ -309,10 +344,25 @@ pub struct ProjectionMorphRow {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub created_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub updated_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub state_changed_at: Option<DateTime<Utc>>,
 }
 
@@ -562,6 +612,11 @@ pub struct MimiRequestConsentRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proofs: Vec<Proof>,
@@ -596,6 +651,11 @@ pub struct MimiUpdateConsentRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
 }
 
@@ -661,6 +721,10 @@ impl MimiUpdateConsentRequestBody {
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiUpdateConsentOutcome {
     pub status: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub updated_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event_ref: Option<EventId>,
@@ -737,6 +801,11 @@ pub struct MimiProxyDownloadOutcome {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub headers: BTreeMap<String, String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
 }
 
@@ -793,7 +862,7 @@ mod mimi_consent_tests {
             json!({
                 "audience": "did:webvh:z6mkservice:example.com",
                 "context": "ak.mimi-operation-proof-v1",
-                "created_at": "2026-07-19T06:30:00Z",
+                "created_at": "2026-07-19T06:30:00.000Z",
                 "domain": "ak:trust_domain:example.com",
                 "issuer": "did:webvh:z6mkfixture:example.com:users:alice",
                 "operation_id": "ak.open.mimi.command.update_consent",

@@ -870,7 +870,7 @@ mod tests {
                 realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
                 actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
                 actor_seq: 1,
-                created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+                created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
                 hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
                 prev_refs: Vec::new(),
                 effective_scope: None,

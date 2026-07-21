@@ -161,7 +161,7 @@ mod tests {
 
     #[test]
     fn minimal_metadata_epoch_overdue_after_one_hour() {
-        let started: chrono::DateTime<Utc> = "2026-06-04T00:00:00Z".parse().unwrap();
+        let started: chrono::DateTime<Utc> = "2026-06-04T00:00:00.000Z".parse().unwrap();
         // 59m59s in — still within the cap.
         assert!(!minimal_metadata_epoch_overdue(
             started,

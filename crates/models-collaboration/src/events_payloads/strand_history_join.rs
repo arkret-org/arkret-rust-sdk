@@ -433,6 +433,10 @@ pub struct KeyBackupActiveSeries {
     pub series_pointer_version: u64,
     pub previous_series_ids: Vec<BackupSeriesId>,
     pub frontier_ref: KeyBackupActiveSeriesFrontierRef,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
     pub auth_data: KeyBackupActiveSeriesAuthData,
     #[serde(flatten)]
@@ -621,7 +625,7 @@ mod key_backup_active_series_tests {
                 "seal_ref": "ak:seal:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 "ssk_generation": 2
             },
-            "issued_at": "2026-07-18T00:00:00Z",
+            "issued_at": "2026-07-18T00:00:00.000Z",
             "auth_data": {
                 "verification_method": "did:web:alice.example#device",
                 "signature_algorithm": "Ed25519",
@@ -677,7 +681,7 @@ mod key_backup_active_series_tests {
             Ok(head.clone())
         );
         let mut fork = record(1);
-        fork.issued_at = "2026-07-18T00:00:01Z".parse().unwrap();
+        fork.issued_at = "2026-07-18T00:00:01.000Z".parse().unwrap();
         assert_eq!(
             validate_key_backup_active_series_transition(Some(&head), &fork),
             Err(KeyBackupActiveSeriesTransitionError::PointerVersionFork)
