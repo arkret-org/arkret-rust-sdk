@@ -1519,6 +1519,7 @@ mod tests {
                 peer: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
                 create: true,
                 idempotency_key: Some("dm-alice-bob".to_owned()),
+                peer_claim_request: None,
             };
 
             let response = client.direct_conversation_resolve(&request).await.unwrap();

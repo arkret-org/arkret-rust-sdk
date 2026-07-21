@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Enforce the frozen crate-layering rules for the Arkret SDK workspace.
 
-Rules source: cotask/work/active/2026-07-19-arkret-rust-sdk-crate-architecture-review.md
+Rules source: arkret-work/work/active/2026-07-19-arkret-rust-sdk-crate-architecture-review.md
 (phase-0 exit review, frozen 2026-07-19).
 
 Checks:

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=c2c0d1e0f78baf870b78f2171ea19b6382c7ebf59ba94b86b5a0e95d888390d0 Entries: error_codes=244
+//! sha256=3e53d95cf22f27a1b8efcf5e1e1a405a3add5bd5af10a209dc1f62f5f12f4b66 Entries: error_codes=245
 
 use serde::{Deserialize, Serialize};
 
@@ -51,6 +51,7 @@ pub enum ErrorCode {
     CapabilityDenied,
     CasConflict,
     CausalConflict,
+    ClaimFailed,
     ClaimRequired,
     Conflict,
     ConsentRequired,
@@ -308,6 +309,7 @@ impl ErrorCode {
         Self::CapabilityDenied,
         Self::CasConflict,
         Self::CausalConflict,
+        Self::ClaimFailed,
         Self::ClaimRequired,
         Self::Conflict,
         Self::ConsentRequired,
@@ -559,6 +561,7 @@ impl ErrorCode {
     pub const CAPABILITY_DENIED: &'static str = "capability_denied";
     pub const CAS_CONFLICT: &'static str = "cas_conflict";
     pub const CAUSAL_CONFLICT: &'static str = "causal_conflict";
+    pub const CLAIM_FAILED: &'static str = "claim_failed";
     pub const CLAIM_REQUIRED: &'static str = "claim_required";
     pub const CONFLICT: &'static str = "conflict";
     pub const CONSENT_REQUIRED: &'static str = "consent_required";
@@ -830,6 +833,7 @@ impl ErrorCode {
             Self::CapabilityDenied => "capability_denied",
             Self::CasConflict => "cas_conflict",
             Self::CausalConflict => "causal_conflict",
+            Self::ClaimFailed => "claim_failed",
             Self::ClaimRequired => "claim_required",
             Self::Conflict => "conflict",
             Self::ConsentRequired => "consent_required",
@@ -1089,6 +1093,7 @@ impl ErrorCode {
             "capability_denied" => Some(Self::CapabilityDenied),
             "cas_conflict" => Some(Self::CasConflict),
             "causal_conflict" => Some(Self::CausalConflict),
+            "claim_failed" => Some(Self::ClaimFailed),
             "claim_required" => Some(Self::ClaimRequired),
             "conflict" => Some(Self::Conflict),
             "consent_required" => Some(Self::ConsentRequired),
@@ -1622,6 +1627,13 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "Causal dependencies, prev_refs, refs[role=authorized_by], or actor-chain constraints are violated.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::ClaimFailed,
+        http_status: 400,
+        scope: "endpoint",
+        applies_to: &[],
+        description: "An atomic one-time key, pre-key, or KeyPackage claim failed. On privacy-sensitive claim surfaces this code deliberately collapses target absence, visibility, inventory, consent, policy, capability, freshness, and abuse-control failures into one non-enumerable outward result.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ClaimRequired,

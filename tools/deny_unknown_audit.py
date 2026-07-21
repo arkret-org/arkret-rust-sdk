@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Audit `#[serde(deny_unknown_fields)]` distribution against Spec openness.
 
-Enforces the unknown-field strictness policy (see cotask
+Enforces the unknown-field strictness policy (see arkret-work
 `2026-07-14-sdk-wire-strong-type-convergence.md`, section "2026-07-15 decision"):
 
   1. No `cfg`-gated `deny_unknown_fields` (runtime accept/reject must be

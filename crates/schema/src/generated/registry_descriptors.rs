@@ -5,10 +5,10 @@
 //! capability-action-registry.json; version=2026-07-20;
 //! sha256=467b314e3f9fe21aba8fac5c8b5df948a91c8932850d6ef21def3ff019b68563 Input: registry/
 //! schema-registry.json; version=2026-07-20;
-//! sha256=35d08a300540bae83f8becf2d62bf42eb91093aaf123d88db2435f3da315f2b2 Input: registry/
+//! sha256=de52d7e3b86338e6d059ea87b0d8492b0be8b2ad4c1b482cb2939956e19667df Input: registry/
 //! account-data-type-registry.json; version=2026-07-03;
 //! sha256=90662737689befb83dab6d6570abc38d62d6b05b45901cc23ec80938e3bffd55 Entries: id_kinds=50,
-//! special_forms=9, actions=152, schemas=122, account_data_patterns=23
+//! special_forms=9, actions=152, schemas=123, account_data_patterns=23
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -2010,6 +2010,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: "ak.schema.event_payload.v1",
         file: "schemas/event-payload.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.federated_device_signing_key_evidence.v1",
+        file: "schemas/federated-device-signing-key-evidence.schema.json",
     },
     SchemaDescriptor {
         schema_id: "ak.schema.file_transfer.v1",

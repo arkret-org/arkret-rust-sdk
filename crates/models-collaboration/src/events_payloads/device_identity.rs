@@ -538,6 +538,10 @@ pub struct DirectConversationBoundPayload {
     pub contact_refs: ContactEventRefs,
     pub member_event_refs: ContactEventRefs,
     pub main_strand_create_ref: EventId,
+    pub mls_group_id: MlsGroupId,
+    pub mls_genesis_event_ref: EventId,
+    pub mls_commit_event_ref: EventId,
+    pub mls_welcome_event_ref: EventId,
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supersedes_binding_ref: Option<EventId>,

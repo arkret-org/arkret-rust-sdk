@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=c2c0d1e0f78baf870b78f2171ea19b6382c7ebf59ba94b86b5a0e95d888390d0
-//! Entries: reason_codes=416
+//! sha256=3e53d95cf22f27a1b8efcf5e1e1a405a3add5bd5af10a209dc1f62f5f12f4b66
+//! Entries: reason_codes=420
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -86,7 +86,6 @@ pub enum ReasonCode {
     CircleNotArchived,
     CircleRealmMismatch,
     CircleShortNameTaken,
-    ClaimFailed,
     ClaimGenerationMismatch,
     ClaimInvalid,
     ClaimRateLimited,
@@ -140,6 +139,11 @@ pub enum ReasonCode {
     DeviceReanchorFrontierMismatch,
     DeviceRecoverySskGenerationMismatch,
     DidProofReplayWindowExceeded,
+    DirectConversationBindingInvalid,
+    DirectConversationInviteForbidden,
+    DirectConversationMemberCountInvalid,
+    DirectConversationSpaceForbidden,
+    DirectConversationThirdPartyMemberForbidden,
     DirectDownloadDisallowedPresignForbidden,
     DuplicateConflict,
     DurabilityRecoveryRecipientUnverified,
@@ -529,7 +533,6 @@ impl ReasonCode {
     pub const CIRCLE_NOT_ARCHIVED: &'static str = "circle_not_archived";
     pub const CIRCLE_REALM_MISMATCH: &'static str = "circle_realm_mismatch";
     pub const CIRCLE_SHORT_NAME_TAKEN: &'static str = "circle_short_name_taken";
-    pub const CLAIM_FAILED: &'static str = "claim_failed";
     pub const CLAIM_GENERATION_MISMATCH: &'static str = "claim_generation_mismatch";
     pub const CLAIM_INVALID: &'static str = "claim_invalid";
     pub const CLAIM_RATE_LIMITED: &'static str = "claim_rate_limited";
@@ -604,6 +607,16 @@ impl ReasonCode {
     pub const DEVICE_RECOVERY_SSK_GENERATION_MISMATCH: &'static str =
         "device_recovery_ssk_generation_mismatch";
     pub const DID_PROOF_REPLAY_WINDOW_EXCEEDED: &'static str = "did_proof_replay_window_exceeded";
+    pub const DIRECT_CONVERSATION_BINDING_INVALID: &'static str =
+        "direct_conversation_binding_invalid";
+    pub const DIRECT_CONVERSATION_INVITE_FORBIDDEN: &'static str =
+        "direct_conversation_invite_forbidden";
+    pub const DIRECT_CONVERSATION_MEMBER_COUNT_INVALID: &'static str =
+        "direct_conversation_member_count_invalid";
+    pub const DIRECT_CONVERSATION_SPACE_FORBIDDEN: &'static str =
+        "direct_conversation_space_forbidden";
+    pub const DIRECT_CONVERSATION_THIRD_PARTY_MEMBER_FORBIDDEN: &'static str =
+        "direct_conversation_third_party_member_forbidden";
     pub const DIRECT_DOWNLOAD_DISALLOWED_PRESIGN_FORBIDDEN: &'static str =
         "direct_download_disallowed_presign_forbidden";
     pub const DUPLICATE_CONFLICT: &'static str = "duplicate_conflict";
@@ -1026,7 +1039,6 @@ impl ReasonCode {
             Self::CircleNotArchived => "circle_not_archived",
             Self::CircleRealmMismatch => "circle_realm_mismatch",
             Self::CircleShortNameTaken => "circle_short_name_taken",
-            Self::ClaimFailed => "claim_failed",
             Self::ClaimGenerationMismatch => "claim_generation_mismatch",
             Self::ClaimInvalid => "claim_invalid",
             Self::ClaimRateLimited => "claim_rate_limited",
@@ -1092,6 +1104,15 @@ impl ReasonCode {
             Self::DeviceReanchorFrontierMismatch => "device_reanchor_frontier_mismatch",
             Self::DeviceRecoverySskGenerationMismatch => "device_recovery_ssk_generation_mismatch",
             Self::DidProofReplayWindowExceeded => "did_proof_replay_window_exceeded",
+            Self::DirectConversationBindingInvalid => "direct_conversation_binding_invalid",
+            Self::DirectConversationInviteForbidden => "direct_conversation_invite_forbidden",
+            Self::DirectConversationMemberCountInvalid => {
+                "direct_conversation_member_count_invalid"
+            }
+            Self::DirectConversationSpaceForbidden => "direct_conversation_space_forbidden",
+            Self::DirectConversationThirdPartyMemberForbidden => {
+                "direct_conversation_third_party_member_forbidden"
+            }
             Self::DirectDownloadDisallowedPresignForbidden => {
                 "direct_download_disallowed_presign_forbidden"
             }
@@ -1512,7 +1533,6 @@ impl ReasonCode {
             "circle_not_archived" => Self::CircleNotArchived,
             "circle_realm_mismatch" => Self::CircleRealmMismatch,
             "circle_short_name_taken" => Self::CircleShortNameTaken,
-            "claim_failed" => Self::ClaimFailed,
             "claim_generation_mismatch" => Self::ClaimGenerationMismatch,
             "claim_invalid" => Self::ClaimInvalid,
             "claim_rate_limited" => Self::ClaimRateLimited,
@@ -1578,6 +1598,15 @@ impl ReasonCode {
             "device_reanchor_frontier_mismatch" => Self::DeviceReanchorFrontierMismatch,
             "device_recovery_ssk_generation_mismatch" => Self::DeviceRecoverySskGenerationMismatch,
             "did_proof_replay_window_exceeded" => Self::DidProofReplayWindowExceeded,
+            "direct_conversation_binding_invalid" => Self::DirectConversationBindingInvalid,
+            "direct_conversation_invite_forbidden" => Self::DirectConversationInviteForbidden,
+            "direct_conversation_member_count_invalid" => {
+                Self::DirectConversationMemberCountInvalid
+            }
+            "direct_conversation_space_forbidden" => Self::DirectConversationSpaceForbidden,
+            "direct_conversation_third_party_member_forbidden" => {
+                Self::DirectConversationThirdPartyMemberForbidden
+            }
             "direct_download_disallowed_presign_forbidden" => {
                 Self::DirectDownloadDisallowedPresignForbidden
             }
@@ -2317,11 +2346,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Ordinary Circle creation or display update failed the reducer-enforced case-insensitive uniqueness of display.short_name within (realm_id, short_name). Sidecar backing Circle names are reducer-derived and any collision is hidden behind sidecar_create_denied. See zh/models/circle.md §4.",
     },
     ReasonCodeDescriptor {
-        code: "claim_failed",
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "Atomic claim of a one-time key / pre-key / KeyPackage failed because it was already consumed, revoked, or not present (crypto-media/device-lifecycle.md KeyPackage claim path).",
-    },
-    ReasonCodeDescriptor {
         code: "claim_generation_mismatch",
         applies_to: &["crypto", "auth_decision"],
         description: "An MLS Welcome / KeyPackage claim binds a cross-signing or self-signing generation that does not equal the receiver's current accepted generation. Receivers MUST reject before admitting the Welcome or key material. See zh/crypto-media/encryption-and-audit.md §2.6 and zh/crypto-media/device-lifecycle.md §14.4.",
@@ -2589,6 +2613,31 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "did_proof_replay_window_exceeded",
         applies_to: &["account_status", "auth_decision"],
         description: "A soft-logout recovery DID proof was rejected because expires_at is missing or its freshness window exceeded the bound (expires_at - issued_at > 300s, or issued_at skew beyond tolerance); see account-lifecycle.md §4 and identity-did.md §5.1.",
+    },
+    ReasonCodeDescriptor {
+        code: "direct_conversation_binding_invalid",
+        applies_to: &["event_envelope", "auth_decision", "state_resolution"],
+        description: "An authored Direct Conversation binding fact has an invalid issuer, pair key, referenced contact facts, Realm role, membership set, main Strand, retirement target, or other canonical verification input.",
+    },
+    ReasonCodeDescriptor {
+        code: "direct_conversation_invite_forbidden",
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "An invite operation targeted a Realm carrying ak.profile.direct_conversation_realm.v1. Direct Conversation membership is established only by the resolver's verified two-participant bootstrap; all invite flows fail closed.",
+    },
+    ReasonCodeDescriptor {
+        code: "direct_conversation_member_count_invalid",
+        applies_to: &["event_envelope", "auth_decision", "state_resolution"],
+        description: "A Direct Conversation binding or membership projection does not resolve to exactly two distinct active principal participants. The Realm cannot be returned as an active canonical DM and policy evaluation fails closed.",
+    },
+    ReasonCodeDescriptor {
+        code: "direct_conversation_space_forbidden",
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "A Space create/update/parent/archive/restore/tombstone operation targeted a Realm carrying ak.profile.direct_conversation_realm.v1. Space containers are not permitted in this constrained Realm role.",
+    },
+    ReasonCodeDescriptor {
+        code: "direct_conversation_third_party_member_forbidden",
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "An invite or join attempted to add a principal that is not one of the two stable subject DIDs in the active canonical Direct Conversation binding. Group-chat expansion requires a new ordinary Collaboration Realm.",
     },
     ReasonCodeDescriptor {
         code: "direct_download_disallowed_presign_forbidden",

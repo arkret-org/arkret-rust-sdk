@@ -10,7 +10,8 @@ use arkret_wire::serde_helpers::{
 };
 use arkret_wire::{
     CircleId, Did, EncryptionProfile, Error, EvaluationClass, Facet, GrantId, Hash,
-    HistoryVisibility, PayloadProof, RealmId, Result, XExtensionMap,
+    HistoryVisibility, PayloadProof, ProofContextId, RealmId, Result, WireError, XExtensionMap,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -733,6 +734,64 @@ pub struct CapabilityGrant {
     )]
     pub revoked_at: Option<DateTime<Utc>>,
     pub proofs: Vec<PayloadProof>,
+}
+
+impl CapabilityGrant {
+    /// RFC 8785 canonical bytes of the grant body covered by
+    /// `proof.payload_digest`. The `proofs` carrier is excluded so adding the
+    /// detached proof cannot recursively change the signed digest.
+    pub fn canonical_payload_without_proofs(&self) -> Result<Vec<u8>> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .expect("CapabilityGrant serializes as an object")
+            .remove("proofs");
+        Ok(canonical::canonical_json_bytes(&value)?)
+    }
+
+    /// `sha256:` digest committed by every capability-grant payload proof.
+    pub fn payload_digest(&self) -> Result<Hash> {
+        Ok(Hash::new(canonical::sha256_digest(
+            &self.canonical_payload_without_proofs()?,
+        ))?)
+    }
+
+    /// Canonical `ak.capability-grant-proof-v1` transcript for one proof.
+    pub fn canonical_proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        let payload_digest = self.payload_digest()?;
+        if proof.payload_digest != payload_digest {
+            return Err(WireError::Protocol(
+                "capability grant proof payload_digest mismatch".to_owned(),
+            ));
+        }
+        let mut binding = serde_json::Map::from_iter([
+            (
+                "context".to_owned(),
+                Value::String(ProofContextId::CAPABILITY_GRANT_PROOF_V1.to_owned()),
+            ),
+            (
+                "payload_digest".to_owned(),
+                serde_json::to_value(&payload_digest)?,
+            ),
+            ("issuer".to_owned(), serde_json::to_value(&self.issuer)?),
+            ("subject".to_owned(), serde_json::to_value(&self.subject)?),
+            (
+                "verification_method".to_owned(),
+                Value::String(proof.verification_method.clone()),
+            ),
+            (
+                "created_at".to_owned(),
+                serde_json::to_value(proof.created_at)?,
+            ),
+        ]);
+        if let Some(domain) = &proof.domain {
+            binding.insert("domain".to_owned(), Value::String(domain.clone()));
+        }
+        if let Some(audience) = &proof.audience {
+            binding.insert("audience".to_owned(), serde_json::to_value(audience)?);
+        }
+        Ok(canonical::canonical_json_bytes(&Value::Object(binding))?)
+    }
 }
 
 #[cfg(test)]

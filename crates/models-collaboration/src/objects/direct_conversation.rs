@@ -345,6 +345,8 @@ pub fn select_canonical_direct_conversation_binding(
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::MlsGroupId;
+
     use super::*;
 
     fn did(value: &str) -> Did {
@@ -467,6 +469,10 @@ mod tests {
             contact_refs: vec![event_id("301")],
             member_event_refs: vec![event_id("302"), event_id("303")],
             main_strand_create_ref: event_id("304"),
+            mls_group_id: MlsGroupId::new("ak:mls_group:direct-fixture").unwrap(),
+            mls_genesis_event_ref: event_id("305"),
+            mls_commit_event_ref: event_id("306"),
+            mls_welcome_event_ref: event_id("307"),
             created_at: DateTime::parse_from_rfc3339("2026-07-21T00:00:00Z")
                 .unwrap()
                 .with_timezone(&Utc),

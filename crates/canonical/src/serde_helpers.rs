@@ -91,3 +91,29 @@ where
         .map(|parsed| Some(parsed.with_timezone(&Utc)))
         .map_err(serde::de::Error::custom)
 }
+
+/// `#[serde(with = "...")]` adapter for the canonical timestamp profile.
+/// The named module keeps downstream wire structs on serde's standard
+/// `with` convention while the flat functions remain available to
+/// `serialize_with` / `deserialize_with` callers.
+pub mod canonical_timestamp {
+    pub use super::{
+        deserialize_canonical_timestamp as deserialize, serialize_canonical_timestamp as serialize,
+    };
+}
+
+/// `#[serde(with = "...")]` adapter for optional canonical timestamps.
+pub mod optional_canonical_timestamp {
+    pub use super::{
+        deserialize_optional_canonical_timestamp as deserialize,
+        serialize_optional_canonical_timestamp as serialize,
+    };
+}
+
+/// `#[serde(with = "...")]` adapter for fixed-width millisecond timestamps.
+pub mod canonical_timestamp_millis {
+    pub use super::{
+        deserialize_canonical_timestamp_millis as deserialize,
+        serialize_canonical_timestamp_millis as serialize,
+    };
+}

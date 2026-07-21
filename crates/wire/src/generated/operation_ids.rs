@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-07-20;
-//! sha256=b50eb4877a6802c3e4a88d7c3eca2ab9bf0315d56b69dc8119dbf40f72e10a65 Entries: registered=190
+//! sha256=d2f5dd07822a78521830a9457bbdc6f72207a62410d26f8b4beb402d2dc9a11a Entries: registered=192
 
 use serde::{Deserialize, Serialize};
 
@@ -71,6 +71,8 @@ pub enum ServiceOperationId {
     PeerEventsQueryScan,
     PeerEventsQueryScanBody,
     PeerInvitesCommandSubmit,
+    PeerKeysKeypackagesCommandClaim,
+    PeerKeysKeypackagesQueryClaim,
     PeerSnapshotQueryManifestHead,
     RootIdentityCommandSubmitDidOperation,
     RootIdentityDocumentResourceGet,
@@ -264,6 +266,8 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.peer.events.query.scan",
     "ak.peer.events.query.scan_body",
     "ak.peer.invites.command.submit",
+    "ak.peer.keys.keypackages.command.claim",
+    "ak.peer.keys.keypackages.query.claim",
     "ak.peer.snapshot.query.manifest_head",
     "ak.root.identity.command.submit_did_operation",
     "ak.root.identity.document.resource.get",
@@ -473,6 +477,8 @@ impl ServiceOperationId {
         Self::PeerEventsQueryScan,
         Self::PeerEventsQueryScanBody,
         Self::PeerInvitesCommandSubmit,
+        Self::PeerKeysKeypackagesCommandClaim,
+        Self::PeerKeysKeypackagesQueryClaim,
         Self::PeerSnapshotQueryManifestHead,
         Self::RootIdentityCommandSubmitDidOperation,
         Self::RootIdentityDocumentResourceGet,
@@ -704,6 +710,10 @@ impl ServiceOperationId {
     pub const PEER_EVENTS_QUERY_SCAN: &'static str = "ak.peer.events.query.scan";
     pub const PEER_EVENTS_QUERY_SCAN_BODY: &'static str = "ak.peer.events.query.scan_body";
     pub const PEER_INVITES_COMMAND_SUBMIT: &'static str = "ak.peer.invites.command.submit";
+    pub const PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM: &'static str =
+        "ak.peer.keys.keypackages.command.claim";
+    pub const PEER_KEYS_KEYPACKAGES_QUERY_CLAIM: &'static str =
+        "ak.peer.keys.keypackages.query.claim";
     pub const PEER_SNAPSHOT_QUERY_MANIFEST_HEAD: &'static str =
         "ak.peer.snapshot.query.manifest_head";
     pub const ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION: &'static str =
@@ -981,6 +991,8 @@ impl ServiceOperationId {
             Self::PeerEventsQueryScan => "ak.peer.events.query.scan",
             Self::PeerEventsQueryScanBody => "ak.peer.events.query.scan_body",
             Self::PeerInvitesCommandSubmit => "ak.peer.invites.command.submit",
+            Self::PeerKeysKeypackagesCommandClaim => "ak.peer.keys.keypackages.command.claim",
+            Self::PeerKeysKeypackagesQueryClaim => "ak.peer.keys.keypackages.query.claim",
             Self::PeerSnapshotQueryManifestHead => "ak.peer.snapshot.query.manifest_head",
             Self::RootIdentityCommandSubmitDidOperation => {
                 "ak.root.identity.command.submit_did_operation"
@@ -1248,6 +1260,8 @@ impl ServiceOperationId {
             "ak.peer.events.query.scan" => Some(Self::PeerEventsQueryScan),
             "ak.peer.events.query.scan_body" => Some(Self::PeerEventsQueryScanBody),
             "ak.peer.invites.command.submit" => Some(Self::PeerInvitesCommandSubmit),
+            "ak.peer.keys.keypackages.command.claim" => Some(Self::PeerKeysKeypackagesCommandClaim),
+            "ak.peer.keys.keypackages.query.claim" => Some(Self::PeerKeysKeypackagesQueryClaim),
             "ak.peer.snapshot.query.manifest_head" => Some(Self::PeerSnapshotQueryManifestHead),
             "ak.root.identity.command.submit_did_operation" => {
                 Some(Self::RootIdentityCommandSubmitDidOperation)
@@ -2511,6 +2525,42 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerKeysKeypackagesCommandClaim,
+        http_method: "POST",
+        http_path: "/_arkret/peer/keys/keypackages/claim",
+        grpc: Some("PeerKeys/KeyPackagesClaim"),
+        mq: Some("peer.keys.keypackages.command.claim"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(false),
+        request_schema_ref: Some(
+            "schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_outcome",
+        ),
+        uncertain_outcome: Some(
+            "{\"operation_id\":\"ak.peer.keys.keypackages.query.claim\",\"strategy\":\"query_operation\"}",
+        ),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerKeysKeypackagesQueryClaim,
+        http_method: "POST",
+        http_path: "/_arkret/peer/keys/keypackages/claims/query",
+        grpc: Some("PeerKeys/KeyPackagesClaimQuery"),
+        mq: Some("peer.keys.keypackages.query.claim"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_query_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_query_outcome",
+        ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::PeerSnapshotQueryManifestHead,
         http_method: "GET",
         http_path: "/_arkret/peer/snapshot/head",
@@ -3660,7 +3710,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         grpc: Some("SelfDirectConversation/Resolve"),
         mq: Some("self.direct_conversation.command.resolve"),
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
+        idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/contact-operations.schema.json#/$defs/direct_conversation_resolve_request_body",

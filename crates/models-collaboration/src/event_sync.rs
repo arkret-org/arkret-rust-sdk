@@ -9,7 +9,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    Did, Error, Event, EventId, Hash, Hlc, RealmId, Result, Seal, SealBasis, SealId,
+    Did, Error, Event, EventId, FederatedDeviceSigningKeyEvidence, Hash, Hlc, RealmId, Result,
+    Seal, SealBasis, SealId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -213,6 +214,8 @@ pub struct FederationServiceBindingRef {
 // module (re-exported here for the historic flat path).
 pub use crate::http_bodies::EventsSubmitBatchRequestBody;
 
+pub const MAX_FEDERATED_EVENT_SIGNER_EVIDENCE: usize = 64;
+
 /// Round 4 — federation `/events/submit` request. Used when a remote
 /// service forwards events from another principal server. MUST carry
 /// the full [`FederationServiceBindingRef`] so the receiver can verify
@@ -222,10 +225,151 @@ pub use crate::http_bodies::EventsSubmitBatchRequestBody;
 pub struct EventsSubmitFederationRequestBody {
     pub service_binding_ref: FederationServiceBindingRef,
     pub events: Vec<Event>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub signer_key_evidence: Vec<FederatedDeviceSigningKeyEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
+}
+
+impl EventsSubmitFederationRequestBody {
+    pub fn validate_signer_key_evidence(&self) -> Result<()> {
+        if self.signer_key_evidence.len() > MAX_FEDERATED_EVENT_SIGNER_EVIDENCE {
+            return Err(Error::Protocol(
+                "federation signer_key_evidence exceeds the v1 limit".to_owned(),
+            ));
+        }
+        for evidence in &self.signer_key_evidence {
+            evidence.validate_shape()?;
+            if !self
+                .events
+                .iter()
+                .any(|event| evidence.matches_event_proof(event, &evidence.verification_method))
+            {
+                return Err(Error::Protocol(
+                    "federation signer evidence does not match a transported Event proof"
+                        .to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 // `SnapshotBootstrap` migrated to `sync_frames::snapshot`. It reaches the
 // `arkret_core::SnapshotBootstrap` path via the `artifacts::sync`
 // re-export, so no shim is needed here.
+
+#[cfg(test)]
+mod tests {
+    use arkret_wire::{DeviceId, DidKey};
+    use serde_json::json;
+
+    use super::*;
+
+    fn event_with_device_proof() -> Event {
+        serde_json::from_value(json!({
+            "event_id": "ak:event:01904100-0000-7000-8000-000000000001",
+            "kind": "ak.message.create",
+            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+            "actor_id": "did:web:alice.example",
+            "actor_seq": 1,
+            "created_at": "2026-07-21T08:00:00.000Z",
+            "hlc": "01970e589d21-0001-a13f9c2e",
+            "prev_refs": [],
+            "payload": {},
+            "proofs": [{
+                "kind": "detached_jws",
+                "alg": "EdDSA",
+                "verification_method": "did:web:alice.example#ak:device:01904100-0000-7000-8000-000000000002",
+                "event_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "created_at": "2026-07-21T08:00:00.000Z",
+                "jws": "header..signature"
+            }]
+        }))
+        .unwrap()
+    }
+
+    fn evidence() -> FederatedDeviceSigningKeyEvidence {
+        let device_authorize_event = serde_json::from_value(json!({
+            "event_id": "ak:event:01904100-0000-7000-8000-000000000004",
+            "kind": "ak.device.authorize",
+            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000004",
+            "actor_id": "did:web:alice.example",
+            "actor_seq": 1,
+            "created_at": "2026-07-21T07:00:00.000Z",
+            "hlc": "01970e589d21-0000-a13f9c2e",
+            "prev_refs": [],
+            "payload": {
+                "principal_id": "did:web:alice.example",
+                "device_id": "ak:device:01904100-0000-7000-8000-000000000002",
+                "device_public_key": "z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuVkhY7g94pVQyG98x",
+                "enrollment_authority_binding": {
+                    "kind": "service_attested",
+                    "authority_did": "did:web:auth.example",
+                    "authorization_ref": "did:web:alice.example#device-enrollment"
+                }
+            },
+            "executed_by": "did:web:auth.example",
+            "authorization_ref": "did:web:alice.example#device-enrollment",
+            "proofs": [{
+                "kind": "detached_jws",
+                "alg": "EdDSA",
+                "verification_method": "did:web:auth.example#enrollment",
+                "event_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "created_at": "2026-07-21T07:00:00.000Z",
+                "jws": "header..signature"
+            }]
+        }))
+        .unwrap();
+        FederatedDeviceSigningKeyEvidence {
+            actor_id: Did::new("did:web:alice.example").unwrap(),
+            device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002").unwrap(),
+            verification_method:
+                "did:web:alice.example#ak:device:01904100-0000-7000-8000-000000000002".to_owned(),
+            device_signing_key: DidKey::new(
+                "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuVkhY7g94pVQyG98x",
+            )
+            .unwrap(),
+            authorization_accepted_at: "2026-07-21T07:00:01.000Z".parse().unwrap(),
+            device_authorize_event: Box::new(device_authorize_event),
+        }
+    }
+
+    #[test]
+    fn signer_evidence_matches_only_the_exact_event_proof() {
+        let event = event_with_device_proof();
+        let evidence = evidence();
+        assert!(evidence.matches_event_proof(&event, &evidence.verification_method));
+
+        let mut wrong_actor = evidence.clone();
+        wrong_actor.actor_id = Did::new("did:web:mallory.example").unwrap();
+        assert!(!wrong_actor.matches_event_proof(&event, &wrong_actor.verification_method));
+    }
+
+    #[test]
+    fn federation_request_rejects_unrelated_signer_evidence() {
+        let event = event_with_device_proof();
+        let mut unrelated = evidence();
+        unrelated.verification_method = format!(
+            "{}#{}",
+            unrelated.actor_id,
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000003").unwrap()
+        );
+        unrelated.device_id =
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000003").unwrap();
+        let request = EventsSubmitFederationRequestBody {
+            service_binding_ref: FederationServiceBindingRef {
+                realm_id: event.realm_id.clone(),
+                realm_policy_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
+                membership_frontier: vec![event.event_id.clone()],
+                delivery_binding_frontier: vec![event.event_id.clone()],
+                destination_service_type: "principal_server".to_owned(),
+                reducer_profile_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
+            },
+            events: vec![event],
+            signer_key_evidence: vec![unrelated],
+            idempotency_key: None,
+        };
+        assert!(request.validate_signer_key_evidence().is_err());
+    }
+}

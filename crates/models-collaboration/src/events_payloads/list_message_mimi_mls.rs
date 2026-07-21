@@ -6,6 +6,7 @@ use std::num::NonZeroU64;
 use arkret_canonical::serde_helpers::{
     deserialize_canonical_timestamp, serialize_canonical_timestamp,
 };
+use arkret_models_crypto::PeerKeyPackageClaimReceipt;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -869,6 +870,7 @@ pub struct MlsWelcomePayload {
     pub claim_id: NonEmptyString,
     pub claim_ref: MlsWelcomePayloadClaimRef,
     pub claim_envelope: MlsWelcomeClaimEnvelope,
+    pub peer_claim_receipt: Option<PeerKeyPackageClaimReceipt>,
     pub carrier: MlsWelcomeCarrier,
     pub commit_ref: Option<EventId>,
     pub governance_binding: MlsGovernanceBindingPayload,
@@ -889,6 +891,8 @@ struct MlsWelcomePayloadWire {
     claim_id: NonEmptyString,
     claim_ref: MlsWelcomePayloadClaimRef,
     claim_envelope: MlsWelcomeClaimEnvelope,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    peer_claim_receipt: Option<PeerKeyPackageClaimReceipt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     welcome_ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -921,6 +925,7 @@ impl Serialize for MlsWelcomePayload {
             claim_id: self.claim_id.clone(),
             claim_ref: self.claim_ref.clone(),
             claim_envelope: self.claim_envelope.clone(),
+            peer_claim_receipt: self.peer_claim_receipt.clone(),
             welcome_ref: self.carrier.welcome_ref.clone(),
             encrypted_welcome_ref: self.carrier.encrypted_welcome_ref.clone(),
             ciphertext: self.carrier.ciphertext.clone(),
@@ -973,6 +978,7 @@ impl<'de> Deserialize<'de> for MlsWelcomePayload {
             claim_id: wire.claim_id,
             claim_ref: wire.claim_ref,
             claim_envelope: wire.claim_envelope,
+            peer_claim_receipt: wire.peer_claim_receipt,
             carrier,
             commit_ref: wire.commit_ref,
             governance_binding: wire.governance_binding,

@@ -3,7 +3,7 @@ use arkret_canonical::serde_helpers::{
 };
 use arkret_identifiers::{Did, EventId, RealmId};
 use arkret_models_identity::handle::Handle;
-use arkret_wire::{Error, Event, Result};
+use arkret_wire::{Error, Event, FederatedDeviceSigningKeyEvidence, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -11,6 +11,7 @@ use crate::governance::handle_claim::HandleClaim;
 use crate::governance::invite_addressing::PrincipalLocator;
 
 pub const PEER_CONTACT_DELIVERY_REQUEST_SCHEMA: &str = "ak.schema.peer_contact_delivery_request.v1";
+pub const MAX_PEER_CONTACT_SIGNER_KEY_EVIDENCE: usize = 16;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
@@ -119,6 +120,8 @@ pub struct PeerContactDeliveryRequest {
     pub fact_kind: PeerContactFactKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub introduction_evidence: Option<ContactIntroductionEvidence>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub signer_key_evidence: Vec<FederatedDeviceSigningKeyEvidence>,
     pub idempotency_key: String,
 }
 
@@ -136,6 +139,7 @@ impl PeerContactDeliveryRequest {
             contact_address,
             fact_kind,
             introduction_evidence,
+            signer_key_evidence: Vec::new(),
             idempotency_key: idempotency_key.into(),
         }
     }
@@ -170,6 +174,19 @@ impl PeerContactDeliveryRequest {
             return Err(Error::Protocol(
                 "peer_contact_delivery_request.idempotency_key must not be empty".to_owned(),
             ));
+        }
+        if self.signer_key_evidence.len() > MAX_PEER_CONTACT_SIGNER_KEY_EVIDENCE {
+            return Err(Error::Protocol(
+                "peer contact signer_key_evidence exceeds the v1 limit".to_owned(),
+            ));
+        }
+        for evidence in &self.signer_key_evidence {
+            evidence.validate_shape()?;
+            if !evidence.matches_event_proof(&self.contact_event, &evidence.verification_method) {
+                return Err(Error::Protocol(
+                    "peer contact signer evidence does not match contact_event proof".to_owned(),
+                ));
+            }
         }
         Ok(())
     }

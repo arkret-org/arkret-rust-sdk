@@ -29,14 +29,14 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_identifiers::{
-    AppletId, CircleId, Did, EventId, GrantId, Hash, Hlc, RealmId, SealId, new_prefixed_uuid7,
+    AppletId, CircleId, DeviceId, Did, EventId, GrantId, Hash, Hlc, RealmId, SealId,
+    new_prefixed_uuid7,
 };
 use chrono::{DateTime, Utc};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::canonical;
 use crate::error::{Error, Result};
 use crate::error_codes::ReasonCode;
 use crate::events::kinds::EventKind;
@@ -44,6 +44,7 @@ use crate::move_event::{Effect, Precondition, SealBasis};
 use crate::primitives::{
     Audience, CriticalExtension, Proof, ProofBindingRequirements, SignatureBindingPayload,
 };
+use crate::{DidKey, canonical};
 
 pub const MAX_EVENT_ENVELOPE_BYTES: usize = 1024 * 1024;
 pub const MAX_EVENT_SUBMIT_BATCH: usize = 1_000;
@@ -370,6 +371,80 @@ pub struct Event {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub unsigned: BTreeMap<String, Value>,
     pub proofs: Vec<Proof>,
+}
+
+/// Portable authorization evidence for an active participant device signing
+/// key. The original accepted `ak.device.authorize` Event anchors the key in
+/// the principal's delegated enrollment authority; the authenticated source
+/// service only attests current lifecycle freshness. This transport context is
+/// never part of another Event's canonical bytes.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct FederatedDeviceSigningKeyEvidence {
+    pub actor_id: Did,
+    pub device_id: DeviceId,
+    pub verification_method: String,
+    pub device_signing_key: DidKey,
+    #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp_millis")]
+    pub authorization_accepted_at: DateTime<Utc>,
+    pub device_authorize_event: Box<Event>,
+}
+
+impl FederatedDeviceSigningKeyEvidence {
+    pub fn validate_shape(&self) -> Result<()> {
+        let expected = format!("{}#{}", self.actor_id, self.device_id);
+        if self.verification_method != expected {
+            return Err(Error::Protocol(
+                "federated device signing evidence verification_method must equal actor_id#device_id"
+                    .to_owned(),
+            ));
+        }
+        if self.device_authorize_event.kind.as_str() != "ak.device.authorize"
+            || self.device_authorize_event.actor_id != self.actor_id
+            || self.authorization_accepted_at < self.device_authorize_event.created_at
+            || self
+                .device_authorize_event
+                .payload
+                .get("principal_id")
+                .and_then(Value::as_str)
+                != Some(self.actor_id.as_str())
+            || self
+                .device_authorize_event
+                .payload
+                .get("device_id")
+                .and_then(Value::as_str)
+                != Some(self.device_id.as_str())
+            || self
+                .device_authorize_event
+                .payload
+                .get("device_public_key")
+                .and_then(Value::as_str)
+                .is_none_or(|value| {
+                    self.device_signing_key.as_str().strip_prefix("did:key:") != Some(value)
+                })
+            || !self
+                .device_authorize_event
+                .payload
+                .contains_key("enrollment_authority_binding")
+        {
+            return Err(Error::Protocol(
+                "federated device signing evidence must carry the matching service-attested ak.device.authorize Event"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn matches_event_proof(&self, event: &Event, verification_method: &str) -> bool {
+        self.validate_shape().is_ok()
+            && self.actor_id == event.actor_id
+            && self.verification_method == verification_method
+            && event
+                .proofs
+                .iter()
+                .any(|proof| proof.verification_method == verification_method)
+    }
 }
 
 #[derive(Debug, Deserialize)]
