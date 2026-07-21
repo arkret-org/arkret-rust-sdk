@@ -119,6 +119,7 @@ pub use agent::{
 };
 pub use applet::*;
 pub use arkret_identifiers as identifiers;
+pub use arkret_wire::string_profiles::*;
 pub use arkret_wire::{
     CapabilityActionId, DIGEST_SUITES, EXPORTER_LABELS, EvaluationClass, ExporterLabelId,
     HPKE_SUITES, MLS_CIPHERSUITES, MLS_EXTENSIONS, PROOF_CONTEXTS, ProofContextId,

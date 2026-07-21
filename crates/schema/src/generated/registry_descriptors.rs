@@ -5,10 +5,10 @@
 //! capability-action-registry.json; version=2026-07-20;
 //! sha256=467b314e3f9fe21aba8fac5c8b5df948a91c8932850d6ef21def3ff019b68563 Input: registry/
 //! schema-registry.json; version=2026-07-20;
-//! sha256=35d08a300540bae83f8becf2d62bf42eb91093aaf123d88db2435f3da315f2b2 Input: registry/
+//! sha256=6cd984cfb98ceeb87c669efe017a5e5be5ab92a9e837237eab1aaa750188b419 Input: registry/
 //! account-data-type-registry.json; version=2026-07-03;
 //! sha256=90662737689befb83dab6d6570abc38d62d6b05b45901cc23ec80938e3bffd55 Entries: id_kinds=50,
-//! special_forms=9, actions=152, schemas=122, account_data_patterns=23
+//! special_forms=9, actions=152, schemas=123, account_data_patterns=23
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -2274,6 +2274,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: "ak.schema.strand.v1",
         file: "schemas/strand.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.string_profiles.v1",
+        file: "schemas/string-profiles.schema.json",
     },
     SchemaDescriptor {
         schema_id: "ak.schema.view.v1",

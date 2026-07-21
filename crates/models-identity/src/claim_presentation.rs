@@ -165,37 +165,7 @@ impl AgentSelectorClaim {
 }
 
 pub fn validate_agent_slug(value: &str) -> Result<()> {
-    let mut chars = value.chars();
-    let Some(first) = chars.next() else {
-        return Err(Error::Protocol("agent_slug must not be empty".to_owned()));
-    };
-    if !first.is_ascii_lowercase() && !first.is_ascii_digit() {
-        return Err(Error::Protocol(
-            "agent_slug must start with lowercase alnum".to_owned(),
-        ));
-    }
-    let mut last = first;
-    let mut len = 1usize;
-    for ch in chars {
-        len += 1;
-        if len > 64 {
-            return Err(Error::Protocol(
-                "agent_slug must be at most 64 characters".to_owned(),
-            ));
-        }
-        if !ch.is_ascii_lowercase() && !ch.is_ascii_digit() && ch != '_' && ch != '-' {
-            return Err(Error::Protocol(
-                "agent_slug may contain lowercase alnum, underscore, or hyphen only".to_owned(),
-            ));
-        }
-        last = ch;
-    }
-    if !last.is_ascii_lowercase() && !last.is_ascii_digit() {
-        return Err(Error::Protocol(
-            "agent_slug must end with lowercase alnum".to_owned(),
-        ));
-    }
-    Ok(())
+    arkret_wire::validate_canonical_agent_slug(value)
 }
 
 #[cfg(test)]
@@ -204,10 +174,10 @@ mod agent_selector_tests {
 
     #[test]
     fn validates_agent_slug_pattern() {
-        for value in ["s", "summary", "summary_v2", "summary-v2"] {
+        for value in ["s", "summary", "summary_v2", "summary-v2", "总结助手"] {
             validate_agent_slug(value).unwrap();
         }
-        for value in ["", "-summary", "summary-", "Summary", "sum.mary"] {
+        for value in ["", "Summary", "sum/mary", "e\u{301}xample"] {
             assert!(validate_agent_slug(value).is_err(), "{value}");
         }
     }

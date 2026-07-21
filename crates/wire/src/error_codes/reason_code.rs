@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=c2c0d1e0f78baf870b78f2171ea19b6382c7ebf59ba94b86b5a0e95d888390d0
-//! Entries: reason_codes=416
+//! sha256=e1844ead69ba1bc1f96a4c56baa87bf296e17b9282f2319d4177edd68f16d633
+//! Entries: reason_codes=421
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -140,6 +140,11 @@ pub enum ReasonCode {
     DeviceReanchorFrontierMismatch,
     DeviceRecoverySskGenerationMismatch,
     DidProofReplayWindowExceeded,
+    DirectConversationBindingInvalid,
+    DirectConversationInviteForbidden,
+    DirectConversationMemberCountInvalid,
+    DirectConversationSpaceForbidden,
+    DirectConversationThirdPartyMemberForbidden,
     DirectDownloadDisallowedPresignForbidden,
     DuplicateConflict,
     DurabilityRecoveryRecipientUnverified,
@@ -604,6 +609,16 @@ impl ReasonCode {
     pub const DEVICE_RECOVERY_SSK_GENERATION_MISMATCH: &'static str =
         "device_recovery_ssk_generation_mismatch";
     pub const DID_PROOF_REPLAY_WINDOW_EXCEEDED: &'static str = "did_proof_replay_window_exceeded";
+    pub const DIRECT_CONVERSATION_BINDING_INVALID: &'static str =
+        "direct_conversation_binding_invalid";
+    pub const DIRECT_CONVERSATION_INVITE_FORBIDDEN: &'static str =
+        "direct_conversation_invite_forbidden";
+    pub const DIRECT_CONVERSATION_MEMBER_COUNT_INVALID: &'static str =
+        "direct_conversation_member_count_invalid";
+    pub const DIRECT_CONVERSATION_SPACE_FORBIDDEN: &'static str =
+        "direct_conversation_space_forbidden";
+    pub const DIRECT_CONVERSATION_THIRD_PARTY_MEMBER_FORBIDDEN: &'static str =
+        "direct_conversation_third_party_member_forbidden";
     pub const DIRECT_DOWNLOAD_DISALLOWED_PRESIGN_FORBIDDEN: &'static str =
         "direct_download_disallowed_presign_forbidden";
     pub const DUPLICATE_CONFLICT: &'static str = "duplicate_conflict";
@@ -1092,6 +1107,15 @@ impl ReasonCode {
             Self::DeviceReanchorFrontierMismatch => "device_reanchor_frontier_mismatch",
             Self::DeviceRecoverySskGenerationMismatch => "device_recovery_ssk_generation_mismatch",
             Self::DidProofReplayWindowExceeded => "did_proof_replay_window_exceeded",
+            Self::DirectConversationBindingInvalid => "direct_conversation_binding_invalid",
+            Self::DirectConversationInviteForbidden => "direct_conversation_invite_forbidden",
+            Self::DirectConversationMemberCountInvalid => {
+                "direct_conversation_member_count_invalid"
+            }
+            Self::DirectConversationSpaceForbidden => "direct_conversation_space_forbidden",
+            Self::DirectConversationThirdPartyMemberForbidden => {
+                "direct_conversation_third_party_member_forbidden"
+            }
             Self::DirectDownloadDisallowedPresignForbidden => {
                 "direct_download_disallowed_presign_forbidden"
             }
@@ -1578,6 +1602,15 @@ impl ReasonCode {
             "device_reanchor_frontier_mismatch" => Self::DeviceReanchorFrontierMismatch,
             "device_recovery_ssk_generation_mismatch" => Self::DeviceRecoverySskGenerationMismatch,
             "did_proof_replay_window_exceeded" => Self::DidProofReplayWindowExceeded,
+            "direct_conversation_binding_invalid" => Self::DirectConversationBindingInvalid,
+            "direct_conversation_invite_forbidden" => Self::DirectConversationInviteForbidden,
+            "direct_conversation_member_count_invalid" => {
+                Self::DirectConversationMemberCountInvalid
+            }
+            "direct_conversation_space_forbidden" => Self::DirectConversationSpaceForbidden,
+            "direct_conversation_third_party_member_forbidden" => {
+                Self::DirectConversationThirdPartyMemberForbidden
+            }
             "direct_download_disallowed_presign_forbidden" => {
                 Self::DirectDownloadDisallowedPresignForbidden
             }
@@ -2591,6 +2624,31 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A soft-logout recovery DID proof was rejected because expires_at is missing or its freshness window exceeded the bound (expires_at - issued_at > 300s, or issued_at skew beyond tolerance); see account-lifecycle.md §4 and identity-did.md §5.1.",
     },
     ReasonCodeDescriptor {
+        code: "direct_conversation_binding_invalid",
+        applies_to: &["event_envelope", "auth_decision", "state_resolution"],
+        description: "An authored Direct Conversation binding fact has an invalid issuer, pair key, referenced contact facts, Realm role, membership set, main Strand, retirement target, or other canonical verification input.",
+    },
+    ReasonCodeDescriptor {
+        code: "direct_conversation_invite_forbidden",
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "An invite operation targeted a Realm carrying ak.profile.direct_conversation_realm.v1. Direct Conversation membership is established only by the resolver's verified two-participant bootstrap; all invite flows fail closed.",
+    },
+    ReasonCodeDescriptor {
+        code: "direct_conversation_member_count_invalid",
+        applies_to: &["event_envelope", "auth_decision", "state_resolution"],
+        description: "A Direct Conversation binding or membership projection does not resolve to exactly two distinct active principal participants. The Realm cannot be returned as an active canonical DM and policy evaluation fails closed.",
+    },
+    ReasonCodeDescriptor {
+        code: "direct_conversation_space_forbidden",
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "A Space create/update/parent/archive/restore/tombstone operation targeted a Realm carrying ak.profile.direct_conversation_realm.v1. Space containers are not permitted in this constrained Realm role.",
+    },
+    ReasonCodeDescriptor {
+        code: "direct_conversation_third_party_member_forbidden",
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "An invite or join attempted to add a principal that is not one of the two stable subject DIDs in the active canonical Direct Conversation binding. Group-chat expansion requires a new ordinary Collaboration Realm.",
+    },
+    ReasonCodeDescriptor {
         code: "direct_download_disallowed_presign_forbidden",
         applies_to: &["authz", "service_call"],
         description: "A presigned blob URL was requested for a Realm whose policy sets direct_download_allowed=false. The service MUST deny presign and require access through the authenticated media proxy.",
@@ -2747,7 +2805,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "handle_homograph_forbidden",
         applies_to: &["schema_validation", "service_call"],
-        description: "Handle registration or issuer conflict check failed wire-level NFC / UTS#39 confusable-skeleton / mixed-script constraints. Registries MUST reject instead of treating homograph variants as distinct identities. See zh/identity/identity-handles.md §17.",
+        description: "Handle registration collided with the same authority-local handle-namespace UTS #39 skeleton index or failed the authority's declared Highly Restrictive registration policy. This is registration policy, not canonical equality; the skeleton never enters wire or proof bytes. See zh/identity/identity-handles.md §17.",
     },
     ReasonCodeDescriptor {
         code: "handle_subject_mismatch",
@@ -3427,7 +3485,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "realm_alias_homograph_forbidden",
         applies_to: &["schema_validation", "service_call"],
-        description: "Realm alias registration or conflict check failed wire-level NFC / UTS#39 confusable-skeleton / mixed-script constraints within the realm-alias namespace. Registries MUST reject instead of treating homograph variants as distinct aliases. Cross-namespace (handle vs realm alias) homographs are disambiguated by sigil, not namespace uniqueness. See zh/discovery/object-addressing.md §3.3.",
+        description: "Realm alias registration collided with the same authority-local realm-alias-namespace UTS #39 skeleton index or failed its declared Highly Restrictive registration policy. Skeletons do not define canonical equality; cross-namespace handle/realm-alias homographs are disambiguated by sigil and type context. See zh/discovery/object-addressing.md §3.3.",
     },
     ReasonCodeDescriptor {
         code: "realm_already_exists",

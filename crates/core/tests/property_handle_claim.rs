@@ -2,9 +2,8 @@
 //!
 //! Pins three classes of invariant:
 //!
-//!  1. **Handle canonicalisation is idempotent.** Parsing a well-formed `<localpart>:<domain>`
-//!     handle then formatting it MUST yield the same string. Lower-casing of localpart + domain
-//!     MUST be applied consistently.
+//!  1. **Handle canonicalisation is idempotent.** Parsing a well-formed canonical
+//!     `<localpart>:<domain>` handle then formatting it MUST yield the same bytes.
 //!  2. **`acct:` round-trips synthesise the canonical form.** Any valid `acct:` is convertible to
 //!     canonical and back to `acct:` without information loss.
 //!  3. **`HandleClaim::validate` enforces conditional required fields.** If
@@ -22,9 +21,14 @@ use proptest::prelude::*;
 
 const PROPTEST_CASES: u32 = 64;
 
-/// Strategy: a valid localpart (lowercase ascii + a few specials).
+/// Strategy: a valid canonical RFC 8265 localpart.
 fn arb_localpart() -> impl Strategy<Value = String> {
-    "[a-z0-9][a-z0-9._+~\\-]{0,16}"
+    prop_oneof![
+        "[a-z0-9][a-z0-9._+~\\-]{0,16}",
+        Just("小明".to_owned()),
+        Just("résumé".to_owned()),
+        Just("παράδειγμα".to_owned()),
+    ]
 }
 
 /// Strategy: a valid domain (2-3 labels of letters/digits).
@@ -47,11 +51,12 @@ proptest! {
         prop_assert_eq!(parsed.canonical(), handle.as_str());
     }
 
-    /// Localpart is lowercased on parse.
+    /// Input preparation applies the profile while canonical parsing rejects rewrites.
     #[test]
-    fn parse_lowercases_localpart(local in "[A-Za-z0-9]{1,12}", domain in arb_domain()) {
+    fn preparation_and_canonical_parse_are_separate(local in "[A-Z][A-Za-z0-9]{0,11}", domain in arb_domain()) {
         let handle = format!("{local}:{domain}");
-        let parsed = Handle::parse(&handle).expect("parses");
+        prop_assert!(Handle::parse(&handle).is_err());
+        let parsed = Handle::prepare(&handle).expect("input prepares");
         let expected = local.to_ascii_lowercase();
         prop_assert_eq!(parsed.localpart(), expected.as_str());
     }
@@ -59,10 +64,12 @@ proptest! {
     /// `acct:` form round-trips to canonical and back.
     #[test]
     fn acct_round_trip(local in arb_localpart(), domain in arb_domain()) {
-        let acct = format!("acct:{local}@{domain}");
+        let handle = Handle::parse(&format!("{local}:{domain}")).expect("valid handle parses");
+        let acct = handle.to_acct();
         let parsed = Handle::from_acct(&acct).expect("valid acct parses");
         let again = parsed.to_acct();
         prop_assert_eq!(again, acct);
+        prop_assert_eq!(parsed.canonical(), handle.canonical());
     }
 
     /// MUST rule: binding_state=verified ⇒ requires handle AND expires_at.
@@ -137,15 +144,10 @@ proptest! {
         }
     }
 
-    /// Empty / oversized localparts are rejected at parse time.
+    /// Empty and structurally unsafe localparts are rejected at parse time.
     #[test]
-    fn rejects_invalid_localpart(local in "[A-Z!@#$%^&*]{0,4}", domain in arb_domain()) {
+    fn rejects_invalid_localpart(local in prop_oneof![Just(String::new()), "[a-z]{1,4}[/@:#?\\\\][a-z]{0,4}", "[a-z]{1,4} [a-z]{1,4}"], domain in arb_domain()) {
         let handle = format!("{local}:{domain}");
-        // Either lower-cased & rejected for empty or rejected for bad chars.
-        if local.is_empty() {
-            prop_assert!(Handle::parse(&handle).is_err());
-        } else if local.chars().any(|c| !(c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '+' | '~' | '-'))) {
-            prop_assert!(Handle::parse(&handle).is_err());
-        }
+        prop_assert!(Handle::parse(&handle).is_err());
     }
 }

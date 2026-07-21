@@ -50,6 +50,7 @@ pub mod seal;
 pub mod self_contact_paths;
 pub mod service_type;
 pub mod signer;
+pub mod string_profiles;
 pub mod wire_strings;
 
 pub use applet_revoke_mode::AppletRevokeMode;
@@ -95,4 +96,5 @@ pub use seal::{
 pub use self_contact_paths::*;
 pub use service_type::{EvaluationClass, ServiceType};
 pub use signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};
+pub use string_profiles::*;
 pub use wire_strings::*;
