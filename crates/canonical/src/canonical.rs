@@ -11,7 +11,7 @@ use crate::{CanonicalError as Error, Result};
 ///
 /// The v1 SDK uses an integer-only number profile for signing and hashing. This
 /// rejects JSON floats even if serde_json can represent them.
-pub fn canonical_json_bytes<T: Serialize>(value: &T) -> Result<Vec<u8>> {
+pub fn canonical_json_bytes<T: Serialize + ?Sized>(value: &T) -> Result<Vec<u8>> {
     let value = serde_json::to_value(value)?;
     let mut out = Vec::new();
     write_canonical_value(&value, &mut out)?;

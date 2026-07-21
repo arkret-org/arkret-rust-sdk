@@ -11,8 +11,9 @@ use arkret_signatures::http_signature::{
     sign_message,
 };
 use arkret_wire::ErrorEnvelope;
-use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
+use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
 use reqwest::{Method, RequestBuilder, Response};
+use serde::Serialize;
 use serde::de::DeserializeOwned;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::time::sleep;
@@ -84,6 +85,15 @@ impl Client {
             None => builder,
         };
         Ok(builder)
+    }
+
+    pub(crate) fn canonical_json_body<T: Serialize + ?Sized>(
+        &self,
+        builder: RequestBuilder,
+        body: &T,
+    ) -> Result<RequestBuilder> {
+        let bytes = arkret_canonical::canonical::canonical_json_bytes(body)?;
+        Ok(builder.header(CONTENT_TYPE, "application/json").body(bytes))
     }
 
     /// Build a request for a protocol endpoint that is normatively public.

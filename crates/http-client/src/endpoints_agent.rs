@@ -54,8 +54,8 @@ impl Client {
     ) -> Result<AgentKeyPairOutcome> {
         let builder = self
             .request(Method::POST, AGENT_KEY_PAIR_PATH)?
-            .header("Idempotency-Key", request.authorize_event.event_id.as_str())
-            .json(request);
+            .header("Idempotency-Key", request.authorize_event.event_id.as_str());
+        let builder = self.canonical_json_body(builder, request)?;
         self.send_json(builder).await
     }
 
@@ -75,9 +75,10 @@ impl Client {
         &self,
         request: &AgentRuntimeApprovalStatusRequestBody,
     ) -> Result<AgentRuntimeApprovalStatusResponse> {
-        let builder = self
-            .request(Method::POST, AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH)?
-            .json(request);
+        let builder = self.canonical_json_body(
+            self.request(Method::POST, AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH)?,
+            request,
+        )?;
         let (outcome, headers) = self.send_json_with_headers(builder).await?;
         Ok(AgentRuntimeApprovalStatusResponse {
             outcome,
