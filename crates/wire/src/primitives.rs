@@ -1139,8 +1139,8 @@ impl Proof {
     /// canonical Event bytes — so that `created_at`, `domain`, `audience`
     /// and `verification_method` are cryptographically covered by the
     /// signature, not just compared as plaintext. `created_at` is emitted
-    /// in canonical UTC `YYYY-MM-DDTHH:MM:SSZ` form so producers and
-    /// verifiers reconstruct byte-identical transcripts.
+    /// in canonical UTC `YYYY-MM-DDTHH:MM:SS.sssZ` form so the wire field
+    /// and transcript contain the same byte-identical timestamp string.
     pub fn canonical_binding_bytes(&self, actor_id: &Did) -> Result<Vec<u8>> {
         self.canonical_binding_bytes_with_context(actor_id, EVENT_PROOF_BINDING_CONTEXT)
     }
@@ -1195,7 +1195,9 @@ impl Proof {
         );
         obj.insert(
             "created_at".to_owned(),
-            Value::String(canonical::format_timestamp_canonical(self.created_at)),
+            Value::String(canonical::format_timestamp_millis_canonical(
+                self.created_at,
+            )),
         );
         if let Some(domain) = &self.domain {
             obj.insert("domain".to_owned(), Value::String(domain.clone()));
