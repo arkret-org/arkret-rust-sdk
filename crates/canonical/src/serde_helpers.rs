@@ -38,7 +38,8 @@ where
         .map_err(serde::de::Error::custom)
 }
 
-/// Serialize an Event/proof timestamp with exactly three UTC millisecond digits.
+/// Serialize an Event, proof, or Agent pairing transcript timestamp with
+/// exactly three UTC millisecond digits.
 pub fn serialize_canonical_timestamp_millis<S>(
     value: &DateTime<Utc>,
     serializer: S,
@@ -49,7 +50,7 @@ where
     serializer.serialize_str(&canonical::format_timestamp_millis_canonical(*value))
 }
 
-/// Deserialize the fixed-width Event/proof millisecond timestamp profile.
+/// Deserialize the fixed-width Event/proof/Agent-pairing millisecond profile.
 pub fn deserialize_canonical_timestamp_millis<'de, D>(
     deserializer: D,
 ) -> Result<DateTime<Utc>, D::Error>

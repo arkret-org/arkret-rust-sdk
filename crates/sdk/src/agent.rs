@@ -422,6 +422,10 @@ fn validate_pairing_authorize_event(authorize_event: &Event, agent_id: &Did) -> 
 pub struct AgentKeyPairProofSigningInput {
     pub audience: String,
     pub challenge: String,
+    #[serde(
+        serialize_with = "arkret_wire::serde_helpers::serialize_canonical_timestamp_millis",
+        deserialize_with = "arkret_wire::serde_helpers::deserialize_canonical_timestamp_millis"
+    )]
     pub expires_at: DateTime<Utc>,
     pub request_canonical_digest: Hash,
     pub verification_method: String,
@@ -1443,6 +1447,19 @@ mod tests {
         disclosure
     }
 
+    #[test]
+    fn requested_scope_disclosure_uses_fixed_millisecond_timestamps() {
+        let disclosure = requested_scope_disclosure(did("timestamp-profile"));
+        let value = serde_json::to_value(&disclosure).unwrap();
+
+        assert_eq!(value["issued_at"], "2026-07-17T00:00:00.000Z");
+        assert_eq!(value["expires_at"], "2026-07-17T00:05:00.000Z");
+
+        let mut non_canonical = value;
+        non_canonical["issued_at"] = serde_json::json!("2026-07-17T00:00:00Z");
+        assert!(serde_json::from_value::<AgentRequestedScopeDisclosure>(non_canonical).is_err());
+    }
+
     struct StubMoveSigner {
         did: Did,
         kid: String,
@@ -1822,6 +1839,7 @@ mod tests {
         // AKP-0008 §4.4: exactly six fields, no scope payload.
         assert_eq!(value["arkret_base_url"], "https://arkret.example");
         assert_eq!(value["pairing_code"], "R7K9-2M4P");
+        assert_eq!(value["pairing_expires_at"], "2026-05-26T12:00:00.000Z");
         assert_eq!(
             value["pairing_request_id"],
             "01970000-0000-7000-8000-000000000020"
