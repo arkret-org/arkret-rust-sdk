@@ -789,7 +789,7 @@ impl CapabilityGrant {
             ),
             (
                 "created_at".to_owned(),
-                serde_json::to_value(proof.created_at)?,
+                Value::String(canonical::format_timestamp_canonical(proof.created_at)),
             ),
         ]);
         if let Some(domain) = &proof.domain {
@@ -810,11 +810,29 @@ mod tests {
     use super::*;
 
     #[test]
+    fn capability_grant_accepts_omitted_optional_constraints() {
+        let grant: CapabilityGrant = serde_json::from_value(json!({
+            "id": "ak:grant:01904100-0000-7000-8000-000000000001",
+            "schema": "ak.schema.capability.v1",
+            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+            "issuer": "did:web:issuer.example",
+            "subject": "did:web:subject.example",
+            "actions": ["ak.event.read"],
+            "resources": [{"kind": "realm"}],
+            "issued_at": "2026-07-14T12:34:56.789Z",
+            "proofs": []
+        }))
+        .expect("constraints are optional in capability-grant.schema.json");
+
+        assert!(grant.constraints.is_empty());
+    }
+
+    #[test]
     fn capability_grant_serializes_all_timestamps_canonically() {
         let fractional = DateTime::parse_from_rfc3339("2026-07-14T12:34:56.789Z")
             .unwrap()
             .with_timezone(&Utc);
-        let grant = CapabilityGrant {
+        let mut grant = CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000001").unwrap(),
             schema: "ak.schema.capability.v1".to_owned(),
             realm_id: Some(RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap()),
@@ -845,7 +863,7 @@ mod tests {
             }],
         };
 
-        let wire = serde_json::to_value(grant).unwrap();
+        let wire = serde_json::to_value(&grant).unwrap();
         for pointer in [
             "/issued_at",
             "/not_before",
@@ -859,5 +877,17 @@ mod tests {
                 Some("2026-07-14T12:34:56.789Z")
             );
         }
+
+        grant.proofs[0].created_at = DateTime::parse_from_rfc3339("2026-07-14T12:34:56.000Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        grant.proofs[0].payload_digest = grant.payload_digest().unwrap();
+        let binding: Value = serde_json::from_slice(
+            &grant
+                .canonical_proof_binding_bytes(&grant.proofs[0])
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(binding["created_at"], "2026-07-14T12:34:56.000Z");
     }
 }

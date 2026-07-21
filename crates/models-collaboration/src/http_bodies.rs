@@ -1171,10 +1171,10 @@ impl DirectConversationMaterializationDraft {
         }
         let founding_payload: crate::events_payloads::capability_circle_consent_contact::CapabilityGrantPayload =
             serde_json::from_value(serde_json::to_value(&self.founding_grant_event.payload)?)
-                .map_err(|_| {
-                    Error::Protocol(
-                        "direct conversation founding grant draft payload is invalid".into(),
-                    )
+                .map_err(|error| {
+                    Error::Protocol(format!(
+                        "direct conversation founding grant draft payload is invalid: {error}"
+                    ))
                 })?;
         let founding_grant = founding_payload.grant.ok_or_else(|| {
             Error::Protocol("direct conversation founding grant draft is absent".into())
