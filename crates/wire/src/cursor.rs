@@ -34,7 +34,8 @@ pub fn generate_cursor_handle() -> Result<String> {
 
 /// Arkret v1 sync cursor.
 ///
-/// Core v1 cursor bodies are stateful handles: `{v, purpose, t, x, h}`.
+/// Core v1 cursor bodies are stateful handles:
+/// `{v, purpose, issued_at, expires_at, h}`.
 /// Positions and barrier targets are bound server-side to `h` and never
 /// appear in the wire body.
 ///
@@ -43,7 +44,7 @@ pub fn generate_cursor_handle() -> Result<String> {
 /// Per spec `conformance/conformance-vectors.md` ("cursor 不透明性" vector,
 /// expected client behaviour): clients MUST treat a cursor as an opaque
 /// string, MUST NOT parse its internal fields to build requests, and MUST
-/// NOT rely on the base64url-decoded `h` / `x` / any other internal field —
+/// NOT rely on the base64url-decoded `h` / timestamps / any other internal field —
 /// those fields belong exclusively to the issuing service. This struct (and
 /// [`Cursor::decode`]) exists for the *service* side of that contract:
 /// validating, minting and re-binding cursors a service itself issued.
@@ -62,17 +63,25 @@ pub struct Cursor {
     /// Issuing-service internal field — clients MUST NOT read or depend on
     /// it (`conformance-vectors.md`: cursor opacity).
     pub purpose: CursorPurpose,
-    /// Cursor generation timestamp (RFC 3339).
+    /// Cursor generation instant in the canonical Arkret millisecond profile.
     ///
     /// Issuing-service internal field — clients MUST NOT read or depend on
     /// it (`conformance-vectors.md`: cursor opacity).
-    pub t: String,
-    /// Expiration timestamp (Unix milliseconds).
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
+    pub issued_at: chrono::DateTime<chrono::Utc>,
+    /// Expiration instant in the same canonical Arkret profile.
     ///
     /// Issuing-service internal field — clients MUST NOT inspect it (e.g. to
     /// pre-check expiry) or depend on it (`conformance-vectors.md`: cursor
     /// opacity; expiry is signalled by the service via `cursor_expired`).
-    pub x: i64,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
+    pub expires_at: chrono::DateTime<chrono::Utc>,
     /// Stateful cursor handle.
     ///
     /// Issuing-service internal field — clients MUST NOT read or depend on
@@ -110,7 +119,7 @@ impl Cursor {
     /// §8.3 rule 12 TTL hard upper bound for `stream` cursors: 7 days.
     pub const STREAM_TTL_MAX_MS: i64 = 604_800_000;
 
-    /// §8.3 rule 5/12 clock-skew tolerance for `t`/`x` future checks.
+    /// §8.3 clock-skew tolerance for `issued_at` future checks.
     pub const CLOCK_SKEW_TOLERANCE_MS: i64 = 5 * 60 * 1000;
 
     /// Create a new cursor with current timestamp and default expiration.
@@ -126,22 +135,24 @@ impl Cursor {
                 Self::STREAM_TTL_MAX_MS
             )));
         }
-        // `cursor.schema.json` `$defs.timestamp` / encoding.md §8.2 require
-        // `t` to be a canonical RFC 3339 UTC timestamp ending in `Z`.
-        // chrono's `to_rfc3339()` emits a `+00:00` offset with sub-second
-        // digits, which the schema (and our own `validate_timestamp_canonical`)
-        // would reject — use the canonical formatter (whole-second `Z`) instead.
-        let t = arkret_canonical::canonical::format_timestamp_canonical(now);
-        // Base `x` on the *floored* `t` (whole seconds) so the nominal TTL
-        // `x - t_ms` is exactly `DEFAULT_EXPIRATION_MS` and never overshoots
-        // the §8.3 rule-12 hard cap by the sub-second remainder of `now`.
-        let t_ms = now.timestamp() * 1000;
+        let issued_at = arkret_canonical::canonical::normalize_timestamp_canonical(now);
+        let expires_at = chrono::DateTime::from_timestamp_millis(
+            issued_at
+                .timestamp_millis()
+                .checked_add(ttl_ms)
+                .ok_or_else(|| {
+                    Error::Protocol("cursor expiry overflows i64 milliseconds".to_owned())
+                })?,
+        )
+        .ok_or_else(|| {
+            Error::Protocol("cursor expiry is outside the supported UTC range".to_owned())
+        })?;
 
         Ok(Self {
             v: "1".to_owned(),
             purpose: CursorPurpose::Stream,
-            t,
-            x: t_ms + ttl_ms,
+            issued_at,
+            expires_at,
             h: generate_cursor_handle()?,
         })
     }
@@ -154,19 +165,17 @@ impl Cursor {
 
     /// Convert this stream cursor into a barrier cursor.
     ///
-    /// Re-clamps `x` so the barrier TTL (`x - t`) does not exceed the §8.3
+    /// Re-clamps `expires_at` so the barrier TTL does not exceed the §8.3
     /// rule-12 hard cap (1 hour) — a barrier cursor carrying the default
     /// 7-day stream expiry would otherwise be rejected by any conformant
     /// receiver.
     pub fn with_barrier(mut self) -> Self {
         self.purpose = CursorPurpose::Barrier;
-        if let Ok(t_ms) =
-            chrono::DateTime::parse_from_rfc3339(&self.t).map(|t| t.timestamp_millis())
+        let max_expiry_ms = self.issued_at.timestamp_millis() + Self::BARRIER_TTL_MAX_MS;
+        if self.expires_at.timestamp_millis() > max_expiry_ms
+            && let Some(max_expiry) = chrono::DateTime::from_timestamp_millis(max_expiry_ms)
         {
-            let max_x = t_ms + Self::BARRIER_TTL_MAX_MS;
-            if self.x > max_x {
-                self.x = max_x;
-            }
+            self.expires_at = max_expiry;
         }
         self
     }
@@ -206,7 +215,7 @@ impl Cursor {
     /// service can validate and re-bind cursors it minted. Per spec
     /// `conformance/conformance-vectors.md` (cursor opacity, expected
     /// client behaviour), client SDKs / application layers MUST NOT decode
-    /// a cursor to inspect or act on its internal fields (`h`, `x`, ...)
+    /// a cursor to inspect or act on its internal fields (`h`, timestamps, ...)
     /// — clients MUST treat the token as an opaque string and return it
     /// verbatim. Calling `decode` from client-side code to e.g. pre-check
     /// expiry or build a follow-up request is a spec MUST NOT violation.
@@ -275,12 +284,10 @@ impl Cursor {
 
         self.validate_core_wire_shape()?;
 
-        // §8.3 rule 5: `x` MUST NOT be in the past (TTL expiry).
-        if self.x < now_ms {
+        if self.expires_at.timestamp_millis() < now_ms {
             return Err(Error::Protocol("cursor has expired".to_owned()));
         }
 
-        // §8.3 rule 12: `t` well-formedness + TTL hard upper bound.
         self.validate_ttl_bound(now_ms)?;
 
         Ok(())
@@ -289,35 +296,24 @@ impl Cursor {
     /// §8.3 rule 12 (TTL hard upper bound). `now_ms` is the receiver's
     /// current Unix-ms clock.
     ///
-    /// Order matters: validate `t` well-formedness (canonical UTC `Z` form)
-    /// first, then `t_ms <= x`, then `t` not in the future (5-min skew),
-    /// then `x - t_ms <= per-purpose cap`. Any failure maps to
-    /// `invalid_param` (here `Error::Protocol`), preventing a corrupt or
-    /// malicious cursor from bypassing the cap via a negative/overflowing
-    /// or future-stamped `t`.
+    /// Both instants have already passed the strict serde parser. This check
+    /// enforces ordering, clock skew, and purpose-specific TTL bounds.
     fn validate_ttl_bound(&self, now_ms: i64) -> Result<()> {
-        arkret_canonical::canonical::validate_timestamp_canonical(&self.t).map_err(|_| {
-            Error::Protocol(format!(
-                "cursor `t` is not a canonical UTC `Z` timestamp: {}",
-                self.t
-            ))
-        })?;
-        let t_ms = chrono::DateTime::parse_from_rfc3339(&self.t)
-            .map_err(|err| Error::Protocol(format!("cursor `t` is unparseable: {err}")))?
-            .timestamp_millis();
-
-        if t_ms > self.x {
+        let issued_at_ms = self.issued_at.timestamp_millis();
+        let expires_at_ms = self.expires_at.timestamp_millis();
+        if issued_at_ms > expires_at_ms {
             return Err(Error::Protocol(
-                "cursor `t` is after `x` (negative TTL); invalid_param".to_owned(),
+                "cursor `issued_at` is after `expires_at`; invalid_param".to_owned(),
             ));
         }
-        if t_ms > now_ms + Self::CLOCK_SKEW_TOLERANCE_MS {
+        if issued_at_ms > now_ms + Self::CLOCK_SKEW_TOLERANCE_MS {
             return Err(Error::Protocol(
-                "cursor `t` is in the future beyond clock-skew tolerance; invalid_param".to_owned(),
+                "cursor `issued_at` is in the future beyond clock-skew tolerance; invalid_param"
+                    .to_owned(),
             ));
         }
 
-        let ttl = self.x - t_ms;
+        let ttl = expires_at_ms - issued_at_ms;
         let cap = match self.purpose {
             CursorPurpose::Barrier => Self::BARRIER_TTL_MAX_MS,
             CursorPurpose::Stream => Self::STREAM_TTL_MAX_MS,
@@ -347,6 +343,16 @@ impl Cursor {
 
     fn validate_core_wire_shape(&self) -> Result<()> {
         Self::validate_cursor_handle(&self.h)?;
+        for (name, value) in [
+            ("issued_at", self.issued_at),
+            ("expires_at", self.expires_at),
+        ] {
+            if arkret_canonical::canonical::normalize_timestamp_canonical(value) != value {
+                return Err(Error::Protocol(format!(
+                    "cursor `{name}` contains sub-millisecond precision"
+                )));
+            }
+        }
         Ok(())
     }
 
@@ -365,15 +371,16 @@ impl Cursor {
 
     /// Check if the cursor is expired.
     pub fn is_expired(&self) -> bool {
-        unix_time_millis().map_or(true, |now_ms| self.x < now_ms)
+        unix_time_millis().map_or(true, |now_ms| self.expires_at.timestamp_millis() < now_ms)
     }
 
     /// Get the remaining time before expiration.
     pub fn time_until_expiration(&self) -> Option<Duration> {
         let now_ms = unix_time_millis().ok()?;
 
-        if self.x > now_ms {
-            Some(Duration::from_millis((self.x - now_ms) as u64))
+        let expires_at_ms = self.expires_at.timestamp_millis();
+        if expires_at_ms > now_ms {
+            Some(Duration::from_millis((expires_at_ms - now_ms) as u64))
         } else {
             None
         }
@@ -425,22 +432,25 @@ mod tests {
     }
 
     #[test]
-    fn cursor_new_at_uses_whole_seconds_and_exact_ttl() {
+    fn cursor_new_at_preserves_milliseconds_and_exact_ttl() {
         let issued_at = chrono::DateTime::parse_from_rfc3339("2026-07-18T12:34:56.789Z")
             .unwrap()
             .with_timezone(&chrono::Utc);
         let cursor = Cursor::new_at(issued_at, 3_600_000).unwrap();
 
-        assert_eq!(cursor.t, "2026-07-18T12:34:56Z");
-        let t_ms = chrono::DateTime::parse_from_rfc3339(&cursor.t)
-            .unwrap()
-            .timestamp_millis();
-        assert_eq!(cursor.x - t_ms, 3_600_000);
+        assert_eq!(
+            arkret_canonical::format_timestamp_canonical(cursor.issued_at),
+            "2026-07-18T12:34:56.789Z"
+        );
+        assert_eq!(
+            cursor.expires_at.timestamp_millis() - cursor.issued_at.timestamp_millis(),
+            3_600_000
+        );
     }
 
     #[test]
-    fn cursor_decode_at_rejects_event_millisecond_time_profile() {
-        let json = br#"{"v":"1","purpose":"stream","t":"2026-07-18T12:34:56.000Z","x":1753014896000,"h":"ABCDEFGHIJKLMNOPQRSTUV"}"#;
+    fn cursor_decode_at_rejects_missing_millisecond_fraction() {
+        let json = br#"{"v":"1","purpose":"stream","issued_at":"2026-07-18T12:34:56.000Z","expires_at":"2026-07-18T13:34:56.000Z","h":"ABCDEFGHIJKLMNOPQRSTUV"}"#;
         let encoded = format!(
             "ak:cursor:{}",
             arkret_canonical::base64url::base64url_encode(json)
@@ -457,8 +467,8 @@ mod tests {
         let cursor = Cursor {
             v: "2".to_owned(),
             purpose: CursorPurpose::Stream,
-            t: arkret_canonical::canonical::format_timestamp_canonical(chrono::Utc::now()),
-            x: 1714080000000,
+            issued_at: arkret_canonical::normalize_timestamp_canonical(chrono::Utc::now()),
+            expires_at: chrono::DateTime::from_timestamp_millis(4_102_444_800_000).unwrap(),
             h: generate_cursor_handle().unwrap(),
         };
 
@@ -468,7 +478,7 @@ mod tests {
 
     #[test]
     fn cursor_decode_rejects_non_nfc_json_string() {
-        let json = "{\"v\":\"1\",\"purpose\":\"stream\",\"t\":\"cafe\u{301}\",\"x\":4102444800000,\"h\":\"ABCDEFGHIJKLMNOPQRSTUV\"}";
+        let json = "{\"v\":\"1\",\"purpose\":\"stream\",\"issued_at\":\"2026-06-06T00:00:00.000Z\",\"expires_at\":\"2099-12-31T00:00:00.000Z\",\"h\":\"cafe\u{301}ABCDEFGHIJKLMNOPQ\"}";
         let encoded = format!(
             "ak:cursor:{}",
             arkret_canonical::base64url::base64url_encode(json.as_bytes())
@@ -489,7 +499,7 @@ mod tests {
 
     #[test]
     fn cursor_decode_rejects_duplicate_json_key() {
-        let json = br#"{"v":"1","v":"1","purpose":"stream","t":"2026-06-06T00:00:00Z","x":4102444800000,"h":"ABCDEFGHIJKLMNOPQRSTUV"}"#;
+        let json = br#"{"v":"1","v":"1","purpose":"stream","issued_at":"2026-06-06T00:00:00.000Z","expires_at":"2099-12-31T00:00:00.000Z","h":"ABCDEFGHIJKLMNOPQRSTUV"}"#;
         let encoded = format!(
             "ak:cursor:{}",
             arkret_canonical::base64url::base64url_encode(json)
@@ -499,7 +509,7 @@ mod tests {
 
     #[test]
     fn cursor_decode_rejects_additional_properties() {
-        let json = br#"{"v":"1","purpose":"stream","t":"2099-12-30T23:59:59Z","x":4102444799000,"h":"abcdefghijklmnopqrstuv","_compression":"none"}"#;
+        let json = br#"{"v":"1","purpose":"stream","issued_at":"2099-12-30T23:59:59.000Z","expires_at":"2099-12-31T23:59:59.000Z","h":"abcdefghijklmnopqrstuv","_compression":"none"}"#;
         let encoded = format!(
             "ak:cursor:{}",
             arkret_canonical::base64url::base64url_encode(json)
@@ -509,7 +519,7 @@ mod tests {
 
     #[test]
     fn core_cursor_rejects_inline_positions() {
-        let json = br#"{"v":"1","purpose":"stream","t":"2026-06-06T00:00:00Z","x":4102444800000,"h":"ABCDEFGHIJKLMNOPQRSTUV","s":{}}"#;
+        let json = br#"{"v":"1","purpose":"stream","issued_at":"2026-06-06T00:00:00.000Z","expires_at":"2026-06-07T00:00:00.000Z","h":"ABCDEFGHIJKLMNOPQRSTUV","s":{}}"#;
         let encoded = format!(
             "ak:cursor:{}",
             arkret_canonical::base64url::base64url_encode(json)
@@ -521,7 +531,10 @@ mod tests {
     fn cursor_expires_after_7_days() {
         let mut cursor = Cursor::new().unwrap();
         // Simulate a cursor from 1 day ago
-        cursor.x -= 6 * 24 * 60 * 60 * 1000;
+        cursor.expires_at = chrono::DateTime::from_timestamp_millis(
+            cursor.expires_at.timestamp_millis() - 6 * 24 * 60 * 60 * 1000,
+        )
+        .unwrap();
 
         assert!(!cursor.is_expired());
         assert!(cursor.time_until_expiration().is_some());

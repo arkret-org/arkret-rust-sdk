@@ -42,7 +42,7 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
                 "stage": "draft",
                 "tracks": {"synthesis": {}},
                 "created_by": "did:webvh:z6mkfixture:alice.example",
-                "created_at": "2026-05-02T00:00:00Z"
+                "created_at": "2026-05-02T00:00:00.000Z"
             }),
         )
         .unwrap();
@@ -95,7 +95,7 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
         "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ak.message.create",
         "actor_seq": 1,
-        "created_at": "2026-05-02T00:00:00Z",
+        "created_at": "2026-05-02T00:00:00.000Z",
         "hlc": "01970e589d21-0000-a13f9c2e",
         "prev_refs": [],
         "refs": [],
@@ -111,7 +111,7 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
         "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ak.message.create",
         "actor_seq": 1,
-        "created_at": "2026-05-02T00:00:00Z",
+        "created_at": "2026-05-02T00:00:00.000Z",
         "hlc": "01970e589d21-0000-a13f9c2e",
         "prev_refs": {},
         "refs": [],
@@ -126,7 +126,7 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
         "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ak.message.create",
         "actor_seq": 1,
-        "created_at": "2026-05-02T00:00:00Z",
+        "created_at": "2026-05-02T00:00:00.000Z",
         "hlc": "01970e589d21-0000-a13f9c2e",
         "prev_refs": [],
         "refs": [],
@@ -175,7 +175,7 @@ fn schema_registry_fails_closed_for_unknown_security_extensions() {
         "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ak.message.create",
         "actor_seq": 1,
-        "created_at": "2026-05-02T00:00:00Z",
+        "created_at": "2026-05-02T00:00:00.000Z",
         "hlc": "01970e589d21-0000-a13f9c2e",
         "prev_refs": [],
         "refs": [],
@@ -194,7 +194,7 @@ fn schema_registry_fails_closed_for_unknown_security_extensions() {
         "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ak.message.create",
         "actor_seq": 1,
-        "created_at": "2026-05-02T00:00:00Z",
+        "created_at": "2026-05-02T00:00:00.000Z",
         "hlc": "01970e589d21-0000-a13f9c2e",
         "prev_refs": [],
         "refs": [],
@@ -353,7 +353,7 @@ fn fact_chain_echo_validates_server_proof_binding() {
                 .unwrap(),
         ),
         previous_echo_hash: None,
-        observed_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+        observed_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
         proofs: Vec::new(),
     };
     let digest = Hash::new(echo.echo_digest().unwrap()).unwrap();

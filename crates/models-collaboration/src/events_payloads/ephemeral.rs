@@ -36,7 +36,15 @@ pub struct EphemeralEnvelope {
     pub realm_id: RealmId,
     pub actor_id: Did,
     pub device_id: DeviceId,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub sent_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     /// Kind-specific signal payload. Schema per kind is defined by the
     /// producing module; MUST NOT carry mutable governance state.

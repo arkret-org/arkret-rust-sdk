@@ -527,68 +527,19 @@ pub fn decode_state_subject_parts(encoded: &str) -> Result<Vec<String>> {
     Ok(out)
 }
 
-/// Validate that a timestamp string is in canonical RFC 3339 UTC form.
-///
-/// Canonical form: `YYYY-MM-DDTHH:MM:SSZ` — no fractional seconds, no `+00:00`
-/// offset (must use `Z`), no lowercase `t` or `z`.
-pub fn validate_timestamp_canonical(timestamp: &str) -> Result<()> {
-    // Must end with 'Z' (not '+00:00' or lowercase 'z')
-    if !timestamp.ends_with('Z') {
-        return Err(Error::Protocol(format!(
-            "canonical timestamp must end with 'Z': {timestamp}"
-        )));
-    }
-    // Reject lowercase 't' separator
-    if timestamp.contains('t') {
-        return Err(Error::Protocol(format!(
-            "canonical timestamp must use uppercase 'T': {timestamp}"
-        )));
-    }
-    // Must have 'T' separator at position 10
-    if timestamp.len() < 20 || timestamp.as_bytes().get(10) != Some(&b'T') {
-        return Err(Error::Protocol(format!(
-            "canonical timestamp must be YYYY-MM-DDTHH:MM:SSZ: {timestamp}"
-        )));
-    }
-    // No fractional seconds (no '.' before 'Z')
-    let time_part = &timestamp[11..];
-    if time_part.contains('.') {
-        return Err(Error::Protocol(format!(
-            "canonical timestamp must not have fractional seconds: {timestamp}"
-        )));
-    }
-    // Length must be exactly 20: "YYYY-MM-DDTHH:MM:SSZ"
-    if timestamp.len() != 20 {
-        return Err(Error::Protocol(format!(
-            "canonical timestamp must be exactly YYYY-MM-DDTHH:MM:SSZ: {timestamp}"
-        )));
-    }
-    // Verify it parses as a valid DateTime
-    chrono::DateTime::parse_from_rfc3339(timestamp).map_err(|_| {
-        Error::Protocol(format!(
-            "canonical timestamp is not a valid RFC 3339 date: {timestamp}"
-        ))
-    })?;
-    Ok(())
-}
-
-/// Format a [`chrono::DateTime<chrono::Utc>`] into the canonical
-/// `YYYY-MM-DDTHH:MM:SSZ` timestamp string accepted by
-/// [`validate_timestamp_canonical`].
-///
-/// The output is RFC 3339 UTC, ends with `Z`, has **no** fractional
-/// seconds, and is exactly 20 characters long. Sub-second precision in
-/// the input is truncated.
-pub fn format_timestamp_canonical(when: chrono::DateTime<chrono::Utc>) -> String {
-    when.format("%Y-%m-%dT%H:%M:%SZ").to_string()
-}
-
-/// Validate the canonical millisecond timestamp form used by Event Envelopes,
-/// detached Event proofs, and Agent pairing transcripts.
+/// Validate the single canonical timestamp form used by every Arkret-owned
+/// absolute instant.
 ///
 /// Canonical form: `YYYY-MM-DDTHH:MM:SS.sssZ`. The fraction is mandatory and
 /// has exactly three decimal digits; offsets and finer precision are rejected.
-pub fn validate_timestamp_millis_canonical(timestamp: &str) -> Result<()> {
+pub fn validate_timestamp_canonical(timestamp: &str) -> Result<()> {
+    parse_timestamp_canonical(timestamp).map(|_| ())
+}
+
+/// Parse an Arkret-owned absolute instant after enforcing its unique wire
+/// spelling. This is the only parser that protocol consumers should use for
+/// Arkret timestamp strings; external protocols keep their own adapters.
+pub fn parse_timestamp_canonical(timestamp: &str) -> Result<chrono::DateTime<chrono::Utc>> {
     let bytes = timestamp.as_bytes();
     let shape_matches = bytes.len() == 24
         && bytes.get(4) == Some(&b'-')
@@ -604,17 +555,25 @@ pub fn validate_timestamp_millis_canonical(timestamp: &str) -> Result<()> {
             "canonical millisecond timestamp must be YYYY-MM-DDTHH:MM:SS.sssZ: {timestamp}"
         )));
     }
-    chrono::DateTime::parse_from_rfc3339(timestamp).map_err(|_| {
-        Error::Protocol(format!(
-            "canonical millisecond timestamp is not a valid RFC 3339 date: {timestamp}"
-        ))
-    })?;
-    Ok(())
+    if &bytes[17..19] == b"60" {
+        return Err(Error::Protocol(format!(
+            "canonical millisecond timestamp must not encode a leap second: {timestamp}"
+        )));
+    }
+    chrono::DateTime::parse_from_rfc3339(timestamp)
+        .map_err(|_| {
+            Error::Protocol(format!(
+                "canonical millisecond timestamp is not a valid RFC 3339 date: {timestamp}"
+            ))
+        })
+        .map(|value| value.with_timezone(&chrono::Utc))
 }
 
-/// Format a UTC timestamp as canonical RFC 3339 milliseconds.
+/// Format a UTC timestamp as canonical RFC 3339 milliseconds. Formatting
+/// truncates sub-millisecond precision toward negative infinity on the Unix
+/// timeline, matching [`normalize_timestamp_canonical`].
 #[must_use]
-pub fn format_timestamp_millis_canonical(when: chrono::DateTime<chrono::Utc>) -> String {
+pub fn format_timestamp_canonical(when: chrono::DateTime<chrono::Utc>) -> String {
     when.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
 }
 
@@ -625,7 +584,7 @@ pub fn format_timestamp_millis_canonical(when: chrono::DateTime<chrono::Utc>) ->
 /// canonically and then accidentally serializing the original sub-second
 /// [`chrono::DateTime`] value on the wire.
 #[must_use]
-pub fn normalize_timestamp_millis_canonical(
+pub fn normalize_timestamp_canonical(
     when: chrono::DateTime<chrono::Utc>,
 ) -> chrono::DateTime<chrono::Utc> {
     chrono::DateTime::from_timestamp_millis(when.timestamp_millis())
@@ -881,9 +840,9 @@ mod tests {
     }
 
     #[test]
-    fn validate_timestamp_canonical_accepts_rfc3339_utc() {
-        assert!(validate_timestamp_canonical("2026-04-26T00:00:00Z").is_ok());
-        assert!(validate_timestamp_canonical("2026-12-31T23:59:59Z").is_ok());
+    fn validate_timestamp_canonical_accepts_fixed_milliseconds() {
+        assert!(validate_timestamp_canonical("2026-04-26T00:00:00.000Z").is_ok());
+        assert!(validate_timestamp_canonical("2026-12-31T23:59:59.734Z").is_ok());
     }
 
     #[test]
@@ -893,8 +852,9 @@ mod tests {
     }
 
     #[test]
-    fn validate_timestamp_canonical_rejects_fractional_seconds() {
-        assert!(validate_timestamp_canonical("2026-04-26T00:00:00.000Z").is_err());
+    fn validate_timestamp_canonical_rejects_wrong_fraction_width() {
+        assert!(validate_timestamp_canonical("2026-04-26T00:00:00Z").is_err());
+        assert!(validate_timestamp_canonical("2026-04-26T00:00:00.1Z").is_err());
         assert!(validate_timestamp_canonical("2026-04-26T00:00:00.123456Z").is_err());
     }
 
@@ -910,9 +870,8 @@ mod tests {
             .unwrap()
             .with_timezone(&chrono::Utc);
         let formatted = format_timestamp_canonical(when);
-        // Fractional seconds are truncated and the string is exactly 20 chars.
-        assert_eq!(formatted, "2026-06-03T12:34:56Z");
-        assert_eq!(formatted.len(), 20);
+        assert_eq!(formatted, "2026-06-03T12:34:56.789Z");
+        assert_eq!(formatted.len(), 24);
         // The formatter's output MUST be accepted by the validator.
         validate_timestamp_canonical(&formatted).expect("formatted timestamp must validate");
     }
@@ -922,20 +881,73 @@ mod tests {
         let when = chrono::DateTime::parse_from_rfc3339("2026-06-03T12:34:56.789123Z")
             .unwrap()
             .with_timezone(&chrono::Utc);
-        let normalized = normalize_timestamp_millis_canonical(when);
+        let normalized = normalize_timestamp_canonical(when);
 
         assert_eq!(
             serde_json::to_value(normalized).unwrap(),
             serde_json::json!("2026-06-03T12:34:56.789Z")
         );
         assert_eq!(
-            format_timestamp_millis_canonical(normalized),
+            format_timestamp_canonical(normalized),
             "2026-06-03T12:34:56.789Z"
         );
-        validate_timestamp_millis_canonical("2026-06-03T12:34:56.789Z").unwrap();
-        assert!(validate_timestamp_millis_canonical("2026-06-03T12:34:56Z").is_err());
-        assert!(validate_timestamp_millis_canonical("2026-06-03T12:34:56.789123Z").is_err());
-        assert!(validate_timestamp_millis_canonical("2026-06-03T12:34:56.789+00:00").is_err());
+        validate_timestamp_canonical("2026-06-03T12:34:56.789Z").unwrap();
+        assert!(validate_timestamp_canonical("2026-06-03T12:34:56Z").is_err());
+        assert!(validate_timestamp_canonical("2026-06-03T12:34:56.789123Z").is_err());
+        assert!(validate_timestamp_canonical("2026-06-03T12:34:56.789+00:00").is_err());
+    }
+
+    #[test]
+    fn timestamp_normalization_floors_before_the_unix_epoch() {
+        let value = chrono::DateTime::parse_from_rfc3339("1969-12-31T23:59:59.999500Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let normalized = normalize_timestamp_canonical(value);
+
+        assert_eq!(normalized.timestamp_millis(), -1);
+        assert_eq!(
+            format_timestamp_canonical(normalized),
+            "1969-12-31T23:59:59.999Z"
+        );
+    }
+
+    #[test]
+    fn canonical_timestamp_lexical_order_matches_chronological_order() {
+        let values = [
+            "1969-12-31T23:59:59.999Z",
+            "1970-01-01T00:00:00.000Z",
+            "2024-02-29T23:59:59.999Z",
+            "9999-12-31T23:59:59.999Z",
+        ];
+        for pair in values.windows(2) {
+            validate_timestamp_canonical(pair[0]).unwrap();
+            validate_timestamp_canonical(pair[1]).unwrap();
+            assert!(pair[0] < pair[1]);
+            assert!(
+                chrono::DateTime::parse_from_rfc3339(pair[0]).unwrap()
+                    < chrono::DateTime::parse_from_rfc3339(pair[1]).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn canonical_timestamp_rejects_all_noncanonical_wire_classes() {
+        for rejected in [
+            "2026-07-21T10:00:00Z",
+            "2026-07-21T10:00:00.7Z",
+            "2026-07-21T10:00:00.734000Z",
+            "2026-07-21T18:00:00.734+08:00",
+            "2026-07-21t10:00:00.734z",
+            "2016-12-31T23:59:60.000Z",
+            "2026-02-29T10:00:00.000Z",
+            " 2026-07-21T10:00:00.000Z",
+            "2026-07-21T10:00:00.000Z ",
+        ] {
+            assert!(
+                validate_timestamp_canonical(rejected).is_err(),
+                "accepted {rejected}"
+            );
+        }
     }
 
     #[test]
@@ -952,8 +964,8 @@ mod tests {
 
     #[test]
     fn validate_timestamp_canonical_rejects_invalid_date() {
-        assert!(validate_timestamp_canonical("2026-13-01T00:00:00Z").is_err());
-        assert!(validate_timestamp_canonical("2026-02-30T00:00:00Z").is_err());
+        assert!(validate_timestamp_canonical("2026-13-01T00:00:00.000Z").is_err());
+        assert!(validate_timestamp_canonical("2026-02-30T00:00:00.000Z").is_err());
     }
 
     #[test]

@@ -960,8 +960,8 @@ pub struct Proof {
     pub verification_method: String,
     pub event_digest: Hash,
     #[serde(
-        serialize_with = "crate::serde_helpers::serialize_canonical_timestamp_millis",
-        deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp_millis"
+        serialize_with = "crate::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp"
     )]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1139,8 +1139,8 @@ impl Proof {
     /// canonical Event bytes — so that `created_at`, `domain`, `audience`
     /// and `verification_method` are cryptographically covered by the
     /// signature, not just compared as plaintext. `created_at` is emitted
-    /// in canonical UTC `YYYY-MM-DDTHH:MM:SSZ` form so producers and
-    /// verifiers reconstruct byte-identical transcripts.
+    /// in canonical UTC `YYYY-MM-DDTHH:MM:SS.sssZ` form so the wire field
+    /// and transcript contain the same byte-identical timestamp string.
     pub fn canonical_binding_bytes(&self, actor_id: &Did) -> Result<Vec<u8>> {
         self.canonical_binding_bytes_with_context(actor_id, EVENT_PROOF_BINDING_CONTEXT)
     }
@@ -1368,6 +1368,10 @@ pub struct FactChainEcho {
     pub commit_digest: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub previous_echo_hash: Option<Hash>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub observed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proofs: Vec<Proof>,
@@ -1420,6 +1424,10 @@ pub struct SignatureBindingPayload {
     pub payload_digest: Hash,
     pub actor_id: Did,
     pub verification_method: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,

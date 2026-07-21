@@ -200,7 +200,7 @@ impl Seal {
             notary_seq,
             previous_state_root: &previous_state_root,
             previous_digest_algorithm: &previous_digest_algorithm,
-            sealed_at: &sealed_at,
+            sealed_at,
             hlc: &hlc,
         })?;
         let id = Seal::id_from_canonical_bytes(&body_bytes)?;
@@ -285,7 +285,7 @@ impl Seal {
             notary_seq,
             previous_state_root: &previous_state_root,
             previous_digest_algorithm: &previous_digest_algorithm,
-            sealed_at: &sealed_at,
+            sealed_at,
             hlc: &hlc,
         })?;
         let id = Seal::id_from_canonical_bytes(&body_bytes)?;
@@ -381,7 +381,7 @@ impl Seal {
             notary_seq,
             previous_state_root: &previous_state_root,
             previous_digest_algorithm: &previous_digest_algorithm,
-            sealed_at: &sealed_at,
+            sealed_at,
             hlc: &hlc,
         })?;
         let id = Seal::id_from_canonical_bytes(&body_bytes)?;
@@ -715,7 +715,8 @@ struct SealBodyView<'a> {
     previous_state_root: &'a Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     previous_digest_algorithm: &'a Option<String>,
-    sealed_at: &'a chrono::DateTime<Utc>,
+    #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
+    sealed_at: chrono::DateTime<Utc>,
     hlc: &'a Hlc,
 }
 

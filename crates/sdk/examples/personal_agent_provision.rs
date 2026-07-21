@@ -79,7 +79,7 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
                     "requested_scope_digest": requested_scope_digest,
                     "pairing_request_id": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
                     "pairing_code": "12345678",
-                    "expires_at": "2026-06-18T12:15:00Z",
+                    "expires_at": "2026-06-18T12:15:00.000Z",
                     "pcr_recovery": { "status": "pending" },
                 })
             }
@@ -105,7 +105,7 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
             "pairing_mode": "replacement",
             "pairing_request_id": "agent_pairing_request:01964137-0000-7000-8000-000000000002",
             "pairing_code": "87654321",
-            "expires_at": "2026-06-18T13:15:00Z",
+            "expires_at": "2026-06-18T13:15:00.000Z",
         }),
         "ak.self.agent.grant.command.attach" => json!({
             "ok": true,
@@ -113,7 +113,7 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
         }),
         "ak.self.agent.grant.resource.delete" => json!({
             "ok": true,
-            "revoked_at": "2026-06-18T12:05:00Z",
+            "revoked_at": "2026-06-18T12:05:00.000Z",
         }),
         "ak.self.agent.sidecar.command.ensure" => json!({
             "ok": true,
@@ -535,7 +535,7 @@ fn main() -> arkret::Result<()> {
                 capability_action_registry_digest: None,
                 constraints: Vec::new(),
                 parent_grant_id: None,
-                issued_at: chrono::DateTime::parse_from_rfc3339("2026-06-18T12:00:00Z")
+                issued_at: chrono::DateTime::parse_from_rfc3339("2026-06-18T12:00:00.000Z")
                     .expect("static grant timestamp must be valid")
                     .with_timezone(&Utc),
                 not_before: None,
@@ -549,7 +549,7 @@ fn main() -> arkret::Result<()> {
                     alg: "EdDSA".to_owned(),
                     verification_method: format!("{controller}#key-1"),
                     payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64)))?,
-                    created_at: chrono::DateTime::parse_from_rfc3339("2026-06-18T12:00:00Z")
+                    created_at: chrono::DateTime::parse_from_rfc3339("2026-06-18T12:00:00.000Z")
                         .expect("static proof timestamp must be valid")
                         .with_timezone(&Utc),
                     domain: None,

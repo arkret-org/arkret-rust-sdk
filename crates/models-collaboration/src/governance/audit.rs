@@ -27,6 +27,10 @@ pub struct AuditPolicyAccessPayload {
     pub access_kind: AccessKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub late_recovery_original_event_id: Option<EventId>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub observed_at: DateTime<Utc>,
 }
 
@@ -191,6 +195,10 @@ pub struct AuditRywReceipt {
     pub trust_domain: TypedTrustDomainId,
     pub audit_actor_id: Did,
     pub frontier: RywFrontier,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub observed_at: DateTime<Utc>,
     pub receipt_independence: ReceiptIndependence,
     pub audit_assurance_class: AuditAssurance,

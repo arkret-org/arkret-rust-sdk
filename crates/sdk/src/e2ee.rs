@@ -22,8 +22,16 @@ pub struct E2eeGroup {
     /// Source groups if merged.
     pub merged_from: Vec<String>,
     /// Creation time.
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     /// Last update time.
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub updated_at: DateTime<Utc>,
 }
 
@@ -39,6 +47,10 @@ pub struct E2eeKeyRecord {
     /// Raw exported key bytes.
     pub key_bytes: Vec<u8>,
     /// Creation time.
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
 }
 
@@ -68,6 +80,10 @@ pub struct E2eeKeyBackup {
     /// Canonical AAD digest used to authenticate backup metadata.
     pub aad_sha256: String,
     /// Creation time.
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
 }
 
@@ -109,6 +125,10 @@ pub enum AuditAction {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuditEntry {
     /// Timestamp.
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub timestamp: DateTime<Utc>,
     /// Action.
     pub action: AuditAction,

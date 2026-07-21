@@ -870,7 +870,7 @@ mod tests {
                 realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
                 actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
                 actor_seq: 1,
-                created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+                created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
                 hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
                 prev_refs: Vec::new(),
                 effective_scope: None,
@@ -1176,7 +1176,7 @@ mod tests {
             client.events_submit(&event).await.unwrap();
 
             let raw = capture.await.unwrap();
-            let (_request_line, headers, _body) = split_request(&raw);
+            let (_request_line, headers, body) = split_request(&raw);
             assert!(
                 headers
                     .lines()
@@ -1192,6 +1192,20 @@ mod tests {
                     .lines()
                     .any(|line| line.to_ascii_lowercase().starts_with("content-digest:"))
             );
+            arkret_canonical::canonical::validate_canonical_bytes(&body)
+                .expect("signed HTTP body must be canonical JSON");
+            let content_digest = headers
+                .lines()
+                .find_map(|line| {
+                    let (name, value) = line.split_once(':')?;
+                    name.eq_ignore_ascii_case("content-digest")
+                        .then_some(value.trim())
+                })
+                .expect("content-digest header");
+            let content_digest =
+                arkret_signatures::http_signature::ContentDigest::parse(content_digest).unwrap();
+            arkret_signatures::http_signature::verify_content_digest(&content_digest, &body)
+                .expect("content digest must cover exact canonical body bytes");
         }
 
         #[tokio::test]

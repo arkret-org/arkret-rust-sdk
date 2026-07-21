@@ -29,7 +29,7 @@ fn bench_proof_verify(c: &mut Criterion) {
     let canonical_bytes = canonical::canonical_json_bytes(&serde_json::json!({
         "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ak.message.create",
-        "created_at": "2026-06-29T00:00:00Z"
+        "created_at": "2026-06-29T00:00:00.000Z"
     }))
     .expect("canonicalize event");
 

@@ -78,7 +78,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
                 "stage": "draft",
                 "tracks": {"synthesis": {}},
                 "created_by": "did:webvh:z6mkfixture:alice.example",
-                "created_at": "2026-05-02T00:00:00Z"
+                "created_at": "2026-05-02T00:00:00.000Z"
             }),
             expected_valid: true,
         },
@@ -91,7 +91,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
                 "space_id": "ak:space:01904100-0000-7000-8000-65c7feb295d7",
                 "actor_id": "did:webvh:z6mkfixture:alice.example",
                 "actor_seq": 1,
-                "created_at": "2026-05-02T00:00:00Z",
+                "created_at": "2026-05-02T00:00:00.000Z",
                 "hlc": "01970e589d21-0000-a13f9c2e",
                 "prev_refs": [],
                 "refs": [],
@@ -101,7 +101,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
                     "alg": "EdDSA",
                     "verification_method": "did:webvh:z6mkfixture:alice.example#key-1",
                     "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-                    "created_at": "2026-05-02T00:00:00Z",
+                    "created_at": "2026-05-02T00:00:00.000Z",
                     "jws": "a..b"
                 }]
             }),
@@ -116,7 +116,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
                 "actor_id": "did:webvh:z6mkfixture:alice.example",
                 "actor_seq": 1,
                 "kind": "ak.message.create",
-                "created_at": "2026-05-02T00:00:00Z",
+                "created_at": "2026-05-02T00:00:00.000Z",
                 "hlc": "01970e589d21-0000-a13f9c2e",
                 "prev_refs": [],
                 "refs": [],
@@ -126,7 +126,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
                     "alg": "EdDSA",
                     "verification_method": "did:webvh:z6mkfixture:alice.example#key-1",
                     "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-                    "created_at": "2026-05-02T00:00:00Z",
+                    "created_at": "2026-05-02T00:00:00.000Z",
                     "jws": "a..b"
                 }],
                 "x-security": {"override": true}

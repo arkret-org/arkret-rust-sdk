@@ -28,7 +28,7 @@ fn cursor_negative_fixture_cases_all_reject() {
     assert_eq!(vector["vector_id"].as_str(), Some(VECTOR_ID));
 
     let cases = vector["cases"].as_array().expect("vector cases");
-    assert_eq!(cases.len(), 14, "case inventory pinned to the spec fixture");
+    assert_eq!(cases.len(), 16, "case inventory pinned to the spec fixture");
 
     for case in cases {
         let name = case["name"].as_str().expect("case name");
@@ -41,7 +41,7 @@ fn cursor_negative_fixture_cases_all_reject() {
             .expect_err(&format!("case {name}: decoder must reject this token"));
 
         // The fixture keeps two rejection classes apart: `cursor_expired`
-        // (structurally valid, past its `x`) versus everything else
+        // (structurally valid, past its `expires_at`) versus everything else
         // (`invalid_cursor`, surfaced under top-level `invalid_param`).
         if reason == "cursor_expired" {
             assert!(
@@ -78,7 +78,7 @@ fn cursor_negative_fixture_case_inventory_is_pinned() {
             "duplicate_json_key",
             "non_nfc_string",
             "inline_positions_rejected",
-            "unknown_field_rejected",
+            "unknown_public_field_rejected",
             "unsupported_version",
             "handle_too_short",
             "non_canonical_timestamp",
@@ -86,6 +86,8 @@ fn cursor_negative_fixture_case_inventory_is_pinned() {
             "stream_ttl_exceeds_cap",
             "barrier_ttl_exceeds_cap",
             "expired",
+            "missing_millisecond_fraction",
+            "retired_t_x_fields_rejected",
         ]
     );
 }

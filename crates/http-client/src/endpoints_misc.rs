@@ -402,7 +402,7 @@ impl Client {
     }
 
     pub async fn post<T: Serialize, R: DeserializeOwned>(&self, path: &str, body: &T) -> Result<R> {
-        let builder = self.request(Method::POST, path)?.json(body);
+        let builder = self.canonical_json_body(self.request(Method::POST, path)?, body)?;
         self.send_json(builder).await
     }
 
@@ -413,11 +413,12 @@ impl Client {
         options: &ClientRequestOptions,
     ) -> Result<R> {
         let builder = self.apply_request_options(self.request(Method::POST, path)?, options)?;
-        self.send_json(builder.json(body)).await
+        self.send_json(self.canonical_json_body(builder, body)?)
+            .await
     }
 
     pub async fn put<T: Serialize, R: DeserializeOwned>(&self, path: &str, body: &T) -> Result<R> {
-        let builder = self.request(Method::PUT, path)?.json(body);
+        let builder = self.canonical_json_body(self.request(Method::PUT, path)?, body)?;
         self.send_json(builder).await
     }
 
@@ -428,7 +429,8 @@ impl Client {
         options: &ClientRequestOptions,
     ) -> Result<R> {
         let builder = self.apply_request_options(self.request(Method::PUT, path)?, options)?;
-        self.send_json(builder.json(body)).await
+        self.send_json(self.canonical_json_body(builder, body)?)
+            .await
     }
 
     pub async fn delete<R: DeserializeOwned>(&self, path: &str) -> Result<R> {

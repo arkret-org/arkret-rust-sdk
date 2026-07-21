@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-07-20;
-//! sha256=d2f5dd07822a78521830a9457bbdc6f72207a62410d26f8b4beb402d2dc9a11a Entries: registered=192
+//! Input: registry/operation-registry.json; version=2026-07-20; sha256=d2f5dd07822a78521830a9457bbdc6f72207a62410d26f8b4beb402d2dc9a11a
+//! Entries: registered=192
 
 use serde::{Deserialize, Serialize};
 
@@ -612,96 +612,57 @@ impl ServiceOperationId {
     pub const EDGE_APPLET_COMMAND_TRANSACTION: &'static str = "ak.edge.applet.command.transaction";
     pub const EDGE_APPLET_QUERY_DESCRIBE: &'static str = "ak.edge.applet.query.describe";
     pub const EDGE_APPLET_QUERY_PING: &'static str = "ak.edge.applet.query.ping";
-    pub const EDGE_APPLET_QUERY_PROTOCOL_METADATA: &'static str =
-        "ak.edge.applet.query.protocol_metadata";
+    pub const EDGE_APPLET_QUERY_PROTOCOL_METADATA: &'static str = "ak.edge.applet.query.protocol_metadata";
     pub const EDGE_APPLET_REALM_QUERY_RESOLVE: &'static str = "ak.edge.applet.realm.query.resolve";
-    pub const EDGE_APPLET_THIRD_PARTY_LOCATIONS_QUERY_LIST: &'static str =
-        "ak.edge.applet.third_party_locations.query.list";
-    pub const EDGE_APPLET_THIRD_PARTY_USERS_QUERY_LIST: &'static str =
-        "ak.edge.applet.third_party_users.query.list";
+    pub const EDGE_APPLET_THIRD_PARTY_LOCATIONS_QUERY_LIST: &'static str = "ak.edge.applet.third_party_locations.query.list";
+    pub const EDGE_APPLET_THIRD_PARTY_USERS_QUERY_LIST: &'static str = "ak.edge.applet.third_party_users.query.list";
     pub const EDGE_PUSH_COMMAND_NOTIFY: &'static str = "ak.edge.push.command.notify";
-    pub const EDGE_PUSH_COMMAND_REGISTER_DEVICE: &'static str =
-        "ak.edge.push.command.register_device";
-    pub const EDGE_PUSH_COMMAND_UNREGISTER_DEVICE: &'static str =
-        "ak.edge.push.command.unregister_device";
+    pub const EDGE_PUSH_COMMAND_REGISTER_DEVICE: &'static str = "ak.edge.push.command.register_device";
+    pub const EDGE_PUSH_COMMAND_UNREGISTER_DEVICE: &'static str = "ak.edge.push.command.unregister_device";
     pub const FIND_DIRECTORY_COMMAND_ANNOUNCE: &'static str = "ak.find.directory.command.announce";
-    pub const FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL: &'static str =
-        "ak.find.directory.command.takedown_appeal";
+    pub const FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL: &'static str = "ak.find.directory.command.takedown_appeal";
     pub const FIND_DIRECTORY_COMMAND_WITHDRAW: &'static str = "ak.find.directory.command.withdraw";
-    pub const FIND_DIRECTORY_PUSH_COMMAND_REGISTER: &'static str =
-        "ak.find.directory.push.command.register";
+    pub const FIND_DIRECTORY_PUSH_COMMAND_REGISTER: &'static str = "ak.find.directory.push.command.register";
     pub const FIND_DIRECTORY_QUERY_DESCRIBE: &'static str = "ak.find.directory.query.describe";
-    pub const FIND_DIRECTORY_QUERY_LIST_HANDLES_FOR_SUBJECT: &'static str =
-        "ak.find.directory.query.list_handles_for_subject";
-    pub const FIND_DIRECTORY_QUERY_PRIVATE_CONTACT_DISCOVERY: &'static str =
-        "ak.find.directory.query.private_contact_discovery";
-    pub const FIND_DIRECTORY_QUERY_RESOLVE_AGENT_SELECTOR: &'static str =
-        "ak.find.directory.query.resolve_agent_selector";
-    pub const FIND_DIRECTORY_QUERY_RESOLVE_HANDLE: &'static str =
-        "ak.find.directory.query.resolve_handle";
-    pub const FIND_DIRECTORY_QUERY_RESOLVE_ORGANIZATION: &'static str =
-        "ak.find.directory.query.resolve_organization";
-    pub const FIND_DIRECTORY_QUERY_RESOLVE_REALM: &'static str =
-        "ak.find.directory.query.resolve_realm";
-    pub const FIND_DIRECTORY_QUERY_RESOLVE_TARGET: &'static str =
-        "ak.find.directory.query.resolve_target";
-    pub const FIND_DIRECTORY_QUERY_SEARCH_ACTORS: &'static str =
-        "ak.find.directory.query.search_actors";
-    pub const FIND_DIRECTORY_QUERY_SEARCH_ORGANIZATIONS: &'static str =
-        "ak.find.directory.query.search_organizations";
-    pub const FIND_DIRECTORY_QUERY_SEARCH_REALMS: &'static str =
-        "ak.find.directory.query.search_realms";
-    pub const FIND_DIRECTORY_QUERY_SEARCH_USERS: &'static str =
-        "ak.find.directory.query.search_users";
-    pub const GATE_ACCOUNT_COMMAND_ENROLL_DEVICE: &'static str =
-        "ak.gate.account.command.enroll_device";
-    pub const GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT: &'static str =
-        "ak.gate.account.command.introspect_session_grant";
-    pub const GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE: &'static str =
-        "ak.gate.account.command.issue_identity_binding_challenge";
-    pub const GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT: &'static str =
-        "ak.gate.account.command.issue_session_grant";
+    pub const FIND_DIRECTORY_QUERY_LIST_HANDLES_FOR_SUBJECT: &'static str = "ak.find.directory.query.list_handles_for_subject";
+    pub const FIND_DIRECTORY_QUERY_PRIVATE_CONTACT_DISCOVERY: &'static str = "ak.find.directory.query.private_contact_discovery";
+    pub const FIND_DIRECTORY_QUERY_RESOLVE_AGENT_SELECTOR: &'static str = "ak.find.directory.query.resolve_agent_selector";
+    pub const FIND_DIRECTORY_QUERY_RESOLVE_HANDLE: &'static str = "ak.find.directory.query.resolve_handle";
+    pub const FIND_DIRECTORY_QUERY_RESOLVE_ORGANIZATION: &'static str = "ak.find.directory.query.resolve_organization";
+    pub const FIND_DIRECTORY_QUERY_RESOLVE_REALM: &'static str = "ak.find.directory.query.resolve_realm";
+    pub const FIND_DIRECTORY_QUERY_RESOLVE_TARGET: &'static str = "ak.find.directory.query.resolve_target";
+    pub const FIND_DIRECTORY_QUERY_SEARCH_ACTORS: &'static str = "ak.find.directory.query.search_actors";
+    pub const FIND_DIRECTORY_QUERY_SEARCH_ORGANIZATIONS: &'static str = "ak.find.directory.query.search_organizations";
+    pub const FIND_DIRECTORY_QUERY_SEARCH_REALMS: &'static str = "ak.find.directory.query.search_realms";
+    pub const FIND_DIRECTORY_QUERY_SEARCH_USERS: &'static str = "ak.find.directory.query.search_users";
+    pub const GATE_ACCOUNT_COMMAND_ENROLL_DEVICE: &'static str = "ak.gate.account.command.enroll_device";
+    pub const GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT: &'static str = "ak.gate.account.command.introspect_session_grant";
+    pub const GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE: &'static str = "ak.gate.account.command.issue_identity_binding_challenge";
+    pub const GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT: &'static str = "ak.gate.account.command.issue_session_grant";
     pub const GATE_ACCOUNT_COMMAND_LOGOUT: &'static str = "ak.gate.account.command.logout";
-    pub const GATE_ACCOUNT_COMMAND_LOGOUT_AUTH_SESSION: &'static str =
-        "ak.gate.account.command.logout_auth_session";
-    pub const GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY: &'static str =
-        "ak.gate.account.command.pair_agent_key";
-    pub const GATE_ACCOUNT_COMMAND_PAIR_DEVICE: &'static str =
-        "ak.gate.account.command.pair_device";
-    pub const GATE_ACCOUNT_COMMAND_REFRESH_SESSION_GRANT: &'static str =
-        "ak.gate.account.command.refresh_session_grant";
+    pub const GATE_ACCOUNT_COMMAND_LOGOUT_AUTH_SESSION: &'static str = "ak.gate.account.command.logout_auth_session";
+    pub const GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY: &'static str = "ak.gate.account.command.pair_agent_key";
+    pub const GATE_ACCOUNT_COMMAND_PAIR_DEVICE: &'static str = "ak.gate.account.command.pair_device";
+    pub const GATE_ACCOUNT_COMMAND_REFRESH_SESSION_GRANT: &'static str = "ak.gate.account.command.refresh_session_grant";
     pub const GATE_ACCOUNT_COMMAND_REGISTER: &'static str = "ak.gate.account.command.register";
-    pub const GATE_ACCOUNT_COMMAND_REVOKE_SESSION: &'static str =
-        "ak.gate.account.command.revoke_session";
-    pub const GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC: &'static str =
-        "ak.gate.account.exchange.complete_oidc";
-    pub const GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF: &'static str =
-        "ak.gate.account.exchange.create_handoff";
-    pub const OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST: &'static str =
-        "ak.open.agent_pairing.command.submit_runtime_key_request";
-    pub const OPEN_AGENT_PAIRING_QUERY_RESOLVE: &'static str =
-        "ak.open.agent_pairing.query.resolve";
-    pub const OPEN_AGENT_PAIRING_QUERY_RUNTIME_KEY_REQUEST_STATUS: &'static str =
-        "ak.open.agent_pairing.query.runtime_key_request_status";
-    pub const OPEN_INVITE_LOCATOR_QUERY_RESOLVE: &'static str =
-        "ak.open.invite_locator.query.resolve";
+    pub const GATE_ACCOUNT_COMMAND_REVOKE_SESSION: &'static str = "ak.gate.account.command.revoke_session";
+    pub const GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC: &'static str = "ak.gate.account.exchange.complete_oidc";
+    pub const GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF: &'static str = "ak.gate.account.exchange.create_handoff";
+    pub const OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST: &'static str = "ak.open.agent_pairing.command.submit_runtime_key_request";
+    pub const OPEN_AGENT_PAIRING_QUERY_RESOLVE: &'static str = "ak.open.agent_pairing.query.resolve";
+    pub const OPEN_AGENT_PAIRING_QUERY_RUNTIME_KEY_REQUEST_STATUS: &'static str = "ak.open.agent_pairing.query.runtime_key_request_status";
+    pub const OPEN_INVITE_LOCATOR_QUERY_RESOLVE: &'static str = "ak.open.invite_locator.query.resolve";
     pub const OPEN_MIMI_COMMAND_NOTIFY: &'static str = "ak.open.mimi.command.notify";
-    pub const OPEN_MIMI_COMMAND_PROXY_DOWNLOAD: &'static str =
-        "ak.open.mimi.command.proxy_download";
+    pub const OPEN_MIMI_COMMAND_PROXY_DOWNLOAD: &'static str = "ak.open.mimi.command.proxy_download";
     pub const OPEN_MIMI_COMMAND_REPORT_ABUSE: &'static str = "ak.open.mimi.command.report_abuse";
-    pub const OPEN_MIMI_COMMAND_REQUEST_CONSENT: &'static str =
-        "ak.open.mimi.command.request_consent";
-    pub const OPEN_MIMI_COMMAND_SUBMIT_MESSAGE: &'static str =
-        "ak.open.mimi.command.submit_message";
-    pub const OPEN_MIMI_COMMAND_UPDATE_CONSENT: &'static str =
-        "ak.open.mimi.command.update_consent";
+    pub const OPEN_MIMI_COMMAND_REQUEST_CONSENT: &'static str = "ak.open.mimi.command.request_consent";
+    pub const OPEN_MIMI_COMMAND_SUBMIT_MESSAGE: &'static str = "ak.open.mimi.command.submit_message";
+    pub const OPEN_MIMI_COMMAND_UPDATE_CONSENT: &'static str = "ak.open.mimi.command.update_consent";
     pub const OPEN_MIMI_COMMAND_UPDATE_ROOM: &'static str = "ak.open.mimi.command.update_room";
-    pub const OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL: &'static str =
-        "ak.open.mimi.exchange.request_key_material";
+    pub const OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL: &'static str = "ak.open.mimi.exchange.request_key_material";
     pub const OPEN_MIMI_QUERY_GROUP_INFO: &'static str = "ak.open.mimi.query.group_info";
     pub const OPEN_MIMI_QUERY_IDENTIFIERS: &'static str = "ak.open.mimi.query.identifiers";
-    pub const OPEN_MIMI_QUERY_PROVIDER_DIRECTORY: &'static str =
-        "ak.open.mimi.query.provider_directory";
+    pub const OPEN_MIMI_QUERY_PROVIDER_DIRECTORY: &'static str = "ak.open.mimi.query.provider_directory";
     pub const PEER_CONTACTS_COMMAND_SUBMIT: &'static str = "ak.peer.contacts.command.submit";
     pub const PEER_EVENTS_COMMAND_SUBMIT: &'static str = "ak.peer.events.command.submit";
     pub const PEER_EVENTS_QUERY_DESCRIBE: &'static str = "ak.peer.events.query.describe";
@@ -710,95 +671,65 @@ impl ServiceOperationId {
     pub const PEER_EVENTS_QUERY_SCAN: &'static str = "ak.peer.events.query.scan";
     pub const PEER_EVENTS_QUERY_SCAN_BODY: &'static str = "ak.peer.events.query.scan_body";
     pub const PEER_INVITES_COMMAND_SUBMIT: &'static str = "ak.peer.invites.command.submit";
-    pub const PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM: &'static str =
-        "ak.peer.keys.keypackages.command.claim";
-    pub const PEER_KEYS_KEYPACKAGES_QUERY_CLAIM: &'static str =
-        "ak.peer.keys.keypackages.query.claim";
-    pub const PEER_SNAPSHOT_QUERY_MANIFEST_HEAD: &'static str =
-        "ak.peer.snapshot.query.manifest_head";
-    pub const ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION: &'static str =
-        "ak.root.identity.command.submit_did_operation";
-    pub const ROOT_IDENTITY_DOCUMENT_RESOURCE_GET: &'static str =
-        "ak.root.identity.document.resource.get";
+    pub const PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM: &'static str = "ak.peer.keys.keypackages.command.claim";
+    pub const PEER_KEYS_KEYPACKAGES_QUERY_CLAIM: &'static str = "ak.peer.keys.keypackages.query.claim";
+    pub const PEER_SNAPSHOT_QUERY_MANIFEST_HEAD: &'static str = "ak.peer.snapshot.query.manifest_head";
+    pub const ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION: &'static str = "ak.root.identity.command.submit_did_operation";
+    pub const ROOT_IDENTITY_DOCUMENT_RESOURCE_GET: &'static str = "ak.root.identity.document.resource.get";
     pub const ROOT_IDENTITY_LOG_QUERY_LIST: &'static str = "ak.root.identity.log.query.list";
     pub const ROOT_IDENTITY_QUERY_RESOLVE: &'static str = "ak.root.identity.query.resolve";
-    pub const ROOT_IDENTITY_RECEIPTS_QUERY_LIST: &'static str =
-        "ak.root.identity.receipts.query.list";
-    pub const ROOT_IDENTITY_RECOVERY_POLICY_COMMAND_PUBLISH: &'static str =
-        "ak.root.identity.recovery_policy.command.publish";
-    pub const ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET: &'static str =
-        "ak.root.identity.recovery_policy.resource.get";
-    pub const ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_COMPLETE: &'static str =
-        "ak.root.identity.recovery_session.command.complete";
-    pub const ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE: &'static str =
-        "ak.root.identity.recovery_session.command.create";
-    pub const ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF: &'static str =
-        "ak.root.identity.recovery_session.command.submit_proof";
-    pub const ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET: &'static str =
-        "ak.root.identity.recovery_session.resource.get";
-    pub const ROOT_IDENTITY_REGISTRY_QUERY_DESCRIBE: &'static str =
-        "ak.root.identity.registry.query.describe";
-    pub const ROOT_IDENTITY_SERVICE_REGISTRATION_COMMAND_ENSURE: &'static str =
-        "ak.root.identity.service_registration.command.ensure";
-    pub const ROOT_IDENTITY_SERVICE_REGISTRATION_RESOURCE_GET: &'static str =
-        "ak.root.identity.service_registration.resource.get";
-    pub const SELF_ACCOUNT_COMMAND_REVOKE_CURSOR: &'static str =
-        "ak.self.account.command.revoke_cursor";
-    pub const SELF_ACCOUNT_COMMAND_UPDATE_PROFILE: &'static str =
-        "ak.self.account.command.update_profile";
+    pub const ROOT_IDENTITY_RECEIPTS_QUERY_LIST: &'static str = "ak.root.identity.receipts.query.list";
+    pub const ROOT_IDENTITY_RECOVERY_POLICY_COMMAND_PUBLISH: &'static str = "ak.root.identity.recovery_policy.command.publish";
+    pub const ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET: &'static str = "ak.root.identity.recovery_policy.resource.get";
+    pub const ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_COMPLETE: &'static str = "ak.root.identity.recovery_session.command.complete";
+    pub const ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE: &'static str = "ak.root.identity.recovery_session.command.create";
+    pub const ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF: &'static str = "ak.root.identity.recovery_session.command.submit_proof";
+    pub const ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET: &'static str = "ak.root.identity.recovery_session.resource.get";
+    pub const ROOT_IDENTITY_REGISTRY_QUERY_DESCRIBE: &'static str = "ak.root.identity.registry.query.describe";
+    pub const ROOT_IDENTITY_SERVICE_REGISTRATION_COMMAND_ENSURE: &'static str = "ak.root.identity.service_registration.command.ensure";
+    pub const ROOT_IDENTITY_SERVICE_REGISTRATION_RESOURCE_GET: &'static str = "ak.root.identity.service_registration.resource.get";
+    pub const SELF_ACCOUNT_COMMAND_REVOKE_CURSOR: &'static str = "ak.self.account.command.revoke_cursor";
+    pub const SELF_ACCOUNT_COMMAND_UPDATE_PROFILE: &'static str = "ak.self.account.command.update_profile";
     pub const SELF_ACCOUNT_QUERY_DESCRIBE: &'static str = "ak.self.account.query.describe";
     pub const SELF_ACCOUNT_QUERY_VIEWER: &'static str = "ak.self.account.query.viewer";
     pub const SELF_ACCOUNT_STREAM_SUBSCRIBE: &'static str = "ak.self.account.stream.subscribe";
     pub const SELF_ACCOUNT_DATA_QUERY_LIST: &'static str = "ak.self.account_data.query.list";
-    pub const SELF_ACCOUNT_DATA_RESOURCE_DELETE: &'static str =
-        "ak.self.account_data.resource.delete";
+    pub const SELF_ACCOUNT_DATA_RESOURCE_DELETE: &'static str = "ak.self.account_data.resource.delete";
     pub const SELF_ACCOUNT_DATA_RESOURCE_GET: &'static str = "ak.self.account_data.resource.get";
-    pub const SELF_ACCOUNT_DATA_RESOURCE_REPLACE: &'static str =
-        "ak.self.account_data.resource.replace";
+    pub const SELF_ACCOUNT_DATA_RESOURCE_REPLACE: &'static str = "ak.self.account_data.resource.replace";
     pub const SELF_AGENT_COMMAND_DEACTIVATE: &'static str = "ak.self.agent.command.deactivate";
     pub const SELF_AGENT_COMMAND_PAUSE: &'static str = "ak.self.agent.command.pause";
     pub const SELF_AGENT_COMMAND_PROVISION: &'static str = "ak.self.agent.command.provision";
-    pub const SELF_AGENT_COMMAND_RENEW_PAIRING: &'static str =
-        "ak.self.agent.command.renew_pairing";
+    pub const SELF_AGENT_COMMAND_RENEW_PAIRING: &'static str = "ak.self.agent.command.renew_pairing";
     pub const SELF_AGENT_COMMAND_RESUME: &'static str = "ak.self.agent.command.resume";
     pub const SELF_AGENT_GRANT_COMMAND_ATTACH: &'static str = "ak.self.agent.grant.command.attach";
-    pub const SELF_AGENT_GRANT_RESOURCE_DELETE: &'static str =
-        "ak.self.agent.grant.resource.delete";
-    pub const SELF_AGENT_PARTICIPATION_RESOURCE_GET: &'static str =
-        "ak.self.agent.participation.resource.get";
-    pub const SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE: &'static str =
-        "ak.self.agent.participation.resource.replace";
+    pub const SELF_AGENT_GRANT_RESOURCE_DELETE: &'static str = "ak.self.agent.grant.resource.delete";
+    pub const SELF_AGENT_PARTICIPATION_RESOURCE_GET: &'static str = "ak.self.agent.participation.resource.get";
+    pub const SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE: &'static str = "ak.self.agent.participation.resource.replace";
     pub const SELF_AGENT_QUERY_LIST: &'static str = "ak.self.agent.query.list";
     pub const SELF_AGENT_RESOURCE_GET: &'static str = "ak.self.agent.resource.get";
-    pub const SELF_AGENT_SIDECAR_COMMAND_ENSURE: &'static str =
-        "ak.self.agent.sidecar.command.ensure";
+    pub const SELF_AGENT_SIDECAR_COMMAND_ENSURE: &'static str = "ak.self.agent.sidecar.command.ensure";
     pub const SELF_AGENT_SIDECAR_QUERY_LIST: &'static str = "ak.self.agent.sidecar.query.list";
     pub const SELF_AGENT_SIDECAR_RESOURCE_GET: &'static str = "ak.self.agent.sidecar.resource.get";
     pub const SELF_APPLET_COMMAND_INSTALL: &'static str = "ak.self.applet.command.install";
     pub const SELF_APPLET_COMMAND_REVOKE: &'static str = "ak.self.applet.command.revoke";
-    pub const SELF_APPLET_GHOST_COMMAND_PROVISION: &'static str =
-        "ak.self.applet.ghost.command.provision";
-    pub const SELF_APPLET_INSTALL_COMMAND_PREVIEW: &'static str =
-        "ak.self.applet.install.command.preview";
-    pub const SELF_AUTHZ_GRANTS_QUERY_EFFECTIVE: &'static str =
-        "ak.self.authz.grants.query.effective";
+    pub const SELF_APPLET_GHOST_COMMAND_PROVISION: &'static str = "ak.self.applet.ghost.command.provision";
+    pub const SELF_APPLET_INSTALL_COMMAND_PREVIEW: &'static str = "ak.self.applet.install.command.preview";
+    pub const SELF_AUTHZ_GRANTS_QUERY_EFFECTIVE: &'static str = "ak.self.authz.grants.query.effective";
     pub const SELF_AUTHZ_INVITES_QUERY_LIST: &'static str = "ak.self.authz.invites.query.list";
     pub const SELF_AUTHZ_QUERY_CHECK: &'static str = "ak.self.authz.query.check";
     pub const SELF_BLOB_COMMAND_PRESIGN: &'static str = "ak.self.blob.command.presign";
     pub const SELF_BLOB_RESOURCE_GET: &'static str = "ak.self.blob.resource.get";
     pub const SELF_BLOB_RESOURCE_HEAD: &'static str = "ak.self.blob.resource.head";
     pub const SELF_BLOB_UPLOAD_CREATE: &'static str = "ak.self.blob.upload.create";
-    pub const SELF_CALL_MEDIA_EXCHANGE_ISSUE_TOKEN: &'static str =
-        "ak.self.call.media.exchange.issue_token";
+    pub const SELF_CALL_MEDIA_EXCHANGE_ISSUE_TOKEN: &'static str = "ak.self.call.media.exchange.issue_token";
     pub const SELF_CIRCLE_COMMAND_ARCHIVE: &'static str = "ak.self.circle.command.archive";
     pub const SELF_CIRCLE_COMMAND_CREATE: &'static str = "ak.self.circle.command.create";
     pub const SELF_CIRCLE_COMMAND_RESTORE: &'static str = "ak.self.circle.command.restore";
-    pub const SELF_CIRCLE_COMMAND_ROTATE_SCOPE: &'static str =
-        "ak.self.circle.command.rotate_scope";
+    pub const SELF_CIRCLE_COMMAND_ROTATE_SCOPE: &'static str = "ak.self.circle.command.rotate_scope";
     pub const SELF_CIRCLE_COMMAND_TOMBSTONE: &'static str = "ak.self.circle.command.tombstone";
     pub const SELF_CIRCLE_MEMBER_COMMAND_ADD: &'static str = "ak.self.circle.member.command.add";
-    pub const SELF_CIRCLE_MEMBER_RESOURCE_DELETE: &'static str =
-        "ak.self.circle.member.resource.delete";
+    pub const SELF_CIRCLE_MEMBER_RESOURCE_DELETE: &'static str = "ak.self.circle.member.resource.delete";
     pub const SELF_CIRCLE_QUERY_LIST: &'static str = "ak.self.circle.query.list";
     pub const SELF_CIRCLE_RESOURCE_GET: &'static str = "ak.self.circle.resource.get";
     pub const SELF_CONSENT_COMMAND_GRANT: &'static str = "ak.self.consent.command.grant";
@@ -810,51 +741,35 @@ impl ServiceOperationId {
     pub const SELF_CONTACT_COMMAND_RESPOND: &'static str = "ak.self.contact.command.respond";
     pub const SELF_CONTACT_COMMAND_TOMBSTONE: &'static str = "ak.self.contact.command.tombstone";
     pub const SELF_CONTACT_QUERY_LIST: &'static str = "ak.self.contact.query.list";
-    pub const SELF_DEVICE_MESSAGES_COMMAND_ACK: &'static str =
-        "ak.self.device_messages.command.ack";
-    pub const SELF_DEVICE_MESSAGES_COMMAND_SEND: &'static str =
-        "ak.self.device_messages.command.send";
+    pub const SELF_DEVICE_MESSAGES_COMMAND_ACK: &'static str = "ak.self.device_messages.command.ack";
+    pub const SELF_DEVICE_MESSAGES_COMMAND_SEND: &'static str = "ak.self.device_messages.command.send";
     pub const SELF_DEVICE_MESSAGES_QUERY_LIST: &'static str = "ak.self.device_messages.query.list";
-    pub const SELF_DIRECT_CONVERSATION_COMMAND_RESOLVE: &'static str =
-        "ak.self.direct_conversation.command.resolve";
+    pub const SELF_DIRECT_CONVERSATION_COMMAND_RESOLVE: &'static str = "ak.self.direct_conversation.command.resolve";
     pub const SELF_EPHEMERAL_COMMAND_SEND: &'static str = "ak.self.ephemeral.command.send";
     pub const SELF_EVENTS_COMMAND_SUBMIT: &'static str = "ak.self.events.command.submit";
     pub const SELF_EVENTS_COMMAND_SUBMIT_SEAL: &'static str = "ak.self.events.command.submit_seal";
     pub const SELF_EVENTS_QUERY_DESCRIBE: &'static str = "ak.self.events.query.describe";
     pub const SELF_EVENTS_QUERY_FRONTIER: &'static str = "ak.self.events.query.frontier";
-    pub const SELF_EVENTS_QUERY_MLS_GOVERNANCE_PROOF: &'static str =
-        "ak.self.events.query.mls_governance_proof";
+    pub const SELF_EVENTS_QUERY_MLS_GOVERNANCE_PROOF: &'static str = "ak.self.events.query.mls_governance_proof";
     pub const SELF_EVENTS_QUERY_RESOLVE: &'static str = "ak.self.events.query.resolve";
     pub const SELF_EVENTS_QUERY_SCAN: &'static str = "ak.self.events.query.scan";
     pub const SELF_EVENTS_QUERY_SCAN_BODY: &'static str = "ak.self.events.query.scan_body";
     pub const SELF_EVENTS_RESOURCE_GET: &'static str = "ak.self.events.resource.get";
     pub const SELF_EVENTS_STREAM_SUBSCRIBE: &'static str = "ak.self.events.stream.subscribe";
-    pub const SELF_INVITE_LOCATOR_COMMAND_ISSUE: &'static str =
-        "ak.self.invite_locator.command.issue";
-    pub const SELF_INVITE_LOCATOR_COMMAND_REVOKE: &'static str =
-        "ak.self.invite_locator.command.revoke";
-    pub const SELF_INVITE_LOCATOR_COMMAND_ROTATE: &'static str =
-        "ak.self.invite_locator.command.rotate";
-    pub const SELF_INVITE_RECEIVE_POLICY_RESOURCE_GET: &'static str =
-        "ak.self.invite_receive_policy.resource.get";
-    pub const SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE: &'static str =
-        "ak.self.invite_receive_policy.resource.replace";
-    pub const SELF_KEYS_BACKUPS_COMMAND_UNLOCK: &'static str =
-        "ak.self.keys.backups.command.unlock";
+    pub const SELF_INVITE_LOCATOR_COMMAND_ISSUE: &'static str = "ak.self.invite_locator.command.issue";
+    pub const SELF_INVITE_LOCATOR_COMMAND_REVOKE: &'static str = "ak.self.invite_locator.command.revoke";
+    pub const SELF_INVITE_LOCATOR_COMMAND_ROTATE: &'static str = "ak.self.invite_locator.command.rotate";
+    pub const SELF_INVITE_RECEIVE_POLICY_RESOURCE_GET: &'static str = "ak.self.invite_receive_policy.resource.get";
+    pub const SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE: &'static str = "ak.self.invite_receive_policy.resource.replace";
+    pub const SELF_KEYS_BACKUPS_COMMAND_UNLOCK: &'static str = "ak.self.keys.backups.command.unlock";
     pub const SELF_KEYS_BACKUPS_QUERY_LIST: &'static str = "ak.self.keys.backups.query.list";
-    pub const SELF_KEYS_BACKUPS_RESOURCE_DELETE: &'static str =
-        "ak.self.keys.backups.resource.delete";
-    pub const SELF_KEYS_BACKUPS_RESOURCE_REPLACE: &'static str =
-        "ak.self.keys.backups.resource.replace";
+    pub const SELF_KEYS_BACKUPS_RESOURCE_DELETE: &'static str = "ak.self.keys.backups.resource.delete";
+    pub const SELF_KEYS_BACKUPS_RESOURCE_REPLACE: &'static str = "ak.self.keys.backups.resource.replace";
     pub const SELF_KEYS_COMMAND_CLAIM: &'static str = "ak.self.keys.command.claim";
-    pub const SELF_KEYS_KEYPACKAGES_COMMAND_CLAIM: &'static str =
-        "ak.self.keys.keypackages.command.claim";
-    pub const SELF_KEYS_KEYPACKAGES_COMMAND_CONSUME: &'static str =
-        "ak.self.keys.keypackages.command.consume";
-    pub const SELF_KEYS_KEYPACKAGES_COMMAND_REVOKE: &'static str =
-        "ak.self.keys.keypackages.command.revoke";
-    pub const SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE: &'static str =
-        "ak.self.keys.keypackages.upload.create";
+    pub const SELF_KEYS_KEYPACKAGES_COMMAND_CLAIM: &'static str = "ak.self.keys.keypackages.command.claim";
+    pub const SELF_KEYS_KEYPACKAGES_COMMAND_CONSUME: &'static str = "ak.self.keys.keypackages.command.consume";
+    pub const SELF_KEYS_KEYPACKAGES_COMMAND_REVOKE: &'static str = "ak.self.keys.keypackages.command.revoke";
+    pub const SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE: &'static str = "ak.self.keys.keypackages.upload.create";
     pub const SELF_KEYS_QUERY_LOOKUP: &'static str = "ak.self.keys.query.lookup";
     pub const SELF_KEYS_UPLOAD_CREATE: &'static str = "ak.self.keys.upload.create";
     pub const SELF_MEDIA_QUERY_ICE_CONFIG: &'static str = "ak.self.media.query.ice_config";
@@ -862,38 +777,28 @@ impl ServiceOperationId {
     pub const SELF_MORPH_QUERY_LIST: &'static str = "ak.self.morph.query.list";
     pub const SELF_MORPH_RESOURCE_GET: &'static str = "ak.self.morph.resource.get";
     pub const SELF_POLICY_QUERY_CHECK: &'static str = "ak.self.policy.query.check";
-    pub const SELF_READ_CURSOR_COMMAND_ADVANCE: &'static str =
-        "ak.self.read_cursor.command.advance";
+    pub const SELF_READ_CURSOR_COMMAND_ADVANCE: &'static str = "ak.self.read_cursor.command.advance";
     pub const SELF_READ_CURSOR_QUERY_LIST: &'static str = "ak.self.read_cursor.query.list";
     pub const SELF_REALM_COMMAND_ARCHIVE: &'static str = "ak.self.realm.command.archive";
     pub const SELF_REALM_COMMAND_DESTROY: &'static str = "ak.self.realm.command.destroy";
     pub const SELF_REALM_COMMAND_FREEZE: &'static str = "ak.self.realm.command.freeze";
     pub const SELF_REALM_COMMAND_TOMBSTONE: &'static str = "ak.self.realm.command.tombstone";
-    pub const SELF_REALM_MODERATION_POLICY_QUERY_EFFECTIVE: &'static str =
-        "ak.self.realm.moderation_policy.query.effective";
-    pub const SELF_REALM_MODERATION_POLICY_RESOURCE_REPLACE: &'static str =
-        "ak.self.realm.moderation_policy.resource.replace";
+    pub const SELF_REALM_MODERATION_POLICY_QUERY_EFFECTIVE: &'static str = "ak.self.realm.moderation_policy.query.effective";
+    pub const SELF_REALM_MODERATION_POLICY_RESOURCE_REPLACE: &'static str = "ak.self.realm.moderation_policy.resource.replace";
     pub const SELF_REALM_QUERY_EXPORT: &'static str = "ak.self.realm.query.export";
     pub const SELF_REALM_RESOURCE_GET: &'static str = "ak.self.realm.resource.get";
     pub const SELF_REALM_LINK_COMMAND_CREATE: &'static str = "ak.self.realm_link.command.create";
-    pub const SELF_REALM_LINK_QUERY_EFFECTIVE_POLICY: &'static str =
-        "ak.self.realm_link.query.effective_policy";
+    pub const SELF_REALM_LINK_QUERY_EFFECTIVE_POLICY: &'static str = "ak.self.realm_link.query.effective_policy";
     pub const SELF_REALM_LINK_QUERY_LIST: &'static str = "ak.self.realm_link.query.list";
     pub const SELF_REALM_LINK_RESOURCE_DELETE: &'static str = "ak.self.realm_link.resource.delete";
-    pub const SELF_REALM_ORGANIZATION_QUERY_LIST: &'static str =
-        "ak.self.realm_organization.query.list";
-    pub const SELF_REALM_POLICY_SERVER_RESOURCE_DELETE: &'static str =
-        "ak.self.realm_policy_server.resource.delete";
-    pub const SELF_REALM_POLICY_SERVER_RESOURCE_GET: &'static str =
-        "ak.self.realm_policy_server.resource.get";
-    pub const SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE: &'static str =
-        "ak.self.realm_policy_server.resource.replace";
-    pub const SELF_SNAPSHOT_QUERY_MANIFEST_HEAD: &'static str =
-        "ak.self.snapshot.query.manifest_head";
+    pub const SELF_REALM_ORGANIZATION_QUERY_LIST: &'static str = "ak.self.realm_organization.query.list";
+    pub const SELF_REALM_POLICY_SERVER_RESOURCE_DELETE: &'static str = "ak.self.realm_policy_server.resource.delete";
+    pub const SELF_REALM_POLICY_SERVER_RESOURCE_GET: &'static str = "ak.self.realm_policy_server.resource.get";
+    pub const SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE: &'static str = "ak.self.realm_policy_server.resource.replace";
+    pub const SELF_SNAPSHOT_QUERY_MANIFEST_HEAD: &'static str = "ak.self.snapshot.query.manifest_head";
     pub const SELF_SPACE_QUERY_LIST: &'static str = "ak.self.space.query.list";
     pub const SELF_STRAND_QUERY_LIST: &'static str = "ak.self.strand.query.list";
-    pub const SELF_VIEWS_COLLECTION_PROJECTION_COMMAND_MATERIALIZE: &'static str =
-        "ak.self.views.collection_projection.command.materialize";
+    pub const SELF_VIEWS_COLLECTION_PROJECTION_COMMAND_MATERIALIZE: &'static str = "ak.self.views.collection_projection.command.materialize";
     pub const SERVER_QUERY_DESCRIBE: &'static str = "ak.server.query.describe";
 
     pub const fn as_str(self) -> &'static str {
@@ -904,12 +809,8 @@ impl ServiceOperationId {
             Self::EdgeAppletQueryPing => "ak.edge.applet.query.ping",
             Self::EdgeAppletQueryProtocolMetadata => "ak.edge.applet.query.protocol_metadata",
             Self::EdgeAppletRealmQueryResolve => "ak.edge.applet.realm.query.resolve",
-            Self::EdgeAppletThirdPartyLocationsQueryList => {
-                "ak.edge.applet.third_party_locations.query.list"
-            }
-            Self::EdgeAppletThirdPartyUsersQueryList => {
-                "ak.edge.applet.third_party_users.query.list"
-            }
+            Self::EdgeAppletThirdPartyLocationsQueryList => "ak.edge.applet.third_party_locations.query.list",
+            Self::EdgeAppletThirdPartyUsersQueryList => "ak.edge.applet.third_party_users.query.list",
             Self::EdgePushCommandNotify => "ak.edge.push.command.notify",
             Self::EdgePushCommandRegisterDevice => "ak.edge.push.command.register_device",
             Self::EdgePushCommandUnregisterDevice => "ak.edge.push.command.unregister_device",
@@ -918,57 +819,33 @@ impl ServiceOperationId {
             Self::FindDirectoryCommandWithdraw => "ak.find.directory.command.withdraw",
             Self::FindDirectoryPushCommandRegister => "ak.find.directory.push.command.register",
             Self::FindDirectoryQueryDescribe => "ak.find.directory.query.describe",
-            Self::FindDirectoryQueryListHandlesForSubject => {
-                "ak.find.directory.query.list_handles_for_subject"
-            }
-            Self::FindDirectoryQueryPrivateContactDiscovery => {
-                "ak.find.directory.query.private_contact_discovery"
-            }
-            Self::FindDirectoryQueryResolveAgentSelector => {
-                "ak.find.directory.query.resolve_agent_selector"
-            }
+            Self::FindDirectoryQueryListHandlesForSubject => "ak.find.directory.query.list_handles_for_subject",
+            Self::FindDirectoryQueryPrivateContactDiscovery => "ak.find.directory.query.private_contact_discovery",
+            Self::FindDirectoryQueryResolveAgentSelector => "ak.find.directory.query.resolve_agent_selector",
             Self::FindDirectoryQueryResolveHandle => "ak.find.directory.query.resolve_handle",
-            Self::FindDirectoryQueryResolveOrganization => {
-                "ak.find.directory.query.resolve_organization"
-            }
+            Self::FindDirectoryQueryResolveOrganization => "ak.find.directory.query.resolve_organization",
             Self::FindDirectoryQueryResolveRealm => "ak.find.directory.query.resolve_realm",
             Self::FindDirectoryQueryResolveTarget => "ak.find.directory.query.resolve_target",
             Self::FindDirectoryQuerySearchActors => "ak.find.directory.query.search_actors",
-            Self::FindDirectoryQuerySearchOrganizations => {
-                "ak.find.directory.query.search_organizations"
-            }
+            Self::FindDirectoryQuerySearchOrganizations => "ak.find.directory.query.search_organizations",
             Self::FindDirectoryQuerySearchRealms => "ak.find.directory.query.search_realms",
             Self::FindDirectoryQuerySearchUsers => "ak.find.directory.query.search_users",
             Self::GateAccountCommandEnrollDevice => "ak.gate.account.command.enroll_device",
-            Self::GateAccountCommandIntrospectSessionGrant => {
-                "ak.gate.account.command.introspect_session_grant"
-            }
-            Self::GateAccountCommandIssueIdentityBindingChallenge => {
-                "ak.gate.account.command.issue_identity_binding_challenge"
-            }
-            Self::GateAccountCommandIssueSessionGrant => {
-                "ak.gate.account.command.issue_session_grant"
-            }
+            Self::GateAccountCommandIntrospectSessionGrant => "ak.gate.account.command.introspect_session_grant",
+            Self::GateAccountCommandIssueIdentityBindingChallenge => "ak.gate.account.command.issue_identity_binding_challenge",
+            Self::GateAccountCommandIssueSessionGrant => "ak.gate.account.command.issue_session_grant",
             Self::GateAccountCommandLogout => "ak.gate.account.command.logout",
-            Self::GateAccountCommandLogoutAuthSession => {
-                "ak.gate.account.command.logout_auth_session"
-            }
+            Self::GateAccountCommandLogoutAuthSession => "ak.gate.account.command.logout_auth_session",
             Self::GateAccountCommandPairAgentKey => "ak.gate.account.command.pair_agent_key",
             Self::GateAccountCommandPairDevice => "ak.gate.account.command.pair_device",
-            Self::GateAccountCommandRefreshSessionGrant => {
-                "ak.gate.account.command.refresh_session_grant"
-            }
+            Self::GateAccountCommandRefreshSessionGrant => "ak.gate.account.command.refresh_session_grant",
             Self::GateAccountCommandRegister => "ak.gate.account.command.register",
             Self::GateAccountCommandRevokeSession => "ak.gate.account.command.revoke_session",
             Self::GateAccountExchangeCompleteOidc => "ak.gate.account.exchange.complete_oidc",
             Self::GateAccountExchangeCreateHandoff => "ak.gate.account.exchange.create_handoff",
-            Self::OpenAgentPairingCommandSubmitRuntimeKeyRequest => {
-                "ak.open.agent_pairing.command.submit_runtime_key_request"
-            }
+            Self::OpenAgentPairingCommandSubmitRuntimeKeyRequest => "ak.open.agent_pairing.command.submit_runtime_key_request",
             Self::OpenAgentPairingQueryResolve => "ak.open.agent_pairing.query.resolve",
-            Self::OpenAgentPairingQueryRuntimeKeyRequestStatus => {
-                "ak.open.agent_pairing.query.runtime_key_request_status"
-            }
+            Self::OpenAgentPairingQueryRuntimeKeyRequestStatus => "ak.open.agent_pairing.query.runtime_key_request_status",
             Self::OpenInviteLocatorQueryResolve => "ak.open.invite_locator.query.resolve",
             Self::OpenMimiCommandNotify => "ak.open.mimi.command.notify",
             Self::OpenMimiCommandProxyDownload => "ak.open.mimi.command.proxy_download",
@@ -977,9 +854,7 @@ impl ServiceOperationId {
             Self::OpenMimiCommandSubmitMessage => "ak.open.mimi.command.submit_message",
             Self::OpenMimiCommandUpdateConsent => "ak.open.mimi.command.update_consent",
             Self::OpenMimiCommandUpdateRoom => "ak.open.mimi.command.update_room",
-            Self::OpenMimiExchangeRequestKeyMaterial => {
-                "ak.open.mimi.exchange.request_key_material"
-            }
+            Self::OpenMimiExchangeRequestKeyMaterial => "ak.open.mimi.exchange.request_key_material",
             Self::OpenMimiQueryGroupInfo => "ak.open.mimi.query.group_info",
             Self::OpenMimiQueryIdentifiers => "ak.open.mimi.query.identifiers",
             Self::OpenMimiQueryProviderDirectory => "ak.open.mimi.query.provider_directory",
@@ -994,38 +869,20 @@ impl ServiceOperationId {
             Self::PeerKeysKeypackagesCommandClaim => "ak.peer.keys.keypackages.command.claim",
             Self::PeerKeysKeypackagesQueryClaim => "ak.peer.keys.keypackages.query.claim",
             Self::PeerSnapshotQueryManifestHead => "ak.peer.snapshot.query.manifest_head",
-            Self::RootIdentityCommandSubmitDidOperation => {
-                "ak.root.identity.command.submit_did_operation"
-            }
+            Self::RootIdentityCommandSubmitDidOperation => "ak.root.identity.command.submit_did_operation",
             Self::RootIdentityDocumentResourceGet => "ak.root.identity.document.resource.get",
             Self::RootIdentityLogQueryList => "ak.root.identity.log.query.list",
             Self::RootIdentityQueryResolve => "ak.root.identity.query.resolve",
             Self::RootIdentityReceiptsQueryList => "ak.root.identity.receipts.query.list",
-            Self::RootIdentityRecoveryPolicyCommandPublish => {
-                "ak.root.identity.recovery_policy.command.publish"
-            }
-            Self::RootIdentityRecoveryPolicyResourceGet => {
-                "ak.root.identity.recovery_policy.resource.get"
-            }
-            Self::RootIdentityRecoverySessionCommandComplete => {
-                "ak.root.identity.recovery_session.command.complete"
-            }
-            Self::RootIdentityRecoverySessionCommandCreate => {
-                "ak.root.identity.recovery_session.command.create"
-            }
-            Self::RootIdentityRecoverySessionCommandSubmitProof => {
-                "ak.root.identity.recovery_session.command.submit_proof"
-            }
-            Self::RootIdentityRecoverySessionResourceGet => {
-                "ak.root.identity.recovery_session.resource.get"
-            }
+            Self::RootIdentityRecoveryPolicyCommandPublish => "ak.root.identity.recovery_policy.command.publish",
+            Self::RootIdentityRecoveryPolicyResourceGet => "ak.root.identity.recovery_policy.resource.get",
+            Self::RootIdentityRecoverySessionCommandComplete => "ak.root.identity.recovery_session.command.complete",
+            Self::RootIdentityRecoverySessionCommandCreate => "ak.root.identity.recovery_session.command.create",
+            Self::RootIdentityRecoverySessionCommandSubmitProof => "ak.root.identity.recovery_session.command.submit_proof",
+            Self::RootIdentityRecoverySessionResourceGet => "ak.root.identity.recovery_session.resource.get",
             Self::RootIdentityRegistryQueryDescribe => "ak.root.identity.registry.query.describe",
-            Self::RootIdentityServiceRegistrationCommandEnsure => {
-                "ak.root.identity.service_registration.command.ensure"
-            }
-            Self::RootIdentityServiceRegistrationResourceGet => {
-                "ak.root.identity.service_registration.resource.get"
-            }
+            Self::RootIdentityServiceRegistrationCommandEnsure => "ak.root.identity.service_registration.command.ensure",
+            Self::RootIdentityServiceRegistrationResourceGet => "ak.root.identity.service_registration.resource.get",
             Self::SelfAccountCommandRevokeCursor => "ak.self.account.command.revoke_cursor",
             Self::SelfAccountCommandUpdateProfile => "ak.self.account.command.update_profile",
             Self::SelfAccountQueryDescribe => "ak.self.account.query.describe",
@@ -1043,9 +900,7 @@ impl ServiceOperationId {
             Self::SelfAgentGrantCommandAttach => "ak.self.agent.grant.command.attach",
             Self::SelfAgentGrantResourceDelete => "ak.self.agent.grant.resource.delete",
             Self::SelfAgentParticipationResourceGet => "ak.self.agent.participation.resource.get",
-            Self::SelfAgentParticipationResourceReplace => {
-                "ak.self.agent.participation.resource.replace"
-            }
+            Self::SelfAgentParticipationResourceReplace => "ak.self.agent.participation.resource.replace",
             Self::SelfAgentQueryList => "ak.self.agent.query.list",
             Self::SelfAgentResourceGet => "ak.self.agent.resource.get",
             Self::SelfAgentSidecarCommandEnsure => "ak.self.agent.sidecar.command.ensure",
@@ -1084,9 +939,7 @@ impl ServiceOperationId {
             Self::SelfDeviceMessagesCommandAck => "ak.self.device_messages.command.ack",
             Self::SelfDeviceMessagesCommandSend => "ak.self.device_messages.command.send",
             Self::SelfDeviceMessagesQueryList => "ak.self.device_messages.query.list",
-            Self::SelfDirectConversationCommandResolve => {
-                "ak.self.direct_conversation.command.resolve"
-            }
+            Self::SelfDirectConversationCommandResolve => "ak.self.direct_conversation.command.resolve",
             Self::SelfEphemeralCommandSend => "ak.self.ephemeral.command.send",
             Self::SelfEventsCommandSubmit => "ak.self.events.command.submit",
             Self::SelfEventsCommandSubmitSeal => "ak.self.events.command.submit_seal",
@@ -1101,12 +954,8 @@ impl ServiceOperationId {
             Self::SelfInviteLocatorCommandIssue => "ak.self.invite_locator.command.issue",
             Self::SelfInviteLocatorCommandRevoke => "ak.self.invite_locator.command.revoke",
             Self::SelfInviteLocatorCommandRotate => "ak.self.invite_locator.command.rotate",
-            Self::SelfInviteReceivePolicyResourceGet => {
-                "ak.self.invite_receive_policy.resource.get"
-            }
-            Self::SelfInviteReceivePolicyResourceReplace => {
-                "ak.self.invite_receive_policy.resource.replace"
-            }
+            Self::SelfInviteReceivePolicyResourceGet => "ak.self.invite_receive_policy.resource.get",
+            Self::SelfInviteReceivePolicyResourceReplace => "ak.self.invite_receive_policy.resource.replace",
             Self::SelfKeysBackupsCommandUnlock => "ak.self.keys.backups.command.unlock",
             Self::SelfKeysBackupsQueryList => "ak.self.keys.backups.query.list",
             Self::SelfKeysBackupsResourceDelete => "ak.self.keys.backups.resource.delete",
@@ -1129,12 +978,8 @@ impl ServiceOperationId {
             Self::SelfRealmCommandDestroy => "ak.self.realm.command.destroy",
             Self::SelfRealmCommandFreeze => "ak.self.realm.command.freeze",
             Self::SelfRealmCommandTombstone => "ak.self.realm.command.tombstone",
-            Self::SelfRealmModerationPolicyQueryEffective => {
-                "ak.self.realm.moderation_policy.query.effective"
-            }
-            Self::SelfRealmModerationPolicyResourceReplace => {
-                "ak.self.realm.moderation_policy.resource.replace"
-            }
+            Self::SelfRealmModerationPolicyQueryEffective => "ak.self.realm.moderation_policy.query.effective",
+            Self::SelfRealmModerationPolicyResourceReplace => "ak.self.realm.moderation_policy.resource.replace",
             Self::SelfRealmQueryExport => "ak.self.realm.query.export",
             Self::SelfRealmResourceGet => "ak.self.realm.resource.get",
             Self::SelfRealmLinkCommandCreate => "ak.self.realm_link.command.create",
@@ -1142,19 +987,13 @@ impl ServiceOperationId {
             Self::SelfRealmLinkQueryList => "ak.self.realm_link.query.list",
             Self::SelfRealmLinkResourceDelete => "ak.self.realm_link.resource.delete",
             Self::SelfRealmOrganizationQueryList => "ak.self.realm_organization.query.list",
-            Self::SelfRealmPolicyServerResourceDelete => {
-                "ak.self.realm_policy_server.resource.delete"
-            }
+            Self::SelfRealmPolicyServerResourceDelete => "ak.self.realm_policy_server.resource.delete",
             Self::SelfRealmPolicyServerResourceGet => "ak.self.realm_policy_server.resource.get",
-            Self::SelfRealmPolicyServerResourceReplace => {
-                "ak.self.realm_policy_server.resource.replace"
-            }
+            Self::SelfRealmPolicyServerResourceReplace => "ak.self.realm_policy_server.resource.replace",
             Self::SelfSnapshotQueryManifestHead => "ak.self.snapshot.query.manifest_head",
             Self::SelfSpaceQueryList => "ak.self.space.query.list",
             Self::SelfStrandQueryList => "ak.self.strand.query.list",
-            Self::SelfViewsCollectionProjectionCommandMaterialize => {
-                "ak.self.views.collection_projection.command.materialize"
-            }
+            Self::SelfViewsCollectionProjectionCommandMaterialize => "ak.self.views.collection_projection.command.materialize",
             Self::ServerQueryDescribe => "ak.server.query.describe",
         }
     }
@@ -1167,77 +1006,43 @@ impl ServiceOperationId {
             "ak.edge.applet.query.ping" => Some(Self::EdgeAppletQueryPing),
             "ak.edge.applet.query.protocol_metadata" => Some(Self::EdgeAppletQueryProtocolMetadata),
             "ak.edge.applet.realm.query.resolve" => Some(Self::EdgeAppletRealmQueryResolve),
-            "ak.edge.applet.third_party_locations.query.list" => {
-                Some(Self::EdgeAppletThirdPartyLocationsQueryList)
-            }
-            "ak.edge.applet.third_party_users.query.list" => {
-                Some(Self::EdgeAppletThirdPartyUsersQueryList)
-            }
+            "ak.edge.applet.third_party_locations.query.list" => Some(Self::EdgeAppletThirdPartyLocationsQueryList),
+            "ak.edge.applet.third_party_users.query.list" => Some(Self::EdgeAppletThirdPartyUsersQueryList),
             "ak.edge.push.command.notify" => Some(Self::EdgePushCommandNotify),
             "ak.edge.push.command.register_device" => Some(Self::EdgePushCommandRegisterDevice),
             "ak.edge.push.command.unregister_device" => Some(Self::EdgePushCommandUnregisterDevice),
             "ak.find.directory.command.announce" => Some(Self::FindDirectoryCommandAnnounce),
-            "ak.find.directory.command.takedown_appeal" => {
-                Some(Self::FindDirectoryCommandTakedownAppeal)
-            }
+            "ak.find.directory.command.takedown_appeal" => Some(Self::FindDirectoryCommandTakedownAppeal),
             "ak.find.directory.command.withdraw" => Some(Self::FindDirectoryCommandWithdraw),
-            "ak.find.directory.push.command.register" => {
-                Some(Self::FindDirectoryPushCommandRegister)
-            }
+            "ak.find.directory.push.command.register" => Some(Self::FindDirectoryPushCommandRegister),
             "ak.find.directory.query.describe" => Some(Self::FindDirectoryQueryDescribe),
-            "ak.find.directory.query.list_handles_for_subject" => {
-                Some(Self::FindDirectoryQueryListHandlesForSubject)
-            }
-            "ak.find.directory.query.private_contact_discovery" => {
-                Some(Self::FindDirectoryQueryPrivateContactDiscovery)
-            }
-            "ak.find.directory.query.resolve_agent_selector" => {
-                Some(Self::FindDirectoryQueryResolveAgentSelector)
-            }
+            "ak.find.directory.query.list_handles_for_subject" => Some(Self::FindDirectoryQueryListHandlesForSubject),
+            "ak.find.directory.query.private_contact_discovery" => Some(Self::FindDirectoryQueryPrivateContactDiscovery),
+            "ak.find.directory.query.resolve_agent_selector" => Some(Self::FindDirectoryQueryResolveAgentSelector),
             "ak.find.directory.query.resolve_handle" => Some(Self::FindDirectoryQueryResolveHandle),
-            "ak.find.directory.query.resolve_organization" => {
-                Some(Self::FindDirectoryQueryResolveOrganization)
-            }
+            "ak.find.directory.query.resolve_organization" => Some(Self::FindDirectoryQueryResolveOrganization),
             "ak.find.directory.query.resolve_realm" => Some(Self::FindDirectoryQueryResolveRealm),
             "ak.find.directory.query.resolve_target" => Some(Self::FindDirectoryQueryResolveTarget),
             "ak.find.directory.query.search_actors" => Some(Self::FindDirectoryQuerySearchActors),
-            "ak.find.directory.query.search_organizations" => {
-                Some(Self::FindDirectoryQuerySearchOrganizations)
-            }
+            "ak.find.directory.query.search_organizations" => Some(Self::FindDirectoryQuerySearchOrganizations),
             "ak.find.directory.query.search_realms" => Some(Self::FindDirectoryQuerySearchRealms),
             "ak.find.directory.query.search_users" => Some(Self::FindDirectoryQuerySearchUsers),
             "ak.gate.account.command.enroll_device" => Some(Self::GateAccountCommandEnrollDevice),
-            "ak.gate.account.command.introspect_session_grant" => {
-                Some(Self::GateAccountCommandIntrospectSessionGrant)
-            }
-            "ak.gate.account.command.issue_identity_binding_challenge" => {
-                Some(Self::GateAccountCommandIssueIdentityBindingChallenge)
-            }
-            "ak.gate.account.command.issue_session_grant" => {
-                Some(Self::GateAccountCommandIssueSessionGrant)
-            }
+            "ak.gate.account.command.introspect_session_grant" => Some(Self::GateAccountCommandIntrospectSessionGrant),
+            "ak.gate.account.command.issue_identity_binding_challenge" => Some(Self::GateAccountCommandIssueIdentityBindingChallenge),
+            "ak.gate.account.command.issue_session_grant" => Some(Self::GateAccountCommandIssueSessionGrant),
             "ak.gate.account.command.logout" => Some(Self::GateAccountCommandLogout),
-            "ak.gate.account.command.logout_auth_session" => {
-                Some(Self::GateAccountCommandLogoutAuthSession)
-            }
+            "ak.gate.account.command.logout_auth_session" => Some(Self::GateAccountCommandLogoutAuthSession),
             "ak.gate.account.command.pair_agent_key" => Some(Self::GateAccountCommandPairAgentKey),
             "ak.gate.account.command.pair_device" => Some(Self::GateAccountCommandPairDevice),
-            "ak.gate.account.command.refresh_session_grant" => {
-                Some(Self::GateAccountCommandRefreshSessionGrant)
-            }
+            "ak.gate.account.command.refresh_session_grant" => Some(Self::GateAccountCommandRefreshSessionGrant),
             "ak.gate.account.command.register" => Some(Self::GateAccountCommandRegister),
             "ak.gate.account.command.revoke_session" => Some(Self::GateAccountCommandRevokeSession),
             "ak.gate.account.exchange.complete_oidc" => Some(Self::GateAccountExchangeCompleteOidc),
-            "ak.gate.account.exchange.create_handoff" => {
-                Some(Self::GateAccountExchangeCreateHandoff)
-            }
-            "ak.open.agent_pairing.command.submit_runtime_key_request" => {
-                Some(Self::OpenAgentPairingCommandSubmitRuntimeKeyRequest)
-            }
+            "ak.gate.account.exchange.create_handoff" => Some(Self::GateAccountExchangeCreateHandoff),
+            "ak.open.agent_pairing.command.submit_runtime_key_request" => Some(Self::OpenAgentPairingCommandSubmitRuntimeKeyRequest),
             "ak.open.agent_pairing.query.resolve" => Some(Self::OpenAgentPairingQueryResolve),
-            "ak.open.agent_pairing.query.runtime_key_request_status" => {
-                Some(Self::OpenAgentPairingQueryRuntimeKeyRequestStatus)
-            }
+            "ak.open.agent_pairing.query.runtime_key_request_status" => Some(Self::OpenAgentPairingQueryRuntimeKeyRequestStatus),
             "ak.open.invite_locator.query.resolve" => Some(Self::OpenInviteLocatorQueryResolve),
             "ak.open.mimi.command.notify" => Some(Self::OpenMimiCommandNotify),
             "ak.open.mimi.command.proxy_download" => Some(Self::OpenMimiCommandProxyDownload),
@@ -1246,9 +1051,7 @@ impl ServiceOperationId {
             "ak.open.mimi.command.submit_message" => Some(Self::OpenMimiCommandSubmitMessage),
             "ak.open.mimi.command.update_consent" => Some(Self::OpenMimiCommandUpdateConsent),
             "ak.open.mimi.command.update_room" => Some(Self::OpenMimiCommandUpdateRoom),
-            "ak.open.mimi.exchange.request_key_material" => {
-                Some(Self::OpenMimiExchangeRequestKeyMaterial)
-            }
+            "ak.open.mimi.exchange.request_key_material" => Some(Self::OpenMimiExchangeRequestKeyMaterial),
             "ak.open.mimi.query.group_info" => Some(Self::OpenMimiQueryGroupInfo),
             "ak.open.mimi.query.identifiers" => Some(Self::OpenMimiQueryIdentifiers),
             "ak.open.mimi.query.provider_directory" => Some(Self::OpenMimiQueryProviderDirectory),
@@ -1263,40 +1066,20 @@ impl ServiceOperationId {
             "ak.peer.keys.keypackages.command.claim" => Some(Self::PeerKeysKeypackagesCommandClaim),
             "ak.peer.keys.keypackages.query.claim" => Some(Self::PeerKeysKeypackagesQueryClaim),
             "ak.peer.snapshot.query.manifest_head" => Some(Self::PeerSnapshotQueryManifestHead),
-            "ak.root.identity.command.submit_did_operation" => {
-                Some(Self::RootIdentityCommandSubmitDidOperation)
-            }
+            "ak.root.identity.command.submit_did_operation" => Some(Self::RootIdentityCommandSubmitDidOperation),
             "ak.root.identity.document.resource.get" => Some(Self::RootIdentityDocumentResourceGet),
             "ak.root.identity.log.query.list" => Some(Self::RootIdentityLogQueryList),
             "ak.root.identity.query.resolve" => Some(Self::RootIdentityQueryResolve),
             "ak.root.identity.receipts.query.list" => Some(Self::RootIdentityReceiptsQueryList),
-            "ak.root.identity.recovery_policy.command.publish" => {
-                Some(Self::RootIdentityRecoveryPolicyCommandPublish)
-            }
-            "ak.root.identity.recovery_policy.resource.get" => {
-                Some(Self::RootIdentityRecoveryPolicyResourceGet)
-            }
-            "ak.root.identity.recovery_session.command.complete" => {
-                Some(Self::RootIdentityRecoverySessionCommandComplete)
-            }
-            "ak.root.identity.recovery_session.command.create" => {
-                Some(Self::RootIdentityRecoverySessionCommandCreate)
-            }
-            "ak.root.identity.recovery_session.command.submit_proof" => {
-                Some(Self::RootIdentityRecoverySessionCommandSubmitProof)
-            }
-            "ak.root.identity.recovery_session.resource.get" => {
-                Some(Self::RootIdentityRecoverySessionResourceGet)
-            }
-            "ak.root.identity.registry.query.describe" => {
-                Some(Self::RootIdentityRegistryQueryDescribe)
-            }
-            "ak.root.identity.service_registration.command.ensure" => {
-                Some(Self::RootIdentityServiceRegistrationCommandEnsure)
-            }
-            "ak.root.identity.service_registration.resource.get" => {
-                Some(Self::RootIdentityServiceRegistrationResourceGet)
-            }
+            "ak.root.identity.recovery_policy.command.publish" => Some(Self::RootIdentityRecoveryPolicyCommandPublish),
+            "ak.root.identity.recovery_policy.resource.get" => Some(Self::RootIdentityRecoveryPolicyResourceGet),
+            "ak.root.identity.recovery_session.command.complete" => Some(Self::RootIdentityRecoverySessionCommandComplete),
+            "ak.root.identity.recovery_session.command.create" => Some(Self::RootIdentityRecoverySessionCommandCreate),
+            "ak.root.identity.recovery_session.command.submit_proof" => Some(Self::RootIdentityRecoverySessionCommandSubmitProof),
+            "ak.root.identity.recovery_session.resource.get" => Some(Self::RootIdentityRecoverySessionResourceGet),
+            "ak.root.identity.registry.query.describe" => Some(Self::RootIdentityRegistryQueryDescribe),
+            "ak.root.identity.service_registration.command.ensure" => Some(Self::RootIdentityServiceRegistrationCommandEnsure),
+            "ak.root.identity.service_registration.resource.get" => Some(Self::RootIdentityServiceRegistrationResourceGet),
             "ak.self.account.command.revoke_cursor" => Some(Self::SelfAccountCommandRevokeCursor),
             "ak.self.account.command.update_profile" => Some(Self::SelfAccountCommandUpdateProfile),
             "ak.self.account.query.describe" => Some(Self::SelfAccountQueryDescribe),
@@ -1313,12 +1096,8 @@ impl ServiceOperationId {
             "ak.self.agent.command.resume" => Some(Self::SelfAgentCommandResume),
             "ak.self.agent.grant.command.attach" => Some(Self::SelfAgentGrantCommandAttach),
             "ak.self.agent.grant.resource.delete" => Some(Self::SelfAgentGrantResourceDelete),
-            "ak.self.agent.participation.resource.get" => {
-                Some(Self::SelfAgentParticipationResourceGet)
-            }
-            "ak.self.agent.participation.resource.replace" => {
-                Some(Self::SelfAgentParticipationResourceReplace)
-            }
+            "ak.self.agent.participation.resource.get" => Some(Self::SelfAgentParticipationResourceGet),
+            "ak.self.agent.participation.resource.replace" => Some(Self::SelfAgentParticipationResourceReplace),
             "ak.self.agent.query.list" => Some(Self::SelfAgentQueryList),
             "ak.self.agent.resource.get" => Some(Self::SelfAgentResourceGet),
             "ak.self.agent.sidecar.command.ensure" => Some(Self::SelfAgentSidecarCommandEnsure),
@@ -1335,9 +1114,7 @@ impl ServiceOperationId {
             "ak.self.blob.resource.get" => Some(Self::SelfBlobResourceGet),
             "ak.self.blob.resource.head" => Some(Self::SelfBlobResourceHead),
             "ak.self.blob.upload.create" => Some(Self::SelfBlobUploadCreate),
-            "ak.self.call.media.exchange.issue_token" => {
-                Some(Self::SelfCallMediaExchangeIssueToken)
-            }
+            "ak.self.call.media.exchange.issue_token" => Some(Self::SelfCallMediaExchangeIssueToken),
             "ak.self.circle.command.archive" => Some(Self::SelfCircleCommandArchive),
             "ak.self.circle.command.create" => Some(Self::SelfCircleCommandCreate),
             "ak.self.circle.command.restore" => Some(Self::SelfCircleCommandRestore),
@@ -1359,17 +1136,13 @@ impl ServiceOperationId {
             "ak.self.device_messages.command.ack" => Some(Self::SelfDeviceMessagesCommandAck),
             "ak.self.device_messages.command.send" => Some(Self::SelfDeviceMessagesCommandSend),
             "ak.self.device_messages.query.list" => Some(Self::SelfDeviceMessagesQueryList),
-            "ak.self.direct_conversation.command.resolve" => {
-                Some(Self::SelfDirectConversationCommandResolve)
-            }
+            "ak.self.direct_conversation.command.resolve" => Some(Self::SelfDirectConversationCommandResolve),
             "ak.self.ephemeral.command.send" => Some(Self::SelfEphemeralCommandSend),
             "ak.self.events.command.submit" => Some(Self::SelfEventsCommandSubmit),
             "ak.self.events.command.submit_seal" => Some(Self::SelfEventsCommandSubmitSeal),
             "ak.self.events.query.describe" => Some(Self::SelfEventsQueryDescribe),
             "ak.self.events.query.frontier" => Some(Self::SelfEventsQueryFrontier),
-            "ak.self.events.query.mls_governance_proof" => {
-                Some(Self::SelfEventsQueryMlsGovernanceProof)
-            }
+            "ak.self.events.query.mls_governance_proof" => Some(Self::SelfEventsQueryMlsGovernanceProof),
             "ak.self.events.query.resolve" => Some(Self::SelfEventsQueryResolve),
             "ak.self.events.query.scan" => Some(Self::SelfEventsQueryScan),
             "ak.self.events.query.scan_body" => Some(Self::SelfEventsQueryScanBody),
@@ -1378,24 +1151,16 @@ impl ServiceOperationId {
             "ak.self.invite_locator.command.issue" => Some(Self::SelfInviteLocatorCommandIssue),
             "ak.self.invite_locator.command.revoke" => Some(Self::SelfInviteLocatorCommandRevoke),
             "ak.self.invite_locator.command.rotate" => Some(Self::SelfInviteLocatorCommandRotate),
-            "ak.self.invite_receive_policy.resource.get" => {
-                Some(Self::SelfInviteReceivePolicyResourceGet)
-            }
-            "ak.self.invite_receive_policy.resource.replace" => {
-                Some(Self::SelfInviteReceivePolicyResourceReplace)
-            }
+            "ak.self.invite_receive_policy.resource.get" => Some(Self::SelfInviteReceivePolicyResourceGet),
+            "ak.self.invite_receive_policy.resource.replace" => Some(Self::SelfInviteReceivePolicyResourceReplace),
             "ak.self.keys.backups.command.unlock" => Some(Self::SelfKeysBackupsCommandUnlock),
             "ak.self.keys.backups.query.list" => Some(Self::SelfKeysBackupsQueryList),
             "ak.self.keys.backups.resource.delete" => Some(Self::SelfKeysBackupsResourceDelete),
             "ak.self.keys.backups.resource.replace" => Some(Self::SelfKeysBackupsResourceReplace),
             "ak.self.keys.command.claim" => Some(Self::SelfKeysCommandClaim),
             "ak.self.keys.keypackages.command.claim" => Some(Self::SelfKeysKeypackagesCommandClaim),
-            "ak.self.keys.keypackages.command.consume" => {
-                Some(Self::SelfKeysKeypackagesCommandConsume)
-            }
-            "ak.self.keys.keypackages.command.revoke" => {
-                Some(Self::SelfKeysKeypackagesCommandRevoke)
-            }
+            "ak.self.keys.keypackages.command.consume" => Some(Self::SelfKeysKeypackagesCommandConsume),
+            "ak.self.keys.keypackages.command.revoke" => Some(Self::SelfKeysKeypackagesCommandRevoke),
             "ak.self.keys.keypackages.upload.create" => Some(Self::SelfKeysKeypackagesUploadCreate),
             "ak.self.keys.query.lookup" => Some(Self::SelfKeysQueryLookup),
             "ak.self.keys.upload.create" => Some(Self::SelfKeysUploadCreate),
@@ -1410,36 +1175,22 @@ impl ServiceOperationId {
             "ak.self.realm.command.destroy" => Some(Self::SelfRealmCommandDestroy),
             "ak.self.realm.command.freeze" => Some(Self::SelfRealmCommandFreeze),
             "ak.self.realm.command.tombstone" => Some(Self::SelfRealmCommandTombstone),
-            "ak.self.realm.moderation_policy.query.effective" => {
-                Some(Self::SelfRealmModerationPolicyQueryEffective)
-            }
-            "ak.self.realm.moderation_policy.resource.replace" => {
-                Some(Self::SelfRealmModerationPolicyResourceReplace)
-            }
+            "ak.self.realm.moderation_policy.query.effective" => Some(Self::SelfRealmModerationPolicyQueryEffective),
+            "ak.self.realm.moderation_policy.resource.replace" => Some(Self::SelfRealmModerationPolicyResourceReplace),
             "ak.self.realm.query.export" => Some(Self::SelfRealmQueryExport),
             "ak.self.realm.resource.get" => Some(Self::SelfRealmResourceGet),
             "ak.self.realm_link.command.create" => Some(Self::SelfRealmLinkCommandCreate),
-            "ak.self.realm_link.query.effective_policy" => {
-                Some(Self::SelfRealmLinkQueryEffectivePolicy)
-            }
+            "ak.self.realm_link.query.effective_policy" => Some(Self::SelfRealmLinkQueryEffectivePolicy),
             "ak.self.realm_link.query.list" => Some(Self::SelfRealmLinkQueryList),
             "ak.self.realm_link.resource.delete" => Some(Self::SelfRealmLinkResourceDelete),
             "ak.self.realm_organization.query.list" => Some(Self::SelfRealmOrganizationQueryList),
-            "ak.self.realm_policy_server.resource.delete" => {
-                Some(Self::SelfRealmPolicyServerResourceDelete)
-            }
-            "ak.self.realm_policy_server.resource.get" => {
-                Some(Self::SelfRealmPolicyServerResourceGet)
-            }
-            "ak.self.realm_policy_server.resource.replace" => {
-                Some(Self::SelfRealmPolicyServerResourceReplace)
-            }
+            "ak.self.realm_policy_server.resource.delete" => Some(Self::SelfRealmPolicyServerResourceDelete),
+            "ak.self.realm_policy_server.resource.get" => Some(Self::SelfRealmPolicyServerResourceGet),
+            "ak.self.realm_policy_server.resource.replace" => Some(Self::SelfRealmPolicyServerResourceReplace),
             "ak.self.snapshot.query.manifest_head" => Some(Self::SelfSnapshotQueryManifestHead),
             "ak.self.space.query.list" => Some(Self::SelfSpaceQueryList),
             "ak.self.strand.query.list" => Some(Self::SelfStrandQueryList),
-            "ak.self.views.collection_projection.command.materialize" => {
-                Some(Self::SelfViewsCollectionProjectionCommandMaterialize)
-            }
+            "ak.self.views.collection_projection.command.materialize" => Some(Self::SelfViewsCollectionProjectionCommandMaterialize),
             "ak.server.query.describe" => Some(Self::ServerQueryDescribe),
             _ => None,
         }
@@ -1457,16 +1208,22 @@ impl std::fmt::Display for ServiceOperationId {
 }
 
 impl Serialize for ServiceOperationId {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(self.as_str())
     }
 }
 
 impl<'de> Deserialize<'de> for ServiceOperationId {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Self, D::Error> {
         let raw = String::deserialize(deserializer)?;
-        Self::from_wire(&raw)
-            .ok_or_else(|| serde::de::Error::custom(format!("unknown service operation id: {raw}")))
+        Self::from_wire(&raw).ok_or_else(|| {
+            serde::de::Error::custom(format!("unknown service operation id: {raw}"))
+        })
     }
 }
 
@@ -1481,9 +1238,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/applet-edge-operations.schema.json#/$defs/applet_actor_view",
-        ),
+        response_schema_ref: Some("schemas/applet-edge-operations.schema.json#/$defs/applet_actor_view"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1495,12 +1250,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/applet-edge-operations.schema.json#/$defs/applet_transaction_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/applet-edge-operations.schema.json#/$defs/applet_transaction_outcome",
-        ),
+        request_schema_ref: Some("schemas/applet-edge-operations.schema.json#/$defs/applet_transaction_request_body"),
+        response_schema_ref: Some("schemas/applet-edge-operations.schema.json#/$defs/applet_transaction_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1526,9 +1277,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/applet-edge-operations.schema.json#/$defs/applet_ping_outcome",
-        ),
+        response_schema_ref: Some("schemas/applet-edge-operations.schema.json#/$defs/applet_ping_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1541,9 +1290,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/applet-edge-operations.schema.json#/$defs/applet_protocol_metadata",
-        ),
+        response_schema_ref: Some("schemas/applet-edge-operations.schema.json#/$defs/applet_protocol_metadata"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1556,9 +1303,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/applet-edge-operations.schema.json#/$defs/applet_realm_view",
-        ),
+        response_schema_ref: Some("schemas/applet-edge-operations.schema.json#/$defs/applet_realm_view"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1571,9 +1316,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/applet-edge-operations.schema.json#/$defs/applet_third_party_location_list",
-        ),
+        response_schema_ref: Some("schemas/applet-edge-operations.schema.json#/$defs/applet_third_party_location_list"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1586,9 +1329,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/applet-edge-operations.schema.json#/$defs/applet_third_party_user_list",
-        ),
+        response_schema_ref: Some("schemas/applet-edge-operations.schema.json#/$defs/applet_third_party_user_list"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1600,9 +1341,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/push-operations.schema.json#/$defs/push_notify_request_body",
-        ),
+        request_schema_ref: Some("schemas/push-operations.schema.json#/$defs/push_notify_request_body"),
         response_schema_ref: Some("schemas/push-operations.schema.json#/$defs/push_notify_outcome"),
         uncertain_outcome: None,
     },
@@ -1615,12 +1354,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/push-operations.schema.json#/$defs/push_register_device_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/push-operations.schema.json#/$defs/push_register_device_outcome",
-        ),
+        request_schema_ref: Some("schemas/push-operations.schema.json#/$defs/push_register_device_request_body"),
+        response_schema_ref: Some("schemas/push-operations.schema.json#/$defs/push_register_device_outcome"),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
     },
     ServiceOperationDescriptor {
@@ -1632,12 +1367,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/push-operations.schema.json#/$defs/push_unregister_device_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/push-operations.schema.json#/$defs/push_unregister_device_outcome",
-        ),
+        request_schema_ref: Some("schemas/push-operations.schema.json#/$defs/push_unregister_device_request_body"),
+        response_schema_ref: Some("schemas/push-operations.schema.json#/$defs/push_unregister_device_outcome"),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
     },
     ServiceOperationDescriptor {
@@ -1649,15 +1380,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DirectoryAnnounceRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DirectoryAnnounceOutcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.find.directory.query.resolve_target\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/DirectoryAnnounceRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/DirectoryAnnounceOutcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.find.directory.query.resolve_target\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryCommandTakedownAppeal,
@@ -1668,12 +1393,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealOutcome"),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
     },
     ServiceOperationDescriptor {
@@ -1685,12 +1406,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DirectoryWithdrawRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DirectoryWithdrawOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/DirectoryWithdrawRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/DirectoryWithdrawOutcome"),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
     },
     ServiceOperationDescriptor {
@@ -1702,12 +1419,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_push_register_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_push_register_outcome",
-        ),
+        request_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_push_register_request_body"),
+        response_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_push_register_outcome"),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
     },
     ServiceOperationDescriptor {
@@ -1732,9 +1445,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_list_handles_for_subject_request_body",
-        ),
+        request_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_list_handles_for_subject_request_body"),
         response_schema_ref: Some("schemas/list-handles-for-subject-response.schema.json"),
         uncertain_outcome: None,
     },
@@ -1747,12 +1458,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_private_contact_discovery_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_private_contact_discovery_outcome",
-        ),
+        request_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_private_contact_discovery_request_body"),
+        response_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_private_contact_discovery_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1764,12 +1471,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_resolve_agent_selector_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_agent_selector_resolution_outcome",
-        ),
+        request_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_resolve_agent_selector_request_body"),
+        response_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_agent_selector_resolution_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1781,12 +1484,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_resolve_handle_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_handle_resolution_outcome",
-        ),
+        request_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_resolve_handle_request_body"),
+        response_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_handle_resolution_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1798,12 +1497,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_resolve_organization_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_organization_resolution_outcome",
-        ),
+        request_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_resolve_organization_request_body"),
+        response_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_organization_resolution_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1815,12 +1510,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_resolve_realm_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_realm_resolution_outcome",
-        ),
+        request_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_resolve_realm_request_body"),
+        response_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_realm_resolution_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1832,12 +1523,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_resolve_target_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_target_resolution_outcome",
-        ),
+        request_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_resolve_target_request_body"),
+        response_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_target_resolution_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1849,12 +1536,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_search_actors_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_actor_search_outcome",
-        ),
+        request_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_search_actors_request_body"),
+        response_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_actor_search_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1866,12 +1549,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_search_organizations_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_organization_search_outcome",
-        ),
+        request_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_search_organizations_request_body"),
+        response_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_organization_search_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1883,12 +1562,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_search_realms_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_realm_search_outcome",
-        ),
+        request_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_search_realms_request_body"),
+        response_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_realm_search_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1900,12 +1575,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_search_users_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_user_search_outcome",
-        ),
+        request_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_search_users_request_body"),
+        response_schema_ref: Some("schemas/directory-operations.schema.json#/$defs/directory_user_search_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1917,15 +1588,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/account_device_enroll_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/account_device_enroll_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.account.query.viewer\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/account_device_enroll_request_body"),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/account_device_enroll_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.account.query.viewer\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandIntrospectSessionGrant,
@@ -1936,12 +1601,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantIntrospectRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantIntrospectOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/SessionGrantIntrospectRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/SessionGrantIntrospectOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1953,12 +1614,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("request_id"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/identity_binding_challenge_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/identity_binding_challenge_outcome",
-        ),
+        request_schema_ref: Some("schemas/account-operations.schema.json#/$defs/identity_binding_challenge_request_body"),
+        response_schema_ref: Some("schemas/account-operations.schema.json#/$defs/identity_binding_challenge_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -1970,15 +1627,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantOutcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.gate.account.command.issue_session_grant\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/SessionGrantRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/SessionGrantOutcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.gate.account.command.issue_session_grant\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandLogout,
@@ -1989,15 +1640,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AccountLogoutRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AccountLogoutOutcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.gate.account.command.introspect_session_grant\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/AccountLogoutRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/AccountLogoutOutcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.gate.account.command.introspect_session_grant\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandLogoutAuthSession,
@@ -2008,15 +1653,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AuthSessionLogoutRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AuthSessionLogoutOutcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.gate.account.command.introspect_session_grant\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/AuthSessionLogoutRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/AuthSessionLogoutOutcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.gate.account.command.introspect_session_grant\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandPairAgentKey,
@@ -2027,12 +1666,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_key_pair_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_key_pair_outcome",
-        ),
+        request_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_key_pair_request_body"),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_key_pair_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2044,15 +1679,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/account_device_pair_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/account_device_pair_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.account.query.viewer\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/account_device_pair_request_body"),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/account_device_pair_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.account.query.viewer\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandRefreshSessionGrant,
@@ -2063,15 +1692,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantRefreshRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantRefreshOutcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.gate.account.command.issue_session_grant\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/SessionGrantRefreshRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/SessionGrantRefreshOutcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.gate.account.command.issue_session_grant\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandRegister,
@@ -2082,12 +1705,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_register_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_register_outcome",
-        ),
+        request_schema_ref: Some("schemas/account-operations.schema.json#/$defs/account_register_request_body"),
+        response_schema_ref: Some("schemas/account-operations.schema.json#/$defs/account_register_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2099,15 +1718,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/session_revoke_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/session_revoke_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.gate.account.command.introspect_session_grant\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/account-operations.schema.json#/$defs/session_revoke_request_body"),
+        response_schema_ref: Some("schemas/account-operations.schema.json#/$defs/session_revoke_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.gate.account.command.introspect_session_grant\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountExchangeCompleteOidc,
@@ -2118,12 +1731,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AccountOidcCallbackRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AccountOidcCallbackOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/AccountOidcCallbackRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/AccountOidcCallbackOutcome"),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
     },
     ServiceOperationDescriptor {
@@ -2135,12 +1744,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("request_id"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_handoff_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_handoff_outcome",
-        ),
+        request_schema_ref: Some("schemas/account-operations.schema.json#/$defs/account_handoff_request_body"),
+        response_schema_ref: Some("schemas/account-operations.schema.json#/$defs/account_handoff_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2152,12 +1757,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_outcome",
-        ),
+        request_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_request_body"),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2169,12 +1770,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_pairing_resolve_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_pairing_bootstrap",
-        ),
+        request_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_pairing_resolve_request_body"),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_pairing_bootstrap"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2186,12 +1783,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_status_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_status_outcome",
-        ),
+        request_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_status_request_body"),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_status_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2203,9 +1796,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/principal-locator.schema.json#/$defs/principal_locator_resolve_request_body",
-        ),
+        request_schema_ref: Some("schemas/principal-locator.schema.json#/$defs/principal_locator_resolve_request_body"),
         response_schema_ref: Some("schemas/principal-locator.schema.json"),
         uncertain_outcome: None,
     },
@@ -2218,9 +1809,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_notify_request_body",
-        ),
+        request_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_notify_request_body"),
         response_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_notify_outcome"),
         uncertain_outcome: Some("{\"strategy\":\"drop_unconfirmed\"}"),
     },
@@ -2233,15 +1822,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_proxy_download_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_proxy_download_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.open.mimi.command.proxy_download\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
-        ),
+        request_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_proxy_download_request_body"),
+        response_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_proxy_download_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.open.mimi.command.proxy_download\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiCommandReportAbuse,
@@ -2252,12 +1835,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_report_abuse_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_report_abuse_outcome",
-        ),
+        request_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_report_abuse_request_body"),
+        response_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_report_abuse_outcome"),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
     },
     ServiceOperationDescriptor {
@@ -2269,15 +1848,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_request_consent_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_request_consent_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_request_consent_request_body"),
+        response_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_request_consent_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiCommandSubmitMessage,
@@ -2288,15 +1861,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_submit_message_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_submit_message_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.open.mimi.query.group_info\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_submit_message_request_body"),
+        response_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_submit_message_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.open.mimi.query.group_info\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiCommandUpdateConsent,
@@ -2307,15 +1874,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_update_consent_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_update_consent_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_update_consent_request_body"),
+        response_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_update_consent_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiCommandUpdateRoom,
@@ -2326,15 +1887,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_room_update_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_room_update_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.open.mimi.query.group_info\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_room_update_request_body"),
+        response_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_room_update_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.open.mimi.query.group_info\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiExchangeRequestKeyMaterial,
@@ -2345,15 +1900,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_key_material_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_key_material_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.open.mimi.query.group_info\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_key_material_request_body"),
+        response_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_key_material_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.open.mimi.query.group_info\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiQueryGroupInfo,
@@ -2365,9 +1914,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_group_info_outcome",
-        ),
+        response_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_group_info_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2379,12 +1926,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_identifier_query_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_identifier_query_outcome",
-        ),
+        request_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_identifier_query_request_body"),
+        response_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_identifier_query_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2410,9 +1953,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some("schemas/peer-contact-delivery-request.schema.json"),
-        response_schema_ref: Some(
-            "schemas/peer-contact-delivery-request.schema.json#/$defs/peer_contact_delivery_outcome",
-        ),
+        response_schema_ref: Some("schemas/peer-contact-delivery-request.schema.json#/$defs/peer_contact_delivery_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2424,12 +1965,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("protocol_sequence"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitFederationRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitFederationRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2455,9 +1992,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsFrontierFederationPeerState",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventsFrontierFederationPeerState"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2469,12 +2004,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsResolveRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsResolveOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventsResolveRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventsResolveOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2487,9 +2018,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsQueryOutcome",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventsQueryOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2501,12 +2030,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsQueryPostRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsQueryOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventsQueryPostRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventsQueryOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2519,9 +2044,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some("schemas/invite-delivery-request.schema.json"),
-        response_schema_ref: Some(
-            "schemas/invite-delivery-request.schema.json#/$defs/invite_delivery_outcome",
-        ),
+        response_schema_ref: Some("schemas/invite-delivery-request.schema.json#/$defs/invite_delivery_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2533,15 +2056,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.peer.keys.keypackages.query.claim\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_request_body"),
+        response_schema_ref: Some("schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.peer.keys.keypackages.query.claim\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerKeysKeypackagesQueryClaim,
@@ -2552,12 +2069,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_query_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_query_outcome",
-        ),
+        request_schema_ref: Some("schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_query_request_body"),
+        response_schema_ref: Some("schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_query_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2582,12 +2095,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("protocol_sequence"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DidOperationSubmitRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DidOperationSubmitOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/DidOperationSubmitRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/DidOperationSubmitOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2600,9 +2109,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/IdentityDocumentView",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/IdentityDocumentView"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2615,9 +2122,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/IdentityLogListOutcome",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/IdentityLogListOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2629,12 +2134,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/IdentityResolveRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/IdentityResolveOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/IdentityResolveRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/IdentityResolveOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2647,9 +2148,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/IdentityReceiptListOutcome",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/IdentityReceiptListOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2662,9 +2161,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("protocol_sequence"),
         retry_safe: Some(true),
         request_schema_ref: Some("schemas/recovery-policy.schema.json"),
-        response_schema_ref: Some(
-            "schemas/recovery-policy.schema.json#/$defs/recovery_policy_publish_outcome",
-        ),
+        response_schema_ref: Some("schemas/recovery-policy.schema.json#/$defs/recovery_policy_publish_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2677,9 +2174,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/recovery-policy.schema.json#/$defs/recovery_policy_active_outcome",
-        ),
+        response_schema_ref: Some("schemas/recovery-policy.schema.json#/$defs/recovery_policy_active_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2691,15 +2186,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "schema_resource",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/recovery-session.schema.json#/$defs/recovery_session_complete_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/recovery-session.schema.json#/$defs/recovery_session_complete_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.root.identity.recovery_session.resource.get\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/recovery-session.schema.json#/$defs/recovery_session_complete_request_body"),
+        response_schema_ref: Some("schemas/recovery-session.schema.json#/$defs/recovery_session_complete_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.root.identity.recovery_session.resource.get\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityRecoverySessionCommandCreate,
@@ -2710,15 +2199,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "schema_resource",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/recovery-session.schema.json#/$defs/recovery_session_create_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/recovery-session.schema.json#/$defs/recovery_session_state",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.root.identity.recovery_session.resource.get\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/recovery-session.schema.json#/$defs/recovery_session_create_request_body"),
+        response_schema_ref: Some("schemas/recovery-session.schema.json#/$defs/recovery_session_state"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.root.identity.recovery_session.resource.get\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityRecoverySessionCommandSubmitProof,
@@ -2729,15 +2212,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "schema_resource",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/recovery-session.schema.json#/$defs/recovery_session_proof_submit_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/recovery-session.schema.json#/$defs/recovery_session_proof_submit_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.root.identity.recovery_session.resource.get\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/recovery-session.schema.json#/$defs/recovery_session_proof_submit_request_body"),
+        response_schema_ref: Some("schemas/recovery-session.schema.json#/$defs/recovery_session_proof_submit_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.root.identity.recovery_session.resource.get\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityRecoverySessionResourceGet,
@@ -2749,9 +2226,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/recovery-session.schema.json#/$defs/recovery_session_state",
-        ),
+        response_schema_ref: Some("schemas/recovery-session.schema.json#/$defs/recovery_session_state"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2776,12 +2251,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/ServiceRegistrationEnsureRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/ServiceRegistrationOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/ServiceRegistrationEnsureRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/ServiceRegistrationOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2794,9 +2265,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/ServiceRegistrationOutcome",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/ServiceRegistrationOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2808,12 +2277,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "schema_resource",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AccountCursorRevokeRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AccountCursorRevokeOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/AccountCursorRevokeRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/AccountCursorRevokeOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2825,15 +2290,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_update_profile_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_update_profile_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.account.query.viewer\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/account-operations.schema.json#/$defs/account_update_profile_request_body"),
+        response_schema_ref: Some("schemas/account-operations.schema.json#/$defs/account_update_profile_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.account.query.viewer\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountQueryDescribe,
@@ -2884,9 +2343,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/account-data-operations.schema.json#/$defs/account_data_list",
-        ),
+        response_schema_ref: Some("schemas/account-data-operations.schema.json#/$defs/account_data_list"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2899,9 +2356,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/account-data-operations.schema.json#/$defs/account_data_delete_outcome",
-        ),
+        response_schema_ref: Some("schemas/account-data-operations.schema.json#/$defs/account_data_delete_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2914,9 +2369,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/account-data-operations.schema.json#/$defs/account_data_entry",
-        ),
+        response_schema_ref: Some("schemas/account-data-operations.schema.json#/$defs/account_data_entry"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2928,12 +2381,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/account-data-operations.schema.json#/$defs/account_data_replace_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/account-data-operations.schema.json#/$defs/account_data_entry",
-        ),
+        request_schema_ref: Some("schemas/account-data-operations.schema.json#/$defs/account_data_replace_request_body"),
+        response_schema_ref: Some("schemas/account-data-operations.schema.json#/$defs/account_data_entry"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -2945,15 +2394,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_deactivate_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_lifecycle_state",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.agent.resource.get\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_deactivate_request_body"),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_lifecycle_state"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.agent.resource.get\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentCommandPause,
@@ -2964,15 +2407,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_pause_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_lifecycle_state",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.agent.resource.get\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_pause_request_body"),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_lifecycle_state"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.agent.resource.get\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentCommandProvision,
@@ -2983,12 +2420,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_provision_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_provision_outcome",
-        ),
+        request_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_provision_request_body"),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_provision_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3000,15 +2433,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_renew_pairing_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_renew_pairing_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.agent.resource.get\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_renew_pairing_request_body"),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_renew_pairing_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.agent.resource.get\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentCommandResume,
@@ -3019,15 +2446,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_resume_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_lifecycle_state",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.agent.resource.get\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_resume_request_body"),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_lifecycle_state"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.agent.resource.get\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentGrantCommandAttach,
@@ -3038,15 +2459,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_grant_attach_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_grant_attach_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.authz.grants.query.effective\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_grant_attach_request_body"),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_grant_attach_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.authz.grants.query.effective\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentGrantResourceDelete,
@@ -3058,9 +2473,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_grant_detach_outcome",
-        ),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_grant_detach_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3073,9 +2486,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_participation_outcome",
-        ),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_participation_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3087,12 +2498,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_participation_replace_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_participation_outcome",
-        ),
+        request_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_participation_replace_request_body"),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_participation_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3130,12 +2537,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_sidecar_ensure_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_sidecar_ensure_outcome",
-        ),
+        request_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_sidecar_ensure_request_body"),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_sidecar_ensure_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3173,12 +2576,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/applet-install-operations.schema.json#/$defs/applet_install_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/applet-install-operations.schema.json#/$defs/applet_install_outcome",
-        ),
+        request_schema_ref: Some("schemas/applet-install-operations.schema.json#/$defs/applet_install_request_body"),
+        response_schema_ref: Some("schemas/applet-install-operations.schema.json#/$defs/applet_install_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3190,12 +2589,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/applet-install-operations.schema.json#/$defs/applet_revoke_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/applet-install-operations.schema.json#/$defs/applet_revoke_outcome",
-        ),
+        request_schema_ref: Some("schemas/applet-install-operations.schema.json#/$defs/applet_revoke_request_body"),
+        response_schema_ref: Some("schemas/applet-install-operations.schema.json#/$defs/applet_revoke_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3207,12 +2602,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/applet-ghost-operations.schema.json#/$defs/ghost_actor_provision_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/applet-ghost-operations.schema.json#/$defs/ghost_actor_provision_outcome",
-        ),
+        request_schema_ref: Some("schemas/applet-ghost-operations.schema.json#/$defs/ghost_actor_provision_request_body"),
+        response_schema_ref: Some("schemas/applet-ghost-operations.schema.json#/$defs/ghost_actor_provision_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3224,9 +2615,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/applet-install-operations.schema.json#/$defs/applet_install_preview_request_body",
-        ),
+        request_schema_ref: Some("schemas/applet-install-operations.schema.json#/$defs/applet_install_preview_request_body"),
         response_schema_ref: Some("schemas/applet-install-plan.schema.json"),
         uncertain_outcome: None,
     },
@@ -3265,12 +2654,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AuthzCheckRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/AuthzCheckRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3282,15 +2667,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "schema_resource",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/BlobPresignRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/BlobPresignOutcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.blob.command.presign\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/BlobPresignRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/BlobPresignOutcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.blob.command.presign\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfBlobResourceGet,
@@ -3327,9 +2706,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/blob-operations.schema.json#/$defs/blob_upload_request_body",
-        ),
+        request_schema_ref: Some("schemas/blob-operations.schema.json#/$defs/blob_upload_request_body"),
         response_schema_ref: Some("schemas/blob-operations.schema.json#/$defs/blob_upload_outcome"),
         uncertain_outcome: None,
     },
@@ -3342,15 +2719,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "schema_resource",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/CallMediaTokenExchangeRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/CallMediaTokenExchangeOutcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.call.media.exchange.issue_token\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/CallMediaTokenExchangeRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/CallMediaTokenExchangeOutcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.call.media.exchange.issue_token\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCircleCommandArchive,
@@ -3361,13 +2732,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_lifecycle_request_body",
-        ),
+        request_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_lifecycle_request_body"),
         response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_view"),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.circle.resource.get\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.circle.resource.get\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCircleCommandCreate,
@@ -3378,13 +2745,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_create_request_body",
-        ),
+        request_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_create_request_body"),
         response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_view"),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.circle.query.list\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.circle.query.list\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCircleCommandRestore,
@@ -3395,13 +2758,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_lifecycle_request_body",
-        ),
+        request_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_lifecycle_request_body"),
         response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_view"),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.circle.resource.get\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.circle.resource.get\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCircleCommandRotateScope,
@@ -3413,12 +2772,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_scope_rotate_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.circle.resource.get\",\"strategy\":\"query_operation\"}",
-        ),
+        response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_scope_rotate_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.circle.resource.get\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCircleCommandTombstone,
@@ -3429,13 +2784,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_lifecycle_request_body",
-        ),
+        request_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_lifecycle_request_body"),
         response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_view"),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.circle.resource.get\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.circle.resource.get\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCircleMemberCommandAdd,
@@ -3446,15 +2797,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_member_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_membership_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.circle.resource.get\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_member_request_body"),
+        response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_membership_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.circle.resource.get\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCircleMemberResourceDelete,
@@ -3466,9 +2811,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_membership_outcome",
-        ),
+        response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_membership_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3506,15 +2849,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/consent-operations.schema.json#/$defs/consent_update_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/consent-operations.schema.json#/$defs/consent_cell_view",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/consent-operations.schema.json#/$defs/consent_update_request_body"),
+        response_schema_ref: Some("schemas/consent-operations.schema.json#/$defs/consent_cell_view"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfConsentCommandRequest,
@@ -3525,15 +2862,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/consent-operations.schema.json#/$defs/consent_request_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/consent-operations.schema.json#/$defs/consent_request_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/consent-operations.schema.json#/$defs/consent_request_request_body"),
+        response_schema_ref: Some("schemas/consent-operations.schema.json#/$defs/consent_request_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfConsentCommandRevoke,
@@ -3544,15 +2875,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/consent-operations.schema.json#/$defs/consent_update_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/consent-operations.schema.json#/$defs/consent_cell_view",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/consent-operations.schema.json#/$defs/consent_update_request_body"),
+        response_schema_ref: Some("schemas/consent-operations.schema.json#/$defs/consent_cell_view"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfConsentQueryList,
@@ -3564,9 +2889,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/consent-operations.schema.json#/$defs/consent_cell_list",
-        ),
+        response_schema_ref: Some("schemas/consent-operations.schema.json#/$defs/consent_cell_list"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3579,9 +2902,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/consent-operations.schema.json#/$defs/consent_cell_view",
-        ),
+        response_schema_ref: Some("schemas/consent-operations.schema.json#/$defs/consent_cell_view"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3593,15 +2914,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_request_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_request_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.contact.query.list\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/contact-operations.schema.json#/$defs/contact_request_request_body"),
+        response_schema_ref: Some("schemas/contact-operations.schema.json#/$defs/contact_request_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.contact.query.list\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfContactCommandRespond,
@@ -3612,15 +2927,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_respond_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_respond_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.contact.query.list\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/contact-operations.schema.json#/$defs/contact_respond_request_body"),
+        response_schema_ref: Some("schemas/contact-operations.schema.json#/$defs/contact_respond_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.contact.query.list\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfContactCommandTombstone,
@@ -3631,15 +2940,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_tombstone_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_tombstone",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.contact.query.list\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/contact-operations.schema.json#/$defs/contact_tombstone_request_body"),
+        response_schema_ref: Some("schemas/contact-operations.schema.json#/$defs/contact_tombstone"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.contact.query.list\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfContactQueryList,
@@ -3663,12 +2966,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("protocol_sequence"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesAckRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesAckOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesAckRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesAckOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3680,12 +2979,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesSendRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesSendOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesSendRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesSendOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3698,9 +2993,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesGetOutcome",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesGetOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3712,12 +3005,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/direct_conversation_resolve_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/direct_conversation_resolve_outcome",
-        ),
+        request_schema_ref: Some("schemas/contact-operations.schema.json#/$defs/direct_conversation_resolve_request_body"),
+        response_schema_ref: Some("schemas/contact-operations.schema.json#/$defs/direct_conversation_resolve_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3730,9 +3019,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
         request_schema_ref: Some("schemas/ephemeral-envelope.schema.json"),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EphemeralSubmitOutcome",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EphemeralSubmitOutcome"),
         uncertain_outcome: Some("{\"strategy\":\"drop_unconfirmed\"}"),
     },
     ServiceOperationDescriptor {
@@ -3744,12 +3031,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("protocol_sequence"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3762,9 +3045,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some("schemas/seal.schema.json"),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventSealSubmitOutcome",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventSealSubmitOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3790,9 +3071,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsFrontierState",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventsFrontierState"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3804,9 +3083,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/mls-governance-proof-bundle.schema.json#/$defs/proof_request",
-        ),
+        request_schema_ref: Some("schemas/mls-governance-proof-bundle.schema.json#/$defs/proof_request"),
         response_schema_ref: Some("schemas/mls-governance-proof-bundle.schema.json"),
         uncertain_outcome: None,
     },
@@ -3819,12 +3096,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsResolveRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsResolveOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventsResolveRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventsResolveOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3837,9 +3110,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsQueryOutcome",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventsQueryOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3851,12 +3122,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsQueryPostRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsQueryOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventsQueryPostRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventsQueryOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3894,15 +3161,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/principal-locator.schema.json#/$defs/invite_locator_issue_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/principal-locator.schema.json#/$defs/invite_locator_issue_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.invite_locator.command.issue\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
-        ),
+        request_schema_ref: Some("schemas/principal-locator.schema.json#/$defs/invite_locator_issue_request_body"),
+        response_schema_ref: Some("schemas/principal-locator.schema.json#/$defs/invite_locator_issue_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.invite_locator.command.issue\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfInviteLocatorCommandRevoke,
@@ -3913,12 +3174,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/principal-locator.schema.json#/$defs/invite_locator_revoke_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/principal-locator.schema.json#/$defs/invite_locator_revoke_outcome",
-        ),
+        request_schema_ref: Some("schemas/principal-locator.schema.json#/$defs/invite_locator_revoke_request_body"),
+        response_schema_ref: Some("schemas/principal-locator.schema.json#/$defs/invite_locator_revoke_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -3930,12 +3187,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/principal-locator.schema.json#/$defs/invite_locator_rotate_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/principal-locator.schema.json#/$defs/invite_locator_issue_outcome",
-        ),
+        request_schema_ref: Some("schemas/principal-locator.schema.json#/$defs/invite_locator_rotate_request_body"),
+        response_schema_ref: Some("schemas/principal-locator.schema.json#/$defs/invite_locator_issue_outcome"),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
     },
     ServiceOperationDescriptor {
@@ -3973,13 +3226,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "schema_resource",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/keys-operations.schema.json#/$defs/keys_backups_unlock_request_body",
-        ),
+        request_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_backups_unlock_request_body"),
         response_schema_ref: Some("schemas/key-backup.schema.json"),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.keys.backups.command.unlock\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
-        ),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.keys.backups.command.unlock\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysBackupsQueryList,
@@ -4003,12 +3252,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/keys-operations.schema.json#/$defs/keys_backups_delete_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/keys-operations.schema.json#/$defs/keys_backups_delete_outcome",
-        ),
+        request_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_backups_delete_request_body"),
+        response_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_backups_delete_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -4021,9 +3266,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some("schemas/key-backup.schema.json"),
-        response_schema_ref: Some(
-            "schemas/keys-operations.schema.json#/$defs/keys_backups_replace_outcome",
-        ),
+        response_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_backups_replace_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -4035,13 +3278,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/keys-operations.schema.json#/$defs/keys_claim_request_body",
-        ),
+        request_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_claim_request_body"),
         response_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_claim_outcome"),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.keys.query.lookup\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.keys.query.lookup\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysKeypackagesCommandClaim,
@@ -4052,15 +3291,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/key_packages_claim_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/key_packages_claim_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.keys.keypackages.command.claim\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
-        ),
+        request_schema_ref: Some("schemas/keypackage-operations.schema.json#/$defs/key_packages_claim_request_body"),
+        response_schema_ref: Some("schemas/keypackage-operations.schema.json#/$defs/key_packages_claim_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.keys.keypackages.command.claim\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysKeypackagesCommandConsume,
@@ -4071,15 +3304,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/key_packages_consume_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/key_packages_consume_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.keys.query.lookup\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/keypackage-operations.schema.json#/$defs/key_packages_consume_request_body"),
+        response_schema_ref: Some("schemas/keypackage-operations.schema.json#/$defs/key_packages_consume_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.keys.query.lookup\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysKeypackagesCommandRevoke,
@@ -4090,15 +3317,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/key_packages_revoke_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/key_packages_revoke_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.keys.query.lookup\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/keypackage-operations.schema.json#/$defs/key_packages_revoke_request_body"),
+        response_schema_ref: Some("schemas/keypackage-operations.schema.json#/$defs/key_packages_revoke_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.keys.query.lookup\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysKeypackagesUploadCreate,
@@ -4109,15 +3330,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/key_packages_upload_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/key_packages_upload_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.keys.keypackages.upload.create\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
-        ),
+        request_schema_ref: Some("schemas/keypackage-operations.schema.json#/$defs/key_packages_upload_request_body"),
+        response_schema_ref: Some("schemas/keypackage-operations.schema.json#/$defs/key_packages_upload_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.keys.keypackages.upload.create\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysQueryLookup,
@@ -4128,9 +3343,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/keys-operations.schema.json#/$defs/keys_query_request_body",
-        ),
+        request_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_query_request_body"),
         response_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_query_outcome"),
         uncertain_outcome: None,
     },
@@ -4143,13 +3356,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/keys-operations.schema.json#/$defs/keys_upload_request_body",
-        ),
+        request_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_upload_request_body"),
         response_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_upload_outcome"),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.keys.query.lookup\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.keys.query.lookup\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfMediaQueryIceConfig,
@@ -4160,9 +3369,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/media-operations.schema.json#/$defs/media_ice_config_request_body",
-        ),
+        request_schema_ref: Some("schemas/media-operations.schema.json#/$defs/media_ice_config_request_body"),
         response_schema_ref: Some("schemas/ice-config-response.schema.json"),
         uncertain_outcome: None,
     },
@@ -4176,9 +3383,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
         request_schema_ref: Some("schemas/moderation-report.schema.json"),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/ModerationReportOutcome",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/ModerationReportOutcome"),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
     },
     ServiceOperationDescriptor {
@@ -4191,9 +3396,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/ProjectionMorphList",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/ProjectionMorphList"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -4206,9 +3409,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/view.schema.json#/$defs/document_morph_projection_outcome",
-        ),
+        response_schema_ref: Some("schemas/view.schema.json#/$defs/document_morph_projection_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -4220,12 +3421,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/PolicyCheckRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/PolicyCheckOutcome",
-        ),
+        request_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/PolicyCheckRequestBody"),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/PolicyCheckOutcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -4237,12 +3434,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("protocol_sequence"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/read-cursor-operations.schema.json#/$defs/read_cursor_advance_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/read-cursor-operations.schema.json#/$defs/read_marker_outcome",
-        ),
+        request_schema_ref: Some("schemas/read-cursor-operations.schema.json#/$defs/read_cursor_advance_request_body"),
+        response_schema_ref: Some("schemas/read-cursor-operations.schema.json#/$defs/read_marker_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -4255,9 +3448,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/read-cursor-operations.schema.json#/$defs/read_cursor_list",
-        ),
+        response_schema_ref: Some("schemas/read-cursor-operations.schema.json#/$defs/read_cursor_list"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -4270,12 +3461,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
         request_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_archive_payload"),
-        response_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.realm.resource.get\",\"strategy\":\"query_operation\"}",
-        ),
+        response_schema_ref: Some("schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.realm.resource.get\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmCommandDestroy,
@@ -4287,12 +3474,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
         request_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_destroy_payload"),
-        response_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.realm.resource.get\",\"strategy\":\"query_operation\"}",
-        ),
+        response_schema_ref: Some("schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.realm.resource.get\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmCommandFreeze,
@@ -4304,12 +3487,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
         request_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_freeze_payload"),
-        response_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.realm.resource.get\",\"strategy\":\"query_operation\"}",
-        ),
+        response_schema_ref: Some("schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.realm.resource.get\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmCommandTombstone,
@@ -4320,15 +3499,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/event-payload.schema.json#/$defs/realm_tombstone_payload",
-        ),
-        response_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.realm.resource.get\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_tombstone_payload"),
+        response_schema_ref: Some("schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.realm.resource.get\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmModerationPolicyQueryEffective,
@@ -4340,9 +3513,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_effective_moderation_policy",
-        ),
+        response_schema_ref: Some("schemas/realm-read-operations.schema.json#/$defs/realm_effective_moderation_policy"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -4354,12 +3525,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_moderation_policy_replace_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_moderation_policy_document",
-        ),
+        request_schema_ref: Some("schemas/realm-read-operations.schema.json#/$defs/realm_moderation_policy_replace_request_body"),
+        response_schema_ref: Some("schemas/realm-read-operations.schema.json#/$defs/realm_moderation_policy_document"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -4385,9 +3552,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view",
-        ),
+        response_schema_ref: Some("schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -4399,15 +3564,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/realm-link-operations.schema.json#/$defs/realm_link_create_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/realm-link-operations.schema.json#/$defs/realm_link_mutation_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.realm_link.query.list\",\"strategy\":\"query_operation\"}",
-        ),
+        request_schema_ref: Some("schemas/realm-link-operations.schema.json#/$defs/realm_link_create_request_body"),
+        response_schema_ref: Some("schemas/realm-link-operations.schema.json#/$defs/realm_link_mutation_outcome"),
+        uncertain_outcome: Some("{\"operation_id\":\"ak.self.realm_link.query.list\",\"strategy\":\"query_operation\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmLinkQueryEffectivePolicy,
@@ -4419,9 +3578,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/realm-link-operations.schema.json#/$defs/realm_effective_policy_outcome",
-        ),
+        response_schema_ref: Some("schemas/realm-link-operations.schema.json#/$defs/realm_effective_policy_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -4434,9 +3591,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/realm-link-operations.schema.json#/$defs/realm_link_list",
-        ),
+        response_schema_ref: Some("schemas/realm-link-operations.schema.json#/$defs/realm_link_list"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -4449,9 +3604,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/realm-link-operations.schema.json#/$defs/realm_link_mutation_outcome",
-        ),
+        response_schema_ref: Some("schemas/realm-link-operations.schema.json#/$defs/realm_link_mutation_outcome"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -4464,9 +3617,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/realm-organization-operations.schema.json#/$defs/realm_organization_relationship_list",
-        ),
+        response_schema_ref: Some("schemas/realm-organization-operations.schema.json#/$defs/realm_organization_relationship_list"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -4492,9 +3643,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/realm-policy-server-operations.schema.json#/$defs/realm_policy_server_view",
-        ),
+        response_schema_ref: Some("schemas/realm-policy-server-operations.schema.json#/$defs/realm_policy_server_view"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -4506,12 +3655,8 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/realm-policy-server-operations.schema.json#/$defs/realm_policy_server_replace_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/realm-policy-server-operations.schema.json#/$defs/realm_policy_server_view",
-        ),
+        request_schema_ref: Some("schemas/realm-policy-server-operations.schema.json#/$defs/realm_policy_server_replace_request_body"),
+        response_schema_ref: Some("schemas/realm-policy-server-operations.schema.json#/$defs/realm_policy_server_view"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -4537,9 +3682,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/ProjectionSpaceList",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/ProjectionSpaceList"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
@@ -4552,9 +3695,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/ProjectionStrandList",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/ProjectionStrandList"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {

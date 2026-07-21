@@ -39,6 +39,10 @@ pub enum DidContinuitySignatureAlgorithm {
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DidContinuityTransferEvidence {
     pub old_did_document_canonical_digest: Hash,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub old_did_document_fetched_at: DateTime<Utc>,
     pub inception_public_key_fingerprint: Hash,
     pub user_oob_confirmation_id: String,
@@ -66,8 +70,16 @@ pub struct DidContinuityProof {
     pub purpose: DidContinuityPurpose,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub audience: Vec<String>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub old_did_document_digest: Option<Hash>,
@@ -233,13 +245,13 @@ mod tests {
             new_did: Did::new("did:webvh:new.example").unwrap(),
             purpose: DidContinuityPurpose::PrincipalMethodUpgrade,
             audience: vec!["ak:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned()],
-            issued_at: "2026-04-29T00:00:00Z".parse().unwrap(),
-            expires_at: Some("2026-04-30T00:00:00Z".parse().unwrap()),
+            issued_at: "2026-04-29T00:00:00.000Z".parse().unwrap(),
+            expires_at: Some("2026-04-30T00:00:00.000Z".parse().unwrap()),
             old_did_document_digest: Some(hash("a")),
             new_did_document_digest: Some(hash("b")),
             transfer_evidence: DidContinuityTransferEvidence {
                 old_did_document_canonical_digest: hash("c"),
-                old_did_document_fetched_at: "2026-04-28T23:00:00Z".parse().unwrap(),
+                old_did_document_fetched_at: "2026-04-28T23:00:00.000Z".parse().unwrap(),
                 inception_public_key_fingerprint: hash("d"),
                 user_oob_confirmation_id: "confirm-1".to_owned(),
                 user_oob_confirmation_method:

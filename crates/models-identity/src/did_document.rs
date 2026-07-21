@@ -71,6 +71,10 @@ pub fn did_web_document_url(did: &Did) -> Result<String> {
 pub struct HandleAttestation {
     pub issuer: Did,
     pub proof: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
 }
 

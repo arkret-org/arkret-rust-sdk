@@ -16,6 +16,10 @@ pub struct SdkConformanceClaim {
     pub sdk_artifact: SdkArtifactSubject,
     pub spec_revision: String,
     pub contract_digest: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
     pub issuer: SdkClaimIssuer,
     pub clause_claims: Vec<SdkClauseClaim>,
@@ -464,7 +468,7 @@ mod tests {
             },
             spec_revision: "1".repeat(40),
             contract_digest: format!("sha256:{}", "3".repeat(64)),
-            issued_at: "2026-07-11T00:00:00Z".parse().unwrap(),
+            issued_at: "2026-07-11T00:00:00.000Z".parse().unwrap(),
             issuer: SdkClaimIssuer {
                 id: Did::new("did:webvh:z6mkfixture:release.example").unwrap(),
                 verification_method: "did:webvh:z6mkfixture:release.example#claim-key-1".to_owned(),

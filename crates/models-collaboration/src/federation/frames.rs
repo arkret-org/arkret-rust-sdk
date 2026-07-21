@@ -44,7 +44,15 @@ pub struct HttpMessageSignatureInput {
     pub content_digest: String,
     pub origin_service_id: Did,
     pub destination_service_id: Did,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     /// Optional federation trust-domain transcript fields. When present they
     /// MUST be included in the canonical HTTP message signature base.
@@ -60,6 +68,10 @@ pub struct HttpMessageSignatureInput {
 pub struct FederationReplayRecord {
     pub transaction_id: String,
     pub content_digest: Hash,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub first_seen_at: DateTime<Utc>,
 }
 
@@ -122,6 +134,10 @@ pub struct VerifyActorChallenge {
     pub destination_service_id: Did,
     pub challenge: String,
     pub purpose: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub payload_digest: Option<String>,

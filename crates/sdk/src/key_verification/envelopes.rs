@@ -19,6 +19,10 @@ pub struct KeyVerificationStart {
     /// Supported short-authentication-string forms (`decimal`, `emoji`).
     pub short_authentication_string: Vec<String>,
     /// Wall-clock send time.
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub sent_at: DateTime<Utc>,
 }
 
@@ -35,6 +39,10 @@ pub struct KeyVerificationAccept {
     pub short_authentication_string: Vec<String>,
     /// SHA-256 commitment over the responder's public key.
     pub commitment: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub sent_at: DateTime<Utc>,
 }
 
@@ -46,6 +54,10 @@ pub struct KeyVerificationKey {
     pub from_device: DeviceId,
     /// Multibase-encoded public key contributed to the SAS DH.
     pub key: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub sent_at: DateTime<Utc>,
 }
 
@@ -59,6 +71,10 @@ pub struct KeyVerificationMac {
     pub keys: String,
     /// Per-key MACs keyed by `key_id`.
     pub mac: BTreeMap<String, String>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub sent_at: DateTime<Utc>,
 }
 
@@ -68,6 +84,10 @@ pub struct KeyVerificationDone {
     pub transaction_id: String,
     pub from_user: Did,
     pub from_device: DeviceId,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub sent_at: DateTime<Utc>,
 }
 
@@ -79,6 +99,10 @@ pub struct KeyVerificationCancel {
     pub from_device: DeviceId,
     pub code: String,
     pub reason: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub sent_at: DateTime<Utc>,
 }
 

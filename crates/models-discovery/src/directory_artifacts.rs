@@ -28,6 +28,10 @@ pub type EventRefs = Vec<EventId>;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FreshnessFields {
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub as_of: DateTime<Utc>,
     pub source_refs: SourceRefs,
     pub policy_revision: String,
@@ -55,6 +59,10 @@ pub struct InviteConsentHandoffStub {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_step: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
 }
 
@@ -70,6 +78,10 @@ pub struct ObjectPreview {
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub as_of: DateTime<Utc>,
     pub source_refs: SourceRefs,
     pub policy_revision: String,

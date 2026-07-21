@@ -1448,7 +1448,7 @@ mod capability_grant_builder_tests {
             alg: "EdDSA".to_owned(),
             verification_method: format!("{issuer}#device-1"),
             payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-            created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+            created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             domain: None,
             audience: None,
             proof_purpose: Some(arkret_wire::PayloadProofPurpose::IssuerAttestation),
@@ -1468,7 +1468,7 @@ mod capability_grant_builder_tests {
             capability_action_registry_digest: None,
             constraints: Vec::new(),
             parent_grant_id: None,
-            issued_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+            issued_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             not_before: None,
             expires_at: None,
             updated_by: None,
@@ -1722,7 +1722,7 @@ mod capability_grant_builder_tests {
         let entries = constraint_entries_from_spec(&json!({
             "constraint_type": "temporal",
             "effect": "allow",
-            "expires_at": "2026-04-30T00:00:00Z",
+            "expires_at": "2026-04-30T00:00:00.000Z",
         }))
         .unwrap();
         assert_eq!(entries.len(), 1);

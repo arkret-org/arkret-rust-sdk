@@ -32,36 +32,7 @@ where
     D: serde::Deserializer<'de>,
 {
     let value = String::deserialize(deserializer)?;
-    canonical::validate_timestamp_canonical(&value).map_err(serde::de::Error::custom)?;
-    DateTime::parse_from_rfc3339(&value)
-        .map(|parsed| parsed.with_timezone(&Utc))
-        .map_err(serde::de::Error::custom)
-}
-
-/// Serialize an Event, proof, or Agent pairing transcript timestamp with
-/// exactly three UTC millisecond digits.
-pub fn serialize_canonical_timestamp_millis<S>(
-    value: &DateTime<Utc>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    serializer.serialize_str(&canonical::format_timestamp_millis_canonical(*value))
-}
-
-/// Deserialize the fixed-width Event/proof/Agent-pairing millisecond profile.
-pub fn deserialize_canonical_timestamp_millis<'de, D>(
-    deserializer: D,
-) -> Result<DateTime<Utc>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let value = String::deserialize(deserializer)?;
-    canonical::validate_timestamp_millis_canonical(&value).map_err(serde::de::Error::custom)?;
-    DateTime::parse_from_rfc3339(&value)
-        .map(|parsed| parsed.with_timezone(&Utc))
-        .map_err(serde::de::Error::custom)
+    canonical::parse_timestamp_canonical(&value).map_err(serde::de::Error::custom)
 }
 
 pub fn serialize_optional_canonical_timestamp<S>(
@@ -86,23 +57,19 @@ where
     let Some(value) = Option::<String>::deserialize(deserializer)? else {
         return Ok(None);
     };
-    canonical::validate_timestamp_canonical(&value).map_err(serde::de::Error::custom)?;
-    DateTime::parse_from_rfc3339(&value)
-        .map(|parsed| Some(parsed.with_timezone(&Utc)))
+    canonical::parse_timestamp_canonical(&value)
+        .map(Some)
         .map_err(serde::de::Error::custom)
 }
 
-/// `#[serde(with = "...")]` adapter for the canonical timestamp profile.
-/// The named module keeps downstream wire structs on serde's standard
-/// `with` convention while the flat functions remain available to
-/// `serialize_with` / `deserialize_with` callers.
+/// `#[serde(with = ...)]` adapter for a required Arkret timestamp.
 pub mod canonical_timestamp {
     pub use super::{
         deserialize_canonical_timestamp as deserialize, serialize_canonical_timestamp as serialize,
     };
 }
 
-/// `#[serde(with = "...")]` adapter for optional canonical timestamps.
+/// `#[serde(with = ...)]` adapter for an optional Arkret timestamp.
 pub mod optional_canonical_timestamp {
     pub use super::{
         deserialize_optional_canonical_timestamp as deserialize,
@@ -110,10 +77,37 @@ pub mod optional_canonical_timestamp {
     };
 }
 
-/// `#[serde(with = "...")]` adapter for fixed-width millisecond timestamps.
-pub mod canonical_timestamp_millis {
-    pub use super::{
-        deserialize_canonical_timestamp_millis as deserialize,
-        serialize_canonical_timestamp_millis as serialize,
-    };
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug, Deserialize, serde::Serialize)]
+    struct RequiredTimestamp {
+        #[serde(
+            serialize_with = "serialize_canonical_timestamp",
+            deserialize_with = "deserialize_canonical_timestamp"
+        )]
+        at: DateTime<Utc>,
+    }
+
+    #[test]
+    fn wire_deserializer_rejects_before_normalization() {
+        for input in [
+            r#"{"at":"2026-07-21T10:00:00Z"}"#,
+            r#"{"at":"2026-07-21T10:00:00.000+00:00"}"#,
+            r#"{"at":"2026-07-21T10:00:00.000000Z"}"#,
+            r#"{"at":1784628000734}"#,
+        ] {
+            assert!(serde_json::from_str::<RequiredTimestamp>(input).is_err());
+        }
+    }
+
+    #[test]
+    fn wire_serializer_floors_and_emits_fixed_milliseconds() {
+        let at = DateTime::parse_from_rfc3339("1969-12-31T23:59:59.999500Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let encoded = serde_json::to_string(&RequiredTimestamp { at }).unwrap();
+        assert_eq!(encoded, r#"{"at":"1969-12-31T23:59:59.999Z"}"#);
+    }
 }

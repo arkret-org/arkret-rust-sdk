@@ -104,8 +104,7 @@ pub fn build_agent_provision_event_drafts<S: MoveSigner + ?Sized>(
             signer.signer_did()
         )));
     }
-    let created_at = DateTime::<Utc>::from_timestamp(options.created_at.timestamp(), 0)
-        .ok_or_else(|| Error::Protocol("provision timestamp is outside the wire range".into()))?;
+    let created_at = arkret_canonical::normalize_timestamp_canonical(options.created_at);
     let verification_method = signer.verification_method_id().to_owned();
     let placeholder_digest = Hash::new(format!("sha256:{}", "0".repeat(64)))?;
     let mut accountability_payload = AccountabilityGrantPayload::new(
@@ -245,8 +244,7 @@ pub struct SelfPrincipalPcrCreateInput {
 /// Construct the only unsigned `ak.realm.create` shape that an identity root
 /// may sign. Signing material remains entirely with the caller.
 pub fn build_self_principal_pcr_create(input: SelfPrincipalPcrCreateInput) -> Result<Event> {
-    let created_at =
-        arkret_canonical::canonical::normalize_timestamp_millis_canonical(input.created_at);
+    let created_at = arkret_canonical::canonical::normalize_timestamp_canonical(input.created_at);
     let expected_realm_id = RealmId::new(principal_control_realm_id(&input.principal_id))?;
     if input.realm_id != expected_realm_id {
         return Err(Error::Protocol(
@@ -1161,7 +1159,7 @@ mod tests {
                 DID_INCEPTION_REF_ROLE,
             ),
             event_id: EventId::new("ak:event:01904100-0000-7000-8000-000000000001").unwrap(),
-            created_at: "2026-07-15T00:00:00Z".parse().unwrap(),
+            created_at: "2026-07-15T00:00:00.000Z".parse().unwrap(),
             hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         }
     }

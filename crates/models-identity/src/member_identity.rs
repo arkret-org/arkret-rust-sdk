@@ -50,8 +50,17 @@ pub struct MemberIdentity {
     pub actor_id: Did,
     pub subject_id: Did,
     pub display_profile: DisplayProfile,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub asserted_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     pub proof: MemberIdentityProof,
 }
@@ -237,6 +246,9 @@ pub struct RosterHandleClaimDigestEntry {
     pub claim_digest: Hash,
     pub binding_state: HandleBindingState,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
 }
 

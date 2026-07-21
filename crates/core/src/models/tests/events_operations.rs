@@ -30,7 +30,7 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         realm_id: test_realm_id(),
         actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         actor_seq: 1,
-        created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+        created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
         hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         prev_refs: Vec::new(),
         effective_scope: None,
@@ -141,7 +141,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
             "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777",
         )
         .unwrap(),
-        created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+        created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
         domain: None,
         audience: None,
         jws: "sig-a".to_owned(),

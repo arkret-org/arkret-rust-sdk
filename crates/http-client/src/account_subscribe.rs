@@ -221,8 +221,8 @@ mod tests {
             "kind": "agent_runtime_approval",
             "approval_request_id": "agent_runtime_approval:01964137-0000-7000-8000-000000000004",
             "agent_id": "did:webvh:z6mkfixture:agent.example",
-            "requested_at": "2026-07-13T10:00:00Z",
-            "expires_at": "2026-07-13T10:15:00Z"
+            "requested_at": "2026-07-13T10:00:00.000Z",
+            "expires_at": "2026-07-13T10:15:00.000Z"
         });
         let mut folder = AccountSubscribeFolder::for_request(&request(false, None));
         folder

@@ -38,12 +38,28 @@ pub struct PresentedClaim {
     pub issuer: Did,
     pub claim_kind: String,
     pub value: BTreeMap<String, Value>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub refreshed_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub revoked_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub disclosed_fields: BTreeSet<String>,
@@ -258,6 +274,10 @@ pub struct PresentationRequestBody {
     pub audience: String,
     pub nonce: String,
     pub policy: ClaimDisclosurePolicy,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     /// Verifier DID requesting the disclosure
     /// (`progressive-disclosure.md` §4). Wallets MUST authenticate this
@@ -289,6 +309,10 @@ pub struct VerifierAuthorityLink {
     /// Detached proof for the delegation (JWS, signed CBOR, etc.).
     pub proof: String,
     /// Expiry timestamp; expired links MUST be rejected.
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
 }
 

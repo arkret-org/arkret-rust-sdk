@@ -1184,8 +1184,16 @@ pub struct RealmRemark {
     pub verified_title_at_save: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub verified_owning_organizations_at_save: Vec<Did>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub saved_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub updated_at: Option<DateTime<Utc>>,
 }
 
@@ -2030,7 +2038,7 @@ mod tests {
         .with_message_id(message_id.as_str());
         let value = ScheduledSendValue {
             planned_message_id: message_id,
-            send_at: "2026-06-07T00:00:00Z".to_owned(),
+            send_at: "2026-06-07T00:00:00.000Z".to_owned(),
             message_payload_digest: scheduled_send_message_payload_digest(&payload).unwrap(),
             message_payload: payload,
             updated_hlc: "01970e589d21-0000-a13f9c2e".to_owned(),
@@ -2041,8 +2049,8 @@ mod tests {
     #[test]
     fn calendar_event_fields_validate_cross_field_constraints() {
         let fields = CalendarEventFields {
-            start: "2026-06-22T09:00:00Z".to_owned(),
-            end: "2026-06-22T10:00:00Z".to_owned(),
+            start: "2026-06-22T09:00:00.000Z".to_owned(),
+            end: "2026-06-22T10:00:00.000Z".to_owned(),
             timezone: "America/Los_Angeles".to_owned(),
             all_day: false,
             recurrence: Some(CalendarRecurrence {
@@ -2099,7 +2107,7 @@ mod tests {
         assert!(
             serde_json::from_value::<CalendarRecurrence>(serde_json::json!({
                 "frequency": "MONTHLY",
-                "expires_at": "2026-12-31T23:59:59Z"
+                "expires_at": "2026-12-31T23:59:59.000Z"
             }))
             .is_err()
         );
@@ -2110,11 +2118,11 @@ mod tests {
         let mut fields = BTreeMap::new();
         fields.insert(
             "start".to_owned(),
-            Value::String("2026-06-22T16:00:00Z".to_owned()),
+            Value::String("2026-06-22T16:00:00.000Z".to_owned()),
         );
         fields.insert(
             "end".to_owned(),
-            Value::String("2026-06-22T17:00:00Z".to_owned()),
+            Value::String("2026-06-22T17:00:00.000Z".to_owned()),
         );
         fields.insert(
             "timezone".to_owned(),
@@ -2123,7 +2131,8 @@ mod tests {
         fields.insert("all_day".to_owned(), Value::Bool(false));
 
         assert_eq!(
-            canonical_calendar_rsvp_occurrence_key(&fields, Some("2026-06-22T16:00:00Z")).unwrap(),
+            canonical_calendar_rsvp_occurrence_key(&fields, Some("2026-06-22T16:00:00.000Z"))
+                .unwrap(),
             "2026-06-22T09:00:00[America/Los_Angeles]"
         );
         assert_eq!(
@@ -2212,16 +2221,16 @@ mod tests {
                     purpose: "file_transfer".to_owned(),
                     transfer_id: "0123456789abcdefghijkl".to_owned(),
                     origin_device_id: "ak:device:01904100-0000-7000-8000-000000000002".to_owned(),
-                    created_at: "2026-06-22T00:00:00Z".to_owned(),
+                    created_at: "2026-06-22T00:00:00.000Z".to_owned(),
                 },
                 key_delivery: FileTransferKeyDelivery::AccountDataWrappedKey {
                     content_key: "abc_DEF-012".to_owned(),
                 },
             },
             origin_device_id: "ak:device:01904100-0000-7000-8000-000000000002".to_owned(),
-            created_at: "2026-06-22T00:00:00Z".to_owned(),
+            created_at: "2026-06-22T00:00:00.000Z".to_owned(),
             updated_hlc: "01970e589d21-0004-a13f9c2e".to_owned(),
-            retention_expires_at: "2026-06-29T00:00:00Z".to_owned(),
+            retention_expires_at: "2026-06-29T00:00:00.000Z".to_owned(),
             status: FileTransferStatus::Available,
         }
     }
@@ -2283,7 +2292,7 @@ mod tests {
                 ciphertext: "def_ABC-345".to_owned(),
                 aad_digest: format!("sha256:{}", "cd".repeat(32)),
             },
-            expires_at: "2026-06-22T00:30:00Z".to_owned(),
+            expires_at: "2026-06-22T00:30:00.000Z".to_owned(),
         };
 
         message.validate_record_binding(&record).unwrap();
@@ -2412,7 +2421,7 @@ mod tests {
             updated_hlc: "01970e589d21-0000-a13f9c2e".to_owned(),
             origin_device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002")
                 .unwrap(),
-            retention_expires_at: "2026-06-07T00:00:00Z".to_owned(),
+            retention_expires_at: "2026-06-07T00:00:00.000Z".to_owned(),
         };
         let wire = serde_json::to_value(draft).unwrap();
         assert!(wire.get("origin_device_id").is_some());

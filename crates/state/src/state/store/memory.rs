@@ -785,7 +785,7 @@ mod tests {
                 "alg": "EdDSA",
                 "verification_method": "did:webvh:z6mkfixture:admin.example#k1",
                 "payload_digest": payload_digest,
-                "created_at": "2026-05-08T00:00:00Z",
+                "created_at": "2026-05-08T00:00:00.000Z",
                 "jws": "AAAA.BBBB.CCCC"
             }),
         );

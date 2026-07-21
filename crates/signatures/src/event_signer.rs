@@ -107,9 +107,8 @@ pub fn sign_event<S: MoveSigner + ?Sized>(
     let canonical_bytes = canonical::canonical_json_bytes(&event.digest_payload()?)?;
     let payload_digest = Hash::new(canonical::sha256_digest(&canonical_bytes))?;
 
-    let created_at = canonical::normalize_timestamp_millis_canonical(
-        options.created_at.unwrap_or_else(Utc::now),
-    );
+    let created_at =
+        canonical::normalize_timestamp_canonical(options.created_at.unwrap_or_else(Utc::now));
 
     // Per `encoding.md` §6 / `event-and-patch.md` §3 the detached JWS MUST
     // sign the canonical **proof binding object** — NOT the raw canonical

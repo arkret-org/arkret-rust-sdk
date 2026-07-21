@@ -30,6 +30,7 @@ pub struct DeviceAuthorizePayload {
     pub authorized_by: DeviceOrPrincipalRef,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scopes: Option<Vec<NonEmptyString>>,
+    #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub not_before: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<NullableTimestamp>,
@@ -58,6 +59,7 @@ struct DeviceAuthorizePayloadWire {
     authorized_by: DeviceOrPrincipalRef,
     #[serde(default)]
     scopes: Option<Vec<NonEmptyString>>,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     not_before: DateTime<Utc>,
     #[serde(default)]
     expires_at: Option<NullableTimestamp>,
@@ -408,6 +410,9 @@ pub struct DeviceListUpdatePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stream_id: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp"
+    )]
     pub updated_at: Option<DateTime<Utc>>,
 }
 
@@ -424,6 +429,9 @@ struct DeviceListUpdatePayloadWire {
     #[serde(default)]
     stream_id: Option<NonEmptyString>,
     #[serde(default)]
+    #[serde(
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     updated_at: Option<DateTime<Utc>>,
 }
 
@@ -476,6 +484,10 @@ pub struct DeviceRevokePayload {
     pub principal_id: Did,
     pub device_id: DeviceId,
     pub revoked_by: DeviceOrPrincipalRef,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub revoked_at: DateTime<Utc>,
     pub reason: DeviceRevocationReason,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -542,6 +554,10 @@ pub struct DirectConversationBoundPayload {
     pub mls_genesis_event_ref: EventId,
     pub mls_commit_event_ref: EventId,
     pub mls_welcome_event_ref: EventId,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supersedes_binding_ref: Option<EventId>,
@@ -597,7 +613,7 @@ mod tests {
             ],
             "device_signature": "c2ln",
             "authorized_by": "did:webvh:z6mkfixture:alice.example",
-            "not_before": "2026-05-30T00:00:00Z",
+            "not_before": "2026-05-30T00:00:00.000Z",
             "enrollment_authority_binding": {
                 "kind": "service_attested",
                 "authority_did": "did:webvh:z6mkauthority:auth.example",
@@ -621,7 +637,7 @@ mod tests {
                 Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             ),
             scopes: None,
-            not_before: "2026-05-30T00:00:00Z".parse().unwrap(),
+            not_before: "2026-05-30T00:00:00.000Z".parse().unwrap(),
             expires_at: None,
             device_signature: None,
             proof: None,
@@ -764,7 +780,7 @@ mod tests {
             "hpke_key": "z6LSgy7T8CEsMDMzk1e4EBFVX8CDXWWzvkFZWSXhsC97zjcM",
             "algorithms": ["ak.hpke_x25519_aead_chacha20poly1305.v1", "ak.mls.v1"],
             "authorized_by": "did:key:z6MknBuwKMPAzbhp6EwCnaxsEDk4G2KFeWRu273gYVuTY5jw",
-            "not_before": "2026-06-22T14:45:51Z",
+            "not_before": "2026-06-22T14:45:51.000Z",
             "enrollment_authority_binding": {
                 "kind": "service_attested",
                 "authority_did": "did:key:z6MknBuwKMPAzbhp6EwCnaxsEDk4G2KFeWRu273gYVuTY5jw",
@@ -781,7 +797,7 @@ mod tests {
                     )
                     .unwrap()),
                     Some("did:webvh:zQmZcDaFwUR8yQCZRkXoYEBi9hdzMSCCLASUVdwT1J4Qyc6:local.host:webvh:01kvqwpxssfq3bqm15rcd0g99x#enrollment-authority"),
-                    "2026-06-22T14:45:52Z".parse().unwrap(),
+                    "2026-06-22T14:45:52.000Z".parse().unwrap(),
                 )
                 .is_ok()
         );
@@ -792,7 +808,7 @@ mod tests {
         let binding = serde_json::from_value::<DeviceEnrollmentAuthorityBinding>(json!({
             "kind": "service_attested",
             "authority_did": "did:webvh:z6mkfixture:authority.example",
-            "versionTime": "2026-06-22T14:45:51Z",
+            "versionTime": "2026-06-22T14:45:51.000Z",
             "authorization_ref": "did:webvh:z6mkfixture:alice.example#enrollment-authority"
         }));
         assert!(binding.is_err());

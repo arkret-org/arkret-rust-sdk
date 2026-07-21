@@ -25,6 +25,8 @@ jobs:
       - run: cargo +nightly fmt --all -- --check
       - name: Guard crate layering (frozen phase-0 exit review rules)
         run: python tools/check-layering.py
+      - name: Guard protocol time representations
+        run: python tools/lint-time-representations.py
       - name: Guard weak wire types and closed-schema boundaries
         run: |
           python tools/wire_value_audit.py --check

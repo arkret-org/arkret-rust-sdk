@@ -109,6 +109,10 @@ pub struct Seal {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_digest_algorithm: Option<String>,
     pub notary_signature: NotarySig,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub sealed_at: DateTime<Utc>,
     pub hlc: Hlc,
     #[serde(default, skip)]
@@ -147,7 +151,8 @@ struct SealBody<'a> {
     previous_state_root: &'a Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     previous_digest_algorithm: &'a Option<String>,
-    sealed_at: &'a DateTime<Utc>,
+    #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
+    sealed_at: DateTime<Utc>,
     hlc: &'a Hlc,
 }
 
@@ -178,7 +183,7 @@ impl Seal {
             covered_event_digests: &self.covered_event_digests,
             previous_state_root: &self.previous_state_root,
             previous_digest_algorithm: &self.previous_digest_algorithm,
-            sealed_at: &self.sealed_at,
+            sealed_at: self.sealed_at,
             hlc: &self.hlc,
         };
         Ok(canonical::canonical_json_bytes(&body)?)
@@ -388,7 +393,7 @@ mod tests {
             "alg": "EdDSA",
             "verification_method": "did:webvh:z6mkfixture:notary.example#k1",
             "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "created_at": "2026-06-11T00:00:00Z",
+            "created_at": "2026-06-11T00:00:00.000Z",
             "jws": "AAAA.BBBB.CCCC"
         });
         let decoded: NotarySig = serde_json::from_value(value).unwrap();

@@ -27,6 +27,10 @@ pub struct GrantSnapshot {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grant_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
 }
 
@@ -54,6 +58,10 @@ pub struct AgentKeyAuthorizationState {
     pub verification_method: String,
     pub authorized_event_ref: EventId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
 }
 
@@ -96,6 +104,10 @@ pub struct Signature {
     pub verification_method: Did,
     pub alg: String,
     pub payload_digest: Hash,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     pub jws: String,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]

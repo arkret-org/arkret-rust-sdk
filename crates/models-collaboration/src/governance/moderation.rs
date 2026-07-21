@@ -10,8 +10,8 @@ use serde_json::Value;
 
 use crate::events_payloads::moderation::FrankingProof;
 
-fn now_utc_seconds() -> DateTime<Utc> {
-    DateTime::<Utc>::from_timestamp(Utc::now().timestamp(), 0).unwrap_or_else(Utc::now)
+fn now_utc_canonical() -> DateTime<Utc> {
+    arkret_canonical::normalize_timestamp_canonical(Utc::now())
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -96,6 +96,10 @@ pub struct ModerationReport {
     pub evidence_refs: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub franking_proof: Option<ModerationFrankingProof>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
 }
 
@@ -117,7 +121,7 @@ impl ModerationReport {
             reporter,
             evidence_refs: Vec::new(),
             franking_proof: None,
-            created_at: now_utc_seconds(),
+            created_at: now_utc_canonical(),
         }
     }
 }

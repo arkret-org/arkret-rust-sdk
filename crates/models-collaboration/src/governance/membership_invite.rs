@@ -770,7 +770,7 @@ mod tests {
             Did::new(SUBJECT).unwrap(),
             RealmId::new(REALM).unwrap(),
             "nonce-claim-proof-1",
-            "2099-01-01T00:00:00Z",
+            "2099-01-01T00:00:00.000Z",
             "did:web:verify.example#key-1",
             "c2ln",
         )

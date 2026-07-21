@@ -42,7 +42,6 @@ use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 // -- public re-exports of the underlying crypto primitives so callers
 // -- can construct keys without depending on `ed25519-dalek` directly.
 pub use ed25519_dalek::{SigningKey as Ed25519SigningKey, VerifyingKey as Ed25519PublicKey};
-use sha2::{Digest, Sha512};
 use thiserror::Error;
 
 /// Errors emitted by the RFC 9421 helpers.
@@ -585,19 +584,15 @@ impl SignedRequestParts {
 /// `Content-Digest` algorithms supported by this v1 profile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ContentDigestAlgorithm {
-    /// `sha-256` — the default for federation / push.
+    /// `sha-256` — the sole Arkret v1 wire algorithm identifier.
     Sha256,
-    /// `sha-512` — accepted for clients that prefer it.
-    Sha512,
 }
 
 impl ContentDigestAlgorithm {
-    /// Wire form (`"sha-256"` / `"sha-512"`) used in the RFC 9530
-    /// dictionary key.
+    /// Wire form (`"sha-256"`) used in the RFC 9530 dictionary key.
     pub fn wire_name(&self) -> &'static str {
         match self {
             ContentDigestAlgorithm::Sha256 => "sha-256",
-            ContentDigestAlgorithm::Sha512 => "sha-512",
         }
     }
 }
@@ -608,7 +603,7 @@ impl ContentDigestAlgorithm {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContentDigest {
     pub algorithm: ContentDigestAlgorithm,
-    /// Raw digest bytes (32 for sha-256, 64 for sha-512).
+    /// Raw SHA-256 digest bytes.
     pub digest: Vec<u8>,
     /// The original header value, preserved so it can be re-emitted
     /// byte-for-byte in the signing string.
@@ -625,7 +620,6 @@ impl ContentDigest {
             ContentDigestAlgorithm::Sha256 => {
                 arkret_canonical::canonical::sha256_bytes(body).to_vec()
             }
-            ContentDigestAlgorithm::Sha512 => Sha512::digest(body).to_vec(),
         };
         let wire_value = format!(
             "{}=:{}:",
@@ -649,7 +643,6 @@ impl ContentDigest {
             .ok_or(SignatureError::MalformedContentDigest)?;
         let algorithm = match alg_str.trim() {
             "sha-256" => ContentDigestAlgorithm::Sha256,
-            "sha-512" => ContentDigestAlgorithm::Sha512,
             _ => return Err(SignatureError::MalformedContentDigest),
         };
         let encoded = rest
@@ -661,7 +654,6 @@ impl ContentDigest {
             base64_standard_decode(encoded).map_err(|_| SignatureError::MalformedContentDigest)?;
         let expected_len = match algorithm {
             ContentDigestAlgorithm::Sha256 => 32,
-            ContentDigestAlgorithm::Sha512 => 64,
         };
         if digest.len() != expected_len {
             return Err(SignatureError::MalformedContentDigest);
@@ -680,7 +672,6 @@ impl ContentDigest {
 pub fn verify_content_digest(parsed: &ContentDigest, body: &[u8]) -> Result<(), SignatureError> {
     let recomputed = match parsed.algorithm {
         ContentDigestAlgorithm::Sha256 => arkret_canonical::canonical::sha256_bytes(body).to_vec(),
-        ContentDigestAlgorithm::Sha512 => Sha512::digest(body).to_vec(),
     };
     // Constant-time-ish comparison; the digest bytes are public so a
     // simple eq is sufficient, but we keep the check explicit.
@@ -1378,15 +1369,9 @@ mod tests {
         let err = verify_content_digest(&parsed, b"different body").unwrap_err();
         assert_eq!(err, SignatureError::ContentDigestMismatch);
 
-        // sha-512 path.
-        let d512 = ContentDigest::compute(body, ContentDigestAlgorithm::Sha512);
-        assert!(d512.wire_value.starts_with("sha-512=:"));
-        let parsed_512 = ContentDigest::parse(&d512.wire_value).unwrap();
-        assert_eq!(parsed_512.algorithm, ContentDigestAlgorithm::Sha512);
-        assert_eq!(parsed_512.digest.len(), 64);
-
-        // Unsupported alg.
-        let bad = ContentDigest::parse("md5=:abc:").unwrap_err();
-        assert_eq!(bad, SignatureError::MalformedContentDigest);
+        for unsupported in ["sha512=:abc:", "sha-512=:abc:", "md5=:abc:"] {
+            let error = ContentDigest::parse(unsupported).unwrap_err();
+            assert_eq!(error, SignatureError::MalformedContentDigest);
+        }
     }
 }

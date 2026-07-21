@@ -90,7 +90,7 @@ fn preserved_fields_survive_tombstone_and_body_is_erased() {
     let mut event = json!({
         "kind": "ak.message.create",
         "event_id": "ak:event:01970e58-0004-7000-8000-0000000005a1",
-        "created_at": "2026-04-26T00:00:00Z",
+        "created_at": "2026-04-26T00:00:00.000Z",
         "actor_id": "did:webvh:z6mkfixture:alice.example",
         "redacts": "ak:event:01970e58-0004-7000-8000-0000000005a0",
         "content": {"kind": "ak.content.text", "body": "secret plaintext"},
@@ -98,7 +98,7 @@ fn preserved_fields_survive_tombstone_and_body_is_erased() {
         "mentions": [{"actor_id": "did:webvh:z6mkfixture:bob.example"}],
         "search_terms": ["secret", "plaintext"],
     });
-    let redacted_at = DateTime::parse_from_rfc3339("2026-04-26T00:05:00Z")
+    let redacted_at = DateTime::parse_from_rfc3339("2026-04-26T00:05:00.000Z")
         .unwrap()
         .with_timezone(&Utc);
 
@@ -119,7 +119,7 @@ fn preserved_fields_survive_tombstone_and_body_is_erased() {
         event["event_id"],
         json!("ak:event:01970e58-0004-7000-8000-0000000005a1")
     );
-    assert_eq!(event["created_at"], json!("2026-04-26T00:00:00Z"));
+    assert_eq!(event["created_at"], json!("2026-04-26T00:00:00.000Z"));
     assert_eq!(
         event["actor_id"],
         json!("did:webvh:z6mkfixture:alice.example")

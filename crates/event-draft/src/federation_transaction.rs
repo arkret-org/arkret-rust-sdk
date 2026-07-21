@@ -41,6 +41,10 @@ pub struct FederationTransactionOutcome {
     #[serde(default)]
     pub rejected: Vec<EventsSubmitRejectedItem>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub next_retry_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub historical_only: bool,

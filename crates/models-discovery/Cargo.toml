@@ -21,6 +21,7 @@ salvo-oapi = [
 ]
 
 [dependencies]
+arkret-canonical = {workspace = true}
 arkret-models-identity = {workspace = true}
 arkret-wire = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}

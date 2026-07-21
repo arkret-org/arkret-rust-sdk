@@ -241,7 +241,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
             "challenge": self.bootstrap.pairing_request_id,
             "audience": self.bootstrap.service_id,
             "request_canonical_digest": request_digest,
-            "expires_at": proof_expires_at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            "expires_at": arkret_canonical::format_timestamp_canonical(proof_expires_at),
             "signature": arkret_canonical::base64url_encode(signature.to_bytes()),
         }))?;
         Ok((public_key, public_key_digest, proof_of_possession))
@@ -278,6 +278,10 @@ pub struct AgentPrincipal {
     pub capabilities: BTreeSet<String>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub metadata: Value,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
 }
 
@@ -423,8 +427,8 @@ pub struct AgentKeyPairProofSigningInput {
     pub audience: String,
     pub challenge: String,
     #[serde(
-        serialize_with = "arkret_wire::serde_helpers::serialize_canonical_timestamp_millis",
-        deserialize_with = "arkret_wire::serde_helpers::deserialize_canonical_timestamp_millis"
+        serialize_with = "arkret_wire::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_wire::serde_helpers::deserialize_canonical_timestamp"
     )]
     pub expires_at: DateTime<Utc>,
     pub request_canonical_digest: Hash,
@@ -628,8 +632,7 @@ pub fn build_agent_provision_event_drafts<S: MoveSigner + ?Sized>(
             signer.signer_did()
         )));
     }
-    let created_at = DateTime::<Utc>::from_timestamp(options.created_at.timestamp(), 0)
-        .ok_or_else(|| Error::Protocol("provision timestamp is outside the wire range".into()))?;
+    let created_at = arkret_canonical::normalize_timestamp_canonical(options.created_at);
     let verification_method = signer.verification_method_id().to_owned();
     let placeholder_digest = Hash::new(format!("sha256:{}", "0".repeat(64)))?;
     let mut accountability_payload = AccountabilityGrantPayload::new(
@@ -1168,7 +1171,16 @@ pub struct DelegatedActor {
     #[serde(default)]
     pub scopes: BTreeSet<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
 }
 
@@ -1207,9 +1219,22 @@ pub struct AgentRun {
     pub output: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub started_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub updated_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub completed_at: Option<DateTime<Utc>>,
 }
 
@@ -1307,6 +1332,10 @@ pub struct AgentToolAuditEntry {
     pub output: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
 }
 
@@ -1456,7 +1485,7 @@ mod tests {
         assert_eq!(value["expires_at"], "2026-07-17T00:05:00.000Z");
 
         let mut non_canonical = value;
-        non_canonical["issued_at"] = serde_json::json!("2026-07-17T00:00:00Z");
+        non_canonical["issued_at"] = serde_json::json!("2026-07-17T00:00:00.000Z");
         assert!(serde_json::from_value::<AgentRequestedScopeDisclosure>(non_canonical).is_err());
     }
 
@@ -1564,7 +1593,7 @@ mod tests {
         );
         assert_eq!(
             wire["accountability_grant"]["payload"]["proof"]["created_at"],
-            "2026-07-18T01:02:03Z"
+            "2026-07-18T01:02:03.000Z"
         );
     }
 
@@ -1737,7 +1766,7 @@ mod tests {
     fn runtime_key_request_builder_assembles_both_wire_shapes() {
         let signing_key = SigningKey::from_bytes(&[7_u8; 32]);
         let agent_id = did("runtime-builder");
-        let expires_at = "2026-05-26T10:05:00Z".parse::<DateTime<Utc>>().unwrap();
+        let expires_at = "2026-05-26T10:05:00.000Z".parse::<DateTime<Utc>>().unwrap();
         let bootstrap = AgentPairingBootstrap {
             arkret_base_url: "https://arkret.example".to_owned(),
             service_id: Did::new("did:webvh:z6mkfixture:service.example".to_owned()).unwrap(),
@@ -1913,7 +1942,7 @@ mod tests {
             String::from_utf8(canonical::canonical_json_bytes(&event.payload).unwrap()).unwrap();
         assert_eq!(
             canonical_content,
-            r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_id":"did:webvh:z6mkfixture:agent.example","agent_key_scope":{"actions":["ak.self.events.stream.subscribe","ak.message.create"],"resources":[{"kind":"operation","operation":"ak.self.events.stream.subscribe"}]},"approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","evidence_ref":"ak:event:01970000-0000-7000-8000-000000000021","kind":"approval_event"},"audience":["https://arkret.example"],"expires_at":"2026-05-26T10:15:00Z","issued_at":"2026-05-26T10:00:00Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
+            r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_id":"did:webvh:z6mkfixture:agent.example","agent_key_scope":{"actions":["ak.self.events.stream.subscribe","ak.message.create"],"resources":[{"kind":"operation","operation":"ak.self.events.stream.subscribe"}]},"approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","evidence_ref":"ak:event:01970000-0000-7000-8000-000000000021","kind":"approval_event"},"audience":["https://arkret.example"],"expires_at":"2026-05-26T10:15:00.000Z","issued_at":"2026-05-26T10:00:00.000Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
         );
     }
 
@@ -2078,7 +2107,7 @@ mod tests {
         let signing_json = String::from_utf8(signing_input.canonical_bytes().unwrap()).unwrap();
         assert_eq!(
             signing_json,
-            r#"{"audience":"did:webvh:z6mkfixture:service.example","challenge":"challenge","expires_at":"2026-05-26T10:05:00Z","nonce":"nonce-abc","request_canonical_digest":"sha256:663117b841f137d20feb109b9a1e32eaa361191cbef8a9bd677e0d98d389ef9b","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
+            r#"{"audience":"did:webvh:z6mkfixture:service.example","challenge":"challenge","expires_at":"2026-05-26T10:05:00.000Z","nonce":"nonce-abc","request_canonical_digest":"sha256:663117b841f137d20feb109b9a1e32eaa361191cbef8a9bd677e0d98d389ef9b","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
         );
         assert!(!signing_json.contains(AGENT_KEY_PROOF_KIND));
 

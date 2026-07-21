@@ -246,6 +246,10 @@ pub struct PresencePreference {
     /// Expiry: past this instant the whole preference is treated as
     /// absent and clients revert to automatic state detection.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub clears_at: Option<DateTime<Utc>>,
 }
 
@@ -346,7 +350,7 @@ mod tests {
 
     #[test]
     fn last_active_at_accepts_exact_utc_timestamp() {
-        assert_eq!(validate_last_active_at("2026-04-26T10:00:00Z"), Ok(()));
+        assert_eq!(validate_last_active_at("2026-04-26T10:00:00.000Z"), Ok(()));
     }
 
     #[test]
@@ -357,18 +361,24 @@ mod tests {
 
     #[test]
     fn last_active_at_accepts_aligned_bucket() {
-        assert_eq!(validate_last_active_at("2026-04-26T10:00:00Z/PT1H"), Ok(()));
-        assert_eq!(validate_last_active_at("2026-04-26T10:05:00Z/PT5M"), Ok(()));
+        assert_eq!(
+            validate_last_active_at("2026-04-26T10:00:00.000Z/PT1H"),
+            Ok(())
+        );
+        assert_eq!(
+            validate_last_active_at("2026-04-26T10:05:00.000Z/PT5M"),
+            Ok(())
+        );
     }
 
     #[test]
     fn last_active_at_rejects_unaligned_bucket_start() {
         assert_eq!(
-            validate_last_active_at("2026-04-26T10:34:00Z/PT1H"),
+            validate_last_active_at("2026-04-26T10:34:00.000Z/PT1H"),
             Err(PresenceValidationError::BucketUnaligned)
         );
         assert_eq!(
-            validate_last_active_at("2026-04-26T10:00:30Z/PT1M"),
+            validate_last_active_at("2026-04-26T10:00:30.000Z/PT1M"),
             Err(PresenceValidationError::BucketUnaligned)
         );
     }
@@ -376,11 +386,11 @@ mod tests {
     #[test]
     fn last_active_at_rejects_bucket_below_pt60s_floor() {
         assert_eq!(
-            validate_last_active_at("2026-04-26T10:00:00Z/PT30S"),
+            validate_last_active_at("2026-04-26T10:00:00.000Z/PT30S"),
             Err(PresenceValidationError::BucketBelowFloor)
         );
         assert_eq!(
-            validate_last_active_at("2026-04-26T10:00:01Z/PT1S"),
+            validate_last_active_at("2026-04-26T10:00:01.000Z/PT1S"),
             Err(PresenceValidationError::BucketBelowFloor)
         );
     }
@@ -388,14 +398,14 @@ mod tests {
     #[test]
     fn last_active_at_rejects_calendar_and_malformed_durations() {
         // Calendar durations have no fixed length.
-        assert!(validate_last_active_at("2026-04-26T00:00:00Z/P1M").is_err());
-        assert!(validate_last_active_at("2026-04-26T00:00:00Z/P1D").is_err());
+        assert!(validate_last_active_at("2026-04-26T00:00:00.000Z/P1M").is_err());
+        assert!(validate_last_active_at("2026-04-26T00:00:00.000Z/P1D").is_err());
         // Zero / negative / empty / trailing digits.
-        assert!(validate_last_active_at("2026-04-26T00:00:00Z/PT0S").is_err());
-        assert!(validate_last_active_at("2026-04-26T00:00:00Z/PT").is_err());
-        assert!(validate_last_active_at("2026-04-26T00:00:00Z/PT5").is_err());
+        assert!(validate_last_active_at("2026-04-26T00:00:00.000Z/PT0S").is_err());
+        assert!(validate_last_active_at("2026-04-26T00:00:00.000Z/PT").is_err());
+        assert!(validate_last_active_at("2026-04-26T00:00:00.000Z/PT5").is_err());
         // More than one slash.
-        assert!(validate_last_active_at("2026-04-26T00:00:00Z/PT1H/PT1H").is_err());
+        assert!(validate_last_active_at("2026-04-26T00:00:00.000Z/PT1H/PT1H").is_err());
     }
 
     #[test]
@@ -458,10 +468,10 @@ mod tests {
         let preference = PresencePreference {
             manual_state: Some(PresenceStatus::Dnd),
             status_message: Some("开会中".to_owned()),
-            clears_at: Some("2026-07-03T12:00:00Z".parse().unwrap()),
+            clears_at: Some("2026-07-03T12:00:00.000Z".parse().unwrap()),
         };
-        let before = "2026-07-03T11:59:59Z".parse().unwrap();
-        let after = "2026-07-03T12:00:00Z".parse().unwrap();
+        let before = "2026-07-03T11:59:59.000Z".parse().unwrap();
+        let after = "2026-07-03T12:00:00.000Z".parse().unwrap();
         assert_eq!(
             preference.effective_manual_state(before),
             Some(PresenceStatus::Dnd)
@@ -476,7 +486,7 @@ mod tests {
         let preference = PresencePreference {
             manual_state: Some(PresenceStatus::Dnd),
             status_message: Some("开会中，稍后回复".to_owned()),
-            clears_at: Some("2026-07-03T12:00:00Z".parse().unwrap()),
+            clears_at: Some("2026-07-03T12:00:00.000Z".parse().unwrap()),
         };
         let json = serde_json::to_value(&preference).unwrap();
         assert_eq!(json["manual_state"], "dnd");

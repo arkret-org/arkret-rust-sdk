@@ -14,7 +14,15 @@ pub struct SessionGrantPayload {
     pub scopes: Vec<String>,
     pub session_id: String,
     pub grant_jti: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cnf: Option<SessionGrantConfirmation>,
@@ -199,8 +207,16 @@ pub fn verify_session_grant_with_verifier(
 pub struct SessionGrantRecord {
     pub payload: SessionGrantPayload,
     pub grant_hash: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub revoked_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub revoke_reason: Option<String>,
@@ -314,6 +330,10 @@ pub struct SessionGrantOutboxEntry {
     pub notification: PrincipalSessionGrantNotification,
     pub state: SessionGrantOutboxState,
     pub attempts: u32,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub next_attempt_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_error: Option<String>,

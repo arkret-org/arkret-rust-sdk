@@ -4,6 +4,10 @@ use super::*;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthzContext {
     /// Current timestamp for evaluation
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub now: DateTime<Utc>,
     /// Actor making the request
     pub actor_id: Did,
@@ -58,6 +62,10 @@ pub struct AuthzContext {
     pub scope_resource_count: Option<u64>,
     /// Creation time of the target object (for `EditWindow`).
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub target_created_at: Option<DateTime<Utc>>,
     /// Active Strand track (`discussion` / `synthesis` / profile-defined)
     /// when the operation targets a Strand.
@@ -288,6 +296,10 @@ pub struct PolicyModerationReport {
     pub resource: Resource,
     pub effect: PolicyServerEffect,
     pub reason: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
 }
 
@@ -1518,7 +1530,7 @@ mod engine_wire_tests {
             alg: "EdDSA".to_owned(),
             verification_method: format!("{issuer}#device-1"),
             payload_digest: arkret_wire::Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-            created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+            created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             domain: None,
             audience: None,
             proof_purpose: Some(arkret_wire::PayloadProofPurpose::IssuerAttestation),
@@ -1548,7 +1560,7 @@ mod engine_wire_tests {
             capability_action_registry_digest: None,
             constraints,
             parent_grant_id: None,
-            issued_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+            issued_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             not_before: None,
             expires_at: None,
             updated_by: None,
@@ -1630,10 +1642,10 @@ mod engine_wire_tests {
         let grant = wire_grant(vec![constraint(json!({
             "constraint_type": "temporal",
             "effect": "allow",
-            "expires_at": "2026-01-01T00:00:00Z",
+            "expires_at": "2026-01-01T00:00:00.000Z",
         }))]);
         let mut ctx = ctx();
-        ctx.now = "2026-02-01T00:00:00Z".parse().unwrap();
+        ctx.now = "2026-02-01T00:00:00.000Z".parse().unwrap();
         let decision = engine.check_authorization(&ctx, std::slice::from_ref(&grant));
         assert!(
             matches!(decision, EngineDecision::Deny { reason } if reason.contains("expires_at"))

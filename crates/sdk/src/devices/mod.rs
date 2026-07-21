@@ -37,6 +37,11 @@ pub struct DeviceMetadata {
     /// Operating system name/version.
     pub os: Option<String>,
     /// Last seen time.
+    #[serde(
+        default,
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub last_seen_at: Option<DateTime<Utc>>,
 }
 
@@ -70,6 +75,10 @@ pub struct Device {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cross_signing_binding: Option<DeviceTrustBinding>,
     /// Last local update time.
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub updated_at: DateTime<Utc>,
 }
 
@@ -92,7 +101,15 @@ pub struct DeviceVerificationChallenge {
     pub method: String,
     pub challenge: String,
     pub commitment: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
 }
 
@@ -122,6 +139,10 @@ pub struct ToDeviceEnvelope {
     /// Message body.
     pub content: Value,
     /// Local receive/enqueue time.
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub queued_at: DateTime<Utc>,
 }
 

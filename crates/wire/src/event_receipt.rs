@@ -79,6 +79,10 @@ pub struct EventBatchReceipt {
     pub scope: EventBatchReceiptScope,
     pub frontier: EventBatchReceiptFrontier,
     pub events: Vec<EventBatchReceiptEvent>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     pub proofs: Vec<Proof>,
 }
@@ -212,8 +216,8 @@ pub struct EventProof {
     pub alg: String,
     pub event_digest: Hash,
     #[serde(
-        serialize_with = "crate::serde_helpers::serialize_canonical_timestamp_millis",
-        deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp_millis"
+        serialize_with = "crate::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp"
     )]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

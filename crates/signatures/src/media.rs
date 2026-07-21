@@ -11,6 +11,7 @@ struct ParticipantBindingSigningFields<'a> {
     actor_id: &'a arkret_wire::Did,
     call_id: &'a arkret_wire::CallId,
     device_id: &'a arkret_wire::DeviceId,
+    #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     expires_at: DateTime<Utc>,
     focus_id: &'a str,
     participant_identity: &'a str,

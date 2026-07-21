@@ -720,11 +720,11 @@ mod tests {
         };
 
         let value = serde_json::to_value(&locator).expect("serialize locator");
-        assert_eq!(value["issued_at"], "2026-06-07T10:00:00Z");
-        assert_eq!(value["expires_at"], "2026-06-07T10:15:00Z");
+        assert_eq!(value["issued_at"], "2026-06-07T10:00:00.123Z");
+        assert_eq!(value["expires_at"], "2026-06-07T10:15:00.123Z");
         assert_eq!(
             value["proofs"][0]["proof"]["created_at"],
-            "2026-06-07T10:00:00Z"
+            "2026-06-07T10:00:00.123Z"
         );
         assert!(serde_json::from_value::<PrincipalLocator>(value).is_ok());
     }
@@ -738,7 +738,7 @@ mod tests {
             retry_after_ms: None,
         };
         let value = serde_json::to_value(outcome).expect("serialize outcome");
-        assert_eq!(value["received_at"], "2026-06-07T10:00:00Z");
+        assert_eq!(value["received_at"], "2026-06-07T10:00:00.123Z");
         assert!(value.get("disclosed_outcome").is_none());
     }
 
@@ -813,7 +813,7 @@ mod tests {
     fn introduction_evidence_handle_claim_roundtrips_wire_kind() {
         let handle = Handle::parse("alice:example.com").unwrap();
         let expires_at = test_time() + chrono::Duration::hours(1);
-        let resolved_at = DateTime::parse_from_rfc3339("2026-06-07T10:00:00Z")
+        let resolved_at = DateTime::parse_from_rfc3339("2026-06-07T10:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
         let claim = HandleClaim {
@@ -844,7 +844,7 @@ mod tests {
         assert_eq!(evidence.kind(), "handle_claim");
         let value = serde_json::to_value(&evidence).expect("serialize handle_claim evidence");
         assert_eq!(value["kind"], "handle_claim");
-        assert_eq!(value["resolved_at"], "2026-06-07T10:00:00Z");
+        assert_eq!(value["resolved_at"], "2026-06-07T10:00:00.000Z");
         let parsed: IntroductionEvidence =
             serde_json::from_value(value).expect("deserialize handle_claim evidence");
         assert_eq!(parsed, evidence);

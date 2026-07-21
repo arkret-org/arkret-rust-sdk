@@ -263,7 +263,7 @@ mod account_subscribe_frame_tests {
 
     #[test]
     fn account_subscribe_delta_accepts_closed_agent_notification_items() {
-        let line = r#"{"cursor":"ak:cursor:account-2","kind":"delta","notifications":{"items":[{"action":"add","data":{"agent_id":"did:webvh:z6mkfixture:agent.example","approval_request_id":"agent_runtime_approval:01964137-0000-7000-8000-000000000002","expires_at":"2026-07-13T10:15:00Z","kind":"agent_runtime_approval","requested_at":"2026-07-13T10:00:00Z"},"id":"ak:notification:01964137-0000-7000-8000-000000000002","type":"agent"}]}}"#;
+        let line = r#"{"cursor":"ak:cursor:account-2","kind":"delta","notifications":{"items":[{"action":"add","data":{"agent_id":"did:webvh:z6mkfixture:agent.example","approval_request_id":"agent_runtime_approval:01964137-0000-7000-8000-000000000002","expires_at":"2026-07-13T10:15:00.000Z","kind":"agent_runtime_approval","requested_at":"2026-07-13T10:00:00.000Z"},"id":"ak:notification:01964137-0000-7000-8000-000000000002","type":"agent"}]}}"#;
         let frame = AccountSubscribeFrame::from_ndjson_line(line)
             .unwrap()
             .unwrap();

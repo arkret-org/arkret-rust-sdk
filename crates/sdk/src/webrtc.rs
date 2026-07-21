@@ -1,15 +1,12 @@
 //! WebRTC signaling and conference state helpers.
 
 use arkret_canonical::base64url::base64url_decode;
-use arkret_canonical::canonical::canonical_json_bytes;
 use arkret_core::{
-    MediaIceConfigOutcome, MediaIceConstraints, MediaIceServer, MediaIceSignatureAlgorithm,
-    XExtensionMap,
+    MediaIceConfigOutcome, MediaIceConfigSignature, MediaIceServer, MediaIceSignatureAlgorithm,
+    MediaIceSignatureInput,
 };
-#[cfg(test)]
-use arkret_core::{MediaIceConfigSignature, MediaIceSignatureInput};
 use chrono::{DateTime, Utc};
-use ed25519_dalek::Signature;
+use ed25519_dalek::{Signature, Signer, SigningKey};
 use serde::{Deserialize, Serialize};
 
 /// SDP description type used by the SDK's WebRTC transport helpers.
@@ -37,8 +34,6 @@ pub struct IceCandidate {
 use crate::media::MediaServiceAnchors;
 use crate::{Did, Error, RealmId, Result};
 
-const ICE_CONFIG_SIGNING_LABEL: &str = "ak.media.ice_config.v1";
-
 /// To-device WebRTC signaling message kind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -61,6 +56,10 @@ pub struct WebRtcSignalMessage {
     pub session_description: Option<CallSessionDescription>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ice_candidate: Option<IceCandidate>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
 }
 
@@ -206,63 +205,37 @@ fn validate_ice_server_credential_privacy(server: &MediaIceServer) -> Result<()>
     Ok(())
 }
 
-#[derive(Serialize)]
-struct IceConfigSigningFields<'a> {
-    realm_id: &'a RealmId,
-    call_id: &'a str,
-    actor_id: &'a Did,
-    device_id: &'a crate::DeviceId,
-    ice_servers: &'a [MediaIceServer],
-    ttl_seconds: u32,
-    refresh_lead_seconds: u32,
-    issued_at: DateTime<Utc>,
-    issued_at_bucket: DateTime<Utc>,
-    bucket_seconds: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    expires_at: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    force_turn: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    constraints: &'a Option<MediaIceConstraints>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    next_retry_at: &'a Option<DateTime<Utc>>,
-    #[serde(flatten)]
-    extensions: &'a XExtensionMap,
+fn ice_config_canonical_payload(outcome: &MediaIceConfigOutcome) -> Result<Vec<u8>> {
+    outcome.canonical_signature_payload().map_err(|err| {
+        Error::Protocol(format!("ice_config_denied: canonicalization failed: {err}"))
+    })
 }
 
-fn ice_config_signing_input(
-    outcome: &MediaIceConfigOutcome,
-    include_default_force_turn: bool,
-) -> Result<Vec<u8>> {
-    let fields = IceConfigSigningFields {
-        realm_id: &outcome.realm_id,
-        call_id: &outcome.call_id,
-        actor_id: &outcome.actor_id,
-        device_id: &outcome.device_id,
-        ice_servers: &outcome.ice_servers,
-        ttl_seconds: outcome.ttl_seconds,
-        refresh_lead_seconds: outcome.refresh_lead_seconds,
-        issued_at: outcome.issued_at,
-        issued_at_bucket: outcome.issued_at_bucket,
-        bucket_seconds: outcome.bucket_seconds,
-        expires_at: outcome.expires_at,
-        force_turn: if outcome.force_turn || include_default_force_turn {
-            Some(outcome.force_turn)
-        } else {
-            None
-        },
-        constraints: &outcome.constraints,
-        next_retry_at: &outcome.next_retry_at,
-        extensions: &outcome.extensions,
+fn ice_config_signing_input(outcome: &MediaIceConfigOutcome) -> Result<Vec<u8>> {
+    outcome.signature_input().map_err(|err| {
+        Error::Protocol(format!(
+            "ice_config_denied: transcript construction failed: {err}"
+        ))
+    })
+}
+
+/// Sign a server-produced ICE configuration using the protocol's canonical
+/// transcript and populate its detached signature metadata.
+pub fn sign_ice_config_outcome(
+    outcome: &mut MediaIceConfigOutcome,
+    kid: impl Into<String>,
+    signing_key: &SigningKey,
+) -> Result<()> {
+    let canonical = ice_config_canonical_payload(outcome)?;
+    let signing_input = ice_config_signing_input(outcome)?;
+    outcome.signature = MediaIceConfigSignature {
+        kid: kid.into(),
+        alg: MediaIceSignatureAlgorithm::EdDsa,
+        signature_input: MediaIceSignatureInput::IceConfigV1,
+        payload_digest: crate::Hash::new(arkret_canonical::sha256_digest(&canonical))?,
+        sig: arkret_canonical::base64url_encode(signing_key.sign(&signing_input).to_bytes()),
     };
-    let canonical = canonical_json_bytes(&fields).map_err(|err| {
-        Error::Protocol(format!("ice_config_denied: canonicalization failed: {err}"))
-    })?;
-    let mut input = Vec::with_capacity(ICE_CONFIG_SIGNING_LABEL.len() + canonical.len() + 1);
-    input.extend_from_slice(ICE_CONFIG_SIGNING_LABEL.as_bytes());
-    input.push(0x00);
-    input.extend_from_slice(&canonical);
-    Ok(input)
+    Ok(())
 }
 
 fn verify_ice_config_signature(
@@ -273,6 +246,18 @@ fn verify_ice_config_signature(
     if outcome.signature.alg != MediaIceSignatureAlgorithm::EdDsa {
         return Err(Error::Protocol(
             "ice_config_denied: unsupported signature algorithm".to_owned(),
+        ));
+    }
+    if outcome.signature.signature_input != MediaIceSignatureInput::IceConfigV1 {
+        return Err(Error::Protocol(
+            "ice_config_denied: unsupported signature input".to_owned(),
+        ));
+    }
+    let canonical = ice_config_canonical_payload(outcome)?;
+    let expected_digest = crate::Hash::new(arkret_canonical::sha256_digest(&canonical))?;
+    if outcome.signature.payload_digest != expected_digest {
+        return Err(Error::Protocol(
+            "ice_config_denied: payload digest mismatch".to_owned(),
         ));
     }
     let sig_b64 = &outcome.signature.sig;
@@ -294,14 +279,8 @@ fn verify_ice_config_signature(
     })?;
     let signature = Signature::from_bytes(&sig_array);
 
-    let mut signing_inputs = vec![ice_config_signing_input(outcome, true)?];
-    if !outcome.force_turn {
-        signing_inputs.push(ice_config_signing_input(outcome, false)?);
-    }
-    if signing_inputs
-        .iter()
-        .any(|input| key.verify_strict(input, &signature).is_ok())
-    {
+    let signing_input = ice_config_signing_input(outcome)?;
+    if key.verify_strict(&signing_input, &signature).is_ok() {
         return Ok(());
     }
     Err(Error::Protocol(
@@ -609,8 +588,8 @@ impl ModeratePayload {
 
 #[cfg(test)]
 mod tests {
-    use arkret_canonical::base64url::base64url_encode;
-    use ed25519_dalek::{Signer, SigningKey};
+    use arkret_core::XExtensionMap;
+    use ed25519_dalek::SigningKey;
 
     use super::*;
 
@@ -638,11 +617,7 @@ mod tests {
         kid: &str,
         key: &SigningKey,
     ) -> MediaIceConfigOutcome {
-        outcome.signature.kid = kid.to_owned();
-        outcome.signature.sig.clear();
-        let signing_input = ice_config_signing_input(&outcome, true).unwrap();
-        let signature = key.sign(&signing_input);
-        outcome.signature.sig = base64url_encode(signature.to_bytes());
+        sign_ice_config_outcome(&mut outcome, kid, key).unwrap();
         outcome
     }
 
@@ -673,8 +648,8 @@ mod tests {
             ],
             ttl_seconds: 300,
             refresh_lead_seconds: 60,
-            issued_at: "2026-05-27T12:29:56Z".parse().unwrap(),
-            issued_at_bucket: "2026-05-27T12:25:00Z".parse().unwrap(),
+            issued_at: "2026-05-27T12:29:56.000Z".parse().unwrap(),
+            issued_at_bucket: "2026-05-27T12:25:00.000Z".parse().unwrap(),
             bucket_seconds: 300,
             expires_at: None,
             force_turn: false,
@@ -717,6 +692,11 @@ mod tests {
         let mut bad_ttl = signed_ice_outcome(MEDIA_KID, &key);
         bad_ttl.refresh_lead_seconds = bad_ttl.ttl_seconds;
         assert!(verify_ice_config_outcome(&bad_ttl, &anchors).is_err());
+
+        let mut bad_digest = signed_ice_outcome(MEDIA_KID, &key);
+        bad_digest.signature.payload_digest =
+            crate::Hash::new(format!("sha256:{}", "f".repeat(64))).unwrap();
+        assert!(verify_ice_config_outcome(&bad_digest, &anchors).is_err());
     }
 
     #[test]

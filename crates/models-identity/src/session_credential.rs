@@ -32,7 +32,15 @@ pub struct SignedSessionGrantClaims {
     pub subject: Did,
     pub audience: String,
     pub scopes: Vec<String>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub not_before: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     pub session_id: String,
     pub cnf: SessionGrantCnf,
@@ -96,8 +104,8 @@ mod tests {
             subject: Did::new("did:web:alice.example").unwrap(),
             audience: "https://app.example.com".to_owned(),
             scopes: vec!["ak.self.events.command.submit".to_owned()],
-            not_before: "2026-07-18T00:00:00Z".parse().unwrap(),
-            expires_at: "2026-07-18T00:15:00Z".parse().unwrap(),
+            not_before: "2026-07-18T00:00:00.000Z".parse().unwrap(),
+            expires_at: "2026-07-18T00:15:00.000Z".parse().unwrap(),
             session_id: "session-1".to_owned(),
             cnf: SessionGrantCnf {
                 jkt: "thumbprint".to_owned(),

@@ -128,6 +128,10 @@ pub struct Member {
     /// Cached profile.
     pub profile: Option<MemberProfile>,
     /// Last membership update time.
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub updated_at: DateTime<Utc>,
 }
 
@@ -791,7 +795,7 @@ mod tests {
         let mut manager = MembershipManager::new(realm_id, alice.clone());
 
         // Invite that already expired
-        let past = "2020-01-01T00:00:00Z".parse().unwrap();
+        let past = "2020-01-01T00:00:00.000Z".parse().unwrap();
         let invite = manager
             .send_invite_with_expiry(bob, alice, MemberRole::Member, past)
             .unwrap();
@@ -820,7 +824,7 @@ mod tests {
             .send_invite(bob, alice.clone(), MemberRole::Member)
             .unwrap();
         // Expired invite
-        let past = "2020-01-01T00:00:00Z".parse().unwrap();
+        let past = "2020-01-01T00:00:00.000Z".parse().unwrap();
         let _invite2 = manager
             .send_invite_with_expiry(carol, alice, MemberRole::Member, past)
             .unwrap();

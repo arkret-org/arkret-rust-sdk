@@ -18,6 +18,10 @@ use crate::error::{Error, Result};
 pub struct AgentKeyPairProofSigningInput {
     pub audience: String,
     pub challenge: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     pub request_canonical_digest: Hash,
     pub verification_method: String,
@@ -188,7 +192,7 @@ pub fn agent_key_pairing_request_binding_digest(
         ))
     })?;
     let pairing_expires_at =
-        canonical::format_timestamp_millis_canonical(parsed_expires_at.with_timezone(&Utc));
+        canonical::format_timestamp_canonical(parsed_expires_at.with_timezone(&Utc));
     Hash::new(canonical::canonical_sha256(
         &AgentKeyPairingRequestBinding {
             kind: "ak.agent.key_pairing_request_binding.v1",

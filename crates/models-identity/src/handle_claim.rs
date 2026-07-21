@@ -78,10 +78,25 @@ pub struct HandleClaim {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub claims: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub created_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub verified_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<String>,
@@ -313,7 +328,7 @@ mod tests {
             "subject": "did:webvh:z6mkfixture:alice.example",
             "issuer": "did:webvh:z6mkfixture:issuer.example",
             "binding_state": "pending",
-            "x_directory_cache_hint": {"served_at": "2026-07-15T00:00:00Z"},
+            "x_directory_cache_hint": {"served_at": "2026-07-15T00:00:00.000Z"},
             "server_attested_freshness": 42
         });
         let claim: HandleClaim =

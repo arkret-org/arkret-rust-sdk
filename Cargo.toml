@@ -66,6 +66,7 @@ hex = "0.4.3"
 hpke = {version = "0.13",default-features = false,features = ["x25519", "std"]}
 hkdf = {version = "0.13.0",default-features = false}
 hmac = {version = "0.13.0",default-features = false}
+idna = {version = "1.1.0",default-features = true}
 # Pinned to a specific commit (not a mutable `branch = "main"`) so E2EE/MLS
 # core builds are reproducible and upstream `main` churn can't silently change
 # crypto behavior. Bump deliberately under review when adopting a new OpenMLS.
@@ -74,6 +75,7 @@ openmls_basic_credential = {version = "0.5.0",git = "https://github.com/openmls/
 openmls_rust_crypto = {version = "0.5.1",git = "https://github.com/openmls/openmls.git",rev = "d5a3aa7b595cb445614aa04b38f3d3aa42cf4911",default-features = false}
 parking_lot = {version = "0.12.5",default-features = false}
 proptest = {version = "1",default-features = false}
+precis-profiles = {version = "0.1.13",default-features = false}
 regex = {version = "1.12.4",default-features = false,features = ["std", "unicode-perl"]}
 reqwest = {version = "0.13.4",default-features = false,features = ["query"]}
 salvo = {version = "0.95",default-features = false}
@@ -98,6 +100,7 @@ tokio = {version = "1.52.3",default-features = false,features = ["sync"]}
 tokio-util = {version = "0.7",default-features = false}
 tracing = {version = "0.1.44",default-features = false,features = ["std", "attributes"]}
 unicode-normalization = {version = "0.1.25",default-features = false,features = ["std"]}
+unicode-security = {version = "0.1.2",default-features = false}
 url = {version = "2.5.8",default-features = false}
 uuid = {version = "1.23",default-features = false,features = ["std", "v7", "serde"]}
 # Windows KeyStore backend, enabled only by the keystore crate target cfg.

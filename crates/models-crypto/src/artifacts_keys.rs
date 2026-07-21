@@ -89,6 +89,10 @@ pub struct KeyBackupUnlockProof {
     pub proof_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub challenge: Option<String>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
     pub auth_data: KeyBackupUnlockProofAuthData,
     #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
@@ -155,6 +159,10 @@ pub struct KeyPackageClaimRecord {
     pub ssk_generation: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_authorize_event_id: Option<String>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     pub device_signature: KeyOperationSignature,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -179,7 +187,15 @@ pub struct KeyPackageUploadEntry {
     pub key_package: Base64UrlString,
     pub cipher_suites: Vec<String>,
     pub capabilities: Vec<String>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_signature: Option<KeyOperationSignature>,
@@ -231,9 +247,21 @@ pub struct BackupMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_policy_ref: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub updated_at: Option<DateTime<Utc>>,
     pub ciphertext_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -263,8 +291,16 @@ pub struct KeyRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fallback: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub created_at: Option<DateTime<Utc>>,
 }
 
@@ -306,10 +342,22 @@ pub struct Share {
     pub transport: String,
     pub share_commitment: ShareShareCommitment,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub not_before: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub revoked_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revocation_reason_code: Option<String>,
@@ -358,7 +406,15 @@ pub struct GenericRecoveryTranscript {
     pub identity_model: RecoveryIdentityModel,
     pub model_generation_ref: RecoveryModelGenerationRef,
     pub challenge: Challenge,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     pub proof_body: BTreeMap<String, Value>,
 }
@@ -377,7 +433,9 @@ struct GenericRecoveryTranscriptWire {
     identity_model: RecoveryIdentityModel,
     model_generation_ref: RecoveryModelGenerationRef,
     challenge: Challenge,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     expires_at: DateTime<Utc>,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     created_at: DateTime<Utc>,
     proof_body: BTreeMap<String, Value>,
 }
@@ -434,7 +492,15 @@ pub struct PrincipalSigningTranscript {
     pub identity_model: RecoveryIdentityModel,
     pub model_generation_ref: RecoveryModelGenerationRef,
     pub challenge: Challenge,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
 }
 
@@ -452,7 +518,9 @@ struct PrincipalSigningTranscriptWire {
     identity_model: RecoveryIdentityModel,
     model_generation_ref: RecoveryModelGenerationRef,
     challenge: Challenge,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     expires_at: DateTime<Utc>,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     created_at: DateTime<Utc>,
 }
 
@@ -894,6 +962,9 @@ impl Serialize for RecoverySessionState {
         use serde::ser::SerializeMap;
 
         self.validate().map_err(serde::ser::Error::custom)?;
+        let expires_at = arkret_canonical::canonical::format_timestamp_canonical(self.expires_at);
+        let created_at = arkret_canonical::canonical::format_timestamp_canonical(self.created_at);
+        let updated_at = arkret_canonical::canonical::format_timestamp_canonical(self.updated_at);
         let model_fields = match self.identity_model {
             RecoveryIdentityModel::CrossSigning => 1,
             RecoveryIdentityModel::EnrollmentAuthority => 4,
@@ -933,9 +1004,9 @@ impl Serialize for RecoverySessionState {
         if let Some(reason) = &self.rejection_reason_code {
             map.serialize_entry("rejection_reason_code", reason)?;
         }
-        map.serialize_entry("expires_at", &self.expires_at)?;
-        map.serialize_entry("created_at", &self.created_at)?;
-        map.serialize_entry("updated_at", &self.updated_at)?;
+        map.serialize_entry("expires_at", &expires_at)?;
+        map.serialize_entry("created_at", &created_at)?;
+        map.serialize_entry("updated_at", &updated_at)?;
         map.end()
     }
 }
@@ -960,8 +1031,11 @@ struct RecoverySessionStateWire {
     state: SessionState,
     proof_summary: Option<ProofSummary>,
     rejection_reason_code: Option<String>,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     expires_at: DateTime<Utc>,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     created_at: DateTime<Utc>,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     updated_at: DateTime<Utc>,
 }
 
@@ -1217,9 +1291,9 @@ mod recovery_completion_tests {
             "accepted_seal_frontier": null,
             "challenge": "challenge-1",
             "state": "pending",
-            "expires_at": "2026-07-15T00:10:00Z",
-            "created_at": "2026-07-15T00:00:00Z",
-            "updated_at": "2026-07-15T00:00:00Z"
+            "expires_at": "2026-07-15T00:10:00.000Z",
+            "created_at": "2026-07-15T00:00:00.000Z",
+            "updated_at": "2026-07-15T00:00:00.000Z"
         });
         let state: RecoverySessionState = serde_json::from_value(enrollment.clone()).unwrap();
         assert_eq!(
@@ -1250,9 +1324,9 @@ mod recovery_completion_tests {
             "ssk_generation": 2,
             "challenge": "challenge-1",
             "state": "pending",
-            "expires_at": "2026-07-15T00:10:00Z",
-            "created_at": "2026-07-15T00:00:00Z",
-            "updated_at": "2026-07-15T00:00:00Z"
+            "expires_at": "2026-07-15T00:10:00.000Z",
+            "created_at": "2026-07-15T00:00:00.000Z",
+            "updated_at": "2026-07-15T00:00:00.000Z"
         });
         assert!(serde_json::from_value::<RecoverySessionState>(cross_signing).is_ok());
     }

@@ -429,7 +429,7 @@ mod tests {
             trust_domain(),
             NotaryProfile::SingleDid,
             NotaryValue::single_did(creator),
-            DateTime::parse_from_rfc3339("2026-07-21T00:00:00Z")
+            DateTime::parse_from_rfc3339("2026-07-21T00:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
         );
@@ -473,7 +473,7 @@ mod tests {
             mls_genesis_event_ref: event_id("305"),
             mls_commit_event_ref: event_id("306"),
             mls_welcome_event_ref: event_id("307"),
-            created_at: DateTime::parse_from_rfc3339("2026-07-21T00:00:00Z")
+            created_at: DateTime::parse_from_rfc3339("2026-07-21T00:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
             supersedes_binding_ref,

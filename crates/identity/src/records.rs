@@ -372,6 +372,10 @@ pub struct StaridRegistryRecord {
     pub current_control_key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub receipt: Option<DidRegistryReceipt>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub resolved_at: DateTime<Utc>,
 }
 
@@ -410,6 +414,10 @@ pub struct StaridControlProofRequestBody {
 pub struct StaridControlProofVerification {
     pub did: Did,
     pub verification_method: String,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub verified_at: DateTime<Utc>,
 }
 

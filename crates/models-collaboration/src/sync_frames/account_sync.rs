@@ -33,7 +33,15 @@ pub struct AgentRuntimeApprovalNotificationData {
     pub kind: AccountNotificationDataKind,
     pub approval_request_id: String,
     pub agent_id: Did,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub requested_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
 }
 
@@ -150,7 +158,9 @@ pub struct DeviceMessageEnvelope {
     pub sender_device_id: DeviceId,
     pub recipient_principal_id: Did,
     pub recipient_device_id: DeviceId,
+    #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub sent_at: DateTime<Utc>,
+    #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub content: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -168,7 +178,9 @@ struct DeviceMessageEnvelopeWire {
     sender_device_id: DeviceId,
     recipient_principal_id: Did,
     recipient_device_id: DeviceId,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     sent_at: DateTime<Utc>,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     expires_at: DateTime<Utc>,
     content: BTreeMap<String, Value>,
     #[serde(default)]
@@ -408,6 +420,10 @@ pub struct DeviceMessageTarget {
     pub message_id: DeviceMessageId,
     pub kind: ProtocolKind,
     pub content: BTreeMap<String, Value>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
 }
 
@@ -463,14 +479,14 @@ mod device_message_dto_tests {
             "message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
             "kind": "ak.key.verification.request",
             "content": {"transaction_id": "txn"},
-            "expires_at": "2026-07-15T01:00:00Z"
+            "expires_at": "2026-07-15T01:00:00.000Z"
         });
         assert!(serde_json::from_value::<DeviceMessageTarget>(valid).is_ok());
 
         let missing_message_id = json!({
             "kind": "ak.key.verification.request",
             "content": {"transaction_id": "txn"},
-            "expires_at": "2026-07-15T01:00:00Z"
+            "expires_at": "2026-07-15T01:00:00.000Z"
         });
         assert!(serde_json::from_value::<DeviceMessageTarget>(missing_message_id).is_err());
 
@@ -478,7 +494,7 @@ mod device_message_dto_tests {
             "message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
             "kind": "key.verification.request",
             "content": {},
-            "expires_at": "2026-07-15T01:00:00Z"
+            "expires_at": "2026-07-15T01:00:00.000Z"
         });
         assert!(serde_json::from_value::<DeviceMessageTarget>(invalid_kind).is_err());
 
@@ -486,7 +502,7 @@ mod device_message_dto_tests {
             "message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
             "kind": "ak.key.verification.request",
             "content": "legacy payload",
-            "expires_at": "2026-07-15T01:00:00Z"
+            "expires_at": "2026-07-15T01:00:00.000Z"
         });
         assert!(serde_json::from_value::<DeviceMessageTarget>(scalar_content).is_err());
     }
@@ -506,8 +522,8 @@ mod device_message_tests {
             "sender_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
             "recipient_principal_id": "did:webvh:z6mkfixture:alice.example",
             "recipient_device_id": "ak:device:01904100-0000-7000-8000-000000000002",
-            "sent_at": "2026-07-15T00:00:00Z",
-            "expires_at": "2026-07-15T00:10:00Z",
+            "sent_at": "2026-07-15T00:00:00.000Z",
+            "expires_at": "2026-07-15T00:10:00.000Z",
             "content": {"transaction_id": "txn"},
             "device_proof": {"vendor_proof": true},
             "unsigned": {"retry_after_ms": 1000}

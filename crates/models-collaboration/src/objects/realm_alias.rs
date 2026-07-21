@@ -6,8 +6,8 @@
 //! A realm alias is the realm-side counterpart of a user
 //! [`Handle`](arkret_models_identity::handle::Handle):
 //!
-//! * Canonical wire form is `<localpart>:<domain>` — the SAME grammar as a handle (lowercase ASCII
-//!   localpart, ≥2-label domain). The canonical form carries NO sigil.
+//! * Canonical wire form is `<prepared-localpart>:<lowercase-A-label-domain>` — the same grammar as
+//!   a handle. The canonical form carries no sigil.
 //! * The `#` share / mention sigil (`#general:acme.example`) is a display + input-routing
 //!   affordance only; it is stripped before the wire form, exactly as the handle `@` sigil is.
 //! * Realm alias and handle occupy DISJOINT namespaces — a realm alias resolves via `resolve_realm`
@@ -15,20 +15,16 @@
 //!   same `<localpart>:<domain>` MAY therefore be both a handle and a realm alias; the protocol
 //!   does NOT require global uniqueness across the two namespaces.
 //!
-//! Unlike [`Handle`](arkret_models_identity::handle::Handle), a realm alias has NO port form: it is
-//! a Directory-resolved label, not a service address, so exactly one `:` separates
-//! localpart and domain.
+//! A realm alias has no port form; exactly one `:` separates localpart and domain.
 
 use std::fmt;
 
-use arkret_models_identity::handle::{is_valid_domain, normalize_localpart_with_code};
-use arkret_wire::{Error, ReasonCode, Result};
+use arkret_wire::{
+    Error, Result, prepare_handle_localpart, prepare_idna_domain,
+    validate_canonical_handle_localpart, validate_canonical_idna_domain,
+};
 use serde::{Deserialize, Serialize};
 
-/// Wire error-code prefix carried when a realm alias fails the homograph /
-/// confusable / mixed-script discipline (object-addressing.md §3.3). Mirrors
-/// the handle `handle_homograph_forbidden` code and is registered in
-/// `error-code-registry.json`.
 /// Canonical Arkret realm alias string `<localpart>:<domain>`.
 ///
 /// See the module docs for the namespace / sigil discipline. Construct via
@@ -44,8 +40,7 @@ pub struct RealmAlias {
 }
 
 impl RealmAlias {
-    /// Parse a canonical `<localpart>:<domain>` realm alias. Lowercases both
-    /// segments and runs the shared localpart confusable / alphabet normalize.
+    /// Parse an already-canonical `<localpart>:<domain>` realm alias.
     ///
     /// Rejects: the `#` / `@` sigils (they are not in the localpart alphabet),
     /// a port suffix (`a:b.c:8443` — realm alias has no port form), a bare host
@@ -60,37 +55,37 @@ impl RealmAlias {
             .next()
             .ok_or_else(|| Error::Protocol(format!("realm alias missing ':<domain>': {input}")))?;
         if parts.next().is_some() {
-            // Exactly one ':' — no port form (unlike handle).
+            // Exactly one ':'; canonical human addresses never carry a port.
             return Err(Error::Protocol(format!(
                 "realm alias has too many ':' separators (no port form): {input}"
             )));
         }
-        // Shares the handle localpart discipline: rejects zero-width / bidi /
-        // confusable / out-of-alphabet, lowercases, bounds length. Carries the
-        // realm-alias wire error code on rejection.
-        let localpart =
-            normalize_localpart_with_code(local, ReasonCode::REALM_ALIAS_HOMOGRAPH_FORBIDDEN)?;
-        let domain = domain_part.to_ascii_lowercase();
-        if !is_valid_domain(&domain) {
-            return Err(Error::Protocol(format!(
-                "realm alias domain invalid: {input}"
-            )));
-        }
-        let canonical = format!("{localpart}:{domain}");
+        validate_canonical_handle_localpart(local)?;
+        validate_canonical_idna_domain(domain_part)?;
         Ok(Self {
-            canonical,
-            localpart,
-            domain,
+            canonical: input.to_owned(),
+            localpart: local.to_owned(),
+            domain: domain_part.to_owned(),
         })
+    }
+
+    /// Prepare a user-entered alias into canonical wire form.
+    pub fn prepare(input: &str) -> Result<Self> {
+        let trimmed = input.trim();
+        let body = trimmed.strip_prefix('#').unwrap_or(trimmed);
+        let (local, domain) = body
+            .split_once(':')
+            .ok_or_else(|| Error::Protocol(format!("realm alias missing ':<domain>': {input}")))?;
+        let localpart = prepare_handle_localpart(local)?;
+        let domain = prepare_idna_domain(domain)?;
+        Self::parse(&format!("{localpart}:{domain}"))
     }
 
     /// Parse from a display / share form, tolerating a single leading `#`
     /// share sigil and surrounding whitespace. The `#` is stripped before
     /// canonical parsing (it is never part of the wire form).
     pub fn parse_display(input: &str) -> Result<Self> {
-        let trimmed = input.trim();
-        let body = trimmed.strip_prefix('#').unwrap_or(trimmed);
-        Self::parse(body)
+        Self::prepare(input)
     }
 
     /// Canonical wire form `<localpart>:<domain>` (no sigil).
@@ -149,9 +144,10 @@ mod tests {
     }
 
     #[test]
-    fn lowercases_segments() {
-        let a = RealmAlias::parse("General:Acme.Example").unwrap();
+    fn preparation_lowercases_segments() {
+        let a = RealmAlias::prepare("General:Acme.Example").unwrap();
         assert_eq!(a.canonical(), "general:acme.example");
+        assert!(RealmAlias::parse("General:Acme.Example").is_err());
     }
 
     #[test]
@@ -189,14 +185,14 @@ mod tests {
 
     #[test]
     fn rejects_port_form() {
-        // Realm alias has NO port form (unlike handle).
+        // Realm aliases and handles have no port form.
         assert!(RealmAlias::parse("general:acme.example:8443").is_err());
     }
 
     #[test]
-    fn rejects_confusable_localpart() {
-        // Cyrillic 'е' (U+0435) in the localpart.
-        assert!(RealmAlias::parse("gen\u{0435}ral:acme.example").is_err());
+    fn accepts_internationalized_localpart() {
+        let alias = RealmAlias::parse("项目:acme.example").unwrap();
+        assert_eq!(alias.display(), "#项目:acme.example");
     }
 
     #[test]

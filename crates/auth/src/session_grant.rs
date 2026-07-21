@@ -24,6 +24,10 @@ pub struct AgentKeyProofSigningInput {
     pub challenge: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub nonce: Option<String>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     pub request_canonical_digest: Hash,
     pub verification_method: String,
@@ -371,7 +375,7 @@ mod tests {
             challenge: "session-grant-challenge-0001".to_owned(),
             request_canonical_digest: digest(),
             audience: Did::new("did:webvh:z6mkfixture:service.example").unwrap(),
-            expires_at: "2026-07-08T10:05:00Z".parse().ok(),
+            expires_at: "2026-07-08T10:05:00.000Z".parse().ok(),
             signature: "proof-signature".to_owned(),
             verification_method: Some("did:webvh:z6mkfixture:alice.example#device-1".to_owned()),
         }

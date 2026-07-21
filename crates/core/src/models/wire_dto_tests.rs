@@ -47,14 +47,14 @@ fn directory_realm_search_outcome_decodes_typed_preview_fields() {
                 "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
                 "title": "Public Realm",
                 "member_count_bucket": "51-100",
-                "as_of": "2026-06-13T00:00:00Z",
+                "as_of": "2026-06-13T00:00:00.000Z",
                 "source_refs": ["ak:event:01904100-0000-7000-8000-000000000002"],
                 "policy_revision": "rev-1"
             },
             {
                 "realm_id": "ak:realm:01904100-0000-7000-8000-000000000003",
                 "member_count_bucket": 342,
-                "as_of": "2026-06-13T00:00:00Z",
+                "as_of": "2026-06-13T00:00:00.000Z",
                 "source_refs": ["ak:event:01904100-0000-7000-8000-000000000004"],
                 "policy_revision": "rev-2"
             }
