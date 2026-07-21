@@ -627,14 +627,14 @@ mod tests {
             "claim_purpose": "direct_conversation",
             "required_capabilities": ["ak.feature.mls_rfc9420.v1"],
             "claim_nonce": "BBBBBBBBBBBBBBBBBBBBBB",
-            "expires_at": "2026-07-21T00:05:00Z",
+            "expires_at": "2026-07-21T00:05:00.000Z",
             "strand_id": "ak:strand:0196419b-0000-7000-8000-000000000011",
             "pair_key": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
             "allow_last_resort": false,
             "requester_authorization": {
                 "verification_method": "did:webvh:z6mkfixture:alice.example#ssk-7",
                 "ssk_generation": 7,
-                "signed_at": "2026-07-21T00:00:00Z",
+                "signed_at": "2026-07-21T00:00:00.000Z",
                 "signature": {
                     "kid": "did:webvh:z6mkfixture:alice.example#ssk-7",
                     "alg": "EdDSA",
