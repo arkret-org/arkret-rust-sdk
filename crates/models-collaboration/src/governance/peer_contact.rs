@@ -33,6 +33,8 @@ pub enum PeerContactFactKind {
     Rejected,
     #[serde(rename = "ak.contact.tombstoned")]
     Tombstoned,
+    #[serde(rename = "ak.direct_conversation.bound")]
+    DirectConversationBound,
 }
 
 impl PeerContactFactKind {
@@ -42,6 +44,7 @@ impl PeerContactFactKind {
             Self::Accepted => "ak.contact.accepted",
             Self::Rejected => "ak.contact.rejected",
             Self::Tombstoned => "ak.contact.tombstoned",
+            Self::DirectConversationBound => "ak.direct_conversation.bound",
         }
     }
 
@@ -51,6 +54,7 @@ impl PeerContactFactKind {
             "ak.contact.accepted" => Ok(Self::Accepted),
             "ak.contact.rejected" => Ok(Self::Rejected),
             "ak.contact.tombstoned" => Ok(Self::Tombstoned),
+            "ak.direct_conversation.bound" => Ok(Self::DirectConversationBound),
             _ => Err(Error::Protocol(format!(
                 "unsupported peer_contact_delivery_request.fact_kind: {value}"
             ))),

@@ -301,6 +301,8 @@ pub struct WindowStartRealmMetadata {
     pub summary: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub join_rule: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub collaboration_role: Option<CollaborationRealmRole>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

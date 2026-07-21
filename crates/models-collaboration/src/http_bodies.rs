@@ -859,7 +859,7 @@ pub enum DirectConversationBindingState {
 #[serde(rename_all = "snake_case")]
 pub enum DirectConversationResolveState {
     Found,
-    Created,
+    AuthoringRequired,
     NotFound,
     Retired,
     NonCanonical,
@@ -1044,6 +1044,11 @@ pub struct DirectConversationResolveOutcome {
     pub binding_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub created: Option<bool>,
+    /// Unsigned canonical binding Event draft. When present, the client MUST
+    /// sign and submit this Event before treating the result as an active
+    /// default conversation entry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binding_event: Option<Event>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

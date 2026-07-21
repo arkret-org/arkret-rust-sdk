@@ -527,10 +527,11 @@ impl<'de> Deserialize<'de> for DeviceRevocationReason {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/direct_conversation_bound_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationBoundPayload {
     pub pair_key: Hash,
+    pub binding_state: DirectConversationAuthoredBindingState,
     pub participants_unordered: Vec<Did>,
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
@@ -538,8 +539,6 @@ pub struct DirectConversationBoundPayload {
     pub member_event_refs: ContactEventRefs,
     pub main_strand_create_ref: EventId,
     pub created_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub binding_state: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supersedes_binding_ref: Option<EventId>,
 }
@@ -561,6 +560,14 @@ impl DirectConversationBoundPayload {
         if self.pair_key != expected {
             return Err(Error::Protocol(
                 "direct conversation pair_key mismatch (schema_violation)".to_owned(),
+            ));
+        }
+        if self.binding_state == DirectConversationAuthoredBindingState::Retired
+            && self.supersedes_binding_ref.is_none()
+        {
+            return Err(Error::Protocol(
+                "retired direct conversation binding requires supersedes_binding_ref (schema_violation)"
+                    .to_owned(),
             ));
         }
         Ok(())
