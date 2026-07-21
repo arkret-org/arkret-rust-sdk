@@ -1,6 +1,6 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-07-18; sha256=a7ec43ea2a35edaa2216b556e6303d01b6d89c3218f865ce85dca62c51de291e
+//! Input: registry/error-code-registry.json; version=2026-07-18; sha256=b29bb3b5919cd29a7aaf3e767cbc3468c1e26aff28ecf400f1a4033286db919a
 //! Entries: error_codes=245
 
 use serde::{Deserialize, Serialize};
@@ -2417,7 +2417,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 422,
         scope: "both",
         applies_to: &[],
-        description: "A child Realm's read-receipt policy attempted to cross the parent's compliance floor (parent disclosure='required' → child 'optional' or 'disabled') without the parent explicitly setting allow_child_privacy_tightening_against_required=true. Reducer MUST reject the offending ak.realm.read_receipt_policy Move with this wire code. See zh/discovery/read-receipts.md §2.5.",
+        description: "A child Realm's read-receipt policy attempted to cross the parent's compliance floor (parent disclosure='required' → child 'optional' or 'disabled') without the parent explicitly setting receipt_compliance_opt_in.child_privacy_tightening_against_required=true. Reducer MUST reject the offending ak.realm.read_receipt_policy Move with this wire code. See zh/discovery/read-receipts.md §2.5.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RealmFederationPolicyClosed,

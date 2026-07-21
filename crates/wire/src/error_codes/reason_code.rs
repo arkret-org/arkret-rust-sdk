@@ -1,6 +1,6 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-07-18; sha256=a7ec43ea2a35edaa2216b556e6303d01b6d89c3218f865ce85dca62c51de291e
+//! Input: registry/error-code-registry.json; version=2026-07-18; sha256=b29bb3b5919cd29a7aaf3e767cbc3468c1e26aff28ecf400f1a4033286db919a
 //! Entries: reason_codes=420
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -3229,7 +3229,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "read_receipt_forced_public_world_readable_forbidden",
         applies_to: &["event_envelope", "auth_decision"],
-        description: "Reducer rejected a read-receipt policy whose effective combination is `disclosure='required'` AND `visibility='public'` on a `world_readable` scope — forced emission of publicly-pullable read positions with no member opt-out (forced de-anonymized activity tracking) — unless the policy payload also sets the second explicit opt-in `allow_forced_public_world_readable_receipts=true`. See zh/discovery/read-receipts.md §2.5.1.",
+        description: "Reducer rejected a read-receipt policy whose effective combination is `disclosure='required'` AND `visibility='public'` on a `world_readable` scope — forced emission of publicly-pullable read positions with no member opt-out (forced de-anonymized activity tracking) — unless the policy payload also sets the second explicit opt-in `receipt_compliance_opt_in.forced_public_world_readable_receipts=true`. See zh/discovery/read-receipts.md §2.5.1.",
     },
     ReasonCodeDescriptor {
         code: "read_receipt_visibility_combination_invalid",

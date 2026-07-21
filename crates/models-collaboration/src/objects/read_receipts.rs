@@ -136,6 +136,17 @@ impl ReadReceiptVisibility {
 }
 
 /// Typed value of the Realm read-receipt policy cell.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReadReceiptComplianceOptIn {
+    #[serde(default)]
+    pub child_privacy_tightening_against_required: bool,
+    #[serde(default)]
+    pub public_receipts_on_world_readable: bool,
+    #[serde(default)]
+    pub forced_public_world_readable_receipts: bool,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReadReceiptPolicy {
@@ -146,11 +157,7 @@ pub struct ReadReceiptPolicy {
     #[serde(default = "default_read_receipt_scope_overrides_allowed")]
     pub scope_overrides_allowed: bool,
     #[serde(default)]
-    pub allow_child_privacy_tightening_against_required: bool,
-    #[serde(default)]
-    pub allow_public_receipts_on_world_readable: bool,
-    #[serde(default)]
-    pub allow_forced_public_world_readable_receipts: bool,
+    pub receipt_compliance_opt_in: ReadReceiptComplianceOptIn,
 }
 
 impl Default for ReadReceiptPolicy {
@@ -159,9 +166,7 @@ impl Default for ReadReceiptPolicy {
             disclosure: ReadReceiptDisclosure::Optional,
             visibility: ReadReceiptVisibility::Members,
             scope_overrides_allowed: true,
-            allow_child_privacy_tightening_against_required: false,
-            allow_public_receipts_on_world_readable: false,
-            allow_forced_public_world_readable_receipts: false,
+            receipt_compliance_opt_in: ReadReceiptComplianceOptIn::default(),
         }
     }
 }
@@ -223,7 +228,12 @@ impl ReadReceiptPolicy {
             (
                 ReadReceiptDisclosure::Required,
                 ReadReceiptDisclosure::Optional | ReadReceiptDisclosure::Disabled,
-            ) if self.allow_child_privacy_tightening_against_required => Ok(()),
+            ) if self
+                .receipt_compliance_opt_in
+                .child_privacy_tightening_against_required =>
+            {
+                Ok(())
+            }
             (
                 ReadReceiptDisclosure::Required,
                 ReadReceiptDisclosure::Optional | ReadReceiptDisclosure::Disabled,
