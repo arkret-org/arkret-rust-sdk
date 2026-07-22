@@ -1,27 +1,7 @@
-use serde_json::json;
-
-use super::*;
-
-#[test]
-fn error_envelope_serializes_to_spec_canonical_shape() {
-    let envelope = ErrorEnvelope::new("capability_denied", "session grant is revoked")
-        .with_request_id("ak:request:test")
-        .with_retry_after_ms(None);
-
-    let value = serde_json::to_value(envelope).unwrap();
-
-    assert_eq!(
-        value,
-        json!({
-            "ok": false,
-            "error": {
-                "code": "capability_denied",
-                "message": "session grant is revoked"
-            },
-            "request_id": "ak:request:test"
-        })
-    );
-}
+use arkret_models_discovery::{
+    CompatSurfaceEntry, DirectoryRealmSearchOutcome, RealmMemberCountBucket,
+    RealmMemberCountBucketLabel,
+};
 
 #[test]
 fn compat_surface_entry_serializes_schema_shape() {

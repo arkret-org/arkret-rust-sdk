@@ -155,8 +155,6 @@ mod third_party_invite {
     pub use arkret_models_collaboration::governance::third_party_invite::*;
 }
 #[cfg(test)]
-mod wire_dto_tests;
-#[cfg(test)]
 mod wire_model_tests;
 mod wire_strings {
     pub use arkret_wire::wire_strings::*;

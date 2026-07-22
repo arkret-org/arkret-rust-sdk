@@ -315,4 +315,23 @@ mod tests {
 
         assert_eq!(envelope.agent_human_approval_details().unwrap(), None);
     }
+
+    #[test]
+    fn error_envelope_serializes_to_spec_canonical_shape() {
+        let envelope = ErrorEnvelope::new("capability_denied", "session grant is revoked")
+            .with_request_id("ak:request:test")
+            .with_retry_after_ms(None);
+
+        assert_eq!(
+            serde_json::to_value(envelope).unwrap(),
+            json!({
+                "ok": false,
+                "error": {
+                    "code": "capability_denied",
+                    "message": "session grant is revoked"
+                },
+                "request_id": "ak:request:test"
+            })
+        );
+    }
 }
