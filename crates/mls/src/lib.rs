@@ -1148,6 +1148,61 @@ mod tests {
         );
     }
 
+    #[test]
+    fn remove_members_by_principal_batches_one_commit() {
+        let alice = ArkretMlsIdentity::new_basic(
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
+        )
+        .unwrap();
+        let bob = ArkretMlsIdentity::new_basic(
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+        )
+        .unwrap();
+        let charlie = ArkretMlsIdentity::new_basic(
+            Did::new("did:webvh:z6mkfixture:charlie.example").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000f").unwrap(),
+        )
+        .unwrap();
+        let bob_kp = bob.key_package_record().unwrap();
+        let charlie_kp = charlie.key_package_record().unwrap();
+
+        let mut alice_group = alice
+            .create_group(b"ak:realm:01904100-0000-7000-8000-2fa70c9d6659")
+            .unwrap();
+        alice_group.add_member(&bob_kp).unwrap();
+        alice_group.add_member(&charlie_kp).unwrap();
+
+        let epoch_before = alice_group.epoch();
+        let targets = [
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:charlie.example").unwrap(),
+        ];
+        let result = alice_group.remove_members_by_principal(&targets).unwrap();
+
+        assert_eq!(alice_group.epoch(), epoch_before + 1);
+        assert_eq!(result.proposals.len(), 2);
+        assert_eq!(result.removed_leaves.len(), 2);
+        let mut removed: Vec<&str> = result.removed_principals.iter().map(Did::as_str).collect();
+        removed.sort_unstable();
+        assert_eq!(
+            removed,
+            vec![
+                "did:webvh:z6mkfixture:bob.example",
+                "did:webvh:z6mkfixture:charlie.example",
+            ]
+        );
+        assert_eq!(
+            alice_group
+                .member_principal_ids()
+                .into_iter()
+                .map(|principal| principal.to_string())
+                .collect::<Vec<_>>(),
+            vec!["did:webvh:z6mkfixture:alice.example"]
+        );
+    }
+
     /// T31 — removing an absent principal returns a Protocol error rather
     /// than silently no-op'ing. The orchestration plan in inkson relies on
     /// this to surface "leaf already gone" as a recoverable state.

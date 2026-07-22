@@ -784,7 +784,10 @@ impl ArkretMlsGroup {
     ///
     /// Errors when the target principal has no leaf in this group.
     pub fn remove_member_by_principal(&mut self, target: &Did) -> Result<MlsRemoveMemberResult> {
-        self.remove_member_by_principal_with_optional_governance_binding(target, None)
+        self.remove_members_by_principal_with_optional_governance_binding(
+            std::slice::from_ref(target),
+            None,
+        )
     }
 
     pub fn remove_member_by_principal_with_governance_binding(
@@ -792,23 +795,60 @@ impl ArkretMlsGroup {
         target: &Did,
         governance_binding: &MlsGovernanceBindingPayload,
     ) -> Result<MlsRemoveMemberResult> {
-        self.remove_member_by_principal_with_optional_governance_binding(
-            target,
+        self.remove_members_by_principal_with_optional_governance_binding(
+            std::slice::from_ref(target),
             Some(governance_binding),
         )
     }
 
-    fn remove_member_by_principal_with_optional_governance_binding(
+    /// Remove every leaf owned by any principal in `targets` in one MLS
+    /// Commit. Each removed leaf produces a durable Remove proposal and the
+    /// single Commit consumes all of them by reference.
+    ///
+    /// Errors when `targets` is empty or any target principal has no leaf in
+    /// the group. This keeps a membership-transition rotation fail-closed:
+    /// callers cannot accidentally commit only a subset of the required
+    /// removals.
+    pub fn remove_members_by_principal(
         &mut self,
-        target: &Did,
+        targets: &[Did],
+    ) -> Result<MlsRemoveMemberResult> {
+        self.remove_members_by_principal_with_optional_governance_binding(targets, None)
+    }
+
+    pub fn remove_members_by_principal_with_governance_binding(
+        &mut self,
+        targets: &[Did],
+        governance_binding: &MlsGovernanceBindingPayload,
+    ) -> Result<MlsRemoveMemberResult> {
+        self.remove_members_by_principal_with_optional_governance_binding(
+            targets,
+            Some(governance_binding),
+        )
+    }
+
+    fn remove_members_by_principal_with_optional_governance_binding(
+        &mut self,
+        targets: &[Did],
         governance_binding: Option<&MlsGovernanceBindingPayload>,
     ) -> Result<MlsRemoveMemberResult> {
-        let target_bytes = target.as_str().as_bytes();
+        if targets.is_empty() {
+            return Err(Error::Protocol(
+                "remove_members_by_principal requires at least one target".to_owned(),
+            ));
+        }
+
+        let mut canonical_targets: Vec<&str> = targets.iter().map(Did::as_str).collect();
+        canonical_targets.sort_unstable();
+        canonical_targets.dedup();
         let leaves: Vec<LeafNodeIndex> = self
             .group
             .members()
             .filter_map(|member| {
-                if member.credential.serialized_content() == target_bytes {
+                if canonical_targets
+                    .iter()
+                    .any(|target| member.credential.serialized_content() == target.as_bytes())
+                {
                     Some(member.index)
                 } else {
                     None
@@ -816,12 +856,17 @@ impl ArkretMlsGroup {
             })
             .collect();
 
-        if leaves.is_empty() {
-            return Err(Error::Protocol(format!(
-                "principal {} has no leaf in group {}",
-                target.as_str(),
-                self.group_id()
-            )));
+        for target in canonical_targets {
+            if !self
+                .group
+                .members()
+                .any(|member| member.credential.serialized_content() == target.as_bytes())
+            {
+                return Err(Error::Protocol(format!(
+                    "principal {target} has no leaf in group {}",
+                    self.group_id()
+                )));
+            }
         }
 
         self.remove_leaves(&leaves, governance_binding)
