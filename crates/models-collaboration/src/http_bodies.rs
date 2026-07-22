@@ -20,6 +20,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::event_sync::{RealmActorFrontierView, RealmSealFrontierView};
 use crate::events_payloads::ephemeral::EphemeralEnvelope;
 use crate::governance::agent_artifacts::{DeviceMetadata, GrantSnapshot, PublicKey};
 use crate::governance::authorization::GrantList;
@@ -50,7 +51,7 @@ pub enum EventsSubmitStatus {
     HistoricalOnly,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventsSubmitRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -75,7 +76,7 @@ pub struct EventsSubmitBatchRequestBody {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome`
 /// `rejected` array items: `{id, reason_code, detail?}`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventsSubmitRejectedItem {
     pub id: String,
@@ -84,8 +85,9 @@ pub struct EventsSubmitRejectedItem {
     pub detail: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct EventsSubmitOutcome {
     pub status: EventsSubmitStatus,
     #[serde(default)]
@@ -96,14 +98,13 @@ pub struct EventsSubmitOutcome {
     pub rejected: Vec<EventsSubmitRejectedItem>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub quarantine: Vec<EventId>,
-    /// Spec-loose object: `service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome`
-    /// declares `actor_frontier` as an unconstrained object.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_frontier: Option<BTreeMap<String, Value>>,
-    /// Spec-loose object: `service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome`
-    /// declares `realm_frontier` as an unconstrained object.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_frontier: Option<BTreeMap<String, Value>>,
+    /// Post-submit actor authoring frontiers sorted and unique by
+    /// `(realm_id, actor_id)`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub realm_actor_frontiers: Vec<RealmActorFrontierView>,
+    /// Visible post-submit Realm Seal frontiers sorted and unique by Realm.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub realm_frontiers: Vec<RealmSealFrontierView>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -21,7 +21,8 @@ pub fn federation_minimal_reducer_profile_digest() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Did, EventId, Hash};
+    use crate::canonical::DigestSuite;
+    use crate::{Did, EventId, Hash, RealmId};
 
     #[test]
     fn federation_minimal_reducer_profile_digest_is_well_formed() {
@@ -48,31 +49,48 @@ mod tests {
     }
 
     #[test]
-    fn actor_frontier_distinguishes_empty_and_non_empty_histories() {
+    fn realm_actor_frontier_distinguishes_empty_and_seq_zero_histories() {
         let actor_id = Did::new("did:web:alice.example").unwrap();
-        ActorFrontierView {
-            actor_id: actor_id.clone(),
-            actor_seq: 0,
-            event_id: None,
-        }
-        .validate()
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
+        RealmActorFrontierView::new(
+            realm_id.clone(),
+            actor_id.clone(),
+            0,
+            Vec::new(),
+            DigestSuite::Sha256,
+        )
         .unwrap();
-        ActorFrontierView {
-            actor_id: actor_id.clone(),
-            actor_seq: 1,
-            event_id: Some(EventId::new("ak:event:01904100-0000-7000-8000-000000000001").unwrap()),
-        }
-        .validate()
+        RealmActorFrontierView::new(
+            realm_id.clone(),
+            actor_id.clone(),
+            1,
+            vec![EventId::new("ak:event:01904100-0000-7000-8000-000000000001").unwrap()],
+            DigestSuite::Sha256,
+        )
         .unwrap();
 
         assert!(
-            ActorFrontierView {
-                actor_id,
-                actor_seq: 1,
-                event_id: None,
-            }
-            .validate()
-            .is_err()
+            RealmActorFrontierView::new(realm_id, actor_id, 1, Vec::new(), DigestSuite::Sha256,)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn realm_actor_frontier_digest_matches_the_spec_vector() {
+        let frontier = RealmActorFrontierView::new(
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            Did::new("did:web:alice.example").unwrap(),
+            43,
+            vec![
+                EventId::new("ak:event:01904100-0000-7000-8000-000000000001").unwrap(),
+                EventId::new("ak:event:01904100-0000-7000-8000-000000000002").unwrap(),
+            ],
+            DigestSuite::Sha256,
+        )
+        .unwrap();
+        assert_eq!(
+            frontier.frontier_digest.as_str(),
+            "sha256:4f928af58951a0a04f532b272fe6c45b371d33e932d0a15a8df84725a5efe1cf"
         );
     }
 }

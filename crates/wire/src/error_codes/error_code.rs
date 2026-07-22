@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=b29bb3b5919cd29a7aaf3e767cbc3468c1e26aff28ecf400f1a4033286db919a Entries: error_codes=245
+//! sha256=c2e881cd622a4c8e14dfeecc3ed3bc2db19336ede13c2ab4acbcc725bb56ec8e Entries: error_codes=246
 
 use serde::{Deserialize, Serialize};
 
@@ -106,6 +106,7 @@ pub enum ErrorCode {
     FrankingProofUnavailable,
     FrankingTampered,
     FreshDeviceScopeViolation,
+    FrontierSequenceExhausted,
     FrontierUnavailable,
     GovernanceKeyInvalid,
     GrantAlreadyConsumed,
@@ -364,6 +365,7 @@ impl ErrorCode {
         Self::FrankingProofUnavailable,
         Self::FrankingTampered,
         Self::FreshDeviceScopeViolation,
+        Self::FrontierSequenceExhausted,
         Self::FrontierUnavailable,
         Self::GovernanceKeyInvalid,
         Self::GrantAlreadyConsumed,
@@ -620,6 +622,7 @@ impl ErrorCode {
     pub const FRANKING_PROOF_UNAVAILABLE: &'static str = "franking_proof_unavailable";
     pub const FRANKING_TAMPERED: &'static str = "franking_tampered";
     pub const FRESH_DEVICE_SCOPE_VIOLATION: &'static str = "fresh_device_scope_violation";
+    pub const FRONTIER_SEQUENCE_EXHAUSTED: &'static str = "frontier_sequence_exhausted";
     pub const FRONTIER_UNAVAILABLE: &'static str = "frontier_unavailable";
     pub const GOVERNANCE_KEY_INVALID: &'static str = "governance_key_invalid";
     pub const GRANT_ALREADY_CONSUMED: &'static str = "grant_already_consumed";
@@ -890,6 +893,7 @@ impl ErrorCode {
             Self::FrankingProofUnavailable => "franking_proof_unavailable",
             Self::FrankingTampered => "franking_tampered",
             Self::FreshDeviceScopeViolation => "fresh_device_scope_violation",
+            Self::FrontierSequenceExhausted => "frontier_sequence_exhausted",
             Self::FrontierUnavailable => "frontier_unavailable",
             Self::GovernanceKeyInvalid => "governance_key_invalid",
             Self::GrantAlreadyConsumed => "grant_already_consumed",
@@ -1156,6 +1160,7 @@ impl ErrorCode {
             "franking_proof_unavailable" => Some(Self::FrankingProofUnavailable),
             "franking_tampered" => Some(Self::FrankingTampered),
             "fresh_device_scope_violation" => Some(Self::FreshDeviceScopeViolation),
+            "frontier_sequence_exhausted" => Some(Self::FrontierSequenceExhausted),
             "frontier_unavailable" => Some(Self::FrontierUnavailable),
             "governance_key_invalid" => Some(Self::GovernanceKeyInvalid),
             "grant_already_consumed" => Some(Self::GrantAlreadyConsumed),
@@ -1619,7 +1624,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         scope: "both",
         applies_to: &[],
-        description: "An optimistic concurrency precondition failed.",
+        description: "An optimistic concurrency precondition failed. For ordinary Event actor-chain authoring, this code is returned only after duplicate-id checks and only when the accepted (realm_id, actor_id) sequence has strictly advanced beyond the submitted signed Event. Authenticated visible callers receive closed details {accepted:false,current_frontier:RealmActorFrontierView}; only that explicit result permits semantic re-author with a new event_id.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CausalConflict,
@@ -2012,6 +2017,13 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "A fresh device attempted an operation outside its permitted scope.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::FrontierSequenceExhausted,
+        http_status: 409,
+        scope: "endpoint",
+        applies_to: &[],
+        description: "The requested Realm-scoped actor frontier has accepted actor_seq u64::MAX, so no valid next_actor_seq exists. Producers MUST NOT wrap, reset, or author another Event for that chain.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FrontierUnavailable,

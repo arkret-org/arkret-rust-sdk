@@ -8,6 +8,7 @@
 
 use std::collections::BTreeMap;
 
+use arkret_canonical::DigestSuite;
 use arkret_wire::{
     Did, Error, Event, EventId, FederatedDeviceSigningKeyEvidence, Hash, Hlc, RealmId, Result,
     Seal, SealBasis, SealId,
@@ -68,14 +69,272 @@ pub enum ManagedAgentPcrSealHeadReceiptKind {
     ManagedAgentPcrSealHeadV1,
 }
 
-/// Selector-dependent `frontier` object of
-/// [`EventsFrontierAccountClientState`].
+/// Maximum accepted siblings represented by one Realm-scoped actor frontier.
+/// This aliases the single v1 cumulative same-height limit from the Event
+/// envelope artifact implementation.
+pub use arkret_wire::MAX_ACTOR_SEQ_TOTAL_SIBLINGS as MAX_ACTOR_FRONTIER_EVENT_IDS;
+
+/// Domain separator for the canonical Realm actor frontier digest transcript.
+pub const REALM_ACTOR_FRONTIER_DIGEST_DOMAIN: &[u8] = b"ak-realm-actor-frontier-v1\0";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub enum RealmActorFrontierKind {
+    #[serde(rename = "realm_actor")]
+    RealmActor,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub enum RealmSealFrontierKind {
+    #[serde(rename = "realm_seal")]
+    RealmSeal,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub enum ActorAggregateFrontierKind {
+    #[serde(rename = "actor_aggregate")]
+    ActorAggregate,
+}
+
+/// Typed selector for `GET /_arkret/self/events/frontier`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EventsFrontierSelector {
+    RealmActor { realm_id: RealmId, actor_id: Did },
+    RealmSeal { realm_id: RealmId },
+    ActorAggregate { actor_id: Did },
+}
+
+impl EventsFrontierSelector {
+    /// Query pairs for an HTTP client. Callers should pass these through their
+    /// URL library rather than hand-building or escaping a query string.
+    pub fn query_pairs(&self) -> Vec<(&'static str, String)> {
+        match self {
+            Self::RealmActor { realm_id, actor_id } => vec![
+                ("realm_id", realm_id.as_str().to_owned()),
+                ("actor_id", actor_id.as_str().to_owned()),
+            ],
+            Self::RealmSeal { realm_id } => {
+                vec![("realm_id", realm_id.as_str().to_owned())]
+            }
+            Self::ActorAggregate { actor_id } => {
+                vec![("actor_id", actor_id.as_str().to_owned())]
+            }
+        }
+    }
+
+    /// Validate that a response is the exact variant and scope selected by
+    /// this request. Mismatches fail closed before authoring.
+    pub fn validate_response(&self, response: &EventsFrontierView) -> Result<()> {
+        match (self, response) {
+            (Self::RealmActor { realm_id, actor_id }, EventsFrontierView::RealmActor(frontier))
+                if &frontier.realm_id == realm_id && &frontier.actor_id == actor_id =>
+            {
+                frontier.validate()
+            }
+            (Self::RealmSeal { realm_id }, EventsFrontierView::RealmSeal(frontier))
+                if &frontier.realm_id == realm_id =>
+            {
+                Ok(())
+            }
+            (Self::ActorAggregate { actor_id }, EventsFrontierView::ActorAggregate(frontier))
+                if &frontier.actor_id == actor_id =>
+            {
+                frontier.validate()
+            }
+            _ => Err(Error::Protocol(
+                "events frontier response does not match the requested selector".to_owned(),
+            )),
+        }
+    }
+}
+
+/// Selector-dependent, closed and wire-discriminated frontier union.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum EventsFrontierView {
-    RealmSealView(RealmSealFrontierView),
-    Actor(ActorFrontierView),
+    RealmActor(RealmActorFrontierView),
+    RealmSeal(RealmSealFrontierView),
+    ActorAggregate(ActorAggregateFrontierView),
+}
+
+#[derive(Serialize)]
+struct RealmActorFrontierDigestTranscript<'a> {
+    kind: &'static str,
+    realm_id: &'a RealmId,
+    actor_id: &'a Did,
+    next_actor_seq: u64,
+    frontier_event_ids: &'a [EventId],
+}
+
+/// Deterministic authoring frontier for one `(realm_id, actor_id)` chain.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmActorFrontierView {
+    pub kind: RealmActorFrontierKind,
+    pub realm_id: RealmId,
+    pub actor_id: Did,
+    pub next_actor_seq: u64,
+    pub frontier_event_ids: Vec<EventId>,
+    pub frontier_digest: Hash,
+}
+
+impl RealmActorFrontierView {
+    pub fn new(
+        realm_id: RealmId,
+        actor_id: Did,
+        next_actor_seq: u64,
+        frontier_event_ids: Vec<EventId>,
+        digest_suite: DigestSuite,
+    ) -> Result<Self> {
+        let frontier_digest = Self::compute_digest(
+            &realm_id,
+            &actor_id,
+            next_actor_seq,
+            &frontier_event_ids,
+            digest_suite,
+        )?;
+        let frontier = Self {
+            kind: RealmActorFrontierKind::RealmActor,
+            realm_id,
+            actor_id,
+            next_actor_seq,
+            frontier_event_ids,
+            frontier_digest,
+        };
+        frontier.validate_with_suite(digest_suite)?;
+        Ok(frontier)
+    }
+
+    pub fn compute_digest(
+        realm_id: &RealmId,
+        actor_id: &Did,
+        next_actor_seq: u64,
+        frontier_event_ids: &[EventId],
+        digest_suite: DigestSuite,
+    ) -> Result<Hash> {
+        let transcript = RealmActorFrontierDigestTranscript {
+            kind: "realm_actor",
+            realm_id,
+            actor_id,
+            next_actor_seq,
+            frontier_event_ids,
+        };
+        let canonical = arkret_canonical::canonical_json_bytes(&transcript)
+            .map_err(|error| Error::Protocol(format!("frontier transcript: {error}")))?;
+        let mut bytes =
+            Vec::with_capacity(REALM_ACTOR_FRONTIER_DIGEST_DOMAIN.len() + canonical.len());
+        bytes.extend_from_slice(REALM_ACTOR_FRONTIER_DIGEST_DOMAIN);
+        bytes.extend_from_slice(&canonical);
+        Ok(Hash::new(arkret_canonical::digest(digest_suite, bytes))?)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        let suite_name = self
+            .frontier_digest
+            .as_str()
+            .split_once(':')
+            .map(|(suite, _)| suite)
+            .ok_or_else(|| Error::Protocol("frontier_digest has no suite prefix".to_owned()))?;
+        let suite = arkret_canonical::digest_suite(suite_name)?;
+        self.validate_with_suite(suite)
+    }
+
+    pub fn validate_with_suite(&self, digest_suite: DigestSuite) -> Result<()> {
+        if self.frontier_event_ids.len() > MAX_ACTOR_FRONTIER_EVENT_IDS {
+            return Err(Error::Protocol(
+                "realm actor frontier exceeds the v1 sibling limit".to_owned(),
+            ));
+        }
+        if self.next_actor_seq == 0 && !self.frontier_event_ids.is_empty() {
+            return Err(Error::Protocol(
+                "empty realm actor frontier must not contain event ids".to_owned(),
+            ));
+        }
+        if self.next_actor_seq > 0 && self.frontier_event_ids.is_empty() {
+            return Err(Error::Protocol(
+                "non-empty realm actor frontier must contain event ids".to_owned(),
+            ));
+        }
+        if self
+            .frontier_event_ids
+            .windows(2)
+            .any(|pair| pair[0].as_str() >= pair[1].as_str())
+        {
+            return Err(Error::Protocol(
+                "frontier_event_ids must be bytewise sorted and unique".to_owned(),
+            ));
+        }
+        let expected = Self::compute_digest(
+            &self.realm_id,
+            &self.actor_id,
+            self.next_actor_seq,
+            &self.frontier_event_ids,
+            digest_suite,
+        )?;
+        if expected != self.frontier_digest {
+            return Err(Error::Protocol(
+                "realm actor frontier digest mismatch".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Read-only actor aggregate. It deliberately exposes no authoring helper.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ActorAggregateFrontierView {
+    pub kind: ActorAggregateFrontierKind,
+    pub actor_id: Did,
+    pub realms: Vec<RealmActorFrontierView>,
+}
+
+/// Closed `error.details` for an explicit actor-chain CAS conflict.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct EventsActorCasConflictDetails {
+    pub accepted: bool,
+    pub current_frontier: RealmActorFrontierView,
+}
+
+impl EventsActorCasConflictDetails {
+    pub fn validate(&self) -> Result<()> {
+        if self.accepted {
+            return Err(Error::Protocol(
+                "actor CAS conflict details must assert accepted=false".to_owned(),
+            ));
+        }
+        self.current_frontier.validate()
+    }
+}
+
+impl ActorAggregateFrontierView {
+    pub fn validate(&self) -> Result<()> {
+        for frontier in &self.realms {
+            if frontier.actor_id != self.actor_id {
+                return Err(Error::Protocol(
+                    "actor aggregate contains a different actor_id".to_owned(),
+                ));
+            }
+            frontier.validate()?;
+        }
+        if self
+            .realms
+            .windows(2)
+            .any(|pair| pair[0].realm_id.as_str() >= pair[1].realm_id.as_str())
+        {
+            return Err(Error::Protocol(
+                "actor aggregate realms must be sorted and unique".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// Realm Seal view shape of the account-client frontier: the current
@@ -84,7 +343,9 @@ pub enum EventsFrontierView {
 /// `seal_ref`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct RealmSealFrontierView {
+    pub kind: RealmSealFrontierKind,
     pub realm_id: RealmId,
     pub seal_id: SealId,
     pub control_event_set_root: Hash,
@@ -94,40 +355,29 @@ pub struct RealmSealFrontierView {
 }
 
 impl RealmSealFrontierView {
+    pub fn new(
+        realm_id: RealmId,
+        seal_id: SealId,
+        control_event_set_root: Hash,
+        state_root: Hash,
+        hlc: Option<Hlc>,
+    ) -> Self {
+        Self {
+            kind: RealmSealFrontierKind::RealmSeal,
+            realm_id,
+            seal_id,
+            control_event_set_root,
+            state_root,
+            hlc,
+        }
+    }
+
     /// Single-leaf Control Move `seal_basis` under this view.
     pub fn seal_basis(&self) -> SealBasis {
         SealBasis {
             leaves: vec![self.seal_id.clone()],
             control_event_set_root: self.control_event_set_root.clone(),
             state_root: self.state_root.clone(),
-        }
-    }
-}
-
-/// Actor shape of the account-client frontier: highest accepted `actor_seq`
-/// visible to the caller. An empty visible history is represented by
-/// `actor_seq == 0` and no `event_id`; non-empty frontiers carry both a
-/// positive sequence and its Event id.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-pub struct ActorFrontierView {
-    pub actor_id: Did,
-    pub actor_seq: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_id: Option<EventId>,
-}
-
-impl ActorFrontierView {
-    /// Enforce the registered empty/non-empty actor frontier invariant.
-    pub fn validate(&self) -> Result<()> {
-        match (self.actor_seq, self.event_id.is_some()) {
-            (0, false) | (1.., true) => Ok(()),
-            (0, true) => Err(Error::Protocol(
-                "empty actor frontier must not include event_id".to_owned(),
-            )),
-            (_, false) => Err(Error::Protocol(
-                "non-empty actor frontier must include event_id".to_owned(),
-            )),
         }
     }
 }

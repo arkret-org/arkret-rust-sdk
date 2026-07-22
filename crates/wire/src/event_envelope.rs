@@ -53,6 +53,7 @@ pub const MAX_EVENT_PREV_REFS: usize = 128;
 pub const MAX_EVENT_REFS: usize = 128;
 pub const MAX_AUTHORIZED_BY_REFS: usize = 64;
 pub const MAX_ACTOR_SEQ_SIBLINGS: usize = 16;
+pub const MAX_ACTOR_SEQ_TOTAL_SIBLINGS: usize = 64;
 pub const MAX_DELEGATION_CHAIN_DEPTH: usize = 4;
 pub const MAX_DELEGATION_CONTROL_DEPTH: u32 = 4;
 
@@ -107,6 +108,15 @@ pub fn validate_actor_seq_sibling_count(count: usize) -> Result<()> {
     if count > MAX_ACTOR_SEQ_SIBLINGS {
         return Err(Error::Protocol(format!(
             "actor_seq sibling fork count exceeds v1 maximum of {MAX_ACTOR_SEQ_SIBLINGS}"
+        )));
+    }
+    Ok(())
+}
+
+pub fn validate_actor_seq_total_sibling_count(count: usize) -> Result<()> {
+    if count > MAX_ACTOR_SEQ_TOTAL_SIBLINGS {
+        return Err(Error::Protocol(format!(
+            "actor_seq cumulative sibling count exceeds v1 maximum of {MAX_ACTOR_SEQ_TOTAL_SIBLINGS}"
         )));
     }
     Ok(())

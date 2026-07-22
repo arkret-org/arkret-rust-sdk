@@ -2,6 +2,9 @@
 //! helper methods on [`Client`].
 
 use arkret_models_collaboration::account_lifecycle::AppletRevokeRequestBody;
+use arkret_models_collaboration::event_sync::{
+    EventsFrontierAccountClientState, EventsFrontierSelector,
+};
 use arkret_models_collaboration::governance::circle::{
     CircleCreateRequestBody, CircleLifecycleRequestBody, CircleList, CircleMemberRequestBody,
     CircleMembershipOutcome, CircleScopeRotateOutcome, CircleScopeRotateRequestBody, CircleView,
@@ -51,6 +54,20 @@ pub struct SignedAppletTransactionOptions<'a> {
 }
 
 impl Client {
+    /// Fetch a selector-bound Event frontier and fail closed when the service
+    /// returns a different union variant or scope.
+    pub async fn events_frontier(
+        &self,
+        selector: &EventsFrontierSelector,
+    ) -> Result<EventsFrontierAccountClientState> {
+        let builder = self
+            .request(Method::GET, "/_arkret/self/events/frontier")?
+            .query(&selector.query_pairs());
+        let state: EventsFrontierAccountClientState = self.send_json(builder).await?;
+        selector.validate_response(&state.frontier)?;
+        Ok(state)
+    }
+
     pub async fn push_register_device(
         &self,
         request: &PushRegisterDeviceRequestBody,
@@ -415,6 +432,23 @@ impl Client {
         let builder = self.apply_request_options(self.request(Method::POST, path)?, options)?;
         self.send_json(self.canonical_json_body(builder, body)?)
             .await
+    }
+
+    /// Replay a caller-persisted canonical JSON body without serializing it
+    /// again. This is intended for immutable signed-envelope transport retry.
+    pub async fn post_canonical_bytes_with_options<R: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &[u8],
+        options: &ClientRequestOptions,
+    ) -> Result<R> {
+        let builder = self.apply_request_options(self.request(Method::POST, path)?, options)?;
+        self.send_json(
+            builder
+                .header(CONTENT_TYPE, "application/json")
+                .body(body.to_vec()),
+        )
+        .await
     }
 
     pub async fn put<T: Serialize, R: DeserializeOwned>(&self, path: &str, body: &T) -> Result<R> {

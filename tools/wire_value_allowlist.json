@@ -451,18 +451,6 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-collaboration/src/http_bodies.rs::EventsSubmitOutcome.actor_frontier",
-      "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome/properties/actor_frontier",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
-      "rust_field": "crates/models-collaboration/src/http_bodies.rs::EventsSubmitOutcome.realm_frontier",
-      "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome/properties/realm_frontier",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
       "rust_field": "crates/models-collaboration/src/http_bodies.rs::EventsSubscribeFrame.payload",
       "spec_pointer": "../openapi/arkret-service-api.openapi.yaml#/components/schemas/EventsSubscribeFrame/properties/payload",
       "classification": "open_json",
