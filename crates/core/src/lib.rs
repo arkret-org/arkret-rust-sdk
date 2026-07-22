@@ -27,7 +27,6 @@ pub mod multibase {
 pub mod schema {
     pub use arkret_schema::*;
 }
-pub mod service;
 pub mod service_identity;
 pub mod stream_trace;
 
@@ -57,6 +56,11 @@ pub use arkret_models_discovery::presence::{
     PRESENCE_VISIBILITY_ACCOUNT_DATA_KEY, PresencePreference, PresenceStatus,
     PresenceValidationError, STATUS_MESSAGE_MAX_CODE_POINTS, aggregate_presence_states,
     validate_last_active_at, validate_status_message,
+};
+pub use arkret_models_discovery::service_requirements::{
+    ApiConventionMetadata, HttpTraceMetadata, NotFoundPrivacy, QuotaKind, QuotaMetadata,
+    RateLimitMetadata, RateLimitScopeKind, ServiceEndpointBinding, ServiceIdAllowlist,
+    ServiceRequirements,
 };
 pub use arkret_models_identity::identity_key_log::{DidKeyLogEntry, DidKeyLogOperation};
 pub use arkret_policy::authz::*;
@@ -122,11 +126,6 @@ pub use multibase::{
     decode_ed25519_signature_multibase, decode_multibase_base58btc, decode_multicodec_varint,
     ed25519_pubkey_to_did_key_multibase, encode_base58btc, encode_multibase_base58btc,
     sha256_multihash_base58btc,
-};
-pub use service::{
-    ApiConventionMetadata, HttpTraceMetadata, NotFoundPrivacy, QuotaKind, QuotaMetadata,
-    RateLimitMetadata, RateLimitScopeKind, ServiceEndpointBinding, ServiceIdAllowlist,
-    ServiceRequirements,
 };
 pub use service_identity::*;
 pub use stream_trace::{

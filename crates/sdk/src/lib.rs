@@ -74,9 +74,7 @@ compile_error!(
 );
 
 mod sdk_error;
-pub use arkret_core::{
-    KeyRefObject, canonical, error, events, identifiers, models, schema, service, *,
-};
+pub use arkret_core::{KeyRefObject, canonical, error, events, identifiers, models, schema, *};
 pub use arkret_crypto::identity_root;
 pub use arkret_egress_policy as network_policy;
 pub use arkret_event_draft::operations;
@@ -97,7 +95,7 @@ pub use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeBatch, AccountSubscribeReconnectAfter, AccountSubscribeSnapshotResult,
     DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS, MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS,
 };
-pub use arkret_models_discovery::ops;
+pub use arkret_models_discovery::{ops, service_requirements as service};
 pub use arkret_models_integration::integration;
 pub use arkret_models_integration::integration::*;
 pub use arkret_policy::blind_payload_sanitizer::*;
