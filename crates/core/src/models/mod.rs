@@ -142,8 +142,6 @@ mod strand {
     pub use arkret_models_collaboration::objects::strand::*;
 }
 mod sync;
-#[cfg(test)]
-mod tests;
 mod third_party_invite {
     pub use arkret_models_collaboration::governance::third_party_invite::*;
 }

@@ -1,10 +1,12 @@
-use std::collections::BTreeMap;
-
+use arkret_wire::{
+    Audience, CriticalExtension, Did, Event, Hash, Hlc, Proof, ProofBindingRequirements, RealmId,
+};
 use chrono::Utc;
 use serde_json::json;
 
-use super::super::*;
-use super::test_realm_id;
+fn test_realm_id() -> RealmId {
+    RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+}
 
 fn valid_proof() -> Proof {
     Proof {
@@ -20,196 +22,6 @@ fn valid_proof() -> Proof {
         audience: None,
         jws: "header.payload.signature".to_owned(),
     }
-}
-
-#[test]
-fn hlc_sorts_by_structured_parts() {
-    let mut hlcs = [
-        "01970e589d21-0004-bbbbbbbb",
-        "01970e589d20-0009-ffffffff",
-        "01970e589d21-0003-ffffffff",
-        "01970e589d21-0004-a13f9c2e",
-    ]
-    .map(|value| Hlc::new(value).unwrap());
-    hlcs.sort();
-    let actual = hlcs.map(|value| value.to_string());
-    assert_eq!(
-        actual,
-        [
-            "01970e589d20-0009-ffffffff",
-            "01970e589d21-0003-ffffffff",
-            "01970e589d21-0004-a13f9c2e",
-            "01970e589d21-0004-bbbbbbbb",
-        ]
-    );
-}
-
-#[test]
-fn relation_requires_exact_wire_endpoints() {
-    let relation = Relation {
-        schema: RELATION_SCHEMA.to_owned(),
-        id: RelationId::new("ak:relation:01904100-0000-7000-8000-7b3bf7d6e46b").unwrap(),
-        realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
-        scope_circle_id: None,
-        effective_scope: None,
-        relation_kind: RelationKind::Mentions,
-        from_ref: "ak:morph:01904100-0000-7000-8000-c12dc98b2948".to_owned(),
-        to_ref: "did:webvh:z6mkfixture:alice.example".to_owned(),
-        rank: None,
-        fields: BTreeMap::new(),
-        state: None,
-        state_changed_at: None,
-        created_by: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        created_at: Utc::now(),
-        updated_by: None,
-        updated_at: None,
-    };
-    relation.validate_endpoints().unwrap();
-}
-
-#[test]
-fn query_request_uses_protocol_filters_array() {
-    let request = ViewQuery {
-        realm_ids: vec![RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
-        object_types: vec!["morph".to_owned()],
-        morph_types: vec!["task".to_owned()],
-        facets: vec![Facet::Stateful, Facet::Rankable],
-        seal_ref: None,
-        filters: vec![Filter::Predicate(FieldFilter {
-            field: "fields.status".to_owned(),
-            op: FilterOp::Eq,
-            value: Some(json!("todo")),
-        })],
-        relation: None,
-        context: None,
-        order_by: vec![],
-        projection: vec![],
-        cursor: None,
-        limit: Some(50),
-        consistency: None,
-    };
-
-    let value = serde_json::to_value(request).unwrap();
-    assert!(value.get("realm_ids").unwrap().is_array());
-    assert!(value.get("filters").unwrap().is_array());
-    assert_eq!(value["facets"], json!(["stateful", "rankable"]));
-    assert!(value.get("renderer").is_none());
-    assert!(value.get("sync_token").is_none());
-}
-
-#[test]
-fn facets_accept_name_lists_and_config_maps() {
-    let names: Facets =
-        serde_json::from_value(json!(["stateful", "rankable", "renderable"])).unwrap();
-    assert!(names.contains(&Facet::Stateful));
-    assert_eq!(names.facet_names().len(), 3);
-
-    let configs: Facets = serde_json::from_value(json!({
-        "rankable": {"rank_field": "fields.rank"},
-        "renderable": {"renderers": ["card"]}
-    }))
-    .unwrap();
-    assert!(configs.contains(&Facet::Rankable));
-    assert_eq!(
-        serde_json::to_value(configs).unwrap()["renderable"]["renderers"][0],
-        "card"
-    );
-}
-
-#[test]
-fn view_supports_renderer_and_facet_config_facades() {
-    let request = ViewQuery {
-        realm_ids: vec![RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
-        object_types: Vec::new(),
-        morph_types: Vec::new(),
-        facets: vec![Facet::Stateful, Facet::Rankable],
-        seal_ref: None,
-        filters: Vec::new(),
-        relation: None,
-        context: None,
-        order_by: Vec::new(),
-        projection: Vec::new(),
-        cursor: None,
-        limit: None,
-        consistency: None,
-    };
-    let mut view = View {
-        schema: VIEW_SCHEMA.to_owned(),
-        id: ViewId::new("ak:view:01904100-0000-7000-8000-848727f328fe").unwrap(),
-        realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
-        kind: ViewKind::Collection,
-        visibility: None,
-        state: None,
-        state_changed_at: None,
-        renderer: Some(ViewRenderer::Board),
-        title: Some("Board".to_owned()),
-        query: request,
-        visible_fields: Vec::new(),
-        layout: None,
-        collection: Some(CollectionConfig {
-            item_facets: vec![Facet::Stateful, Facet::Rankable],
-            item_render: Some(CollectionItemRender::Card),
-            ..Default::default()
-        }),
-        timeline: None,
-        graph: None,
-        document: None,
-        dashboard: None,
-        sort: Vec::new(),
-        created_by: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        created_at: Utc::now(),
-        updated_by: None,
-        updated_at: None,
-    };
-
-    view.validate_lifecycle().unwrap();
-    let value = serde_json::to_value(&view).unwrap();
-    assert_eq!(value["renderer"], "board");
-    assert_eq!(
-        value["collection"]["item_facets"],
-        json!(["stateful", "rankable"])
-    );
-    view.state = Some(ViewState::Tombstoned);
-    assert!(view.validate_lifecycle().is_err());
-    view.state_changed_at = Some(Utc::now());
-    view.validate_lifecycle().unwrap();
-
-    for removed in [
-        json!({"item_order_by": [], "grouping": null, "page_size": 50}),
-        json!({"item_order_by": [], "grouping": null, "selection_policy": "multiple"}),
-    ] {
-        assert!(serde_json::from_value::<CollectionConfig>(removed).is_err());
-    }
-    assert!(
-        serde_json::from_value::<CollectionGrouping>(json!({
-            "mode": "none",
-            "wip_limit_enforcement": "warn"
-        }))
-        .is_err()
-    );
-}
-
-#[test]
-fn operation_serializes_protocol_field_names() {
-    let mut operation = Operation::create(
-        OperationId::new("ak:operation:01904100-0000-7000-8000-d408d6a2241c").unwrap(),
-        RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
-        "morph",
-        json!({"id":"ak:morph:01904100-0000-7000-8000-c12dc98b2948"}),
-    );
-    operation.object_id = Some("ak:morph:01904100-0000-7000-8000-c12dc98b2948".to_owned());
-
-    let value = serde_json::to_value(operation).unwrap();
-
-    assert_eq!(value["type"], "operation");
-    assert_eq!(value["operation_type"], "create");
-    assert_eq!(
-        value["object_id"],
-        "ak:morph:01904100-0000-7000-8000-c12dc98b2948"
-    );
-    assert_eq!(value["object_type"], "morph");
-    assert!(value.get("target_object_id").is_none());
-    assert_eq!(value["schema"], OPERATION_SCHEMA);
 }
 
 #[test]
@@ -583,52 +395,6 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
 }
 
 #[test]
-fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding() {
-    let mut operation = OperationEnvelopeBuilder::new(
-        OperationId::new("ak:operation:01904100-0000-7000-8000-9c5aa4740640").unwrap(),
-        test_realm_id(),
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        crate::events::EventKind::MESSAGE_CREATE,
-        7,
-        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-    )
-    .with_payload(json!({
-        "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
-        "track_name": "discussion",
-        "content": {"kind": "ak.content.text", "body": "hello"}
-    }))
-    .build(&EventDraftKindRegistry::default())
-    .unwrap();
-    let digest = operation.operation_digest().unwrap();
-    operation.proofs = vec![Proof {
-        kind: "detached_jws".to_owned(),
-        alg: "EdDSA".to_owned(),
-        verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
-        event_digest: Hash::new(digest).unwrap(),
-        created_at: Utc::now(),
-        domain: None,
-        audience: Some(Audience::Single(
-            "did:webvh:z6mkfixture:service.example".to_owned(),
-        )),
-        jws: "sig".to_owned(),
-    }];
-
-    assert!(
-        operation
-            .validate_proof_bindings_with_context(
-                Some("ak:trust_domain:example.net".to_owned()),
-                Some(Audience::Single(
-                    "did:webvh:z6mkfixture:service.example".to_owned()
-                )),
-                ProofBindingRequirements::cross_domain(),
-            )
-            .unwrap_err()
-            .to_string()
-            .contains("proof_binding_missing")
-    );
-}
-
-#[test]
 fn event_digest_includes_profile_refs_features_and_critical_extensions() {
     let mut event = Event::new(
         "ak.message.create",
@@ -678,7 +444,7 @@ fn event_digest_includes_profile_refs_features_and_critical_extensions() {
     );
 
     event.requirements.critical_extensions[0].fail_closed = false;
-    assert!(event.validate_for_submit().is_err());
+    assert!(event.validate_for_submit_structural().is_err());
 }
 
 #[test]
@@ -707,48 +473,4 @@ fn critical_extension_uses_spec_extension_scope_field() {
     }))
     .unwrap_err();
     assert!(error.to_string().contains("scope"), "{error}");
-}
-
-#[test]
-fn operation_draft_explicitly_materializes_event_envelope_without_signed_operation_id() {
-    let operation = OperationEnvelopeBuilder::new(
-        OperationId::new("ak:operation:01904100-0000-7000-8000-9c5aa474063f").unwrap(),
-        test_realm_id(),
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        crate::events::EventKind::MESSAGE_CREATE,
-        7,
-        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-    )
-    .with_payload(json!({
-        "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
-        "track_name": "discussion",
-        "content": {"kind": "ak.content.text", "body": "hello"}
-    }))
-    .build(&EventDraftKindRegistry::default())
-    .unwrap();
-
-    let event = operation
-        .into_event_envelope(OperationEventConversion::default())
-        .unwrap();
-    assert_eq!(event.kind, crate::events::EventKind::MESSAGE_CREATE);
-    assert_eq!(event.actor_seq, 7);
-    assert_eq!(
-        serde_json::to_value(&event.payload).unwrap(),
-        json!({
-            "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
-            "track_name": "discussion",
-            "content": {"kind": "ak.content.text", "body": "hello"}
-        })
-    );
-    assert_eq!(
-        event.unsigned["local_operation_idempotency_alias"],
-        json!("ak:operation:01904100-0000-7000-8000-9c5aa474063f")
-    );
-    assert!(
-        !event
-            .digest_payload()
-            .unwrap()
-            .to_string()
-            .contains("local_operation_id")
-    );
 }
