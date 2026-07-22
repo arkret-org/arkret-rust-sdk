@@ -7,9 +7,9 @@ use arkret_models_crypto::{
     KeyPackagesRevokeUnsignedRequest, KeyPackagesUploadRequestBody,
     KeyPackagesUploadUnsignedRequest, MlsGovernanceBindingPayload, MlsKeyPackageRecord,
     keypackages_consume_signing_input, keypackages_revoke_signing_input,
-    keypackages_upload_signing_input,
+    keypackages_upload_signing_input, mls_key_package_record_upload_entry,
 };
-use arkret_wire::{Base64UrlString, DeviceId, Did, Hash, canonical};
+use arkret_wire::{DeviceId, Did, Hash, canonical};
 use chrono::{Duration, Utc};
 use openmls::prelude::{
     BasicCredential, Ciphersuite, CredentialWithKey, GroupId, KeyPackage, KeyPackageIn, MlsGroup,
@@ -133,21 +133,8 @@ impl ArkretMlsIdentity {
                 "MLS KeyPackage record owner differs from identity".to_owned(),
             ));
         }
-        Ok(KeyPackageUploadEntry {
-            keypackage_id: record.keypackage_id.clone(),
-            keypackage_ref: record.keypackage_ref.as_str().to_owned(),
-            keypackage_digest: record.keypackage_ref.clone(),
-            key_package: Base64UrlString::new(record.key_package.clone())
-                .map_err(|error| Error::Protocol(error.to_owned()))?,
-            cipher_suites: record.cipher_suites.clone(),
-            capabilities: record.capabilities.clone(),
-            expires_at: record
-                .expires_at
-                .unwrap_or(record.created_at + Duration::days(7)),
-            created_at: record.created_at,
-            device_signature: None,
-            last_resort: record.last_resort.then_some(true),
-        })
+        mls_key_package_record_upload_entry(record)
+            .map_err(|error| Error::Protocol(error.to_string()))
     }
 
     /// Build and sign a standard KeyPackage upload request with this MLS
