@@ -1396,9 +1396,9 @@ mod tests {
         agent_key_proof_signing_input_for_session_grant,
     };
     use arkret_canonical::canonical;
-    use arkret_core::move_event::Move;
     use arkret_core::{MoveSignature, MoveSigner, UnsignedMove, proof_kind};
     use arkret_wire::Result as WireResult;
+    use arkret_wire::move_event::Move;
     use chrono::TimeZone;
     use ed25519_dalek::Verifier as _;
     use serde_json::json;

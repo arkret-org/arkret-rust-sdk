@@ -75,7 +75,7 @@ compile_error!(
 
 mod sdk_error;
 pub use arkret_core::{
-    KeyRefObject, canonical, error, events, identifiers, lattice, models, schema, service, *,
+    KeyRefObject, canonical, error, events, identifiers, models, schema, service, *,
 };
 pub use arkret_crypto::identity_root;
 pub use arkret_egress_policy as network_policy;
@@ -114,7 +114,7 @@ pub use arkret_signatures::Ed25519MoveSigner;
 pub use arkret_signatures::{
     realm_organization, realm_organization_statement_sign, service_identity, webvh,
 };
-pub use arkret_state::{snapshot, state, *};
+pub use arkret_state::{lattice, snapshot, state, *};
 pub use arkret_wire::{
     QUERY_AUTH_PARAMETER_NAMES, contains_query_auth_material, is_query_auth_parameter,
 };

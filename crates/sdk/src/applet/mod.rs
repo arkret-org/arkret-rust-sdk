@@ -718,11 +718,11 @@ mod tests {
     fn sign_registration_attaches_proof_with_matching_digest() {
         use std::collections::BTreeMap;
 
-        use arkret_core::move_event::Move;
         use arkret_core::{
             Did as CoreDid, Hash as CoreHash, MoveSignature, MoveSigner, UnsignedMove, canonical,
         };
         use arkret_wire::Result as WireResult;
+        use arkret_wire::move_event::Move;
 
         struct StubSigner {
             did: CoreDid,

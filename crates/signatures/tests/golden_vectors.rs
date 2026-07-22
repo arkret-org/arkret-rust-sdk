@@ -9,9 +9,9 @@
 //! 2. `Ed25519MoveSigner` (Move/Seal signing) and the generic detached-JWS signer produce the same
 //!    signing input and same 64-byte signature for identical canonical bytes, proving the
 //!    historical JWS forks have converged.
-//! 3. base58btc (`core::multibase`, `bs58` backend) stays stable for the did:key Ed25519
+//! 3. base58btc (`arkret-canonical`, `bs58` backend) stays stable for the did:key Ed25519
 //!    multiencoding stack.
-//! 4. base64url (`core::base64url`) remains unpadded and URL-safe.
+//! 4. base64url (`arkret-canonical`) remains unpadded and URL-safe.
 
 use arkret_canonical::{base64url_decode, base64url_encode, ed25519_pubkey_to_did_key_multibase};
 
@@ -34,10 +34,11 @@ fn detached_jws_protected_header_is_alg_eddsa_only() {
 #[cfg(feature = "signer")]
 #[test]
 fn move_signer_and_generic_detached_jws_signer_share_one_header_and_signature() {
-    use arkret_core::move_event::{Effect, LatticeOp, LatticeOpType, SealBasis};
-    use arkret_core::{CellRef, Did, Hash, Hlc, MoveSigner, RealmId, SealId, UnsignedMove};
+    use arkret_identifiers::{CellRef, Did, Hash, Hlc, RealmId, SealId};
     use arkret_signatures::Ed25519MoveSigner;
     use arkret_signatures::proof::{Ed25519DetachedJwsSigner, EventSigner};
+    use arkret_wire::move_event::{Effect, LatticeOp, LatticeOpType, SealBasis};
+    use arkret_wire::signer::{MoveSigner, UnsignedMove};
 
     let seed = [7u8; 32];
     let did = Did::new("did:web:alice.example".to_owned()).unwrap();
@@ -46,7 +47,7 @@ fn move_signer_and_generic_detached_jws_signer_share_one_header_and_signature() 
     // Build a Move and grab its canonical bytes + the Move signature JWS.
     let move_signer = Ed25519MoveSigner::from_did_key_seed(seed, did.clone(), vm);
     let unsigned = UnsignedMove::new(
-        did.clone(),
+        did,
         RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap(),
         SealBasis {
             leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "aa".repeat(32))).unwrap()],

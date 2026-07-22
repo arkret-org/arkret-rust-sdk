@@ -23,13 +23,7 @@ pub mod federation;
 pub mod generated;
 pub mod http;
 pub mod identity;
-pub mod lattice {
-    pub use arkret_state::lattice::*;
-}
 pub mod models;
-pub mod move_event {
-    pub use arkret_wire::move_event::*;
-}
 pub mod multibase {
     pub use arkret_canonical::multibase::*;
 }
@@ -89,6 +83,10 @@ pub use arkret_signatures::keypackages::{
 };
 pub use arkret_wire::bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
 pub use arkret_wire::cell::{CellId, composite_subject, composite_subject_pipe};
+pub use arkret_wire::move_event::{
+    Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,
+    Predicate, PredicateOp, SealBasis, SemanticRef,
+};
 pub use arkret_wire::notary::{ForensicAttribution, NotaryValue};
 pub use arkret_wire::seal::{
     MultiSigKind, MultiSignature, NotarySig, SEAL_SIGNATURE_ALGS, Seal, SealKind, ThresholdSigKind,
@@ -122,10 +120,6 @@ pub use identifiers::{
 };
 pub use identity::{DID_WEBVH_V1_METHOD, principal_control_realm_id, validate_did_webvh_v1_method};
 pub use models::*;
-pub use move_event::{
-    Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,
-    Predicate, PredicateOp, SealBasis, SemanticRef,
-};
 pub use multibase::{
     MULTICODEC_ED25519_PUB, decode_base58btc, decode_ed25519_multibase,
     decode_ed25519_signature_multibase, decode_multibase_base58btc, decode_multicodec_varint,
