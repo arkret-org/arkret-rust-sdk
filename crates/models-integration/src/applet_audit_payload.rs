@@ -163,3 +163,28 @@ impl AppletRegistrationPayload {
             .map_err(|err| Error::Protocol(format!("applet registration payload serialize: {err}")))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn did(value: &str) -> Did {
+        Did::new(value).unwrap()
+    }
+
+    #[test]
+    fn applet_registration_builder_rejects_empty_proof() {
+        let payload = AppletRegistrationPayload::new(
+            AppletIdentifier::Did(did("did:webvh:z6mkfixture:applet.example")),
+            did("did:webvh:z6mkfixture:svc.example"),
+            did("did:webvh:z6mkfixture:controller.example"),
+            "https://applet.example",
+            did("did:webvh:z6mkfixture:bot.example"),
+            Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+            BTreeMap::new(),
+            BTreeMap::new(),
+            "2026-07-08T10:05:00.000Z".parse().unwrap(),
+        );
+        assert!(payload.to_value().is_err());
+    }
+}

@@ -1,5 +1,10 @@
+use std::collections::BTreeMap;
+
 use arkret_models_integration::applet::AppletRegistrationEpochTranscript;
+use arkret_models_integration::{AppletIdentifier, AppletRegistrationPayload};
 use arkret_schema::embedded_json_artifact;
+use arkret_wire::{Did, Hash};
+use serde_json::{Value, json};
 
 #[test]
 fn applet_registration_epoch_fixture_executes_against_owner() {
@@ -47,4 +52,44 @@ fn applet_registration_epoch_fixture_executes_against_owner() {
             .as_str(),
         positive["expected_registration_epoch"].as_str().unwrap()
     );
+}
+
+#[test]
+fn applet_registration_builder_validates_against_catalog() {
+    fn did(value: &str) -> Did {
+        Did::new(value).unwrap()
+    }
+
+    let webhook_auth: BTreeMap<String, Value> = [(
+        "key_ref".to_owned(),
+        json!("did:webvh:z6mkfixture:applet.example#svc"),
+    )]
+    .into_iter()
+    .collect();
+    let proof: BTreeMap<String, Value> = [("signature".to_owned(), json!("c2ln"))]
+        .into_iter()
+        .collect();
+    let payload = AppletRegistrationPayload::new(
+        AppletIdentifier::Did(did("did:webvh:z6mkfixture:applet.example")),
+        did("did:webvh:z6mkfixture:svc.example"),
+        did("did:webvh:z6mkfixture:controller.example"),
+        "https://applet.example",
+        did("did:webvh:z6mkfixture:bot.example"),
+        Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+        webhook_auth,
+        proof,
+        "2026-07-08T10:05:00.000Z".parse().unwrap(),
+    )
+    .with_protocols(vec!["a2a".to_owned()])
+    .with_requested_scopes(vec!["ak.message.create".to_owned()])
+    .with_receive_events(true);
+    let value = payload.to_value().unwrap();
+    assert_eq!(
+        value["service_id"],
+        json!("did:webvh:z6mkfixture:svc.example")
+    );
+    arkret_schema::event_payload_validator_catalog()
+        .unwrap()
+        .validate_payload("ak.applet.registration", &value)
+        .unwrap();
 }

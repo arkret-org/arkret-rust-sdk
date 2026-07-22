@@ -1,6 +1,10 @@
 use arkret_canonical::{base64url, canonical};
-use arkret_models_crypto::EncryptedPayload;
-use arkret_schema::embedded_json_artifact;
+use arkret_models_crypto::{
+    EncryptedPayload, MLS_GOVERNANCE_BINDING_FULL_PROFILE, MlsCommitPayload,
+    MlsGovernanceBindingPayload,
+};
+use arkret_schema::{embedded_json_artifact, event_payload_validator_catalog};
+use arkret_wire::{EventId, Hash, RealmId};
 
 fn encoding_vector(vector_id: &str) -> serde_json::Value {
     let fixture = embedded_json_artifact("fixtures/encoding-fixture.json").unwrap();
@@ -59,4 +63,49 @@ fn mls_payload_digest_regression_anchor() {
         digest.as_str(),
         "sha256:3bef5270548d5b2c14e46ac1c9a801376d243ca6d71b914ec1d3283268a981fa"
     );
+}
+
+#[test]
+fn mls_commit_payload_matches_registered_event_schema() {
+    fn event(n: u8) -> EventId {
+        EventId::new(format!("ak:event:0196419b-0000-7000-8000-00000000000{n}")).unwrap()
+    }
+
+    fn hash(byte: char) -> Hash {
+        Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
+    }
+
+    let group_id = base64url::base64url_encode(b"arkret-mls-test-group");
+    let binding = MlsGovernanceBindingPayload::realm(
+        RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000001").unwrap(),
+        group_id.clone(),
+        0,
+        1,
+        vec![event(2)],
+        hash('2'),
+        hash('3'),
+        hash('4'),
+        MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+        "ak.reducer.v1",
+    )
+    .unwrap();
+    let payload = MlsCommitPayload::new(
+        group_id,
+        0,
+        event(1).to_string(),
+        Vec::new(),
+        1,
+        hash('7'),
+        binding,
+    )
+    .unwrap();
+    let value = serde_json::to_value(&payload).unwrap();
+
+    event_payload_validator_catalog()
+        .unwrap()
+        .validate_payload(payload.event_kind(), &value)
+        .unwrap();
+    assert!(value.get("group_id").is_none());
+    assert!(value.get("expected_prev_epoch").is_none());
+    assert!(value.get("commit_bytes_b64").is_none());
 }
