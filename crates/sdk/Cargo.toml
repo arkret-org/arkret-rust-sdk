@@ -93,6 +93,8 @@ arkret-identifiers = {workspace = true}
 # arkret-models-crypto. The umbrella crate is layering-exempt.
 arkret-models-crypto = {workspace = true}
 arkret-models-collaboration = {workspace = true}
+arkret-models-discovery = {workspace = true}
+arkret-models-integration = {workspace = true}
 arkret-http-client = {workspace = true,optional = true}
 arkret-identity = {workspace = true}
 arkret-keystore = {workspace = true}
