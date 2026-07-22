@@ -125,3 +125,99 @@ fn validate_object_patch_ref(field: &str, value: &str) -> Result<()> {
         )))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use arkret_wire::ReasonCode;
+    use arkret_wire::patch::PatchOp;
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn object_patch_payload_serializes_canonical_shape() {
+        let mut patch = Patch::new();
+        patch
+            .insert_op("fields.document", PatchOp::set(json!({ "blocks": [] })))
+            .unwrap();
+
+        let payload =
+            ObjectPatchPayload::for_target("ak:strand:0196419b-0000-7000-8000-000000000001", patch)
+                .unwrap();
+        assert_eq!(
+            payload.to_value().unwrap(),
+            json!({
+                "target_ref": "ak:strand:0196419b-0000-7000-8000-000000000001",
+                "patch": {
+                    "fields.document": {
+                        "$op": "set",
+                        "value": { "blocks": [] }
+                    }
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn object_patch_payload_deserialize_rejects_empty_patch() {
+        let error = serde_json::from_value::<ObjectPatchPayload>(json!({
+            "target_ref": "ak:strand:0196419b-0000-7000-8000-000000000003",
+            "patch": {}
+        }))
+        .unwrap_err();
+        assert!(error.to_string().contains("minProperties"));
+    }
+
+    #[test]
+    fn object_patch_payload_rejects_non_schema_object_ref() {
+        let mut patch = Patch::new();
+        patch.insert_op("title", PatchOp::set("Roadmap")).unwrap();
+        let error = ObjectPatchPayload::for_target("ak:strand:not-a-uuid7", patch).unwrap_err();
+        assert!(error.to_string().contains("object_ref"));
+    }
+
+    #[test]
+    fn object_patch_payload_rejects_reducer_managed_path() {
+        let mut patch = Patch::new();
+        patch
+            .insert_op("state", PatchOp::set(json!("archived")))
+            .unwrap();
+
+        let error =
+            ObjectPatchPayload::for_target("ak:strand:0196419b-0000-7000-8000-000000000004", patch)
+                .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains(ReasonCode::PATCH_PATH_REDUCER_MANAGED)
+        );
+    }
+
+    #[test]
+    fn object_patch_payload_rejects_direct_redactable_unset() {
+        let mut patch = Patch::new();
+        patch
+            .insert_op("encrypted_content", PatchOp::unset())
+            .unwrap();
+
+        let error = ObjectPatchPayload::for_target(
+            "ak:message:0196419b-0000-7000-8000-000000000005",
+            patch,
+        )
+        .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains(ReasonCode::PATCH_UNSET_REDACTABLE_FIELD)
+        );
+    }
+
+    #[test]
+    fn object_patch_payload_allows_non_redactable_metadata_unset() {
+        let mut patch = Patch::new();
+        patch.insert_op("metadata.title", PatchOp::unset()).unwrap();
+
+        ObjectPatchPayload::for_target("ak:strand:0196419b-0000-7000-8000-000000000006", patch)
+            .unwrap();
+    }
+}

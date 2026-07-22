@@ -27,6 +27,8 @@ mod models {
         HistoryVisibilityPayload, ObjectLifecyclePayload, RealmArchivePayload, RealmDestroyPayload,
         RealmTombstonePayload,
     };
+    pub use arkret_models_collaboration::object_patch::ObjectPatchPayload;
+    pub use arkret_wire::patch::{Patch, PatchOp};
     pub use arkret_wire::{
         Did, EventId, Hash, HistoryVisibility, InviteId, PlaintextDataClassKind, RealmId, SpaceId,
         StrandId,
@@ -432,4 +434,22 @@ fn auth_session_fixture_enforces_device_identity_key_separation() {
             unexpected => panic!("unknown key-separation outcome {unexpected}"),
         }
     }
+}
+
+#[test]
+fn object_patch_payload_matches_registered_event_payload_schema() {
+    use models::{ObjectPatchPayload, Patch, PatchOp};
+
+    let mut patch = Patch::new();
+    patch.insert_op("title", PatchOp::set("Roadmap")).unwrap();
+    let payload =
+        ObjectPatchPayload::for_target("ak:morph:0196419b-0000-7000-8000-000000000002", patch)
+            .unwrap()
+            .to_value()
+            .unwrap();
+
+    event_payload_validator_catalog()
+        .unwrap()
+        .validate_payload("ak.morph.update", &payload)
+        .unwrap();
 }
