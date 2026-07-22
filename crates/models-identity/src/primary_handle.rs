@@ -12,12 +12,10 @@
 //! shapes ([`Handle`], [`HandleClaim`], [`HandleBindingState`]) plus the
 //! `arkret-wire` primitives (`Did`/`Error`/`Result`) and `arkret-canonical`
 //! (JCS canonicalization + sha256), and pulls in no client / keystore /
-//! salvo / MLS native-only dependency. `arkret-core` re-exports these
-//! symbols from `arkret_core::identity::primary_handle` (and the umbrella
-//! `arkret` crate from `arkret::identity`) so existing SDK callers are
-//! unaffected, and wasm-only consumers (e.g. sodmin) depend on this
-//! authoritative implementation directly instead of mirroring the
-//! algorithm by hand.
+//! salvo / MLS native-only dependency. The umbrella `arkret` crate re-exports
+//! these symbols from `arkret::identity`, while wasm-only consumers (e.g.
+//! sodmin) depend on this authoritative implementation directly instead of
+//! mirroring the algorithm by hand.
 
 use arkret_canonical::canonical;
 use arkret_wire::{Did, Error, Result};

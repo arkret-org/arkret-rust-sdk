@@ -11,7 +11,6 @@
       "error",
       "events",
       "http",
-      "identity",
       "models"
     ],
     "error": [],
@@ -41,10 +40,6 @@
     "http::params::identity": [],
     "http::params::mimi": [],
     "http::paths": [],
-    "identity": [
-      "identity::primary_handle"
-    ],
-    "identity::primary_handle": [],
     "models": [
       "models::account",
       "models::agent",
@@ -174,8 +169,6 @@
     "http::params::identity": "http/params/identity.rs",
     "http::params::mimi": "http/params/mimi.rs",
     "http::paths": "http/paths.rs",
-    "identity": "identity.rs",
-    "identity::primary_handle": "identity/primary_handle.rs",
     "models": "models/mod.rs",
     "models::account": "models/account.rs",
     "models::agent": "models/agent.rs",
@@ -246,8 +239,6 @@
     "http::params::identity": 1,
     "http::params::mimi": 1,
     "http::paths": 1,
-    "identity": 1,
-    "identity::primary_handle": 1,
     "models": 3,
     "models::account": 2,
     "models::agent": 1,
@@ -361,12 +352,6 @@
     ],
     [
       "http::paths"
-    ],
-    [
-      "identity"
-    ],
-    [
-      "identity::primary_handle"
     ],
     [
       "models::account"

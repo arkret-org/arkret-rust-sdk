@@ -7,11 +7,9 @@
 //! `RealmState` cell-registry, which `arkret-identity` must not depend on.
 
 pub use arkret_bootstrap as bootstrap;
-/// R3.2 primary-handle selection / claim-digest / mention rendering. Stays in
-/// `arkret-core` (`arkret_core::identity::primary_handle`) because its
-/// `HandleClaim` input is owned by `arkret-models-collaboration`, outside the
-/// `arkret-identity` allowed-edge set; this thin module keeps the historical
-/// `arkret::identity::primary_handle` path stable.
+/// R3.2 primary-handle selection / claim-digest / mention rendering. The pure
+/// implementation lives in `arkret-models-identity`; this thin module keeps
+/// the application-level `arkret::identity::primary_handle` path stable.
 pub mod primary_handle;
 
 pub use arkret_bootstrap::*;

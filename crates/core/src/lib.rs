@@ -12,7 +12,6 @@ pub mod canonical {
 pub mod error;
 pub mod events;
 pub mod http;
-pub mod identity;
 pub mod models;
 
 pub use applet::*;
@@ -63,6 +62,9 @@ pub use arkret_models_discovery::service_requirements::{
 pub use arkret_models_identity::admin_grant::{SessionGrantIntrospection, admin_scopes};
 pub use arkret_models_identity::identity_key_log::{DidKeyLogEntry, DidKeyLogOperation};
 pub use arkret_models_identity::service_identity::*;
+pub use arkret_models_identity::{
+    DID_WEBVH_V1_METHOD, principal_control_realm_id, validate_did_webvh_v1_method,
+};
 pub use arkret_policy::authz::*;
 pub use arkret_policy::generated::profiles::{
     PROFILE_ROLES, ProfileRole, profile_ids_with_role, profile_role,
@@ -124,5 +126,4 @@ pub use identifiers::{
     RtcParticipantId, SealId, SnapshotId, SpaceId, StrandId, TransactionId, TypedAppealId,
     TypedTrustDomainId, ViewId,
 };
-pub use identity::{DID_WEBVH_V1_METHOD, principal_control_realm_id, validate_did_webvh_v1_method};
 pub use models::*;

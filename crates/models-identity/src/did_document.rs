@@ -1,10 +1,9 @@
 //! DID Document data shape and did:web helpers.
 //!
-//! Migrated verbatim from `arkret-core` (`arkret_core::identity`) so the
+//! Migrated verbatim from `arkret-core` so the
 //! identity behavior crates (`arkret-identity`, `arkret-auth`) can operate on
-//! the DID Document data model without reaching up into the core facade. Core
-//! keeps a `pub use` shim over these symbols, so `arkret_core::identity::*` and
-//! `arkret::identity::*` are unchanged for existing consumers.
+//! the DID Document data model without reaching up into a facade. The umbrella
+//! `arkret::identity::*` surface remains available to application consumers.
 //!
 //! Behavior that needs signature verification, DID resolution, or state
 //! reduction stays in `arkret-core` and the behavior crates; this module holds
