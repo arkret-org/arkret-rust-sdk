@@ -685,8 +685,10 @@ pub fn build_agent_provision_event_drafts<S: MoveSigner + ?Sized>(
         &[controller_id.as_str(), agent_id.as_str(), "agent_operator"],
         accountability_value,
     )?];
-    accountability_grant.requirements.schema_profile_refs =
-        vec![arkret_core::applet::ACCOUNTABILITY_GRANT_SCHEMA.to_owned()];
+    accountability_grant.requirements.schema_profile_refs = vec![
+        arkret_models_collaboration::governance::accountability::ACCOUNTABILITY_GRANT_SCHEMA
+            .to_owned(),
+    ];
     let mut selector_payload = AgentSelectorClaim {
         schema: arkret_core::AGENT_SELECTOR_CLAIM_SCHEMA.to_owned(),
         controller_subject: controller_id.clone(),

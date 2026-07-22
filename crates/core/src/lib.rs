@@ -4,7 +4,6 @@
 //! level SDK state machines. It intentionally contains no HTTP transport,
 //! framework adapter, mutable reducer, store, or snapshot runtime.
 
-pub mod applet;
 pub mod canonical {
     pub use arkret_canonical::canonical::*;
     pub use arkret_canonical::serde_helpers::*;
@@ -13,7 +12,6 @@ pub mod events;
 pub mod http;
 pub mod models;
 
-pub use applet::*;
 pub use arkret_auth::AdminKeyStore;
 pub use arkret_canonical::base64url::{
     base64_standard_decode, base64_standard_encode, base64url_decode, base64url_encode,
@@ -24,12 +22,18 @@ pub use arkret_canonical::multibase::{
     ed25519_pubkey_to_did_key_multibase, encode_base58btc, encode_multibase_base58btc,
     sha256_multihash_base58btc,
 };
+pub use arkret_event_draft::{GhostActorProfileRequest, accountability_grant_event};
 pub use arkret_identifiers as identifiers;
 pub use arkret_identity::service_identity::{
     FileIdentityBundleBackend, IdentityBundleBackend, IdentityBundleBackendAvailability,
     KeyStoreIdentityBundleBackend, LocalServiceIdentity, ResolvedService, ServiceIdentityBundle,
     ServiceIdentityDiagnostic, ServiceIdentityKeyRef, ServiceIdentityProviderRef,
     ServiceIdentityState, StoredServiceIdentity,
+};
+pub use arkret_models_collaboration::applet_service::*;
+pub use arkret_models_collaboration::governance::accountability::{
+    ACCOUNTABILITY_GRANT_SCHEMA, AccountabilityGrantPayload, AccountabilityGrantStatus,
+    AccountabilityScope, AccountabilityScopeKind,
 };
 pub use arkret_models_collaboration::sync_frames::client_sync::{
     BackfillDirection, BackfillFrom, BackfillOutcome, BackfillRequestBody, LimitedTimelineState,
@@ -64,6 +68,7 @@ pub use arkret_models_identity::service_identity::*;
 pub use arkret_models_identity::{
     DID_WEBVH_V1_METHOD, principal_control_realm_id, validate_did_webvh_v1_method,
 };
+pub use arkret_models_integration::applet::*;
 pub use arkret_policy::authz::*;
 pub use arkret_policy::generated::profiles::{
     PROFILE_ROLES, ProfileRole, profile_ids_with_role, profile_role,

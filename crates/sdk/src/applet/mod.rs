@@ -6,7 +6,13 @@
 mod bridge_error;
 mod portal;
 
-pub use arkret_core::applet::*;
+pub use arkret_event_draft::{GhostActorProfileRequest, accountability_grant_event};
+pub use arkret_models_collaboration::applet_service::*;
+pub use arkret_models_collaboration::governance::accountability::{
+    ACCOUNTABILITY_GRANT_SCHEMA, AccountabilityGrantPayload, AccountabilityGrantStatus,
+    AccountabilityScope, AccountabilityScopeKind,
+};
+pub use arkret_models_integration::applet::*;
 pub use bridge_error::*;
 pub use portal::*;
 

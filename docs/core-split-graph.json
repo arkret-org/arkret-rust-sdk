@@ -1,13 +1,6 @@
 {
   "edges": {
-    "applet": [
-      "applet::ghost",
-      "applet::service"
-    ],
-    "applet::ghost": [],
-    "applet::service": [],
     "crate_root": [
-      "applet",
       "events",
       "http",
       "models"
@@ -150,9 +143,6 @@
     "models::sync": []
   },
   "files": {
-    "applet": "applet/mod.rs",
-    "applet::ghost": "applet/ghost.rs",
-    "applet::service": "applet/service.rs",
     "crate_root": "lib.rs",
     "events": "events/mod.rs",
     "events::redaction": "events/redaction.rs",
@@ -219,9 +209,6 @@
     "models::sync": "models/sync.rs"
   },
   "incoming_counts": {
-    "applet": 1,
-    "applet::ghost": 1,
-    "applet::service": 1,
     "crate_root": 0,
     "events": 1,
     "events::redaction": 1,
@@ -297,15 +284,6 @@
     [
       "models",
       "models::events"
-    ],
-    [
-      "applet"
-    ],
-    [
-      "applet::ghost"
-    ],
-    [
-      "applet::service"
     ],
     [
       "crate_root"
