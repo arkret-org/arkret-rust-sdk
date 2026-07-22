@@ -547,7 +547,7 @@ pub struct DirectConversationBoundPayload {
     pub participants_unordered: Vec<Did>,
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
-    pub contact_refs: ContactEventRefs,
+    pub authorization_basis: DirectConversationAuthorizationBasis,
     pub member_event_refs: ContactEventRefs,
     pub main_strand_create_ref: EventId,
     pub mls_group_id: MlsGroupId,
@@ -565,6 +565,7 @@ pub struct DirectConversationBoundPayload {
 
 impl DirectConversationBoundPayload {
     pub fn validate_pair_key(&self, trust_domain: TypedTrustDomainId) -> Result<()> {
+        self.authorization_basis.validate_shape()?;
         let [left, right]: [Did; 2] =
             self.participants_unordered
                 .clone()

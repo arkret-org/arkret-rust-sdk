@@ -683,6 +683,30 @@ pub struct PendingSidecarAccessReconciliationItem {
     pub agent_id: Did,
     pub stage: PendingSidecarAccessReconciliationStage,
     pub reason: NonEmptyString,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub membership_frontier: Option<Vec<EventId>>,
+}
+
+impl PendingSidecarAccessReconciliationItem {
+    pub fn validate(&self) -> Result<()> {
+        match (&self.stage, &self.membership_frontier) {
+            (PendingSidecarAccessReconciliationStage::MlsRemove, Some(frontier))
+                if !frontier.is_empty()
+                    && frontier.windows(2).all(|pair| pair[0].as_str() < pair[1].as_str()) =>
+            {
+                Ok(())
+            }
+            (PendingSidecarAccessReconciliationStage::MlsRemove, _) => Err(Error::Protocol(
+                "Sidecar MLS remove reconciliation requires a non-empty sorted unique membership_frontier"
+                    .to_owned(),
+            )),
+            (_, None) => Ok(()),
+            (_, Some(_)) => Err(Error::Protocol(
+                "Sidecar membership_frontier is only valid for MLS remove reconciliation"
+                    .to_owned(),
+            )),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -738,6 +762,107 @@ pub enum AgentSidecarState {
     Tombstoned,
 }
 
+pub const AGENT_SIDECAR_DESIRED_ACCESS_KIND: &str = "ak.sidecar.desired_access.v1";
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarDesiredAccessTranscript {
+    pub kind: &'static str,
+    pub sidecar_id: SidecarId,
+    pub realm_id: RealmId,
+    pub controller_id: Did,
+    pub principal_ids: Vec<Did>,
+}
+
+impl AgentSidecarDesiredAccessTranscript {
+    pub fn new(
+        sidecar_id: SidecarId,
+        realm_id: RealmId,
+        controller_id: Did,
+        desired_agent_ids: &[Did],
+    ) -> Result<Self> {
+        let mut principal_ids = desired_agent_ids.to_vec();
+        principal_ids.push(controller_id.clone());
+        principal_ids
+            .sort_by(|left, right| left.as_str().as_bytes().cmp(right.as_str().as_bytes()));
+        if principal_ids.windows(2).any(|pair| pair[0] == pair[1]) {
+            return Err(Error::Protocol(
+                "Sidecar desired access principals must be unique and desired_agent_ids must exclude the controller"
+                    .to_owned(),
+            ));
+        }
+        Ok(Self {
+            kind: AGENT_SIDECAR_DESIRED_ACCESS_KIND,
+            sidecar_id,
+            realm_id,
+            controller_id,
+            principal_ids,
+        })
+    }
+
+    pub fn digest(&self) -> Result<Hash> {
+        Hash::new(canonical::canonical_sha256(self)?).map_err(Into::into)
+    }
+}
+
+pub fn agent_sidecar_desired_access_digest(
+    sidecar_id: SidecarId,
+    realm_id: RealmId,
+    controller_id: Did,
+    desired_agent_ids: &[Did],
+) -> Result<Hash> {
+    AgentSidecarDesiredAccessTranscript::new(
+        sidecar_id,
+        realm_id,
+        controller_id,
+        desired_agent_ids,
+    )?
+    .digest()
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarMlsContext {
+    pub desired_access_digest: Hash,
+    pub control_frontier: Vec<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mls_group_id: Option<MlsGroupId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epoch: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub genesis_event_ref: Option<EventId>,
+    pub current_controller_device_ready: bool,
+}
+
+impl AgentSidecarMlsContext {
+    pub fn validate(&self) -> Result<()> {
+        if self.control_frontier.is_empty()
+            || self
+                .control_frontier
+                .windows(2)
+                .any(|pair| pair[0].as_str().as_bytes() >= pair[1].as_str().as_bytes())
+        {
+            return Err(Error::Protocol(
+                "Sidecar MLS control_frontier must be non-empty, UTF-8 byte-lexicographically sorted, and unique"
+                    .to_owned(),
+            ));
+        }
+        let present = [
+            self.mls_group_id.is_some(),
+            self.epoch.is_some(),
+            self.genesis_event_ref.is_some(),
+        ];
+        if present.iter().any(|value| *value) && !present.iter().all(|value| *value) {
+            return Err(Error::Protocol(
+                "Sidecar MLS group, epoch, and genesis event reference must be all present or all absent"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -788,6 +913,7 @@ pub struct AgentSidecarView {
     pub sidecar: AgentSidecar,
     pub desired_agent_ids: Vec<Did>,
     pub effective_agent_ids: Vec<Did>,
+    pub mls_context: AgentSidecarMlsContext,
     pub access_readiness: AgentSidecarAccessReadiness,
     pub pending_access_reconciliations: Vec<PendingSidecarAccessReconciliationItem>,
 }
@@ -795,6 +921,10 @@ pub struct AgentSidecarView {
 impl AgentSidecarView {
     pub fn validate(&self) -> Result<()> {
         self.sidecar.validate()?;
+        self.mls_context.validate()?;
+        for pending in &self.pending_access_reconciliations {
+            pending.validate()?;
+        }
         let desired = self.desired_agent_ids.iter().collect::<BTreeSet<_>>();
         if desired.len() != self.desired_agent_ids.len()
             || self
@@ -810,6 +940,28 @@ impl AgentSidecarView {
         {
             return Err(Error::Protocol(
                 "sidecar effective access must be a unique subset of desired access".to_owned(),
+            ));
+        }
+        let expected_digest = agent_sidecar_desired_access_digest(
+            self.sidecar.id.clone(),
+            self.sidecar.realm_id.clone(),
+            self.sidecar.controller_id.clone(),
+            &self.desired_agent_ids,
+        )?;
+        if self.mls_context.desired_access_digest != expected_digest {
+            return Err(Error::Protocol(
+                "Sidecar MLS desired_access_digest does not match the canonical desired access transcript"
+                    .to_owned(),
+            ));
+        }
+        if self.access_readiness == AgentSidecarAccessReadiness::Ready
+            && (!self.mls_context.current_controller_device_ready
+                || self.effective_agent_ids.len() != self.desired_agent_ids.len()
+                || self.mls_context.mls_group_id.is_none())
+        {
+            return Err(Error::Protocol(
+                "ready Sidecar requires a ready controller device, an accepted MLS group, and every desired Agent effective"
+                    .to_owned(),
             ));
         }
         Ok(())
@@ -1311,6 +1463,35 @@ mod tests {
                 "{forbidden} must not participate in Sidecar context identity"
             );
         }
+    }
+
+    #[test]
+    fn sidecar_desired_access_digest_matches_normative_fixture() {
+        let digest = agent_sidecar_desired_access_digest(
+            SidecarId::new("ak:sidecar:01964137-0000-7000-8000-000000000020").unwrap(),
+            RealmId::new("ak:realm:01964137-0000-7000-8000-000000000000").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            &[Did::new("did:webvh:z6mkfixture:assistant.agents.example").unwrap()],
+        )
+        .unwrap();
+        assert_eq!(
+            digest.as_str(),
+            "sha256:3eac506d0d13e5b10e602f103c626904c8a9ee3fa4a8ada1303de205ca10d04d"
+        );
+    }
+
+    #[test]
+    fn sidecar_desired_access_digest_rejects_controller_in_agent_set() {
+        let controller = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+        assert!(
+            agent_sidecar_desired_access_digest(
+                SidecarId::new("ak:sidecar:01964137-0000-7000-8000-000000000020").unwrap(),
+                RealmId::new("ak:realm:01964137-0000-7000-8000-000000000000").unwrap(),
+                controller.clone(),
+                &[controller],
+            )
+            .is_err()
+        );
     }
 
     #[test]
