@@ -75,11 +75,15 @@ compile_error!(
 
 mod sdk_error;
 pub use arkret_core::{
-    KeyRefObject, canonical, cursor, error, events, identifiers, integration, lattice, models,
-    operations, ops, push_rule_core, schema, service, sync, *,
+    KeyRefObject, canonical, error, events, identifiers, integration, lattice, models, operations,
+    ops, push_rule_core, schema, service, sync, *,
 };
 pub use arkret_crypto::identity_root;
 pub use arkret_egress_policy as network_policy;
+pub use arkret_hlc::{
+    CURSOR_HANDLE_MIN_LEN, Cursor, CursorPurpose, HlcGenerator, RealmSyncPosition, SyncPositions,
+    SyncTracker, cursor, generate_cursor_handle,
+};
 #[cfg(feature = "client")]
 pub use arkret_http_client as http_client;
 #[cfg(feature = "keystore-encrypted-file")]
@@ -140,7 +144,7 @@ pub mod e2ee;
 #[cfg(feature = "full-surface")]
 pub mod federation;
 pub mod fixtures;
-pub use arkret_core::hlc;
+pub use arkret_hlc as hlc;
 pub use arkret_signatures::dpop;
 // Realm Recovery Key (RRK) durable history sealing — provider-initiated
 // `ak.realm_key.share` to offline recovery recipients (encryption-and-audit.md
@@ -250,9 +254,9 @@ pub use applet::{
     applet_did_document_digest, applet_signing_key_material_digest, namespace_pattern_matches,
     normalize_applet_signing_key_ref, sign_registration,
 };
-pub use arkret_core::hlc::{
-    EXPECTED_FUTURE_SKEW_MS, HARD_FUTURE_SKEW_MS, HlcComponents, HlcFutureDrift, HlcGenerator,
-    compare_hlc, parse_hlc, time_until_hlc, validate_hlc_format, validate_hlc_future_drift,
+pub use arkret_identifiers::hlc::{
+    EXPECTED_FUTURE_SKEW_MS, HARD_FUTURE_SKEW_MS, HlcComponents, HlcFutureDrift, compare_hlc,
+    parse_hlc, time_until_hlc, validate_hlc_format, validate_hlc_future_drift,
 };
 // The narrow MLS persistence ports are part of the `CryptoStore` supertrait
 // contract (owned by arkret-models-crypto, OpenMLS-free), so surface them on the
