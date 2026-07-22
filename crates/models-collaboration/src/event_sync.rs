@@ -345,7 +345,7 @@ mod tests {
         let evidence = evidence();
         assert!(evidence.matches_event_proof(&event, &evidence.verification_method));
 
-        let mut wrong_actor = evidence.clone();
+        let mut wrong_actor = evidence;
         wrong_actor.actor_id = Did::new("did:web:mallory.example").unwrap();
         assert!(!wrong_actor.matches_event_proof(&event, &wrong_actor.verification_method));
     }

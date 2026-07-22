@@ -232,7 +232,7 @@ pub fn direct_conversation_membership_bootstrap(
         MembershipPayload::join(
             realm_id.clone(),
             participant,
-            delivery_status.clone(),
+            delivery_status,
             "direct_conversation_bootstrap",
         )
     }))
@@ -639,11 +639,8 @@ mod tests {
             payload: binding_payload(DirectConversationAuthoredBindingState::Active, None),
         };
         let selection =
-            select_canonical_direct_conversation_binding([lower.clone(), higher.clone()]).unwrap();
-        assert_eq!(
-            selection.canonical.unwrap().event_ref,
-            higher.event_ref.clone()
-        );
+            select_canonical_direct_conversation_binding([lower, higher.clone()]).unwrap();
+        assert_eq!(selection.canonical.unwrap().event_ref, higher.event_ref);
         assert_eq!(selection.duplicate_active_refs, vec![lower_ref]);
 
         let retired = DirectConversationBindingCandidate {

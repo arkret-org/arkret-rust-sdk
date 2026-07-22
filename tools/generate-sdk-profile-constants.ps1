@@ -163,7 +163,7 @@ $federationMinimalDigest = $reducerDigestByProfileId['ak.profile.federation_mini
 if ([string]::IsNullOrWhiteSpace($federationMinimalDigest)) {
     throw 'active federation-minimal reducer profile is missing from the Spec registry'
 }
-$lines.Add("/// Spec-generated digest for `ak.profile.federation_minimal.v1`.") | Out-Null
+$lines.Add('/// Spec-generated digest for `ak.profile.federation_minimal.v1`.') | Out-Null
 $lines.Add("pub const FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST: &str = `"$federationMinimalDigest`";") | Out-Null
 $lines.Add("") | Out-Null
 $lines.Add("/// Returns the Spec-generated digest for an active reducer profile.") | Out-Null
