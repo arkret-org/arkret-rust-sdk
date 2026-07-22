@@ -19,7 +19,6 @@
       "http",
       "identity",
       "models",
-      "operations",
       "service",
       "service_identity",
       "stream_trace"
@@ -169,7 +168,6 @@
     "models::relation": [],
     "models::runtime_identity": [],
     "models::sync": [],
-    "operations": [],
     "service": [],
     "service_identity": [],
     "stream_trace": []
@@ -249,7 +247,6 @@
     "models::relation": "models/relation.rs",
     "models::runtime_identity": "models/runtime_identity.rs",
     "models::sync": "models/sync.rs",
-    "operations": "operations.rs",
     "service": "service.rs",
     "service_identity": "service_identity.rs",
     "stream_trace": "stream_trace.rs"
@@ -329,7 +326,6 @@
     "models::relation": 1,
     "models::runtime_identity": 1,
     "models::sync": 1,
-    "operations": 1,
     "service": 1,
     "service_identity": 1,
     "stream_trace": 1
@@ -560,9 +556,6 @@
     ],
     [
       "models::sync"
-    ],
-    [
-      "operations"
     ],
     [
       "service"

@@ -75,11 +75,11 @@ compile_error!(
 
 mod sdk_error;
 pub use arkret_core::{
-    KeyRefObject, canonical, error, events, identifiers, lattice, models, operations, schema,
-    service, sync, *,
+    KeyRefObject, canonical, error, events, identifiers, lattice, models, schema, service, *,
 };
 pub use arkret_crypto::identity_root;
 pub use arkret_egress_policy as network_policy;
+pub use arkret_event_draft::operations;
 pub use arkret_hlc::{
     CURSOR_HANDLE_MIN_LEN, Cursor, CursorPurpose, HlcGenerator, RealmSyncPosition, SyncPositions,
     SyncTracker, cursor, generate_cursor_handle,
@@ -119,6 +119,11 @@ pub use arkret_wire::{
     QUERY_AUTH_PARAMETER_NAMES, contains_query_auth_material, is_query_auth_parameter,
 };
 pub use sdk_error::{Error, Result};
+
+pub mod sync {
+    pub use arkret_models_collaboration::sync_frames::client_sync::*;
+    pub use arkret_models_discovery::presence::{PresenceStatus, aggregate_presence_states};
+}
 
 // Platform-native KeyStore backends. The glob import above already
 // re-exports these symbols, but listing them explicitly keeps them
