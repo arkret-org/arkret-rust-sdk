@@ -1,7 +1,5 @@
 {
   "edges": {
-    "admin_signer": [],
-    "agent": [],
     "applet": [
       "applet::ghost",
       "applet::service"
@@ -9,18 +7,13 @@
     "applet::ghost": [],
     "applet::service": [],
     "crate_root": [
-      "admin_signer",
-      "agent",
       "applet",
       "error",
       "events",
-      "federation",
       "generated",
       "http",
       "identity",
-      "models",
-      "service_identity",
-      "stream_trace"
+      "models"
     ],
     "error": [],
     "events": [
@@ -28,7 +21,6 @@
       "models"
     ],
     "events::redaction": [],
-    "federation": [],
     "generated": [],
     "http": [
       "http::bodies",
@@ -93,9 +85,7 @@
       "models::sync"
     ],
     "models::account": [],
-    "models::agent": [
-      "agent"
-    ],
+    "models::agent": [],
     "models::applet": [
       "models::account"
     ],
@@ -166,13 +156,9 @@
     "models::registry::operation_kind": [],
     "models::relation": [],
     "models::runtime_identity": [],
-    "models::sync": [],
-    "service_identity": [],
-    "stream_trace": []
+    "models::sync": []
   },
   "files": {
-    "admin_signer": "admin_signer.rs",
-    "agent": "agent.rs",
     "applet": "applet/mod.rs",
     "applet::ghost": "applet/ghost.rs",
     "applet::service": "applet/service.rs",
@@ -180,7 +166,6 @@
     "error": "error/mod.rs",
     "events": "events/mod.rs",
     "events::redaction": "events/redaction.rs",
-    "federation": "federation.rs",
     "generated": "generated/mod.rs",
     "http": "http/mod.rs",
     "http::bodies": "http/bodies.rs",
@@ -244,13 +229,9 @@
     "models::registry::operation_kind": "models/registry/operation_kind.rs",
     "models::relation": "models/relation.rs",
     "models::runtime_identity": "models/runtime_identity.rs",
-    "models::sync": "models/sync.rs",
-    "service_identity": "service_identity.rs",
-    "stream_trace": "stream_trace.rs"
+    "models::sync": "models/sync.rs"
   },
   "incoming_counts": {
-    "admin_signer": 1,
-    "agent": 2,
     "applet": 1,
     "applet::ghost": 1,
     "applet::service": 1,
@@ -258,7 +239,6 @@
     "error": 1,
     "events": 1,
     "events::redaction": 1,
-    "federation": 1,
     "generated": 1,
     "http": 1,
     "http::bodies": 1,
@@ -322,9 +302,7 @@
     "models::registry::operation_kind": 1,
     "models::relation": 1,
     "models::runtime_identity": 1,
-    "models::sync": 1,
-    "service_identity": 1,
-    "stream_trace": 1
+    "models::sync": 1
   },
   "nontrivial_sccs": [
     [
@@ -336,12 +314,6 @@
     [
       "models",
       "models::events"
-    ],
-    [
-      "admin_signer"
-    ],
-    [
-      "agent"
     ],
     [
       "applet"
@@ -363,9 +335,6 @@
     ],
     [
       "events::redaction"
-    ],
-    [
-      "federation"
     ],
     [
       "generated"
@@ -552,12 +521,6 @@
     ],
     [
       "models::sync"
-    ],
-    [
-      "service_identity"
-    ],
-    [
-      "stream_trace"
     ]
   ],
   "source_root": "crates/core/src"

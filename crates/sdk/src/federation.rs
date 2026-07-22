@@ -10,12 +10,13 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-pub use arkret_core::federation::{
+pub use arkret_event_draft::federation::FederationTransactionEnvelope;
+pub use arkret_models_collaboration::federation::frames::{
     FederationBackfillAuthorization, FederationQuarantineKind, FederationQuarantineRecord,
-    FederationReplayDecision, FederationReplayRecord, FederationTransactionEnvelope,
-    HttpMessageSignature, ServiceEndpointDescriptor, VerifyActorChallenge,
-    VerifyActorChallengeSignature, WellKnownArkretServer,
+    FederationReplayDecision, FederationReplayRecord, ServiceEndpointDescriptor,
+    VerifyActorChallenge, VerifyActorChallengeSignature, WellKnownArkretServer,
 };
+pub use arkret_wire::HttpMessageSignature;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

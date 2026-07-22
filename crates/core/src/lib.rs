@@ -4,47 +4,49 @@
 //! level SDK state machines. It intentionally contains no HTTP transport,
 //! framework adapter, mutable reducer, store, or snapshot runtime.
 
-pub mod admin_signer;
-pub mod agent;
 pub mod applet;
-pub mod base64url {
-    pub use arkret_canonical::base64url::*;
-}
 pub mod canonical {
     pub use arkret_canonical::canonical::*;
     pub use arkret_canonical::serde_helpers::*;
 }
 pub mod error;
 pub mod events;
-pub mod federation;
 pub mod generated;
 pub mod http;
 pub mod identity;
 pub mod models;
-pub mod multibase {
-    pub use arkret_canonical::multibase::*;
-}
 pub mod schema {
     pub use arkret_schema::*;
 }
-pub mod service_identity;
-pub mod stream_trace;
 
-pub use admin_signer::{AdminKeyStore, SessionGrantIntrospection, admin_scopes};
-pub use agent::{
-    agent_key_pair_proof_request_binding_digest, agent_key_pairing_request_binding_digest,
-    agent_requested_scope_digest, agent_runtime_attestation_digest,
-    agent_runtime_key_binding_digest, agent_runtime_key_binding_digest_from_digests,
-    agent_runtime_public_key_digest,
-};
 pub use applet::*;
+pub use arkret_auth::AdminKeyStore;
+pub use arkret_canonical::base64url::{
+    base64_standard_decode, base64_standard_encode, base64url_decode, base64url_encode,
+};
+pub use arkret_canonical::multibase::{
+    MULTICODEC_ED25519_PUB, decode_base58btc, decode_ed25519_multibase,
+    decode_ed25519_signature_multibase, decode_multibase_base58btc, decode_multicodec_varint,
+    ed25519_pubkey_to_did_key_multibase, encode_base58btc, encode_multibase_base58btc,
+    sha256_multihash_base58btc,
+};
 pub use arkret_identifiers as identifiers;
+pub use arkret_identity::service_identity::{
+    FileIdentityBundleBackend, IdentityBundleBackend, IdentityBundleBackendAvailability,
+    KeyStoreIdentityBundleBackend, LocalServiceIdentity, ResolvedService, ServiceIdentityBundle,
+    ServiceIdentityDiagnostic, ServiceIdentityKeyRef, ServiceIdentityProviderRef,
+    ServiceIdentityState, StoredServiceIdentity,
+};
 pub use arkret_models_collaboration::sync_frames::client_sync::{
     BackfillDirection, BackfillFrom, BackfillOutcome, BackfillRequestBody, LimitedTimelineState,
     MembershipBucket, RealmSubscription, RealmUpdate, SubscriptionConfig, SyncFilter, SyncGap,
     SyncGapReason, SyncMode, SyncRequestBody, SyncSemantics, SyncStreamPosition, SyncTokenBinding,
     SyncUpdates, TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, WaitForFrontier,
     sync_filter_digest,
+};
+pub use arkret_models_collaboration::sync_frames::stream_trace::{
+    StreamTraceError, StreamTraceFrame, StreamTraceFrameKind, StreamTraceUpdate,
+    StreamTraceValidator,
 };
 pub use arkret_models_crypto::key_transparency::{
     KEY_TRANSPARENCY_SCHEMA, KeyTransparencyError, KeyTransparencyEvidence,
@@ -62,7 +64,9 @@ pub use arkret_models_discovery::service_requirements::{
     RateLimitMetadata, RateLimitScopeKind, ServiceEndpointBinding, ServiceIdAllowlist,
     ServiceRequirements,
 };
+pub use arkret_models_identity::admin_grant::{SessionGrantIntrospection, admin_scopes};
 pub use arkret_models_identity::identity_key_log::{DidKeyLogEntry, DidKeyLogOperation};
+pub use arkret_models_identity::service_identity::*;
 pub use arkret_policy::authz::*;
 pub use arkret_policy::profile_claim::{
     ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator,
@@ -76,6 +80,12 @@ pub use arkret_policy::profile_semantics::{
     ProfileSemanticSurface, collect_profile_semantic_requirements,
     profile_capability_action_coverage_report, profile_semantic_coverage_report,
     validate_profile_semantic_coverage,
+};
+pub use arkret_signatures::agent::{
+    agent_key_pair_proof_request_binding_digest, agent_key_pairing_request_binding_digest,
+    agent_requested_scope_digest, agent_runtime_attestation_digest,
+    agent_runtime_key_binding_digest, agent_runtime_key_binding_digest_from_digests,
+    agent_runtime_public_key_digest,
 };
 pub use arkret_signatures::keypackages::{
     KeyPackageSignatureError, KeyPackageSignatureResult, keypackage_signature_from_bytes,
@@ -103,9 +113,6 @@ pub use arkret_wire::{
     SIGNATURE_ALGORITHMS, ServiceOperationDescriptor, ServiceOperationId, ServiceType, WireError,
     XExtensionMap,
 };
-pub use base64url::{
-    base64_standard_decode, base64_standard_encode, base64url_decode, base64url_encode,
-};
 pub use error::*;
 pub use generated::profiles::{PROFILE_ROLES, ProfileRole, profile_ids_with_role, profile_role};
 pub use http::*;
@@ -121,14 +128,3 @@ pub use identifiers::{
 };
 pub use identity::{DID_WEBVH_V1_METHOD, principal_control_realm_id, validate_did_webvh_v1_method};
 pub use models::*;
-pub use multibase::{
-    MULTICODEC_ED25519_PUB, decode_base58btc, decode_ed25519_multibase,
-    decode_ed25519_signature_multibase, decode_multibase_base58btc, decode_multicodec_varint,
-    ed25519_pubkey_to_did_key_multibase, encode_base58btc, encode_multibase_base58btc,
-    sha256_multihash_base58btc,
-};
-pub use service_identity::*;
-pub use stream_trace::{
-    StreamTraceError, StreamTraceFrame, StreamTraceFrameKind, StreamTraceUpdate,
-    StreamTraceValidator,
-};
