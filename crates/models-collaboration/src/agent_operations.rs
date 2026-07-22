@@ -1495,6 +1495,32 @@ mod tests {
     }
 
     #[test]
+    fn sidecar_remove_reconciliation_requires_only_a_canonical_frontier() {
+        let agent_id = Did::new("did:webvh:z6mkfixture:assistant.agents.example").unwrap();
+        let event_a = EventId::new("ak:event:01964137-0000-7000-8000-000000000001").unwrap();
+        let event_b = EventId::new("ak:event:01964137-0000-7000-8000-000000000002").unwrap();
+        let valid = PendingSidecarAccessReconciliationItem {
+            agent_id: agent_id.clone(),
+            stage: PendingSidecarAccessReconciliationStage::MlsRemove,
+            reason: NonEmptyString::new("mls_remove_obligation_pending").unwrap(),
+            membership_frontier: Some(vec![event_a.clone(), event_b.clone()]),
+        };
+        valid.validate().unwrap();
+
+        let mut missing = valid.clone();
+        missing.membership_frontier = None;
+        assert!(missing.validate().is_err());
+
+        let mut unsorted = valid.clone();
+        unsorted.membership_frontier = Some(vec![event_b, event_a.clone()]);
+        assert!(unsorted.validate().is_err());
+
+        let mut wrong_stage = valid;
+        wrong_stage.stage = PendingSidecarAccessReconciliationStage::MlsWelcome;
+        assert!(wrong_stage.validate().is_err());
+    }
+
+    #[test]
     fn sidecar_timestamps_are_canonical_at_the_wire_boundary() {
         let timestamp = Utc
             .with_ymd_and_hms(2026, 7, 20, 12, 34, 56)
