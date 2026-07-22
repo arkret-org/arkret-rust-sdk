@@ -9,7 +9,6 @@ pub mod canonical {
     pub use arkret_canonical::serde_helpers::*;
 }
 pub mod events;
-pub mod http;
 pub mod models;
 
 pub use arkret_auth::AdminKeyStore;
@@ -35,6 +34,9 @@ pub use arkret_models_collaboration::governance::accountability::{
     ACCOUNTABILITY_GRANT_SCHEMA, AccountabilityGrantPayload, AccountabilityGrantStatus,
     AccountabilityScope, AccountabilityScopeKind,
 };
+pub use arkret_models_collaboration::http_bodies::*;
+pub use arkret_models_collaboration::http_params::*;
+pub use arkret_models_collaboration::session_grant_bodies::*;
 pub use arkret_models_collaboration::sync_frames::client_sync::{
     BackfillDirection, BackfillFrom, BackfillOutcome, BackfillRequestBody, LimitedTimelineState,
     MembershipBucket, RealmSubscription, RealmUpdate, SubscriptionConfig, SyncFilter, SyncGap,
@@ -46,11 +48,14 @@ pub use arkret_models_collaboration::sync_frames::stream_trace::{
     StreamTraceError, StreamTraceFrame, StreamTraceFrameKind, StreamTraceUpdate,
     StreamTraceValidator,
 };
+pub use arkret_models_crypto::http_bodies::*;
 pub use arkret_models_crypto::key_transparency::{
     KEY_TRANSPARENCY_SCHEMA, KeyTransparencyError, KeyTransparencyEvidence,
     TransparencyConsistencyProof, TransparencyInclusionProof, TransparencyLogHead,
     TransparencyWitnessSignature,
 };
+pub use arkret_models_discovery::http_bodies::*;
+pub use arkret_models_discovery::http_params::*;
 pub use arkret_models_discovery::presence::{
     LAST_ACTIVE_BUCKET_FLOOR_SECONDS, PRESENCE_PREFERENCE_ACCOUNT_DATA_KEY,
     PRESENCE_VISIBILITY_ACCOUNT_DATA_KEY, PresencePreference, PresenceStatus,
@@ -63,16 +68,21 @@ pub use arkret_models_discovery::service_requirements::{
     ServiceRequirements,
 };
 pub use arkret_models_identity::admin_grant::{SessionGrantIntrospection, admin_scopes};
+pub use arkret_models_identity::http_bodies::*;
+pub use arkret_models_identity::http_params::*;
 pub use arkret_models_identity::identity_key_log::{DidKeyLogEntry, DidKeyLogOperation};
 pub use arkret_models_identity::service_identity::*;
 pub use arkret_models_identity::{
     DID_WEBVH_V1_METHOD, principal_control_realm_id, validate_did_webvh_v1_method,
 };
 pub use arkret_models_integration::applet::*;
+pub use arkret_models_integration::http_bodies::*;
+pub use arkret_models_integration::http_params::*;
 pub use arkret_policy::authz::*;
 pub use arkret_policy::generated::profiles::{
     PROFILE_ROLES, ProfileRole, profile_ids_with_role, profile_role,
 };
+pub use arkret_policy::http_params::*;
 pub use arkret_policy::profile_claim::{
     ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator,
 };
@@ -101,6 +111,7 @@ pub use arkret_signatures::keypackages::{
 pub use arkret_wire::bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
 pub use arkret_wire::cell::{CellId, composite_subject, composite_subject_pipe};
 pub use arkret_wire::error_codes::*;
+pub use arkret_wire::http_signature::HttpMessageSignature;
 pub use arkret_wire::move_event::{
     Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,
     Predicate, PredicateOp, SealBasis, SemanticRef,
@@ -110,6 +121,7 @@ pub use arkret_wire::seal::{
     MultiSigKind, MultiSignature, NotarySig, SEAL_SIGNATURE_ALGS, Seal, SealKind, ThresholdSigKind,
     ThresholdSignature, compute_seal_id, seal_canonical_bytes,
 };
+pub use arkret_wire::self_contact_paths::*;
 pub use arkret_wire::signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};
 pub use arkret_wire::string_profiles::*;
 pub use arkret_wire::{
@@ -119,7 +131,6 @@ pub use arkret_wire::{
     SIGNATURE_ALGORITHMS, ServiceOperationDescriptor, ServiceOperationId, ServiceType, WireError,
     XExtensionMap,
 };
-pub use http::*;
 pub use identifiers::{
     ActorProfileId, AnnounceId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,
     AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,

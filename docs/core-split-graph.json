@@ -2,7 +2,6 @@
   "edges": {
     "crate_root": [
       "events",
-      "http",
       "models"
     ],
     "events": [
@@ -10,27 +9,6 @@
       "models"
     ],
     "events::redaction": [],
-    "http": [
-      "http::bodies",
-      "http::params",
-      "http::paths"
-    ],
-    "http::bodies": [],
-    "http::params": [
-      "http::params::account_admin_applet",
-      "http::params::authz_media",
-      "http::params::blob",
-      "http::params::directory",
-      "http::params::identity",
-      "http::params::mimi"
-    ],
-    "http::params::account_admin_applet": [],
-    "http::params::authz_media": [],
-    "http::params::blob": [],
-    "http::params::directory": [],
-    "http::params::identity": [],
-    "http::params::mimi": [],
-    "http::paths": [],
     "models": [
       "models::account",
       "models::agent",
@@ -146,16 +124,6 @@
     "crate_root": "lib.rs",
     "events": "events/mod.rs",
     "events::redaction": "events/redaction.rs",
-    "http": "http/mod.rs",
-    "http::bodies": "http/bodies.rs",
-    "http::params": "http/params/mod.rs",
-    "http::params::account_admin_applet": "http/params/account_admin_applet.rs",
-    "http::params::authz_media": "http/params/authz_media.rs",
-    "http::params::blob": "http/params/blob.rs",
-    "http::params::directory": "http/params/directory.rs",
-    "http::params::identity": "http/params/identity.rs",
-    "http::params::mimi": "http/params/mimi.rs",
-    "http::paths": "http/paths.rs",
     "models": "models/mod.rs",
     "models::account": "models/account.rs",
     "models::agent": "models/agent.rs",
@@ -212,16 +180,6 @@
     "crate_root": 0,
     "events": 1,
     "events::redaction": 1,
-    "http": 1,
-    "http::bodies": 1,
-    "http::params": 1,
-    "http::params::account_admin_applet": 1,
-    "http::params::authz_media": 1,
-    "http::params::blob": 1,
-    "http::params::directory": 1,
-    "http::params::identity": 1,
-    "http::params::mimi": 1,
-    "http::paths": 1,
     "models": 3,
     "models::account": 2,
     "models::agent": 1,
@@ -293,36 +251,6 @@
     ],
     [
       "events::redaction"
-    ],
-    [
-      "http"
-    ],
-    [
-      "http::bodies"
-    ],
-    [
-      "http::params"
-    ],
-    [
-      "http::params::account_admin_applet"
-    ],
-    [
-      "http::params::authz_media"
-    ],
-    [
-      "http::params::blob"
-    ],
-    [
-      "http::params::directory"
-    ],
-    [
-      "http::params::identity"
-    ],
-    [
-      "http::params::mimi"
-    ],
-    [
-      "http::paths"
     ],
     [
       "models::account"
