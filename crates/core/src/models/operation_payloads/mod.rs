@@ -10,8 +10,6 @@ mod realm_lifecycle {
     pub use arkret_models_collaboration::governance::realm_lifecycle::*;
 }
 mod strand_ops;
-#[cfg(test)]
-mod tests;
 
 pub use membership_invite::*;
 pub use morph_message::*;

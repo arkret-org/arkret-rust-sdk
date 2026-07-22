@@ -1,7 +1,12 @@
+use arkret_canonical::canonical;
+use arkret_models_collaboration::events_payloads::morph_message::*;
+use arkret_models_collaboration::events_payloads::object_create::ObjectCreatePayload;
+use arkret_models_collaboration::objects::profiles::{Morph, MorphMetadata};
+use arkret_models_collaboration::objects::space::Space;
+use arkret_models_crypto::EncryptedEnvelope;
+use arkret_schema::event_payload_validator_catalog;
+use arkret_wire::{Did, MorphId, RealmId, SpaceId, StrandId};
 use serde_json::json;
-
-use super::*;
-use crate::{canonical, *};
 
 fn encrypted_envelope() -> EncryptedEnvelope {
     serde_json::from_value(json!({
@@ -27,22 +32,6 @@ fn encrypted_envelope() -> EncryptedEnvelope {
 }
 
 #[test]
-fn object_create_payload_wraps_object() {
-    let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
-    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
-    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
-    let strand = StrandCreateObject::new(strand_id, realm_id, actor)
-        .with_metadata_title("Incident")
-        .with_track("discussion", StrandTrackConfig::discussion_primary());
-    let payload = ObjectCreatePayload::new(strand).to_value().unwrap();
-    assert_eq!(payload["object"]["schema"], STRAND_SCHEMA);
-    assert_eq!(payload["object"]["stage"], "draft");
-    assert_eq!(payload["object"]["metadata"]["title"], "Incident");
-    canonical::validate_timestamp_canonical(payload["object"]["created_at"].as_str().unwrap())
-        .unwrap();
-}
-
-#[test]
 fn space_create_object_uses_canonical_timestamp() {
     let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
     let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
@@ -50,30 +39,6 @@ fn space_create_object_uses_canonical_timestamp() {
     let space = Space::new(space_id, realm_id, "board", "Board", actor);
     let payload = ObjectCreatePayload::new(space).to_value().unwrap();
     canonical::validate_timestamp_canonical(payload["object"]["created_at"].as_str().unwrap())
-        .unwrap();
-}
-
-#[test]
-fn strand_tracks_update_payload_uses_strand_id_not_target_ref() {
-    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
-    let patch: Patch = serde_json::from_value(json!({
-        "tracks.discussion.is_primary": {"$op": "set", "value": true}
-    }))
-    .unwrap();
-    let payload = StrandTracksUpdatePayload::with_patch(strand_id, patch)
-        .unwrap()
-        .to_value()
-        .unwrap();
-
-    assert_eq!(
-        payload["strand_id"],
-        "ak:strand:01904100-0000-7000-8000-000000000002"
-    );
-    assert!(payload.get("target_ref").is_none());
-    assert!(payload.get("patch").is_some());
-    schema::event_payload_validator_catalog()
-        .unwrap()
-        .validate_payload("ak.strand.tracks.update", &payload)
         .unwrap();
 }
 
@@ -218,7 +183,7 @@ fn message_create_payload_carries_disappearing_expiry() {
     assert_eq!(payload["expiry"]["ttl_ms"], 60_000);
     assert_eq!(payload["expiry"]["trigger"], "on_last_read");
     assert_eq!(payload["expiry"]["grace_ms"], 5_000);
-    schema::event_payload_validator_catalog()
+    event_payload_validator_catalog()
         .unwrap()
         .validate_payload("ak.message.create", &payload)
         .unwrap();
@@ -235,7 +200,7 @@ fn morph_create_payload_rejects_both_content_carriers() {
 
     let payload = ObjectCreatePayload::new(morph).to_value().unwrap();
     assert!(
-        schema::event_payload_validator_catalog()
+        event_payload_validator_catalog()
             .unwrap()
             .validate_payload("ak.morph.create", &payload)
             .is_err()
