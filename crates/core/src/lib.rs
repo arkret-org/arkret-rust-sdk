@@ -7,9 +7,6 @@
 pub mod admin_signer;
 pub mod agent;
 pub mod applet;
-pub mod authz {
-    pub use arkret_policy::authz::*;
-}
 pub mod base64url {
     pub use arkret_canonical::base64url::*;
 }
@@ -62,6 +59,7 @@ pub use arkret_models_discovery::presence::{
     validate_last_active_at, validate_status_message,
 };
 pub use arkret_models_identity::identity_key_log::{DidKeyLogEntry, DidKeyLogOperation};
+pub use arkret_policy::authz::*;
 pub use arkret_policy::profile_claim::{
     ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator,
 };
@@ -101,7 +99,6 @@ pub use arkret_wire::{
     SIGNATURE_ALGORITHMS, ServiceOperationDescriptor, ServiceOperationId, ServiceType, WireError,
     XExtensionMap,
 };
-pub use authz::*;
 pub use base64url::{
     base64_standard_decode, base64_standard_encode, base64url_decode, base64url_encode,
 };
