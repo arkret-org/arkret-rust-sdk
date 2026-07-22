@@ -1,4 +1,6 @@
-mod membership_invite;
+mod membership_invite {
+    pub use arkret_models_collaboration::governance::membership_invite::*;
+}
 mod morph_message;
 mod object_create;
 mod plaintext_visibility {

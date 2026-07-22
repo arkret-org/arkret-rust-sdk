@@ -241,8 +241,9 @@ impl InviteCreatePayload {
 }
 
 /// Enforce the `invite_payload` closed-key set (typed fields + `x_*`
-/// extensions). Schema-catalog validation itself lives in `arkret-core`
-/// (`InviteCreatePayloadWireExt::from_wire_value`).
+/// extensions) before deserializing an inbound payload. Callers that also
+/// require schema-catalog validation run the `arkret-schema` payload gate at
+/// their ingress boundary before decoding this model.
 pub fn validate_invite_create_wire_keys(value: &Value) -> Result<()> {
     let Some(object) = value.as_object() else {
         return Err(Error::Protocol(
