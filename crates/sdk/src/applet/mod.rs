@@ -154,9 +154,9 @@ mod tests {
         );
 
         grant.validate_for_profile(&profile, now).unwrap();
-        let event = grant
-            .to_event(ghost_test_realm(), 2, ghost_test_hlc(), None)
-            .unwrap();
+        let event =
+            accountability_grant_event(&grant, ghost_test_realm(), 2, ghost_test_hlc(), None)
+                .unwrap();
         assert_eq!(
             event.kind,
             arkret_core::events::EventKind::IDENTITY_ACCOUNTABILITY_GRANT

@@ -15,6 +15,7 @@ mod accountability;
 mod event_payload;
 pub mod federation;
 pub mod federation_transaction;
+mod ghost_profile;
 mod operation;
 pub mod operations;
 mod payloads;
@@ -28,6 +29,7 @@ pub use federation_transaction::{
     FederationPushOperationsRequestBody, FederationTransactionOutcome,
     FederationTransactionRequestBody,
 };
+pub use ghost_profile::GhostActorProfileRequest;
 pub use operation::{
     CausalRef, MlsEnvelopeOperationExt, MlsWelcomeTargetExt, Operation, OperationEnvelope,
     OperationEnvelopeBuilder, OperationEventConversion, OperationSignature,
