@@ -21,6 +21,15 @@ use serde_json::Value;
 pub const DID_WEB_MAX_DOCUMENT_BYTES: usize = 64 * 1024;
 pub const DID_WEBVH_V1_METHOD: &str = "did:webvh:1.0";
 
+pub fn validate_did_webvh_v1_method(parameters: &Value) -> Result<()> {
+    if parameters.get("method").and_then(Value::as_str) != Some(DID_WEBVH_V1_METHOD) {
+        return Err(Error::Protocol(
+            "unsupported_did_method: expected did:webvh:1.0".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
 pub fn did_web_document_url(did: &Did) -> Result<String> {
     if did.method() != "web" {
         return Err(Error::Protocol("DID method is not did:web".to_owned()));
@@ -339,6 +348,20 @@ mod tests {
 
     fn did(name: &str) -> Did {
         Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+    }
+
+    #[test]
+    fn did_webvh_v1_method_marker_is_closed() {
+        validate_did_webvh_v1_method(&serde_json::json!({
+            "method": DID_WEBVH_V1_METHOD
+        }))
+        .unwrap();
+        assert!(
+            validate_did_webvh_v1_method(&serde_json::json!({
+                "method": "did:webvh:2.0"
+            }))
+            .is_err()
+        );
     }
 
     #[test]

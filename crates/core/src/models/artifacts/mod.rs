@@ -9,8 +9,6 @@
 //! `BTreeMap<String, Value>` where the schema explicitly permits arbitrary
 //! JSON.
 
-use super::*;
-
 mod account {
     pub use arkret_models_identity::artifacts_account::*;
 }
@@ -27,7 +25,6 @@ mod account_sync {
 }
 mod agent;
 mod applet;
-mod authorization;
 mod blob;
 mod contact_directory;
 mod device_identity;
@@ -56,7 +53,6 @@ pub use account::*;
 pub use account_sync::*;
 pub use agent::*;
 pub use applet::*;
-pub use authorization::*;
 pub use blob::*;
 pub use contact_directory::*;
 pub use device_identity::*;

@@ -9,7 +9,6 @@ pub use arkret_identifiers::{
     TypedTrustDomainId, ViewId, new_prefixed_uuid7,
 };
 pub use arkret_wire::{EvaluationClass, ServiceType, XExtensionMap};
-use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use serde_json::Value;
 #[cfg(test)]
@@ -236,10 +235,5 @@ pub use session_credential::*;
 pub use space::*;
 pub use strand::*;
 pub use sync::*;
-
-pub type FacetName = Facet;
-pub type ObjectRef = String;
-pub type BooleanFilter = Filter;
-pub type QueryFilter = Filter;
 pub use third_party_invite::*;
 pub use wire_strings::*;

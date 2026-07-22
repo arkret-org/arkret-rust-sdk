@@ -2220,7 +2220,7 @@
       "rust_field": "crates/models-identity/src/did_document.rs::DidDocument.raw_properties",
       "crate": "models-identity",
       "file": "crates/models-identity/src/did_document.rs",
-      "line": 92,
+      "line": 101,
       "owner": "DidDocument",
       "field": "raw_properties",
       "rust_type": "BTreeMap<String, Value>",
