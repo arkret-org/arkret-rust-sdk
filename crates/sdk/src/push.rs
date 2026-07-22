@@ -2,13 +2,13 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-// The provider payload helpers are owned by `arkret-core::push`; this module
+// The provider payload helpers are owned by `arkret-models-integration`; this module
 // only adds client-local gateway state and privacy policy.
-pub use arkret_core::push::{
+pub use arkret_models_integration::push::{
     DndPeriod, DndSchedule, DndSettings, PushCondition, PushEventNotification, PushPayload,
     PushPlatform, PushPriority, PushRule, PushRulesConfig,
 };
-use arkret_core::push::{
+use arkret_models_integration::push::{
     blind_payload_data_for_event_kind, blind_push_body_for_wakeup_kind, wakeup_kind_for_event_kind,
 };
 use serde::{Deserialize, Serialize};

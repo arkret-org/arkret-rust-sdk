@@ -228,12 +228,12 @@ pub fn current_feature_safety_report() -> FeatureSafetyReport {
 /// key-backup crypto (`backup`) is a feature of the separate `arkret-crypto`
 /// crate, not re-exported as an SDK feature, so it is not visible to `cfg!`
 /// here; a caller that links `arkret-crypto` with `backup` should append
-/// [`arkret_core::profile_feature_guard::FEATURE_BACKUP`] to this list before
+/// [`arkret_policy::profile_feature_guard::FEATURE_BACKUP`] to this list before
 /// calling [`arkret_core::verify_declared_profiles_against_features`].
 pub fn current_profile_crypto_features() -> Vec<&'static str> {
     let mut features = Vec::new();
     if cfg!(feature = "mls") {
-        features.push(arkret_core::profile_feature_guard::FEATURE_MLS);
+        features.push(arkret_policy::profile_feature_guard::FEATURE_MLS);
     }
     features
 }
@@ -673,7 +673,7 @@ mod tests {
                 .expect_err("e2ee_client still needs the backup crypto feature the SDK cannot see");
             assert!(
                 gaps.iter().all(|gap| gap.required_feature
-                    == arkret_core::profile_feature_guard::FEATURE_BACKUP),
+                    == arkret_policy::profile_feature_guard::FEATURE_BACKUP),
                 "only the backup crypto feature should gap on an mls build: {gaps:?}"
             );
         }
