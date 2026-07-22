@@ -9,7 +9,6 @@ pub mod canonical {
     pub use arkret_canonical::canonical::*;
     pub use arkret_canonical::serde_helpers::*;
 }
-pub mod error;
 pub mod events;
 pub mod http;
 pub mod models;
@@ -96,6 +95,7 @@ pub use arkret_signatures::keypackages::{
 };
 pub use arkret_wire::bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
 pub use arkret_wire::cell::{CellId, composite_subject, composite_subject_pipe};
+pub use arkret_wire::error_codes::*;
 pub use arkret_wire::move_event::{
     Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,
     Predicate, PredicateOp, SealBasis, SemanticRef,
@@ -114,7 +114,6 @@ pub use arkret_wire::{
     SIGNATURE_ALGORITHMS, ServiceOperationDescriptor, ServiceOperationId, ServiceType, WireError,
     XExtensionMap,
 };
-pub use error::*;
 pub use http::*;
 pub use identifiers::{
     ActorProfileId, AnnounceId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,

@@ -74,7 +74,7 @@ compile_error!(
 );
 
 mod sdk_error;
-pub use arkret_core::{KeyRefObject, canonical, error, events, identifiers, models, *};
+pub use arkret_core::{KeyRefObject, canonical, events, identifiers, models, *};
 pub use arkret_crypto::identity_root;
 pub use arkret_egress_policy as network_policy;
 pub use arkret_event_draft::operations;
@@ -115,7 +115,8 @@ pub use arkret_signatures::{
 };
 pub use arkret_state::{lattice, snapshot, state, *};
 pub use arkret_wire::{
-    QUERY_AUTH_PARAMETER_NAMES, contains_query_auth_material, is_query_auth_parameter,
+    QUERY_AUTH_PARAMETER_NAMES, contains_query_auth_material, error_codes as error,
+    is_query_auth_parameter,
 };
 pub use sdk_error::{Error, Result};
 

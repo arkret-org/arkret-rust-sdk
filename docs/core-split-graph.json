@@ -8,12 +8,10 @@
     "applet::service": [],
     "crate_root": [
       "applet",
-      "error",
       "events",
       "http",
       "models"
     ],
-    "error": [],
     "events": [
       "events::redaction",
       "models"
@@ -156,7 +154,6 @@
     "applet::ghost": "applet/ghost.rs",
     "applet::service": "applet/service.rs",
     "crate_root": "lib.rs",
-    "error": "error/mod.rs",
     "events": "events/mod.rs",
     "events::redaction": "events/redaction.rs",
     "http": "http/mod.rs",
@@ -226,7 +223,6 @@
     "applet::ghost": 1,
     "applet::service": 1,
     "crate_root": 0,
-    "error": 1,
     "events": 1,
     "events::redaction": 1,
     "http": 1,
@@ -313,9 +309,6 @@
     ],
     [
       "crate_root"
-    ],
-    [
-      "error"
     ],
     [
       "events"

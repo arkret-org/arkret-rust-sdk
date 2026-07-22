@@ -106,7 +106,7 @@ impl AeadNonceReplayTracker {
         let distance = window.highest_counter - counter;
         if distance >= u128::BITS as u64 || window.bitmap & (1_u128 << distance) != 0 {
             return Err(protocol_error(
-                arkret_core::error::ReasonCode::AEAD_NONCE_COUNTER_REPLAY,
+                arkret_wire::ReasonCode::AEAD_NONCE_COUNTER_REPLAY,
                 "AEAD nonce counter was replayed or fell outside the receive window",
             ));
         }
@@ -330,7 +330,7 @@ pub fn verify_aead_nonce_derivation(expected_nonce: &[u8], supplied_nonce: &[u8]
         Ok(())
     } else {
         Err(protocol_error(
-            arkret_core::error::ReasonCode::AEAD_NONCE_DERIVATION_INVALID,
+            arkret_wire::ReasonCode::AEAD_NONCE_DERIVATION_INVALID,
             "AEAD nonce does not match the canonical deterministic derivation",
         ))
     }
@@ -346,7 +346,7 @@ pub fn verify_aead_sender_nonce(
 ) -> Result<u64> {
     if supplied_nonce.len() != nonce_len {
         return Err(protocol_error(
-            arkret_core::error::ReasonCode::AEAD_NONCE_DERIVATION_INVALID,
+            arkret_wire::ReasonCode::AEAD_NONCE_DERIVATION_INVALID,
             "AEAD nonce length does not match the declared AEAD profile",
         ));
     }
@@ -354,7 +354,7 @@ pub fn verify_aead_sender_nonce(
     let prefix_len = expected_prefix.len();
     if supplied_nonce[..prefix_len] != expected_prefix {
         return Err(protocol_error(
-            arkret_core::error::ReasonCode::AEAD_NONCE_SENDER_DOMAIN_COLLISION,
+            arkret_wire::ReasonCode::AEAD_NONCE_SENDER_DOMAIN_COLLISION,
             "sender_nonce_prefix does not match the declared sender device",
         ));
     }
@@ -528,7 +528,7 @@ mod tests {
         .unwrap_err();
         assert!(matches!(
             replay,
-            Error::Protocol(message) if message.starts_with(arkret_core::error::ReasonCode::AEAD_NONCE_COUNTER_REPLAY)
+            Error::Protocol(message) if message.starts_with(arkret_wire::ReasonCode::AEAD_NONCE_COUNTER_REPLAY)
         ));
 
         let other_context = fixture_nonce_context(DEVICE_TWO);
@@ -542,7 +542,7 @@ mod tests {
         .unwrap_err();
         assert!(matches!(
             mismatch,
-            Error::Protocol(message) if message.starts_with(arkret_core::error::ReasonCode::AEAD_NONCE_SENDER_DOMAIN_COLLISION)
+            Error::Protocol(message) if message.starts_with(arkret_wire::ReasonCode::AEAD_NONCE_SENDER_DOMAIN_COLLISION)
         ));
 
         let aes_context = AeadNonceContext {
@@ -558,7 +558,7 @@ mod tests {
             verify_aead_nonce_derivation(&expected_aes_nonce, &random_nonce).unwrap_err();
         assert!(matches!(
             random_reject,
-            Error::Protocol(message) if message.starts_with(arkret_core::error::ReasonCode::AEAD_NONCE_DERIVATION_INVALID)
+            Error::Protocol(message) if message.starts_with(arkret_wire::ReasonCode::AEAD_NONCE_DERIVATION_INVALID)
         ));
     }
 

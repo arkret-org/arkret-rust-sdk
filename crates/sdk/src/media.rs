@@ -29,7 +29,7 @@ pub const THUMBNAIL_DERIVATION_PROFILE: &str = "ak.profile.media.thumbnail_previ
 
 /// Backend type for a call's media focus. Wire enum mirrors
 /// `ak.realm.media_service.foci[].type`. Receivers MUST fail closed with
-/// [`ErrorCode::UNKNOWN_FOCUS_TYPE`](arkret_core::ErrorCode::UNKNOWN_FOCUS_TYPE)
+/// [`ErrorCode::UNKNOWN_FOCUS_TYPE`](arkret_wire::ErrorCode::UNKNOWN_FOCUS_TYPE)
 /// on unrecognized variants.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -338,19 +338,19 @@ fn verify_issuer_signature(
     let key = anchors.verifying_key(kid).ok_or_else(|| {
         Error::Protocol(format!(
             "{}: no verifying key registered for {what} kid {kid}",
-            arkret_core::error::ReasonCode::TOKEN_ISSUER_UNAUTHORISED
+            arkret_wire::ReasonCode::TOKEN_ISSUER_UNAUTHORISED
         ))
     })?;
     let sig_bytes = base64url_decode(sig_b64).map_err(|err| {
         Error::Protocol(format!(
             "{}: {what} signature is not base64url: {err}",
-            arkret_core::error::ReasonCode::TOKEN_ISSUER_UNAUTHORISED
+            arkret_wire::ReasonCode::TOKEN_ISSUER_UNAUTHORISED
         ))
     })?;
     let sig_array: [u8; 64] = sig_bytes.as_slice().try_into().map_err(|_| {
         Error::Protocol(format!(
             "{}: {what} signature must be 64 bytes, got {}",
-            arkret_core::error::ReasonCode::TOKEN_ISSUER_UNAUTHORISED,
+            arkret_wire::ReasonCode::TOKEN_ISSUER_UNAUTHORISED,
             sig_bytes.len()
         ))
     })?;
@@ -358,7 +358,7 @@ fn verify_issuer_signature(
     key.verify_strict(signing_input, &signature).map_err(|err| {
         Error::Protocol(format!(
             "{}: {what} signature verification failed: {err}",
-            arkret_core::error::ReasonCode::TOKEN_ISSUER_UNAUTHORISED
+            arkret_wire::ReasonCode::TOKEN_ISSUER_UNAUTHORISED
         ))
     })
 }
