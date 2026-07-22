@@ -11,8 +11,8 @@
 //!     `member_delivery_binding` is present, both `handle` + `audience` + `expires_at` MUST also be
 //!     present.
 
-use arkret_core::Did;
-use arkret_core::models::{
+use arkret_identifiers::Did;
+use arkret_models_identity::{
     DeliveryBindingHint, Handle, HandleBindingState, HandleClaim, HandleHintBindingSource,
     RecipientServiceType,
 };

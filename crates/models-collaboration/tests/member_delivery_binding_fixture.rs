@@ -3,7 +3,7 @@
 //! (`ak.member.state{join}.delivery_binding` closure vectors).
 //!
 //! The SDK-implementable subset exercises the typed
-//! [`arkret_core::MemberDeliveryBinding`] model: wire-shape parsing and the
+//! [`arkret_models_collaboration::MemberDeliveryBinding`] model: wire-shape parsing and the
 //! `binding_source`-conditional `validate()` rules. Vectors whose
 //! expectations are server-reducer semantics stay owned by the soland
 //! reducer suite and are consumed here at the metadata level only:
@@ -18,8 +18,10 @@
 //!   code registration.
 //! * `unroutable.v1` delivery-side effects (skipping notifications / sync / push / to-device /
 //!   key-packages) — server delivery pipeline conduct.
-use arkret_core::schema::{embedded_error_code_identifiers, embedded_json_artifact};
-use arkret_core::{BindingSource, DeliveryStatus, MemberDeliveryBinding};
+use arkret_models_collaboration::governance::delivery_binding::{
+    BindingSource, DeliveryStatus, MemberDeliveryBinding,
+};
+use arkret_schema::{embedded_error_code_identifiers, embedded_json_artifact};
 use serde_json::Value;
 
 const FIXTURE_PATH: &str = "fixtures/membership-delivery-binding-fixture.json";

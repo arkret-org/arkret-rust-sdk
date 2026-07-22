@@ -4,7 +4,7 @@
 //! Coverage split (mirrors the fixture's own `lattice_round_trip` metadata):
 //!
 //! * The `lattice_round_trip.cases` block names the pure-lattice and Realm Link FSM vectors whose
-//!   join semantics are implemented directly by [`arkret_core::lattice`]. This test executes every
+//!   join semantics are implemented directly by [`arkret_state::lattice`]. This test executes every
 //!   declared assertion of those cases against the SDK lattice types, so a join-semantics drift
 //!   fails in the SDK's own CI.
 //! * The sixteen `vectors` entries are dual-plane CBA scenarios (DataEvent vs control Move, seal
@@ -13,17 +13,17 @@
 //!   Here they are pinned as an inventory gate (vector_id + expected block present) so silent
 //!   fixture renames/removals still surface in the SDK.
 
-use arkret_core::lattice::ordered_log::IssuedOp;
-use arkret_core::lattice::{
+use arkret_models_collaboration::governance::realm_governance::{
+    REALM_LINK_ALLOWED_TRANSITIONS, REALM_LINK_INITIAL_STATES, REALM_LINK_TERMINAL_STATES,
+    RealmLinkKind, RealmLinkPayload, RealmLinkStatus, RealmLinkTransitionCandidate,
+    RealmLinkTransitionOutcome, evaluate_realm_link_transition,
+};
+use arkret_schema::embedded_json_artifact;
+use arkret_state::lattice::ordered_log::IssuedOp;
+use arkret_state::lattice::{
     CasRegister, CellState, Counter, Fsm, Lattice, MvRegister, OrderedLog, SealedOp,
 };
-use arkret_core::schema::embedded_json_artifact;
-use arkret_core::{
-    CellRef, Did, LatticeOp, LatticeOpType, MoveId, REALM_LINK_ALLOWED_TRANSITIONS,
-    REALM_LINK_INITIAL_STATES, REALM_LINK_TERMINAL_STATES, RealmId, RealmLinkKind,
-    RealmLinkPayload, RealmLinkStatus, RealmLinkTransitionCandidate, RealmLinkTransitionOutcome,
-    evaluate_realm_link_transition,
-};
+use arkret_wire::{CellRef, Did, LatticeOp, LatticeOpType, MoveId, RealmId, ReasonCode};
 use serde_json::{Value, json};
 
 const FIXTURE_PATH: &str = "fixtures/cba-lattice-fixture.json";
@@ -438,7 +438,7 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
                 .unwrap_err();
                 assert_eq!(
                     error.reason_code(),
-                    arkret_core::ReasonCode::REALM_LINK_INVALID_TRANSITION
+                    ReasonCode::REALM_LINK_INVALID_TRANSITION
                 );
             }
         }
@@ -533,10 +533,7 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
                 },
             )
             .unwrap_err();
-            assert_eq!(
-                error.reason_code(),
-                arkret_core::ReasonCode::REALM_LINK_SELF_REFERENCE
-            );
+            assert_eq!(error.reason_code(), ReasonCode::REALM_LINK_SELF_REFERENCE);
         }
         other => panic!("unknown lattice_round_trip assertion {other:?}; extend this driver"),
     }

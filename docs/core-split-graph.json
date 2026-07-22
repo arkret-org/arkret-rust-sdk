@@ -1,29 +1,14 @@
 {
   "edges": {
     "account_subscribe": [],
-    "admin_signer": [
-      "keystore"
-    ],
+    "admin_signer": [],
     "agent": [],
     "applet": [
       "applet::ghost",
-      "applet::namespace_match",
-      "applet::registration",
       "applet::service"
     ],
-    "applet::ghost": [
-      "events"
-    ],
-    "applet::namespace_match": [
-      "applet::registration"
-    ],
-    "applet::registration": [
-      "applet::namespace_match",
-      "identity"
-    ],
-    "applet::service": [
-      "models"
-    ],
+    "applet::ghost": [],
+    "applet::service": [],
     "crate_root": [
       "account_subscribe",
       "admin_signer",
@@ -34,46 +19,32 @@
       "events",
       "federation",
       "generated",
+      "hlc",
       "http",
       "identity",
-      "identity_key_log",
-      "inbound",
-      "key_transparency",
       "keystore",
       "models",
       "operations",
       "platform",
-      "presence",
-      "sdk_conformance",
+      "query_auth",
       "service",
-      "stream_trace",
-      "sync"
+      "service_identity",
+      "stream_trace"
     ],
     "cursor": [],
-    "error": [
-      "error::error_enum",
-      "error::tests"
-    ],
-    "error::error_enum": [
-      "keystore",
-      "models"
-    ],
-    "error::tests": [],
+    "error": [],
     "events": [
-      "events::reaction",
       "events::redaction",
       "models"
     ],
-    "events::reaction": [],
     "events::redaction": [],
     "federation": [],
     "generated": [],
+    "hlc": [],
     "http": [
       "http::bodies",
       "http::params",
-      "http::paths",
-      "http::signature",
-      "http::tests"
+      "http::paths"
     ],
     "http::bodies": [],
     "http::params": [
@@ -88,46 +59,21 @@
     "http::params::authz_media": [],
     "http::params::blob": [],
     "http::params::directory": [],
-    "http::params::identity": [
-      "http"
-    ],
+    "http::params::identity": [],
     "http::params::mimi": [],
     "http::paths": [],
-    "http::signature": [
-      "federation"
-    ],
-    "http::tests": [],
     "identity": [
       "identity::primary_handle"
     ],
-    "identity::primary_handle": [
-      "models"
-    ],
-    "identity_key_log": [],
-    "inbound": [
-      "events"
-    ],
-    "key_transparency": [],
+    "identity::primary_handle": [],
     "keystore": [],
     "models": [
       "models::account",
-      "models::actor_profile",
-      "models::admin",
       "models::agent",
-      "models::agent_participation",
       "models::applet",
-      "models::applet_install_plan",
       "models::artifacts",
-      "models::attestation",
       "models::authorization",
-      "models::blob",
       "models::circle",
-      "models::conformance",
-      "models::cross_signing",
-      "models::delivery_binding",
-      "models::device_verification",
-      "models::did_continuity",
-      "models::direct_conversation",
       "models::directory",
       "models::ephemeral",
       "models::event_query",
@@ -139,18 +85,11 @@
       "models::handle",
       "models::history_visibility",
       "models::identity",
-      "models::identity_link_cache",
-      "models::interop_envelopes",
-      "models::invite_addressing",
-      "models::key_backup",
       "models::keys",
-      "models::media",
-      "models::member_delivery_binding_candidate",
       "models::member_identity",
-      "models::mention",
+      "models::mls_governance_proof",
       "models::mls_payloads",
       "models::moderation",
-      "models::moderation_appeal",
       "models::moderation_queue",
       "models::object_lifecycle",
       "models::operation",
@@ -158,254 +97,94 @@
       "models::patch",
       "models::peer_contact",
       "models::policy_check",
-      "models::productivity",
       "models::profiles",
-      "models::queries",
-      "models::query_projection",
-      "models::realm",
-      "models::realm_alias",
       "models::realm_governance",
       "models::registry",
       "models::relation",
       "models::runtime_identity",
-      "models::space",
-      "models::strand",
-      "models::sync",
-      "models::tests",
-      "models::third_party_invite",
-      "models::wire_dto_tests",
-      "models::wire_model_tests"
+      "models::sync"
     ],
     "models::account": [],
-    "models::actor_profile": [],
-    "models::admin": [],
-    "models::agent": [],
-    "models::agent_participation": [],
-    "models::applet": [],
-    "models::applet_install_plan": [],
+    "models::agent": [
+      "agent"
+    ],
+    "models::applet": [
+      "models::account"
+    ],
     "models::artifacts": [
-      "models::artifacts::account",
       "models::artifacts::agent",
       "models::artifacts::applet",
-      "models::artifacts::authorization",
       "models::artifacts::blob",
       "models::artifacts::contact_directory",
       "models::artifacts::device_identity",
       "models::artifacts::event_payload",
-      "models::artifacts::event_wire",
       "models::artifacts::interop",
       "models::artifacts::keys",
-      "models::artifacts::moderation",
-      "models::artifacts::object_facets",
       "models::artifacts::push",
-      "models::artifacts::self_ops",
-      "models::artifacts::service",
-      "models::artifacts::sync",
-      "models::artifacts::view"
+      "models::artifacts::self_ops"
     ],
-    "models::artifacts::account": [],
     "models::artifacts::agent": [],
     "models::artifacts::applet": [],
-    "models::artifacts::authorization": [],
     "models::artifacts::blob": [],
     "models::artifacts::contact_directory": [],
     "models::artifacts::device_identity": [],
     "models::artifacts::event_payload": [
-      "models::artifacts::event_payload::account_misc",
-      "models::artifacts::event_payload::agent",
-      "models::artifacts::event_payload::applet_audit",
-      "models::artifacts::event_payload::call",
-      "models::artifacts::event_payload::capability_circle_consent_contact",
-      "models::artifacts::event_payload::device_identity",
-      "models::artifacts::event_payload::list_message_mimi_mls",
-      "models::artifacts::event_payload::moderation_morph_misc",
-      "models::artifacts::event_payload::preview_realm_reaction",
-      "models::artifacts::event_payload::strand_history_join"
+      "models::artifacts::event_payload::applet_audit"
     ],
-    "models::artifacts::event_payload::account_misc": [],
-    "models::artifacts::event_payload::agent": [],
     "models::artifacts::event_payload::applet_audit": [],
-    "models::artifacts::event_payload::call": [],
-    "models::artifacts::event_payload::capability_circle_consent_contact": [],
-    "models::artifacts::event_payload::device_identity": [],
-    "models::artifacts::event_payload::list_message_mimi_mls": [],
-    "models::artifacts::event_payload::moderation_morph_misc": [],
-    "models::artifacts::event_payload::preview_realm_reaction": [
-      "models"
-    ],
-    "models::artifacts::event_payload::strand_history_join": [
-      "models"
-    ],
-    "models::artifacts::event_wire": [],
     "models::artifacts::interop": [],
     "models::artifacts::keys": [],
-    "models::artifacts::moderation": [],
-    "models::artifacts::object_facets": [],
     "models::artifacts::push": [],
     "models::artifacts::self_ops": [],
-    "models::artifacts::service": [],
-    "models::artifacts::sync": [],
-    "models::artifacts::view": [],
-    "models::attestation": [],
     "models::authorization": [],
-    "models::blob": [],
-    "models::circle": [
-      "error",
-      "models"
-    ],
-    "models::conformance": [],
-    "models::cross_signing": [],
-    "models::delivery_binding": [],
-    "models::device_verification": [],
-    "models::did_continuity": [],
-    "models::direct_conversation": [],
-    "models::directory": [
-      "models"
-    ],
+    "models::circle": [],
+    "models::directory": [],
     "models::ephemeral": [],
     "models::event_query": [],
-    "models::event_sync": [
-      "http"
-    ],
+    "models::event_sync": [],
     "models::events": [
-      "error",
-      "events"
+      "models"
     ],
     "models::federation": [],
     "models::federation_wire": [],
     "models::governance_payloads": [],
     "models::handle": [],
-    "models::history_visibility": [
-      "error"
-    ],
+    "models::history_visibility": [],
     "models::identity": [],
-    "models::identity_link_cache": [],
-    "models::interop_envelopes": [],
-    "models::invite_addressing": [],
-    "models::key_backup": [
-      "http"
-    ],
     "models::keys": [],
-    "models::media": [],
-    "models::member_delivery_binding_candidate": [],
     "models::member_identity": [],
-    "models::mention": [],
-    "models::mls_payloads": [
-      "error",
-      "events"
-    ],
+    "models::mls_governance_proof": [],
+    "models::mls_payloads": [],
     "models::moderation": [],
-    "models::moderation_appeal": [
-      "events"
-    ],
     "models::moderation_queue": [],
     "models::object_lifecycle": [],
     "models::operation": [],
     "models::operation_payloads": [
-      "models::operation_payloads::canonical",
-      "models::operation_payloads::membership_invite",
       "models::operation_payloads::morph_message",
       "models::operation_payloads::object_create",
-      "models::operation_payloads::plaintext_visibility",
-      "models::operation_payloads::realm_lifecycle",
-      "models::operation_payloads::strand_ops",
-      "models::operation_payloads::tests"
+      "models::operation_payloads::strand_ops"
     ],
-    "models::operation_payloads::canonical": [],
-    "models::operation_payloads::membership_invite": [
-      "models::operation_payloads",
-      "models::operation_payloads::canonical"
-    ],
-    "models::operation_payloads::morph_message": [
-      "models::operation_payloads::canonical"
-    ],
-    "models::operation_payloads::object_create": [
-      "models::operation_payloads::canonical"
-    ],
-    "models::operation_payloads::plaintext_visibility": [
-      "models::operation_payloads::canonical"
-    ],
-    "models::operation_payloads::realm_lifecycle": [
-      "models::operation_payloads::canonical"
-    ],
+    "models::operation_payloads::morph_message": [],
+    "models::operation_payloads::object_create": [],
     "models::operation_payloads::strand_ops": [],
-    "models::operation_payloads::tests": [],
-    "models::patch": [
-      "error"
-    ],
+    "models::patch": [],
     "models::peer_contact": [],
     "models::policy_check": [],
-    "models::productivity": [],
     "models::profiles": [],
-    "models::queries": [],
-    "models::query_projection": [],
-    "models::realm": [],
-    "models::realm_alias": [
-      "models",
-      "models::handle"
-    ],
     "models::realm_governance": [],
     "models::registry": [
       "models::registry::operation_kind"
     ],
-    "models::registry::operation_kind": [
-      "events",
-      "models",
-      "models::registry"
-    ],
-    "models::relation": [
-      "error"
-    ],
+    "models::registry::operation_kind": [],
+    "models::relation": [],
     "models::runtime_identity": [],
-    "models::space": [],
-    "models::strand": [],
-    "models::sync": [
-      "sync"
-    ],
-    "models::tests": [
-      "models::tests::conformance",
-      "models::tests::events_operations",
-      "models::tests::identity_primitives",
-      "models::tests::objects_field_order",
-      "models::tests::proofs_signatures"
-    ],
-    "models::tests::conformance": [
-      "models::tests"
-    ],
-    "models::tests::events_operations": [
-      "models::tests"
-    ],
-    "models::tests::identity_primitives": [
-      "models::tests"
-    ],
-    "models::tests::objects_field_order": [
-      "models::tests"
-    ],
-    "models::tests::proofs_signatures": [
-      "models::tests"
-    ],
-    "models::third_party_invite": [],
-    "models::wire_dto_tests": [],
-    "models::wire_model_tests": [
-      "models"
-    ],
+    "models::sync": [],
     "operations": [],
     "platform": [],
-    "presence": [
-      "sync"
-    ],
-    "schema::tests": [
-      "applet",
-      "cursor",
-      "events",
-      "models"
-    ],
-    "sdk_conformance": [],
+    "query_auth": [],
     "service": [],
-    "stream_trace": [],
-    "sync": [
-      "models"
-    ]
+    "service_identity": [],
+    "stream_trace": []
   },
   "files": {
     "account_subscribe": "account_subscribe.rs",
@@ -413,19 +192,15 @@
     "agent": "agent.rs",
     "applet": "applet/mod.rs",
     "applet::ghost": "applet/ghost.rs",
-    "applet::namespace_match": "applet/namespace_match.rs",
-    "applet::registration": "applet/registration.rs",
     "applet::service": "applet/service.rs",
     "crate_root": "lib.rs",
     "cursor": "cursor.rs",
     "error": "error/mod.rs",
-    "error::error_enum": "error/error_enum.rs",
-    "error::tests": "error/tests.rs",
     "events": "events/mod.rs",
-    "events::reaction": "events/reaction.rs",
     "events::redaction": "events/redaction.rs",
     "federation": "federation.rs",
     "generated": "generated/mod.rs",
+    "hlc": "hlc.rs",
     "http": "http/mod.rs",
     "http::bodies": "http/bodies.rs",
     "http::params": "http/params/mod.rs",
@@ -436,61 +211,27 @@
     "http::params::identity": "http/params/identity.rs",
     "http::params::mimi": "http/params/mimi.rs",
     "http::paths": "http/paths.rs",
-    "http::signature": "http/signature.rs",
-    "http::tests": "http/tests.rs",
     "identity": "identity.rs",
     "identity::primary_handle": "identity/primary_handle.rs",
-    "identity_key_log": "identity_key_log.rs",
-    "inbound": "inbound.rs",
-    "key_transparency": "key_transparency.rs",
     "keystore": "keystore.rs",
     "models": "models/mod.rs",
     "models::account": "models/account.rs",
-    "models::actor_profile": "models/actor_profile.rs",
-    "models::admin": "models/admin.rs",
     "models::agent": "models/agent.rs",
-    "models::agent_participation": "models/agent_participation.rs",
     "models::applet": "models/applet.rs",
-    "models::applet_install_plan": "models/applet_install_plan.rs",
     "models::artifacts": "models/artifacts/mod.rs",
-    "models::artifacts::account": "models/artifacts/account.rs",
     "models::artifacts::agent": "models/artifacts/agent.rs",
     "models::artifacts::applet": "models/artifacts/applet.rs",
-    "models::artifacts::authorization": "models/artifacts/authorization.rs",
     "models::artifacts::blob": "models/artifacts/blob.rs",
     "models::artifacts::contact_directory": "models/artifacts/contact_directory.rs",
     "models::artifacts::device_identity": "models/artifacts/device_identity.rs",
     "models::artifacts::event_payload": "models/artifacts/event_payload/mod.rs",
-    "models::artifacts::event_payload::account_misc": "models/artifacts/event_payload/account_misc.rs",
-    "models::artifacts::event_payload::agent": "models/artifacts/event_payload/agent.rs",
     "models::artifacts::event_payload::applet_audit": "models/artifacts/event_payload/applet_audit.rs",
-    "models::artifacts::event_payload::call": "models/artifacts/event_payload/call.rs",
-    "models::artifacts::event_payload::capability_circle_consent_contact": "models/artifacts/event_payload/capability_circle_consent_contact.rs",
-    "models::artifacts::event_payload::device_identity": "models/artifacts/event_payload/device_identity.rs",
-    "models::artifacts::event_payload::list_message_mimi_mls": "models/artifacts/event_payload/list_message_mimi_mls.rs",
-    "models::artifacts::event_payload::moderation_morph_misc": "models/artifacts/event_payload/moderation_morph_misc.rs",
-    "models::artifacts::event_payload::preview_realm_reaction": "models/artifacts/event_payload/preview_realm_reaction.rs",
-    "models::artifacts::event_payload::strand_history_join": "models/artifacts/event_payload/strand_history_join.rs",
-    "models::artifacts::event_wire": "models/artifacts/event_wire.rs",
     "models::artifacts::interop": "models/artifacts/interop.rs",
     "models::artifacts::keys": "models/artifacts/keys.rs",
-    "models::artifacts::moderation": "models/artifacts/moderation.rs",
-    "models::artifacts::object_facets": "models/artifacts/object_facets.rs",
     "models::artifacts::push": "models/artifacts/push.rs",
     "models::artifacts::self_ops": "models/artifacts/self_ops.rs",
-    "models::artifacts::service": "models/artifacts/service.rs",
-    "models::artifacts::sync": "models/artifacts/sync.rs",
-    "models::artifacts::view": "models/artifacts/view.rs",
-    "models::attestation": "models/attestation.rs",
     "models::authorization": "models/authorization.rs",
-    "models::blob": "models/blob.rs",
     "models::circle": "models/circle.rs",
-    "models::conformance": "models/conformance.rs",
-    "models::cross_signing": "models/cross_signing.rs",
-    "models::delivery_binding": "models/delivery_binding.rs",
-    "models::device_verification": "models/device_verification.rs",
-    "models::did_continuity": "models/did_continuity.rs",
-    "models::direct_conversation": "models/direct_conversation.rs",
     "models::directory": "models/directory.rs",
     "models::ephemeral": "models/ephemeral.rs",
     "models::event_query": "models/event_query.rs",
@@ -502,85 +243,51 @@
     "models::handle": "models/handle.rs",
     "models::history_visibility": "models/history_visibility.rs",
     "models::identity": "models/identity.rs",
-    "models::identity_link_cache": "models/identity_link_cache.rs",
-    "models::interop_envelopes": "models/interop_envelopes.rs",
-    "models::invite_addressing": "models/invite_addressing.rs",
-    "models::key_backup": "models/key_backup.rs",
     "models::keys": "models/keys.rs",
-    "models::media": "models/media.rs",
-    "models::member_delivery_binding_candidate": "models/member_delivery_binding_candidate.rs",
     "models::member_identity": "models/member_identity.rs",
-    "models::mention": "models/mention.rs",
+    "models::mls_governance_proof": "models/mls_governance_proof.rs",
     "models::mls_payloads": "models/mls_payloads.rs",
     "models::moderation": "models/moderation.rs",
-    "models::moderation_appeal": "models/moderation_appeal.rs",
     "models::moderation_queue": "models/moderation_queue.rs",
     "models::object_lifecycle": "models/object_lifecycle.rs",
     "models::operation": "models/operation.rs",
     "models::operation_payloads": "models/operation_payloads/mod.rs",
-    "models::operation_payloads::canonical": "models/operation_payloads/canonical.rs",
-    "models::operation_payloads::membership_invite": "models/operation_payloads/membership_invite.rs",
     "models::operation_payloads::morph_message": "models/operation_payloads/morph_message.rs",
     "models::operation_payloads::object_create": "models/operation_payloads/object_create.rs",
-    "models::operation_payloads::plaintext_visibility": "models/operation_payloads/plaintext_visibility.rs",
-    "models::operation_payloads::realm_lifecycle": "models/operation_payloads/realm_lifecycle.rs",
     "models::operation_payloads::strand_ops": "models/operation_payloads/strand_ops.rs",
-    "models::operation_payloads::tests": "models/operation_payloads/tests.rs",
     "models::patch": "models/patch.rs",
     "models::peer_contact": "models/peer_contact.rs",
     "models::policy_check": "models/policy_check.rs",
-    "models::productivity": "models/productivity.rs",
     "models::profiles": "models/profiles.rs",
-    "models::queries": "models/queries.rs",
-    "models::query_projection": "models/query_projection.rs",
-    "models::realm": "models/realm.rs",
-    "models::realm_alias": "models/realm_alias.rs",
     "models::realm_governance": "models/realm_governance.rs",
     "models::registry": "models/registry/mod.rs",
     "models::registry::operation_kind": "models/registry/operation_kind.rs",
     "models::relation": "models/relation.rs",
     "models::runtime_identity": "models/runtime_identity.rs",
-    "models::space": "models/space.rs",
-    "models::strand": "models/strand.rs",
     "models::sync": "models/sync.rs",
-    "models::tests": "models/tests/mod.rs",
-    "models::tests::conformance": "models/tests/conformance.rs",
-    "models::tests::events_operations": "models/tests/events_operations.rs",
-    "models::tests::identity_primitives": "models/tests/identity_primitives.rs",
-    "models::tests::objects_field_order": "models/tests/objects_field_order.rs",
-    "models::tests::proofs_signatures": "models/tests/proofs_signatures.rs",
-    "models::third_party_invite": "models/third_party_invite.rs",
-    "models::wire_dto_tests": "models/wire_dto_tests.rs",
-    "models::wire_model_tests": "models/wire_model_tests.rs",
     "operations": "operations.rs",
     "platform": "platform.rs",
-    "presence": "presence.rs",
-    "schema::tests": "schema/tests.rs",
-    "sdk_conformance": "sdk_conformance.rs",
+    "query_auth": "query_auth.rs",
     "service": "service.rs",
-    "stream_trace": "stream_trace.rs",
-    "sync": "sync.rs"
+    "service_identity": "service_identity.rs",
+    "stream_trace": "stream_trace.rs"
   },
   "incoming_counts": {
     "account_subscribe": 1,
     "admin_signer": 1,
-    "agent": 1,
-    "applet": 2,
+    "agent": 2,
+    "applet": 1,
     "applet::ghost": 1,
-    "applet::namespace_match": 2,
-    "applet::registration": 2,
     "applet::service": 1,
     "crate_root": 0,
-    "cursor": 2,
-    "error": 7,
-    "error::error_enum": 1,
-    "error::tests": 1,
-    "events": 8,
-    "events::reaction": 1,
+    "cursor": 1,
+    "error": 1,
+    "events": 1,
     "events::redaction": 1,
-    "federation": 2,
+    "federation": 1,
     "generated": 1,
-    "http": 4,
+    "hlc": 1,
+    "http": 1,
     "http::bodies": 1,
     "http::params": 1,
     "http::params::account_admin_applet": 1,
@@ -590,61 +297,27 @@
     "http::params::identity": 1,
     "http::params::mimi": 1,
     "http::paths": 1,
-    "http::signature": 1,
-    "http::tests": 1,
-    "identity": 2,
+    "identity": 1,
     "identity::primary_handle": 1,
-    "identity_key_log": 1,
-    "inbound": 1,
-    "key_transparency": 1,
-    "keystore": 3,
-    "models": 14,
-    "models::account": 1,
-    "models::actor_profile": 1,
-    "models::admin": 1,
+    "keystore": 1,
+    "models": 3,
+    "models::account": 2,
     "models::agent": 1,
-    "models::agent_participation": 1,
     "models::applet": 1,
-    "models::applet_install_plan": 1,
     "models::artifacts": 1,
-    "models::artifacts::account": 1,
     "models::artifacts::agent": 1,
     "models::artifacts::applet": 1,
-    "models::artifacts::authorization": 1,
     "models::artifacts::blob": 1,
     "models::artifacts::contact_directory": 1,
     "models::artifacts::device_identity": 1,
     "models::artifacts::event_payload": 1,
-    "models::artifacts::event_payload::account_misc": 1,
-    "models::artifacts::event_payload::agent": 1,
     "models::artifacts::event_payload::applet_audit": 1,
-    "models::artifacts::event_payload::call": 1,
-    "models::artifacts::event_payload::capability_circle_consent_contact": 1,
-    "models::artifacts::event_payload::device_identity": 1,
-    "models::artifacts::event_payload::list_message_mimi_mls": 1,
-    "models::artifacts::event_payload::moderation_morph_misc": 1,
-    "models::artifacts::event_payload::preview_realm_reaction": 1,
-    "models::artifacts::event_payload::strand_history_join": 1,
-    "models::artifacts::event_wire": 1,
     "models::artifacts::interop": 1,
     "models::artifacts::keys": 1,
-    "models::artifacts::moderation": 1,
-    "models::artifacts::object_facets": 1,
     "models::artifacts::push": 1,
     "models::artifacts::self_ops": 1,
-    "models::artifacts::service": 1,
-    "models::artifacts::sync": 1,
-    "models::artifacts::view": 1,
-    "models::attestation": 1,
     "models::authorization": 1,
-    "models::blob": 1,
     "models::circle": 1,
-    "models::conformance": 1,
-    "models::cross_signing": 1,
-    "models::delivery_binding": 1,
-    "models::device_verification": 1,
-    "models::did_continuity": 1,
-    "models::direct_conversation": 1,
     "models::directory": 1,
     "models::ephemeral": 1,
     "models::event_query": 1,
@@ -653,160 +326,48 @@
     "models::federation": 1,
     "models::federation_wire": 1,
     "models::governance_payloads": 1,
-    "models::handle": 2,
+    "models::handle": 1,
     "models::history_visibility": 1,
     "models::identity": 1,
-    "models::identity_link_cache": 1,
-    "models::interop_envelopes": 1,
-    "models::invite_addressing": 1,
-    "models::key_backup": 1,
     "models::keys": 1,
-    "models::media": 1,
-    "models::member_delivery_binding_candidate": 1,
     "models::member_identity": 1,
-    "models::mention": 1,
+    "models::mls_governance_proof": 1,
     "models::mls_payloads": 1,
     "models::moderation": 1,
-    "models::moderation_appeal": 1,
     "models::moderation_queue": 1,
     "models::object_lifecycle": 1,
     "models::operation": 1,
-    "models::operation_payloads": 2,
-    "models::operation_payloads::canonical": 6,
-    "models::operation_payloads::membership_invite": 1,
+    "models::operation_payloads": 1,
     "models::operation_payloads::morph_message": 1,
     "models::operation_payloads::object_create": 1,
-    "models::operation_payloads::plaintext_visibility": 1,
-    "models::operation_payloads::realm_lifecycle": 1,
     "models::operation_payloads::strand_ops": 1,
-    "models::operation_payloads::tests": 1,
     "models::patch": 1,
     "models::peer_contact": 1,
     "models::policy_check": 1,
-    "models::productivity": 1,
     "models::profiles": 1,
-    "models::queries": 1,
-    "models::query_projection": 1,
-    "models::realm": 1,
-    "models::realm_alias": 1,
     "models::realm_governance": 1,
-    "models::registry": 2,
+    "models::registry": 1,
     "models::registry::operation_kind": 1,
     "models::relation": 1,
     "models::runtime_identity": 1,
-    "models::space": 1,
-    "models::strand": 1,
     "models::sync": 1,
-    "models::tests": 6,
-    "models::tests::conformance": 1,
-    "models::tests::events_operations": 1,
-    "models::tests::identity_primitives": 1,
-    "models::tests::objects_field_order": 1,
-    "models::tests::proofs_signatures": 1,
-    "models::third_party_invite": 1,
-    "models::wire_dto_tests": 1,
-    "models::wire_model_tests": 1,
     "operations": 1,
     "platform": 1,
-    "presence": 1,
-    "schema::tests": 0,
-    "sdk_conformance": 1,
+    "query_auth": 1,
     "service": 1,
-    "stream_trace": 1,
-    "sync": 3
+    "service_identity": 1,
+    "stream_trace": 1
   },
   "nontrivial_sccs": [
     [
-      "error",
-      "error::error_enum",
-      "events",
       "models",
-      "models::artifacts",
-      "models::artifacts::event_payload",
-      "models::artifacts::event_payload::preview_realm_reaction",
-      "models::artifacts::event_payload::strand_history_join",
-      "models::circle",
-      "models::directory",
-      "models::events",
-      "models::history_visibility",
-      "models::mls_payloads",
-      "models::moderation_appeal",
-      "models::patch",
-      "models::realm_alias",
-      "models::registry",
-      "models::registry::operation_kind",
-      "models::relation",
-      "models::sync",
-      "models::wire_model_tests",
-      "sync"
-    ],
-    [
-      "models::tests",
-      "models::tests::conformance",
-      "models::tests::events_operations",
-      "models::tests::identity_primitives",
-      "models::tests::objects_field_order",
-      "models::tests::proofs_signatures"
-    ],
-    [
-      "http",
-      "http::params",
-      "http::params::identity"
-    ],
-    [
-      "applet::namespace_match",
-      "applet::registration"
-    ],
-    [
-      "models::operation_payloads",
-      "models::operation_payloads::membership_invite"
+      "models::events"
     ]
   ],
   "sccs": [
     [
-      "error",
-      "error::error_enum",
-      "events",
       "models",
-      "models::artifacts",
-      "models::artifacts::event_payload",
-      "models::artifacts::event_payload::preview_realm_reaction",
-      "models::artifacts::event_payload::strand_history_join",
-      "models::circle",
-      "models::directory",
-      "models::events",
-      "models::history_visibility",
-      "models::mls_payloads",
-      "models::moderation_appeal",
-      "models::patch",
-      "models::realm_alias",
-      "models::registry",
-      "models::registry::operation_kind",
-      "models::relation",
-      "models::sync",
-      "models::wire_model_tests",
-      "sync"
-    ],
-    [
-      "models::tests",
-      "models::tests::conformance",
-      "models::tests::events_operations",
-      "models::tests::identity_primitives",
-      "models::tests::objects_field_order",
-      "models::tests::proofs_signatures"
-    ],
-    [
-      "http",
-      "http::params",
-      "http::params::identity"
-    ],
-    [
-      "applet::namespace_match",
-      "applet::registration"
-    ],
-    [
-      "models::operation_payloads",
-      "models::operation_payloads::membership_invite"
+      "models::events"
     ],
     [
       "account_subscribe"
@@ -833,10 +394,10 @@
       "cursor"
     ],
     [
-      "error::tests"
+      "error"
     ],
     [
-      "events::reaction"
+      "events"
     ],
     [
       "events::redaction"
@@ -848,7 +409,16 @@
       "generated"
     ],
     [
+      "hlc"
+    ],
+    [
+      "http"
+    ],
+    [
       "http::bodies"
+    ],
+    [
+      "http::params"
     ],
     [
       "http::params::account_admin_applet"
@@ -863,16 +433,13 @@
       "http::params::directory"
     ],
     [
+      "http::params::identity"
+    ],
+    [
       "http::params::mimi"
     ],
     [
       "http::paths"
-    ],
-    [
-      "http::signature"
-    ],
-    [
-      "http::tests"
     ],
     [
       "identity"
@@ -881,49 +448,25 @@
       "identity::primary_handle"
     ],
     [
-      "identity_key_log"
-    ],
-    [
-      "inbound"
-    ],
-    [
-      "key_transparency"
-    ],
-    [
       "keystore"
     ],
     [
       "models::account"
     ],
     [
-      "models::actor_profile"
-    ],
-    [
-      "models::admin"
-    ],
-    [
       "models::agent"
-    ],
-    [
-      "models::agent_participation"
     ],
     [
       "models::applet"
     ],
     [
-      "models::applet_install_plan"
-    ],
-    [
-      "models::artifacts::account"
+      "models::artifacts"
     ],
     [
       "models::artifacts::agent"
     ],
     [
       "models::artifacts::applet"
-    ],
-    [
-      "models::artifacts::authorization"
     ],
     [
       "models::artifacts::blob"
@@ -935,31 +478,10 @@
       "models::artifacts::device_identity"
     ],
     [
-      "models::artifacts::event_payload::account_misc"
-    ],
-    [
-      "models::artifacts::event_payload::agent"
+      "models::artifacts::event_payload"
     ],
     [
       "models::artifacts::event_payload::applet_audit"
-    ],
-    [
-      "models::artifacts::event_payload::call"
-    ],
-    [
-      "models::artifacts::event_payload::capability_circle_consent_contact"
-    ],
-    [
-      "models::artifacts::event_payload::device_identity"
-    ],
-    [
-      "models::artifacts::event_payload::list_message_mimi_mls"
-    ],
-    [
-      "models::artifacts::event_payload::moderation_morph_misc"
-    ],
-    [
-      "models::artifacts::event_wire"
     ],
     [
       "models::artifacts::interop"
@@ -968,52 +490,19 @@
       "models::artifacts::keys"
     ],
     [
-      "models::artifacts::moderation"
-    ],
-    [
-      "models::artifacts::object_facets"
-    ],
-    [
       "models::artifacts::push"
     ],
     [
       "models::artifacts::self_ops"
     ],
     [
-      "models::artifacts::service"
-    ],
-    [
-      "models::artifacts::sync"
-    ],
-    [
-      "models::artifacts::view"
-    ],
-    [
-      "models::attestation"
-    ],
-    [
       "models::authorization"
     ],
     [
-      "models::blob"
+      "models::circle"
     ],
     [
-      "models::conformance"
-    ],
-    [
-      "models::cross_signing"
-    ],
-    [
-      "models::delivery_binding"
-    ],
-    [
-      "models::device_verification"
-    ],
-    [
-      "models::did_continuity"
-    ],
-    [
-      "models::direct_conversation"
+      "models::directory"
     ],
     [
       "models::ephemeral"
@@ -1037,34 +526,22 @@
       "models::handle"
     ],
     [
+      "models::history_visibility"
+    ],
+    [
       "models::identity"
-    ],
-    [
-      "models::identity_link_cache"
-    ],
-    [
-      "models::interop_envelopes"
-    ],
-    [
-      "models::invite_addressing"
-    ],
-    [
-      "models::key_backup"
     ],
     [
       "models::keys"
     ],
     [
-      "models::media"
-    ],
-    [
-      "models::member_delivery_binding_candidate"
-    ],
-    [
       "models::member_identity"
     ],
     [
-      "models::mention"
+      "models::mls_governance_proof"
+    ],
+    [
+      "models::mls_payloads"
     ],
     [
       "models::moderation"
@@ -1079,7 +556,7 @@
       "models::operation"
     ],
     [
-      "models::operation_payloads::canonical"
+      "models::operation_payloads"
     ],
     [
       "models::operation_payloads::morph_message"
@@ -1088,16 +565,10 @@
       "models::operation_payloads::object_create"
     ],
     [
-      "models::operation_payloads::plaintext_visibility"
-    ],
-    [
-      "models::operation_payloads::realm_lifecycle"
-    ],
-    [
       "models::operation_payloads::strand_ops"
     ],
     [
-      "models::operation_payloads::tests"
+      "models::patch"
     ],
     [
       "models::peer_contact"
@@ -1106,37 +577,25 @@
       "models::policy_check"
     ],
     [
-      "models::productivity"
-    ],
-    [
       "models::profiles"
-    ],
-    [
-      "models::queries"
-    ],
-    [
-      "models::query_projection"
-    ],
-    [
-      "models::realm"
     ],
     [
       "models::realm_governance"
     ],
     [
+      "models::registry"
+    ],
+    [
+      "models::registry::operation_kind"
+    ],
+    [
+      "models::relation"
+    ],
+    [
       "models::runtime_identity"
     ],
     [
-      "models::space"
-    ],
-    [
-      "models::strand"
-    ],
-    [
-      "models::third_party_invite"
-    ],
-    [
-      "models::wire_dto_tests"
+      "models::sync"
     ],
     [
       "operations"
@@ -1145,16 +604,13 @@
       "platform"
     ],
     [
-      "presence"
-    ],
-    [
-      "schema::tests"
-    ],
-    [
-      "sdk_conformance"
+      "query_auth"
     ],
     [
       "service"
+    ],
+    [
+      "service_identity"
     ],
     [
       "stream_trace"

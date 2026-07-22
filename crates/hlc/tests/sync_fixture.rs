@@ -2,7 +2,7 @@
 //! (`ak.vector_group.sync.v1` client-sync projection + cursor recovery
 //! vectors).
 //!
-//! The SDK-implementable subset drives [`arkret_core::cursor::Cursor`] over the
+//! The SDK-implementable subset drives [`arkret_hlc::Cursor`] over the
 //! fixture's cursor tokens: a live `next_cursor` must decode to a valid stream
 //! cursor with the pinned handle/purpose/expiry, and the expired
 //! recovery-path cursors (`cursor_gap_recovery.after`,
@@ -18,8 +18,9 @@
 //! frontier-shape assertion, so this consumer does not paper over server-side
 //! behaviour it cannot execute.
 
-use arkret_core::cursor::Cursor;
-use arkret_core::schema::embedded_json_artifact;
+use arkret_canonical::base64url::base64url_decode;
+use arkret_hlc::Cursor;
+use arkret_schema::embedded_json_artifact;
 use serde_json::Value;
 
 const FIXTURE_PATH: &str = "fixtures/sync-fixture.json";
@@ -72,8 +73,7 @@ fn next_cursor_is_a_well_formed_opaque_stream_cursor() {
     let body = token
         .strip_prefix("ak:cursor:")
         .expect("next_cursor must use the ak:cursor: transport prefix");
-    let json =
-        arkret_core::base64url::base64url_decode(body).expect("next_cursor body must be Base64URL");
+    let json = base64url_decode(body).expect("next_cursor body must be Base64URL");
     let payload: Value = serde_json::from_slice(&json).expect("cursor payload must be JSON");
     assert_eq!(payload["v"].as_str(), Some("1"), "v1 cursor");
     assert_eq!(

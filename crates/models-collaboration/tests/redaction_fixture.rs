@@ -3,7 +3,8 @@
 //! vectors).
 //!
 //! The SDK-implementable subset drives
-//! [`arkret_core::events::redaction::redaction_tombstone_message_value`] and
+//! [`arkret_models_collaboration::events_payloads::redaction::redaction_tombstone_message_value`]
+//! and
 //! asserts the field-preservation + plaintext-erasure contract the fixture's
 //! `preserved_fields` case pins. The remaining cases are server-reducer
 //! semantics (pending/materialization ordering, audit-view split, snapshot
@@ -20,10 +21,10 @@
 //! * `space_target_ref_schema` / `policy_scope` — need the object-lifecycle redaction schema
 //!   acceptance and Realm quarantine policy timeline.
 
-use arkret_core::events::redaction::{
+use arkret_models_collaboration::events_payloads::redaction::{
     REDACTED_MESSAGE_PLACEHOLDER, REDACTED_MESSAGE_STATE, redaction_tombstone_message_value,
 };
-use arkret_core::schema::embedded_json_artifact;
+use arkret_schema::embedded_json_artifact;
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 

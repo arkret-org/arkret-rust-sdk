@@ -40,6 +40,7 @@ unicode-normalization = {workspace = true}
 
 [dev-dependencies]
 arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
+proptest = {workspace = true,default-features = false,features = ["std"]}
 
 [lints]
 workspace = true

@@ -57,9 +57,6 @@ unicode-normalization = {workspace = true}
 zeroize = {workspace = true,default-features = true}
 
 [dev-dependencies]
-arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
-# T8.2 § property tests for blind payload sanitizer / canonical JSON.
-proptest = {workspace = true,default-features = false,features = ["std"]}
 serde_json = {workspace = true}
 # SDK-SOTA-03 microbenchmarks (run on demand with `cargo bench`, never in CI).
 criterion = {workspace = true}

@@ -1,4 +1,4 @@
-//! T8.2 — property tests for `arkret_core::canonical`.
+//! T8.2 — property tests for `arkret_canonical`.
 //!
 //! Pins the *byte-stability* invariant of the canonical-JSON profile:
 //!
@@ -14,9 +14,7 @@
 //! `payload_digest` agreement: if two services serialise the same logical
 //! object via the SDK, they MUST get the same bytes.
 
-use arkret_core::canonical::{
-    canonical_json_bytes, canonical_json_string, canonical_sha256, is_nfc,
-};
+use arkret_canonical::{canonical_json_bytes, canonical_json_string, canonical_sha256, is_nfc};
 use proptest::prelude::*;
 use serde_json::{Map, Value, json};
 
