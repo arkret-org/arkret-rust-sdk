@@ -218,7 +218,6 @@ dependencies = [
  "arkret-hlc",
  "arkret-identifiers",
  "arkret-identity",
- "arkret-keystore",
  "arkret-models-collaboration",
  "arkret-models-crypto",
  "arkret-models-discovery",

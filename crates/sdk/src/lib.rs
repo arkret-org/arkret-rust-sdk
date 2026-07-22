@@ -74,13 +74,9 @@ compile_error!(
 );
 
 mod sdk_error;
-// The pure KeyStore contract (trait + in-memory backend + error type) lives
-// in `arkret-core`; the OS-native backends and the platform-default
-// constructor now live in the dedicated `arkret-keystore` crate.
 pub use arkret_core::{
-    InMemoryKeyStore, KeyRefObject, KeyStore, KeyStoreError, canonical, cursor, error, events,
-    identifiers, integration, keystore, lattice, models, operations, ops, push_rule_core, schema,
-    service, sync, *,
+    KeyRefObject, canonical, cursor, error, events, identifiers, integration, lattice, models,
+    operations, ops, push_rule_core, schema, service, sync, *,
 };
 pub use arkret_crypto::identity_root;
 pub use arkret_egress_policy as network_policy;
@@ -89,8 +85,9 @@ pub use arkret_http_client as http_client;
 #[cfg(feature = "keystore-encrypted-file")]
 pub use arkret_keystore::EncryptedFileKeyStore;
 pub use arkret_keystore::{
-    BackendKind, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore, WindowsCredentialKeyStore,
-    durable_platform_keystore, platform_default_keystore_with_kind,
+    BackendKind, InMemoryKeyStore, KeyBytes, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore,
+    MacOsKeychainKeyStore, WindowsCredentialKeyStore, durable_platform_keystore,
+    platform_default_keystore_with_kind,
 };
 pub use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeBatch, AccountSubscribeReconnectAfter, AccountSubscribeSnapshotResult,

@@ -46,7 +46,6 @@ pub mod integration {
 pub mod key_transparency {
     pub use arkret_models_crypto::key_transparency::*;
 }
-pub mod keystore;
 pub mod lattice {
     pub use arkret_state::lattice::*;
 }
@@ -164,7 +163,6 @@ pub use key_transparency::{
     TransparencyConsistencyProof, TransparencyInclusionProof, TransparencyLogHead,
     TransparencyWitnessSignature,
 };
-pub use keystore::{InMemoryKeyStore, KeyBytes, KeyStore, KeyStoreError};
 pub use models::*;
 pub use move_event::{
     Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,
