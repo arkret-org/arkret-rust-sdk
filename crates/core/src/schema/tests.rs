@@ -1,89 +1,11 @@
 #![allow(unused_qualifications)]
 
-use std::collections::BTreeSet;
 use std::fs;
-use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
 
 use super::*;
 use crate::schema::*;
-
-fn local_spec_artifacts_dir() -> Option<PathBuf> {
-    if let Some(dir) = default_spec_artifacts_dir() {
-        return Some(dir);
-    }
-    let candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../..")
-        .join("arkret-spec")
-        .join("spec")
-        .join("v1")
-        .join("artifacts");
-    candidate.is_dir().then_some(candidate)
-}
-
-fn collect_json_artifact_paths(root: &Path, dir: &Path, out: &mut BTreeSet<String>) {
-    let entries = fs::read_dir(dir)
-        .unwrap_or_else(|error| panic!("failed to read {}: {error}", dir.display()));
-    for entry in entries {
-        let path = entry
-            .unwrap_or_else(|error| panic!("failed to read entry in {}: {error}", dir.display()))
-            .path();
-        if path.is_dir() {
-            collect_json_artifact_paths(root, &path, out);
-        } else if path.extension().and_then(|ext| ext.to_str()) == Some("json") {
-            let rel = path
-                .strip_prefix(root)
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "failed to strip {} from {}: {error}",
-                        root.display(),
-                        path.display()
-                    )
-                })
-                .to_string_lossy()
-                .replace('\\', "/");
-            out.insert(rel);
-        }
-    }
-}
-
-#[test]
-fn embedded_spec_artifacts_match_live_spec_when_available() {
-    let Some(artifacts_dir) = local_spec_artifacts_dir() else {
-        // Without a spec checkout this drift gate cannot run. By default it
-        // skips (downstream consumers build the SDK without the spec repo),
-        // but environments that exist to enforce the gate — CI with a spec
-        // co-checkout, release runners — set ARKRET_REQUIRE_SPEC=1 so a
-        // missing/misconfigured spec path fails loudly instead of silently
-        // passing (SDK-TEST-07).
-        if std::env::var("ARKRET_REQUIRE_SPEC").as_deref() == Ok("1") {
-            panic!(
-                "ARKRET_REQUIRE_SPEC=1 but no spec artifacts directory was found; \
-                 set ARKRET_SPEC_ARTIFACTS or provide a ../arkret-spec co-checkout"
-            );
-        }
-        return;
-    };
-    let embedded: BTreeSet<String> = embedded_spec_artifact_paths()
-        .expect("embedded artifacts must load")
-        .into_iter()
-        .collect();
-    let mut live = BTreeSet::new();
-    collect_json_artifact_paths(&artifacts_dir, &artifacts_dir, &mut live);
-
-    assert_eq!(embedded, live, "embedded spec artifact path set drifted");
-    for path in live {
-        let live_path = artifacts_dir.join(&path);
-        let live_text = fs::read_to_string(&live_path)
-            .unwrap_or_else(|error| panic!("failed to read {}: {error}", live_path.display()));
-        let live_value: Value = serde_json::from_str(&live_text)
-            .unwrap_or_else(|error| panic!("failed to parse {}: {error}", live_path.display()));
-        let embedded_value = embedded_json_artifact(&path)
-            .unwrap_or_else(|error| panic!("embedded artifact {path} failed to load: {error}"));
-        assert_eq!(embedded_value, live_value, "artifact {path} drifted");
-    }
-}
 
 fn fixture_artifact(name: &str) -> Value {
     if let Some(artifacts_dir) = default_spec_artifacts_dir() {
@@ -153,23 +75,6 @@ fn assert_warns_additional_field(warnings: &[String], field: &str) {
             .any(|warning| warning.contains("additional field") && warning.contains(field)),
         "expected warning for additional field {field:?}, got {warnings:?}"
     );
-}
-
-#[test]
-fn schema_catalog_reports_all_registered_schemas() {
-    let catalog = schema_catalog();
-    catalog.validate().unwrap();
-    assert!(
-        catalog
-            .entries
-            .iter()
-            .any(|entry| entry.schema_id == EVENT_SCHEMA)
-    );
-}
-
-#[test]
-fn schema_vectors_include_negative_security_extension_case() {
-    validate_schema_vectors(&built_in_schema_vectors()).unwrap();
 }
 
 #[test]
@@ -759,35 +664,6 @@ fn hex_decode(input: &str) -> Option<Vec<u8>> {
 }
 
 #[test]
-fn event_payload_catalog_validates_known_payload_fields() {
-    let catalog = event_payload_validator_catalog().unwrap();
-    // `ak.strand.move` payload requires Space container ids:
-    // `board_space_id` (ak:space prefix) + `target_space_id`.
-    catalog
-        .validate_payload(
-            "ak.strand.move",
-            &json!({
-                "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
-                "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
-                "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
-                "rank": "U"
-            }),
-        )
-        .unwrap();
-    assert!(matches!(
-        catalog.validate_payload(
-            "ak.strand.move",
-            &json!({
-                "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
-                "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
-                "rank": "U"
-            })
-        ),
-        Err(crate::schema::SchemaError::Protocol(_))
-    ));
-}
-
-#[test]
 fn relation_create_payload_strong_type_passes_spec_validator() {
     let catalog = event_payload_validator_catalog().unwrap();
     let payload = crate::models::RelationCreatePayload::new(
@@ -1150,53 +1026,6 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
 }
 
 #[test]
-fn artifact_payload_catalog_enforces_deep_schema_rules() {
-    let Some(artifacts_dir) = default_spec_artifacts_dir() else {
-        return;
-    };
-    let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
-    // `ak.strand.move` requires current Space container ids:
-    // `board_space_id` and `target_space_id`.
-    catalog
-        .validate_payload(
-            crate::events::EventKind::STRAND_MOVE,
-            &json!({
-                "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
-                "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
-                "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
-                "rank": "U"
-            }),
-        )
-        .unwrap();
-    assert!(
-        catalog
-            .validate_payload(
-                crate::events::EventKind::STRAND_MOVE,
-                &json!({
-                    "board_space_id": "not-a-space-id",
-                    "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
-                    "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
-                    "rank": "U"
-                }),
-            )
-            .is_err()
-    );
-    let warnings = catalog
-        .validate_payload_with_warnings(
-            crate::events::EventKind::STRAND_MOVE,
-            &json!({
-                "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
-                "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
-                "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
-                "rank": "U",
-                "unexpected": true
-            }),
-        )
-        .unwrap();
-    assert_warns_additional_field(&warnings, "unexpected");
-}
-
-#[test]
 fn artifact_payload_catalog_prefers_registered_specialized_defs_over_name_matches() {
     let Some(artifacts_dir) = default_spec_artifacts_dir() else {
         return;
@@ -1508,133 +1337,4 @@ fn artifact_payload_catalog_enforces_external_schema_refs_and_enums() {
             )
             .is_err()
     );
-}
-
-#[test]
-fn schema_registry_enforces_json_schema_composition_and_value_rules() {
-    let mut registry = ProtocolSchemaRegistry::new();
-    registry.register(
-        "ak.schema.deep_test.v1",
-        json!({
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "ak.schema.deep_test.v1",
-            "type": "object",
-            "required": ["kind", "items", "target"],
-            "properties": {
-                "kind": {"const": "demo"},
-                "items": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {"type": "string", "pattern": "^[a-z]+$"}
-                },
-                "target": {
-                    "oneOf": [
-                        {"type": "string", "enum": ["user", "space"]},
-                        {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}}}
-                    ]
-                }
-            },
-            "allOf": [{"properties": {"kind": {"type": "string"}}}],
-            "patternProperties": {
-                "^x_[a-z][a-z0-9_]{0,63}$": {"type": "string"}
-            },
-            "additionalProperties": false
-        }),
-    );
-    registry
-        .validate_value(
-            "ak.schema.deep_test.v1",
-            &json!({"kind": "demo", "items": ["alpha"], "target": "user", "x_role": "member"}),
-        )
-        .unwrap();
-    assert!(
-        registry
-            .validate_value(
-                "ak.schema.deep_test.v1",
-                &json!({"kind": "demo", "items": [], "target": "user"}),
-            )
-            .is_err()
-    );
-    assert!(
-        registry
-            .validate_value(
-                "ak.schema.deep_test.v1",
-                &json!({"kind": "demo", "items": ["alpha"], "target": "other"}),
-            )
-            .is_err()
-    );
-    assert!(
-        registry
-            .validate_value(
-                "ak.schema.deep_test.v1",
-                &json!({"kind": "other", "items": ["alpha"], "target": "user"}),
-            )
-            .is_err()
-    );
-    assert!(
-        registry
-            .validate_value(
-                "ak.schema.deep_test.v1",
-                &json!({"kind": "demo", "items": ["alpha"], "target": "user", "extra": true}),
-            )
-            .is_err()
-    );
-    assert!(
-        registry
-            .validate_value(
-                "ak.schema.deep_test.v1",
-                &json!({"kind": "demo", "items": ["alpha"], "target": "user", "x_role": false}),
-            )
-            .is_err()
-    );
-}
-
-#[test]
-fn component_descriptor_resolves_canonical_and_alias_kinds() {
-    let Some(artifacts_dir) = default_spec_artifacts_dir() else {
-        return;
-    };
-    let bundle = SpecArtifactBundle::load(artifacts_dir).unwrap();
-
-    // Canonical kind owns its slot — no alias_of.
-    let canonical = bundle
-        .component("ak.capability.grant")
-        .unwrap()
-        .expect("ak.capability.grant should be registered");
-    assert_eq!(canonical.criticality, Criticality::Required);
-    assert!(canonical.component_type.starts_with("ak.component."));
-    assert!(canonical.component_version >= 1);
-    assert!(canonical.component_slot_alias_of.is_none());
-
-    // Alias kind shares the canonical kind's slot.
-    let alias = bundle
-        .component("ak.capability.revoke")
-        .unwrap()
-        .expect("ak.capability.revoke should be registered");
-    assert_eq!(
-        alias.component_slot_alias_of.as_deref(),
-        Some("ak.capability.grant"),
-        "ak.capability.revoke should slot-alias ak.capability.grant"
-    );
-    assert_eq!(alias.component_type, canonical.component_type);
-    assert_eq!(alias.component_version, canonical.component_version);
-
-    // Unknown kind is a clean None, not an error.
-    assert!(bundle.component("ak.bogus.kind").unwrap().is_none());
-}
-
-#[test]
-fn evolution_plan_rejects_breaking_release_candidate() {
-    let mut breaking_changes = BTreeSet::new();
-    breaking_changes.insert(SchemaBreakingChange::NewRequiredField);
-    let plan = SchemaEvolutionPlan {
-        from_version: "0.1.0".to_owned(),
-        to_version: "0.2.0".to_owned(),
-        affected_schemas: vec![EVENT_SCHEMA.to_owned()],
-        breaking_changes,
-    };
-    assert!(matches!(
-        plan.validate_release_candidate(),
-        Err(crate::schema::SchemaError::Protocol(_))
-    ));
 }

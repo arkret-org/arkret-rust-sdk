@@ -1282,6 +1282,104 @@ pub(super) fn registry_entry<'a>(
 mod tests {
     use super::*;
 
+    fn local_spec_artifacts_dir() -> Option<PathBuf> {
+        if let Some(dir) = default_spec_artifacts_dir() {
+            return Some(dir);
+        }
+        let candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../..")
+            .join("arkret-spec")
+            .join("spec")
+            .join("v1")
+            .join("artifacts");
+        candidate.is_dir().then_some(candidate)
+    }
+
+    fn collect_json_artifact_paths(root: &Path, dir: &Path, out: &mut BTreeSet<String>) {
+        let entries = fs::read_dir(dir)
+            .unwrap_or_else(|error| panic!("failed to read {}: {error}", dir.display()));
+        for entry in entries {
+            let path = entry
+                .unwrap_or_else(|error| {
+                    panic!("failed to read entry in {}: {error}", dir.display())
+                })
+                .path();
+            if path.is_dir() {
+                collect_json_artifact_paths(root, &path, out);
+            } else if path.extension().and_then(|ext| ext.to_str()) == Some("json") {
+                let rel = path
+                    .strip_prefix(root)
+                    .unwrap_or_else(|error| {
+                        panic!(
+                            "failed to strip {} from {}: {error}",
+                            root.display(),
+                            path.display()
+                        )
+                    })
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                out.insert(rel);
+            }
+        }
+    }
+
+    #[test]
+    fn embedded_spec_artifacts_match_live_spec_when_available() {
+        let Some(artifacts_dir) = local_spec_artifacts_dir() else {
+            if std::env::var("ARKRET_REQUIRE_SPEC").as_deref() == Ok("1") {
+                panic!(
+                    "ARKRET_REQUIRE_SPEC=1 but no spec artifacts directory was found; \
+                     set ARKRET_SPEC_ARTIFACTS or provide a ../arkret-spec co-checkout"
+                );
+            }
+            return;
+        };
+        let embedded: BTreeSet<String> = embedded_spec_artifact_paths()
+            .expect("embedded artifacts must load")
+            .into_iter()
+            .collect();
+        let mut live = BTreeSet::new();
+        collect_json_artifact_paths(&artifacts_dir, &artifacts_dir, &mut live);
+
+        assert_eq!(embedded, live, "embedded spec artifact path set drifted");
+        for path in live {
+            let live_path = artifacts_dir.join(&path);
+            let live_text = fs::read_to_string(&live_path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", live_path.display()));
+            let live_value: Value = serde_json::from_str(&live_text)
+                .unwrap_or_else(|error| panic!("failed to parse {}: {error}", live_path.display()));
+            let embedded_value = embedded_json_artifact(&path)
+                .unwrap_or_else(|error| panic!("embedded artifact {path} failed to load: {error}"));
+            assert_eq!(embedded_value, live_value, "artifact {path} drifted");
+        }
+    }
+
+    #[test]
+    fn component_descriptor_resolves_canonical_and_alias_kinds() {
+        let bundle = SpecArtifactBundle::load_embedded().unwrap();
+        let canonical = bundle
+            .component("ak.capability.grant")
+            .unwrap()
+            .expect("ak.capability.grant should be registered");
+        assert_eq!(canonical.criticality, Criticality::Required);
+        assert!(canonical.component_type.starts_with("ak.component."));
+        assert!(canonical.component_version >= 1);
+        assert!(canonical.component_slot_alias_of.is_none());
+
+        let alias = bundle
+            .component("ak.capability.revoke")
+            .unwrap()
+            .expect("ak.capability.revoke should be registered");
+        assert_eq!(
+            alias.component_slot_alias_of.as_deref(),
+            Some("ak.capability.grant"),
+            "ak.capability.revoke should slot-alias ak.capability.grant"
+        );
+        assert_eq!(alias.component_type, canonical.component_type);
+        assert_eq!(alias.component_version, canonical.component_version);
+        assert!(bundle.component("ak.bogus.kind").unwrap().is_none());
+    }
+
     #[test]
     fn embedded_capability_action_reads_core_write_surface() {
         let message = embedded_capability_action("ak.message.create")

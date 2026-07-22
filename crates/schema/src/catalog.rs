@@ -151,3 +151,25 @@ pub fn validate_schema_vectors(vectors: &[SchemaValidationVector]) -> Result<()>
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn catalog_reports_all_registered_schemas() {
+        let catalog = schema_catalog();
+        catalog.validate().unwrap();
+        assert!(
+            catalog
+                .entries
+                .iter()
+                .any(|entry| entry.schema_id == EVENT_SCHEMA)
+        );
+    }
+
+    #[test]
+    fn vectors_include_negative_security_extension_case() {
+        validate_schema_vectors(&built_in_schema_vectors()).unwrap();
+    }
+}

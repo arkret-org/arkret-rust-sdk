@@ -1074,3 +1074,60 @@ fn view_schema_document() -> Value {
         "additionalProperties": true
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn registry_enforces_json_schema_composition_and_value_rules() {
+        let mut registry = ProtocolSchemaRegistry::new();
+        registry.register(
+            "ak.schema.deep_test.v1",
+            json!({
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$id": "ak.schema.deep_test.v1",
+                "type": "object",
+                "required": ["kind", "items", "target"],
+                "properties": {
+                    "kind": {"const": "demo"},
+                    "items": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {"type": "string", "pattern": "^[a-z]+$"}
+                    },
+                    "target": {
+                        "oneOf": [
+                            {"type": "string", "enum": ["user", "space"]},
+                            {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}}}
+                        ]
+                    }
+                },
+                "allOf": [{"properties": {"kind": {"type": "string"}}}],
+                "patternProperties": {
+                    "^x_[a-z][a-z0-9_]{0,63}$": {"type": "string"}
+                },
+                "additionalProperties": false
+            }),
+        );
+        registry
+            .validate_value(
+                "ak.schema.deep_test.v1",
+                &json!({"kind": "demo", "items": ["alpha"], "target": "user", "x_role": "member"}),
+            )
+            .unwrap();
+        for invalid in [
+            json!({"kind": "demo", "items": [], "target": "user"}),
+            json!({"kind": "demo", "items": ["alpha"], "target": "other"}),
+            json!({"kind": "other", "items": ["alpha"], "target": "user"}),
+            json!({"kind": "demo", "items": ["alpha"], "target": "user", "extra": true}),
+            json!({"kind": "demo", "items": ["alpha"], "target": "user", "x_role": false}),
+        ] {
+            assert!(
+                registry
+                    .validate_value("ak.schema.deep_test.v1", &invalid)
+                    .is_err()
+            );
+        }
+    }
+}

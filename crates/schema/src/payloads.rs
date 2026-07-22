@@ -503,6 +503,83 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn catalog_validates_known_payload_fields() {
+        let catalog = event_payload_validator_catalog().unwrap();
+        catalog
+            .validate_payload(
+                "ak.strand.move",
+                &json!({
+                    "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
+                    "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
+                    "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
+                    "rank": "U"
+                }),
+            )
+            .unwrap();
+        assert!(matches!(
+            catalog.validate_payload(
+                "ak.strand.move",
+                &json!({
+                    "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
+                    "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
+                    "rank": "U"
+                })
+            ),
+            Err(SchemaError::Protocol(_))
+        ));
+    }
+
+    #[test]
+    fn artifact_catalog_enforces_deep_schema_rules() {
+        let Some(artifacts_dir) = default_spec_artifacts_dir() else {
+            return;
+        };
+        let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
+        catalog
+            .validate_payload(
+                events::EventKind::STRAND_MOVE,
+                &json!({
+                    "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
+                    "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
+                    "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
+                    "rank": "U"
+                }),
+            )
+            .unwrap();
+        assert!(
+            catalog
+                .validate_payload(
+                    events::EventKind::STRAND_MOVE,
+                    &json!({
+                        "board_space_id": "not-a-space-id",
+                        "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
+                        "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
+                        "rank": "U"
+                    }),
+                )
+                .is_err()
+        );
+        let warnings = catalog
+            .validate_payload_with_warnings(
+                events::EventKind::STRAND_MOVE,
+                &json!({
+                    "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
+                    "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
+                    "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
+                    "rank": "U",
+                    "unexpected": true
+                }),
+            )
+            .unwrap();
+        assert!(
+            warnings.iter().any(|warning| {
+                warning.contains("additional field") && warning.contains("unexpected")
+            }),
+            "expected warning for unexpected additional field, got {warnings:?}"
+        );
+    }
+
     /// Active standard event kinds whose content shape is validated by a
     /// dedicated sibling operation / content schema rather than an
     /// `event-payload.schema.json#/$defs/*` entry, so the SDK event-payload
@@ -1064,5 +1141,21 @@ mod tests {
                 .is_err(),
             "legacy {{ organization_ref }} shape must fail"
         );
+    }
+
+    #[test]
+    fn evolution_plan_rejects_breaking_release_candidate() {
+        let mut breaking_changes = BTreeSet::new();
+        breaking_changes.insert(SchemaBreakingChange::NewRequiredField);
+        let plan = SchemaEvolutionPlan {
+            from_version: "0.1.0".to_owned(),
+            to_version: "0.2.0".to_owned(),
+            affected_schemas: vec![EVENT_SCHEMA.to_owned()],
+            breaking_changes,
+        };
+        assert!(matches!(
+            plan.validate_release_candidate(),
+            Err(SchemaError::Protocol(_))
+        ));
     }
 }
