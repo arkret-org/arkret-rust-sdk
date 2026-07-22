@@ -18,10 +18,10 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
-client = ["dep:arkret-http-client", "dep:reqwest", "dep:tokio", "arkret-core/client"]
+client = ["dep:arkret-http-client", "dep:reqwest", "dep:tokio", "dep:url"]
 signer = ["arkret-signatures/signer"]
 server = ["dep:arkret-server", "full-surface"]
-mls = ["dep:arkret-mls", "full-surface", "arkret-core/mls"]
+mls = ["dep:arkret-mls", "full-surface"]
 # The `crypto_store` module's `CryptoStore` supertrait binds the
 # `arkret_models_crypto::{MlsGroupStateSink, MlsCommitSource}` persistence ports
 # (OpenMLS-free), so full-surface does NOT need arkret-mls. openmls therefore
@@ -85,10 +85,14 @@ chacha20poly1305 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 arkret-core = {workspace = true}
 arkret-crypto = {workspace = true,features = ["account-data", "aead", "identity-root"]}
+arkret-event-draft = {workspace = true}
+arkret-hlc = {workspace = true}
+arkret-identifiers = {workspace = true}
 # Direct dep so the SDK crypto store can re-export the MLS record shapes
 # (`MlsGroupStateRecord`) it previously owned; the shapes now live in
 # arkret-models-crypto. The umbrella crate is layering-exempt.
 arkret-models-crypto = {workspace = true}
+arkret-models-collaboration = {workspace = true}
 arkret-http-client = {workspace = true,optional = true}
 arkret-identity = {workspace = true}
 arkret-keystore = {workspace = true}
@@ -96,6 +100,7 @@ arkret-lattice-registry = {workspace = true}
 arkret-egress-policy = {workspace = true}
 arkret-mls = {workspace = true,optional = true}
 arkret-policy = {workspace = true}
+arkret-schema = {workspace = true}
 arkret-server = {workspace = true,optional = true}
 arkret-signatures = {workspace = true,features = ["protocol"]}
 arkret-state = {workspace = true}

@@ -8,9 +8,8 @@
 //!
 //! `verify_mls_governance_proof_bundle` is generic over the caller's error
 //! type `E` (with `E: From<WireError>`): the injected signature callbacks and
-//! the returned `Result` share `E`, so a consumer that already works in the
-//! `arkret-core` facade `Error` (which bridges `WireError`) keeps compiling
-//! unchanged, while callers in the state/wire layer use `WireError` directly.
+//! the returned `Result` share `E`, so callers can use `WireError` directly or
+//! a boundary error that implements `From<WireError>`.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -43,8 +42,7 @@ pub struct VerifiedMlsGovernanceProof {
 /// The error type `E` is chosen by the caller through the injected callbacks:
 /// both callbacks return `Result<(), E>` and the function returns
 /// `Result<_, E>`. `E: From<WireError>` lets the internal fail-closed checks
-/// raise `WireError` and surface it as the caller's `E` (the `arkret-core`
-/// facade `Error` satisfies this bridge).
+/// raise `WireError` and surface it as the caller's `E`.
 pub fn verify_mls_governance_proof_bundle<E, VerifySeal, VerifyEvent>(
     bundle: &MaterializedMlsGovernanceProofBundle,
     expected_binding: &MlsGovernanceBindingPayload,

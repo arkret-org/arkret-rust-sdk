@@ -1,15 +1,14 @@
+use arkret_models_collaboration::sync_frames::account_subscribe::AccountStreamInterrupt;
+use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceError;
+use arkret_wire::ErrorEnvelope;
 use thiserror::Error;
-
-use crate::models::ErrorEnvelope;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Unified SDK error type.
+/// Error boundary for the umbrella `arkret` SDK.
 ///
-/// `#[non_exhaustive]`: spec evolution (new registry codes, new failure
-/// surfaces) adds variants in minor releases; downstream `match` expressions
-/// MUST carry a `_` arm and treat unrecognised variants fail-closed (as an
-/// error, never as success).
+/// Domain crates expose their own owner errors. This aggregate exists only at
+/// the top-level SDK boundary for applications that opt into the umbrella.
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
@@ -19,28 +18,16 @@ pub enum Error {
     #[error("conflicting bytes for idempotent object {0}")]
     IdempotencyConflict(String),
 
-    #[error(
-        "canonical JSON does not allow floating point or ambiguous numbers (encoding.md \
-         §3.2: only integer-typed values may appear in signing inputs)"
-    )]
+    #[error("canonical JSON does not allow floating point or ambiguous numbers")]
     NonCanonicalNumber,
 
-    #[error(
-        "canonical JSON integer is outside the JSON safe-integer range \
-         [-9007199254740991, 9007199254740991] (encoding.md §2): values beyond this range \
-         MUST be encoded as an explicitly-formatted string, not a JSON number"
-    )]
+    #[error("canonical JSON integer is outside the JSON safe-integer range")]
     NumberOutOfSafeRange,
 
-    #[error(
-        "canonical JSON object contains duplicate key {0:?} (encoding.md §2: duplicate keys MUST be rejected)"
-    )]
+    #[error("canonical JSON object contains duplicate key {0:?}")]
     DuplicateObjectKey(String),
 
-    #[error(
-        "canonical JSON contains a forbidden U+FEFF / UTF-8 BOM (encoding.md §2: any U+FEFF, \
-         at stream start or inside a string value, MUST be rejected as schema_violation): {0}"
-    )]
+    #[error("canonical JSON contains a forbidden U+FEFF / UTF-8 BOM: {0}")]
     NonCanonicalString(String),
 
     #[error("canonical JSON serialization failed: {0}")]
@@ -57,11 +44,6 @@ pub enum Error {
     #[error("insecure service URL is not allowed by default: {0}")]
     InsecureUrl(String),
 
-    // Transport-agnostic HTTP failure. arkret-core is the wire-model /
-    // canonical layer and deliberately has no dependency on a concrete HTTP
-    // stack; transport adapters (arkret-http-client and any alternative
-    // binding) wrap their stack-specific errors into this variant at the
-    // boundary.
     #[cfg(feature = "client")]
     #[error("HTTP request failed: {0}")]
     Http(String),
@@ -76,27 +58,17 @@ pub enum Error {
         error: Box<ErrorEnvelope>,
     },
 
-    // Not a transport failure: the account-subscribe stream delivered a
-    // `dropped` / `resync_required` / `unauthorized` control frame
-    // (client-sync.md §2.2). Transports surface it through the error
-    // channel so cursor-owning sync loops can reconcile (adjust/clear the
-    // cursor, honor `reconnect_after_ms`) instead of silently consuming
-    // past a known data loss.
     #[error("account stream interrupted: {0:?}")]
-    AccountStreamInterrupt(crate::models::AccountStreamInterrupt),
+    AccountStreamInterrupt(AccountStreamInterrupt),
 
     #[error("key-store error: {0}")]
-    KeyStore(#[source] crate::keystore::KeyStoreError),
+    KeyStore(#[source] arkret_keystore::KeyStoreError),
 
     #[error("protocol error: {0}")]
     Protocol(String),
 }
 
 impl Error {
-    /// True when a service rejected a continuation cursor that the client must
-    /// discard before retrying. Arkret services use dedicated cursor codes for
-    /// expiry/integrity/portability failures and `invalid_param` plus the
-    /// `invalid_cursor` reason for malformed values.
     pub fn is_invalid_cursor(&self) -> bool {
         let Self::Api { error, .. } = self else {
             return false;
@@ -117,14 +89,13 @@ impl Error {
         if code != "invalid_param" {
             return false;
         }
-
-        let reason_is_invalid_cursor = error
+        if error
             .error
             .details
             .get("reason_code")
             .and_then(serde_json::Value::as_str)
-            .is_some_and(|reason| INVALID_CURSOR_CODES.contains(&reason));
-        if reason_is_invalid_cursor {
+            .is_some_and(|reason| INVALID_CURSOR_CODES.contains(&reason))
+        {
             return true;
         }
 
@@ -141,27 +112,24 @@ impl Error {
             .any(|marker| message.contains(marker))
     }
 
-    /// Return the structured key-store error when this error originated at a
-    /// [`crate::keystore::KeyStore`] boundary.
-    pub fn as_key_store_error(&self) -> Option<&crate::keystore::KeyStoreError> {
+    pub fn as_key_store_error(&self) -> Option<&arkret_keystore::KeyStoreError> {
         match self {
-            Self::KeyStore(err) => Some(err),
+            Self::KeyStore(error) => Some(error),
             _ => None,
         }
     }
 
-    /// True when this error is a typed key-store miss.
     pub fn is_key_store_not_found(&self) -> bool {
         matches!(
             self.as_key_store_error(),
-            Some(crate::keystore::KeyStoreError::NotFound { .. })
+            Some(arkret_keystore::KeyStoreError::NotFound { .. })
         )
     }
 }
 
-impl From<crate::keystore::KeyStoreError> for Error {
-    fn from(err: crate::keystore::KeyStoreError) -> Self {
-        Error::KeyStore(err)
+impl From<arkret_keystore::KeyStoreError> for Error {
+    fn from(error: arkret_keystore::KeyStoreError) -> Self {
+        Self::KeyStore(error)
     }
 }
 
@@ -258,15 +226,12 @@ impl From<arkret_crypto::Error> for Error {
 
 impl From<arkret_crypto::CryptoError> for Error {
     fn from(error: arkret_crypto::CryptoError) -> Self {
-        // Preserve the v1 wire surface: typed crypto-machine errors still
-        // collapse to `Error::Protocol(<message>)` at the protocol boundary.
         Self::Protocol(error.to_string())
     }
 }
 
 impl From<arkret_crypto::KeyBackupError> for Error {
     fn from(error: arkret_crypto::KeyBackupError) -> Self {
-        // Same boundary contract as `CryptoError`.
         Self::Protocol(error.to_string())
     }
 }
@@ -326,12 +291,12 @@ impl From<arkret_schema::SchemaError> for Error {
     }
 }
 
-// Transitional bridge: `arkret-http-client` owns its transport `Error`; the
-// core facade absorbs it (behind the `client` feature, so reqwest stays out of
-// the default core graph) so downstream `?` call sites that funnel HTTP-client
-// results through the core facade stay green. The mapping is variant-for-variant
-// structure-preserving; the `#[from]` wrapper variants delegate to the core
-// boundary bridges already declared above.
+impl From<StreamTraceError> for Error {
+    fn from(error: StreamTraceError) -> Self {
+        Self::Protocol(format!("stream trace {}: {error}", error.violation()))
+    }
+}
+
 #[cfg(feature = "client")]
 impl From<arkret_http_client::Error> for Error {
     fn from(error: arkret_http_client::Error) -> Self {

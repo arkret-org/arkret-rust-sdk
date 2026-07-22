@@ -19,39 +19,18 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = []
 embedded-artifacts = ["arkret-schema/embedded-artifacts"]
-# Client-side URL handling + the transport-agnostic `Error::Http`/`Error::Url`
-# variants. Deliberately does NOT pull in a concrete HTTP stack — reqwest
-# lives in arkret-http-client (ARCHITECTURE.md: core is the wire-model layer).
-client = ["dep:arkret-http-client"]
-mls = ["arkret-policy/mls", "dep:arkret-mls"]
 salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono", "arkret-identifiers/salvo", "arkret-hlc/salvo", "arkret-event-draft/salvo-oapi", "arkret-wire/salvo-oapi", "arkret-models-identity/salvo-oapi", "arkret-models-collaboration/salvo-oapi", "arkret-models-crypto/salvo-oapi", "arkret-models-discovery/salvo-oapi", "arkret-models-integration/salvo-oapi", "arkret-schema/salvo-oapi", "arkret-policy/salvo-oapi"]
 
 [dependencies]
 arkret-canonical = {workspace = true}
 arkret-event-draft = {workspace = true}
-# Transitional (phase 5): the transport `Error` moved to arkret-http-client;
-# core keeps a `From` bridge into its facade `Error` under the `client` feature
-# so downstream `?` call sites stay green. Optional so reqwest stays out of the
-# default core graph. Retires when the facade retires.
-arkret-http-client = {workspace = true, optional = true}
 arkret-hlc = {workspace = true}
 # Transitional (phase 2-b): the KeyStore contract moved to arkret-keystore;
 # core re-exports it until the facade retires (phase 5).
 arkret-keystore = {workspace = true}
-# Transitional (phase 2-b): arkret-signatures and arkret-crypto own their
-# boundary errors now; core keeps `From` bridges into its facade `Error` so
-# downstream `?` call sites stay green until the facade retires (phase 5).
 arkret-signatures = {workspace = true}
-arkret-crypto = {workspace = true}
-# Transitional (phase 2-c2b): arkret-identity owns its boundary error; core
-# keeps the `From` bridge into its facade `Error` (same pattern as
-# signatures/crypto/mls). Retires with core in phase 5.
 arkret-identity = {workspace = true}
 arkret-auth = {workspace = true}
-# Behavior-layer bridge (phase 2-c1): only pulled under the `mls` feature so the
-# facade `Error` can absorb `arkret_mls::MlsError` for downstream `?` call
-# sites. Keeps openmls out of the default core graph.
-arkret-mls = {workspace = true,optional = true}
 arkret-policy = {workspace = true}
 arkret-schema = {workspace = true}
 arkret-state = {workspace = true}
@@ -73,10 +52,8 @@ salvo-oapi = {workspace = true,optional = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
 sha2 = {workspace = true}
-thiserror = {workspace = true}
 subtle = {workspace = true}
 unicode-normalization = {workspace = true}
-url = {workspace = true}
 zeroize = {workspace = true,default-features = true}
 
 [dev-dependencies]

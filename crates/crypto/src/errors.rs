@@ -6,12 +6,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 /// Crypto-machine boundary error.
 ///
-/// This crate owns its boundary error instead of re-using
-/// `arkret_core::Error` (error-contract registry). The enum stays thin:
-/// typed passthrough for the lower layers this crate propagates, plus
-/// `Protocol` / `Crypto` for the violations it raises itself. `arkret-core`
-/// bridges this type into its facade `Error` via `From` so downstream `?`
-/// call sites keep compiling during the migration.
+/// This crate owns its boundary error. The enum stays thin: typed passthrough
+/// for the lower layers this crate propagates, plus `Protocol` / `Crypto` for
+/// the violations it raises itself.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum Error {

@@ -5,8 +5,7 @@
 //! `Crypto` carry spec-level and cryptographic-primitive violations verbatim;
 //! `Mls` wraps opaque OpenMLS / TLS-codec failures. The `#[from]` bridges keep
 //! `?` ergonomic over the wire / canonical / identifier / JSON layers this
-//! crate builds on. Downstream (`arkret-core`) keeps a `From<MlsError>` bridge
-//! into its facade `Error` so existing call sites are unaffected.
+//! crate builds on.
 
 use arkret_canonical::CanonicalError;
 use arkret_identifiers::IdentifierError;

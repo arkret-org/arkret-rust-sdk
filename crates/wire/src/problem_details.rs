@@ -334,4 +334,17 @@ mod tests {
             })
         );
     }
+
+    #[test]
+    fn unknown_error_code_is_preserved() {
+        let details = ErrorDetail {
+            code: "vendor_remote_error".to_owned(),
+            message: "remote failure".to_owned(),
+            retry_after_ms: None,
+            details: Default::default(),
+        };
+
+        assert_eq!(details.error_code(), None);
+        assert_eq!(details.code, "vendor_remote_error");
+    }
 }

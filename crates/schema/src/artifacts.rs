@@ -1280,6 +1280,8 @@ pub(super) fn registry_entry<'a>(
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::{ErrorCode, REASON_CODE_DESCRIPTORS};
+
     use super::*;
 
     fn local_spec_artifacts_dir() -> Option<PathBuf> {
@@ -1321,6 +1323,88 @@ mod tests {
                 out.insert(rel);
             }
         }
+    }
+
+    fn generated_error_codes() -> Vec<String> {
+        ErrorCode::ALL
+            .iter()
+            .map(|code| code.as_str().to_owned())
+            .collect()
+    }
+
+    fn live_registry_codes(field: &str) -> Option<Vec<String>> {
+        let artifacts_dir = local_spec_artifacts_dir()?;
+        let registry_path = artifacts_dir
+            .join("registry")
+            .join("error-code-registry.json");
+        let text = fs::read_to_string(&registry_path)
+            .unwrap_or_else(|error| panic!("failed to read {}: {error}", registry_path.display()));
+        let registry: Value = serde_json::from_str(&text)
+            .unwrap_or_else(|error| panic!("failed to parse {}: {error}", registry_path.display()));
+        Some(
+            registry
+                .get(field)
+                .and_then(Value::as_array)
+                .unwrap_or_else(|| panic!("live error-code-registry missing {field}"))
+                .iter()
+                .map(|entry| {
+                    entry
+                        .get("code")
+                        .and_then(Value::as_str)
+                        .unwrap_or_else(|| panic!("live {field} entry missing code"))
+                        .to_owned()
+                })
+                .collect(),
+        )
+    }
+
+    #[cfg(feature = "embedded-artifacts")]
+    #[test]
+    fn generated_error_codes_match_embedded_registry() {
+        let mut embedded = embedded_error_code_codes().expect("embedded error codes must load");
+        let mut generated = generated_error_codes();
+        embedded.sort_unstable();
+        generated.sort_unstable();
+        assert_eq!(generated, embedded);
+    }
+
+    #[test]
+    fn generated_error_codes_match_live_registry_when_available() {
+        let Some(mut live) = live_registry_codes("codes") else {
+            return;
+        };
+        let mut generated = generated_error_codes();
+        live.sort_unstable();
+        generated.sort_unstable();
+        assert_eq!(generated, live);
+    }
+
+    #[cfg(feature = "embedded-artifacts")]
+    #[test]
+    fn generated_reason_codes_match_embedded_registry() {
+        let mut embedded =
+            embedded_error_code_reason_codes().expect("embedded reason codes must load");
+        let mut generated: Vec<String> = REASON_CODE_DESCRIPTORS
+            .iter()
+            .map(|descriptor| descriptor.code.to_owned())
+            .collect();
+        embedded.sort_unstable();
+        generated.sort_unstable();
+        assert_eq!(generated, embedded);
+    }
+
+    #[test]
+    fn generated_reason_codes_match_live_registry_when_available() {
+        let Some(mut live) = live_registry_codes("reason_codes") else {
+            return;
+        };
+        let mut generated: Vec<String> = REASON_CODE_DESCRIPTORS
+            .iter()
+            .map(|descriptor| descriptor.code.to_owned())
+            .collect();
+        live.sort_unstable();
+        generated.sort_unstable();
+        assert_eq!(generated, live);
     }
 
     #[test]

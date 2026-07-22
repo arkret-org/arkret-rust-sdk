@@ -3,7 +3,7 @@
 //! The frame / validated-batch result types live in
 //! `arkret-models-collaboration` (`sync_frames::account_subscribe`),
 //! re-exported here for `arkret_core::` path stability. The client-side
-//! [`AccountSubscribeFolder`](arkret_http_client::AccountSubscribeFolder)
+//! `AccountSubscribeFolder`
 //! consumption state machine moved to the transport crate
 //! (`arkret-http-client`), which owns the client `Error` channel it folds
 //! frames through.

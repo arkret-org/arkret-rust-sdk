@@ -4,9 +4,8 @@
 //! bundle / chunk data shapes it re-exports still originate in
 //! `arkret_models_crypto::mls_governance_proof` (re-exported transitively).
 //!
-//! `verify_mls_governance_proof_bundle` is now generic over the caller's error
-//! type; the `arkret-core` facade `Error` bridges `arkret_wire::WireError`, so
-//! callers that inject `arkret_core::Result` signature callbacks keep compiling
-//! unchanged.
+//! `verify_mls_governance_proof_bundle` is generic over the caller's error
+//! type, so callers may use `arkret_wire::WireError` directly or their own
+//! boundary error implementing `From<WireError>`.
 
 pub use arkret_state::mls_governance_proof::*;

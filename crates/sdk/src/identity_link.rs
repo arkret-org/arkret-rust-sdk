@@ -1,11 +1,12 @@
 use std::collections::BTreeMap;
 
 use arkret_core::{
-    DeviceId, Did, Error, Hash, IdentityLink, IdentityLinkStatus, RealmId, Result,
-    compute_policy_frontier_digest,
+    DeviceId, Did, Hash, IdentityLink, IdentityLinkStatus, RealmId, compute_policy_frontier_digest,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
+
+use crate::{Error, Result};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// Client-local verified identity-link cache entry.

@@ -1,9 +1,8 @@
 //! Transport-layer error and result types for the Arkret HTTP client.
 //!
-//! `arkret-http-client` owns its boundary `Error` so the transport crate no
-//! longer depends on the `arkret-core` facade. `arkret-core` keeps a
-//! `From<arkret_http_client::Error>` bridge (behind its `client` feature) so
-//! downstream `?` call sites that funnel through the core facade stay green.
+//! `arkret-http-client` owns the transport boundary `Error`; callers preserve
+//! its structured variants instead of routing failures through a shared
+//! facade.
 
 use thiserror::Error;
 

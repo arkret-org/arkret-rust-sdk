@@ -73,6 +73,7 @@ compile_error!(
      (see crates/sdk/Cargo.toml feature graph)"
 );
 
+mod sdk_error;
 // The pure KeyStore contract (trait + in-memory backend + error type) lives
 // in `arkret-core`; the OS-native backends and the platform-default
 // constructor now live in the dedicated `arkret-keystore` crate.
@@ -104,6 +105,7 @@ pub use arkret_signatures::{
     realm_organization, realm_organization_statement_sign, service_identity, webvh,
 };
 pub use arkret_state::{snapshot, state, *};
+pub use sdk_error::{Error, Result};
 
 // Platform-native KeyStore backends. The glob import above already
 // re-exports these symbols, but listing them explicitly keeps them

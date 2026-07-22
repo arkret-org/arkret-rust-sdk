@@ -8,7 +8,7 @@
 pub use arkret_crypto::sframe::*;
 
 /// Public result name for downstream [`MlsExporterSource`] implementations.
-/// The trait is owned by `arkret-crypto`, so its error must not be confused
-/// with the SDK facade's broader `arkret_sdk::Error`.
+/// The trait is owned by `arkret-crypto`, so this alias keeps its owner error
+/// explicit at downstream implementation boundaries.
 pub type MlsExporterResult<T> = arkret_crypto::Result<T>;
 pub use arkret_crypto::Error as MlsExporterError;

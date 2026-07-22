@@ -22,10 +22,9 @@ pub use arkret_policy::{
     minimal_metadata_max_epoch_lifetime, verify_minimal_metadata_author,
 };
 pub use error::MlsError;
-// `Result` stays crate-internal: re-exporting a `Result` alias from the crate
-// root would collide with the umbrella's `arkret_core::Result` under
-// `pub use arkret_mls::*`. Public fn signatures resolve it to the concrete
-// `std::result::Result<_, MlsError>`, so external callers never need the alias.
+// `Result` stays crate-internal because public signatures resolve it to the
+// concrete `std::result::Result<_, MlsError>` and external callers do not need
+// a generic root-level alias.
 pub(crate) use error::Result;
 pub use group::*;
 pub use identity::*;

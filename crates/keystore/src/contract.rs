@@ -71,8 +71,7 @@ pub trait KeyStore: Send + Sync {
     fn delete(&self, id: &str) -> Result<()>;
 }
 
-/// Strongly-typed key-store error. Convertible to the workspace
-/// `arkret_core::Error::KeyStore` for protocol-boundary conformance.
+/// Strongly-typed key-store boundary error.
 #[derive(Debug, Error)]
 pub enum KeyStoreError {
     /// The active target / feature combination does not provide this
