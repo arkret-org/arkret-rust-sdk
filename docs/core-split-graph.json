@@ -12,12 +12,10 @@
       "admin_signer",
       "agent",
       "applet",
-      "cursor",
       "error",
       "events",
       "federation",
       "generated",
-      "hlc",
       "http",
       "identity",
       "models",
@@ -26,7 +24,6 @@
       "service_identity",
       "stream_trace"
     ],
-    "cursor": [],
     "error": [],
     "events": [
       "events::redaction",
@@ -35,7 +32,6 @@
     "events::redaction": [],
     "federation": [],
     "generated": [],
-    "hlc": [],
     "http": [
       "http::bodies",
       "http::params",
@@ -185,13 +181,11 @@
     "applet::ghost": "applet/ghost.rs",
     "applet::service": "applet/service.rs",
     "crate_root": "lib.rs",
-    "cursor": "cursor.rs",
     "error": "error/mod.rs",
     "events": "events/mod.rs",
     "events::redaction": "events/redaction.rs",
     "federation": "federation.rs",
     "generated": "generated/mod.rs",
-    "hlc": "hlc.rs",
     "http": "http/mod.rs",
     "http::bodies": "http/bodies.rs",
     "http::params": "http/params/mod.rs",
@@ -267,13 +261,11 @@
     "applet::ghost": 1,
     "applet::service": 1,
     "crate_root": 0,
-    "cursor": 1,
     "error": 1,
     "events": 1,
     "events::redaction": 1,
     "federation": 1,
     "generated": 1,
-    "hlc": 1,
     "http": 1,
     "http::bodies": 1,
     "http::params": 1,
@@ -372,9 +364,6 @@
       "crate_root"
     ],
     [
-      "cursor"
-    ],
-    [
       "error"
     ],
     [
@@ -388,9 +377,6 @@
     ],
     [
       "generated"
-    ],
-    [
-      "hlc"
     ],
     [
       "http"

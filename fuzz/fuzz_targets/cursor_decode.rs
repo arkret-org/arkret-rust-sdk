@@ -1,13 +1,13 @@
 #![no_main]
 
-//! Fuzz the opaque sync-cursor decoder (`arkret_core::cursor::Cursor::decode`).
+//! Fuzz the opaque sync-cursor decoder (`arkret_hlc::Cursor::decode`).
 //!
 //! `Cursor::decode` parses a fully untrusted `ak:cursor:` token (Base64URL body
 //! wrapping canonical JSON) and enforces size, version, handle, timestamp and
 //! TTL bounds. It MUST fail closed with `Err` on any malformed / oversized /
 //! non-canonical / expired token and never panic.
 
-use arkret_core::cursor::Cursor;
+use arkret_hlc::Cursor;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
