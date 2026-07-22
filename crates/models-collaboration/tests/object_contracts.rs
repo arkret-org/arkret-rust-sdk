@@ -1,36 +1,19 @@
+use arkret_canonical as canonical;
+use arkret_identifiers::{Did, MorphId, PolicyId, RealmId, StrandId, TypedTrustDomainId};
+use arkret_models_collaboration::objects::profiles::{
+    Morph, STRAND_TRACK_NAME_DISCUSSION, STRAND_TRACK_NAME_SYNTHESIS, StrandTrackConfig,
+    validate_strand_track_name,
+};
+use arkret_models_collaboration::objects::realm::{
+    CellLatticeDeclaration, CoWritePolicy, NotaryProfile, Realm, SyncEndpoint,
+};
+use arkret_models_collaboration::objects::strand::Strand;
+use arkret_wire::{FederationPolicy, MORPH_SCHEMA, ObjectStage, ObjectState, STRAND_SCHEMA};
 use chrono::Utc;
 use serde_json::json;
 
-use super::super::*;
-
-fn single_did_notary(did: &str) -> crate::notary::NotaryValue {
-    crate::notary::NotaryValue::single_did(Did::new(did).unwrap())
-}
-
-#[test]
-fn rank_helpers_generate_between_and_rebalance_assignments() {
-    let first = rank_between(None, None).unwrap();
-    let second = rank_between(Some(&first), None).unwrap();
-    assert!(first < second);
-    assert!(first.bytes().all(|byte| byte.is_ascii_alphanumeric()));
-    assert!(second.bytes().all(|byte| byte.is_ascii_alphanumeric()));
-    assert!(rank_exhausted(None, Some("0")).unwrap());
-
-    let assignments = container_rebalance_assignments(&[
-        "ak:morph:01904100-0000-7000-8000-8b4aa2ca29ef".to_owned(),
-        "ak:morph:01904100-0000-7000-8000-d5864c129df4".to_owned(),
-        "ak:morph:01904100-0000-7000-8000-6057e4215f24".to_owned(),
-    ])
-    .unwrap();
-    assert_eq!(assignments.len(), 3);
-    assert!(assignments[0].rank < assignments[1].rank);
-    assert!(assignments[1].rank < assignments[2].rank);
-    assert!(assignments.iter().all(|assignment| {
-        assignment
-            .rank
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric())
-    }));
+fn single_did_notary(did: &str) -> arkret_wire::NotaryValue {
+    arkret_wire::NotaryValue::single_did(Did::new(did).unwrap())
 }
 
 #[test]
@@ -107,31 +90,6 @@ fn strand_discussion_constructor_sets_room_shape() {
     assert_eq!(discussion.profile.as_deref(), Some("discussion"));
 }
 
-#[test]
-fn read_scope_strand_track_uses_explicit_track_field() {
-    let scope = ReadCursorScope::strand(
-        "ak:strand:01904100-0000-7000-8000-58754cf88c25",
-        Some("discussion"),
-    );
-    scope.validate().unwrap();
-
-    let value = serde_json::to_value(&scope).unwrap();
-    assert_eq!(
-        value,
-        serde_json::json!({
-            "kind": "strand",
-            "container_ref": "ak:strand:01904100-0000-7000-8000-58754cf88c25",
-            "track_name": "discussion"
-        })
-    );
-}
-
-#[test]
-fn read_scope_rejects_removed_track_kind_variants() {
-    let old = serde_json::json!("strand_discussion");
-    assert!(serde_json::from_value::<ReadCursorScope>(old).is_err());
-}
-
 /// T21 — synthesis-only Strands are not conversational.
 #[test]
 fn synthesis_strand_is_not_conversational() {
@@ -171,7 +129,7 @@ fn strand_track_typed_constructors() {
 /// expected overrides.
 #[test]
 fn realm_anchor_fields_are_required_and_builders_apply() {
-    use crate::notary::NotaryValue;
+    use arkret_wire::NotaryValue;
 
     let mut realm = Realm::new(
         RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000001").unwrap(),
@@ -205,7 +163,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
                 Did::new("did:webvh:z6mkfixture:b.example").unwrap(),
                 Did::new("did:webvh:z6mkfixture:c.example").unwrap(),
             ],
-            forensic_attribution: crate::notary::ForensicAttribution::QuorumIntersection,
+            forensic_attribution: arkret_wire::ForensicAttribution::QuorumIntersection,
         })
         .with_revocation_freshness_window(60_000)
         .with_cell_lattice(

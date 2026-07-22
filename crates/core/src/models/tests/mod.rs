@@ -1,6 +1,5 @@
 use super::*;
 
-mod objects_field_order;
 mod proofs_signatures;
 
 // Shared helper used by multiple submodules.

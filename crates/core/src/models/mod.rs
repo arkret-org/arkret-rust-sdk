@@ -10,9 +10,6 @@ pub use arkret_identifiers::{
 };
 pub use arkret_wire::{EvaluationClass, ServiceType, XExtensionMap};
 
-#[cfg(test)]
-use crate::canonical;
-
 mod account;
 mod actor_profile {
     pub use arkret_models_identity::actor_profile::*;
