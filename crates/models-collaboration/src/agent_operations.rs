@@ -762,12 +762,12 @@ pub enum AgentSidecarState {
     Tombstoned,
 }
 
-pub const AGENT_SIDECAR_DESIRED_ACCESS_KIND: &str = "ak.sidecar.desired_access.v1";
+pub const AGENT_SIDECAR_DESIRED_ACCESS_DOMAIN: &str = "ak.sidecar.desired_access.v1";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarDesiredAccessTranscript {
-    pub kind: &'static str,
+    pub domain: &'static str,
     pub sidecar_id: SidecarId,
     pub realm_id: RealmId,
     pub controller_id: Did,
@@ -792,7 +792,7 @@ impl AgentSidecarDesiredAccessTranscript {
             ));
         }
         Ok(Self {
-            kind: AGENT_SIDECAR_DESIRED_ACCESS_KIND,
+            domain: AGENT_SIDECAR_DESIRED_ACCESS_DOMAIN,
             sidecar_id,
             realm_id,
             controller_id,
@@ -1476,7 +1476,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             digest.as_str(),
-            "sha256:3eac506d0d13e5b10e602f103c626904c8a9ee3fa4a8ada1303de205ca10d04d"
+            "sha256:a8c91fc896c6c19179770fdd629ca3fd24acbb8a3d824b0d76c6ad77f3a5767a"
         );
     }
 
