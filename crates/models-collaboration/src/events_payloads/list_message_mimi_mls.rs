@@ -94,13 +94,14 @@ impl<'de> Deserialize<'de> for MlsGenesisEpoch {
 pub enum MlsClaimTrustBinding {
     SskGeneration(NonZeroU64),
     DeviceAuthorizeEventId(NonEmptyString),
+    AgentKeyAuthorizeEventId(NonEmptyString),
 }
 
 impl MlsClaimTrustBinding {
     pub fn ssk_generation(&self) -> Option<u64> {
         match self {
             Self::SskGeneration(generation) => Some(generation.get()),
-            Self::DeviceAuthorizeEventId(_) => None,
+            Self::DeviceAuthorizeEventId(_) | Self::AgentKeyAuthorizeEventId(_) => None,
         }
     }
 
@@ -108,6 +109,14 @@ impl MlsClaimTrustBinding {
         match self {
             Self::SskGeneration(_) => None,
             Self::DeviceAuthorizeEventId(event_id) => Some(event_id.as_str()),
+            Self::AgentKeyAuthorizeEventId(_) => None,
+        }
+    }
+
+    pub fn agent_key_authorize_event_id(&self) -> Option<&str> {
+        match self {
+            Self::SskGeneration(_) | Self::DeviceAuthorizeEventId(_) => None,
+            Self::AgentKeyAuthorizeEventId(event_id) => Some(event_id.as_str()),
         }
     }
 }
@@ -670,6 +679,8 @@ struct MlsWelcomePayloadClaimRefWire {
     ssk_generation: Option<NonZeroU64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     device_authorize_event_id: Option<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    agent_key_authorize_event_id: Option<NonEmptyString>,
 }
 
 impl Serialize for MlsWelcomePayloadClaimRef {
@@ -677,12 +688,16 @@ impl Serialize for MlsWelcomePayloadClaimRef {
     where
         S: serde::Serializer,
     {
-        let (ssk_generation, device_authorize_event_id) = match &self.trust_binding {
-            MlsClaimTrustBinding::SskGeneration(generation) => (Some(*generation), None),
-            MlsClaimTrustBinding::DeviceAuthorizeEventId(event_id) => {
-                (None, Some(event_id.clone()))
-            }
-        };
+        let (ssk_generation, device_authorize_event_id, agent_key_authorize_event_id) =
+            match &self.trust_binding {
+                MlsClaimTrustBinding::SskGeneration(generation) => (Some(*generation), None, None),
+                MlsClaimTrustBinding::DeviceAuthorizeEventId(event_id) => {
+                    (None, Some(event_id.clone()), None)
+                }
+                MlsClaimTrustBinding::AgentKeyAuthorizeEventId(event_id) => {
+                    (None, None, Some(event_id.clone()))
+                }
+            };
         MlsWelcomePayloadClaimRefWire {
             claim_id: self.claim_id.clone(),
             keypackage_ref: self.keypackage_ref.clone(),
@@ -690,6 +705,7 @@ impl Serialize for MlsWelcomePayloadClaimRef {
             capabilities_digest: self.capabilities_digest.clone(),
             ssk_generation,
             device_authorize_event_id,
+            agent_key_authorize_event_id,
         }
         .serialize(serializer)
     }
@@ -701,9 +717,16 @@ impl<'de> Deserialize<'de> for MlsWelcomePayloadClaimRef {
         D: serde::Deserializer<'de>,
     {
         let wire = MlsWelcomePayloadClaimRefWire::deserialize(deserializer)?;
-        let trust_binding = match (wire.ssk_generation, wire.device_authorize_event_id) {
-            (Some(generation), None) => MlsClaimTrustBinding::SskGeneration(generation),
-            (None, Some(event_id)) => MlsClaimTrustBinding::DeviceAuthorizeEventId(event_id),
+        let trust_binding = match (
+            wire.ssk_generation,
+            wire.device_authorize_event_id,
+            wire.agent_key_authorize_event_id,
+        ) {
+            (Some(generation), None, None) => MlsClaimTrustBinding::SskGeneration(generation),
+            (None, Some(event_id), None) => MlsClaimTrustBinding::DeviceAuthorizeEventId(event_id),
+            (None, None, Some(event_id)) => {
+                MlsClaimTrustBinding::AgentKeyAuthorizeEventId(event_id)
+            }
             _ => {
                 return Err(serde::de::Error::custom(
                     "claim_ref must contain exactly one trust binding",
@@ -1016,6 +1039,7 @@ pub fn validate_mls_welcome_claim_envelope(
     claim_nonce: &str,
     current_claim_ssk_generation: Option<u64>,
     current_claim_device_authorize_event_id: Option<&str>,
+    current_claim_agent_key_authorize_event_id: Option<&str>,
     current_requester_ssk_generation: Option<u64>,
     current_requester_device_id: Option<&str>,
 ) -> std::result::Result<(), &'static str> {
@@ -1031,6 +1055,11 @@ pub fn validate_mls_welcome_claim_envelope(
         || welcome.claim_ref.trust_binding.ssk_generation() != claim.ssk_generation
         || welcome.claim_ref.trust_binding.device_authorize_event_id()
             != claim.device_authorize_event_id.as_deref()
+        || welcome
+            .claim_ref
+            .trust_binding
+            .agent_key_authorize_event_id()
+            != claim.agent_key_authorize_event_id.as_deref()
     {
         return Err(ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     }
@@ -1038,6 +1067,7 @@ pub fn validate_mls_welcome_claim_envelope(
         &welcome.claim_ref.trust_binding,
         current_claim_ssk_generation,
         current_claim_device_authorize_event_id,
+        current_claim_agent_key_authorize_event_id,
     )?;
 
     let envelope = &welcome.claim_envelope;
@@ -1067,6 +1097,7 @@ fn validate_claim_trust_binding(
     trust_binding: &MlsClaimTrustBinding,
     current_claim_ssk_generation: Option<u64>,
     current_claim_device_authorize_event_id: Option<&str>,
+    current_claim_agent_key_authorize_event_id: Option<&str>,
 ) -> std::result::Result<(), &'static str> {
     match trust_binding {
         MlsClaimTrustBinding::SskGeneration(generation)
@@ -1076,6 +1107,11 @@ fn validate_claim_trust_binding(
         }
         MlsClaimTrustBinding::DeviceAuthorizeEventId(event_id)
             if Some(event_id.as_str()) == current_claim_device_authorize_event_id =>
+        {
+            Ok(())
+        }
+        MlsClaimTrustBinding::AgentKeyAuthorizeEventId(event_id)
+            if Some(event_id.as_str()) == current_claim_agent_key_authorize_event_id =>
         {
             Ok(())
         }
@@ -1161,6 +1197,27 @@ mod tests {
         value["created_at"] = serde_json::json!("2026-06-23T07:51:12Z");
 
         assert!(serde_json::from_value::<MlsWelcomeClaimEnvelope>(value).is_err());
+    }
+
+    #[test]
+    fn native_agent_claim_ref_requires_exclusive_authorization_binding() {
+        let value = serde_json::json!({
+            "claim_id": "claim-1",
+            "keypackage_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "keypackage_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "capabilities_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "agent_key_authorize_event_id": "ak:event:01904100-0000-7000-8000-000000000001"
+        });
+        let claim_ref = serde_json::from_value::<MlsWelcomePayloadClaimRef>(value.clone()).unwrap();
+        assert!(matches!(
+            claim_ref.trust_binding,
+            MlsClaimTrustBinding::AgentKeyAuthorizeEventId(_)
+        ));
+
+        let mut mixed = value;
+        mixed["device_authorize_event_id"] =
+            serde_json::json!("ak:event:01904100-0000-7000-8000-000000000002");
+        assert!(serde_json::from_value::<MlsWelcomePayloadClaimRef>(mixed).is_err());
     }
 
     #[test]

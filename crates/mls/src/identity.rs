@@ -12,6 +12,7 @@ use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
 use serde::{Deserialize, Serialize};
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
+use zeroize::Zeroize;
 
 use crate::group::{
     ArkretMlsGroup, decode, encode, governance_binding_group_context_extensions,
@@ -57,9 +58,37 @@ struct OpenMlsIdentityStateSnapshot {
 
 impl ArkretMlsIdentity {
     pub fn new_basic(principal_id: Did, device_id: DeviceId) -> Result<Self> {
-        let provider = OpenMlsRustCrypto::default();
         let signer = SignatureKeyPair::new(ARKRET_MLS_CIPHERSUITE.signature_algorithm())
             .map_err(mls_error)?;
+        Self::new_with_signer(principal_id, device_id, signer)
+    }
+
+    /// Construct the MLS identity from an already-authorized Ed25519 runtime
+    /// seed. Native Agent runtimes use this path so the MLS LeafNode signature
+    /// key is the same key named by `ak.agent.key.authorize.verification_method`.
+    pub fn from_ed25519_signing_seed(
+        principal_id: Did,
+        device_id: DeviceId,
+        mut signing_seed: [u8; 32],
+    ) -> Result<Self> {
+        let signing_key = ed25519_dalek::SigningKey::from_bytes(&signing_seed);
+        let public_key = signing_key.verifying_key().to_bytes().to_vec();
+        drop(signing_key);
+        let signer = SignatureKeyPair::from_raw(
+            ARKRET_MLS_CIPHERSUITE.signature_algorithm(),
+            signing_seed.to_vec(),
+            public_key,
+        );
+        signing_seed.zeroize();
+        Self::new_with_signer(principal_id, device_id, signer)
+    }
+
+    fn new_with_signer(
+        principal_id: Did,
+        device_id: DeviceId,
+        signer: SignatureKeyPair,
+    ) -> Result<Self> {
+        let provider = OpenMlsRustCrypto::default();
         signer.store(provider.storage()).map_err(mls_error)?;
         let credential = CredentialWithKey {
             credential: BasicCredential::new(principal_id.as_str().as_bytes().to_vec()).into(),
@@ -73,6 +102,11 @@ impl ArkretMlsIdentity {
             signer,
             credential,
         })
+    }
+
+    #[must_use]
+    pub fn signature_public_key(&self) -> &[u8] {
+        self.signer.public()
     }
 
     /// Build a single-use KeyPackage record (consumed on claim).
@@ -370,6 +404,26 @@ mod tests {
         assert!(
             matches!(value.get("capabilities"), Some(Value::Array(values)) if !values.is_empty())
         );
+    }
+
+    #[test]
+    fn native_agent_identity_reuses_authorized_runtime_signing_key() {
+        let seed = [7_u8; 32];
+        let expected = ed25519_dalek::SigningKey::from_bytes(&seed)
+            .verifying_key()
+            .to_bytes();
+        let identity = ArkretMlsIdentity::from_ed25519_signing_seed(
+            Did::new("did:webvh:z6mkfixture:agent.example".to_owned()).unwrap(),
+            DeviceId::new("ak:device:01964137-0000-7000-8000-00000000000d".to_owned()).unwrap(),
+            seed,
+        )
+        .unwrap();
+        assert_eq!(identity.signature_public_key(), expected.as_slice());
+
+        let record = identity.key_package_record().unwrap();
+        let leaf =
+            author_leaf_from_key_package_bytes(&decode(&record.key_package).unwrap(), 0).unwrap();
+        assert_eq!(leaf.signature_key, expected);
     }
 
     // Regression: a last-resort KeyPackage carries the OpenMLS `last_resort`
