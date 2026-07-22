@@ -1,10 +1,8 @@
 //! Event frontier, submission, subscription, and snapshot wire models.
 //!
 //! Migrated from `arkret-core` (`models/event_sync.rs`); a shim there
-//! re-exports these shapes to preserve the `arkret_core::` path. The
-//! `federation_minimal` reducer-profile digest constant/fn stay in
-//! `arkret-core` because they resolve against `arkret_policy::generated`
-//! (a higher layer than this data crate).
+//! re-exports these shapes to preserve the `arkret_core::` path. Generated
+//! reducer-profile digests are owned by `arkret-policy`.
 
 use std::collections::BTreeMap;
 
@@ -519,6 +517,52 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn realm_actor_frontier_distinguishes_empty_and_seq_zero_histories() {
+        let actor_id = Did::new("did:web:alice.example").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
+        RealmActorFrontierView::new(
+            realm_id.clone(),
+            actor_id.clone(),
+            0,
+            Vec::new(),
+            DigestSuite::Sha256,
+        )
+        .unwrap();
+        RealmActorFrontierView::new(
+            realm_id.clone(),
+            actor_id.clone(),
+            1,
+            vec![EventId::new("ak:event:01904100-0000-7000-8000-000000000001").unwrap()],
+            DigestSuite::Sha256,
+        )
+        .unwrap();
+
+        assert!(
+            RealmActorFrontierView::new(realm_id, actor_id, 1, Vec::new(), DigestSuite::Sha256)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn realm_actor_frontier_digest_matches_the_spec_vector() {
+        let frontier = RealmActorFrontierView::new(
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            Did::new("did:web:alice.example").unwrap(),
+            43,
+            vec![
+                EventId::new("ak:event:01904100-0000-7000-8000-000000000001").unwrap(),
+                EventId::new("ak:event:01904100-0000-7000-8000-000000000002").unwrap(),
+            ],
+            DigestSuite::Sha256,
+        )
+        .unwrap();
+        assert_eq!(
+            frontier.frontier_digest.as_str(),
+            "sha256:4f928af58951a0a04f532b272fe6c45b371d33e932d0a15a8df84725a5efe1cf"
+        );
+    }
 
     fn event_with_device_proof() -> Event {
         serde_json::from_value(json!({
