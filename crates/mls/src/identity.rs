@@ -134,7 +134,7 @@ impl ArkretMlsIdentity {
             ));
         }
         mls_key_package_record_upload_entry(record)
-            .map_err(|error| Error::Protocol(error.to_string()))
+            .map_err(|error| Error::Protocol(error.to_owned()))
     }
 
     /// Build and sign a standard KeyPackage upload request with this MLS
