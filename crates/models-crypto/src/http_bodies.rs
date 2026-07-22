@@ -10,7 +10,7 @@ use arkret_wire::{
     Base64UrlString, DeviceId, Did, FederatedDeviceSigningKeyEvidence, Hash, NonEmptyString, Proof,
     RealmId, StrandId, TypedTrustDomainId,
 };
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::artifacts_keys::{
@@ -18,6 +18,7 @@ use crate::artifacts_keys::{
     KeyPackageUploadEntry,
 };
 use crate::key_backup::KeyBackup;
+use crate::mls_records::MlsKeyPackageRecord;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
@@ -99,6 +100,31 @@ impl KeyPackagesUploadUnsignedRequest {
             mls_group_id: self.mls_group_id,
         }
     }
+}
+
+/// Convert a persisted MLS KeyPackage record into the canonical typed upload
+/// entry shared by ordinary devices and Native Agent runtimes.
+///
+/// Request ownership and signing-key authorization remain caller concerns;
+/// this helper owns only the record-to-wire projection so digest, expiry, and
+/// last-resort semantics cannot drift between clients.
+pub fn mls_key_package_record_upload_entry(
+    record: &MlsKeyPackageRecord,
+) -> Result<KeyPackageUploadEntry, &'static str> {
+    Ok(KeyPackageUploadEntry {
+        keypackage_id: record.keypackage_id.clone(),
+        keypackage_ref: record.keypackage_ref.as_str().to_owned(),
+        keypackage_digest: record.keypackage_ref.clone(),
+        key_package: Base64UrlString::new(record.key_package.clone())?,
+        cipher_suites: record.cipher_suites.clone(),
+        capabilities: record.capabilities.clone(),
+        expires_at: record
+            .expires_at
+            .unwrap_or(record.created_at + Duration::days(7)),
+        created_at: record.created_at,
+        device_signature: None,
+        last_resort: record.last_resort.then_some(true),
+    })
 }
 
 pub const KEYPACKAGES_UPLOAD_SIGNATURE_DOMAIN: &str = "ak.self.keys.keypackages.upload.create\n";
@@ -978,5 +1004,35 @@ mod tests {
                 "\"reason\":\"authorization_superseded\"}"
             )
         );
+    }
+
+    #[test]
+    fn keypackage_record_upload_projection_is_shared_and_closed() {
+        let mut record: MlsKeyPackageRecord = serde_json::from_value(json!({
+            "keypackage_id": "keypackage-fixture-001",
+            "principal_id": "did:webvh:z6mkfixture:agent.example",
+            "device_id": "ak:device:01964137-0000-7000-8000-00000000000d",
+            "key_package": "AA",
+            "keypackage_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "cipher_suites": ["MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519"],
+            "capabilities": ["mimi.content.v1", "ak.content.v1"],
+            "state": "published",
+            "created_at": "2026-07-22T00:00:00.000Z",
+            "last_resort": false
+        }))
+        .unwrap();
+
+        let ordinary = mls_key_package_record_upload_entry(&record).unwrap();
+        assert_eq!(ordinary.keypackage_ref, record.keypackage_ref.as_str());
+        assert_eq!(ordinary.keypackage_digest, record.keypackage_ref);
+        assert_eq!(ordinary.expires_at, record.created_at + Duration::days(7));
+        assert!(ordinary.device_signature.is_none());
+        assert_eq!(ordinary.last_resort, None);
+
+        record.expires_at = Some(record.created_at + Duration::hours(2));
+        record.last_resort = true;
+        let last_resort = mls_key_package_record_upload_entry(&record).unwrap();
+        assert_eq!(last_resort.expires_at, record.expires_at.unwrap());
+        assert_eq!(last_resort.last_resort, Some(true));
     }
 }
