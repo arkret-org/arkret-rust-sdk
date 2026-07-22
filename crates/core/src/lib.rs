@@ -4,7 +4,6 @@
 //! level SDK state machines. It intentionally contains no HTTP transport,
 //! framework adapter, mutable reducer, store, or snapshot runtime.
 
-pub mod account_subscribe;
 pub mod admin_signer;
 pub mod agent;
 pub mod applet;
@@ -65,7 +64,6 @@ pub mod operations;
 pub mod ops {
     pub use arkret_models_discovery::ops::*;
 }
-pub mod platform;
 pub mod presence {
     pub use arkret_models_discovery::presence::*;
 }
@@ -78,7 +76,6 @@ pub mod profile_feature_guard {
 pub mod profile_semantics {
     pub use arkret_policy::profile_semantics::*;
 }
-pub mod query_auth;
 pub mod push {
     pub use arkret_models_integration::push::*;
 }
@@ -105,10 +102,6 @@ pub mod sync {
     pub use arkret_models_discovery::presence::{PresenceStatus, aggregate_presence_states};
 }
 
-pub use account_subscribe::{
-    AccountSubscribeBatch, AccountSubscribeReconnectAfter, AccountSubscribeSnapshotResult,
-    DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS, MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS,
-};
 pub use admin_signer::{AdminKeyStore, SessionGrantIntrospection, admin_scopes};
 pub use agent::{
     agent_key_pair_proof_request_binding_digest, agent_key_pairing_request_binding_digest,
@@ -184,7 +177,6 @@ pub use multibase::{
     sha256_multihash_base58btc,
 };
 pub use notary::{ForensicAttribution, NotaryValue};
-pub use platform::{WasmHttpRequestBody, WasmHttpResponseBody};
 pub use presence::{
     LAST_ACTIVE_BUCKET_FLOOR_SECONDS, PRESENCE_PREFERENCE_ACCOUNT_DATA_KEY,
     PRESENCE_VISIBILITY_ACCOUNT_DATA_KEY, PresencePreference, PresenceValidationError,
@@ -201,9 +193,6 @@ pub use profile_semantics::{
     ProfileSemanticSurface, collect_profile_semantic_requirements,
     profile_capability_action_coverage_report, profile_semantic_coverage_report,
     validate_profile_semantic_coverage,
-};
-pub use query_auth::{
-    QUERY_AUTH_PARAMETER_NAMES, contains_query_auth_material, is_query_auth_parameter,
 };
 pub use seal::{
     MultiSigKind, MultiSignature, NotarySig, SEAL_SIGNATURE_ALGS, Seal, SealKind, ThresholdSigKind,

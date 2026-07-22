@@ -92,6 +92,10 @@ pub use arkret_keystore::{
     BackendKind, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore, WindowsCredentialKeyStore,
     durable_platform_keystore, platform_default_keystore_with_kind,
 };
+pub use arkret_models_collaboration::sync_frames::account_subscribe::{
+    AccountSubscribeBatch, AccountSubscribeReconnectAfter, AccountSubscribeSnapshotResult,
+    DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS, MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS,
+};
 #[cfg(feature = "server")]
 pub use arkret_server as server;
 pub use arkret_signatures as signatures;
@@ -105,6 +109,9 @@ pub use arkret_signatures::{
     realm_organization, realm_organization_statement_sign, service_identity, webvh,
 };
 pub use arkret_state::{snapshot, state, *};
+pub use arkret_wire::{
+    QUERY_AUTH_PARAMETER_NAMES, contains_query_auth_material, is_query_auth_parameter,
+};
 pub use sdk_error::{Error, Result};
 
 // Platform-native KeyStore backends. The glob import above already

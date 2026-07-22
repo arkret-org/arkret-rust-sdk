@@ -19,7 +19,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = []
 embedded-artifacts = ["arkret-schema/embedded-artifacts"]
-salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono", "arkret-identifiers/salvo", "arkret-hlc/salvo", "arkret-event-draft/salvo-oapi", "arkret-wire/salvo-oapi", "arkret-models-identity/salvo-oapi", "arkret-models-collaboration/salvo-oapi", "arkret-models-crypto/salvo-oapi", "arkret-models-discovery/salvo-oapi", "arkret-models-integration/salvo-oapi", "arkret-schema/salvo-oapi", "arkret-policy/salvo-oapi"]
+salvo = ["arkret-identifiers/salvo", "arkret-hlc/salvo", "arkret-event-draft/salvo-oapi", "arkret-wire/salvo-oapi", "arkret-models-identity/salvo-oapi", "arkret-models-collaboration/salvo-oapi", "arkret-models-crypto/salvo-oapi", "arkret-models-discovery/salvo-oapi", "arkret-models-integration/salvo-oapi", "arkret-schema/salvo-oapi", "arkret-policy/salvo-oapi"]
 
 [dependencies]
 arkret-canonical = {workspace = true}
@@ -40,30 +40,7 @@ arkret-models-collaboration = {workspace = true}
 arkret-models-crypto = {workspace = true}
 arkret-models-discovery = {workspace = true}
 arkret-models-integration = {workspace = true}
-chrono = {workspace = true,features = ["serde"]}
-chrono-tz = {workspace = true}
 arkret-identifiers = {workspace = true}
-getrandom = {workspace = true}
-hex = {workspace = true}
-hmac = {workspace = true}
-regex = {workspace = true}
-salvo = {workspace = true,features = ["oapi"],optional = true}
-salvo-oapi = {workspace = true,optional = true}
-serde = {workspace = true}
-serde_json = {workspace = true}
-sha2 = {workspace = true}
-subtle = {workspace = true}
-unicode-normalization = {workspace = true}
-zeroize = {workspace = true,default-features = true}
-
-[dev-dependencies]
-serde_json = {workspace = true}
-# SDK-SOTA-03 microbenchmarks (run on demand with `cargo bench`, never in CI).
-criterion = {workspace = true}
-
-[[bench]]
-harness = false
-name = "canonical"
 
 [lints]
 workspace = true

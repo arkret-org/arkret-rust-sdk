@@ -1,6 +1,5 @@
 {
   "edges": {
-    "account_subscribe": [],
     "admin_signer": [],
     "agent": [],
     "applet": [
@@ -10,7 +9,6 @@
     "applet::ghost": [],
     "applet::service": [],
     "crate_root": [
-      "account_subscribe",
       "admin_signer",
       "agent",
       "applet",
@@ -25,8 +23,6 @@
       "keystore",
       "models",
       "operations",
-      "platform",
-      "query_auth",
       "service",
       "service_identity",
       "stream_trace"
@@ -180,14 +176,11 @@
     "models::runtime_identity": [],
     "models::sync": [],
     "operations": [],
-    "platform": [],
-    "query_auth": [],
     "service": [],
     "service_identity": [],
     "stream_trace": []
   },
   "files": {
-    "account_subscribe": "account_subscribe.rs",
     "admin_signer": "admin_signer.rs",
     "agent": "agent.rs",
     "applet": "applet/mod.rs",
@@ -266,14 +259,11 @@
     "models::runtime_identity": "models/runtime_identity.rs",
     "models::sync": "models/sync.rs",
     "operations": "operations.rs",
-    "platform": "platform.rs",
-    "query_auth": "query_auth.rs",
     "service": "service.rs",
     "service_identity": "service_identity.rs",
     "stream_trace": "stream_trace.rs"
   },
   "incoming_counts": {
-    "account_subscribe": 1,
     "admin_signer": 1,
     "agent": 2,
     "applet": 1,
@@ -352,8 +342,6 @@
     "models::runtime_identity": 1,
     "models::sync": 1,
     "operations": 1,
-    "platform": 1,
-    "query_auth": 1,
     "service": 1,
     "service_identity": 1,
     "stream_trace": 1
@@ -368,9 +356,6 @@
     [
       "models",
       "models::events"
-    ],
-    [
-      "account_subscribe"
     ],
     [
       "admin_signer"
@@ -599,12 +584,6 @@
     ],
     [
       "operations"
-    ],
-    [
-      "platform"
-    ],
-    [
-      "query_auth"
     ],
     [
       "service"

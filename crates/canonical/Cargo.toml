@@ -24,7 +24,12 @@ thiserror = {workspace = true}
 unicode-normalization = {workspace = true}
 
 [dev-dependencies]
+criterion = {workspace = true}
 proptest = {workspace = true,default-features = false,features = ["std"]}
+
+[[bench]]
+harness = false
+name = "canonical"
 
 [lints]
 workspace = true

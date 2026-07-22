@@ -1,10 +1,10 @@
 //! Criterion microbenchmarks for the canonical-JSON hot path (SDK-SOTA-03).
 //!
-//! Run on demand with `cargo bench -p arkret-core`; never run in CI. Provides a
+//! Run on demand with `cargo bench -p arkret-canonical`; never run in CI. Provides a
 //! regression baseline for canonical serialization, strict-form validation and
 //! parsing — the inner loop of every signing input and wire-envelope read.
 
-use arkret_core::canonical;
+use arkret_canonical as canonical;
 use criterion::{Criterion, criterion_group, criterion_main};
 use serde_json::json;
 
