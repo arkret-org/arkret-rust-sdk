@@ -1,7 +1,7 @@
 //! Profile conformance vocabulary and built-in descriptor suites.
 //!
-//! Migrated from `arkret-core` (`models/conformance.rs`); a shim there
-//! re-exports these shapes to preserve the `arkret_core::` path.
+//! This crate is the sole owner of the conformance descriptor vocabulary;
+//! executable cross-layer vectors live in owner integration tests.
 
 use arkret_wire::{
     BUILT_IN_CONFORMANCE_FIXTURES_VERSION, CAPABILITY_SCHEMA, CURSOR_SCHEMA,
@@ -260,9 +260,10 @@ fn conformance_suite(
 /// registered `schema_id`. The `vector` contents are **not** executed against
 /// SDK encoders/reducers, so a passing report is NOT evidence of spec-vector
 /// conformance and MUST NOT be stored as release evidence. Real vector
-/// execution lives in the spec-fixture tests (`crates/core/src/schema/tests.rs`
-/// consuming `encoding-fixture.json` etc.) and the cross-project cotest
-/// release gate.
+/// execution lives in the owner integration tests
+/// (`crates/schema/tests/conformance.rs`,
+/// `crates/models-crypto/tests/conformance.rs`, and the remaining schema
+/// catalog vectors) plus the cross-project cotest release gate.
 pub fn run_builtin_conformance_report() -> ConformanceReport {
     ConformanceFixtureSet::builtin().run()
 }

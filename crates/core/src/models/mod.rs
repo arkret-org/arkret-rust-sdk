@@ -36,7 +36,6 @@ mod attestation {
 }
 mod authorization;
 mod circle;
-mod conformance;
 mod constants {
     pub use arkret_wire::constants::*;
 }
@@ -181,7 +180,6 @@ pub use artifacts::*;
 pub use attestation::*;
 pub use authorization::*;
 pub use circle::*;
-pub use conformance::*;
 pub use constants::*;
 pub use cross_signing::*;
 pub use delivery_binding::*;

@@ -1,6 +1,5 @@
 use super::*;
 
-mod conformance;
 mod events_operations;
 mod identity_primitives;
 mod objects_field_order;

@@ -1394,7 +1394,7 @@ impl FactChainEcho {
 
     /// Precheck server proof structure and echo digest binding.
     ///
-    /// This does not verify detached JWS signatures because `arkret-core`
+    /// This does not verify detached JWS signatures because the wire layer
     /// deliberately has no DID/public-key resolver. Callers that need a
     /// trusted fact-chain echo must verify every proof with the signatures
     /// crate after this structural precheck.
@@ -1433,4 +1433,39 @@ pub struct SignatureBindingPayload {
     pub domain: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audience: Option<Audience>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fact_chain_echo_validates_server_proof_binding() {
+        let mut echo = FactChainEcho {
+            echo_id: "echo1".to_owned(),
+            subject_ref: "ak:event:01904100-0000-7000-8000-834e21b98552".to_owned(),
+            server_did: Did::new("did:webvh:z6mkfixture:server.example").unwrap(),
+            operation_hash: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
+            commit_digest: Some(Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap()),
+            previous_echo_hash: None,
+            observed_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
+            proofs: Vec::new(),
+        };
+        let digest = Hash::new(echo.echo_digest().unwrap()).unwrap();
+        echo.proofs.push(Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:server.example#key-1".to_owned(),
+            event_digest: digest,
+            created_at: echo.observed_at,
+            domain: None,
+            audience: None,
+            jws: "server.signature".to_owned(),
+        });
+
+        echo.precheck_server_proofs().unwrap();
+
+        echo.proofs[0].event_digest = Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap();
+        assert!(echo.precheck_server_proofs().is_err());
+    }
 }

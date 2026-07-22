@@ -475,6 +475,7 @@ version = "0.3.0"
 dependencies = [
  "arkret-canonical",
  "arkret-models-identity",
+ "arkret-schema",
  "arkret-wire",
  "chrono",
  "hex",

@@ -88,7 +88,6 @@ pub mod push_rule_core {
 pub mod schema {
     pub use arkret_schema::*;
 }
-pub mod sdk_conformance;
 pub mod seal {
     pub use arkret_wire::seal::*;
 }
@@ -199,11 +198,6 @@ pub use profile_semantics::{
 };
 pub use query_auth::{
     QUERY_AUTH_PARAMETER_NAMES, contains_query_auth_material, is_query_auth_parameter,
-};
-pub use sdk_conformance::{
-    SDK_CONFORMANCE_CLAIM_DOMAIN, SdkArtifactSubject, SdkBuildVariant, SdkClaimIssuer,
-    SdkClauseClaim, SdkClauseResult, SdkConformanceClaim, SdkConformanceClaimError,
-    SdkConformanceEvidence, SdkConformanceProof, SdkConformanceProofAlgorithm, SdkEvidenceKind,
 };
 pub use seal::{
     MultiSigKind, MultiSignature, NotarySig, SEAL_SIGNATURE_ALGS, Seal, SealKind, ThresholdSigKind,

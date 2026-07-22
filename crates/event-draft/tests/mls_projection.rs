@@ -9,7 +9,9 @@
 //! projection is exercised here over hand-constructed envelopes.
 
 use arkret_event_draft::{MlsEnvelopeOperationExt, MlsWelcomeTargetExt};
-use arkret_models_crypto::mls_envelopes::{MlsCommitEnvelope, MlsWelcomeEnvelope};
+use arkret_models_crypto::mls_envelopes::{
+    MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
+};
 use arkret_wire::{DeviceId, DeviceMessageId, Did, Hash, OperationId, RealmId};
 use chrono::Utc;
 
@@ -25,6 +27,17 @@ fn commit_envelope() -> MlsCommitEnvelope {
         commit_digest: hash('c'),
         ratchet_tree: None,
         app_state_ref: None,
+    }
+}
+
+fn proposal_envelope() -> MlsProposalEnvelope {
+    MlsProposalEnvelope {
+        group_id: "Zml4dHVyZS1yZWFsbQ".to_owned(),
+        epoch: 6,
+        proposal_type: "add".to_owned(),
+        proposal: "UFJPUE9TQUw".to_owned(),
+        proposal_digest: hash('b'),
+        ratchet_tree: None,
     }
 }
 
@@ -54,6 +67,20 @@ fn commit_envelope_projects_to_mls_commit_operation() {
     let object_id = op.object_id.unwrap();
     assert!(object_id.contains("Zml4dHVyZS1yZWFsbQ"));
     assert_eq!(object_id, "Zml4dHVyZS1yZWFsbQ:7");
+    assert_eq!(op.payload["epoch"], 7);
+}
+
+#[test]
+fn proposal_envelope_projects_to_mls_proposal_operation() {
+    let op = proposal_envelope()
+        .operation(
+            OperationId::new("ak:operation:01904100-0000-7000-8000-335be376d210").unwrap(),
+            RealmId::new("ak:realm:01904100-0000-7000-8000-4ecefcf31ad2").unwrap(),
+        )
+        .unwrap();
+
+    assert_eq!(op.object_type, "mls_proposal");
+    assert_eq!(op.payload["proposal_type"], "add");
 }
 
 #[test]
