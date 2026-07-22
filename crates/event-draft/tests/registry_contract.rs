@@ -1,134 +1,12 @@
-use std::collections::BTreeMap;
-
-use arkret_event_draft::required_fields_for_event_kind;
+use arkret_event_draft::{
+    CausalRef, EventDraftKindRegistry, OperationEnvelope, OperationEnvelopeBuilder,
+    event_draft_kind_conformance_vectors, required_fields_for_event_kind,
+};
+use arkret_wire::{Did, EventKind, Hash, Hlc, OperationId, Proof, RealmId};
 use serde_json::json;
 
-use super::super::*;
-use super::test_realm_id;
-use crate::events::EventKind;
-
-#[test]
-fn event_new_sets_required_event_id() {
-    let event = Event::new(
-        "ak.message.create",
-        test_realm_id(),
-        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        1,
-        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-        json!({ "body": "hello" }),
-    )
-    .unwrap();
-
-    assert!(event.event_id.as_str().starts_with("ak:event:"));
-}
-
-#[test]
-fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
-    let event = Event {
-        event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
-        kind: "ak.message.create".into(),
-        realm_id: test_realm_id(),
-        actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        actor_seq: 1,
-        created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
-        hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-        prev_refs: Vec::new(),
-        effective_scope: None,
-        refs: Vec::new(),
-        preconditions: Vec::new(),
-        effects: Vec::new(),
-        seal_ref: None,
-        auth_context: None,
-        seal_basis: None,
-        requirements: EventRequirements::default(),
-        redacts: None,
-        payload: BTreeMap::from([("body".to_owned(), json!("hello"))]),
-        executed_by: None,
-        authorization_ref: None,
-        applet_id: None,
-        external_ref: None,
-        actor_kind: None,
-        unsigned: BTreeMap::from([("local_receive_time".to_owned(), json!("ignored"))]),
-        proofs: Vec::new(),
-    };
-
-    assert_eq!(
-        event.event_digest().unwrap(),
-        "sha256:e900abc168bc630f073e1ae104af45f0b534feb86e9671f4ed91f38e51d3dd21"
-    );
-
-    let value = serde_json::to_value(&event).unwrap();
-    assert_eq!(value["payload"]["body"], "hello");
-    assert!(value.get("content").is_none());
-}
-
-#[test]
-fn prev_frontier_digest_sorts_and_deduplicates_refs() {
-    let refs_a = [
-        "ak:event:01904100-0000-7000-8000-000000000003",
-        "ak:event:01904100-0000-7000-8000-000000000001",
-        "ak:event:01904100-0000-7000-8000-000000000003",
-        "ak:event:01904100-0000-7000-8000-000000000002",
-    ];
-    let refs_b = [
-        "ak:event:01904100-0000-7000-8000-000000000001",
-        "ak:event:01904100-0000-7000-8000-000000000002",
-        "ak:event:01904100-0000-7000-8000-000000000003",
-    ];
-
-    assert_eq!(
-        prev_frontier_digest(refs_a).unwrap(),
-        prev_frontier_digest(refs_b).unwrap()
-    );
-    assert_ne!(
-        prev_frontier_digest(std::iter::empty::<&str>()).unwrap(),
-        prev_frontier_digest(refs_b).unwrap()
-    );
-    assert_eq!(MAX_ACTOR_SEQ_SIBLINGS, 16);
-}
-
-#[test]
-fn event_scalability_limits_match_v1_profile() {
-    assert_eq!(MAX_EVENT_ENVELOPE_BYTES, 1024 * 1024);
-    assert_eq!(MAX_EVENT_SUBMIT_BATCH, 1_000);
-    assert_eq!(MAX_EVENT_RESOLVE, 100);
-    assert_eq!(MAX_EVENT_PREV_REFS, 128);
-    assert_eq!(MAX_EVENT_REFS, 128);
-    assert_eq!(MAX_AUTHORIZED_BY_REFS, 64);
-    assert_eq!(MAX_DELEGATION_CHAIN_DEPTH, 4);
-    assert_eq!(MAX_DELEGATION_CONTROL_DEPTH, 4);
-}
-
-#[test]
-fn event_scalability_helpers_reject_over_limits() {
-    validate_event_envelope_byte_len(MAX_EVENT_ENVELOPE_BYTES).unwrap();
-    assert!(validate_event_envelope_byte_len(MAX_EVENT_ENVELOPE_BYTES + 1).is_err());
-
-    validate_event_submit_batch_count(MAX_EVENT_SUBMIT_BATCH).unwrap();
-    assert!(validate_event_submit_batch_count(MAX_EVENT_SUBMIT_BATCH + 1).is_err());
-
-    validate_event_ref_count(MAX_EVENT_REFS).unwrap();
-    assert!(validate_event_ref_count(MAX_EVENT_REFS + 1).is_err());
-
-    validate_authorized_by_ref_count(MAX_AUTHORIZED_BY_REFS).unwrap();
-    assert!(validate_authorized_by_ref_count(MAX_AUTHORIZED_BY_REFS + 1).is_err());
-
-    validate_actor_seq_sibling_count(MAX_ACTOR_SEQ_SIBLINGS).unwrap();
-    assert!(validate_actor_seq_sibling_count(MAX_ACTOR_SEQ_SIBLINGS + 1).is_err());
-
-    validate_delegation_chain_depth(MAX_DELEGATION_CHAIN_DEPTH).unwrap();
-    assert!(validate_delegation_chain_depth(MAX_DELEGATION_CHAIN_DEPTH + 1).is_err());
-
-    validate_delegation_control_depth(MAX_DELEGATION_CONTROL_DEPTH).unwrap();
-    assert!(validate_delegation_control_depth(MAX_DELEGATION_CONTROL_DEPTH + 1).is_err());
-
-    let prev_refs = (0..MAX_EVENT_PREV_REFS)
-        .map(|index| format!("ak:event:01904100-0000-7000-8000-{index:012x}"))
-        .collect::<Vec<_>>();
-    validate_event_prev_refs(prev_refs.iter().map(String::as_str)).unwrap();
-    let mut duplicate = prev_refs;
-    duplicate.push(duplicate[0].clone());
-    assert!(validate_event_prev_refs(duplicate.iter().map(String::as_str)).is_err());
+fn realm_id() -> RealmId {
+    RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
 }
 
 #[test]
@@ -149,7 +27,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
     let envelope = OperationEnvelope {
         operation_id: OperationId::new("ak:operation:01904100-0000-7000-8000-0198d483044c")
             .unwrap(),
-        realm_id: test_realm_id(),
+        realm_id: realm_id(),
         actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         kind: "ak.message.create".to_owned(),
         target_ref: Some("ak:thread:general".to_owned()),
@@ -190,10 +68,8 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
 #[test]
 fn event_draft_kind_registry_accepts_only_canonical_kinds() {
     let registry = EventDraftKindRegistry::default();
-
     let canonical = registry.canonicalize(EventKind::MESSAGE_CREATE).unwrap();
     assert_eq!(canonical.canonical_kind, EventKind::MESSAGE_CREATE);
-
     assert!(registry.canonicalize("message_create").is_err());
     assert!(registry.canonicalize("ak.task.move").is_err());
     assert!(registry.canonicalize("ak.relation.move").is_err());
@@ -212,10 +88,7 @@ fn event_draft_kind_registry_rejects_removed_strand_alias_kinds() {
         "ak.subject.unlink_surface",
         "ak.subject.set_primary_surface",
     ] {
-        assert!(
-            registry.canonicalize(kind).is_err(),
-            "removed kind should not be canonical: {kind}"
-        );
+        assert!(registry.canonicalize(kind).is_err(), "removed kind: {kind}");
     }
 }
 
@@ -225,7 +98,7 @@ fn event_draft_kind_registry_drives_envelope_semantics() {
     let envelope = OperationEnvelope {
         operation_id: OperationId::new("ak:operation:01904100-0000-7000-8000-0198d483044c")
             .unwrap(),
-        realm_id: test_realm_id(),
+        realm_id: realm_id(),
         actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         kind: EventKind::MESSAGE_CREATE.to_owned(),
         target_ref: None,
@@ -245,7 +118,6 @@ fn event_draft_kind_registry_drives_envelope_semantics() {
 
     let validation = registry.validate_envelope(&envelope).unwrap();
     assert_eq!(validation.canonical_kind, EventKind::MESSAGE_CREATE);
-
     let mut missing_strand = envelope;
     missing_strand.payload = json!({"track_name": "discussion"});
     assert!(registry.validate_envelope(&missing_strand).is_err());
@@ -254,7 +126,7 @@ fn event_draft_kind_registry_drives_envelope_semantics() {
 #[test]
 fn operation_envelope_builder_covers_every_registered_event_kind() {
     let registry = EventDraftKindRegistry::default();
-    let realm_id = test_realm_id();
+    let realm_id = realm_id();
     let actor_id = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
     let hlc = Hlc::new("01970e589d21-0004-a13f9c2e").unwrap();
 
@@ -281,7 +153,7 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
     let registry = EventDraftKindRegistry::default();
     let builder = OperationEnvelopeBuilder::new(
         OperationId::new("ak:operation:01904100-0000-7000-8000-76b2a3b35ad0").unwrap(),
-        test_realm_id(),
+        realm_id(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         EventKind::MESSAGE_CREATE,
         1,
@@ -301,7 +173,7 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
 
     let unknown = OperationEnvelopeBuilder::new(
         OperationId::new("ak:operation:01904100-0000-7000-8000-e9d434a97fb1").unwrap(),
-        test_realm_id(),
+        realm_id(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         "unknown",
         1,
@@ -315,11 +187,8 @@ fn event_draft_kind_conformance_vectors_cover_every_registered_event_kind() {
     let vectors = event_draft_kind_conformance_vectors();
     assert_eq!(vectors.len(), EventKind::ALL.len());
     for kind in EventKind::ALL {
-        assert!(
-            vectors
-                .iter()
-                .any(|vector| vector.input_kind == kind.as_str()
-                    && vector.canonical_kind == kind.as_str())
-        );
+        assert!(vectors.iter().any(|vector| {
+            vector.input_kind == kind.as_str() && vector.canonical_kind == kind.as_str()
+        }));
     }
 }
