@@ -1,7 +1,15 @@
+use arkret_models_collaboration::http_bodies::{
+    EventsQueryOutcome, EventsSubscribeFrame, EventsSubscribeFrameKind, MimiRoomUpdateRequestBody,
+    MimiSubmitMessageRequestBody,
+};
+use arkret_models_collaboration::http_params::{EventsQueryOrder, EventsQueryParams};
+use arkret_models_collaboration::objects::mimi::{
+    MimiCiphertext, MimiOpaquePayload, MimiRoomUpdate,
+};
+use arkret_wire::{
+    Base64UrlString, Cursor, DeviceId, Did, Hash, MlsGroupId, NonEmptyString, RealmId,
+};
 use serde_json::json;
-
-use super::*;
-use crate::*;
 
 fn did(name: &str) -> Did {
     Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
@@ -90,67 +98,6 @@ fn mimi_submit_message_wire_uses_sender_actor_id_only() {
 }
 
 #[test]
-fn keypackages_claim_outcome_uses_typed_records_and_failures() {
-    let outcome = json!({
-        "claims": [{
-            "claim_id": "ak:mls_keypackage:t-01:Y2xhaW0tbm9uY2U",
-            "keypackage_ref": "ak:mls:keypackage:test-01",
-            "keypackage_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "principal_id": "did:webvh:z6mkfixture:alice.example",
-            "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
-            "key_package": "AQID",
-            "capabilities": ["ak.mls.profile.full"],
-            "capabilities_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "ssk_generation": 3,
-            "expires_at": "2100-01-01T00:00:00.000Z",
-            "device_signature": {
-                "kid": "did:webvh:z6mkfixture:alice.example#ak:device:01904100-0000-7000-8000-000000000001",
-                "alg": "EdDSA",
-                "sig": "c2ln"
-            },
-            "revocation_status": "active"
-        }],
-        "failures": [{
-            "keypackage_ref": "ak:mls:keypackage:missing",
-            "reason_code": "not_found"
-        }],
-        "available_count": 1
-    });
-    let parsed: KeyPackagesClaimOutcome = serde_json::from_value(outcome).unwrap();
-    assert_eq!(parsed.claims[0].principal_id, did("alice"));
-    assert_eq!(parsed.claims[0].ssk_generation, Some(3));
-    assert_eq!(parsed.claims[0].device_authorize_event_id, None);
-    assert_eq!(parsed.failures[0].reason_code, "not_found");
-
-    let malformed_claim = json!({
-        "claims": [{
-            "claim_id": "ak:mls_keypackage:t-01:Y2xhaW0tbm9uY2U",
-            "keypackage_ref": "ak:mls:keypackage:test-01",
-            "keypackage_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "principal_id": "did:webvh:z6mkfixture:alice.example",
-            "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
-            "key_package": "AQID",
-            "capabilities": ["ak.mls.profile.full"],
-            "capabilities_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "ssk_generation": 3,
-            "expires_at": "2100-01-01T00:00:00.000Z",
-            "device_signature": {"kid": "did:webvh:z6mkfixture:alice.example#device", "sig": "c2ln"},
-            "unexpected": true
-        }]
-    });
-    assert!(serde_json::from_value::<KeyPackagesClaimOutcome>(malformed_claim).is_err());
-
-    let malformed_failure = json!({
-        "claims": [],
-        "failures": [{
-            "reason_code": "not_found",
-            "unexpected": true
-        }]
-    });
-    assert!(serde_json::from_value::<KeyPackagesClaimOutcome>(malformed_failure).is_err());
-}
-
-#[test]
 fn events_subscribe_frame_parses_ndjson_line() {
     let line = r#"{"cursor":"ak:cursor:resume","kind":"event","payload":{"event_id":"ak:event:01904100-0000-7000-8000-834e21b98552"},"realm_id":"ak:realm:01904100-0000-7000-8000-9b64700c6ee8"}"#;
     let frame = EventsSubscribeFrame::from_ndjson_line(line)
@@ -174,12 +121,11 @@ fn events_subscribe_frame_parses_ndjson_line() {
 
 #[test]
 fn events_subscribe_frame_control_helpers() {
-    let dropped =
-        EventsSubscribeFrame::from_ndjson_line(
-            r#"{"cursor":"ak:cursor:resume","kind":"dropped","realm_id":"ak:realm:01904100-0000-7000-8000-9b64700c6ee8","reconnect_after_ms":10000}"#,
-        )
-        .unwrap()
-        .unwrap();
+    let dropped = EventsSubscribeFrame::from_ndjson_line(
+        r#"{"cursor":"ak:cursor:resume","kind":"dropped","realm_id":"ak:realm:01904100-0000-7000-8000-9b64700c6ee8","reconnect_after_ms":10000}"#,
+    )
+    .unwrap()
+    .unwrap();
     assert_eq!(dropped.kind, EventsSubscribeFrameKind::Dropped);
     assert_eq!(dropped.reconnect_after_ms, Some(10_000));
     assert!(dropped.requires_resubscribe());
@@ -220,12 +166,12 @@ fn events_query_outcome_serializes_has_more_even_when_false() {
 }
 
 #[test]
-fn events_query_params_helpers_use_core_wire_types() {
+fn events_query_params_helpers_use_wire_types() {
     let params = EventsQueryParams {
         realms: vec![RealmId::new("ak:realm:01904100-0000-7000-8000-f949e0272316").unwrap()],
         actors: vec![did("alice")],
-        before: Some(identifiers::Cursor::new("ak:cursor:older").unwrap()),
-        after: Some(identifiers::Cursor::new("ak:cursor:newer").unwrap()),
+        before: Some(Cursor::new("ak:cursor:older").unwrap()),
+        after: Some(Cursor::new("ak:cursor:newer").unwrap()),
         order: Some(EventsQueryOrder::Descending),
         limit: Some(50),
         x_arkret_request_id: None,

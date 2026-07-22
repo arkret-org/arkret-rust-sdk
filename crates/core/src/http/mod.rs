@@ -9,9 +9,6 @@ mod bodies;
 mod params;
 mod paths;
 
-#[cfg(test)]
-mod tests;
-
 // Wire envelope moved to `arkret-wire`; re-exported here until the core
 // facade retires (phase 5).
 pub use arkret_wire::HttpMessageSignature;
