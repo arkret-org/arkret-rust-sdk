@@ -11,13 +11,9 @@ pub mod canonical {
 }
 pub mod error;
 pub mod events;
-pub mod generated;
 pub mod http;
 pub mod identity;
 pub mod models;
-pub mod schema {
-    pub use arkret_schema::*;
-}
 
 pub use applet::*;
 pub use arkret_auth::AdminKeyStore;
@@ -68,6 +64,9 @@ pub use arkret_models_identity::admin_grant::{SessionGrantIntrospection, admin_s
 pub use arkret_models_identity::identity_key_log::{DidKeyLogEntry, DidKeyLogOperation};
 pub use arkret_models_identity::service_identity::*;
 pub use arkret_policy::authz::*;
+pub use arkret_policy::generated::profiles::{
+    PROFILE_ROLES, ProfileRole, profile_ids_with_role, profile_role,
+};
 pub use arkret_policy::profile_claim::{
     ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator,
 };
@@ -114,7 +113,6 @@ pub use arkret_wire::{
     XExtensionMap,
 };
 pub use error::*;
-pub use generated::profiles::{PROFILE_ROLES, ProfileRole, profile_ids_with_role, profile_role};
 pub use http::*;
 pub use identifiers::{
     ActorProfileId, AnnounceId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,

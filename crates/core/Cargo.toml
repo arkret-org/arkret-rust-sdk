@@ -18,7 +18,6 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
-embedded-artifacts = ["arkret-schema/embedded-artifacts"]
 salvo = ["arkret-identifiers/salvo", "arkret-event-draft/salvo-oapi", "arkret-wire/salvo-oapi", "arkret-models-identity/salvo-oapi", "arkret-models-collaboration/salvo-oapi", "arkret-models-crypto/salvo-oapi", "arkret-models-discovery/salvo-oapi", "arkret-models-integration/salvo-oapi", "arkret-schema/salvo-oapi", "arkret-policy/salvo-oapi"]
 
 [dependencies]

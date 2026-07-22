@@ -28,7 +28,7 @@ mls = ["dep:arkret-mls", "full-surface"]
 # enters the graph only via the dedicated `mls` feature (never through
 # full-surface / server / device-runtime / applet).
 full-surface = [
-    "arkret-core/embedded-artifacts",
+    "arkret-schema/embedded-artifacts",
     "arkret-crypto/blob-aead",
     "arkret-crypto/sframe",
 ]

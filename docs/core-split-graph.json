@@ -10,7 +10,6 @@
       "applet",
       "error",
       "events",
-      "generated",
       "http",
       "identity",
       "models"
@@ -21,7 +20,6 @@
       "models"
     ],
     "events::redaction": [],
-    "generated": [],
     "http": [
       "http::bodies",
       "http::params",
@@ -166,7 +164,6 @@
     "error": "error/mod.rs",
     "events": "events/mod.rs",
     "events::redaction": "events/redaction.rs",
-    "generated": "generated/mod.rs",
     "http": "http/mod.rs",
     "http::bodies": "http/bodies.rs",
     "http::params": "http/params/mod.rs",
@@ -239,7 +236,6 @@
     "error": 1,
     "events": 1,
     "events::redaction": 1,
-    "generated": 1,
     "http": 1,
     "http::bodies": 1,
     "http::params": 1,
@@ -335,9 +331,6 @@
     ],
     [
       "events::redaction"
-    ],
-    [
-      "generated"
     ],
     [
       "http"

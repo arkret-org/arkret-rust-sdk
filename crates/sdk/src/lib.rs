@@ -74,7 +74,7 @@ compile_error!(
 );
 
 mod sdk_error;
-pub use arkret_core::{KeyRefObject, canonical, error, events, identifiers, models, schema, *};
+pub use arkret_core::{KeyRefObject, canonical, error, events, identifiers, models, *};
 pub use arkret_crypto::identity_root;
 pub use arkret_egress_policy as network_policy;
 pub use arkret_event_draft::operations;
@@ -100,6 +100,7 @@ pub use arkret_models_integration::integration;
 pub use arkret_models_integration::integration::*;
 pub use arkret_policy::blind_payload_sanitizer::*;
 pub use arkret_policy::{blind_payload_sanitizer, push_rule_core};
+pub use arkret_schema as schema;
 #[cfg(feature = "server")]
 pub use arkret_server as server;
 pub use arkret_signatures as signatures;

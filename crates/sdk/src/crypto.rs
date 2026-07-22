@@ -246,7 +246,7 @@ pub fn verify_declared_profiles_against_current_features(
     declared: &[&str],
 ) -> std::result::Result<
     std::result::Result<(), Vec<arkret_core::ProfileFeatureGap>>,
-    arkret_core::generated::profile_requirements::ProfileRequirementsError,
+    arkret_schema::generated::profile_requirements::ProfileRequirementsError,
 > {
     arkret_core::verify_declared_profiles_against_features(
         declared,
