@@ -2091,8 +2091,11 @@ mod tests {
         let authorization_ref = "ak:event:01970000-0000-7000-8000-000000000021";
         let nonce = "nonce-abc";
         let audience = did("service");
+        let device_id =
+            arkret_wire::DeviceId::new("ak:device:01970000-0000-7000-8000-000000000022").unwrap();
         let signing_input = agent_key_proof_signing_input_for_session_grant(
             &principal_id,
+            &device_id,
             &requested_scope,
             authorization_ref,
             &agent_scope_request,
@@ -2107,12 +2110,13 @@ mod tests {
         let signing_json = String::from_utf8(signing_input.canonical_bytes().unwrap()).unwrap();
         assert_eq!(
             signing_json,
-            r#"{"audience":"did:webvh:z6mkfixture:service.example","challenge":"challenge","expires_at":"2026-05-26T10:05:00.000Z","nonce":"nonce-abc","request_canonical_digest":"sha256:663117b841f137d20feb109b9a1e32eaa361191cbef8a9bd677e0d98d389ef9b","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
+            r#"{"audience":"did:webvh:z6mkfixture:service.example","challenge":"challenge","expires_at":"2026-05-26T10:05:00.000Z","nonce":"nonce-abc","request_canonical_digest":"sha256:6aa0511e6fda242d62b9ea42c8418264c1d15abef562a865a2b9e64bbbf9a55c","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
         );
         assert!(!signing_json.contains(AGENT_KEY_PROOF_KIND));
 
         let request = agent_key_proof_session_grant_request(
             principal_id.clone(),
+            device_id.clone(),
             requested_scope.clone(),
             authorization_ref,
             agent_scope_request.clone(),
@@ -2129,10 +2133,10 @@ mod tests {
 
         assert_eq!(
             digest.as_str(),
-            "sha256:663117b841f137d20feb109b9a1e32eaa361191cbef8a9bd677e0d98d389ef9b"
+            "sha256:6aa0511e6fda242d62b9ea42c8418264c1d15abef562a865a2b9e64bbbf9a55c"
         );
         assert_eq!(request.principal_id, principal_id);
-        assert_eq!(request.device_id, None);
+        assert_eq!(request.device_id, Some(device_id));
         assert_eq!(request.requested_scope, requested_scope);
         assert_eq!(
             request.agent_key_authorization_ref.as_deref(),

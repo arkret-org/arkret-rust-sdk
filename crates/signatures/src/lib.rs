@@ -21,6 +21,9 @@ pub use development_identity::{
 pub mod agent;
 
 #[cfg(feature = "protocol")]
+pub mod keypackages;
+
+#[cfg(feature = "protocol")]
 mod protocol_api;
 #[cfg(feature = "protocol")]
 pub use protocol_api::*;

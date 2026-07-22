@@ -118,6 +118,12 @@ pub use agent::{
 };
 pub use applet::*;
 pub use arkret_identifiers as identifiers;
+pub use arkret_signatures::keypackages::{
+    KeyPackageSignatureError, KeyPackageSignatureResult, keypackage_signature_from_bytes,
+    sign_keypackage_signing_input, sign_keypackage_upload_entry, sign_keypackages_consume_request,
+    sign_keypackages_revoke_request, sign_keypackages_upload_request,
+    verify_keypackage_signing_input,
+};
 pub use arkret_wire::string_profiles::*;
 pub use arkret_wire::{
     CapabilityActionId, DIGEST_SUITES, EXPORTER_LABELS, EvaluationClass, ExporterLabelId,

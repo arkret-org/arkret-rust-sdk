@@ -36,6 +36,7 @@ zeroize = {workspace = true,default-features = true}
 # and randomness). Native targets must NOT enable `js` (no js-sys available).
 openmls_basic_credential = {workspace = true}
 openmls_rust_crypto = {workspace = true}
+openmls_traits = {workspace = true}
 tls_codec = {workspace = true}
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

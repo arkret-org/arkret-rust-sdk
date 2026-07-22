@@ -15,6 +15,7 @@ version.workspace = true
 default = ["protocol"]
 protocol = [
     "dep:arkret-models-collaboration",
+    "dep:arkret-models-crypto",
     "dep:arkret-models-discovery",
     "dep:arkret-models-identity",
 ]
@@ -34,6 +35,7 @@ arkret-canonical = {workspace = true}
 # ephemeral proof envelope, models-discovery for the DID service-entry
 # registry constants.
 arkret-models-collaboration = {workspace = true,optional = true}
+arkret-models-crypto = {workspace = true,optional = true}
 arkret-models-discovery = {workspace = true,optional = true}
 arkret-models-identity = {workspace = true,optional = true}
 arkret-wire = {workspace = true}
