@@ -206,7 +206,7 @@ pub use seal::{
 pub use service::{
     ApiConventionMetadata, HttpTraceMetadata, NotFoundPrivacy, QuotaKind, QuotaMetadata,
     RateLimitMetadata, RateLimitScopeKind, ServiceEndpointBinding, ServiceIdAllowlist,
-    ServiceRequirements, privacy_preserving_not_found, quota_exceeded_error, rate_limited_error,
+    ServiceRequirements,
 };
 pub use service_identity::*;
 pub use signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};
