@@ -8,35 +8,14 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{AppletId, BlobRef, Did, EffectiveScope, EventId, GrantId, Hash, RealmId};
+pub use arkret_wire::AppletIdentifier;
+use arkret_wire::{BlobRef, Did, EffectiveScope, EventId, GrantId, Hash, RealmId};
 use serde::{Deserialize, Serialize};
 
 use crate::applet::AppletPackage;
 use crate::artifacts_applet::{
     E2eePolicy, ExternalRef, FieldType, ProtocolInstance, RejectedItem, ScopeGrant,
 };
-
-/// Round 4 typed `applet_id`. Accepts either a DID
-/// (`did:webvh:applet.example`) or a strictly-validated
-/// `ak:applet:<uuidv7>`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[serde(untagged)]
-pub enum AppletIdentifier {
-    Did(Did),
-
-    Cx(AppletId),
-}
-
-impl AppletIdentifier {
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Did(d) => d.as_str(),
-
-            Self::Cx(a) => a.as_str(),
-        }
-    }
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]

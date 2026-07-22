@@ -3,7 +3,7 @@
 //! Migrated from `arkret-core` (`models/runtime_identity.rs`); a shim
 //! there re-exports `AgentId` to preserve the `arkret_core::` path.
 //!
-//! `AppletIdentifier` lives in `arkret-models-integration`.
+//! `AppletIdentifier` lives in `arkret-identifiers` as a cross-domain wire scalar.
 
 use arkret_wire::Did;
 

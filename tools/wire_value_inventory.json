@@ -1,17 +1,16 @@
 {
   "summary": {
-    "total": 245,
+    "total": 244,
     "by_crate": {
       "auth": 1,
-      "core": 4,
       "crypto": 1,
       "event-draft": 2,
       "identity": 5,
-      "models-collaboration": 124,
+      "models-collaboration": 126,
       "models-crypto": 6,
       "models-discovery": 17,
       "models-identity": 18,
-      "models-integration": 17,
+      "models-integration": 18,
       "schema": 9,
       "sdk": 7,
       "server": 4,
@@ -21,14 +20,14 @@
     },
     "by_classification": {
       "internal_or_fixture": 58,
-      "open_json": 185,
+      "open_json": 184,
       "polymorphic_boundary": 2
     },
     "by_schema_shape": {
       "closed": 2,
       "open_json": 12,
       "open_json_container": 35,
-      "open_map": 138,
+      "open_map": 137,
       "unknown": 58
     }
   },
@@ -45,58 +44,6 @@
       "schema_shape": "open_map",
       "classification": "open_json",
       "reason": "Presented claim values are deliberately claim-type-defined JSON."
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/event_payload/applet_audit.rs::AppletBridgeErrorPayload.external_ref",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/event_payload/applet_audit.rs",
-      "line": 33,
-      "owner": "AppletBridgeErrorPayload",
-      "field": "external_ref",
-      "rust_type": "Option<BTreeMap<String, Value>>",
-      "spec_pointer": "event-payload.schema.json#/$defs/applet_bridge_error_payload/properties/external_ref",
-      "schema_shape": "open_map",
-      "classification": "open_json",
-      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/event_payload/applet_audit.rs::AuditAppletBindingPayload.approver_policy",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/event_payload/applet_audit.rs",
-      "line": 122,
-      "owner": "AuditAppletBindingPayload",
-      "field": "approver_policy",
-      "rust_type": "Option<BTreeMap<String, Value>>",
-      "spec_pointer": "event-payload.schema.json#/$defs/audit_applet_binding_payload/properties/approver_policy",
-      "schema_shape": "open_map",
-      "classification": "open_json",
-      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/event_payload/applet_audit.rs::AuditAppletBindingPayload.notice_policy",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/event_payload/applet_audit.rs",
-      "line": 121,
-      "owner": "AuditAppletBindingPayload",
-      "field": "notice_policy",
-      "rust_type": "BTreeMap<String, Value>",
-      "spec_pointer": "event-payload.schema.json#/$defs/audit_applet_binding_payload/properties/notice_policy",
-      "schema_shape": "open_map",
-      "classification": "open_json",
-      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/event_payload/applet_audit.rs::AuditSessionPayload.notice_policy",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/event_payload/applet_audit.rs",
-      "line": 286,
-      "owner": "AuditSessionPayload",
-      "field": "notice_policy",
-      "rust_type": "Option<BTreeMap<String, Value>>",
-      "spec_pointer": "event-payload.schema.json#/$defs/audit_session_payload/properties/notice_policy",
-      "schema_shape": "open_map",
-      "classification": "open_json",
-      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
     {
       "rust_field": "crates/crypto/src/aead_nonce.rs::AeadNonceContext.key_ref",
@@ -253,6 +200,32 @@
       "schema_shape": "open_json_container",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/models-collaboration/src/events_payloads/audit.rs::AuditAppletBindingPayload.approver_policy",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/events_payloads/audit.rs",
+      "line": 134,
+      "owner": "AuditAppletBindingPayload",
+      "field": "approver_policy",
+      "rust_type": "Option<BTreeMap<String, Value>>",
+      "spec_pointer": "event-payload.schema.json#/$defs/audit_applet_binding_payload/properties/approver_policy",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
+    },
+    {
+      "rust_field": "crates/models-collaboration/src/events_payloads/audit.rs::AuditSessionPayload.notice_policy",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/events_payloads/audit.rs",
+      "line": 288,
+      "owner": "AuditSessionPayload",
+      "field": "notice_policy",
+      "rust_type": "Option<BTreeMap<String, Value>>",
+      "spec_pointer": "event-payload.schema.json#/$defs/audit_session_payload/properties/notice_policy",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
     {
       "rust_field": "crates/models-collaboration/src/events_payloads/call.rs::CallPayload.signal",
@@ -2374,10 +2347,23 @@
       "reason": "The Spec intentionally leaves an applet manifest open to applet-defined fields."
     },
     {
+      "rust_field": "crates/models-integration/src/applet_audit_payload.rs::AppletBridgeErrorPayload.external_ref",
+      "crate": "models-integration",
+      "file": "crates/models-integration/src/applet_audit_payload.rs",
+      "line": 43,
+      "owner": "AppletBridgeErrorPayload",
+      "field": "external_ref",
+      "rust_type": "Option<BTreeMap<String, Value>>",
+      "spec_pointer": "event-payload.schema.json#/$defs/applet_bridge_error_payload/properties/external_ref",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
+    },
+    {
       "rust_field": "crates/models-integration/src/applet_audit_payload.rs::AppletRegistrationPayload.manifest",
       "crate": "models-integration",
       "file": "crates/models-integration/src/applet_audit_payload.rs",
-      "line": 44,
+      "line": 69,
       "owner": "AppletRegistrationPayload",
       "field": "manifest",
       "rust_type": "Option<BTreeMap<String, Value>>",
@@ -2390,7 +2376,7 @@
       "rust_field": "crates/models-integration/src/applet_audit_payload.rs::AppletRegistrationPayload.namespaces",
       "crate": "models-integration",
       "file": "crates/models-integration/src/applet_audit_payload.rs",
-      "line": 37,
+      "line": 62,
       "owner": "AppletRegistrationPayload",
       "field": "namespaces",
       "rust_type": "BTreeMap<String, Value>",
@@ -2403,7 +2389,7 @@
       "rust_field": "crates/models-integration/src/applet_audit_payload.rs::AppletRegistrationPayload.proof",
       "crate": "models-integration",
       "file": "crates/models-integration/src/applet_audit_payload.rs",
-      "line": 46,
+      "line": 71,
       "owner": "AppletRegistrationPayload",
       "field": "proof",
       "rust_type": "BTreeMap<String, Value>",
@@ -2416,7 +2402,7 @@
       "rust_field": "crates/models-integration/src/applet_audit_payload.rs::AppletRegistrationPayload.webhook_auth",
       "crate": "models-integration",
       "file": "crates/models-integration/src/applet_audit_payload.rs",
-      "line": 43,
+      "line": 68,
       "owner": "AppletRegistrationPayload",
       "field": "webhook_auth",
       "rust_type": "BTreeMap<String, Value>",

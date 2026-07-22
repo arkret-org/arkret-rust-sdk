@@ -396,6 +396,26 @@ uuid_id_type!(BackupSeriesId, "ak:backup_series:");
 uuid_id_type!(RecoverySessionId, "ak:recovery_session:");
 uuid_id_type!(AnnounceId, "ak:announce:");
 uuid_id_type!(AppletId, "ak:applet:");
+
+/// Applet identity accepted by the v1 wire protocol: either a service DID or
+/// a typed `ak:applet:<uuidv7>` identifier.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(untagged)]
+pub enum AppletIdentifier {
+    Did(Did),
+    Cx(AppletId),
+}
+
+impl AppletIdentifier {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Did(value) => value.as_str(),
+            Self::Cx(value) => value.as_str(),
+        }
+    }
+}
+
 uuid_id_type!(RealmId, "ak:realm:");
 uuid_id_type!(SpaceId, "ak:space:");
 uuid_id_type!(BackupId, "ak:backup:");
@@ -621,6 +641,21 @@ mod tests {
     #[test]
     fn did_validation_accepts_uuid_method() {
         assert!(Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").is_ok());
+    }
+
+    #[test]
+    fn applet_identifier_accepts_only_did_or_typed_applet_id() {
+        let did =
+            serde_json::from_str::<AppletIdentifier>(r#""did:webvh:z6mkfixture:applet.example""#)
+                .unwrap();
+        assert!(matches!(did, AppletIdentifier::Did(_)));
+
+        let typed = serde_json::from_str::<AppletIdentifier>(
+            r#""ak:applet:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5d""#,
+        )
+        .unwrap();
+        assert!(matches!(typed, AppletIdentifier::Cx(_)));
+        assert!(serde_json::from_str::<AppletIdentifier>(r#""applet.example""#).is_err());
     }
 
     /// Round 4 (spec a77b995): method-name segment is `[a-z0-9]+` only;
