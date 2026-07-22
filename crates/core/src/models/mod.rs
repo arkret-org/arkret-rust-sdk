@@ -9,10 +9,6 @@ pub use arkret_identifiers::{
     TypedTrustDomainId, ViewId, new_prefixed_uuid7,
 };
 pub use arkret_wire::{EvaluationClass, ServiceType, XExtensionMap};
-#[cfg(test)]
-use serde_json::Value;
-#[cfg(test)]
-use serde_json::json;
 
 #[cfg(test)]
 use crate::canonical;
@@ -154,8 +150,6 @@ mod tests;
 mod third_party_invite {
     pub use arkret_models_collaboration::governance::third_party_invite::*;
 }
-#[cfg(test)]
-mod wire_model_tests;
 mod wire_strings {
     pub use arkret_wire::wire_strings::*;
 }

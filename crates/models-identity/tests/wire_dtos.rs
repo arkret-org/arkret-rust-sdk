@@ -1,4 +1,5 @@
 use arkret_models_identity::ActorProfile;
+use arkret_models_identity::identity_link_cache::compute_policy_frontier_digest;
 use arkret_wire::{ACTOR_PROFILE_SCHEMA, ActorKind, ActorStatus};
 use serde_json::json;
 
@@ -33,4 +34,31 @@ fn actor_profile_rejects_unknown_fields_and_accepts_schema_statuses() {
         "managed_by_applet": "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
     });
     assert!(serde_json::from_value::<ActorProfile>(bad).is_err());
+}
+
+#[test]
+fn policy_frontier_digest_is_deterministic() {
+    let h1 = compute_policy_frontier_digest(
+        &json!({"mode": "strict"}),
+        &json!("members_only"),
+        &json!({"profile": "default"}),
+        &json!(false),
+    )
+    .unwrap();
+    let h2 = compute_policy_frontier_digest(
+        &json!({"mode": "strict"}),
+        &json!("members_only"),
+        &json!({"profile": "default"}),
+        &json!(false),
+    )
+    .unwrap();
+    assert_eq!(h1, h2);
+    let h3 = compute_policy_frontier_digest(
+        &json!({"mode": "strict"}),
+        &json!("members_only"),
+        &json!({"profile": "default"}),
+        &json!(true),
+    )
+    .unwrap();
+    assert_ne!(h1, h3);
 }

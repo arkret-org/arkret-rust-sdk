@@ -688,6 +688,15 @@ mod tests {
     }
 
     #[test]
+    fn trust_domain_id_validates_scope() {
+        assert!(TypedTrustDomainId::new("ak:trust_domain:example.net").is_ok());
+        assert!(TypedTrustDomainId::new("ak:trust_domain:Example").is_err());
+        assert!(TypedTrustDomainId::new("ak:trust_domain:").is_err());
+        let too_long = format!("ak:trust_domain:{}", "a".repeat(129));
+        assert!(TypedTrustDomainId::new(too_long).is_err());
+    }
+
+    #[test]
     fn active_id_kind_wrappers_accept_uuidv7_wire_forms() {
         macro_rules! assert_id {
             ($ty:ty, $prefix:literal) => {{
