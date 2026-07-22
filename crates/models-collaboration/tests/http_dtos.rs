@@ -6,6 +6,7 @@ use arkret_models_collaboration::http_params::{EventsQueryOrder, EventsQueryPara
 use arkret_models_collaboration::objects::mimi::{
     MimiCiphertext, MimiOpaquePayload, MimiRoomUpdate,
 };
+use arkret_models_collaboration::session_grant_bodies::SessionLoginOutcome;
 use arkret_wire::{
     Base64UrlString, Cursor, DeviceId, Did, Hash, MlsGroupId, NonEmptyString, RealmId,
 };
@@ -198,5 +199,33 @@ fn events_query_params_helpers_use_wire_types() {
         pairs
             .iter()
             .any(|(key, value)| *key == "limit" && value == "50")
+    );
+}
+
+#[test]
+fn session_login_outcome_uses_typed_wire_fields() {
+    let value = json!({
+        "session_credential": "sx_token",
+        "token_type": "Bearer",
+        "actor": "did:webvh:z6mkfixture:alice.example",
+        "device_id": "ak:device:01964137-0000-7000-8000-000000000001",
+        "expires_at": "2026-04-28T12:00:00.000Z"
+    });
+    let outcome: SessionLoginOutcome = serde_json::from_value(value).unwrap();
+    assert_eq!(
+        outcome.actor.as_str(),
+        "did:webvh:z6mkfixture:alice.example"
+    );
+    assert_eq!(
+        outcome.device_id.as_str(),
+        "ak:device:01964137-0000-7000-8000-000000000001"
+    );
+
+    let serialized = serde_json::to_value(outcome).unwrap();
+    assert_eq!(serialized["token_type"], "Bearer");
+    assert_eq!(serialized["actor"], "did:webvh:z6mkfixture:alice.example");
+    assert_eq!(
+        serialized["device_id"],
+        "ak:device:01964137-0000-7000-8000-000000000001"
     );
 }

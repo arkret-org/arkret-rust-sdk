@@ -1,7 +1,6 @@
 use super::*;
 
 mod events_operations;
-mod identity_primitives;
 mod objects_field_order;
 mod proofs_signatures;
 

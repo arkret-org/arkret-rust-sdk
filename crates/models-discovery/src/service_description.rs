@@ -477,6 +477,15 @@ mod tests {
     }
 
     #[test]
+    fn service_description_checks_protocol_version() {
+        let mut description = directory_description();
+        assert!(description.supports_arkret_v1());
+
+        description.protocol_version = "2.0".to_owned();
+        assert!(!description.supports_arkret_v1());
+    }
+
+    #[test]
     fn directory_service_requires_overlay_fields() {
         let mut description = directory_description();
         description.resource_types.clear();

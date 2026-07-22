@@ -1,7 +1,8 @@
 use arkret_models_discovery::{
-    CompatSurfaceEntry, DirectoryRealmSearchOutcome, RealmMemberCountBucket,
-    RealmMemberCountBucketLabel,
+    CompatSurfaceEntry, DirectoryRealmSearchOutcome, DirectorySearchRealmsRequestBody,
+    RealmMemberCountBucket, RealmMemberCountBucketLabel,
 };
+use arkret_wire::RealmId;
 
 #[test]
 fn compat_surface_entry_serializes_schema_shape() {
@@ -56,4 +57,29 @@ fn directory_realm_search_outcome_decodes_typed_preview_fields() {
         outcome.realms[1].member_count_bucket,
         Some(RealmMemberCountBucket::Exact(342))
     ));
+}
+
+#[test]
+fn directory_search_realms_request_uses_source_realm_id() {
+    let source_realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
+    let request = DirectorySearchRealmsRequestBody {
+        query: Some("release".to_owned()),
+        organization_did: None,
+        source_realm_id: Some(source_realm_id.clone()),
+        requester: None,
+        proof_challenge: Some("challenge-1".to_owned()),
+        claim_presentations: Vec::new(),
+        cursor: None,
+        limit: Some(20),
+    };
+    let value = serde_json::to_value(&request).unwrap();
+    assert_eq!(value["source_realm_id"], source_realm_id.as_str());
+    assert_eq!(value["proof_challenge"], "challenge-1");
+    assert!(value.get("proofs").is_none());
+    assert!(value.get("parent_space_id").is_none());
+
+    let parsed: DirectorySearchRealmsRequestBody = serde_json::from_value(value).unwrap();
+    assert_eq!(parsed.source_realm_id, Some(source_realm_id));
+    assert_eq!(parsed.proof_challenge.as_deref(), Some("challenge-1"));
+    assert!(parsed.claim_presentations.is_empty());
 }
