@@ -40,6 +40,112 @@ pub struct KeyPackagesUploadRequestBody {
     pub mls_group_id: Option<String>,
 }
 
+/// Canonical unsigned projection for
+/// `ak.self.keys.keypackages.upload.create`.
+///
+/// The request-level signature and every optional entry signature are absent
+/// by construction, so producers and verifiers cannot accidentally sign
+/// different upload shapes.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeyPackagesUploadUnsignedRequest {
+    pub principal_id: Did,
+    pub device_id: DeviceId,
+    #[serde(default)]
+    pub key_packages: Vec<KeyPackageUploadEntry>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strand_id: Option<StrandId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mls_group_id: Option<String>,
+}
+
+impl KeyPackagesUploadRequestBody {
+    #[must_use]
+    pub fn unsigned(&self) -> KeyPackagesUploadUnsignedRequest {
+        let mut key_packages = self.key_packages.clone();
+        for entry in &mut key_packages {
+            entry.device_signature = None;
+        }
+        KeyPackagesUploadUnsignedRequest {
+            principal_id: self.principal_id.clone(),
+            device_id: self.device_id.clone(),
+            key_packages,
+            expires_at: self.expires_at,
+            strand_id: self.strand_id.clone(),
+            mls_group_id: self.mls_group_id.clone(),
+        }
+    }
+}
+
+impl KeyPackagesUploadUnsignedRequest {
+    #[must_use]
+    pub fn into_signed(
+        self,
+        device_signature: KeyOperationSignature,
+    ) -> KeyPackagesUploadRequestBody {
+        KeyPackagesUploadRequestBody {
+            principal_id: self.principal_id,
+            device_id: self.device_id,
+            key_packages: self.key_packages,
+            device_signature,
+            expires_at: self.expires_at,
+            strand_id: self.strand_id,
+            mls_group_id: self.mls_group_id,
+        }
+    }
+}
+
+pub const KEYPACKAGES_UPLOAD_SIGNATURE_DOMAIN: &str = "ak.self.keys.keypackages.upload.create\n";
+pub const KEYPACKAGES_CONSUME_SIGNATURE_DOMAIN: &str = "ak.self.keys.keypackages.command.consume\n";
+pub const KEYPACKAGES_REVOKE_SIGNATURE_DOMAIN: &str = "ak.self.keys.keypackages.command.revoke\n";
+
+fn keypackage_signing_input<T: Serialize>(
+    domain: &str,
+    unsigned: &T,
+) -> arkret_canonical::Result<Vec<u8>> {
+    let canonical = arkret_canonical::canonical_json_bytes(unsigned)?;
+    let mut input = Vec::with_capacity(domain.len() + canonical.len());
+    input.extend_from_slice(domain.as_bytes());
+    input.extend_from_slice(&canonical);
+    Ok(input)
+}
+
+pub fn keypackages_upload_signing_input(
+    unsigned: &KeyPackagesUploadUnsignedRequest,
+) -> arkret_canonical::Result<Vec<u8>> {
+    keypackage_signing_input(KEYPACKAGES_UPLOAD_SIGNATURE_DOMAIN, unsigned)
+}
+
+#[derive(Serialize)]
+struct KeyPackageUploadEntryUnsigned<'a> {
+    principal_id: &'a Did,
+    device_id: &'a DeviceId,
+    key_package: KeyPackageUploadEntry,
+}
+
+pub fn keypackage_upload_entry_signing_input(
+    principal_id: &Did,
+    device_id: &DeviceId,
+    entry: &KeyPackageUploadEntry,
+) -> arkret_canonical::Result<Vec<u8>> {
+    let mut key_package = entry.clone();
+    key_package.device_signature = None;
+    keypackage_signing_input(
+        KEYPACKAGES_UPLOAD_SIGNATURE_DOMAIN,
+        &KeyPackageUploadEntryUnsigned {
+            principal_id,
+            device_id,
+            key_package,
+        },
+    )
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesUploadOutcome {
@@ -567,6 +673,65 @@ pub struct KeyPackagesConsumeRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeyPackagesConsumeUnsignedRequest {
+    #[serde(default)]
+    pub key_package_refs: Vec<String>,
+    pub consumer_device_id: DeviceId,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub claim_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub welcome_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strand_id: Option<StrandId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mls_group_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epoch: Option<u64>,
+}
+
+impl KeyPackagesConsumeRequestBody {
+    #[must_use]
+    pub fn unsigned(&self) -> KeyPackagesConsumeUnsignedRequest {
+        KeyPackagesConsumeUnsignedRequest {
+            key_package_refs: self.key_package_refs.clone(),
+            consumer_device_id: self.consumer_device_id.clone(),
+            claim_ids: self.claim_ids.clone(),
+            welcome_ref: self.welcome_ref.clone(),
+            realm_id: self.realm_id.clone(),
+            strand_id: self.strand_id.clone(),
+            mls_group_id: self.mls_group_id.clone(),
+            epoch: self.epoch,
+        }
+    }
+}
+
+impl KeyPackagesConsumeUnsignedRequest {
+    #[must_use]
+    pub fn into_signed(self, signature: KeyOperationSignature) -> KeyPackagesConsumeRequestBody {
+        KeyPackagesConsumeRequestBody {
+            key_package_refs: self.key_package_refs,
+            consumer_device_id: self.consumer_device_id,
+            signature,
+            claim_ids: self.claim_ids,
+            welcome_ref: self.welcome_ref,
+            realm_id: self.realm_id,
+            strand_id: self.strand_id,
+            mls_group_id: self.mls_group_id,
+            epoch: self.epoch,
+        }
+    }
+}
+
+pub fn keypackages_consume_signing_input(
+    unsigned: &KeyPackagesConsumeUnsignedRequest,
+) -> arkret_canonical::Result<Vec<u8>> {
+    keypackage_signing_input(KEYPACKAGES_CONSUME_SIGNATURE_DOMAIN, unsigned)
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesConsumeOutcome {
     #[serde(default)]
@@ -584,6 +749,45 @@ pub struct KeyPackagesRevokeRequestBody {
     pub signature: KeyOperationSignature,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeyPackagesRevokeUnsignedRequest {
+    #[serde(default)]
+    pub key_package_refs: Vec<String>,
+    pub device_id: DeviceId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+impl KeyPackagesRevokeRequestBody {
+    #[must_use]
+    pub fn unsigned(&self) -> KeyPackagesRevokeUnsignedRequest {
+        KeyPackagesRevokeUnsignedRequest {
+            key_package_refs: self.key_package_refs.clone(),
+            device_id: self.device_id.clone(),
+            reason: self.reason.clone(),
+        }
+    }
+}
+
+impl KeyPackagesRevokeUnsignedRequest {
+    #[must_use]
+    pub fn into_signed(self, signature: KeyOperationSignature) -> KeyPackagesRevokeRequestBody {
+        KeyPackagesRevokeRequestBody {
+            key_package_refs: self.key_package_refs,
+            device_id: self.device_id,
+            signature,
+            reason: self.reason,
+        }
+    }
+}
+
+pub fn keypackages_revoke_signing_input(
+    unsigned: &KeyPackagesRevokeUnsignedRequest,
+) -> arkret_canonical::Result<Vec<u8>> {
+    keypackage_signing_input(KEYPACKAGES_REVOKE_SIGNATURE_DOMAIN, unsigned)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -702,6 +906,77 @@ mod tests {
         assert_eq!(
             invalid.validate_shape(),
             Err(PeerKeyPackageClaimShapeError::InvalidQueryOutcome)
+        );
+    }
+
+    #[test]
+    fn keypackage_write_transcripts_match_canonical_fixture() {
+        let upload: KeyPackagesUploadUnsignedRequest = serde_json::from_value(json!({
+            "principal_id": "did:webvh:z6mkfixture:agent.example",
+            "device_id": "ak:device:01964137-0000-7000-8000-00000000000d",
+            "key_packages": [{
+                "keypackage_id": "keypackage-fixture-001",
+                "keypackage_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+                "keypackage_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+                "key_package": "AA",
+                "cipher_suites": ["MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519"],
+                "capabilities": ["mimi.content.v1", "ak.content.v1"],
+                "expires_at": "2026-07-29T00:00:00.000Z",
+                "created_at": "2026-07-22T00:00:00.000Z"
+            }]
+        }))
+        .unwrap();
+        let upload_input =
+            String::from_utf8(keypackages_upload_signing_input(&upload).unwrap()).unwrap();
+        assert_eq!(
+            upload_input,
+            concat!(
+                "ak.self.keys.keypackages.upload.create\n",
+                "{\"device_id\":\"ak:device:01964137-0000-7000-8000-00000000000d\",",
+                "\"key_packages\":[{\"capabilities\":[\"mimi.content.v1\",\"ak.content.v1\"],",
+                "\"cipher_suites\":[\"MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519\"],",
+                "\"created_at\":\"2026-07-22T00:00:00.000Z\",",
+                "\"expires_at\":\"2026-07-29T00:00:00.000Z\",\"key_package\":\"AA\",",
+                "\"keypackage_digest\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",",
+                "\"keypackage_id\":\"keypackage-fixture-001\",",
+                "\"keypackage_ref\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\"}],",
+                "\"principal_id\":\"did:webvh:z6mkfixture:agent.example\"}"
+            )
+        );
+
+        let consume: KeyPackagesConsumeUnsignedRequest = serde_json::from_value(json!({
+            "key_package_refs": ["sha256:1111111111111111111111111111111111111111111111111111111111111111"],
+            "consumer_device_id": "ak:device:01964137-0000-7000-8000-00000000000d",
+            "claim_ids": ["claim-fixture-001"],
+            "welcome_ref": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "realm_id": "ak:realm:01964137-0000-7000-8000-00000000000f",
+            "strand_id": "ak:strand:01964137-0000-7000-8000-00000000000e",
+            "mls_group_id": "mls-fixture-group",
+            "epoch": 1
+        }))
+        .unwrap();
+        let consume_input =
+            String::from_utf8(keypackages_consume_signing_input(&consume).unwrap()).unwrap();
+        assert!(consume_input.starts_with(KEYPACKAGES_CONSUME_SIGNATURE_DOMAIN));
+        assert!(!consume_input.contains("\"signature\""));
+        assert!(!consume_input.contains(":null"));
+
+        let revoke: KeyPackagesRevokeUnsignedRequest = serde_json::from_value(json!({
+            "key_package_refs": ["sha256:1111111111111111111111111111111111111111111111111111111111111111"],
+            "device_id": "ak:device:01964137-0000-7000-8000-00000000000d",
+            "reason": "authorization_superseded"
+        }))
+        .unwrap();
+        let revoke_input =
+            String::from_utf8(keypackages_revoke_signing_input(&revoke).unwrap()).unwrap();
+        assert_eq!(
+            revoke_input,
+            concat!(
+                "ak.self.keys.keypackages.command.revoke\n",
+                "{\"device_id\":\"ak:device:01964137-0000-7000-8000-00000000000d\",",
+                "\"key_package_refs\":[\"sha256:1111111111111111111111111111111111111111111111111111111111111111\"],",
+                "\"reason\":\"authorization_superseded\"}"
+            )
         );
     }
 }

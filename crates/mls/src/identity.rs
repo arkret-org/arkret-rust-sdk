@@ -1,8 +1,15 @@
 use std::collections::BTreeMap;
 
 use arkret_canonical::base64url_encode;
-use arkret_models_crypto::{MlsGovernanceBindingPayload, MlsKeyPackageRecord};
-use arkret_wire::{DeviceId, Did, Hash, canonical};
+use arkret_models_crypto::{
+    KeyOperationSignature, KeyPackageUploadEntry, KeyPackagesConsumeRequestBody,
+    KeyPackagesConsumeUnsignedRequest, KeyPackagesRevokeRequestBody,
+    KeyPackagesRevokeUnsignedRequest, KeyPackagesUploadRequestBody,
+    KeyPackagesUploadUnsignedRequest, MlsGovernanceBindingPayload, MlsKeyPackageRecord,
+    keypackages_consume_signing_input, keypackages_revoke_signing_input,
+    keypackages_upload_signing_input,
+};
+use arkret_wire::{Base64UrlString, DeviceId, Did, Hash, canonical};
 use chrono::{Duration, Utc};
 use openmls::prelude::{
     BasicCredential, Ciphersuite, CredentialWithKey, GroupId, KeyPackage, KeyPackageIn, MlsGroup,
@@ -10,6 +17,7 @@ use openmls::prelude::{
 };
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
+use openmls_traits::signatures::Signer as _;
 use serde::{Deserialize, Serialize};
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
 use zeroize::Zeroize;
@@ -112,6 +120,113 @@ impl ArkretMlsIdentity {
     /// Build a single-use KeyPackage record (consumed on claim).
     pub fn key_package_record(&self) -> Result<MlsKeyPackageRecord> {
         self.key_package_record_inner(false)
+    }
+
+    /// Convert a locally generated MLS record into the canonical typed upload
+    /// entry shared by ordinary clients and Native Agent runtimes.
+    pub fn key_package_upload_entry(
+        &self,
+        record: &MlsKeyPackageRecord,
+    ) -> Result<KeyPackageUploadEntry> {
+        if record.principal_id != self.principal_id || record.device_id != self.device_id {
+            return Err(Error::Protocol(
+                "MLS KeyPackage record owner differs from identity".to_owned(),
+            ));
+        }
+        Ok(KeyPackageUploadEntry {
+            keypackage_id: record.keypackage_id.clone(),
+            keypackage_ref: record.keypackage_ref.as_str().to_owned(),
+            keypackage_digest: record.keypackage_ref.clone(),
+            key_package: Base64UrlString::new(record.key_package.clone())
+                .map_err(|error| Error::Protocol(error.to_owned()))?,
+            cipher_suites: record.cipher_suites.clone(),
+            capabilities: record.capabilities.clone(),
+            expires_at: record
+                .expires_at
+                .unwrap_or(record.created_at + Duration::days(7)),
+            created_at: record.created_at,
+            device_signature: None,
+            last_resort: record.last_resort.then_some(true),
+        })
+    }
+
+    /// Build and sign a standard KeyPackage upload request with this MLS
+    /// identity key. Agent runtimes call this only after the identity private
+    /// state and generated KeyPackage material are durably persisted.
+    pub fn signed_key_packages_upload_request(
+        &self,
+        records: &[MlsKeyPackageRecord],
+        verification_method: &str,
+    ) -> Result<KeyPackagesUploadRequestBody> {
+        if records.is_empty() {
+            return Err(Error::Protocol(
+                "KeyPackage upload requires at least one record".to_owned(),
+            ));
+        }
+        let key_packages = records
+            .iter()
+            .map(|record| self.key_package_upload_entry(record))
+            .collect::<Result<Vec<_>>>()?;
+        let unsigned = KeyPackagesUploadUnsignedRequest {
+            principal_id: self.principal_id.clone(),
+            device_id: self.device_id.clone(),
+            key_packages,
+            expires_at: None,
+            strand_id: None,
+            mls_group_id: None,
+        };
+        let signature = self.sign_keypackage_input(
+            verification_method,
+            &keypackages_upload_signing_input(&unsigned)?,
+        )?;
+        Ok(unsigned.into_signed(signature))
+    }
+
+    pub fn signed_key_packages_consume_request(
+        &self,
+        unsigned: KeyPackagesConsumeUnsignedRequest,
+        verification_method: &str,
+    ) -> Result<KeyPackagesConsumeRequestBody> {
+        if unsigned.consumer_device_id != self.device_id {
+            return Err(Error::Protocol(
+                "KeyPackage consume device differs from MLS identity".to_owned(),
+            ));
+        }
+        let signature = self.sign_keypackage_input(
+            verification_method,
+            &keypackages_consume_signing_input(&unsigned)?,
+        )?;
+        Ok(unsigned.into_signed(signature))
+    }
+
+    pub fn signed_key_packages_revoke_request(
+        &self,
+        unsigned: KeyPackagesRevokeUnsignedRequest,
+        verification_method: &str,
+    ) -> Result<KeyPackagesRevokeRequestBody> {
+        if unsigned.device_id != self.device_id {
+            return Err(Error::Protocol(
+                "KeyPackage revoke device differs from MLS identity".to_owned(),
+            ));
+        }
+        let signature = self.sign_keypackage_input(
+            verification_method,
+            &keypackages_revoke_signing_input(&unsigned)?,
+        )?;
+        Ok(unsigned.into_signed(signature))
+    }
+
+    fn sign_keypackage_input(
+        &self,
+        verification_method: &str,
+        signing_input: &[u8],
+    ) -> Result<KeyOperationSignature> {
+        let signature = self.signer.sign(signing_input).map_err(mls_error)?;
+        arkret_signatures::keypackages::keypackage_signature_from_bytes(
+            verification_method,
+            &signature,
+        )
+        .map_err(|error| Error::Protocol(error.to_string()))
     }
 
     /// Build a reusable last-resort KeyPackage record. The KeyPackage carries

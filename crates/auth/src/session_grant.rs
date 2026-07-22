@@ -65,6 +65,7 @@ pub fn agent_key_proof_request_binding_digest(
 #[allow(clippy::too_many_arguments)]
 pub fn agent_key_proof_signing_input_for_session_grant(
     principal_id: &Did,
+    device_id: &DeviceId,
     requested_scope: &[String],
     agent_key_authorization_ref: &str,
     agent_scope_request: &SessionGrantAgentScopeRequest,
@@ -80,6 +81,7 @@ pub fn agent_key_proof_signing_input_for_session_grant(
     let nonce = nonce.into();
     let mut body = agent_key_proof_unsigned_session_grant_request(
         principal_id.clone(),
+        device_id.clone(),
         requested_scope.to_vec(),
         agent_key_authorization_ref,
         agent_scope_request.clone(),
@@ -105,6 +107,7 @@ pub fn agent_key_proof_signing_input_for_session_grant(
 #[allow(clippy::too_many_arguments)]
 pub fn agent_key_proof_session_grant_request(
     principal_id: Did,
+    device_id: DeviceId,
     requested_scope: Vec<String>,
     agent_key_authorization_ref: impl Into<String>,
     agent_scope_request: SessionGrantAgentScopeRequest,
@@ -122,6 +125,7 @@ pub fn agent_key_proof_session_grant_request(
     let nonce = nonce.into();
     let signing_input = agent_key_proof_signing_input_for_session_grant(
         &principal_id,
+        &device_id,
         &requested_scope,
         &agent_key_authorization_ref,
         &agent_scope_request,
@@ -134,6 +138,7 @@ pub fn agent_key_proof_session_grant_request(
     )?;
     let mut request = agent_key_proof_unsigned_session_grant_request(
         principal_id,
+        device_id,
         requested_scope,
         agent_key_authorization_ref,
         agent_scope_request,
@@ -152,6 +157,7 @@ pub fn agent_key_proof_session_grant_request(
 #[allow(clippy::too_many_arguments)]
 fn agent_key_proof_unsigned_session_grant_request(
     principal_id: Did,
+    device_id: DeviceId,
     requested_scope: Vec<String>,
     agent_key_authorization_ref: impl Into<String>,
     agent_scope_request: SessionGrantAgentScopeRequest,
@@ -165,7 +171,7 @@ fn agent_key_proof_unsigned_session_grant_request(
     let request_canonical_digest = Hash::new(format!("sha256:{}", "0".repeat(64)))?;
     Ok(SessionGrantRequestBody {
         principal_id,
-        device_id: None,
+        device_id: Some(device_id),
         requested_scope,
         agent_key_authorization_ref: Some(agent_key_authorization_ref.into()),
         agent_scope_request: Some(agent_scope_request),
