@@ -202,6 +202,32 @@ fn conformance_fixture_set_loads_and_reports_external_json() {
     assert!(empty.validate().is_err());
 }
 
+#[test]
+fn federation_fixture_expected_digest_matches_canonicalizer() {
+    let fixture = embedded_json_artifact("fixtures/federation-fixture.json").unwrap();
+    let case = fixture["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"].as_str() == Some("reducer_profile_digest_federation_minimal"))
+        .expect("federation reducer-profile vector missing");
+    let profile_id = case["resolved_digest_input_source"]["profile_id"]
+        .as_str()
+        .expect("federation reducer-profile id missing");
+    let registry = embedded_json_artifact("registry/reducer-profile-registry.json").unwrap();
+    let profile = registry["profiles"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|profile| profile["profile_id"].as_str() == Some(profile_id))
+        .expect("federation reducer profile missing from registry");
+
+    assert_eq!(
+        canonical::canonical_sha256(&profile["resolved_digest_input"]).unwrap(),
+        case["expected_digest"].as_str().unwrap()
+    );
+}
+
 #[cfg(feature = "embedded-artifacts")]
 #[test]
 fn signature_binding_payload_matches_spec_encoding_vector() {

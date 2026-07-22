@@ -411,3 +411,25 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
         .unwrap();
     assert_warns_additional_field(&warnings, "unexpected");
 }
+
+#[test]
+fn auth_session_fixture_enforces_device_identity_key_separation() {
+    let fixture = embedded_json_artifact("fixtures/auth-session-proof-fixture.json").unwrap();
+    let vector = fixture["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"] == "session_and_device_identity_key_separation")
+        .expect("session/device key-separation vector missing");
+    for case in vector["cases"].as_array().unwrap() {
+        let result = arkret_models_collaboration::session_grant_bodies::validate_session_device_key_separation(
+            case["session_public_key_fingerprint"].as_str().unwrap(),
+            case["device_public_key_fingerprint"].as_str().unwrap(),
+        );
+        match case["expected"].as_str().unwrap() {
+            "accepted" => result.unwrap(),
+            "unauthenticated" => assert!(result.is_err()),
+            unexpected => panic!("unknown key-separation outcome {unexpected}"),
+        }
+    }
+}

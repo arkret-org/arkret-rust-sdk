@@ -221,7 +221,3 @@ pub use sync::{
     SyncStreamPosition, SyncTokenBinding, SyncUpdates, TimelineFilter, TimelineOrderKey,
     ToDeviceAck, ToDeviceAckStatus, WaitForFrontier, sync_filter_digest,
 };
-
-#[cfg(test)]
-#[path = "schema/tests.rs"]
-mod schema_compat_tests;
