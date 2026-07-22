@@ -649,7 +649,7 @@ impl Event {
     /// reducer-stamped field rejection, applet provenance invariants, proof
     /// presence, critical-extension fail-closed flags, and CBA field shape.
     /// It deliberately does NOT run event-payload schema validation — the
-    /// submit gate for callers is `arkret_core`'s `validate_for_submit`,
+    /// submit gate for callers is `arkret_schema::validate_event_for_submit`,
     /// which layers registry-backed schema validation on top of this check.
     /// Keeping schema validation out of this crate (and out of the
     /// deserialization path) is what prevents an arkret-schema dependency

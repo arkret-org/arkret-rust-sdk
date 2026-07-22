@@ -29,6 +29,11 @@ pub mod seal_transparency;
 pub mod session_grant_bodies;
 pub mod sync_frames;
 
+pub use events_payloads::preview_realm_reaction::{
+    RealmOrganizationAuthorization, RealmOrganizationControlScope, RealmOrganizationIssuerRole,
+    RealmOrganizationPayload, RealmOrganizationRelationship, RealmOrganizationStatus,
+    SignatureMaterial, realm_organization_statement_signing_bytes,
+};
 pub use governance::audit::{AccessKind, AuditPolicyAccessPayload};
 pub use resolved_state::ResolvedStateEvent;
 

@@ -41,7 +41,6 @@ pub mod identity;
 pub mod identity_key_log {
     pub use arkret_models_identity::identity_key_log::*;
 }
-mod inbound;
 pub mod integration {
     pub use arkret_models_integration::integration::*;
 }
@@ -162,7 +161,6 @@ pub use identifiers::{
 };
 pub use identity::{DID_WEBVH_V1_METHOD, principal_control_realm_id, validate_did_webvh_v1_method};
 pub use identity_key_log::{DidKeyLogEntry, DidKeyLogOperation};
-pub use inbound::{DecodedInbound, DecodedMessage, InboundDecoder};
 pub use key_transparency::{
     KEY_TRANSPARENCY_SCHEMA, KeyTransparencyError, KeyTransparencyEvidence,
     TransparencyConsistencyProof, TransparencyInclusionProof, TransparencyLogHead,

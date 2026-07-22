@@ -1,6 +1,3 @@
-#[cfg(test)]
-use std::collections::BTreeMap;
-
 pub use arkret_identifiers::{
     ActorProfileId, AppletId, AttestationId, AuditBindingId, AuditReleaseId, AuditSessionId,
     BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId, CapabilityId, ChunkId,
@@ -12,7 +9,6 @@ pub use arkret_identifiers::{
     TypedTrustDomainId, ViewId, new_prefixed_uuid7,
 };
 pub use arkret_wire::{EvaluationClass, ServiceType, XExtensionMap};
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use serde_json::Value;
@@ -21,7 +17,6 @@ use serde_json::json;
 
 #[cfg(test)]
 use crate::canonical;
-use crate::{Error, Result};
 
 mod account;
 mod actor_profile {
@@ -62,7 +57,6 @@ mod direct_conversation {
 }
 mod directory;
 mod ephemeral;
-mod event_accessors;
 mod event_query;
 mod event_sync;
 mod events;
@@ -176,7 +170,9 @@ pub use agent::*;
 pub use agent_participation::*;
 pub use applet::*;
 pub use applet_install_plan::*;
+pub use arkret_event_draft::{EventPayloadExt, MessageEventPayload};
 pub use arkret_models_collaboration::governance::audit::{AccessKind, AuditPolicyAccessPayload};
+pub use arkret_schema::EventSchemaExt;
 pub use arkret_wire::plaintext::PlaintextDataClassKind;
 pub use arkret_wire::receive_policy::{
     InviteReceiveAction, ReceivePolicyConstraints, ReceivePolicySurface, UnknownInviteAction,
@@ -194,7 +190,6 @@ pub use did_continuity::*;
 pub use direct_conversation::*;
 pub use directory::*;
 pub use ephemeral::*;
-pub use event_accessors::*;
 pub use event_query::*;
 pub use event_sync::*;
 pub use events::*;

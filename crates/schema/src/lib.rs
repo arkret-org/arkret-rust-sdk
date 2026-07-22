@@ -9,6 +9,7 @@ use serde_json::{Value, json};
 
 mod error;
 mod event_cell_contract;
+mod event_validation;
 pub mod generated;
 pub mod protocol;
 
@@ -26,6 +27,7 @@ pub use event_cell_contract::{
     EventCellContractContext, EventCellContractError, validate_single_target_set_event_contract,
     validate_single_target_set_event_contract_in_context,
 };
+pub use event_validation::{EventSchemaExt, validate_event_for_submit, validate_event_wire_schema};
 pub use generated::*;
 pub use protocol::{
     GeneratedSchemaField, GeneratedSchemaValidator, GeneratedSchemaValueType,
