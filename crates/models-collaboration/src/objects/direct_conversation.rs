@@ -39,6 +39,52 @@ pub enum DirectConversationAuthoredBindingState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
+pub enum DirectConversationAuthorizationKind {
+    AcceptedContact,
+    ManagedAgentController,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct DirectConversationAuthorizationBasis {
+    pub kind: DirectConversationAuthorizationKind,
+    pub event_refs: Vec<EventId>,
+}
+
+impl DirectConversationAuthorizationBasis {
+    pub fn accepted_contact(event_refs: Vec<EventId>) -> Self {
+        Self {
+            kind: DirectConversationAuthorizationKind::AcceptedContact,
+            event_refs,
+        }
+    }
+
+    pub fn managed_agent_controller(event_refs: Vec<EventId>) -> Self {
+        Self {
+            kind: DirectConversationAuthorizationKind::ManagedAgentController,
+            event_refs,
+        }
+    }
+
+    pub fn validate_shape(&self) -> Result<()> {
+        let unique = self.event_refs.iter().collect::<BTreeSet<_>>();
+        let expected_len = match self.kind {
+            DirectConversationAuthorizationKind::AcceptedContact => 2,
+            DirectConversationAuthorizationKind::ManagedAgentController => 3,
+        };
+        if self.event_refs.len() != expected_len || unique.len() != self.event_refs.len() {
+            return Err(Error::Protocol(format!(
+                "direct conversation authorization basis requires {expected_len} unique event_refs (schema_violation)"
+            )));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
 pub enum CollaborationRealmRole {
     DirectConversation,
 }
@@ -445,6 +491,41 @@ mod tests {
         EventId::new(format!("ak:event:0196419b-0000-7000-8000-{suffix:0>12}")).unwrap()
     }
 
+    #[test]
+    fn authorization_basis_enforces_kind_specific_event_refs() {
+        assert!(
+            DirectConversationAuthorizationBasis::accepted_contact(vec![
+                event_id("301"),
+                event_id("308"),
+            ])
+            .validate_shape()
+            .is_ok()
+        );
+        assert!(
+            DirectConversationAuthorizationBasis::managed_agent_controller(vec![
+                event_id("311"),
+                event_id("312"),
+                event_id("313"),
+            ])
+            .validate_shape()
+            .is_ok()
+        );
+        assert!(
+            DirectConversationAuthorizationBasis::accepted_contact(vec![event_id("301")])
+                .validate_shape()
+                .is_err()
+        );
+        assert!(
+            DirectConversationAuthorizationBasis::managed_agent_controller(vec![
+                event_id("311"),
+                event_id("311"),
+                event_id("313"),
+            ])
+            .validate_shape()
+            .is_err()
+        );
+    }
+
     fn binding_payload(
         state: DirectConversationAuthoredBindingState,
         supersedes_binding_ref: Option<EventId>,
@@ -466,7 +547,10 @@ mod tests {
                 "ak:strand:0196419b-0000-7000-8000-000000000201".to_owned(),
             )
             .unwrap(),
-            contact_refs: vec![event_id("301")],
+            authorization_basis: DirectConversationAuthorizationBasis::accepted_contact(vec![
+                event_id("301"),
+                event_id("308"),
+            ]),
             member_event_refs: vec![event_id("302"), event_id("303")],
             main_strand_create_ref: event_id("304"),
             mls_group_id: MlsGroupId::new("ak:mls_group:direct-fixture").unwrap(),

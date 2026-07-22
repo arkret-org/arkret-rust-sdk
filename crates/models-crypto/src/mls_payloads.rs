@@ -6,7 +6,8 @@ use std::sync::OnceLock;
 use arkret_wire::base64url::{base64url_decode, base64url_encode};
 use arkret_wire::event_envelope::EffectiveScope;
 use arkret_wire::{
-    CircleId, Did, Error, EventId, EventKind, Hash, MlsGroupId, RealmId, Result, canonical,
+    CircleId, Did, Error, EventId, EventKind, Hash, MlsGroupId, NonEmptyString, RealmId, Result,
+    SidecarId, canonical,
 };
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -18,6 +19,42 @@ pub const MLS_GOVERNANCE_BINDING_EXTENSION_TYPE: u16 = 0xF1C0;
 pub const MLS_GOVERNANCE_BINDING_EXTENSION_NAME: &str = "mls_governance_binding";
 pub const MLS_GOVERNANCE_BINDING_FULL_PROFILE: &str = "ak.profile.mls_governance_binding.full.v1";
 pub const MLS_GOVERNANCE_BINDING_RELAXED_PROFILE: &str = "ak.profile.e2ee_relaxed.v1";
+
+/// Sidecar-specific extension of an MLS governance binding.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct SidecarMlsBinding {
+    pub sidecar_id: SidecarId,
+    pub desired_access_digest: Hash,
+    pub control_frontier: Vec<NonEmptyString>,
+}
+
+impl SidecarMlsBinding {
+    pub fn validate(&self) -> Result<()> {
+        if self.control_frontier.is_empty() {
+            return Err(Error::Protocol(
+                "mls_governance_binding.sidecar_binding.control_frontier must be non-empty (schema_violation)"
+                    .to_owned(),
+            ));
+        }
+        if self
+            .control_frontier
+            .windows(2)
+            .any(|pair| pair[0].as_str().as_bytes() >= pair[1].as_str().as_bytes())
+        {
+            return Err(Error::Protocol(
+                "mls_governance_binding.sidecar_binding.control_frontier must be UTF-8 byte-lexicographically sorted and unique (schema_violation)"
+                    .to_owned(),
+            ));
+        }
+        hash_digest_bytes(
+            "sidecar_binding.desired_access_digest",
+            &self.desired_access_digest,
+        )?;
+        Ok(())
+    }
+}
 
 /// `event-payload.schema.json#/$defs/mls_governance_binding`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -38,6 +75,8 @@ pub struct MlsGovernanceBindingPayload {
     capability_root: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     discussion_metadata_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    sidecar_binding: Option<SidecarMlsBinding>,
     binding_profile: String,
     reducer_profile: String,
 }
@@ -73,6 +112,7 @@ impl MlsGovernanceBindingPayload {
             policy_root,
             capability_root: Some(capability_root),
             discussion_metadata_digest: Some(discussion_metadata_digest),
+            sidecar_binding: None,
             binding_profile: binding_profile.into(),
             reducer_profile: reducer_profile.into(),
         };
@@ -114,6 +154,7 @@ impl MlsGovernanceBindingPayload {
             policy_root,
             capability_root: Some(capability_root),
             discussion_metadata_digest: Some(discussion_metadata_digest),
+            sidecar_binding: None,
             binding_profile: binding_profile.into(),
             reducer_profile: reducer_profile.into(),
         };
@@ -128,6 +169,17 @@ impl MlsGovernanceBindingPayload {
 
     pub fn with_discussion_metadata_digest(mut self, digest: Hash) -> Self {
         self.discussion_metadata_digest = Some(digest);
+        self
+    }
+
+    pub fn with_sidecar_binding(mut self, binding: SidecarMlsBinding) -> Result<Self> {
+        self.sidecar_binding = Some(binding);
+        self.validate()?;
+        Ok(self)
+    }
+
+    pub fn without_sidecar_binding(mut self) -> Self {
+        self.sidecar_binding = None;
         self
     }
 
@@ -183,7 +235,10 @@ impl MlsGovernanceBindingPayload {
         }
         match &self.effective_scope {
             EffectiveScope::Realm { realm_id } => {
-                if realm_id != &self.realm_id || self.circle_id.is_some() {
+                if realm_id != &self.realm_id
+                    || self.circle_id.is_some()
+                    || self.sidecar_binding.is_some()
+                {
                     return Err(Error::Protocol(
                         "mls_governance_binding realm effective_scope mismatch (schema_violation)"
                             .to_owned(),
@@ -199,6 +254,9 @@ impl MlsGovernanceBindingPayload {
                         "mls_governance_binding circle effective_scope mismatch (schema_violation)"
                             .to_owned(),
                     ));
+                }
+                if let Some(binding) = &self.sidecar_binding {
+                    binding.validate()?;
                 }
             }
             // Fail closed on scope kinds this crate does not know about.
@@ -269,6 +327,20 @@ impl MlsGovernanceBindingPayload {
         {
             return Err(Error::Protocol("mls_governance_binding.discussion_metadata_digest is stale (mls_governance_binding_stale)".to_owned()));
         }
+        if let Some(sidecar_binding) = expected.sidecar_binding
+            && self.sidecar_binding.as_ref() != Some(sidecar_binding)
+        {
+            return Err(Error::Protocol(
+                "mls_governance_binding.sidecar_binding is stale (mls_governance_binding_stale)"
+                    .to_owned(),
+            ));
+        }
+        if expected.forbid_sidecar_binding && self.sidecar_binding.is_some() {
+            return Err(Error::Protocol(
+                "mls_governance_binding.sidecar_binding is forbidden for this scope (state_mismatch)"
+                    .to_owned(),
+            ));
+        }
         Ok(())
     }
 
@@ -326,6 +398,10 @@ impl MlsGovernanceBindingPayload {
         cbor_put_tstr(&mut out, self.realm_id.as_str());
         cbor_put_tstr(&mut out, "reducer_profile");
         cbor_put_tstr(&mut out, &self.reducer_profile);
+        if let Some(binding) = &self.sidecar_binding {
+            cbor_put_tstr(&mut out, "sidecar_binding");
+            encode_sidecar_binding(&mut out, binding)?;
+        }
         Ok(out)
     }
 
@@ -388,6 +464,10 @@ impl MlsGovernanceBindingPayload {
         self.discussion_metadata_digest.as_ref()
     }
 
+    pub fn sidecar_binding(&self) -> Option<&SidecarMlsBinding> {
+        self.sidecar_binding.as_ref()
+    }
+
     pub fn binding_profile(&self) -> &str {
         &self.binding_profile
     }
@@ -400,6 +480,7 @@ impl MlsGovernanceBindingPayload {
         11 + self.capability_root.is_some() as u64
             + self.circle_id.is_some() as u64
             + self.discussion_metadata_digest.is_some() as u64
+            + self.sidecar_binding.is_some() as u64
     }
 
     fn from_cbor_fields(mut fields: BTreeMap<String, CborValue>) -> Result<Self> {
@@ -442,6 +523,7 @@ impl MlsGovernanceBindingPayload {
         let realm_id = RealmId::new(take_tstr(&mut fields, "realm_id")?)
             .map_err(|err| cbor_error_message(format!("realm_id is invalid: {err}")))?;
         let reducer_profile = take_tstr(&mut fields, "reducer_profile")?;
+        let sidecar_binding = take_optional_sidecar_binding(&mut fields)?;
         if let Some(extra) = fields.keys().next() {
             return Err(cbor_error_message(format!(
                 "unexpected mls_governance_binding CBOR key `{extra}`"
@@ -460,6 +542,7 @@ impl MlsGovernanceBindingPayload {
             policy_root,
             capability_root,
             discussion_metadata_digest,
+            sidecar_binding,
             binding_profile,
             reducer_profile,
         };
@@ -486,6 +569,8 @@ struct MlsGovernanceBindingPayloadWire {
     capability_root: Option<Hash>,
     #[serde(default)]
     discussion_metadata_digest: Option<Hash>,
+    #[serde(default)]
+    sidecar_binding: Option<SidecarMlsBinding>,
     binding_profile: String,
     reducer_profile: String,
 }
@@ -507,6 +592,7 @@ impl TryFrom<MlsGovernanceBindingPayloadWire> for MlsGovernanceBindingPayload {
             policy_root: wire.policy_root,
             capability_root: wire.capability_root,
             discussion_metadata_digest: wire.discussion_metadata_digest,
+            sidecar_binding: wire.sidecar_binding,
             binding_profile: wire.binding_profile,
             reducer_profile: wire.reducer_profile,
         };
@@ -549,6 +635,8 @@ pub struct MlsGovernanceBindingValidationContext<'a> {
     pub policy_root: Option<&'a Hash>,
     pub capability_root: Option<&'a Hash>,
     pub discussion_metadata_digest: Option<&'a Hash>,
+    pub sidecar_binding: Option<&'a SidecarMlsBinding>,
+    pub forbid_sidecar_binding: bool,
 }
 
 impl<'a> MlsGovernanceBindingValidationContext<'a> {
@@ -570,7 +658,21 @@ impl<'a> MlsGovernanceBindingValidationContext<'a> {
             policy_root: None,
             capability_root: None,
             discussion_metadata_digest: None,
+            sidecar_binding: None,
+            forbid_sidecar_binding: false,
         }
+    }
+
+    pub fn with_sidecar_binding(mut self, binding: &'a SidecarMlsBinding) -> Self {
+        self.sidecar_binding = Some(binding);
+        self.forbid_sidecar_binding = false;
+        self
+    }
+
+    pub fn without_sidecar_binding(mut self) -> Self {
+        self.sidecar_binding = None;
+        self.forbid_sidecar_binding = true;
+        self
     }
 }
 
@@ -1145,6 +1247,27 @@ fn encode_effective_scope(out: &mut Vec<u8>, scope: &EffectiveScope) -> Result<(
     Ok(())
 }
 
+fn encode_sidecar_binding(out: &mut Vec<u8>, binding: &SidecarMlsBinding) -> Result<()> {
+    binding.validate()?;
+    cbor_put_map_len(out, 3);
+    cbor_put_tstr(out, "control_frontier");
+    cbor_put_array_len(out, binding.control_frontier.len() as u64);
+    for control_ref in &binding.control_frontier {
+        cbor_put_tstr(out, control_ref.as_str());
+    }
+    cbor_put_tstr(out, "desired_access_digest");
+    cbor_put_bstr(
+        out,
+        &hash_digest_bytes(
+            "sidecar_binding.desired_access_digest",
+            &binding.desired_access_digest,
+        )?,
+    );
+    cbor_put_tstr(out, "sidecar_id");
+    cbor_put_tstr(out, binding.sidecar_id.as_str());
+    Ok(())
+}
+
 fn take_tstr(fields: &mut BTreeMap<String, CborValue>, key: &str) -> Result<String> {
     match fields.remove(key) {
         Some(CborValue::Tstr(value)) => Ok(value),
@@ -1188,6 +1311,24 @@ fn take_bstr_array(fields: &mut BTreeMap<String, CborValue>, key: &str) -> Resul
                 CborValue::Bstr(bytes) => Ok(bytes),
                 _ => Err(cbor_error_message(format!(
                     "CBOR key `{key}` array items must be bstr"
+                ))),
+            })
+            .collect(),
+        Some(_) => Err(cbor_error_message(format!(
+            "CBOR key `{key}` must be array"
+        ))),
+        None => Err(cbor_error_message(format!("missing CBOR key `{key}`"))),
+    }
+}
+
+fn take_tstr_array(fields: &mut BTreeMap<String, CborValue>, key: &str) -> Result<Vec<String>> {
+    match fields.remove(key) {
+        Some(CborValue::Array(values)) => values
+            .into_iter()
+            .map(|value| match value {
+                CborValue::Tstr(value) => Ok(value),
+                _ => Err(cbor_error_message(format!(
+                    "CBOR key `{key}` array items must be tstr"
                 ))),
             })
             .collect(),
@@ -1242,6 +1383,42 @@ fn take_effective_scope(fields: &mut BTreeMap<String, CborValue>) -> Result<Effe
         }
         _ => Err(cbor_error("effective_scope.kind must be realm or circle")),
     }
+}
+
+fn take_optional_sidecar_binding(
+    fields: &mut BTreeMap<String, CborValue>,
+) -> Result<Option<SidecarMlsBinding>> {
+    let Some(value) = fields.remove("sidecar_binding") else {
+        return Ok(None);
+    };
+    let CborValue::Map(mut map) = value else {
+        return Err(cbor_error("CBOR key `sidecar_binding` must be map"));
+    };
+    let control_frontier = take_tstr_array(&mut map, "control_frontier")?
+        .into_iter()
+        .map(NonEmptyString::new)
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(|err| {
+            cbor_error_message(format!(
+                "sidecar_binding.control_frontier is invalid: {err}"
+            ))
+        })?;
+    let desired_access_digest = take_hash(&mut map, "desired_access_digest")?;
+    let sidecar_id = SidecarId::new(take_tstr(&mut map, "sidecar_id")?).map_err(|err| {
+        cbor_error_message(format!("sidecar_binding.sidecar_id is invalid: {err}"))
+    })?;
+    if let Some(extra) = map.keys().next() {
+        return Err(cbor_error_message(format!(
+            "unexpected sidecar_binding CBOR key `{extra}`"
+        )));
+    }
+    let binding = SidecarMlsBinding {
+        sidecar_id,
+        desired_access_digest,
+        control_frontier,
+    };
+    binding.validate()?;
+    Ok(Some(binding))
 }
 
 fn hash_digest_bytes(field: &str, hash: &Hash) -> Result<Vec<u8>> {
@@ -1427,6 +1604,96 @@ mod tests {
 
         assert_eq!(decoded.circle_id(), Some(&circle_id));
         assert_eq!(decoded, binding);
+    }
+
+    #[test]
+    fn sidecar_mls_binding_round_trips_and_is_validated_exactly() {
+        let circle_id = CircleId::new("ak:circle:0196419b-0000-7000-8000-000000000009").unwrap();
+        let sidecar_binding = SidecarMlsBinding {
+            sidecar_id: SidecarId::new("ak:sidecar:0196419b-0000-7000-8000-000000000010").unwrap(),
+            desired_access_digest: hash('8'),
+            control_frontier: vec![
+                NonEmptyString::new(event(2).to_string()).unwrap(),
+                NonEmptyString::new(event(3).to_string()).unwrap(),
+            ],
+        };
+        let binding = MlsGovernanceBindingPayload::circle(
+            realm(),
+            circle_id,
+            group_id(),
+            7,
+            8,
+            vec![event(2), event(3)],
+            hash('5'),
+            hash('6'),
+            hash('7'),
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            reducer_profile(),
+        )
+        .unwrap()
+        .with_sidecar_binding(sidecar_binding.clone())
+        .unwrap();
+
+        let bytes = binding.to_deterministic_cbor().unwrap();
+        assert_eq!(
+            canonical::sha256_digest(&bytes),
+            "sha256:ef25a25d51732bbec9bdd1e6779b105f3ccdaa1150cc7359da00ce0c2650d430"
+        );
+        let decoded = MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes).unwrap();
+        assert_eq!(decoded.sidecar_binding(), Some(&sidecar_binding));
+        let expected = MlsGovernanceBindingValidationContext::for_commit(
+            binding.mls_group_id(),
+            binding.previous_epoch(),
+            binding.next_epoch(),
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            reducer_profile(),
+        )
+        .with_sidecar_binding(&sidecar_binding);
+        decoded.validate_against(&expected).unwrap();
+
+        let mut stale = sidecar_binding.clone();
+        stale.desired_access_digest = hash('9');
+        let stale_expected = MlsGovernanceBindingValidationContext::for_commit(
+            binding.mls_group_id(),
+            binding.previous_epoch(),
+            binding.next_epoch(),
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            reducer_profile(),
+        )
+        .with_sidecar_binding(&stale);
+        assert!(decoded.validate_against(&stale_expected).is_err());
+        assert!(
+            decoded
+                .validate_against(
+                    &MlsGovernanceBindingValidationContext::for_commit(
+                        binding.mls_group_id(),
+                        binding.previous_epoch(),
+                        binding.next_epoch(),
+                        MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+                        reducer_profile(),
+                    )
+                    .without_sidecar_binding(),
+                )
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn sidecar_mls_binding_rejects_realm_scope_and_unsorted_frontier() {
+        let sidecar_binding = SidecarMlsBinding {
+            sidecar_id: SidecarId::new("ak:sidecar:0196419b-0000-7000-8000-000000000010").unwrap(),
+            desired_access_digest: hash('8'),
+            control_frontier: vec![
+                NonEmptyString::new(event(3).to_string()).unwrap(),
+                NonEmptyString::new(event(2).to_string()).unwrap(),
+            ],
+        };
+        assert!(sidecar_binding.validate().is_err());
+        assert!(
+            full_binding()
+                .with_sidecar_binding(sidecar_binding)
+                .is_err()
+        );
     }
 
     #[test]
