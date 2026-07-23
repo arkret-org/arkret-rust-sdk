@@ -42,7 +42,7 @@ brought into line:
   `failed_transaction_ref`, `error_class`, `error_code`, `retriable`,
   `visibility_scope`). The old `severity` / `target_ref` slots and the
   `AppletBridgeErrorSeverity` enum were removed in favor of
-  `AppletBridgeErrorVisibility`.
+  the canonical `AppletBridgeVisibilityScope`.
 - **Namespace pattern grammar aligned to §2.** `namespace_pattern_matches`
   is now domain-aware — `namespace_pattern_matches(AppletNamespaceDomain,
   pattern, candidate)`. Separators depend on the bucket (actor: `:`;
@@ -50,9 +50,11 @@ brought into line:
   matches an empty segment, and a DID `#fragment` is ignored for actor
   matching. Exclusive-overlap detection moved onto
   `AppletWireNamespaces::conflicts_with`.
-- **`applet` convenience feature added** (`applet-runtime` + `client` +
-  `server` + `salvo`) so `cargo add arkret --features applet` is all an
-  Applet service needs.
+- **Applet ownership split completed.** Applet wire contracts live in
+  `arkret-models-integration`, Event construction lives in
+  `arkret-event-draft`, and transport/server features are selected
+  independently; the former composite `applet`/`applet-runtime` features are
+  retired.
 - **Parallel models removed** (compatibility intentionally
   dropped): `SignedAppletRegistration`, the pre-wire `AppletSchema` /
   `AppletPermission` / `OpenApiBinding` triple, and

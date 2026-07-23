@@ -23,7 +23,7 @@ services such as floria, chime and inkson without taking on server runtime
 dependencies.
 
 The default feature set is the protocol/type surface only. It does not enable
-`openmls`, `reqwest`, `tokio`, `full-surface`, `applet-runtime`,
+`openmls`, `reqwest`, `tokio`, `full-surface`,
 `device-runtime`, `sync-runtime` or `timeline-runtime`.
 
 Common opt-ins:
@@ -31,5 +31,6 @@ Common opt-ins:
 - `client`: reqwest/tokio HTTP client bindings.
 - `full-surface`: high-level SDK managers and local runtime facades.
 - `mls`: OpenMLS-backed MLS helpers.
-- `applet`: Applet convenience surface (`applet-runtime`, `client`, `server`,
-  `salvo`).
+- Applet wire contracts are always available from `arkret-models-integration`;
+  use `arkret-event-draft` for bridge-error Event construction and enable
+  `client`, `server` or `salvo` independently when those runtime layers are needed.

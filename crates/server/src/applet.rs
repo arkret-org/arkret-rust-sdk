@@ -10,7 +10,8 @@
 //! effects, and conflicting duplicates fail closed with
 //! `duplicate_conflict` (`applet-integration.md` §7.3).
 //!
-//! The trait surface is always available (under `applet-runtime`).
+//! The trait surface is available through the server crate or the umbrella
+//! `server` feature.
 //! The Salvo `Router` factory is gated behind the `salvo` feature;
 //! when off, callers can still implement [`AppletHandler`], route to it
 //! themselves, and reuse [`AppletService::dispatch_transaction`] for the

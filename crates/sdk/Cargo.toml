@@ -59,13 +59,6 @@ salvo = [
     # the blocking pool (tokio::task::spawn_blocking).
     "dep:tokio",
 ]
-applet-runtime = ["full-surface", "server"]
-# Convenience umbrella for Applet developers: turns on the applet wire
-# surface (`applet` module), the reqwest HTTP client
-# (push transactions / query actors-realms), the framework-neutral
-# server handler contracts and the ready-made Salvo `Router` factory.
-# `cargo add arkret --features applet` is all an Applet service needs.
-applet = ["applet-runtime", "client", "server", "salvo"]
 device-runtime = [
     "full-surface",
     "arkret-crypto/backup",
@@ -121,7 +114,6 @@ thiserror = {workspace = true}
 tokio = {workspace = true,features = ["rt", "macros"],optional = true}
 tracing = {workspace = true,optional = true}
 url = {workspace = true,features = ["serde"],optional = true}
-uuid = {workspace = true}
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # rt-multi-thread is required for tokio::task::block_in_place, which the
 # sync HttpDidResolver facade uses to block safely on multi-thread runtimes.

@@ -2336,7 +2336,7 @@
       "rust_field": "crates/models-integration/src/applet/registration.rs::WireAppletRegistration.manifest",
       "crate": "models-integration",
       "file": "crates/models-integration/src/applet/registration.rs",
-      "line": 456,
+      "line": 455,
       "owner": "WireAppletRegistration",
       "field": "manifest",
       "rust_type": "Option<BTreeMap<String, Value>>",

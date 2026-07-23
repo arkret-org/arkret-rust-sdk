@@ -49,7 +49,7 @@
 //
 // Today's Cargo feature graph already forces these implications at resolution
 // time (`mls = ["full-surface", ...]`, `server = [..., "full-surface"]`,
-// `salvo = ["server", ...]`, `*-runtime = ["full-surface"]`), so the guards
+// `salvo = ["server", ...]`, `device-runtime = ["full-surface", ...]`), so the guards
 // below are unreachable. They exist as zero-cost regression armour: if a
 // future Cargo.toml edit drops one of the implications, the build fails here
 // instead of shipping a reviewed-unsafe feature combination.
@@ -62,12 +62,9 @@ compile_error!(
 );
 #[cfg(all(feature = "salvo", not(feature = "server")))]
 compile_error!("feature `salvo` requires `server` (see crates/sdk/Cargo.toml feature graph)");
-#[cfg(all(
-    any(feature = "applet-runtime", feature = "device-runtime"),
-    not(feature = "full-surface")
-))]
+#[cfg(all(feature = "device-runtime", not(feature = "full-surface")))]
 compile_error!(
-    "runtime features (applet/device) require `full-surface` \
+    "feature `device-runtime` requires `full-surface` \
      (see crates/sdk/Cargo.toml feature graph)"
 );
 
@@ -89,14 +86,14 @@ pub use arkret_crypto as crypto;
 pub use arkret_crypto::{account_data_crypto, identity_root};
 pub use arkret_egress_policy as network_policy;
 pub use arkret_event_draft::{
-    CausalRef, ContainerRebalanceAssignment, EventDraftKindConformanceVector,
-    EventDraftKindRegistry, EventDraftKindSpec, EventDraftKindValidation, EventPayloadExt,
-    FederationPullOperationsOutcome, FederationPushOperationsOutcome,
-    FederationPushOperationsRequestBody, FederationTransactionOutcome,
-    FederationTransactionRequestBody, GhostActorProfileRequest, MessageEventPayload,
-    MlsEnvelopeOperationExt, Operation, OperationEnvelope, OperationEnvelopeBuilder,
-    OperationEventConversion, OperationSignature, StrandCreateObject, StrandTracksUpdatePayload,
-    accountability_grant_event, container_rebalance_assignments,
+    AppletBridgeErrorBuilder, CausalRef, ContainerRebalanceAssignment,
+    EventDraftKindConformanceVector, EventDraftKindRegistry, EventDraftKindSpec,
+    EventDraftKindValidation, EventPayloadExt, FederationPullOperationsOutcome,
+    FederationPushOperationsOutcome, FederationPushOperationsRequestBody,
+    FederationTransactionOutcome, FederationTransactionRequestBody, GhostActorProfileRequest,
+    MessageEventPayload, MlsEnvelopeOperationExt, Operation, OperationEnvelope,
+    OperationEnvelopeBuilder, OperationEventConversion, OperationSignature, StrandCreateObject,
+    StrandTracksUpdatePayload, accountability_grant_event, container_rebalance_assignments,
     event_draft_kind_conformance_vectors, operations, rank_between, rank_exhausted,
 };
 pub use arkret_hlc::{
@@ -411,8 +408,6 @@ pub mod sync {
 pub use arkret_state::{consent, mls_move, resolver};
 #[cfg(feature = "full-surface")]
 pub mod agent;
-#[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
-pub mod applet;
 /// Canonical encrypted attachment codec (`ak.blob.stream_aead.v1` /
 /// `ak.blob.whole_file_aead.v1`, `media-and-blob.md` §3.2/§3.3).
 #[cfg(feature = "full-surface")]
@@ -466,17 +461,6 @@ pub use arkret_signatures::http_signature;
 pub mod mls {
     pub use arkret_mls::*;
 }
-#[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
-pub use applet::{
-    AppletAcceptedSigningKeyEvidence, AppletBridgeErrorBuilder, AppletBridgeErrorClass,
-    AppletBridgeErrorVisibility, AppletDelegatedEventAuthorization, AppletEpochEvidenceError,
-    AppletNamespaceConflict, AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage,
-    AppletPortal, AppletRegistrationEpochEvidence, AppletServiceIntent, AppletServiceTransaction,
-    AppletWireNamespaces, GhostActorProfileFields, GhostActorProvisionOutcome,
-    GhostActorProvisionRequestBody, PortalMode, PortalRealmMapping, WebhookAuth,
-    WireAppletRegistration, applet_did_document_digest, applet_signing_key_material_digest,
-    namespace_pattern_matches, normalize_applet_signing_key_ref, sign_registration,
-};
 #[cfg(feature = "full-surface")]
 pub use arkret_crypto::sframe;
 #[cfg(feature = "full-surface")]
@@ -498,13 +482,9 @@ pub use arkret_identifiers::hlc::{
 // independent of the heavier `mls` group-machine feature.
 #[cfg(feature = "full-surface")]
 pub use arkret_models_crypto::{MlsCommitSource, MlsGroupStateSink};
-#[cfg(all(
-    feature = "full-surface",
-    feature = "applet-runtime",
-    feature = "salvo"
-))]
+#[cfg(feature = "salvo")]
 pub use arkret_server::applet_router;
-#[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
+#[cfg(feature = "server")]
 pub use arkret_server::{
     AppletHandler, AppletService, ServiceRoute, TransactionDispatch, service_routes,
 };

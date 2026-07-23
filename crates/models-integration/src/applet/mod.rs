@@ -3,9 +3,9 @@
 //! Includes the package / registration-epoch aggregates (`AppletPackage`,
 //! `AppletRegistrationEpochTranscript`, `AppletRegistrationEpochEvidence`),
 //! which bind the DID document (`arkret-models-identity`) and the widget
-//! declaration (`crate::Widget`). The Ghost Actor profile /
-//! accountability-grant builders stay in the `arkret` umbrella (they build
-//! collaboration-owned events and grants).
+//! declaration (`crate::Widget`). Event materialization belongs to
+//! `arkret-event-draft`; this crate owns only the wire contracts and their
+//! type-local invariants.
 
 mod ghost;
 mod namespace_match;

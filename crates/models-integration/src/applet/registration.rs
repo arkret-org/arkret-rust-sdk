@@ -421,8 +421,7 @@ pub struct AppletRegistrationEpochDidDocument {
 ///
 /// This is the on-the-wire shape every external Applet implementation
 /// sends. Build it directly via [`WireAppletRegistration::new`] or derive
-/// it from an `AppletPackage` (in the `arkret` umbrella) with
-/// `AppletPackage::to_registration`.
+/// it from an [`AppletPackage`] with [`AppletPackage::to_registration`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct WireAppletRegistration {
@@ -450,7 +449,7 @@ pub struct WireAppletRegistration {
     /// grants bind this epoch (`applet-integration.md` §11). Direct wire
     /// builders supply the value; package producers compute it with
     /// `AppletRegistrationEpochTranscript` or
-    /// `AppletPackage::seal_registration_epoch` (both in the `arkret` umbrella).
+    /// [`AppletPackage::seal_registration_epoch`].
     pub registration_epoch: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub webhook_auth: Option<WebhookAuth>,

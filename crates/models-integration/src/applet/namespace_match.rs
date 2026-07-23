@@ -117,3 +117,76 @@ fn namespace_pattern_match_bytes(separators: &[u8], pattern: &[u8], candidate: &
 
     ci == candidate.len()
 }
+
+#[cfg(test)]
+mod tests {
+    use AppletNamespaceDomain::{Actors, Realms};
+
+    use super::*;
+
+    #[test]
+    fn single_star_matches_exactly_one_segment() {
+        assert!(namespace_pattern_matches(
+            Actors,
+            "did:webvh:z6mkfixture:slack-bridge.example:ghost:*",
+            "did:webvh:z6mkfixture:slack-bridge.example:ghost:u123"
+        ));
+        assert!(!namespace_pattern_matches(
+            Actors,
+            "did:webvh:z6mkfixture:slack-bridge.example:ghost:*",
+            "did:webvh:z6mkfixture:other.example:ghost:u123"
+        ));
+        assert!(!namespace_pattern_matches(
+            Realms,
+            "slack:team:*:channel:*",
+            "slack:team:T123:channel:C456:thread:1"
+        ));
+    }
+
+    #[test]
+    fn actor_matching_ignores_did_fragment() {
+        assert!(namespace_pattern_matches(
+            Actors,
+            "did:webvh:z6mkfixture:slack-bridge.example:ghost:*",
+            "did:webvh:z6mkfixture:slack-bridge.example:ghost:u123#key-1"
+        ));
+    }
+
+    #[test]
+    fn double_star_crosses_slash_but_not_colon_or_empty_segment() {
+        assert!(namespace_pattern_matches(
+            Realms,
+            "slack.acme.example/**",
+            "slack.acme.example/team/a/b"
+        ));
+        assert!(!namespace_pattern_matches(
+            Realms,
+            "slack:team:**",
+            "slack:team:T123:channel:C456"
+        ));
+        assert!(!namespace_pattern_matches(
+            Realms,
+            "slack.acme.example/**",
+            "slack.acme.example/"
+        ));
+    }
+
+    #[test]
+    fn escaped_star_is_literal_and_empty_pattern_is_closed() {
+        assert!(namespace_pattern_matches(
+            Realms,
+            "literal\\*pattern",
+            "literal*pattern"
+        ));
+        assert!(!namespace_pattern_matches(
+            Realms,
+            "literal\\*pattern",
+            "literalXpattern"
+        ));
+        assert!(!namespace_pattern_matches(
+            Actors,
+            "",
+            "did:webvh:z6mkfixture:anything.example"
+        ));
+    }
+}
