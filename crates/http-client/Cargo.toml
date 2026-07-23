@@ -35,7 +35,7 @@ arkret-models-crypto = {workspace = true}
 arkret-models-discovery = {workspace = true}
 arkret-models-identity = {workspace = true}
 arkret-models-integration = {workspace = true}
-arkret-signatures = {workspace = true,features = ["protocol"]}
+arkret-signatures.workspace = true
 arkret-wire = {workspace = true}
 arkret-state = {workspace = true}
 futures-util = {workspace = true,default-features = false,features = ["std"]}

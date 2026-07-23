@@ -40,7 +40,7 @@ arkret-models-discovery = {workspace = true}
 arkret-models-identity = {workspace = true}
 arkret-models-integration = {workspace = true}
 arkret-wire = {workspace = true}
-arkret-signatures = {workspace = true,features = ["protocol"]}
+arkret-signatures.workspace = true
 arkret-state = {workspace = true}
 chrono = {workspace = true}
 salvo = {workspace = true,features = ["affix-state", "oapi"],optional = true}

@@ -12,14 +12,12 @@ rust-version.workspace = true
 version.workspace = true
 
 [features]
-default = ["protocol"]
-protocol = [
-    "dep:arkret-models-collaboration",
-    "dep:arkret-models-crypto",
-    "dep:arkret-models-discovery",
-    "dep:arkret-models-identity",
-]
-signer = ["protocol"]
+default = []
+collaboration = ["dep:arkret-models-collaboration"]
+keypackages = ["dep:arkret-models-crypto"]
+service-identity = ["dep:arkret-models-identity"]
+webvh = ["dep:arkret-models-discovery", "dep:arkret-models-identity"]
+signer = []
 
 [dependencies]
 # RFC 9421 HTTP Message Signatures + detached-JWS Ed25519 verify are always
@@ -29,11 +27,8 @@ signer = ["protocol"]
 base64 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 arkret-canonical = {workspace = true}
-# Data crates the protocol behavior signs over ("behavior depends on data"):
-# models-identity for service-identity / webvh inception contracts,
-# models-collaboration for the realm-organization statement family and the
-# ephemeral proof envelope, models-discovery for the DID service-entry
-# registry constants.
+# Optional data crates are enabled only by the behavior that signs their
+# models. The model leaves must not be unified by a composite feature.
 arkret-models-collaboration = {workspace = true,optional = true}
 arkret-models-crypto = {workspace = true,optional = true}
 arkret-models-discovery = {workspace = true,optional = true}

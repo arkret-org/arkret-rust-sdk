@@ -53,8 +53,16 @@ verifier.verify(&bytes, &signature, &public).unwrap();
 
 ## Feature flags
 
+- `collaboration`: enables Agent, call-media, Realm organization, and
+  ephemeral-envelope signing helpers that consume collaboration models.
+- `keypackages`: enables MLS KeyPackage request signing helpers.
+- `service-identity`: enables service-identity statement helpers.
+- `webvh`: enables `did:webvh` inception and validation helpers.
 - `signer`: enables `Ed25519DetachedJwsSigner` / `Ed25519DetachedJwsVerifier`
-  and `Ed25519MoveSigner`. Pulls in `ed25519-dalek` and `sha2`.
+  and `Ed25519MoveSigner`.
+
+The default surface contains proof/JWS/JWT/DPoP and HTTP Message Signature
+primitives without depending on any Arkret model leaf.
 
 ## Test vectors
 

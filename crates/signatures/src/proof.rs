@@ -35,6 +35,7 @@ use std::fmt;
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical;
+#[cfg(feature = "collaboration")]
 use arkret_models_collaboration::events_payloads::ephemeral::EphemeralEnvelope;
 use arkret_wire::{Hash, Proof, proof_kind};
 use chrono::Utc;
@@ -172,6 +173,7 @@ pub fn verify_eddsa_detached_jws_proof(
 /// Verify an ephemeral broadcast envelope against an authorized device key.
 /// The envelope's digest excludes `proof`, while its detached JWS uses the
 /// `ak.ephemeral-proof-v1` binding context mandated by the wire schema.
+#[cfg(feature = "collaboration")]
 pub fn verify_eddsa_detached_jws_ephemeral_proof(
     envelope: &EphemeralEnvelope,
     public_key: &PublicKeyMaterial,

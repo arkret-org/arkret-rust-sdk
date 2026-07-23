@@ -20,7 +20,7 @@ arkret-canonical = { path = "../crates/canonical", default-features = false }
 arkret-hlc = { path = "../crates/hlc", default-features = false }
 arkret-identifiers = { path = "../crates/identifiers", default-features = false }
 arkret-models-crypto = { path = "../crates/models-crypto", default-features = false }
-arkret-signatures = { path = "../crates/signatures", default-features = false, features = ["protocol"] }
+arkret-signatures = { path = "../crates/signatures", default-features = false }
 arkret-wire = { path = "../crates/wire", default-features = false }
 serde_json = "1"
 

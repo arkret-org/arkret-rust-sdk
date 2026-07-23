@@ -36,14 +36,17 @@ pub mod jwk;
 // Shared `did:webvh` inception builder. Pure build + cryptography (keygen, SCID
 // derivation, eddsa-jcs-2022 proof) so clients and servers mint identical
 // inception entries. HTTP submission lives in the caller.
+#[cfg(feature = "webvh")]
 #[path = "webvh/mod.rs"]
 pub mod webvh;
 
+#[cfg(feature = "service-identity")]
 #[path = "service_identity.rs"]
 pub mod service_identity;
 
 // Organization-side statement signing (A3). Byte-symmetric counterpart to
 // soland's `verify_realm_organization_proof_signature`.
+#[cfg(feature = "collaboration")]
 #[path = "realm_organization.rs"]
 pub mod realm_organization;
 
@@ -75,13 +78,15 @@ pub use jwt::{
     JsonWebTokenClaims, JsonWebTokenHeader, JwtAlgorithm, JwtAudience, JwtType,
     JwtVerificationError, JwtVerificationPolicy, VerifiedJwt, verify_eddsa_jwt_with_jwks,
 };
+#[cfg(feature = "collaboration")]
+pub use proof::verify_eddsa_detached_jws_ephemeral_proof;
 pub use proof::{
     Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier, EventProofBuilder, EventSigner,
     EventVerifier, ProductionVerifier, ProofType, PublicKeyMaterial, SignedPayload, SignerError,
     VerifierError, build_proof_envelope, detached_jws_kind, sign_eddsa_detached_jws,
-    verify_detached_ed25519_signature, verify_eddsa_detached_jws_ephemeral_proof,
-    verify_eddsa_detached_jws_proof,
+    verify_detached_ed25519_signature, verify_eddsa_detached_jws_proof,
 };
+#[cfg(feature = "collaboration")]
 pub use realm_organization::realm_organization_statement_sign;
 use serde::{Deserialize, Serialize};
 

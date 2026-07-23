@@ -88,7 +88,12 @@ arkret-mls = {workspace = true,optional = true}
 arkret-policy = {workspace = true}
 arkret-schema = {workspace = true}
 arkret-server = {workspace = true,optional = true}
-arkret-signatures = {workspace = true,features = ["protocol"]}
+arkret-signatures = {workspace = true,features = [
+    "collaboration",
+    "keypackages",
+    "service-identity",
+    "webvh",
+]}
 arkret-state = {workspace = true}
 arkret-wire = {workspace = true}
 reqwest = {workspace = true,features = ["json", "gzip", "http2"],optional = true}
