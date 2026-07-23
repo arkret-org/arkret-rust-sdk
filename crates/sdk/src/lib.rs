@@ -484,11 +484,7 @@ pub mod mls {
 #[cfg(feature = "full-surface")]
 pub use arkret_crypto::sframe;
 #[cfg(feature = "full-surface")]
-pub mod snapshot_v1;
-#[cfg(feature = "full-surface")]
 pub mod webrtc;
-#[cfg(feature = "full-surface")]
-#[cfg(feature = "full-surface")]
 #[cfg(feature = "full-surface")]
 pub use agent::{
     AgentPrincipal, AgentRun, AgentRunState, AgentToolAuditAction, AgentToolAuditEntry,
@@ -674,11 +670,6 @@ pub use sframe::{
     FRAME_KEY_LABEL, FrameKeyContext, MEDIA_KEY_LEN, MlsExporterSource, RECORDING_KEY_LABEL,
     RecordingKeyContext, TRANSCRIPT_KEY_LABEL, TranscriptKeyContext, derive_frame_key,
     derive_recording_key, derive_transcript_key,
-};
-#[cfg(feature = "full-surface")]
-pub use snapshot_v1::{
-    sign_snapshot_manifest_ed25519, verify_snapshot_manifest as verify_snapshot_manifest_v1,
-    verify_snapshot_manifest_signature,
 };
 #[cfg(feature = "full-surface")]
 pub use webrtc::{
