@@ -22,8 +22,8 @@ pub fn sign_snapshot_manifest_ed25519(
 ) -> Result<DetachedJwsProof> {
     let canonical_bytes = manifest.unsigned_canonical_bytes()?;
     let payload_digest = Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))?;
-    let jws =
-        crate::jws::sign_jws_ed25519(&canonical_bytes, signing_key).map_err(Error::Protocol)?;
+    let jws = arkret_signatures::jws::sign_jws_ed25519(&canonical_bytes, signing_key)
+        .map_err(Error::Protocol)?;
     let proof =
         DetachedJwsProof::eddsa(verification_method.into(), payload_digest, created_at, jws);
     manifest.signature = proof.clone();

@@ -74,7 +74,9 @@ compile_error!(
 );
 
 mod sdk_error;
-pub use arkret_auth::AdminKeyStore;
+pub use arkret_auth as auth;
+pub use arkret_auth::{AdminKeyStore, session_grant};
+pub use arkret_bootstrap as bootstrap;
 pub use arkret_canonical as canonical;
 pub use arkret_canonical::base64url::{
     base64_standard_decode, base64_standard_encode, base64url_decode, base64url_encode,
@@ -85,7 +87,7 @@ pub use arkret_canonical::multibase::{
     ed25519_pubkey_to_did_key_multibase, encode_base58btc, encode_multibase_base58btc,
     sha256_multihash_base58btc,
 };
-pub use arkret_crypto::identity_root;
+pub use arkret_crypto::{account_data_crypto, identity_root};
 pub use arkret_egress_policy as network_policy;
 pub use arkret_event_draft::{
     CausalRef, ContainerRebalanceAssignment, EventDraftKindConformanceVector,
@@ -115,6 +117,8 @@ pub use arkret_identifiers::{
     RequestId, RtcParticipantId, SealId, SidecarId, SnapshotId, SpaceId, StrandId, TransactionId,
     TypedAppealId, TypedTrustDomainId, ViewId, new_prefixed_uuid7,
 };
+pub use arkret_identity as identity;
+pub use arkret_identity::jws;
 pub use arkret_identity::service_identity::{
     FileIdentityBundleBackend, IdentityBundleBackend, IdentityBundleBackendAvailability,
     KeyStoreIdentityBundleBackend, LocalServiceIdentity, ResolvedService, ServiceIdentityBundle,
@@ -404,21 +408,17 @@ pub mod sync {
 // re-exports these symbols, but listing them explicitly keeps them
 // visible in `cargo doc` and signals the supported surface to
 // downstream crates that depend only on the `arkret` umbrella.
-pub mod account_data_crypto;
+pub use arkret_state::{consent, mls_move, resolver};
 #[cfg(feature = "full-surface")]
 pub mod agent;
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub mod applet;
 #[cfg(feature = "full-surface")]
-pub mod auth;
-#[cfg(feature = "full-surface")]
 pub mod authz;
 /// Canonical encrypted attachment codec (`ak.blob.stream_aead.v1` /
 /// `ak.blob.whole_file_aead.v1`, `media-and-blob.md` §3.2/§3.3).
 #[cfg(feature = "full-surface")]
-pub mod blob_aead;
-#[cfg(feature = "full-surface")]
-pub mod consent;
+pub use arkret_crypto::blob_aead;
 #[cfg(feature = "full-surface")]
 pub mod crypto;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
@@ -457,15 +457,11 @@ pub use arkret_http_client::http_did_resolver;
 #[cfg(feature = "full-surface")]
 pub use arkret_signatures::http_signature;
 #[cfg(feature = "full-surface")]
-pub mod identity;
-#[cfg(feature = "full-surface")]
 pub mod identity_link;
 /// RFC 7515 detached Ed25519 JWS verifier (see [`jws`] module docs).
 /// Lives at the SDK root so principal-server-style consumers (inkson,
 /// floria, cotest, teabay, soland) all reach the same verifier. Depends
 /// on `identity::DidResolver`, so it's gated on `full-surface`.
-#[cfg(feature = "full-surface")]
-pub mod jws;
 // `key_backup_client` now lives in arkret-http-client; this shim keeps the
 // `arkret::key_backup_client::*` path stable.
 #[cfg(all(
@@ -498,23 +494,9 @@ pub mod mls {
     pub use arkret_mls::*;
 }
 #[cfg(feature = "full-surface")]
-pub mod mls_move;
-#[cfg(feature = "full-surface")]
 pub mod push;
 #[cfg(feature = "full-surface")]
-// State resolution + snapshot runtime now lives in `arkret-state`. This shim
-// keeps the historical `arkret::resolver::*` / `arkret_sdk::resolver::*` paths
-// stable for downstream consumers.
-#[cfg(feature = "full-surface")]
-pub mod resolver {
-    pub use arkret_state::resolver::*;
-}
-#[cfg(feature = "full-surface")]
-#[cfg(feature = "full-surface")]
-pub mod session_grant;
-#[cfg(feature = "full-surface")]
-#[cfg(feature = "full-surface")]
-pub mod sframe;
+pub use arkret_crypto::sframe;
 #[cfg(feature = "full-surface")]
 pub mod snapshot_v1;
 #[cfg(feature = "full-surface")]
@@ -563,7 +545,6 @@ pub use arkret_server::{
     IdempotencyClaim, IdempotencyDirection, IdempotencyIdentity, IdempotencyWindow,
     MemoryCursorAuthority, TransactionClaim, TransactionIdempotencyStore, cursor_filter_digest,
 };
-#[cfg(feature = "full-surface")]
 pub use auth::{
     ARKRET_DEVICE_SCOPE_PREFIX, AccountAuthState, AccountRecoveryMethod,
     AccountRecoveryRequestBody, AuthClaimKind, AuthManager, AuthRateLimitAction,
@@ -664,7 +645,6 @@ pub use http_client::{
 pub use http_did_resolver::{
     DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS, DEFAULT_HTTP_DID_RESOLVER_TTL_SECS, HttpDidResolver,
 };
-#[cfg(feature = "full-surface")]
 pub use identity::{
     CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument,
     DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyResolver, DidMigration,

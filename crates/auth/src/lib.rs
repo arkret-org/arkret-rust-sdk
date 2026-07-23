@@ -3,8 +3,8 @@
 //!
 //! Depends only on the wire / model / signature data crates; the umbrella
 //! `arkret` crate re-exports this surface under `arkret::auth::*`. The
-//! transport-bound one-shot `login_did_proof` helper (which speaks the core
-//! http session-grant DTOs) stays in the SDK as `AuthManagerLoginExt`.
+//! transport-bound one-shot `login_did_proof` flow is owned by
+//! `arkret-http-client`.
 
 pub mod admin_key;
 mod claims;

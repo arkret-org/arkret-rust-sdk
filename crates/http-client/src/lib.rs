@@ -59,6 +59,7 @@ pub(crate) use client_internals::reject_path_segment;
 pub(crate) use client_internals::validate_request_builder;
 #[cfg(not(target_arch = "wasm32"))]
 pub use endpoints_account::AccountSubscribeFrameStream;
+pub use endpoints_account::login_did_proof;
 pub use endpoints_agent::AgentRuntimeApprovalStatusResponse;
 pub use endpoints_data::{
     BlobDownloadOptions, BlobResumableUploadOptions, RESUMABLE_UPLOAD_FEATURE,

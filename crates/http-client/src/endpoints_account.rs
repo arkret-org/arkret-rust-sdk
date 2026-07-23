@@ -13,7 +13,7 @@ use arkret_models_collaboration::http_bodies::{
 };
 use arkret_models_collaboration::session_grant_bodies::{
     SessionGrantOutcome, SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody,
-    SessionGrantRequestBody,
+    SessionGrantRequestBody, SessionGrantRequestProof,
 };
 use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeBatch, AccountSubscribeFrame, AccountSubscribeFrameKind,
@@ -27,12 +27,14 @@ use arkret_models_identity::{
     AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountDeviceEnrollOutcome,
     AccountDeviceEnrollRequestBody, AccountHandoffOutcome, AccountHandoffRequestBody,
     AccountLogoutOutcome, AccountLogoutRequestBody, AccountUpdateProfileOutcome,
-    IdentityBindingChallengeOutcome, IdentityBindingChallengeRequestBody,
+    IdentityBindingChallengeOutcome, IdentityBindingChallengeRequestBody, SessionGrantProofKind,
 };
 use arkret_wire::{
-    PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST, PATH_SELF_CONTACTS_RESPOND,
-    PATH_SELF_CONTACTS_TOMBSTONE, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE,
+    DeviceId, Did, Hash, MoveSigner, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
+    PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
+    PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE,
 };
+use chrono::{Duration, Utc};
 #[cfg(not(target_arch = "wasm32"))]
 use reqwest::Response;
 use reqwest::header::CONTENT_TYPE;
@@ -44,6 +46,83 @@ use crate::{AccountSubscribeFolder, Client, Error, MAX_SUBSCRIBE_FRAME_BYTES, Re
 #[cfg(not(target_arch = "wasm32"))]
 type BoxAccountSubscribeFrameStream =
     std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<AccountSubscribeFrame>> + Send>>;
+
+const DID_PROOF_FRESHNESS_WINDOW_SECS: i64 = 300;
+
+/// Build and submit the canonical `ak.did.proof` session-grant request.
+///
+/// Challenge acquisition is deployment-local. The request binds the
+/// principal, device, audience, challenge, timestamps and canonical request
+/// digest before signing, then submits the only registered session-grant
+/// issuance operation.
+pub async fn login_did_proof<S>(
+    client: &Client,
+    principal_id: Did,
+    device_id: DeviceId,
+    signer: &S,
+    challenge: &str,
+    audience: Did,
+) -> Result<SessionGrantOutcome>
+where
+    S: MoveSigner + ?Sized,
+{
+    if challenge.len() < 16 {
+        return Err(Error::Protocol(
+            "session grant challenge must be at least 16 characters".to_owned(),
+        ));
+    }
+
+    let issued_at = Utc::now();
+    let expires_at = issued_at + Duration::seconds(DID_PROOF_FRESHNESS_WINDOW_SECS);
+    let request_binding = serde_json::json!({
+        "principal_id": principal_id.as_str(),
+        "device_id": device_id.as_str(),
+    });
+    let request_canonical_digest = Hash::new(arkret_canonical::canonical::sha256_digest(
+        &arkret_canonical::canonical::canonical_json_bytes(&request_binding)?,
+    ))?;
+    let signing_payload = serde_json::json!({
+        "kind": "ak.did.proof",
+        "purpose": "ak.session.grant",
+        "did": principal_id.as_str(),
+        "device_id": device_id.as_str(),
+        "audience": audience.as_str(),
+        "challenge": challenge,
+        "request_canonical_digest": request_canonical_digest.as_str(),
+        "issued_at": arkret_canonical::canonical::format_timestamp_canonical(issued_at),
+        "expires_at": arkret_canonical::canonical::format_timestamp_canonical(expires_at),
+    });
+    let payload_bytes = arkret_canonical::canonical::canonical_json_bytes(&signing_payload)?;
+    let move_sig = signer.sign_payload(&payload_bytes)?;
+
+    client
+        .auth_issue_session_grant(&SessionGrantRequestBody {
+            principal_id,
+            device_id: Some(device_id),
+            requested_scope: Vec::new(),
+            agent_key_authorization_ref: None,
+            agent_scope_request: None,
+            dpop_binding_proof: None,
+            applet_delegation: None,
+            proof: SessionGrantRequestProof {
+                proof_kind: SessionGrantProofKind::DidBoundSignature,
+                challenge: challenge.to_owned(),
+                request_canonical_digest,
+                audience,
+                expires_at: Some(expires_at),
+                signature: move_sig.jws,
+                verification_method: None,
+                issuer: None,
+                client_id: None,
+                redirect_uri: None,
+                state: None,
+                nonce: None,
+                authorization_code: None,
+                code_verifier: None,
+            },
+        })
+        .await
+}
 
 /// Validated account-subscribe frame stream bound to its request context.
 #[cfg(not(target_arch = "wasm32"))]

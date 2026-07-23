@@ -3,9 +3,9 @@
 //! This module owns only the resolver-free *sign* half of the SDK
 //! detached-JWS surface. The verify / DID-resolve / replay-window half is
 //! coupled to the `DidResolver` trait and the identity error type, so it
-//! lives in `arkret-identity` (`arkret_identity::jws`). The umbrella `arkret`
-//! crate re-exports both under `arkret::jws::*`, keeping the historical call
-//! surface stable for downstream consumers.
+//! lives in `arkret-identity` (`arkret_identity::jws`). Applications use this
+//! owner for signing and the identity owner for DID-resolver-driven
+//! verification.
 //!
 //! # Detached JWS shape
 //!

@@ -4,9 +4,8 @@
 //! surface. It is coupled to the [`DidResolver`](crate::DidResolver) trait and
 //! this crate's [`IdentityError`](crate::IdentityError), so it lives here rather
 //! than in `arkret-signatures` (which owns only the resolver-free
-//! `arkret_signatures::jws::sign_jws_ed25519` signer). The umbrella `arkret`
-//! crate re-exports both halves under `arkret::jws::*`, keeping the historical
-//! call surface stable for downstream consumers.
+//! `arkret_signatures::jws::sign_jws_ed25519` signer). The umbrella exposes
+//! this verifier module directly; signing remains in the signatures owner.
 //!
 //! # Detached JWS shape
 //!
