@@ -9,7 +9,6 @@ these gates pass:
 - `cargo +nightly fmt --all -- --check`
 - `cargo check -p arkret`
 - `cargo check --no-default-features`
-- `cargo check -p arkret --no-default-features --features full-surface`
 - `cargo check --no-default-features --features client`
 - `cargo check --no-default-features --features server`
 - `cargo check --no-default-features --features mls`

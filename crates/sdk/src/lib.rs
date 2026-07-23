@@ -47,26 +47,14 @@
 // ---------------------------------------------------------------------------
 // Compile-time feature-combination gates (SDK-FEAT-01).
 //
-// Today's Cargo feature graph already forces these implications at resolution
-// time (`mls = ["full-surface", ...]`, `server = [..., "full-surface"]`,
-// `salvo = ["server", ...]`, `device-runtime = ["full-surface", ...]`), so the guards
-// below are unreachable. They exist as zero-cost regression armour: if a
-// future Cargo.toml edit drops one of the implications, the build fails here
-// instead of shipping a reviewed-unsafe feature combination.
+// Today's Cargo feature graph already forces this implication at resolution
+// time (`salvo = ["server", ...]`), so the guard below is unreachable. It
+// exists as zero-cost regression armour: if a future Cargo.toml edit drops the
+// implication, the build fails here instead of shipping an invalid feature
+// combination.
 // ---------------------------------------------------------------------------
-#[cfg(all(feature = "mls", not(feature = "full-surface")))]
-compile_error!("feature `mls` requires `full-surface` (see crates/sdk/Cargo.toml feature graph)");
-#[cfg(all(feature = "server", not(feature = "full-surface")))]
-compile_error!(
-    "feature `server` requires `full-surface` (see crates/sdk/Cargo.toml feature graph)"
-);
 #[cfg(all(feature = "salvo", not(feature = "server")))]
 compile_error!("feature `salvo` requires `server` (see crates/sdk/Cargo.toml feature graph)");
-#[cfg(all(feature = "device-runtime", not(feature = "full-surface")))]
-compile_error!(
-    "feature `device-runtime` requires `full-surface` \
-     (see crates/sdk/Cargo.toml feature graph)"
-);
 
 mod sdk_error;
 pub use arkret_auth as auth;
@@ -399,10 +387,6 @@ pub mod sync {
 // re-exports these symbols, but listing them explicitly keeps them
 // visible in `cargo doc` and signals the supported surface to
 // downstream crates that depend only on the `arkret` umbrella.
-/// Canonical encrypted attachment codec (`ak.blob.stream_aead.v1` /
-/// `ak.blob.whole_file_aead.v1`, `media-and-blob.md` §3.2/§3.3).
-#[cfg(feature = "full-surface")]
-pub use arkret_crypto::blob_aead;
 pub use arkret_hlc as hlc;
 // Realm Recovery Key (RRK) durable history sealing — provider-initiated
 // `ak.realm_key.share` to offline recovery recipients (encryption-and-audit.md
@@ -419,43 +403,29 @@ pub use arkret_hlc as hlc;
 // arkret-http-client; this shim keeps the `arkret::http_did_resolver::*`
 // path stable. Gated out on wasm32; web embedders should plug in a
 // fetch-based resolver via the `DidResolver` trait directly.
-#[cfg(all(
-    feature = "full-surface",
-    feature = "client",
-    not(target_arch = "wasm32")
-))]
+#[cfg(all(feature = "client", not(target_arch = "wasm32")))]
 pub use arkret_http_client::http_did_resolver;
 /// RFC 7515 detached Ed25519 JWS verifier (see [`jws`] module docs).
 /// Lives at the SDK root so principal-server-style consumers (inkson,
 /// floria, cotest, teabay, soland) all reach the same verifier. Depends
-/// on `identity::DidResolver`, so it's gated on `full-surface`.
+/// on `identity::DidResolver`.
 // `key_backup_client` now lives in arkret-http-client; this shim keeps the
 // `arkret::key_backup_client::*` path stable.
-#[cfg(all(
-    feature = "full-surface",
-    feature = "device-runtime",
-    feature = "client"
-))]
+#[cfg(feature = "client")]
 pub use arkret_http_client::key_backup_client;
 // `lattice_registry` is intentionally NOT feature-gated: inkson Move
 // pre-check + cotest fixtures need the spec-normative cell-family
-// registry independently of the higher-level full-surface client
-// runtime.
+// registry independently of the HTTP and MLS runtime integrations.
 pub use arkret_lattice_registry as lattice_registry;
-pub use arkret_signatures::dpop;
-#[cfg(feature = "full-surface")]
-pub use arkret_signatures::http_signature;
+pub use arkret_signatures::{dpop, http_signature};
 pub use arkret_state::{consent, mls_move, resolver};
 // The MLS (RFC 9420) behavior layer lives in the standalone `arkret-mls` crate
 // (the sole OpenMLS boundary). Keep the `arkret::mls::*` path stable by
 // re-exporting it here under the same feature gate it always carried.
-#[cfg(all(feature = "full-surface", feature = "mls"))]
+#[cfg(feature = "mls")]
 pub mod mls {
     pub use arkret_mls::*;
 }
-#[cfg(feature = "full-surface")]
-pub use arkret_crypto::sframe;
-#[cfg(feature = "full-surface")]
 pub use arkret_crypto::{
     AEAD_NONCE_AES_GCM_LEN, AEAD_NONCE_COUNTER_LEN, AEAD_NONCE_EXPORTER_LABEL,
     AEAD_NONCE_XCHACHA20_POLY1305_LEN, AEAD_PROFILE_AES_256_GCM, AEAD_PROFILE_XCHACHA20_POLY1305,
@@ -470,9 +440,7 @@ pub use arkret_identifiers::hlc::{
 };
 // The narrow MLS persistence ports are part of the `CryptoStore` supertrait
 // contract (owned by arkret-models-crypto, OpenMLS-free), so surface them on the
-// umbrella for any full-surface consumer (e.g. garth's crypto-store adapter),
-// independent of the heavier `mls` group-machine feature.
-#[cfg(feature = "full-surface")]
+// umbrella independently of the heavier `mls` group-machine feature.
 pub use arkret_models_crypto::{MlsCommitSource, MlsGroupStateSink};
 #[cfg(feature = "salvo")]
 pub use arkret_server::applet_router;
@@ -512,22 +480,11 @@ pub use auth::{
     issue_session_grant_with_signer, primary_device_id_from_scopes, validate_presentation,
     verify_presentation_with_adapter, verify_session_grant_with_verifier,
 };
-#[cfg(feature = "full-surface")]
-pub use blob_aead::{
-    ALG_STREAM_XCHACHA, ALG_WHOLE_FILE_XCHACHA, DEFAULT_SEGMENT_SIZE, EncryptedAttachmentEnvelope,
-    MAX_SEGMENT_COUNT, MAX_SEGMENT_SIZE, MIN_SEGMENT_SIZE, SCHEME_STREAM, SCHEME_WHOLE_FILE,
-    StreamDecryptor, StreamEncryptParams, decrypt_stream, decrypt_whole_file, encrypt_stream,
-    encrypt_whole_file,
-};
 #[cfg(feature = "client")]
 pub use http_client::{
     AccountSubscribeFolder, Auth, Client, ClientBuilder, ClientRequestOptions, RetryConfig,
 };
-#[cfg(all(
-    feature = "full-surface",
-    feature = "client",
-    not(target_arch = "wasm32")
-))]
+#[cfg(all(feature = "client", not(target_arch = "wasm32")))]
 pub use http_did_resolver::{
     DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS, DEFAULT_HTTP_DID_RESOLVER_TTL_SECS, HttpDidResolver,
 };
@@ -546,30 +503,19 @@ pub use identity::{
     verify_canonical_proof_with_did_resolver, verify_did_key_log,
     verify_event_proof_with_did_resolver, verify_event_proof_with_did_resolver_context,
 };
-#[cfg(all(
-    feature = "full-surface",
-    feature = "device-runtime",
-    feature = "client"
-))]
+#[cfg(feature = "client")]
 pub use key_backup_client::KeyBackupClient;
-#[cfg(all(feature = "full-surface", feature = "mls"))]
+#[cfg(feature = "mls")]
 pub use mls::*;
-#[cfg(feature = "full-surface")]
 pub use resolver::{
     REDUCER_SNAPSHOT_PROFILE, REDUCER_SNAPSHOT_SCHEMA, RealmState, ReducerSnapshotManifest,
     SnapshotChunkManifest, SnapshotRestore, SnapshotRestoreSource, SnapshotSignature,
     SnapshotSignatureBindingPayload, StateSnapshot, merkle_root, state_merkle_root,
     verify_snapshot_chunks,
 };
-#[cfg(all(feature = "full-surface", feature = "server"))]
+#[cfg(feature = "server")]
 pub use server::{
     EndpointHandler, ProtocolFixtureReport, ProtocolFixtureStep, ProtocolFixtureStrand,
     ProtocolGoldenVector, ProtocolServerFixture, ServerOutcome, ServerRequestBody,
     WireConformanceVector, protocol_golden_vectors, reject_query_auth, wire_negative_vectors,
-};
-#[cfg(feature = "full-surface")]
-pub use sframe::{
-    FRAME_KEY_LABEL, FrameKeyContext, MEDIA_KEY_LEN, MlsExporterSource, RECORDING_KEY_LABEL,
-    RecordingKeyContext, TRANSCRIPT_KEY_LABEL, TranscriptKeyContext, derive_frame_key,
-    derive_recording_key, derive_transcript_key,
 };

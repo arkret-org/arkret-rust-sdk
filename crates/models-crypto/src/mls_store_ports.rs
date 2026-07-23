@@ -9,7 +9,7 @@
 //!
 //! These traits live in `arkret-models-crypto` (not `arkret-mls`) on purpose:
 //! the SDK `CryptoStore` binds them as supertraits, and that contract must be
-//! expressible by any full-surface consumer of the crypto store **without**
+//! expressible by any consumer of the crypto store **without**
 //! dragging OpenMLS into the build. The heavier `ArkretMlsGroup` surface stays
 //! behind the `mls` feature; these ports carry no OpenMLS dependency.
 

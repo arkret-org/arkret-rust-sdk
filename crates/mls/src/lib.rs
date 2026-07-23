@@ -33,7 +33,7 @@ pub use recovery::*;
 
 // The persistence ports the MLS layer inverts on live in `arkret-models-crypto`
 // (OpenMLS-free) so binding them in the SDK `CryptoStore` supertrait drags no
-// OpenMLS into a full-surface build. They are used internally (see `group.rs` /
+// OpenMLS into a protocol-model-only build. They are used internally (see `group.rs` /
 // `recovery.rs`) but intentionally NOT re-exported from this crate's root, so
 // the umbrella surfaces them exactly once (from models-crypto).
 

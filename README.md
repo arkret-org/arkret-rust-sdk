@@ -46,13 +46,13 @@ arkret = { path = "crates/sdk" }
 ```
 
 The default feature set exposes protocol IDs, wire models, canonical helpers
-and shared DTO contracts without enabling `openmls`, `reqwest`, `tokio`,
-`full-surface` or runtime modules. Enable only the surface a consumer needs:
+and shared DTO contracts without enabling `openmls`, `reqwest`, `tokio` or
+server framework integrations. Enable only the integration a consumer needs:
 
 ```toml
 arkret = { path = "crates/sdk", features = ["client"] }
 arkret = { path = "crates/sdk", features = ["mls"] }
-arkret = { path = "crates/sdk", features = ["full-surface"] }
+arkret = { path = "crates/sdk", features = ["server"] }
 ```
 
 The workspace is split into focused crates and the top-level `arkret` crate
@@ -70,7 +70,7 @@ re-exports the public SDK surface:
 - `arkret-state`: reducer, snapshot, lattice and state-transition primitives
 - `arkret-wire`: foundational wire constants, identifiers and protocol primitives
 - `arkret-models-*`: identity, crypto, collaboration, discovery and integration protocol model leaves
-- `arkret`: umbrella SDK crate with high-level state managers and feature forwarding
+- `arkret`: umbrella SDK crate with curated owner re-exports and integration feature forwarding
 
 The workspace default members include all crates:
 
@@ -152,14 +152,12 @@ The first Arkret crate currently includes:
 - encrypted content digest calculation over plaintext routing metadata plus ciphertext bytes
 - MLS KeyPackage, Commit and Welcome envelopes
 - OpenMLS-backed group creation, member add, Welcome join, payload encryption and decryption behind the `mls` feature
-- in-memory persistence helpers for event cache, verified state snapshots and account-local records
 - Server description and profile version checks
 - HTTP client methods for the Arkret v1 service HTTP binding behind the `client` feature, including request metadata, retry/backoff and `Retry-After` handling
 - shared contract DTOs live in semantic model leaves; the umbrella SDK exposes a curated root surface and namespaced `arkret::models` aggregate
 - framework-independent server handler contracts and endpoint fixture coverage live in `arkret-server`; the umbrella forwards the optional server and Salvo surfaces
-- high-level `full-surface` sync loop, membership, devices, receipts,
-  media, profile/settings, discovery, E2EE, auth/identity, federation, push,
-  typing, WebRTC, store and event-handler helpers
+- runtime-neutral crypto capabilities are selected directly on
+  `arkret-crypto`; application orchestration lives in runtime/client crates
 
 ## License
 

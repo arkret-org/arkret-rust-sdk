@@ -496,7 +496,7 @@ mod tests {
         let variants = vec![SdkBuildVariant {
             variant_id: "full-native".to_owned(),
             feature_set_digest: format!("sha256:{}", "5".repeat(64)),
-            features: Some(vec!["full-surface".to_owned(), "mls".to_owned()]),
+            features: Some(vec!["client".to_owned(), "mls".to_owned()]),
             claimed_profiles: vec!["ak.profile.chat_mvp.v1".to_owned()],
         }];
         let inventory_bytes = canonical::canonical_json_bytes(&variants).unwrap();
