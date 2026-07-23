@@ -1,154 +1,14 @@
-//! WebRTC signaling and conference state helpers.
+//! Fail-closed verification for media-service ICE configuration.
 
 use arkret_canonical::base64url::base64url_decode;
 use arkret_models_collaboration::objects::media::{
-    MediaIceConfigOutcome, MediaIceConfigSignature, MediaIceServer, MediaIceSignatureAlgorithm,
-    MediaIceSignatureInput,
+    MediaIceConfigOutcome, MediaIceServer, MediaIceSignatureAlgorithm, MediaIceSignatureInput,
 };
-use chrono::{DateTime, Utc};
-use ed25519_dalek::{Signature, Signer, SigningKey};
+use ed25519_dalek::Signature;
 use serde::{Deserialize, Serialize};
 
-/// SDP description type used by the SDK's WebRTC transport helpers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SdpType {
-    Offer,
-    Answer,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CallSessionDescription {
-    pub sdp_type: SdpType,
-    pub sdp: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct IceCandidate {
-    pub candidate: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sdp_mid: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sdp_m_line_index: Option<u32>,
-}
 use crate::media::MediaServiceAnchors;
 use crate::{Did, Error, RealmId, Result};
-
-/// To-device WebRTC signaling message kind.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum WebRtcSignalKind {
-    Offer,
-    Answer,
-    IceCandidate,
-}
-
-/// To-device WebRTC offer/answer/ICE signaling envelope.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WebRtcSignalMessage {
-    pub message_id: String,
-    pub call_id: String,
-    pub realm_id: RealmId,
-    pub sender: Did,
-    pub recipient: Did,
-    pub kind: WebRtcSignalKind,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub session_description: Option<CallSessionDescription>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ice_candidate: Option<IceCandidate>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
-    pub created_at: DateTime<Utc>,
-}
-
-impl WebRtcSignalMessage {
-    /// Build an offer signaling message.
-    pub fn offer(
-        realm_id: RealmId,
-        call_id: impl Into<String>,
-        sender: Did,
-        recipient: Did,
-        sdp: impl Into<String>,
-    ) -> Self {
-        Self::with_session_description(
-            realm_id,
-            call_id,
-            sender,
-            recipient,
-            CallSessionDescription {
-                sdp_type: SdpType::Offer,
-                sdp: sdp.into(),
-            },
-        )
-    }
-
-    /// Build an answer signaling message.
-    pub fn answer(
-        realm_id: RealmId,
-        call_id: impl Into<String>,
-        sender: Did,
-        recipient: Did,
-        sdp: impl Into<String>,
-    ) -> Self {
-        Self::with_session_description(
-            realm_id,
-            call_id,
-            sender,
-            recipient,
-            CallSessionDescription {
-                sdp_type: SdpType::Answer,
-                sdp: sdp.into(),
-            },
-        )
-    }
-
-    /// Build an ICE-candidate signaling message.
-    pub fn ice_candidate(
-        realm_id: RealmId,
-        call_id: impl Into<String>,
-        sender: Did,
-        recipient: Did,
-        ice_candidate: IceCandidate,
-    ) -> Self {
-        Self {
-            message_id: format!("webrtc_{}", uuid::Uuid::now_v7()),
-            call_id: call_id.into(),
-            realm_id,
-            sender,
-            recipient,
-            kind: WebRtcSignalKind::IceCandidate,
-            session_description: None,
-            ice_candidate: Some(ice_candidate),
-            created_at: Utc::now(),
-        }
-    }
-
-    fn with_session_description(
-        realm_id: RealmId,
-        call_id: impl Into<String>,
-        sender: Did,
-        recipient: Did,
-        session_description: CallSessionDescription,
-    ) -> Self {
-        let kind = match session_description.sdp_type {
-            SdpType::Offer => WebRtcSignalKind::Offer,
-            SdpType::Answer => WebRtcSignalKind::Answer,
-        };
-        Self {
-            message_id: format!("webrtc_{}", uuid::Uuid::now_v7()),
-            call_id: call_id.into(),
-            realm_id,
-            sender,
-            recipient,
-            kind,
-            session_description: Some(session_description),
-            ice_candidate: None,
-            created_at: Utc::now(),
-        }
-    }
-}
 
 /// Strongly-typed ICE configuration parsed from a verified
 /// [`MediaIceConfigOutcome`] (`webrtc-signaling.md` §4 / §4.1).
@@ -219,25 +79,6 @@ fn ice_config_signing_input(outcome: &MediaIceConfigOutcome) -> Result<Vec<u8>> 
     })
 }
 
-/// Sign a server-produced ICE configuration using the protocol's canonical
-/// transcript and populate its detached signature metadata.
-pub fn sign_ice_config_outcome(
-    outcome: &mut MediaIceConfigOutcome,
-    kid: impl Into<String>,
-    signing_key: &SigningKey,
-) -> Result<()> {
-    let canonical = ice_config_canonical_payload(outcome)?;
-    let signing_input = ice_config_signing_input(outcome)?;
-    outcome.signature = MediaIceConfigSignature {
-        kid: kid.into(),
-        alg: MediaIceSignatureAlgorithm::EdDsa,
-        signature_input: MediaIceSignatureInput::IceConfigV1,
-        payload_digest: crate::Hash::new(arkret_canonical::sha256_digest(&canonical))?,
-        sig: arkret_canonical::base64url_encode(signing_key.sign(&signing_input).to_bytes()),
-    };
-    Ok(())
-}
-
 fn verify_ice_config_signature(
     outcome: &MediaIceConfigOutcome,
     anchors: &MediaServiceAnchors,
@@ -278,7 +119,6 @@ fn verify_ice_config_signature(
         ))
     })?;
     let signature = Signature::from_bytes(&sig_array);
-
     let signing_input = ice_config_signing_input(outcome)?;
     if key.verify_strict(&signing_input, &signature).is_ok() {
         return Ok(());
@@ -292,13 +132,10 @@ fn verify_ice_config_signature(
 /// [`IceConfig`] (`webrtc-signaling.md` §4 client rules).
 ///
 /// Checks (fail closed):
-/// - the top-level `signature.kid` resolves to an anchored media-service DID → else
-///   `ice_config_denied`;
-/// - `refresh_lead_seconds < ttl_seconds` (§4.1) and `ttl_seconds > 0`;
-/// - `signature.sig` verifies as EdDSA(ed25519) over `ak.media.ice_config.v1 || 0x00 ||
-///   canonical_json(response minus signature)`;
-/// - every `ice_servers[]` TURN credential passes the pairwise-pseudonym privacy guard (no embedded
-///   DID, B-14).
+/// - the top-level `signature.kid` resolves to an anchored media-service DID;
+/// - `refresh_lead_seconds < ttl_seconds` and `ttl_seconds > 0`;
+/// - `signature.sig` verifies as EdDSA(ed25519) over the canonical transcript;
+/// - every TURN credential passes the pairwise-pseudonym privacy guard.
 pub fn verify_ice_config_outcome(
     outcome: &MediaIceConfigOutcome,
     anchors: &MediaServiceAnchors,
@@ -315,7 +152,6 @@ pub fn verify_ice_config_outcome(
             "ice_config_denied: signature issuer {issuer_did} not in realm media_service anchors"
         )));
     }
-
     if outcome.ttl_seconds == 0 || outcome.refresh_lead_seconds >= outcome.ttl_seconds {
         return Err(Error::Protocol(
             "ice_config_denied: refresh_lead_seconds must be below a positive ttl_seconds"
@@ -324,17 +160,13 @@ pub fn verify_ice_config_outcome(
     }
     verify_ice_config_signature(outcome, anchors, &kid)?;
 
-    // TURN pseudonym bucket — issued_at_bucket MUST equal
-    // floor(issued_at / bucket_seconds) * bucket_seconds so usernames cannot be
-    // correlated across buckets by rewriting metadata (ice-config-response
-    // schema). v1 fixes bucket_seconds at 300s.
     if outcome.bucket_seconds == 0 {
         return Err(Error::Protocol(
             "ice_config_denied: bucket_seconds must be positive".to_owned(),
         ));
     }
     let bucket = i64::from(outcome.bucket_seconds);
-    let expected_bucket_secs = (outcome.issued_at.timestamp().div_euclid(bucket)) * bucket;
+    let expected_bucket_secs = outcome.issued_at.timestamp().div_euclid(bucket) * bucket;
     if outcome.issued_at_bucket.timestamp() != expected_bucket_secs
         || outcome.issued_at_bucket.timestamp_subsec_nanos() != 0
     {
@@ -365,231 +197,13 @@ pub fn verify_ice_config_outcome(
     })
 }
 
-// ── Typed `ak.call.signal` payload.data (webrtc-signaling.md §6.1 / §8) ──────
-
-/// Media negotiation change reason (`renegotiate` payload).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RenegotiateReason {
-    AddTrack,
-    RemoveTrack,
-    CodecChange,
-    IceRestart,
-}
-
-/// Media track set a sender expects to send after a frame.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MediaTrackSet {
-    pub audio: bool,
-    pub video: bool,
-    pub screen: bool,
-}
-
-/// `signal_type=renegotiate` `payload.data` (§6.1). A frame carries exactly one
-/// of `offer` / `answer`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RenegotiateData {
-    pub reason: RenegotiateReason,
-    #[serde(default)]
-    pub ice_restart: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub offer: Option<CallSessionDescription>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub answer: Option<CallSessionDescription>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub media: Option<MediaTrackSet>,
-}
-
-impl RenegotiateData {
-    /// §6.1: a frame MUST carry exactly one of `offer` / `answer`, and
-    /// `ice_restart=true` requires a session description to carry the new
-    /// ufrag/pwd.
-    pub fn validate(&self) -> Result<()> {
-        if self.offer.is_some() == self.answer.is_some() {
-            return Err(Error::Protocol(
-                "renegotiate frame MUST carry exactly one of offer / answer".to_owned(),
-            ));
-        }
-        if self.ice_restart && self.offer.is_none() && self.answer.is_none() {
-            return Err(Error::Protocol(
-                "renegotiate with ice_restart MUST carry an SDP description".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-/// Source of a mute action (`mute_state` payload, §6.1).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MuteSource {
-    /// The participant muted themselves.
-    #[serde(rename = "self")]
-    Selff,
-    /// A moderator (holder of `ak.call.moderate`) forced the mute.
-    Moderator,
-}
-
-/// `signal_type=mute_state` `payload.data` (§6.1).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MuteStateData {
-    pub audio_muted: bool,
-    pub video_muted: bool,
-    pub by: MuteSource,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub target_actor_id: Option<Did>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub target_device_id: Option<crate::DeviceId>,
-}
-
-impl MuteStateData {
-    /// §6.1: `by=moderator` MUST carry `target_*`; `by=self` MUST NOT.
-    pub fn validate(&self) -> Result<()> {
-        match self.by {
-            MuteSource::Moderator => {
-                if self.target_actor_id.is_none() || self.target_device_id.is_none() {
-                    return Err(Error::Protocol(
-                        "mute_state by=moderator MUST carry target_actor_id and target_device_id"
-                            .to_owned(),
-                    ));
-                }
-            }
-            MuteSource::Selff => {
-                if self.target_actor_id.is_some() || self.target_device_id.is_some() {
-                    return Err(Error::Protocol(
-                        "mute_state by=self MUST NOT carry target_* fields".to_owned(),
-                    ));
-                }
-            }
-        }
-        Ok(())
-    }
-}
-
-/// Screen-share sub-state (`media_state` payload, §8).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ScreenShareState {
-    pub enabled: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub source_id: Option<String>,
-    #[serde(default)]
-    pub with_audio: bool,
-}
-
-/// `signal_type=media_state` `payload.data` (§8 screen share).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MediaStateData {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub screen: Option<ScreenShareState>,
-}
-
-/// `signal_type=speaking` `payload.data` (§6.1, high-frequency best-effort).
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SpeakingData {
-    pub speaking: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub audio_level: Option<f64>,
-}
-
-impl SpeakingData {
-    /// §6.1: `audio_level` is a normalized RMS in `[0.0, 1.0]`.
-    pub fn validate(&self) -> Result<()> {
-        if let Some(level) = self.audio_level
-            && !(0.0..=1.0).contains(&level)
-        {
-            return Err(Error::Protocol(
-                "speaking audio_level MUST be within [0.0, 1.0]".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-// ── Recording / transcribe / moderation (call-state.md §5) ──────────────────
-
-pub use crate::{RecordingCaptureKind, RecordingMode, RecordingStartPayload};
-
-/// Recording lifecycle state published on `ak.call.state.recording_state`
-/// (`call-state.md` §4.2 / §5). Orthogonal to call `state`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RecordingState {
-    Recording,
-    Stopped,
-    Ready,
-    Failed,
-}
-
-pub use crate::CallStatePayloadRecordingResult as RecordingResult;
-
-/// `ak.call.transcribe` request payload (`webrtc-signaling.md` §3 capability,
-/// `call-state.md` §5). Transcript text is stored as a Morph / Artifact under
-/// the same Realm policy; only the binding metadata travels on the call.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TranscribePayload {
-    pub call_id: crate::CallId,
-    pub transcribe_id: String,
-    /// Service DID performing transcription.
-    pub transcribe_agent: Did,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub language: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub transcribe_initiator_capability_ref: Option<String>,
-}
-
-/// Moderation action kind for a `ak.call.moderate` operation
-/// (`webrtc-signaling.md` §3, §6.1 `mute_state by=moderator`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ModerationAction {
-    /// Force-mute a participant's audio/video.
-    Mute,
-    /// Stop a participant's screen share.
-    StopScreenShare,
-    /// Remove a participant from the call.
-    Remove,
-    /// End the call for everyone.
-    EndForAll,
-}
-
-/// `ak.call.moderate` payload (`webrtc-signaling.md` §3 / §6.1). A moderator
-/// action MUST carry the moderator capability ref; participant-scoped actions
-/// MUST carry the target.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ModeratePayload {
-    pub call_id: crate::CallId,
-    pub action: ModerationAction,
-    pub moderate_capability_ref: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub target_actor_id: Option<Did>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub target_device_id: Option<crate::DeviceId>,
-}
-
-impl ModeratePayload {
-    /// Participant-scoped actions (`mute` / `stop_screen_share` / `remove`)
-    /// MUST name a target; `end_for_all` MUST NOT.
-    pub fn validate(&self) -> Result<()> {
-        let target_required = !matches!(self.action, ModerationAction::EndForAll);
-        let has_target = self.target_actor_id.is_some();
-        if target_required && !has_target {
-            return Err(Error::Protocol(
-                "moderation action MUST name a target_actor_id".to_owned(),
-            ));
-        }
-        if !target_required && has_target {
-            return Err(Error::Protocol(
-                "end_for_all moderation MUST NOT carry a target".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use arkret_models_collaboration::objects::media::{
+        MediaIceConfigSignature, MediaIceSignatureAlgorithm, MediaIceSignatureInput,
+    };
     use arkret_wire::XExtensionMap;
-    use ed25519_dalek::SigningKey;
+    use ed25519_dalek::{Signer, SigningKey};
 
     use super::*;
 
@@ -617,7 +231,15 @@ mod tests {
         kid: &str,
         key: &SigningKey,
     ) -> MediaIceConfigOutcome {
-        sign_ice_config_outcome(&mut outcome, kid, key).unwrap();
+        let canonical = ice_config_canonical_payload(&outcome).unwrap();
+        let signing_input = ice_config_signing_input(&outcome).unwrap();
+        outcome.signature = MediaIceConfigSignature {
+            kid: kid.to_owned(),
+            alg: MediaIceSignatureAlgorithm::EdDsa,
+            signature_input: MediaIceSignatureInput::IceConfigV1,
+            payload_digest: crate::Hash::new(arkret_canonical::sha256_digest(&canonical)).unwrap(),
+            sig: arkret_canonical::base64url_encode(key.sign(&signing_input).to_bytes()),
+        };
         outcome
     }
 
@@ -672,7 +294,6 @@ mod tests {
         let anchors = anchors_with_issuer_key(&key);
         let outcome = signed_ice_outcome(MEDIA_KID, &key);
         let config = verify_ice_config_outcome(&outcome, &anchors).unwrap();
-
         assert_eq!(config.issuer_did, did("media"));
         assert_eq!(config.ttl_seconds, 300);
         assert_eq!(config.stun_servers().count(), 1);
@@ -684,7 +305,6 @@ mod tests {
     fn ice_config_rejects_unanchored_issuer_and_bad_ttl() {
         let key = issuer_key();
         let anchors = anchors_with_issuer_key(&key);
-
         let stranger = signed_ice_outcome("did:webvh:z6mkfixture:evil.example#notary-key", &key);
         let err = verify_ice_config_outcome(&stranger, &anchors).unwrap_err();
         assert!(err.to_string().contains("ice_config_denied"));
@@ -725,230 +345,5 @@ mod tests {
         let no_key = MediaServiceAnchors::new([did("media")]);
         let signed = signed_ice_outcome(MEDIA_KID, &key);
         assert!(verify_ice_config_outcome(&signed, &no_key).is_err());
-    }
-
-    #[test]
-    fn renegotiate_data_requires_exactly_one_description() {
-        let offer = RenegotiateData {
-            reason: RenegotiateReason::AddTrack,
-            ice_restart: false,
-            offer: Some(CallSessionDescription {
-                sdp_type: SdpType::Offer,
-                sdp: "v=0".to_owned(),
-            }),
-            answer: None,
-            media: Some(MediaTrackSet {
-                audio: true,
-                video: true,
-                screen: false,
-            }),
-        };
-        offer.validate().unwrap();
-
-        // Roundtrip and confirm the nested data shape.
-        let value = serde_json::to_value(&offer).unwrap();
-        assert_eq!(value["reason"], "add_track");
-        assert_eq!(value["offer"]["sdp_type"], "offer");
-        let back: RenegotiateData = serde_json::from_value(value).unwrap();
-        assert_eq!(back, offer);
-
-        // Carrying both offer and answer is invalid.
-        let mut both = offer;
-        both.answer = Some(CallSessionDescription {
-            sdp_type: SdpType::Answer,
-            sdp: "v=0".to_owned(),
-        });
-        assert!(both.validate().is_err());
-
-        // ice_restart with no SDP is invalid.
-        let restart = RenegotiateData {
-            reason: RenegotiateReason::IceRestart,
-            ice_restart: true,
-            offer: None,
-            answer: None,
-            media: None,
-        };
-        assert!(restart.validate().is_err());
-    }
-
-    #[test]
-    fn mute_state_data_enforces_moderator_target_rules() {
-        let self_mute = MuteStateData {
-            audio_muted: true,
-            video_muted: false,
-            by: MuteSource::Selff,
-            target_actor_id: None,
-            target_device_id: None,
-        };
-        self_mute.validate().unwrap();
-        // `self` serializes verbatim per spec.
-        assert_eq!(
-            serde_json::to_value(&self_mute).unwrap()["by"],
-            serde_json::json!("self")
-        );
-
-        let moderator = MuteStateData {
-            audio_muted: true,
-            video_muted: true,
-            by: MuteSource::Moderator,
-            target_actor_id: Some(did("bob")),
-            target_device_id: Some(
-                crate::DeviceId::new("ak:device:01964137-0000-7000-8000-000000000000").unwrap(),
-            ),
-        };
-        moderator.validate().unwrap();
-
-        // moderator without target is invalid; self with target is invalid.
-        let mut bad_mod = moderator;
-        bad_mod.target_actor_id = None;
-        bad_mod.target_device_id = None;
-        assert!(bad_mod.validate().is_err());
-
-        let mut bad_self = self_mute;
-        bad_self.target_actor_id = Some(did("bob"));
-        assert!(bad_self.validate().is_err());
-    }
-
-    #[test]
-    fn speaking_and_media_state_serialize_per_spec() {
-        let speaking = SpeakingData {
-            speaking: true,
-            audio_level: Some(0.42),
-        };
-        speaking.validate().unwrap();
-        let value = serde_json::to_value(speaking).unwrap();
-        assert_eq!(value["speaking"], true);
-        assert_eq!(value["audio_level"], 0.42);
-
-        let mut loud = speaking;
-        loud.audio_level = Some(1.5);
-        assert!(loud.validate().is_err());
-
-        let screen = MediaStateData {
-            screen: Some(ScreenShareState {
-                enabled: true,
-                source_id: Some("screen_01".to_owned()),
-                with_audio: false,
-            }),
-        };
-        let value = serde_json::to_value(&screen).unwrap();
-        assert_eq!(value["screen"]["enabled"], true);
-        assert_eq!(value["screen"]["source_id"], "screen_01");
-        let back: MediaStateData = serde_json::from_value(value).unwrap();
-        assert_eq!(back, screen);
-    }
-
-    #[test]
-    fn moderate_payload_enforces_target_presence() {
-        let mute = ModeratePayload {
-            call_id: crate::CallId::new("ak:call:0196441c-0000-7000-8000-000000000000").unwrap(),
-            action: ModerationAction::Mute,
-            moderate_capability_ref: "ak:grant:01".to_owned(),
-            target_actor_id: Some(did("bob")),
-            target_device_id: None,
-        };
-        mute.validate().unwrap();
-        assert_eq!(
-            serde_json::to_value(&mute).unwrap()["action"],
-            serde_json::json!("mute")
-        );
-
-        let mut no_target = mute;
-        no_target.target_actor_id = None;
-        assert!(no_target.validate().is_err());
-
-        let end_for_all = ModeratePayload {
-            call_id: crate::CallId::new("ak:call:0196441c-0000-7000-8000-000000000000").unwrap(),
-            action: ModerationAction::EndForAll,
-            moderate_capability_ref: "ak:grant:01".to_owned(),
-            target_actor_id: None,
-            target_device_id: None,
-        };
-        end_for_all.validate().unwrap();
-        let mut bad_end = end_for_all;
-        bad_end.target_actor_id = Some(did("bob"));
-        assert!(bad_end.validate().is_err());
-    }
-
-    #[test]
-    fn recording_and_transcribe_payloads_serialize_snake_case() {
-        let start = RecordingStartPayload {
-            call_id: crate::CallId::new("ak:call:0196441c-0000-7000-8000-000000000000").unwrap(),
-            recording_id: crate::CallRecordingId::new("rtc-recording-1").unwrap(),
-            recording_agent: did("recorder"),
-            capture_kind: Some(RecordingCaptureKind::Recording),
-            mode: RecordingMode::AudioVideo,
-            visible_notice: Some(true),
-        };
-        let value = serde_json::to_value(&start).unwrap();
-        assert_eq!(value["capture_kind"], "recording");
-        assert_eq!(value["mode"], "audio_video");
-        assert_eq!(value["visible_notice"], true);
-        assert_eq!(value["recording_id"], "rtc-recording-1");
-        let back: RecordingStartPayload = serde_json::from_value(value).unwrap();
-        assert_eq!(back, start);
-
-        let transcribe = TranscribePayload {
-            call_id: start.call_id,
-            transcribe_id: "tx-1".to_owned(),
-            transcribe_agent: did("scribe"),
-            language: Some("zh-CN".to_owned()),
-            transcribe_initiator_capability_ref: None,
-        };
-        assert_eq!(
-            serde_json::to_value(&transcribe).unwrap()["language"],
-            "zh-CN"
-        );
-
-        let result = RecordingResult {
-            recording_start_event_id: Some(
-                crate::EventId::new("ak:event:019a7360-0000-7000-8000-000000000003").unwrap(),
-            ),
-            content_digest: Some(
-                crate::Hash::new(
-                    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                )
-                .unwrap(),
-            ),
-            duration_ms: Some(120_000),
-            media_type: Some("video/webm".to_owned()),
-            retention_policy_id: None,
-            retention: None,
-            artifact: None,
-            failure_reason_code: None,
-            failure_message: None,
-        };
-        assert_eq!(
-            serde_json::to_value(&result).unwrap()["recording_start_event_id"],
-            "ak:event:019a7360-0000-7000-8000-000000000003"
-        );
-    }
-
-    #[test]
-    fn webrtc_builds_to_device_signaling_messages() {
-        let offer =
-            WebRtcSignalMessage::offer(realm(), "call1", did("alice"), did("bob"), "offer-sdp");
-        let answer =
-            WebRtcSignalMessage::answer(realm(), "call1", did("bob"), did("alice"), "answer-sdp");
-        let ice = WebRtcSignalMessage::ice_candidate(
-            realm(),
-            "call1",
-            did("alice"),
-            did("bob"),
-            IceCandidate {
-                candidate: "candidate".to_owned(),
-                sdp_mid: Some("0".to_owned()),
-                sdp_m_line_index: Some(0),
-            },
-        );
-
-        assert_eq!(offer.kind, WebRtcSignalKind::Offer);
-        assert_eq!(
-            offer.session_description.as_ref().unwrap().sdp_type,
-            SdpType::Offer
-        );
-        assert_eq!(answer.kind, WebRtcSignalKind::Answer);
-        assert_eq!(ice.kind, WebRtcSignalKind::IceCandidate);
-        assert!(ice.ice_candidate.is_some());
     }
 }

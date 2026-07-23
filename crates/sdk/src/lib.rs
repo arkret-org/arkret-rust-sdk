@@ -610,10 +610,4 @@ pub use sframe::{
     derive_recording_key, derive_transcript_key,
 };
 #[cfg(feature = "full-surface")]
-pub use webrtc::{
-    CallSessionDescription, IceCandidate, IceConfig, MediaStateData, MediaTrackSet,
-    ModeratePayload, ModerationAction, MuteSource, MuteStateData, RecordingCaptureKind,
-    RecordingMode, RecordingResult, RecordingStartPayload, RecordingState, RenegotiateData,
-    RenegotiateReason, ScreenShareState, SdpType, SpeakingData, TranscribePayload,
-    WebRtcSignalKind, WebRtcSignalMessage, verify_ice_config_outcome,
-};
+pub use webrtc::{IceConfig, verify_ice_config_outcome};
