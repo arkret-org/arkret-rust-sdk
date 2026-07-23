@@ -417,8 +417,6 @@ pub mod applet;
 /// `ak.blob.whole_file_aead.v1`, `media-and-blob.md` §3.2/§3.3).
 #[cfg(feature = "full-surface")]
 pub use arkret_crypto::blob_aead;
-#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
-pub mod devices;
 pub use arkret_hlc as hlc;
 pub use arkret_signatures::dpop;
 // Realm Recovery Key (RRK) durable history sealing — provider-initiated
@@ -554,16 +552,6 @@ pub use blob_aead::{
     MAX_SEGMENT_COUNT, MAX_SEGMENT_SIZE, MIN_SEGMENT_SIZE, SCHEME_STREAM, SCHEME_WHOLE_FILE,
     StreamDecryptor, StreamEncryptParams, decrypt_stream, decrypt_whole_file, encrypt_stream,
     encrypt_whole_file,
-};
-#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
-pub use devices::{
-    CrossSigningResetPayload, CrossSigningResetProof, CrossSigningResetReason, Device,
-    DeviceChange, DeviceCrossSigningChainVerification, DeviceManager, DeviceMetadata,
-    DeviceQuorumSignature, DeviceQuorumThreshold, DeviceTrustBinding, DeviceTrustChainOutcome,
-    DeviceTrustState, DeviceVerificationChallenge, DeviceVerificationMessageKind,
-    QrVerificationPayload, ToDeviceEnvelope, build_cross_signing_publish_event_at,
-    build_device_authorize_event_at, cross_signing_publish_cell_subject,
-    device_verification_commitment, verify_device_cross_signing_chain,
 };
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use history_recovery::{

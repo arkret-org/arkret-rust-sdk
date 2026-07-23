@@ -131,10 +131,8 @@ dependencies = [
  "arkret-signatures",
  "arkret-state",
  "arkret-wire",
- "base64",
  "chrono",
  "ed25519-dalek",
- "hmac 0.13.0",
  "reqwest",
  "salvo",
  "serde",
@@ -145,7 +143,6 @@ dependencies = [
  "url",
  "uuid",
  "x25519-dalek",
- "zeroize",
 ]
 
 [[package]]

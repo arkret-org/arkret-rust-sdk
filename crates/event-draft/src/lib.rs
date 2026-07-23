@@ -12,6 +12,7 @@
 //! [`Event`]: arkret_wire::Event
 
 mod accountability;
+mod device;
 mod event_payload;
 pub mod federation;
 pub mod federation_transaction;
@@ -23,6 +24,7 @@ mod rank;
 mod registry;
 
 pub use accountability::accountability_grant_event;
+pub use device::{build_cross_signing_publish_event_at, build_device_authorize_event_at};
 pub use event_payload::{EventPayloadExt, MessageEventPayload};
 pub use federation_transaction::{
     FederationPullOperationsOutcome, FederationPushOperationsOutcome,

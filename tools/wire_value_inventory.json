@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 238,
+    "total": 237,
     "by_crate": {
       "auth": 1,
       "crypto": 1,
@@ -12,14 +12,13 @@
       "models-identity": 18,
       "models-integration": 18,
       "schema": 9,
-      "sdk": 1,
       "server": 4,
       "signatures": 8,
       "state": 9,
       "wire": 13
     },
     "by_classification": {
-      "internal_or_fixture": 52,
+      "internal_or_fixture": 51,
       "open_json": 184,
       "polymorphic_boundary": 2
     },
@@ -28,7 +27,7 @@
       "open_json": 12,
       "open_json_container": 35,
       "open_map": 137,
-      "unknown": 52
+      "unknown": 51
     }
   },
   "entries": [
@@ -2670,19 +2669,6 @@
       "schema_shape": "unknown",
       "classification": "internal_or_fixture",
       "reason": "Conformance vectors are test inputs, not an Arkret wire DTO."
-    },
-    {
-      "rust_field": "crates/sdk/src/devices/mod.rs::ToDeviceEnvelope.content",
-      "crate": "sdk",
-      "file": "crates/sdk/src/devices/mod.rs",
-      "line": 139,
-      "owner": "ToDeviceEnvelope",
-      "field": "content",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "internal_or_fixture",
-      "reason": "This SDK envelope is a local queue wrapper; the core device message is the wire owner."
     },
     {
       "rust_field": "crates/server/src/cursor_authority.rs::CursorBindingRecord.positions",

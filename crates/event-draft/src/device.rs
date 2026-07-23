@@ -1,17 +1,18 @@
-use arkret_identifiers::{CellRef, Hlc, RealmId};
+use arkret_identifiers::{CellRef, Did, Hlc, RealmId};
 use arkret_models_collaboration::events_payloads::device_identity::DeviceAuthorizePayload;
 use arkret_models_identity::CrossSigningPublish;
 use arkret_wire::{Effect, Event, LatticeOp, LatticeOpType, composite_subject};
 use chrono::{DateTime, Utc};
 
-use crate::{Did, Result};
+use crate::Result;
 
 const CROSS_SIGNING_PUBLISH_CELL_FAMILY: &str = "ak.component.cross_signing.publish.v1";
 const DEVICE_AUTHORIZATION_CELL_FAMILY: &str = "ak.component.device.authorization.v1";
 
 /// Author a canonical `ak.cross_signing.publish` control Event, including the
 /// spec-owned CAS-register effect. Consumers only provide live coordinates;
-/// Event defaults, wire time and cell subject construction remain in the SDK.
+/// Event defaults, wire time and cell subject construction remain in the
+/// event-draft owner.
 pub fn build_cross_signing_publish_event_at(
     realm_id: RealmId,
     actor_id: Did,

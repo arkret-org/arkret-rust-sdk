@@ -1159,11 +1159,6 @@
       "reason": "AEAD nonce context is an internal cryptographic derivation input."
     },
     {
-      "rust_field": "crates/sdk/src/devices/mod.rs::ToDeviceEnvelope.content",
-      "classification": "internal_or_fixture",
-      "reason": "This SDK envelope is a local queue wrapper; the core device message is the wire owner."
-    },
-    {
       "rust_field": "crates/identity/src/resolvers/did_webvh.rs::DidWebvhLogEntry.parameters",
       "classification": "internal_or_fixture",
       "reason": "DID method log parsing is an external-method resolver representation."
