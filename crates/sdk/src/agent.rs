@@ -407,7 +407,7 @@ impl AgentKeyPairRequestBuilder {
 }
 
 fn validate_pairing_authorize_event(authorize_event: &Event, agent_id: &Did) -> Result<()> {
-    if authorize_event.kind.as_str() != arkret_core::events::EventKind::AGENT_KEY_AUTHORIZE {
+    if authorize_event.kind.as_str() != arkret_wire::events::EventKind::AGENT_KEY_AUTHORIZE {
         return Err(Error::Protocol(
             "agent authorize_event.kind must be ak.agent.key.authorize".to_owned(),
         ));
@@ -672,7 +672,7 @@ pub fn build_agent_provision_event_drafts<S: MoveSigner + ?Sized>(
 
     let accountability_value = serde_json::to_value(&accountability_payload)?;
     let mut accountability_grant = Event::new_at(
-        arkret_core::events::EventKind::IDENTITY_ACCOUNTABILITY_GRANT,
+        arkret_wire::events::EventKind::IDENTITY_ACCOUNTABILITY_GRANT,
         controller_realm_id.clone(),
         controller_id.clone(),
         options.accountability_actor_seq,
@@ -786,7 +786,7 @@ pub fn build_agent_key_authorize_event(
     hlc: Hlc,
 ) -> Result<Event> {
     let mut event = Event::new(
-        arkret_core::events::EventKind::AGENT_KEY_AUTHORIZE,
+        arkret_wire::events::EventKind::AGENT_KEY_AUTHORIZE,
         realm_id,
         agent_actor_id,
         actor_seq,
@@ -865,7 +865,7 @@ pub fn build_agent_pause_event(
         reason: reason.clone(),
     })?;
     build_agent_lifecycle_event(
-        arkret_core::events::EventKind::SELF_AGENT_PAUSE,
+        arkret_wire::events::EventKind::SELF_AGENT_PAUSE,
         payload,
         agent_id,
         controller_id,
@@ -904,7 +904,7 @@ pub fn build_agent_resume_event(
         reason: None,
     })?;
     build_agent_lifecycle_event(
-        arkret_core::events::EventKind::SELF_AGENT_RESUME,
+        arkret_wire::events::EventKind::SELF_AGENT_RESUME,
         payload,
         agent_id,
         controller_id,
@@ -1429,7 +1429,7 @@ mod tests {
 
     fn authorize_event(actor_id: Did) -> Event {
         event(
-            arkret_core::events::EventKind::AGENT_KEY_AUTHORIZE,
+            arkret_wire::events::EventKind::AGENT_KEY_AUTHORIZE,
             actor_id,
         )
     }
@@ -1743,7 +1743,7 @@ mod tests {
         assert_eq!(body.agent_id, agent_id);
         assert_eq!(
             body.authorize_event.kind.as_str(),
-            arkret_core::events::EventKind::AGENT_KEY_AUTHORIZE
+            arkret_wire::events::EventKind::AGENT_KEY_AUTHORIZE
         );
         assert_eq!(
             body.runtime_attestation.as_ref().unwrap().kind,
@@ -1922,7 +1922,7 @@ mod tests {
 
         assert_eq!(
             event.kind.as_str(),
-            arkret_core::events::EventKind::AGENT_KEY_AUTHORIZE
+            arkret_wire::events::EventKind::AGENT_KEY_AUTHORIZE
         );
         assert_eq!(event.actor_id, agent_id);
         assert_eq!(event.executed_by, Some(controller_id));
@@ -1969,7 +1969,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             pause.kind.as_str(),
-            arkret_core::events::EventKind::SELF_AGENT_PAUSE
+            arkret_wire::events::EventKind::SELF_AGENT_PAUSE
         );
         assert_eq!(pause.actor_id, agent_id);
         assert_eq!(pause.executed_by, Some(controller_id.clone()));
@@ -2001,7 +2001,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             resume.kind.as_str(),
-            arkret_core::events::EventKind::SELF_AGENT_RESUME
+            arkret_wire::events::EventKind::SELF_AGENT_RESUME
         );
         assert_eq!(resume.actor_id, agent_id);
         assert_eq!(resume.executed_by, Some(controller_id));
@@ -2056,7 +2056,7 @@ mod tests {
 
         assert_eq!(
             event.kind.as_str(),
-            arkret_core::events::EventKind::AGENT_KEY_AUTHORIZE
+            arkret_wire::events::EventKind::AGENT_KEY_AUTHORIZE
         );
         assert_eq!(event.actor_id, agent_id);
         assert_eq!(event.executed_by, Some(controller_id));

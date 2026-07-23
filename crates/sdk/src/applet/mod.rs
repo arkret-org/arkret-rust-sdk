@@ -165,7 +165,7 @@ mod tests {
                 .unwrap();
         assert_eq!(
             event.kind,
-            arkret_core::events::EventKind::IDENTITY_ACCOUNTABILITY_GRANT
+            arkret_wire::events::EventKind::IDENTITY_ACCOUNTABILITY_GRANT
         );
         assert_eq!(event.actor_id, owner);
         assert_eq!(event.payload["grant_status"], "active");

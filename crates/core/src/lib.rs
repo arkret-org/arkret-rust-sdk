@@ -8,7 +8,6 @@ pub mod canonical {
     pub use arkret_canonical::canonical::*;
     pub use arkret_canonical::serde_helpers::*;
 }
-pub mod events;
 pub mod models;
 
 pub use arkret_auth::AdminKeyStore;

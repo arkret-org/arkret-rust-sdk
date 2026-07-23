@@ -10,7 +10,7 @@ fn default_feature_surface_exposes_protocol_types() -> arkret::Result<()> {
         OperationId::new("ak:operation:01904100-0000-7000-8000-57d7d85564c5")?,
         RealmId::new("ak:realm:01904100-0000-7000-8000-668e2181b41d")?,
         Did::new("did:webvh:z6mkfixture:alice.example")?,
-        arkret_core::events::EventKind::MESSAGE_CREATE,
+        arkret_wire::events::EventKind::MESSAGE_CREATE,
         1,
         Hlc::new("01970e589d21-0001-a13f9c2e")?,
     )

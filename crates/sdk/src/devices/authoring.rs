@@ -27,7 +27,7 @@ pub fn build_cross_signing_publish_event_at(
     ])?;
     let payload_value = serde_json::to_value(&payload)?;
     let mut event = Event::new_at(
-        arkret_core::events::EventKind::CROSS_SIGNING_PUBLISH,
+        arkret_wire::events::EventKind::CROSS_SIGNING_PUBLISH,
         realm_id,
         actor_id,
         actor_seq,
@@ -66,7 +66,7 @@ pub fn build_device_authorize_event_at(
     let tag = payload.device_id.to_string();
     let payload_value = serde_json::to_value(&payload)?;
     let mut event = Event::new_at(
-        arkret_core::events::EventKind::DEVICE_AUTHORIZE,
+        arkret_wire::events::EventKind::DEVICE_AUTHORIZE,
         realm_id,
         actor_id,
         actor_seq,

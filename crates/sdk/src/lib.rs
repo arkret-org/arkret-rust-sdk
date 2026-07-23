@@ -74,7 +74,7 @@ compile_error!(
 );
 
 mod sdk_error;
-pub use arkret_core::{KeyRefObject, canonical, events, identifiers, models, *};
+pub use arkret_core::{KeyRefObject, canonical, identifiers, models, *};
 pub use arkret_crypto::identity_root;
 pub use arkret_egress_policy as network_policy;
 pub use arkret_event_draft::operations;
@@ -119,6 +119,12 @@ pub use arkret_wire::{
     is_query_auth_parameter,
 };
 pub use sdk_error::{Error, Result};
+
+pub mod events {
+    pub use arkret_models_collaboration::events_payloads::redaction::*;
+    pub use arkret_wire::Event as RawEvent;
+    pub use arkret_wire::events::*;
+}
 
 pub mod sync {
     pub use arkret_models_collaboration::sync_frames::client_sync::*;

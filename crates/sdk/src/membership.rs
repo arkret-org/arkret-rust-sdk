@@ -598,7 +598,7 @@ impl MembershipManager {
         Ok(Operation::create(
             OperationId::new(generate_id("ak:operation:"))?,
             realm_id,
-            arkret_core::events::EventKind::MEMBER_STATE,
+            arkret_wire::events::EventKind::MEMBER_STATE,
             payload.to_value()?,
         ))
     }

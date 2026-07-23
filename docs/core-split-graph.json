@@ -1,14 +1,8 @@
 {
   "edges": {
     "crate_root": [
-      "events",
       "models"
     ],
-    "events": [
-      "events::redaction",
-      "models"
-    ],
-    "events::redaction": [],
     "models": [
       "models::account",
       "models::agent",
@@ -122,8 +116,6 @@
   },
   "files": {
     "crate_root": "lib.rs",
-    "events": "events/mod.rs",
-    "events::redaction": "events/redaction.rs",
     "models": "models/mod.rs",
     "models::account": "models/account.rs",
     "models::agent": "models/agent.rs",
@@ -178,9 +170,7 @@
   },
   "incoming_counts": {
     "crate_root": 0,
-    "events": 1,
-    "events::redaction": 1,
-    "models": 3,
+    "models": 2,
     "models::account": 2,
     "models::agent": 1,
     "models::applet": 1,
@@ -245,12 +235,6 @@
     ],
     [
       "crate_root"
-    ],
-    [
-      "events"
-    ],
-    [
-      "events::redaction"
     ],
     [
       "models::account"
