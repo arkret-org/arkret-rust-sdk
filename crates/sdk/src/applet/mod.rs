@@ -724,8 +724,9 @@ mod tests {
     fn sign_registration_attaches_proof_with_matching_digest() {
         use std::collections::BTreeMap;
 
+        use arkret_canonical as canonical;
         use arkret_core::{
-            Did as CoreDid, Hash as CoreHash, MoveSignature, MoveSigner, UnsignedMove, canonical,
+            Did as CoreDid, Hash as CoreHash, MoveSignature, MoveSigner, UnsignedMove,
         };
         use arkret_wire::Result as WireResult;
         use arkret_wire::move_event::Move;

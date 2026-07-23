@@ -19,3 +19,4 @@ pub use multibase::{
     ed25519_pubkey_to_did_key_multibase, encode_base58btc, encode_multibase_base58btc,
     sha256_multihash_base58btc,
 };
+pub use serde_helpers::*;

@@ -16,6 +16,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
+arkret-canonical = { path = "../crates/canonical", default-features = false }
 arkret-core = { path = "../crates/core", default-features = false }
 arkret-hlc = { path = "../crates/hlc", default-features = false }
 arkret-signatures = { path = "../crates/signatures", default-features = false, features = ["protocol"] }

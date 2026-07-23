@@ -4,10 +4,6 @@
 //! level SDK state machines. It intentionally contains no HTTP transport,
 //! framework adapter, mutable reducer, store, or snapshot runtime.
 
-pub mod canonical {
-    pub use arkret_canonical::canonical::*;
-    pub use arkret_canonical::serde_helpers::*;
-}
 pub mod models;
 
 pub use arkret_auth::AdminKeyStore;
