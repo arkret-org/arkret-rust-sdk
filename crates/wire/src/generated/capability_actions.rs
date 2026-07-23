@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/capability-action-registry.json; version=2026-07-20;
-//! sha256=467b314e3f9fe21aba8fac5c8b5df948a91c8932850d6ef21def3ff019b68563 Entries: registered=152
+//! sha256=94ba6c28f7f8547913237a35bf42c04efe582a3d07662569c9fc58b88b7a0f82 Entries: registered=153
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -13,6 +13,7 @@ pub enum CapabilityActionId {
     AgentKeyAuthorize,
     AgentKeyRevoke,
     AgentSelectorClaim,
+    AgentSidecarExchangeControl,
     AgentSidecarPublish,
     AgentSidecarWrite,
     ApprovalVote,
@@ -169,6 +170,7 @@ impl CapabilityActionId {
         Self::AgentKeyAuthorize,
         Self::AgentKeyRevoke,
         Self::AgentSelectorClaim,
+        Self::AgentSidecarExchangeControl,
         Self::AgentSidecarPublish,
         Self::AgentSidecarWrite,
         Self::ApprovalVote,
@@ -323,6 +325,7 @@ impl CapabilityActionId {
     pub const AGENT_KEY_AUTHORIZE: &'static str = "ak.agent.key.authorize";
     pub const AGENT_KEY_REVOKE: &'static str = "ak.agent.key.revoke";
     pub const AGENT_SELECTOR_CLAIM: &'static str = "ak.agent.selector_claim";
+    pub const AGENT_SIDECAR_EXCHANGE_CONTROL: &'static str = "ak.agent.sidecar.exchange.control";
     pub const AGENT_SIDECAR_PUBLISH: &'static str = "ak.agent.sidecar.publish";
     pub const AGENT_SIDECAR_WRITE: &'static str = "ak.agent.sidecar.write";
     pub const APPROVAL_VOTE: &'static str = "ak.approval.vote";
@@ -484,6 +487,7 @@ impl CapabilityActionId {
             Self::AgentKeyAuthorize => "ak.agent.key.authorize",
             Self::AgentKeyRevoke => "ak.agent.key.revoke",
             Self::AgentSelectorClaim => "ak.agent.selector_claim",
+            Self::AgentSidecarExchangeControl => "ak.agent.sidecar.exchange.control",
             Self::AgentSidecarPublish => "ak.agent.sidecar.publish",
             Self::AgentSidecarWrite => "ak.agent.sidecar.write",
             Self::ApprovalVote => "ak.approval.vote",
@@ -643,6 +647,7 @@ impl CapabilityActionId {
             "ak.agent.key.authorize" => Some(Self::AgentKeyAuthorize),
             "ak.agent.key.revoke" => Some(Self::AgentKeyRevoke),
             "ak.agent.selector_claim" => Some(Self::AgentSelectorClaim),
+            "ak.agent.sidecar.exchange.control" => Some(Self::AgentSidecarExchangeControl),
             "ak.agent.sidecar.publish" => Some(Self::AgentSidecarPublish),
             "ak.agent.sidecar.write" => Some(Self::AgentSidecarWrite),
             "ak.approval.vote" => Some(Self::ApprovalVote),

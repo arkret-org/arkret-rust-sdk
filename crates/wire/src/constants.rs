@@ -113,7 +113,9 @@ pub const CIRCLE_CAPABILITY_ACTIONS: &[&str] = &[
 /// AKP-0008 / AKP-0009 — controller-private account-data types. Reducer
 /// MUST reject writes from non-controller actors.
 pub const ACCOUNT_DATA_TYPE_AGENT_DRAFT: &str = "ak.agent.draft.v1";
-pub const ACCOUNT_DATA_TYPE_AGENT_SIDECAR_PROJECTION: &str = "ak.agent.sidecar_projection.v1";
+// `ak.agent.sidecar_projection.v1` was removed from the account-data registry
+// on 2026-07-23: the exchange projection is a controller-device-local fold
+// cache, never Account Data (zh/models/sidecar.md §7.2.4).
 pub const ACCOUNT_DATA_TYPE_AGENT_SIDECAR_VIEW_STATE: &str = "ak.agent.sidecar_view_state.v1";
 pub const ACCOUNT_DATA_TYPE_REMINDER: &str = "ak.reminders.v1";
 pub const ACCOUNT_DATA_TYPE_SCHEDULED_SEND: &str = "ak.scheduled_send.v1";

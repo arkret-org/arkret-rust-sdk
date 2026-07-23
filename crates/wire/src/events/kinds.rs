@@ -111,7 +111,9 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::SelfAgentPause
         | EventKind::SelfAgentResume
         | EventKind::AgentSelectorClaim => EventProductClass::Agent,
-        EventKind::SidecarCreate => EventProductClass::Sidecar,
+        EventKind::SidecarCreate | EventKind::AgentSidecarExchangeControl => {
+            EventProductClass::Sidecar
+        }
         EventKind::AppletBridgeError
         | EventKind::AppletDiscovery
         | EventKind::AppletRegistration => EventProductClass::Applet,

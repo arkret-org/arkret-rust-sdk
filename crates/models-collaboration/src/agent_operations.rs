@@ -1145,15 +1145,511 @@ pub enum AgentSidecarExchangeOrigin {
     SidecarNative,
 }
 
+/// Deterministic fold status of one source-routed exchange. `pending` is a
+/// client-local pre-submission intent and never enters the projection: an
+/// accepted request folds to `delivered` (see `zh/models/sidecar.md` §7.2.4).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarExchangeStatus {
-    Pending,
     Delivered,
     Responding,
     Complete,
     Failed,
+}
+
+pub const AGENT_SIDECAR_EXCHANGE_FAILURE_CONTROLLER_CLOSED_EMPTY: &str = "controller_closed_empty";
+pub const AGENT_SIDECAR_EXCHANGE_FAILURE_CONTROLLER_CANCELLED: &str = "controller_cancelled";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentSidecarExchangeCompletionPolicy {
+    Coordinator,
+}
+
+fn validate_sidecar_order_key(value: &str, label: &str) -> Result<()> {
+    let bytes = value.as_bytes();
+    if bytes.is_empty()
+        || bytes.len() > 128
+        || bytes
+            .iter()
+            .any(|byte| !(byte.is_ascii_alphanumeric() || b"._~=-".contains(byte)))
+    {
+        return Err(Error::Protocol(format!("invalid Sidecar {label}")));
+    }
+    Ok(())
+}
+
+fn validate_sidecar_failure_code(value: &str) -> Result<()> {
+    let bytes = value.as_bytes();
+    if bytes.is_empty()
+        || bytes.len() > 64
+        || !bytes[0].is_ascii_lowercase()
+        || bytes
+            .iter()
+            .any(|byte| !(byte.is_ascii_lowercase() || byte.is_ascii_digit() || *byte == b'_'))
+    {
+        return Err(Error::Protocol("invalid Sidecar failure code".to_owned()));
+    }
+    Ok(())
+}
+
+fn validate_unique_sorted_event_ids(values: &[EventId], label: &str) -> Result<()> {
+    if values.is_empty() {
+        return Err(Error::Protocol(format!(
+            "Sidecar {label} must be non-empty"
+        )));
+    }
+    if values
+        .windows(2)
+        .any(|pair| pair[0].as_str().as_bytes() >= pair[1].as_str().as_bytes())
+    {
+        return Err(Error::Protocol(format!(
+            "Sidecar {label} must be unique and UTF-8 byte-lexicographically sorted"
+        )));
+    }
+    Ok(())
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub enum AgentSidecarEventExchangeBindingSchema {
+    #[serde(rename = "ak.schema.agent_sidecar_event_exchange_binding.v1")]
+    V1,
+}
+
+/// Closed producer disposition of one exchange-bound Sidecar Event.
+/// Consumers MUST fail closed to non-echo on any unlisted value; serde's
+/// closed enum plus the outer `deny_unknown_fields` provide exactly that.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentSidecarExchangeBindingRole {
+    Request,
+    UserFacingResponse,
+    Internal,
+}
+
+/// Write-once exchange identity carried only on `role=request`; the single
+/// durable source of every projection write-once field. Counterpart for
+/// `agent-sidecar-event-exchange-binding.schema.json#/$defs/request_context`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarExchangeRequestContext {
+    pub source_track_ref: AgentSidecarSourceTrackRef,
+    pub source_hlc: Hlc,
+    pub client_order_key: NonEmptyString,
+    pub addressed_agent_ids: Vec<Did>,
+    pub completion_policy: AgentSidecarExchangeCompletionPolicy,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coordinator_agent_id: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_frontier_anchor: Option<EventId>,
+}
+
+impl AgentSidecarExchangeRequestContext {
+    pub fn validate(&self) -> Result<()> {
+        self.source_track_ref.validate()?;
+        validate_sidecar_order_key(self.client_order_key.as_str(), "client order key")?;
+        if self.addressed_agent_ids.is_empty()
+            || self
+                .addressed_agent_ids
+                .iter()
+                .collect::<BTreeSet<_>>()
+                .len()
+                != self.addressed_agent_ids.len()
+        {
+            return Err(Error::Protocol(
+                "Sidecar exchange addressed_agent_ids must be non-empty and unique".to_owned(),
+            ));
+        }
+        match &self.coordinator_agent_id {
+            Some(coordinator) => {
+                if !self.addressed_agent_ids.contains(coordinator) {
+                    return Err(Error::Protocol(
+                        "Sidecar exchange coordinator must be one of addressed_agent_ids"
+                            .to_owned(),
+                    ));
+                }
+            }
+            None => {
+                if self.addressed_agent_ids.len() != 1 {
+                    return Err(Error::Protocol(
+                        "Sidecar exchange coordinator_agent_id is required when more than one Agent is addressed"
+                            .to_owned(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// The initial coordinator: the explicit field, or the sole addressed
+    /// Agent when the field is legally omitted.
+    pub fn effective_coordinator(&self) -> Result<&Did> {
+        self.validate()?;
+        Ok(self
+            .coordinator_agent_id
+            .as_ref()
+            .unwrap_or(&self.addressed_agent_ids[0]))
+    }
+}
+
+/// Counterpart for `agent-sidecar-event-exchange-binding.schema.json`. Legal
+/// only inside `encrypted_metadata` plaintext (`message_metadata.
+/// sidecar_exchange_binding`) of an Event whose effective scope is the Sidecar
+/// backing Circle. Any Event without a valid binding is non-echo by default.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarEventExchangeBinding {
+    pub schema: AgentSidecarEventExchangeBindingSchema,
+    pub exchange_id: AgentSidecarExchangeId,
+    pub role: AgentSidecarExchangeBindingRole,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub completes_exchange: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coordinator_assignment_event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_context: Option<AgentSidecarExchangeRequestContext>,
+}
+
+impl AgentSidecarEventExchangeBinding {
+    /// Controller-authored `role=request` binding.
+    pub fn request(
+        exchange_id: AgentSidecarExchangeId,
+        request_context: AgentSidecarExchangeRequestContext,
+    ) -> Result<Self> {
+        let binding = Self {
+            schema: AgentSidecarEventExchangeBindingSchema::V1,
+            exchange_id,
+            role: AgentSidecarExchangeBindingRole::Request,
+            request_event_id: None,
+            completes_exchange: None,
+            coordinator_assignment_event_id: None,
+            request_context: Some(request_context),
+        };
+        binding.validate()?;
+        Ok(binding)
+    }
+
+    /// Agent-authored `role=user_facing_response` binding.
+    pub fn user_facing_response(
+        exchange_id: AgentSidecarExchangeId,
+        request_event_id: EventId,
+    ) -> Result<Self> {
+        let binding = Self {
+            schema: AgentSidecarEventExchangeBindingSchema::V1,
+            exchange_id,
+            role: AgentSidecarExchangeBindingRole::UserFacingResponse,
+            request_event_id: Some(request_event_id),
+            completes_exchange: None,
+            coordinator_assignment_event_id: None,
+            request_context: None,
+        };
+        binding.validate()?;
+        Ok(binding)
+    }
+
+    /// Agent-authored `role=internal` binding for exchange-scoped
+    /// collaboration/tool Events that MUST NOT be echoed.
+    pub fn internal(
+        exchange_id: AgentSidecarExchangeId,
+        request_event_id: EventId,
+    ) -> Result<Self> {
+        let binding = Self {
+            schema: AgentSidecarEventExchangeBindingSchema::V1,
+            exchange_id,
+            role: AgentSidecarExchangeBindingRole::Internal,
+            request_event_id: Some(request_event_id),
+            completes_exchange: None,
+            coordinator_assignment_event_id: None,
+            request_context: None,
+        };
+        binding.validate()?;
+        Ok(binding)
+    }
+
+    /// Attach the coordinator completion request to a `user_facing_response`
+    /// binding. `coordinator_assignment_event_id` is the request Event id for
+    /// the initial assignment or the accepted reassign control Event id.
+    pub fn with_completion(mut self, coordinator_assignment_event_id: EventId) -> Result<Self> {
+        self.completes_exchange = Some(true);
+        self.coordinator_assignment_event_id = Some(coordinator_assignment_event_id);
+        self.validate()?;
+        Ok(self)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        match self.role {
+            AgentSidecarExchangeBindingRole::Request => {
+                if self.request_event_id.is_some() {
+                    return Err(Error::Protocol(
+                        "Sidecar request binding must not carry request_event_id".to_owned(),
+                    ));
+                }
+                match &self.request_context {
+                    Some(context) => context.validate()?,
+                    None => {
+                        return Err(Error::Protocol(
+                            "Sidecar request binding requires request_context".to_owned(),
+                        ));
+                    }
+                }
+            }
+            AgentSidecarExchangeBindingRole::UserFacingResponse
+            | AgentSidecarExchangeBindingRole::Internal => {
+                if self.request_event_id.is_none() {
+                    return Err(Error::Protocol(
+                        "Sidecar response/internal binding requires request_event_id".to_owned(),
+                    ));
+                }
+                if self.request_context.is_some() {
+                    return Err(Error::Protocol(
+                        "request_context is forbidden outside role=request".to_owned(),
+                    ));
+                }
+            }
+        }
+        match self.completes_exchange {
+            None => {
+                if self.coordinator_assignment_event_id.is_some() {
+                    return Err(Error::Protocol(
+                        "coordinator_assignment_event_id requires completes_exchange=true"
+                            .to_owned(),
+                    ));
+                }
+            }
+            Some(true) => {
+                if self.role != AgentSidecarExchangeBindingRole::UserFacingResponse {
+                    return Err(Error::Protocol(
+                        "completes_exchange is legal only on role=user_facing_response".to_owned(),
+                    ));
+                }
+                if self.coordinator_assignment_event_id.is_none() {
+                    return Err(Error::Protocol(
+                        "completes_exchange=true requires coordinator_assignment_event_id"
+                            .to_owned(),
+                    ));
+                }
+            }
+            Some(false) => {
+                return Err(Error::Protocol(
+                    "completes_exchange only admits the literal true".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub enum AgentSidecarExchangeControlSchema {
+    #[serde(rename = "ak.schema.agent_sidecar_exchange_control.v1")]
+    V1,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentSidecarExchangeControlAction {
+    Close,
+    Cancel,
+    Fail,
+    ReassignCoordinator,
+}
+
+impl AgentSidecarExchangeControlAction {
+    pub fn is_terminal(self) -> bool {
+        !matches!(self, Self::ReassignCoordinator)
+    }
+}
+
+/// Counterpart for `agent-sidecar-exchange-control.schema.json`: the closed
+/// plaintext encrypted inside `ak.agent.sidecar.exchange.control`. Only the
+/// Sidecar controller may author it; it is the sole source of coordinator
+/// reassignment and terminal exchange state (`zh/models/sidecar.md` §7.2.3).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarExchangeControl {
+    pub schema: AgentSidecarExchangeControlSchema,
+    pub exchange_id: AgentSidecarExchangeId,
+    pub request_event_id: EventId,
+    /// Canonical UTF-8 byte-order sorted maximal causal heads observed at
+    /// authoring time. The outer Event refs MUST carry `role=after` for every
+    /// entry and the request Event must be causally covered.
+    pub basis_event_ids: Vec<EventId>,
+    pub action: AgentSidecarExchangeControlAction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_event_ids: Option<Vec<EventId>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_code: Option<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_coordinator_agent_id: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coordinator_agent_id: Option<Did>,
+}
+
+impl AgentSidecarExchangeControl {
+    pub fn validate(&self) -> Result<()> {
+        validate_unique_sorted_event_ids(&self.basis_event_ids, "control basis_event_ids")?;
+        if self.action.is_terminal() {
+            let responses = self.response_event_ids.as_ref().ok_or_else(|| {
+                Error::Protocol(
+                    "terminal Sidecar exchange control requires response_event_ids".to_owned(),
+                )
+            })?;
+            if responses.iter().collect::<BTreeSet<_>>().len() != responses.len() {
+                return Err(Error::Protocol(
+                    "Sidecar control response_event_ids must be unique".to_owned(),
+                ));
+            }
+            if self.expected_coordinator_agent_id.is_some() || self.coordinator_agent_id.is_some() {
+                return Err(Error::Protocol(
+                    "coordinator fields are forbidden on terminal Sidecar exchange control"
+                        .to_owned(),
+                ));
+            }
+        } else {
+            if self.response_event_ids.is_some() {
+                return Err(Error::Protocol(
+                    "response_event_ids is forbidden on reassign_coordinator".to_owned(),
+                ));
+            }
+            let (expected, next) = match (
+                &self.expected_coordinator_agent_id,
+                &self.coordinator_agent_id,
+            ) {
+                (Some(expected), Some(next)) => (expected, next),
+                _ => {
+                    return Err(Error::Protocol(
+                        "reassign_coordinator requires expected_coordinator_agent_id and coordinator_agent_id"
+                            .to_owned(),
+                    ));
+                }
+            };
+            if expected == next {
+                return Err(Error::Protocol(
+                    "reassign_coordinator must change the coordinator".to_owned(),
+                ));
+            }
+        }
+        match (&self.failure_code, self.action) {
+            (Some(code), AgentSidecarExchangeControlAction::Fail) => {
+                validate_sidecar_failure_code(code.as_str())?;
+            }
+            (None, AgentSidecarExchangeControlAction::Fail) => {
+                return Err(Error::Protocol(
+                    "action=fail requires failure_code".to_owned(),
+                ));
+            }
+            (Some(_), _) => {
+                return Err(Error::Protocol(
+                    "failure_code is legal only on action=fail".to_owned(),
+                ));
+            }
+            (None, _) => {}
+        }
+        Ok(())
+    }
+
+    /// §7.2.3 terminal mapping. Returns `None` for `reassign_coordinator`.
+    /// A delivered response set is never a failure: any terminal action with
+    /// responses folds to `complete`; empty-response terminals fold to
+    /// `failed` with the action-derived failure code.
+    pub fn terminal_outcome(&self) -> Result<Option<AgentSidecarExchangeTerminalOutcome>> {
+        self.validate()?;
+        if !self.action.is_terminal() {
+            return Ok(None);
+        }
+        let responses = self.response_event_ids.clone().unwrap_or_default();
+        Ok(Some(if responses.is_empty() {
+            let failure_code = match self.action {
+                AgentSidecarExchangeControlAction::Close => {
+                    AGENT_SIDECAR_EXCHANGE_FAILURE_CONTROLLER_CLOSED_EMPTY.to_owned()
+                }
+                AgentSidecarExchangeControlAction::Cancel => {
+                    AGENT_SIDECAR_EXCHANGE_FAILURE_CONTROLLER_CANCELLED.to_owned()
+                }
+                AgentSidecarExchangeControlAction::Fail => self
+                    .failure_code
+                    .as_ref()
+                    .expect("validated above")
+                    .as_str()
+                    .to_owned(),
+                AgentSidecarExchangeControlAction::ReassignCoordinator => unreachable!(),
+            };
+            AgentSidecarExchangeTerminalOutcome {
+                status: AgentSidecarExchangeStatus::Failed,
+                failure_code: Some(failure_code),
+                response_event_ids: Vec::new(),
+            }
+        } else {
+            AgentSidecarExchangeTerminalOutcome {
+                status: AgentSidecarExchangeStatus::Complete,
+                failure_code: None,
+                response_event_ids: responses,
+            }
+        }))
+    }
+}
+
+/// Result of folding one terminal control Event: `complete` always carries at
+/// least one response, `failed` never carries any.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AgentSidecarExchangeTerminalOutcome {
+    pub status: AgentSidecarExchangeStatus,
+    pub failure_code: Option<String>,
+    pub response_event_ids: Vec<EventId>,
+}
+
+/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/
+/// $defs/agent_sidecar_exchange_control_payload` — the outer payload of
+/// `ak.agent.sidecar.exchange.control`. The service only sees private-Strand
+/// routing plus ciphertext; admission MUST require the effective scope to be
+/// the matching Sidecar backing Circle and the actor to be its controller.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarExchangeControlPayload {
+    pub strand_id: StrandId,
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
+    pub encrypted_payload: EncryptedEnvelope,
+}
+
+/// Compute `event_set_digest = sha256(canonical_json(sorted unique ids))`
+/// over the complete contributing Event-id set (`zh/models/sidecar.md`
+/// §7.2.4).
+pub fn agent_sidecar_exchange_event_set_digest(event_ids: &[EventId]) -> Result<Hash> {
+    let mut ids: Vec<&str> = event_ids.iter().map(EventId::as_str).collect();
+    ids.sort_unstable();
+    ids.dedup();
+    Hash::new(canonical::canonical_sha256(&ids)?).map_err(Error::from)
+}
+
+/// Local cache coverage of one folded exchange: canonical sorted maximal
+/// causal heads plus the digest committing to the complete contributing
+/// Event-id set. `max_hlc` is display/cache metadata only and never proves
+/// causal dominance.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarExchangeFoldedFrontier {
+    pub event_ids: Vec<EventId>,
+    pub event_set_digest: Hash,
+    pub max_hlc: Hlc,
+}
+
+impl AgentSidecarExchangeFoldedFrontier {
+    pub fn validate(&self) -> Result<()> {
+        validate_unique_sorted_event_ids(&self.event_ids, "folded frontier event_ids")
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1163,6 +1659,12 @@ pub enum AgentSidecarExchangeProjectionSchema {
     V1,
 }
 
+/// Counterpart for `agent-sidecar-exchange-projection.schema.json`: a
+/// disposable controller-device-local Event-fold cache for one source-routed
+/// exchange. It is not wire truth, is not Account Data, is never uploaded,
+/// merged across devices, or streamed to Agent runtimes, and may always be
+/// deleted and rebuilt from the accepted private-Strand Event history
+/// (`zh/models/sidecar.md` §7.2.4).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -1179,74 +1681,68 @@ pub struct AgentSidecarExchangeProjection {
     pub source_hlc: Hlc,
     pub client_order_key: NonEmptyString,
     pub addressed_agent_ids: Vec<Did>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub completion_policy: AgentSidecarExchangeCompletionPolicy,
+    pub coordinator_agent_id: Did,
+    /// Request Event id for the initial assignment, or the accepted
+    /// `reassign_coordinator` control Event id after reassignment.
+    pub coordinator_assignment_event_id: EventId,
+    /// Bookkeeping union of exchange-bound Agent actors; it never grants echo
+    /// eligibility.
     pub participating_agent_ids: Vec<Did>,
     pub private_request_event_id: EventId,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    /// Validated user-facing response Event ids in `(response HLC, Event id)`
+    /// byte order. Appended only through the controller-device validation of
+    /// `zh/models/sidecar.md` §7.2.2 — never inferred from reply_to, arrival
+    /// order, actor kind, or content shape.
     pub user_facing_response_event_ids: Vec<EventId>,
     pub status: AgentSidecarExchangeStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failure_code: Option<NonEmptyString>,
-    pub updated_hlc: Hlc,
+    /// Controller-authored control Event that produced `complete`/`failed`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal_event_id: Option<EventId>,
+    pub folded_frontier: AgentSidecarExchangeFoldedFrontier,
 }
 
 impl AgentSidecarExchangeProjection {
-    pub fn account_data_type(&self) -> String {
-        format!(
-            "ak.agent.sidecar_projection.v1:{}:{}:{}:{}",
-            self.controller_id,
-            self.source_track_ref.realm_id,
-            self.source_track_ref.strand_id,
-            self.exchange_id
-        )
-    }
-
     pub fn validate(&self) -> Result<()> {
         self.source_track_ref.validate()?;
-        let order_key = self.client_order_key.as_str().as_bytes();
-        if order_key.len() > 128
-            || order_key
-                .iter()
-                .any(|byte| !(byte.is_ascii_alphanumeric() || b"._~=-".contains(byte)))
-        {
-            return Err(Error::Protocol(
-                "invalid Sidecar client order key".to_owned(),
-            ));
-        }
+        validate_sidecar_order_key(self.client_order_key.as_str(), "client order key")?;
         if self.origin != AgentSidecarExchangeOrigin::SourceTrackRouted {
             return Err(Error::Protocol(
                 "sidecar-native Events must not create source echo projections".to_owned(),
             ));
         }
-        if self.status == AgentSidecarExchangeStatus::Failed && self.failure_code.is_none() {
-            return Err(Error::Protocol(
-                "failed Sidecar exchange projection requires failure_code".to_owned(),
-            ));
-        }
-        if let Some(failure_code) = &self.failure_code {
-            let value = failure_code.as_str().as_bytes();
-            if value.len() > 64
-                || !value[0].is_ascii_lowercase()
-                || value.iter().any(|byte| {
-                    !(byte.is_ascii_lowercase() || byte.is_ascii_digit() || *byte == b'_')
-                })
-            {
-                return Err(Error::Protocol("invalid Sidecar failure code".to_owned()));
-            }
-        }
-        if self.status == AgentSidecarExchangeStatus::Complete
-            && self.user_facing_response_event_ids.is_empty()
+        if self.addressed_agent_ids.is_empty()
+            || self
+                .addressed_agent_ids
+                .iter()
+                .collect::<BTreeSet<_>>()
+                .len()
+                != self.addressed_agent_ids.len()
         {
             return Err(Error::Protocol(
-                "complete Sidecar exchange projection requires a user-facing response".to_owned(),
+                "Sidecar exchange addressed_agent_ids must be non-empty and unique".to_owned(),
             ));
         }
-        for values in [&self.addressed_agent_ids, &self.participating_agent_ids] {
-            if values.iter().collect::<BTreeSet<_>>().len() != values.len() {
-                return Err(Error::Protocol(
-                    "Sidecar Agent id arrays must be unique".to_owned(),
-                ));
-            }
+        if !self
+            .addressed_agent_ids
+            .contains(&self.coordinator_agent_id)
+        {
+            return Err(Error::Protocol(
+                "Sidecar exchange coordinator must be one of addressed_agent_ids".to_owned(),
+            ));
+        }
+        if self
+            .participating_agent_ids
+            .iter()
+            .collect::<BTreeSet<_>>()
+            .len()
+            != self.participating_agent_ids.len()
+        {
+            return Err(Error::Protocol(
+                "Sidecar Agent id arrays must be unique".to_owned(),
+            ));
         }
         if self
             .user_facing_response_event_ids
@@ -1259,17 +1755,56 @@ impl AgentSidecarExchangeProjection {
                 "Sidecar response Event ids must be unique".to_owned(),
             ));
         }
-        Ok(())
-    }
-
-    pub fn validate_account_data_type(&self, data_type: &str) -> Result<()> {
-        if data_type == self.account_data_type() {
-            Ok(())
-        } else {
-            Err(Error::Protocol(
-                "Sidecar exchange account-data key does not match plaintext".to_owned(),
-            ))
+        if let Some(failure_code) = &self.failure_code {
+            validate_sidecar_failure_code(failure_code.as_str())?;
         }
+        match self.status {
+            AgentSidecarExchangeStatus::Delivered => {
+                if !self.user_facing_response_event_ids.is_empty()
+                    || self.failure_code.is_some()
+                    || self.terminal_event_id.is_some()
+                {
+                    return Err(Error::Protocol(
+                        "delivered Sidecar exchange must carry no responses, failure code, or terminal Event"
+                            .to_owned(),
+                    ));
+                }
+            }
+            AgentSidecarExchangeStatus::Responding => {
+                if self.user_facing_response_event_ids.is_empty()
+                    || self.failure_code.is_some()
+                    || self.terminal_event_id.is_some()
+                {
+                    return Err(Error::Protocol(
+                        "responding Sidecar exchange requires responses and no terminal fields"
+                            .to_owned(),
+                    ));
+                }
+            }
+            AgentSidecarExchangeStatus::Complete => {
+                if self.user_facing_response_event_ids.is_empty()
+                    || self.failure_code.is_some()
+                    || self.terminal_event_id.is_none()
+                {
+                    return Err(Error::Protocol(
+                        "complete Sidecar exchange requires responses, a terminal Event, and no failure code"
+                            .to_owned(),
+                    ));
+                }
+            }
+            AgentSidecarExchangeStatus::Failed => {
+                if !self.user_facing_response_event_ids.is_empty()
+                    || self.failure_code.is_none()
+                    || self.terminal_event_id.is_none()
+                {
+                    return Err(Error::Protocol(
+                        "failed Sidecar exchange requires failure_code and terminal Event and no responses"
+                            .to_owned(),
+                    ));
+                }
+            }
+        }
+        self.folded_frontier.validate()
     }
 }
 
@@ -1551,58 +2086,288 @@ mod tests {
         assert!(serde_json::from_value::<AgentSidecar>(non_canonical).is_err());
     }
 
-    #[test]
-    fn sidecar_exchange_projection_is_per_exchange_and_fail_closed() {
-        let projection = AgentSidecarExchangeProjection {
+    fn fixture_event_id(suffix: u32) -> EventId {
+        EventId::new(format!("ak:event:01964137-0000-7000-8000-{suffix:012x}")).unwrap()
+    }
+
+    fn fixture_agent() -> Did {
+        Did::new("did:webvh:z6mkfixture:assistant.agents.example").unwrap()
+    }
+
+    fn fixture_request_context() -> AgentSidecarExchangeRequestContext {
+        AgentSidecarExchangeRequestContext {
+            source_track_ref: AgentSidecarSourceTrackRef {
+                realm_id: RealmId::new("ak:realm:01964137-0000-7000-8000-000000000030").unwrap(),
+                strand_id: StrandId::new("ak:strand:01964137-0000-7000-8000-000000000031").unwrap(),
+                track_name: "discussion".to_owned(),
+            },
+            source_hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
+            client_order_key: NonEmptyString::new("device-1-1").unwrap(),
+            addressed_agent_ids: vec![fixture_agent()],
+            completion_policy: AgentSidecarExchangeCompletionPolicy::Coordinator,
+            coordinator_agent_id: None,
+            source_frontier_anchor: None,
+        }
+    }
+
+    fn fixture_exchange_projection() -> AgentSidecarExchangeProjection {
+        AgentSidecarExchangeProjection {
             schema: AgentSidecarExchangeProjectionSchema::V1,
             controller_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice").unwrap(),
-            sidecar_id: SidecarId::new(
-                "ak:sidecar:01964137-0000-7000-8000-000000000032".to_owned(),
-            )
-            .unwrap(),
-            private_strand_id: StrandId::new(
-                "ak:strand:01964137-0000-7000-8000-000000000033".to_owned(),
-            )
-            .unwrap(),
+            sidecar_id: SidecarId::new("ak:sidecar:01964137-0000-7000-8000-000000000032").unwrap(),
+            private_strand_id: StrandId::new("ak:strand:01964137-0000-7000-8000-000000000033")
+                .unwrap(),
             exchange_id: AgentSidecarExchangeId::new("Abcdefghijklmnopqrstuv").unwrap(),
             origin: AgentSidecarExchangeOrigin::SourceTrackRouted,
             source_track_ref: AgentSidecarSourceTrackRef {
-                realm_id: RealmId::new("ak:realm:01964137-0000-7000-8000-000000000030".to_owned())
-                    .unwrap(),
-                strand_id: StrandId::new(
-                    "ak:strand:01964137-0000-7000-8000-000000000031".to_owned(),
-                )
-                .unwrap(),
+                realm_id: RealmId::new("ak:realm:01964137-0000-7000-8000-000000000030").unwrap(),
+                strand_id: StrandId::new("ak:strand:01964137-0000-7000-8000-000000000031").unwrap(),
                 track_name: "discussion".to_owned(),
             },
             source_frontier_anchor: None,
             source_hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
             client_order_key: NonEmptyString::new("device-1-1").unwrap(),
-            addressed_agent_ids: vec![],
+            addressed_agent_ids: vec![fixture_agent()],
+            completion_policy: AgentSidecarExchangeCompletionPolicy::Coordinator,
+            coordinator_agent_id: fixture_agent(),
+            coordinator_assignment_event_id: fixture_event_id(0x34),
             participating_agent_ids: vec![],
-            private_request_event_id: EventId::new(
-                "ak:event:01964137-0000-7000-8000-000000000034".to_owned(),
-            )
-            .unwrap(),
+            private_request_event_id: fixture_event_id(0x34),
             user_facing_response_event_ids: vec![],
-            status: AgentSidecarExchangeStatus::Pending,
+            status: AgentSidecarExchangeStatus::Delivered,
             failure_code: None,
-            updated_hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
-        };
+            terminal_event_id: None,
+            folded_frontier: AgentSidecarExchangeFoldedFrontier {
+                event_ids: vec![fixture_event_id(0x34)],
+                event_set_digest: agent_sidecar_exchange_event_set_digest(&[fixture_event_id(
+                    0x34,
+                )])
+                .unwrap(),
+                max_hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
+            },
+        }
+    }
+
+    #[test]
+    fn sidecar_exchange_projection_is_a_local_fold_cache_and_fail_closed() {
+        let projection = fixture_exchange_projection();
         projection.validate().unwrap();
-        assert_eq!(
-            projection.account_data_type(),
-            "ak.agent.sidecar_projection.v1:did:webvh:z6mkfixture:example.com:users:alice:ak:realm:01964137-0000-7000-8000-000000000030:ak:strand:01964137-0000-7000-8000-000000000031:Abcdefghijklmnopqrstuv"
-        );
 
         let mut native = projection.clone();
         native.origin = AgentSidecarExchangeOrigin::SidecarNative;
         assert!(native.validate().is_err());
 
+        let mut pending = serde_json::to_value(&projection).unwrap();
+        pending["status"] = serde_json::json!("pending");
+        assert!(
+            serde_json::from_value::<AgentSidecarExchangeProjection>(pending).is_err(),
+            "pending is client-local UI intent and never enters the projection"
+        );
+
+        let mut foreign_coordinator = projection.clone();
+        foreign_coordinator.coordinator_agent_id =
+            Did::new("did:webvh:z6mkfixture:other.agents.example").unwrap();
+        assert!(foreign_coordinator.validate().is_err());
+
+        let mut complete_without_terminal = projection.clone();
+        complete_without_terminal.status = AgentSidecarExchangeStatus::Complete;
+        complete_without_terminal.user_facing_response_event_ids = vec![fixture_event_id(0x35)];
+        assert!(complete_without_terminal.validate().is_err());
+
+        let mut failed_with_response = projection.clone();
+        failed_with_response.status = AgentSidecarExchangeStatus::Failed;
+        failed_with_response.failure_code = Some(NonEmptyString::new("agent_deactivated").unwrap());
+        failed_with_response.terminal_event_id = Some(fixture_event_id(0x36));
+        failed_with_response.user_facing_response_event_ids = vec![fixture_event_id(0x35)];
+        assert!(
+            failed_with_response.validate().is_err(),
+            "failed never carries responses; delivered responses fold to complete"
+        );
+
         let mut unknown = serde_json::to_value(&projection).unwrap();
         unknown["private_circle_id"] =
             serde_json::json!("ak:circle:01964137-0000-7000-8000-000000000035");
         assert!(serde_json::from_value::<AgentSidecarExchangeProjection>(unknown).is_err());
+
+        let mut account_data_key = serde_json::to_value(&projection).unwrap();
+        account_data_key["account_data_type"] = serde_json::json!(
+            "ak.agent.sidecar_projection.v1:did:webvh:z6mkfixture:example.com:users:alice"
+        );
+        assert!(
+            serde_json::from_value::<AgentSidecarExchangeProjection>(account_data_key).is_err(),
+            "the exchange projection is not Account Data and registers no key surface"
+        );
+    }
+
+    #[test]
+    fn sidecar_exchange_binding_roles_are_closed_producer_contracts() {
+        let exchange_id = AgentSidecarExchangeId::new("Abcdefghijklmnopqrstuv").unwrap();
+        let request = AgentSidecarEventExchangeBinding::request(
+            exchange_id.clone(),
+            fixture_request_context(),
+        )
+        .unwrap();
+        let value = serde_json::to_value(&request).unwrap();
+        assert_eq!(
+            value["schema"],
+            "ak.schema.agent_sidecar_event_exchange_binding.v1"
+        );
+        assert_eq!(value["role"], "request");
+        assert!(value.get("request_event_id").is_none());
+
+        let mut smuggled_request_event = request.clone();
+        smuggled_request_event.request_event_id = Some(fixture_event_id(0x34));
+        assert!(smuggled_request_event.validate().is_err());
+
+        let response = AgentSidecarEventExchangeBinding::user_facing_response(
+            exchange_id.clone(),
+            fixture_event_id(0x34),
+        )
+        .unwrap();
+        assert!(response.completes_exchange.is_none());
+        let completing = response
+            .clone()
+            .with_completion(fixture_event_id(0x34))
+            .unwrap();
+        assert_eq!(completing.completes_exchange, Some(true));
+
+        let mut orphan_completion = response.clone();
+        orphan_completion.completes_exchange = Some(true);
+        assert!(
+            orphan_completion.validate().is_err(),
+            "completes_exchange requires coordinator_assignment_event_id"
+        );
+        let mut false_completion = response.clone();
+        false_completion.completes_exchange = Some(false);
+        assert!(false_completion.validate().is_err());
+
+        let internal =
+            AgentSidecarEventExchangeBinding::internal(exchange_id.clone(), fixture_event_id(0x34))
+                .unwrap();
+        let mut internal_completing = internal.clone();
+        internal_completing.completes_exchange = Some(true);
+        internal_completing.coordinator_assignment_event_id = Some(fixture_event_id(0x34));
+        assert!(
+            internal_completing.validate().is_err(),
+            "only user_facing_response may request completion"
+        );
+        let mut internal_with_context = internal;
+        internal_with_context.request_context = Some(fixture_request_context());
+        assert!(internal_with_context.validate().is_err());
+
+        let mut multi = fixture_request_context();
+        multi.addressed_agent_ids = vec![
+            fixture_agent(),
+            Did::new("did:webvh:z6mkfixture:reviewer.agents.example").unwrap(),
+        ];
+        assert!(
+            AgentSidecarEventExchangeBinding::request(exchange_id.clone(), multi.clone()).is_err(),
+            "multi-agent requests must pick an explicit coordinator"
+        );
+        multi.coordinator_agent_id = Some(fixture_agent());
+        AgentSidecarEventExchangeBinding::request(exchange_id, multi).unwrap();
+
+        let unknown_role = serde_json::json!({
+            "schema": "ak.schema.agent_sidecar_event_exchange_binding.v1",
+            "exchange_id": "Abcdefghijklmnopqrstuv",
+            "role": "coordinator_summary"
+        });
+        assert!(
+            serde_json::from_value::<AgentSidecarEventExchangeBinding>(unknown_role).is_err(),
+            "unknown roles fail closed to non-echo"
+        );
+    }
+
+    #[test]
+    fn sidecar_exchange_control_terminal_mapping_matches_spec() {
+        let base = AgentSidecarExchangeControl {
+            schema: AgentSidecarExchangeControlSchema::V1,
+            exchange_id: AgentSidecarExchangeId::new("Abcdefghijklmnopqrstuv").unwrap(),
+            request_event_id: fixture_event_id(0x34),
+            basis_event_ids: vec![fixture_event_id(0x34), fixture_event_id(0x35)],
+            action: AgentSidecarExchangeControlAction::Cancel,
+            response_event_ids: Some(vec![fixture_event_id(0x35)]),
+            failure_code: None,
+            expected_coordinator_agent_id: None,
+            coordinator_agent_id: None,
+        };
+        let outcome = base.terminal_outcome().unwrap().unwrap();
+        assert_eq!(outcome.status, AgentSidecarExchangeStatus::Complete);
+        assert!(
+            outcome.failure_code.is_none(),
+            "cancel with delivered responses folds to complete, not failed"
+        );
+
+        let mut empty_close = base.clone();
+        empty_close.action = AgentSidecarExchangeControlAction::Close;
+        empty_close.response_event_ids = Some(vec![]);
+        let outcome = empty_close.terminal_outcome().unwrap().unwrap();
+        assert_eq!(outcome.status, AgentSidecarExchangeStatus::Failed);
+        assert_eq!(
+            outcome.failure_code.as_deref(),
+            Some(AGENT_SIDECAR_EXCHANGE_FAILURE_CONTROLLER_CLOSED_EMPTY)
+        );
+
+        let mut empty_cancel = base.clone();
+        empty_cancel.response_event_ids = Some(vec![]);
+        let outcome = empty_cancel.terminal_outcome().unwrap().unwrap();
+        assert_eq!(
+            outcome.failure_code.as_deref(),
+            Some(AGENT_SIDECAR_EXCHANGE_FAILURE_CONTROLLER_CANCELLED)
+        );
+
+        let mut fail = base.clone();
+        fail.action = AgentSidecarExchangeControlAction::Fail;
+        fail.response_event_ids = Some(vec![]);
+        assert!(fail.validate().is_err(), "fail requires failure_code");
+        fail.failure_code = Some(NonEmptyString::new("agent_deactivated").unwrap());
+        let outcome = fail.terminal_outcome().unwrap().unwrap();
+        assert_eq!(outcome.failure_code.as_deref(), Some("agent_deactivated"));
+
+        let mut reassign = base.clone();
+        reassign.action = AgentSidecarExchangeControlAction::ReassignCoordinator;
+        reassign.response_event_ids = None;
+        reassign.expected_coordinator_agent_id = Some(fixture_agent());
+        reassign.coordinator_agent_id =
+            Some(Did::new("did:webvh:z6mkfixture:reviewer.agents.example").unwrap());
+        assert!(reassign.terminal_outcome().unwrap().is_none());
+        let mut identity_reassign = reassign.clone();
+        identity_reassign.coordinator_agent_id = Some(fixture_agent());
+        assert!(identity_reassign.validate().is_err());
+
+        let mut terminal_with_coordinator = base.clone();
+        terminal_with_coordinator.expected_coordinator_agent_id = Some(fixture_agent());
+        assert!(terminal_with_coordinator.validate().is_err());
+
+        let mut unsorted_basis = base;
+        unsorted_basis.basis_event_ids = vec![fixture_event_id(0x35), fixture_event_id(0x34)];
+        assert!(unsorted_basis.validate().is_err());
+    }
+
+    #[test]
+    fn sidecar_exchange_event_set_digest_is_order_insensitive_and_stable() {
+        let forward = agent_sidecar_exchange_event_set_digest(&[
+            fixture_event_id(0x34),
+            fixture_event_id(0x35),
+        ])
+        .unwrap();
+        let reversed = agent_sidecar_exchange_event_set_digest(&[
+            fixture_event_id(0x35),
+            fixture_event_id(0x34),
+            fixture_event_id(0x34),
+        ])
+        .unwrap();
+        assert_eq!(forward, reversed);
+
+        let frontier = AgentSidecarExchangeFoldedFrontier {
+            event_ids: vec![fixture_event_id(0x35), fixture_event_id(0x34)],
+            event_set_digest: forward,
+            max_hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
+        };
+        assert!(
+            frontier.validate().is_err(),
+            "frontier heads must be canonically sorted"
+        );
     }
 
     #[test]

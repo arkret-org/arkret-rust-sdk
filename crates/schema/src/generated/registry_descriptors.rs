@@ -3,12 +3,12 @@
 //! Input: registry/id-kind-registry.json; version=2026-07-20;
 //! sha256=4b8f8b5f6cec4c67f15eca1febbfd256fab86ec90165a1e82e3ee909a69192f1 Input: registry/
 //! capability-action-registry.json; version=2026-07-20;
-//! sha256=467b314e3f9fe21aba8fac5c8b5df948a91c8932850d6ef21def3ff019b68563 Input: registry/
+//! sha256=94ba6c28f7f8547913237a35bf42c04efe582a3d07662569c9fc58b88b7a0f82 Input: registry/
 //! schema-registry.json; version=2026-07-20;
-//! sha256=e16edf442891a2453c03a4ac6ef285fab8d69ede450255ed323b9f6d2c97ce50 Input: registry/
+//! sha256=ac4fa97c01dd0ea77e29ab51f524d69444c4d9f0a9c3cd8a333e63cebad0f85b Input: registry/
 //! account-data-type-registry.json; version=2026-07-03;
-//! sha256=90662737689befb83dab6d6570abc38d62d6b05b45901cc23ec80938e3bffd55 Entries: id_kinds=50,
-//! special_forms=9, actions=152, schemas=125, account_data_patterns=23
+//! sha256=0808766dfda85cde75ac66a9fb5e1e38b61212ae6f243d5faa980dd12c443785 Entries: id_kinds=50,
+//! special_forms=9, actions=153, schemas=127, account_data_patterns=22
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -424,6 +424,15 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_constraints: &[],
         target_event_kinds: &["ak.agent.selector_claim"],
         profile: Some("ak.profile.personal_agent_provisioning.v1"),
+        event_mapping_kind: "same_name",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::AgentSidecarExchangeControl,
+        category: "management",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &["allowed_strand_ids"],
+        target_event_kinds: &["ak.agent.sidecar.exchange.control"],
+        profile: Some("ak.profile.agent_sidecar.v1"),
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1836,6 +1845,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/agent-sidecar.schema.json",
     },
     SchemaDescriptor {
+        schema_id: "ak.schema.agent_sidecar_event_exchange_binding.v1",
+        file: "schemas/agent-sidecar-event-exchange-binding.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.agent_sidecar_exchange_control.v1",
+        file: "schemas/agent-sidecar-exchange-control.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: "ak.schema.agent_sidecar_exchange_projection.v1",
         file: "schemas/agent-sidecar-exchange-projection.schema.json",
     },
@@ -2320,13 +2337,6 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         scope: "controller_private_state",
         storage: "encrypted_account_data",
         plaintext_schema: None,
-        write_event_kinds: &["ak.account_data.set"],
-    },
-    AccountDataPatternDescriptor {
-        key_pattern: "ak.agent.sidecar_projection.v1:<controller_id>:<target_realm_id>:<target_strand_id>:<exchange_id>",
-        scope: "controller_private_state",
-        storage: "encrypted_account_data",
-        plaintext_schema: Some("ak.schema.agent_sidecar_exchange_projection.v1"),
         write_event_kinds: &["ak.account_data.set"],
     },
     AccountDataPatternDescriptor {
