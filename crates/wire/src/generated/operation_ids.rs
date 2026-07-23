@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-07-20;
-//! sha256=d2f5dd07822a78521830a9457bbdc6f72207a62410d26f8b4beb402d2dc9a11a Entries: registered=192
+//! sha256=863aa747cdc14e4a0e951021ee751f79599e3ef751def9424fbe55caa9879c79 Entries: registered=198
 
 use serde::{Deserialize, Serialize};
 
@@ -183,6 +183,12 @@ pub enum ServiceOperationId {
     SelfRealmCommandDestroy,
     SelfRealmCommandFreeze,
     SelfRealmCommandTombstone,
+    SelfRealmJoinApplicationAuditQueryList,
+    SelfRealmJoinApplicationCommandCancel,
+    SelfRealmJoinApplicationCommandReview,
+    SelfRealmJoinApplicationCommandSubmit,
+    SelfRealmJoinApplicationQueryList,
+    SelfRealmJoinApplicationResourceGet,
     SelfRealmModerationPolicyQueryEffective,
     SelfRealmModerationPolicyResourceReplace,
     SelfRealmQueryExport,
@@ -378,6 +384,12 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.self.realm.command.destroy",
     "ak.self.realm.command.freeze",
     "ak.self.realm.command.tombstone",
+    "ak.self.realm.join_application.audit.query.list",
+    "ak.self.realm.join_application.command.cancel",
+    "ak.self.realm.join_application.command.review",
+    "ak.self.realm.join_application.command.submit",
+    "ak.self.realm.join_application.query.list",
+    "ak.self.realm.join_application.resource.get",
     "ak.self.realm.moderation_policy.query.effective",
     "ak.self.realm.moderation_policy.resource.replace",
     "ak.self.realm.query.export",
@@ -589,6 +601,12 @@ impl ServiceOperationId {
         Self::SelfRealmCommandDestroy,
         Self::SelfRealmCommandFreeze,
         Self::SelfRealmCommandTombstone,
+        Self::SelfRealmJoinApplicationAuditQueryList,
+        Self::SelfRealmJoinApplicationCommandCancel,
+        Self::SelfRealmJoinApplicationCommandReview,
+        Self::SelfRealmJoinApplicationCommandSubmit,
+        Self::SelfRealmJoinApplicationQueryList,
+        Self::SelfRealmJoinApplicationResourceGet,
         Self::SelfRealmModerationPolicyQueryEffective,
         Self::SelfRealmModerationPolicyResourceReplace,
         Self::SelfRealmQueryExport,
@@ -869,6 +887,18 @@ impl ServiceOperationId {
     pub const SELF_REALM_COMMAND_DESTROY: &'static str = "ak.self.realm.command.destroy";
     pub const SELF_REALM_COMMAND_FREEZE: &'static str = "ak.self.realm.command.freeze";
     pub const SELF_REALM_COMMAND_TOMBSTONE: &'static str = "ak.self.realm.command.tombstone";
+    pub const SELF_REALM_JOIN_APPLICATION_AUDIT_QUERY_LIST: &'static str =
+        "ak.self.realm.join_application.audit.query.list";
+    pub const SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL: &'static str =
+        "ak.self.realm.join_application.command.cancel";
+    pub const SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW: &'static str =
+        "ak.self.realm.join_application.command.review";
+    pub const SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT: &'static str =
+        "ak.self.realm.join_application.command.submit";
+    pub const SELF_REALM_JOIN_APPLICATION_QUERY_LIST: &'static str =
+        "ak.self.realm.join_application.query.list";
+    pub const SELF_REALM_JOIN_APPLICATION_RESOURCE_GET: &'static str =
+        "ak.self.realm.join_application.resource.get";
     pub const SELF_REALM_MODERATION_POLICY_QUERY_EFFECTIVE: &'static str =
         "ak.self.realm.moderation_policy.query.effective";
     pub const SELF_REALM_MODERATION_POLICY_RESOURCE_REPLACE: &'static str =
@@ -1129,6 +1159,22 @@ impl ServiceOperationId {
             Self::SelfRealmCommandDestroy => "ak.self.realm.command.destroy",
             Self::SelfRealmCommandFreeze => "ak.self.realm.command.freeze",
             Self::SelfRealmCommandTombstone => "ak.self.realm.command.tombstone",
+            Self::SelfRealmJoinApplicationAuditQueryList => {
+                "ak.self.realm.join_application.audit.query.list"
+            }
+            Self::SelfRealmJoinApplicationCommandCancel => {
+                "ak.self.realm.join_application.command.cancel"
+            }
+            Self::SelfRealmJoinApplicationCommandReview => {
+                "ak.self.realm.join_application.command.review"
+            }
+            Self::SelfRealmJoinApplicationCommandSubmit => {
+                "ak.self.realm.join_application.command.submit"
+            }
+            Self::SelfRealmJoinApplicationQueryList => "ak.self.realm.join_application.query.list",
+            Self::SelfRealmJoinApplicationResourceGet => {
+                "ak.self.realm.join_application.resource.get"
+            }
             Self::SelfRealmModerationPolicyQueryEffective => {
                 "ak.self.realm.moderation_policy.query.effective"
             }
@@ -1410,6 +1456,24 @@ impl ServiceOperationId {
             "ak.self.realm.command.destroy" => Some(Self::SelfRealmCommandDestroy),
             "ak.self.realm.command.freeze" => Some(Self::SelfRealmCommandFreeze),
             "ak.self.realm.command.tombstone" => Some(Self::SelfRealmCommandTombstone),
+            "ak.self.realm.join_application.audit.query.list" => {
+                Some(Self::SelfRealmJoinApplicationAuditQueryList)
+            }
+            "ak.self.realm.join_application.command.cancel" => {
+                Some(Self::SelfRealmJoinApplicationCommandCancel)
+            }
+            "ak.self.realm.join_application.command.review" => {
+                Some(Self::SelfRealmJoinApplicationCommandReview)
+            }
+            "ak.self.realm.join_application.command.submit" => {
+                Some(Self::SelfRealmJoinApplicationCommandSubmit)
+            }
+            "ak.self.realm.join_application.query.list" => {
+                Some(Self::SelfRealmJoinApplicationQueryList)
+            }
+            "ak.self.realm.join_application.resource.get" => {
+                Some(Self::SelfRealmJoinApplicationResourceGet)
+            }
             "ak.self.realm.moderation_policy.query.effective" => {
                 Some(Self::SelfRealmModerationPolicyQueryEffective)
             }
@@ -4329,6 +4393,102 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.realm.resource.get\",\"strategy\":\"query_operation\"}",
         ),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfRealmJoinApplicationAuditQueryList,
+        http_method: "GET",
+        http_path: "/_arkret/self/realms/{realm_id}/join-applications/{application_ref}/audit",
+        grpc: Some("SelfRealmJoinApplication/ListAudit"),
+        mq: Some("self.realm.join_application.audit.query.list"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: Some(
+            "schemas/join-policy-operations.schema.json#/$defs/application_audit_outcome",
+        ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfRealmJoinApplicationCommandCancel,
+        http_method: "POST",
+        http_path: "/_arkret/self/realms/{realm_id}/join-applications/{application_ref}/cancel",
+        grpc: Some("SelfRealmJoinApplication/Cancel"),
+        mq: Some("self.realm.join_application.command.cancel"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/join-policy-operations.schema.json#/$defs/application_cancel_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/join-policy-operations.schema.json#/$defs/application_mutation_outcome",
+        ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfRealmJoinApplicationCommandReview,
+        http_method: "POST",
+        http_path: "/_arkret/self/realms/{realm_id}/join-applications/{application_ref}/reviews",
+        grpc: Some("SelfRealmJoinApplication/Review"),
+        mq: Some("self.realm.join_application.command.review"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/join-policy-operations.schema.json#/$defs/application_review_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/join-policy-operations.schema.json#/$defs/application_mutation_outcome",
+        ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfRealmJoinApplicationCommandSubmit,
+        http_method: "POST",
+        http_path: "/_arkret/self/realms/{realm_id}/join-applications",
+        grpc: Some("SelfRealmJoinApplication/Submit"),
+        mq: Some("self.realm.join_application.command.submit"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/join-policy-operations.schema.json#/$defs/application_submit_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/join-policy-operations.schema.json#/$defs/application_mutation_outcome",
+        ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfRealmJoinApplicationQueryList,
+        http_method: "GET",
+        http_path: "/_arkret/self/realms/{realm_id}/join-applications",
+        grpc: Some("SelfRealmJoinApplication/List"),
+        mq: Some("self.realm.join_application.query.list"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: Some(
+            "schemas/join-policy-operations.schema.json#/$defs/application_list_outcome",
+        ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfRealmJoinApplicationResourceGet,
+        http_method: "GET",
+        http_path: "/_arkret/self/realms/{realm_id}/join-applications/{application_ref}",
+        grpc: Some("SelfRealmJoinApplication/Get"),
+        mq: Some("self.realm.join_application.resource.get"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: Some(
+            "schemas/join-policy-operations.schema.json#/$defs/application_get_outcome",
+        ),
+        uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmModerationPolicyQueryEffective,

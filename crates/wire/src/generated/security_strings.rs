@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-07-16;
-//! sha256=2dfe74804a47e3904c3e339472227b4524c60bd57992b41e6612af632dd071cc Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-07-24;
+//! sha256=b62682537b1d3c95fd31b77cdb80eecd30907d16306273b691a5b40001439a97 Input: registry/
 //! exporter-label-registry.json; version=2026-06-10;
 //! sha256=7d67b5d14ab81711347af19f9f1759d9ee35dd1f15d96c92ed02fd6b27847d76 Input: registry/
 //! digest-suite-registry.json; version=2026-06-10;
@@ -14,7 +14,7 @@
 //! sha256=a480b2b689250123d2cc22e004bc376cb8080d9f6bf1500886271ff30b5a6ad6 Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
 //! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
-//! Entries: proof_contexts=24, exporter_labels=8, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=27, exporter_labels=8, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -36,6 +36,9 @@ pub enum ProofContextId {
     HandleClaimProofV1,
     IdentityCreationControlProofV1,
     IdentityReceiptProofV1,
+    JoinApplicationCancelReceiptProofV1,
+    JoinApplicationReceiptProofV1,
+    JoinApplicationReviewReceiptProofV1,
     MemberDeliveryBindingCandidateProofV1,
     MimiOperationProofV1,
     PrincipalLocatorProofV1,
@@ -64,6 +67,9 @@ impl ProofContextId {
         Self::HandleClaimProofV1,
         Self::IdentityCreationControlProofV1,
         Self::IdentityReceiptProofV1,
+        Self::JoinApplicationCancelReceiptProofV1,
+        Self::JoinApplicationReceiptProofV1,
+        Self::JoinApplicationReviewReceiptProofV1,
         Self::MemberDeliveryBindingCandidateProofV1,
         Self::MimiOperationProofV1,
         Self::PrincipalLocatorProofV1,
@@ -93,6 +99,12 @@ impl ProofContextId {
     pub const IDENTITY_CREATION_CONTROL_PROOF_V1: &'static str =
         "ak.identity-creation-control-proof-v1";
     pub const IDENTITY_RECEIPT_PROOF_V1: &'static str = "ak.identity-receipt-proof-v1";
+    pub const JOIN_APPLICATION_CANCEL_RECEIPT_PROOF_V1: &'static str =
+        "ak.join-application-cancel-receipt-proof-v1";
+    pub const JOIN_APPLICATION_RECEIPT_PROOF_V1: &'static str =
+        "ak.join-application-receipt-proof-v1";
+    pub const JOIN_APPLICATION_REVIEW_RECEIPT_PROOF_V1: &'static str =
+        "ak.join-application-review-receipt-proof-v1";
     pub const MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1: &'static str =
         "ak.member-delivery-binding-candidate-proof-v1";
     pub const MIMI_OPERATION_PROOF_V1: &'static str = "ak.mimi-operation-proof-v1";
@@ -127,6 +139,13 @@ impl ProofContextId {
             Self::HandleClaimProofV1 => "ak.handle-claim-proof-v1",
             Self::IdentityCreationControlProofV1 => "ak.identity-creation-control-proof-v1",
             Self::IdentityReceiptProofV1 => "ak.identity-receipt-proof-v1",
+            Self::JoinApplicationCancelReceiptProofV1 => {
+                "ak.join-application-cancel-receipt-proof-v1"
+            }
+            Self::JoinApplicationReceiptProofV1 => "ak.join-application-receipt-proof-v1",
+            Self::JoinApplicationReviewReceiptProofV1 => {
+                "ak.join-application-review-receipt-proof-v1"
+            }
             Self::MemberDeliveryBindingCandidateProofV1 => {
                 "ak.member-delivery-binding-candidate-proof-v1"
             }
@@ -164,6 +183,13 @@ impl ProofContextId {
             "ak.handle-claim-proof-v1" => Some(Self::HandleClaimProofV1),
             "ak.identity-creation-control-proof-v1" => Some(Self::IdentityCreationControlProofV1),
             "ak.identity-receipt-proof-v1" => Some(Self::IdentityReceiptProofV1),
+            "ak.join-application-cancel-receipt-proof-v1" => {
+                Some(Self::JoinApplicationCancelReceiptProofV1)
+            }
+            "ak.join-application-receipt-proof-v1" => Some(Self::JoinApplicationReceiptProofV1),
+            "ak.join-application-review-receipt-proof-v1" => {
+                Some(Self::JoinApplicationReviewReceiptProofV1)
+            }
             "ak.member-delivery-binding-candidate-proof-v1" => {
                 Some(Self::MemberDeliveryBindingCandidateProofV1)
             }
@@ -517,6 +543,48 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/identity-receipt.schema.json",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::JoinApplicationCancelReceiptProofV1,
+        context: "ak.join-application-cancel-receipt-proof-v1",
+        object_family: "join_application_cancel_receipt",
+        binding_fields: &[
+            "receipt_digest",
+            "realm_id",
+            "application_ref",
+            "actor_id",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/join-policy-operations.schema.json#/$defs/cancel_receipt",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::JoinApplicationReceiptProofV1,
+        context: "ak.join-application-receipt-proof-v1",
+        object_family: "join_application_receipt",
+        binding_fields: &[
+            "receipt_digest",
+            "realm_id",
+            "actor_id",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/join-policy-operations.schema.json#/$defs/application_receipt",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::JoinApplicationReviewReceiptProofV1,
+        context: "ak.join-application-review-receipt-proof-v1",
+        object_family: "join_application_review_receipt",
+        binding_fields: &[
+            "receipt_digest",
+            "realm_id",
+            "application_ref",
+            "application_revision_digest",
+            "actor_id",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/join-policy-operations.schema.json#/$defs/review_receipt",
     },
     ProofContextDescriptor {
         id: ProofContextId::MemberDeliveryBindingCandidateProofV1,

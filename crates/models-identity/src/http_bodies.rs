@@ -43,19 +43,48 @@ pub struct AccountDeviceEnrollRequestBody {
     /// Canonical sorted unique algorithm ids; enters
     /// `ak.device.authorize.payload.algorithms` verbatim (§5.2/§5.4).
     pub algorithms: Vec<String>,
+    /// Founding-device sequence. The closed wire contract fixes this to `1`;
+    /// post-bootstrap devices use pairing or recovery re-anchor instead.
+    #[serde(
+        serialize_with = "serialize_founding_device_actor_seq",
+        deserialize_with = "deserialize_founding_device_actor_seq"
+    )]
     pub actor_seq: u64,
     /// Root-signed `ak.realm.create` Event id immediately preceding the
     /// authority-signed authorize in the atomic first-device bootstrap unit.
-    /// Required exactly when `actor_seq == 1` and copied to the authorize
-    /// Event's sole `prev_refs` entry.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bootstrap_create_event_id: Option<EventId>,
+    /// Copied to the authorize Event's sole `prev_refs` entry.
+    pub bootstrap_create_event_id: EventId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
     )]
     pub not_before: Option<DateTime<Utc>>,
+}
+
+fn serialize_founding_device_actor_seq<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    if *value != 1 {
+        return Err(serde::ser::Error::custom(
+            "founding device actor_seq must be 1",
+        ));
+    }
+    serializer.serialize_u64(*value)
+}
+
+fn deserialize_founding_device_actor_seq<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = u64::deserialize(deserializer)?;
+    if value != 1 {
+        return Err(serde::de::Error::custom(
+            "founding device actor_seq must be 1",
+        ));
+    }
+    Ok(value)
 }
 
 /// Outcome for `ak.gate.account.command.enroll_device`. The account authority
@@ -101,3 +130,62 @@ pub struct IdentitySubmitDidOperationOutcome(pub DidOperationSubmitOutcome);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct IdentityReceiptsResultBody(pub IdentityReceiptListOutcome);
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::AccountDeviceEnrollRequestBody;
+
+    fn founding_request() -> serde_json::Value {
+        json!({
+            "device_id": "ak:device:01964137-0000-7000-8000-000000000001",
+            "device_public_key": "z6MkExamplePublicKey",
+            "hpke_key": "z6LExampleHpkeKey",
+            "algorithms": ["ak.hpke_x25519_aead_chacha20poly1305.v1"],
+            "actor_seq": 1,
+            "bootstrap_create_event_id": "ak:event:01964137-0000-7000-8000-000000000002"
+        })
+    }
+
+    #[test]
+    fn device_enroll_accepts_only_founding_actor_seq() {
+        serde_json::from_value::<AccountDeviceEnrollRequestBody>(founding_request())
+            .expect("founding request");
+
+        let mut later = founding_request();
+        later["actor_seq"] = json!(2);
+        let decoded_error = serde_json::from_value::<AccountDeviceEnrollRequestBody>(later.clone())
+            .expect_err("later device must fail");
+        assert!(decoded_error.to_string().contains("actor_seq must be 1"));
+
+        let invalid_body = AccountDeviceEnrollRequestBody {
+            device_id: serde_json::from_value(later["device_id"].clone()).expect("device id"),
+            device_public_key: "z6MkExamplePublicKey".to_owned(),
+            hpke_key: "z6LExampleHpkeKey".to_owned(),
+            algorithms: vec!["ak.hpke_x25519_aead_chacha20poly1305.v1".to_owned()],
+            actor_seq: 2,
+            bootstrap_create_event_id: serde_json::from_value(
+                later["bootstrap_create_event_id"].clone(),
+            )
+            .expect("event id"),
+            not_before: None,
+        };
+        assert!(
+            serde_json::to_value(invalid_body)
+                .expect_err("invalid constructed request must not serialize")
+                .to_string()
+                .contains("actor_seq must be 1")
+        );
+    }
+
+    #[test]
+    fn device_enroll_requires_bootstrap_create_event() {
+        let mut missing = founding_request();
+        missing
+            .as_object_mut()
+            .expect("object")
+            .remove("bootstrap_create_event_id");
+        assert!(serde_json::from_value::<AccountDeviceEnrollRequestBody>(missing).is_err());
+    }
+}
