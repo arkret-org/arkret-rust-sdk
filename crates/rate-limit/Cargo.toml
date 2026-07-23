@@ -1,0 +1,18 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+categories = ["algorithms", "web-programming"]
+description = "Capacity-bounded in-memory rate-limit mechanisms for Arkret services."
+edition = "2024"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+keywords = ["arkret", "rate-limit", "token-bucket"]
+license = "Apache-2.0"
+name = "arkret-rate-limit"
+readme = "README.md"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

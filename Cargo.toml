@@ -20,6 +20,8 @@ members = [
     "crates/models-identity",
     "crates/models-integration",
     "crates/policy",
+    "crates/push-policy",
+    "crates/rate-limit",
     "crates/schema",
     "crates/sdk",
     "crates/server",
@@ -48,6 +50,8 @@ default-members = [
     "crates/models-identity",
     "crates/models-integration",
     "crates/policy",
+    "crates/push-policy",
+    "crates/rate-limit",
     "crates/schema",
     "crates/sdk",
     "crates/server",
@@ -94,6 +98,8 @@ arkret-keystore = {version = "0.3.0",path = "crates/keystore",default-features =
 arkret-lattice-registry = {version = "0.3.0",path = "crates/lattice-registry",default-features = false}
 arkret-egress-policy = {version = "0.3.0",path = "crates/egress-policy",default-features = false}
 arkret-policy = {version = "0.3.0",path = "crates/policy",default-features = false}
+arkret-push-policy = {version = "0.3.0",path = "crates/push-policy",default-features = false}
+arkret-rate-limit = {version = "0.3.0",path = "crates/rate-limit",default-features = false}
 arkret-server = {version = "0.3.0",path = "crates/server",default-features = false}
 arkret-schema = {version = "0.3.0",path = "crates/schema",default-features = false}
 arkret-signatures = {version = "0.3.0",path = "crates/signatures",default-features = false}

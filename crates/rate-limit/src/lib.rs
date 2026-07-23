@@ -1,4 +1,4 @@
-//! Framework-independent, capacity-bounded rate-limit mechanisms.
+//! Framework-independent, capacity-bounded rate-limit mechanisms shared by Arkret services.
 
 use std::collections::HashMap;
 use std::hash::Hash;

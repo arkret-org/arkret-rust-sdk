@@ -3,14 +3,16 @@
 //! vectors, `ak.profile.push_gateway.blind_wakeup.v1`).
 //!
 //! Every case drives the SDK's shared push-rule core
-//! [`arkret_policy::push_rule_core::evaluate_watch_level`] with the fixture's
+//! [`arkret_push_policy::push_rule_core::evaluate_watch_level`] with the fixture's
 //! `(watch_level, event)` inputs and asserts the fixture's `expected`
 //! `deliver` / `blind_wakeup` / `reason_code` decision plus the derived
 //! client-projection flags. This is the pure protocol decision the spec
 //! requires every SDK to converge on; transport, DND and UI wrapping are
 //! left to higher crates.
 
-use arkret_policy::push_rule_core::{EventContext, ShouldNotify, WatchLevel, evaluate_watch_level};
+use arkret_push_policy::push_rule_core::{
+    EventContext, ShouldNotify, WatchLevel, evaluate_watch_level,
+};
 use arkret_schema::embedded_json_artifact;
 use serde_json::Value;
 

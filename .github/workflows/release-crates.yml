@@ -25,6 +25,7 @@ jobs:
         arkret-models-collaboration
         arkret-models-discovery
         arkret-models-integration
+        arkret-push-policy
         arkret-event-draft
         arkret-models
         arkret-schema
@@ -38,6 +39,7 @@ jobs:
         arkret-http-client
         arkret-lattice-registry
         arkret-bootstrap
+        arkret-rate-limit
         arkret-server
         arkret
     steps:

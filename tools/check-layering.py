@@ -165,6 +165,8 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # with no Arkret dependencies.
     "arkret-keystore": set(),
     "arkret-egress-policy": set(),
+    "arkret-push-policy": {"arkret-models-integration"},
+    "arkret-rate-limit": set(),
     "arkret-http-client": _WIRE
     | {
         "arkret-models-identity",
@@ -188,6 +190,7 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         # consume them from arkret-event-draft directly (behavior depends on
         # data). event-draft has no server dep, so the edge is cycle-free.
         "arkret-event-draft",
+        "arkret-rate-limit",
         "arkret-signatures",
         "arkret-state",
     },

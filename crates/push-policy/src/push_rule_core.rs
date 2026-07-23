@@ -1,4 +1,4 @@
-//! Shared v1 push rule core.
+//! Shared Arkret v1 push rule core.
 //!
 //! This module contains the protocol-level watch-state gate shared by
 //! clients, servers, and local notification evaluators. Higher-level crates

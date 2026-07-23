@@ -1,0 +1,26 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+categories = ["algorithms", "data-structures"]
+description = "Arkret v1 blind push-payload and notification watch policy."
+edition = "2024"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+keywords = ["arkret", "push", "privacy", "policy"]
+license = "Apache-2.0"
+name = "arkret-push-policy"
+readme = "README.md"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+arkret-models-integration.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
+proptest = {workspace = true,default-features = false,features = ["std"]}
+
+[lints]
+workspace = true

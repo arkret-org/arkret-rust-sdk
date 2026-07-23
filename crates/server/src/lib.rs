@@ -78,7 +78,6 @@ pub mod cursor_authority;
 mod fixtures;
 pub mod idempotency;
 mod protocol;
-pub mod rate_limit;
 mod registry;
 #[cfg(test)]
 mod tests;
@@ -86,6 +85,10 @@ mod tests;
 #[cfg(feature = "salvo")]
 pub use applet::router as applet_router;
 pub use applet::{AppletHandler, AppletService, ServiceRoute, TransactionDispatch, service_routes};
+pub use arkret_rate_limit::{
+    FixedWindowConfig, MemoryFixedWindowRateLimiter, MemoryTokenBucketRateLimiter,
+    RateLimitRejection, TokenBucketConfig,
+};
 pub use cursor_authority::{
     CursorAuthority, CursorAuthorityError, CursorBindingContext, CursorBindingRecord,
     MemoryCursorAuthority, cursor_filter_digest,
@@ -96,8 +99,4 @@ pub use idempotency::{
     TransactionClaim, TransactionIdempotencyStore,
 };
 pub use protocol::*;
-pub use rate_limit::{
-    FixedWindowConfig, MemoryFixedWindowRateLimiter, MemoryTokenBucketRateLimiter,
-    RateLimitRejection, TokenBucketConfig,
-};
 pub use registry::*;

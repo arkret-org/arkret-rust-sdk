@@ -290,7 +290,6 @@ pub use arkret_models_integration::integration::*;
 pub use arkret_models_integration::models_push::*;
 pub use arkret_models_integration::{integration, push};
 pub use arkret_policy::authz::*;
-pub use arkret_policy::blind_payload_sanitizer::*;
 pub use arkret_policy::generated::profiles::{
     PROFILE_ROLES, ProfileRole, profile_ids_with_role, profile_role,
 };
@@ -310,7 +309,8 @@ pub use arkret_policy::profile_semantics::{
     validate_profile_semantic_coverage,
 };
 pub use arkret_policy::realm_organization::*;
-pub use arkret_policy::{blind_payload_sanitizer, push_rule_core};
+pub use arkret_push_policy::blind_payload_sanitizer::*;
+pub use arkret_push_policy::{blind_payload_sanitizer, push_rule_core};
 pub use arkret_schema as schema;
 pub use arkret_schema::EventSchemaExt;
 pub use arkret_schema::protocol::*;

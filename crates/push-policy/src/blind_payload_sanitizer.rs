@@ -1,4 +1,4 @@
-//! Blind push-payload sanitizer (T1.1).
+//! Blind push-payload sanitizer.
 //!
 //! Single source of truth for the Arkret v1 push gateway "blind wakeup"
 //! payload contract. Both push gateways (e.g. floria) and gateway clients
