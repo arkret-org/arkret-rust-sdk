@@ -1899,6 +1899,67 @@ mod tests {
         prepare_principal_inception(&input).expect("prepare ok")
     }
 
+    /// Self-authority variant: the DID document carries two verification
+    /// methods (principal signing at `seed + 2`, enrollment at `seed + 3`)
+    /// that are distinct from the entry-0 root.
+    fn run_prepare_self_authority(seed: u8) -> PreparedPrincipalInception {
+        let endpoint = Url::parse("https://local.host:8080/").unwrap();
+        let root_seed = [seed; SECRET_KEY_LENGTH];
+        let next_root_public_key_multibase = public_multikey(seed.wrapping_add(1));
+        let principal_signing = public_multikey(seed.wrapping_add(2));
+        let enrollment_key = public_multikey(seed.wrapping_add(3));
+        let input = PrincipalInceptionInput {
+            principal_endpoint: &endpoint,
+            local_id: "01krmccd3cehqbtvzg383m3maf",
+            also_known_as: &["acct:user@local.host".to_owned()],
+            version_time: DateTime::parse_from_rfc3339("2026-05-15T00:00:00.000Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            root_seed: &root_seed,
+            next_root_public_key_multibase: &next_root_public_key_multibase,
+            enrollment: PrincipalEnrollmentDelegation::SelfAuthority {
+                principal_signing_public_key_multibase: &principal_signing,
+                enrollment_public_key_multibase: &enrollment_key,
+                principal_signing_fragment: None,
+                enrollment_fragment: None,
+            },
+        };
+        prepare_principal_inception(&input).expect("prepare ok")
+    }
+
+    /// Unsigned account-binding control proof whose transcript fields all
+    /// match `validated`; tests then choose the verification key and signing
+    /// seed to probe each rejection path in isolation.
+    fn account_binding_proof_fixture(
+        validated: &ValidatedPrincipalInception,
+    ) -> IdentityCreationControlProof {
+        let issued_at = DateTime::parse_from_rfc3339("2026-05-15T00:01:00.000Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        IdentityCreationControlProof {
+            proof_kind:
+                arkret_models_identity::IdentityCreationControlProofKind::DidWebvhInceptionUpdateKey,
+            challenge_id: "challenge_0123456789012345678901".to_owned(),
+            challenge: "nonce_0123456789012345678901".to_owned(),
+            purpose: arkret_models_identity::IdentityBindingPurpose::AccountBinding,
+            principal_id: validated.principal_id.clone(),
+            operation_digest: validated.operation_digest.clone(),
+            lease_id: "lease_0123456789012345678901".to_owned(),
+            lease_fence: 1,
+            dpop_jkt: "a".repeat(43),
+            audience: Did::new("did:web:coauth.example.com").unwrap(),
+            origin: "https://coauth.example.com".to_owned(),
+            trust_domain: arkret_wire::TypedTrustDomainId::new(
+                "ak:trust_domain:example.com".to_owned(),
+            )
+            .unwrap(),
+            issued_at,
+            expires_at: issued_at + chrono::Duration::minutes(5),
+            verification_key_multibase: validated.root_public_key_multibase.clone(),
+            signature: String::new(),
+        }
+    }
+
     #[test]
     fn did_format_matches_soland_authority() {
         let prepared = run_prepare(1);
@@ -1990,31 +2051,7 @@ mod tests {
             Some("did:web:coauth.example.com")
         );
 
-        let issued_at = DateTime::parse_from_rfc3339("2026-05-15T00:01:00.000Z")
-            .unwrap()
-            .with_timezone(&Utc);
-        let mut proof = IdentityCreationControlProof {
-            proof_kind:
-                arkret_models_identity::IdentityCreationControlProofKind::DidWebvhInceptionUpdateKey,
-            challenge_id: "challenge_0123456789012345678901".to_owned(),
-            challenge: "nonce_0123456789012345678901".to_owned(),
-            purpose: arkret_models_identity::IdentityBindingPurpose::AccountBinding,
-            principal_id: validated.principal_id.clone(),
-            operation_digest: validated.operation_digest,
-            lease_id: "lease_0123456789012345678901".to_owned(),
-            lease_fence: 1,
-            dpop_jkt: "a".repeat(43),
-            audience: Did::new("did:web:coauth.example.com").unwrap(),
-            origin: "https://coauth.example.com".to_owned(),
-            trust_domain: arkret_wire::TypedTrustDomainId::new(
-                "ak:trust_domain:example.com".to_owned(),
-            )
-            .unwrap(),
-            issued_at,
-            expires_at: issued_at + chrono::Duration::minutes(5),
-            verification_key_multibase: prepared.root_public_key_multibase.clone(),
-            signature: String::new(),
-        };
+        let mut proof = account_binding_proof_fixture(&validated);
         sign_identity_creation_control_proof(&mut proof, &[19; SECRET_KEY_LENGTH])
             .expect("proof signs");
         verify_identity_creation_control_proof(&prepared.submit_body, &proof)
@@ -2022,6 +2059,112 @@ mod tests {
 
         proof.verification_key_multibase = public_multikey(20);
         assert!(verify_identity_creation_control_proof(&prepared.submit_body, &proof).is_err());
+    }
+
+    #[test]
+    fn account_binding_control_proof_rejects_arbitrary_requested_key() {
+        // An attacker may ask the authority to accept any key it controls.
+        // Even with a self-consistent signature under the requested key, the
+        // proof must be pinned to entry-0 `parameters.updateKeys[0]`.
+        let prepared = run_prepare(23);
+        let validated = validate_principal_inception_operation(&prepared.submit_body)
+            .expect("inception validates");
+        let mut proof = account_binding_proof_fixture(&validated);
+        proof.verification_key_multibase = public_multikey(77);
+        sign_identity_creation_control_proof(&mut proof, &[77; SECRET_KEY_LENGTH])
+            .expect("proof signs");
+        let error = verify_identity_creation_control_proof(&prepared.submit_body, &proof)
+            .expect_err("arbitrary key must be rejected");
+        assert!(
+            error
+                .to_string()
+                .contains("does not match the reserved inception root"),
+            "got: {error}"
+        );
+    }
+
+    #[test]
+    fn account_binding_control_proof_rejects_document_verification_method_key() {
+        // Self-authority documents carry verification methods distinct from
+        // the root. A proof under a DID Document VM key — even validly
+        // signed — must never substitute for `updateKeys[0]`.
+        let prepared = run_prepare_self_authority(29);
+        let validated = validate_principal_inception_operation(&prepared.submit_body)
+            .expect("inception validates");
+        assert_eq!(
+            validated.document_profile,
+            PrincipalDidDocumentProfile::SelfAuthority
+        );
+        let document_key = public_multikey(31);
+        let document_keys = prepared
+            .log_entry
+            .pointer("/state/verificationMethod")
+            .and_then(Value::as_array)
+            .map(|methods| {
+                methods
+                    .iter()
+                    .filter_map(|method| method.get("publicKeyMultibase").and_then(Value::as_str))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        assert!(
+            document_keys.contains(&document_key.as_str()),
+            "fixture document must carry the principal signing key"
+        );
+        let mut proof = account_binding_proof_fixture(&validated);
+        proof.verification_key_multibase = document_key;
+        sign_identity_creation_control_proof(&mut proof, &[31; SECRET_KEY_LENGTH])
+            .expect("proof signs");
+        let error = verify_identity_creation_control_proof(&prepared.submit_body, &proof)
+            .expect_err("document VM key must be rejected");
+        assert!(
+            error
+                .to_string()
+                .contains("does not match the reserved inception root"),
+            "got: {error}"
+        );
+    }
+
+    #[test]
+    fn account_binding_control_proof_rejects_foreign_public_operation() {
+        // Public operation checkpoints leak no signing authority: an attacker
+        // holding someone else's published entry 0 can neither sign for its
+        // root nor re-target its own proof at the foreign operation.
+        let victim = run_prepare(37);
+        let attacker = run_prepare(41);
+        let victim_validated = validate_principal_inception_operation(&victim.submit_body)
+            .expect("victim inception validates");
+        let attacker_validated = validate_principal_inception_operation(&attacker.submit_body)
+            .expect("attacker inception validates");
+
+        // Transcript copied from the victim checkpoint, signed by the
+        // attacker root: the claimed key matches updateKeys[0], so only the
+        // signature check can stop it.
+        let mut forged = account_binding_proof_fixture(&victim_validated);
+        sign_identity_creation_control_proof(&mut forged, &[41; SECRET_KEY_LENGTH])
+            .expect("proof signs");
+        let error = verify_identity_creation_control_proof(&victim.submit_body, &forged)
+            .expect_err("foreign signature must be rejected");
+        assert!(
+            error.to_string().contains("control signature is invalid"),
+            "got: {error}"
+        );
+
+        // A fully valid proof for the attacker's own inception must not bind
+        // the victim's operation: principal and digest are pinned.
+        let mut own = account_binding_proof_fixture(&attacker_validated);
+        sign_identity_creation_control_proof(&mut own, &[41; SECRET_KEY_LENGTH])
+            .expect("proof signs");
+        verify_identity_creation_control_proof(&attacker.submit_body, &own)
+            .expect("attacker proof verifies against its own operation");
+        let error = verify_identity_creation_control_proof(&victim.submit_body, &own)
+            .expect_err("cross-operation proof must be rejected");
+        assert!(
+            error
+                .to_string()
+                .contains("does not match the reserved inception root"),
+            "got: {error}"
+        );
     }
 
     #[test]
