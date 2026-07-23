@@ -69,7 +69,6 @@ applet = ["applet-runtime", "client", "server", "salvo"]
 device-runtime = [
     "full-surface",
     "arkret-crypto/backup",
-    "arkret-crypto/key-verification",
     "arkret-crypto/secret-share",
 ]
 # Round 23 (2026-05-09): expose the platform KeyStore feature gates so apps

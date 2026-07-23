@@ -438,6 +438,11 @@ pub mod history_recovery;
 // arkret-http-client; this shim keeps the `arkret::http_did_resolver::*`
 // path stable. Gated out on wasm32; web embedders should plug in a
 // fetch-based resolver via the `DidResolver` trait directly.
+// `secret_share` moved to `arkret-crypto` (HPKE base-mode seal). Re-exported
+// here to keep the `arkret::secret_share::*` / `crate::secret_share::*` paths
+// stable for `history_recovery` and the `mls` tests.
+#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
+pub use arkret_crypto::secret_share;
 #[cfg(all(
     feature = "full-surface",
     feature = "client",
@@ -456,20 +461,13 @@ pub use arkret_http_client::http_did_resolver;
     feature = "client"
 ))]
 pub use arkret_http_client::key_backup_client;
-#[cfg(feature = "full-surface")]
-pub use arkret_signatures::http_signature;
-#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
-pub mod key_verification;
-// `secret_share` moved to `arkret-crypto` (HPKE base-mode seal). Re-exported
-// here to keep the `arkret::secret_share::*` / `crate::secret_share::*` paths
-// stable for `history_recovery` and the `mls` tests.
-#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
-pub use arkret_crypto::secret_share;
 // `lattice_registry` is intentionally NOT feature-gated: inkson Move
 // pre-check + cotest fixtures need the spec-normative cell-family
 // registry independently of the higher-level full-surface client
 // runtime.
 pub use arkret_lattice_registry as lattice_registry;
+#[cfg(feature = "full-surface")]
+pub use arkret_signatures::http_signature;
 #[cfg(feature = "full-surface")]
 pub mod media;
 // The MLS (RFC 9420) behavior layer lives in the standalone `arkret-mls` crate
@@ -606,12 +604,6 @@ pub use identity::{
     feature = "client"
 ))]
 pub use key_backup_client::KeyBackupClient;
-#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
-pub use key_verification::{
-    KeyVerificationAccept, KeyVerificationCancel, KeyVerificationDone, KeyVerificationKey,
-    KeyVerificationMac, KeyVerificationStart, KeyVerificationState, KeyVerificationStrand,
-    compute_key_commitment,
-};
 #[cfg(feature = "full-surface")]
 pub use media::{
     Attachment, AuthenticatedDownloadGrant, CallMediaTokenVerification, DownloadGrantScope,

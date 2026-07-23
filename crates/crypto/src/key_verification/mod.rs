@@ -2,9 +2,8 @@
 //! the `accept.commitment` hash commitment (`crypto-media/device-lifecycle.md`
 //! §4.5 / §10.3).
 //!
-//! The typed strand state machine and step envelopes stay in the SDK; only the
-//! pure crypto primitives live here so they are reachable without the umbrella
-//! client runtime.
+//! This module is the reusable, runtime-independent owner for the
+//! key-verification cryptographic primitives.
 
 mod commitment;
 pub mod key_agreement;

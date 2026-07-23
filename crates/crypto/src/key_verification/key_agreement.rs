@@ -10,8 +10,8 @@ use crate::{Error, Result};
 // ════════════════════════════════════════════════════════════════════
 // X25519 key agreement.
 //
-// `KeyVerificationStrand::on_key` carries each party's ephemeral public
-// key as a base64 string (the `key` field). Two devices doing the SAS
+// The key-verification key step carries each party's ephemeral public key as
+// a base64 string (the `key` field). Two devices doing the SAS
 // exchange MUST end up with the same shared secret bytes — that's the
 // whole point of the protocol — and that secret is the input to
 // `derive_sas_bytes` so the resulting emoji + decimal SAS row is the
@@ -19,7 +19,7 @@ use crate::{Error, Result};
 //
 // Spec: `crypto-media/device-lifecycle.md` §4.5; we use the
 // `curve25519-hkdf-sha256` agreement protocol the existing
-// KeyVerificationAccept already advertises (line ~395). The ephemeral
+// accept message advertises. The ephemeral
 // keypair is generated per strand via `EphemeralX25519Keypair::generate`
 // and consumed by `compute_shared_secret` once the peer's public key
 // arrives.
