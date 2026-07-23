@@ -93,6 +93,9 @@ pub struct ServiceDescribe {
     /// Profiles the service
     /// declares conformance to. Empty array is valid; missing is not.
     pub supported_profiles: Vec<String>,
+    /// Profile-specific carrier declarations keyed by profile id.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub profile_bindings: BTreeMap<String, ProfileBinding>,
     pub supported_operations: Vec<String>,
     pub supported_bindings: Vec<SupportedBinding>,
     pub supported_features: Vec<String>,
@@ -247,6 +250,7 @@ impl ServiceDescribe {
             service_type,
             protocol_version: PROTOCOL_VERSION.to_owned(),
             supported_profiles: Vec::new(),
+            profile_bindings: BTreeMap::new(),
             supported_operations: Vec::new(),
             supported_bindings: Vec::new(),
             supported_features: Vec::new(),
@@ -311,6 +315,67 @@ impl ServiceDescribe {
                  ({})",
                 ErrorCode::SCHEMA_VIOLATION
             )));
+        }
+        const JOIN_PROFILE: &str = "ak.profile.candidate.join_policy.v1";
+        const JOIN_OPERATIONS: &[&str] = &[
+            "ak.self.realm.join_application.command.submit",
+            "ak.self.realm.join_application.command.review",
+            "ak.self.realm.join_application.command.cancel",
+            "ak.self.realm.join_application.query.list",
+            "ak.self.realm.join_application.resource.get",
+            "ak.self.realm.join_application.audit.query.list",
+        ];
+        const JOIN_FEATURES: &[&str] = &[
+            "candidate_join_policy_reviewer",
+            "candidate_member_application_intake",
+            "profile_private_http_receipt_v1",
+        ];
+        if self.profile_bindings.iter().any(|(profile, binding)| {
+            binding.carrier.is_empty()
+                || !self
+                    .supported_profiles
+                    .iter()
+                    .any(|supported| supported == profile)
+        }) {
+            return Err(Error::Protocol(format!(
+                "ServiceDescribe: profile_bindings must reference supported_profiles and \
+                 carry a non-empty carrier ({})",
+                ErrorCode::SCHEMA_VIOLATION
+            )));
+        }
+        if self
+            .supported_profiles
+            .iter()
+            .any(|profile| profile == JOIN_PROFILE)
+        {
+            let carrier = self
+                .profile_bindings
+                .get(JOIN_PROFILE)
+                .map(|binding| binding.carrier.as_str());
+            if carrier != Some("profile_private_http_receipt_v1") {
+                return Err(Error::Protocol(format!(
+                    "ServiceDescribe: {JOIN_PROFILE} requires \
+                     profile_bindings carrier=profile_private_http_receipt_v1 ({})",
+                    ErrorCode::SCHEMA_VIOLATION
+                )));
+            }
+            if JOIN_OPERATIONS.iter().any(|required| {
+                !self
+                    .supported_operations
+                    .iter()
+                    .any(|operation| operation == required)
+            }) || JOIN_FEATURES.iter().any(|required| {
+                !self
+                    .supported_features
+                    .iter()
+                    .any(|feature| feature == required)
+            }) {
+                return Err(Error::Protocol(format!(
+                    "ServiceDescribe: {JOIN_PROFILE} requires its complete operation and \
+                     feature surface ({})",
+                    ErrorCode::SCHEMA_VIOLATION
+                )));
+            }
         }
         if self.rate_limit_policy.is_none() && self.rate_limit_policy_id.is_none() {
             return Err(Error::Protocol(format!(
@@ -384,6 +449,14 @@ impl ServiceDescribe {
     }
 }
 
+/// Profile-specific interoperable carrier binding.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ProfileBinding {
+    pub carrier: String,
+}
+
 fn is_valid_directory_did_method(value: &str) -> bool {
     value.strip_prefix("did:").is_some_and(|method| {
         !method.is_empty()
@@ -412,6 +485,7 @@ mod tests {
             service_type: ServiceType::DirectoryService,
             protocol_version: PROTOCOL_VERSION.to_owned(),
             supported_profiles: vec![PROFILE_DIRECTORY_SERVICE.to_owned()],
+            profile_bindings: BTreeMap::new(),
             supported_operations: vec!["ak.find.directory.query.describe".to_owned()],
             supported_bindings: vec![],
             supported_features: vec![],
@@ -465,6 +539,44 @@ mod tests {
             last_materialized_at: None,
             extensions: BTreeMap::new(),
         }
+    }
+
+    #[test]
+    fn candidate_join_policy_requires_complete_private_carrier_claim() {
+        const PROFILE: &str = "ak.profile.candidate.join_policy.v1";
+        let mut description = ServiceDescribe::development(
+            Did::new("did:webvh:z6mkfixture:service.example").unwrap(),
+            TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            ServiceType::PrincipalServer,
+        );
+        description.supported_profiles.push(PROFILE.to_owned());
+        assert!(description.validate().is_err());
+        description.profile_bindings.insert(
+            PROFILE.to_owned(),
+            ProfileBinding {
+                carrier: "profile_private_http_receipt_v1".to_owned(),
+            },
+        );
+        description.supported_operations.extend(
+            [
+                "ak.self.realm.join_application.command.submit",
+                "ak.self.realm.join_application.command.review",
+                "ak.self.realm.join_application.command.cancel",
+                "ak.self.realm.join_application.query.list",
+                "ak.self.realm.join_application.resource.get",
+                "ak.self.realm.join_application.audit.query.list",
+            ]
+            .map(ToOwned::to_owned),
+        );
+        description.supported_features.extend(
+            [
+                "candidate_join_policy_reviewer",
+                "candidate_member_application_intake",
+                "profile_private_http_receipt_v1",
+            ]
+            .map(ToOwned::to_owned),
+        );
+        assert!(description.validate().is_ok());
     }
 
     #[test]

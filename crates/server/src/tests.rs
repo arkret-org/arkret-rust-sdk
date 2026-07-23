@@ -148,6 +148,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                         service_type: arkret_wire::ServiceType::PrincipalServer,
                         protocol_version: arkret_wire::PROTOCOL_VERSION.to_owned(),
                         supported_profiles: vec![],
+                        profile_bindings: Default::default(),
                         supported_features: vec![],
                         supported_operations: service_routes()
                             .iter()
