@@ -4,11 +4,13 @@ use std::collections::BTreeMap;
 
 use arkret_canonical::base64url::base64url_decode;
 use arkret_canonical::canonical::canonical_json_bytes;
-use arkret_core::{
+use arkret_models_collaboration::objects::media::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
 };
 #[cfg(feature = "client")]
-use arkret_core::{MediaIceConfigOutcome, MediaIceConfigRequestBody};
+use arkret_models_collaboration::objects::media::{
+    MediaIceConfigOutcome, MediaIceConfigRequestBody,
+};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
@@ -59,7 +61,7 @@ impl MediaBackendType {
 }
 
 /// Validate that `expires_at - now` is within the spec TTL ceiling
-/// ([`MEDIA_TOKEN_TTL_MAX_SECS`](arkret_core::MEDIA_TOKEN_TTL_MAX_SECS)).
+/// ([`MEDIA_TOKEN_TTL_MAX_SECS`](arkret_wire::MEDIA_TOKEN_TTL_MAX_SECS)).
 /// Returns [`Ok(())`] when the TTL is within bounds, otherwise a
 /// `participant_binding_invalid` protocol error.
 pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Result<()> {
@@ -69,7 +71,7 @@ pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Resu
             "participant_binding_invalid: token already expired"
         )));
     }
-    if (remaining as u64) > arkret_core::MEDIA_TOKEN_TTL_MAX_SECS {
+    if (remaining as u64) > arkret_wire::MEDIA_TOKEN_TTL_MAX_SECS {
         return Err(Error::Protocol(format!(
             "participant_binding_invalid: token TTL exceeds 600s ceiling"
         )));
@@ -404,7 +406,7 @@ pub fn verify_call_media_token_outcome(
         )));
     }
 
-    if binding.scheme != arkret_core::PARTICIPANT_BINDING_SCHEMA {
+    if binding.scheme != arkret_wire::PARTICIPANT_BINDING_SCHEMA {
         return Err(Error::Protocol(format!(
             "participant_binding_invalid: unexpected scheme {:?}",
             binding.scheme
@@ -1116,7 +1118,7 @@ mod tests {
             backend_token: "opaque-backend-token".to_owned(),
             participant_identity: identity.clone(),
             participant_binding: CallMediaParticipantBinding {
-                scheme: arkret_core::PARTICIPANT_BINDING_SCHEMA.to_owned(),
+                scheme: arkret_wire::PARTICIPANT_BINDING_SCHEMA.to_owned(),
                 sig: String::new(),
                 issuer_kid: ISSUER_KID.to_owned(),
                 realm_id: request.realm_id.clone(),
@@ -1129,10 +1131,11 @@ mod tests {
                 expires_at,
             },
             expires_at,
-            service_signature: arkret_core::CallMediaServiceSignature {
-                kid: ISSUER_KID.to_owned(),
-                sig: String::new(),
-            },
+            service_signature:
+                arkret_models_collaboration::objects::media::CallMediaServiceSignature {
+                    kid: ISSUER_KID.to_owned(),
+                    sig: String::new(),
+                },
         }
     }
 

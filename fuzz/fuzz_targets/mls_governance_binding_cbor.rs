@@ -2,7 +2,7 @@
 
 //! Fuzz the hand-written deterministic-CBOR reader for the MLS governance
 //! binding extension
-//! (`arkret_core::MlsGovernanceBindingPayload::from_deterministic_cbor`).
+//! (`arkret_models_crypto::MlsGovernanceBindingPayload::from_deterministic_cbor`).
 //!
 //! This reader consumes attacker-controlled MLS GroupContext extension bytes
 //! and has hand-rolled bounds / depth / item-count caps (SDK-ROB fixes). It
@@ -10,7 +10,7 @@
 //! malformed, truncated, deeply-nested or array/map-bomb CBOR — only return
 //! `Err`. This target locks those caps against regression.
 
-use arkret_core::MlsGovernanceBindingPayload;
+use arkret_models_crypto::MlsGovernanceBindingPayload;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

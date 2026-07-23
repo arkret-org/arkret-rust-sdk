@@ -9,11 +9,12 @@
 
 use std::collections::BTreeMap;
 
-pub use arkret_core::{
-    INVITE_SCHEMA, Invite, InviteState, MembershipPayloadState, ThirdPartyInvite,
-};
 use arkret_models_collaboration::governance::membership_invite::MembershipPayload;
+pub use arkret_models_collaboration::governance::membership_invite::MembershipPayloadState;
+pub use arkret_models_collaboration::governance::operation_wire::Invite;
+pub use arkret_models_collaboration::governance::third_party_invite::ThirdPartyInvite;
 use arkret_models_identity::DeliveryStatus;
+pub use arkret_wire::{INVITE_SCHEMA, InviteState};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -615,7 +616,7 @@ impl MembershipManager {
 
 #[cfg(test)]
 mod tests {
-    use arkret_core::ThirdPartyInviteOobKind;
+    use arkret_models_collaboration::governance::third_party_invite::ThirdPartyInviteOobKind;
 
     use super::*;
 

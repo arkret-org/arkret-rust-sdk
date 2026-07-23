@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, VecDeque};
 
-pub use arkret_core::EncryptedEnvelopeAad;
+pub use arkret_models_crypto::EncryptedEnvelopeAad;
 use chacha20poly1305::XChaCha20Poly1305;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use hkdf::Hkdf;
@@ -222,14 +222,14 @@ pub fn current_feature_safety_report() -> FeatureSafetyReport {
 }
 
 /// The crypto-relevant Cargo feature set compiled into this SDK build, in the
-/// spelling [`arkret_core::verify_declared_profiles_against_features`] expects.
+/// spelling [`arkret_policy::verify_declared_profiles_against_features`] expects.
 ///
 /// The SDK crate can observe `mls` (OpenMLS group crypto) directly. Client-side
 /// key-backup crypto (`backup`) is a feature of the separate `arkret-crypto`
 /// crate, not re-exported as an SDK feature, so it is not visible to `cfg!`
 /// here; a caller that links `arkret-crypto` with `backup` should append
 /// [`arkret_policy::profile_feature_guard::FEATURE_BACKUP`] to this list before
-/// calling [`arkret_core::verify_declared_profiles_against_features`].
+/// calling [`arkret_policy::verify_declared_profiles_against_features`].
 pub fn current_profile_crypto_features() -> Vec<&'static str> {
     let mut features = Vec::new();
     if cfg!(feature = "mls") {
@@ -241,14 +241,14 @@ pub fn current_profile_crypto_features() -> Vec<&'static str> {
 /// Cross-check the conformance profiles this build intends to declare against
 /// the crypto features actually compiled in, so a feature-trimmed binary never
 /// advertises `e2ee_client` (or any MLS/backup-bearing profile) it cannot
-/// serve. See [`arkret_core::verify_declared_profiles_against_features`].
+/// serve. See [`arkret_policy::verify_declared_profiles_against_features`].
 pub fn verify_declared_profiles_against_current_features(
     declared: &[&str],
 ) -> std::result::Result<
-    std::result::Result<(), Vec<arkret_core::ProfileFeatureGap>>,
+    std::result::Result<(), Vec<arkret_policy::ProfileFeatureGap>>,
     arkret_schema::generated::profile_requirements::ProfileRequirementsError,
 > {
-    arkret_core::verify_declared_profiles_against_features(
+    arkret_policy::verify_declared_profiles_against_features(
         declared,
         &current_profile_crypto_features(),
     )
@@ -445,7 +445,7 @@ pub fn encrypted_envelope_digest_report(
 
 fn sha256_prefixed(bytes: &[u8]) -> String {
     // Reuse the authoritative `sha256:<lowercase-hex>` formatter in
-    // `arkret-core` (single source of truth for the digest prefix/encoding).
+    // `arkret-canonical` (single source of truth for the digest prefix/encoding).
     arkret_canonical::canonical::sha256_digest(bytes)
 }
 

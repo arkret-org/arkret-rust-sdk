@@ -1,6 +1,6 @@
 //! Snapshot v1 signing and consumer verification helpers.
 
-use arkret_core::Hash;
+use arkret_identifiers::Hash;
 use arkret_state::{
     DETACHED_JWS_ALG_EDDSA, DETACHED_JWS_PROOF_KIND, DetachedJwsProof, SnapshotChunkPayload,
     SnapshotManifest, SnapshotValidationCode, SnapshotValidationError, SnapshotVerifyOptions,
@@ -100,7 +100,7 @@ pub fn verify_snapshot_manifest(
 
 #[cfg(test)]
 mod tests {
-    use arkret_core::{Did, EventId, Hlc, RealmId};
+    use arkret_identifiers::{Did, EventId, Hlc, RealmId, SnapshotId};
     use arkret_state::{
         AuthorityBinding, EventSetCommitmentAlgorithm, EventSetLeaf, SNAPSHOT_REDUCER_PROFILE_V1,
         SnapshotAuthorityKind, SnapshotFrontier, SnapshotMaterializedItem, SnapshotSecurityClass,
@@ -131,8 +131,8 @@ mod tests {
         Hash::new(format!("sha256:{}", format!("{seed:02x}").repeat(32))).unwrap()
     }
 
-    fn snapshot_id() -> arkret_core::SnapshotId {
-        arkret_core::SnapshotId::new("ak:snapshot:01904100-0000-7000-8000-000000000001").unwrap()
+    fn snapshot_id() -> SnapshotId {
+        SnapshotId::new("ak:snapshot:01904100-0000-7000-8000-000000000001").unwrap()
     }
 
     fn resolver_for(signing_key: &SigningKey) -> DidWebResolver {

@@ -1,7 +1,7 @@
 //! WebRTC signaling and conference state helpers.
 
 use arkret_canonical::base64url::base64url_decode;
-use arkret_core::{
+use arkret_models_collaboration::objects::media::{
     MediaIceConfigOutcome, MediaIceConfigSignature, MediaIceServer, MediaIceSignatureAlgorithm,
     MediaIceSignatureInput,
 };
@@ -588,7 +588,7 @@ impl ModeratePayload {
 
 #[cfg(test)]
 mod tests {
-    use arkret_core::XExtensionMap;
+    use arkret_wire::XExtensionMap;
     use ed25519_dalek::SigningKey;
 
     use super::*;

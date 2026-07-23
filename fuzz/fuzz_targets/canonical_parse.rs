@@ -18,9 +18,9 @@ fuzz_target!(|data: &[u8]| {
 
     // Round-trip: if it parses as UTF-8 JSON, re-canonicalizing must also be
     // panic-free.
-    if let Ok(text) = std::str::from_utf8(data) {
-        if let Ok(value) = serde_json::from_str::<serde_json::Value>(text) {
-            let _ = arkret_canonical::canonical_json_bytes(&value);
-        }
+    if let Ok(text) = std::str::from_utf8(data)
+        && let Ok(value) = serde_json::from_str::<serde_json::Value>(text)
+    {
+        let _ = arkret_canonical::canonical_json_bytes(&value);
     }
 });

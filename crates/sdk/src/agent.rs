@@ -597,7 +597,7 @@ pub struct AgentProvisionEventDraftOptions {
 }
 
 fn provision_set_effect(cell_family: &str, subject_parts: &[&str], value: Value) -> Result<Effect> {
-    let subject = arkret_core::composite_subject(subject_parts)?;
+    let subject = arkret_wire::composite_subject(subject_parts)?;
     Ok(Effect {
         cell: CellRef::new(format!("ak:cell:{cell_family}:{subject}"))?,
         op: LatticeOp {
@@ -690,7 +690,7 @@ pub fn build_agent_provision_event_drafts<S: MoveSigner + ?Sized>(
             .to_owned(),
     ];
     let mut selector_payload = AgentSelectorClaim {
-        schema: arkret_core::AGENT_SELECTOR_CLAIM_SCHEMA.to_owned(),
+        schema: arkret_wire::AGENT_SELECTOR_CLAIM_SCHEMA.to_owned(),
         controller_subject: controller_id.clone(),
         agent_slug: agent_slug.to_owned(),
         subject: agent_id.clone(),
@@ -747,7 +747,7 @@ pub fn build_agent_provision_event_drafts<S: MoveSigner + ?Sized>(
         selector_value,
     )?];
     selector_claim.requirements.schema_profile_refs =
-        vec![arkret_core::AGENT_SELECTOR_CLAIM_SCHEMA.to_owned()];
+        vec![arkret_wire::AGENT_SELECTOR_CLAIM_SCHEMA.to_owned()];
     Ok(AgentProvisionEvents {
         accountability_grant,
         selector_claim,
@@ -978,7 +978,7 @@ pub fn plan_agent_key_pair(
     body: AgentKeyPairRequestBody,
 ) -> AgentRequestPlan<AgentKeyPairRequestBody> {
     AgentRequestPlan::with_body(
-        arkret_core::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
+        arkret_wire::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
         AgentHttpMethod::Post,
         AGENT_KEY_PAIR_PATH,
         body,
@@ -989,7 +989,7 @@ pub fn plan_agent_runtime_approval_request(
     body: AgentRuntimeApprovalRequestBody,
 ) -> AgentRequestPlan<AgentRuntimeApprovalRequestBody> {
     AgentRequestPlan::with_body(
-        arkret_core::ServiceOperationId::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST,
+        arkret_wire::ServiceOperationId::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST,
         AgentHttpMethod::Post,
         AGENT_PAIRING_RUNTIME_KEY_REQUESTS_PATH,
         body,
@@ -1000,7 +1000,7 @@ pub fn plan_agent_runtime_approval_status(
     body: AgentRuntimeApprovalStatusRequestBody,
 ) -> AgentRequestPlan<AgentRuntimeApprovalStatusRequestBody> {
     AgentRequestPlan::with_body(
-        arkret_core::ServiceOperationId::OPEN_AGENT_PAIRING_QUERY_RUNTIME_KEY_REQUEST_STATUS,
+        arkret_wire::ServiceOperationId::OPEN_AGENT_PAIRING_QUERY_RUNTIME_KEY_REQUEST_STATUS,
         AgentHttpMethod::Post,
         AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH,
         body,
@@ -1011,7 +1011,7 @@ pub fn plan_agent_provision(
     body: AgentProvisionRequestBody,
 ) -> AgentRequestPlan<AgentProvisionRequestBody> {
     AgentRequestPlan::with_body(
-        arkret_core::ServiceOperationId::SELF_AGENT_COMMAND_PROVISION,
+        arkret_wire::ServiceOperationId::SELF_AGENT_COMMAND_PROVISION,
         AgentHttpMethod::Post,
         AGENTS_PATH,
         body,
@@ -1023,7 +1023,7 @@ pub fn plan_agent_renew_pairing(
     body: AgentRenewPairingRequestBody,
 ) -> AgentRequestPlan<AgentRenewPairingRequestBody> {
     AgentRequestPlan::with_body(
-        arkret_core::ServiceOperationId::SELF_AGENT_COMMAND_RENEW_PAIRING,
+        arkret_wire::ServiceOperationId::SELF_AGENT_COMMAND_RENEW_PAIRING,
         AgentHttpMethod::Post,
         format!(
             "{}/{}/renew-pairing",
@@ -1036,7 +1036,7 @@ pub fn plan_agent_renew_pairing(
 
 pub fn plan_agent_list() -> AgentRequestPlan<()> {
     AgentRequestPlan::without_body(
-        arkret_core::ServiceOperationId::SELF_AGENT_QUERY_LIST,
+        arkret_wire::ServiceOperationId::SELF_AGENT_QUERY_LIST,
         AgentHttpMethod::Get,
         AGENTS_PATH,
     )
@@ -1044,7 +1044,7 @@ pub fn plan_agent_list() -> AgentRequestPlan<()> {
 
 pub fn plan_agent_get(agent_id: &str) -> AgentRequestPlan<()> {
     AgentRequestPlan::without_body(
-        arkret_core::ServiceOperationId::SELF_AGENT_RESOURCE_GET,
+        arkret_wire::ServiceOperationId::SELF_AGENT_RESOURCE_GET,
         AgentHttpMethod::Get,
         format!("{}/{}", AGENTS_PATH, agent_path_component(agent_id)),
     )
@@ -1055,7 +1055,7 @@ pub fn plan_agent_pause(
     body: AgentPauseRequestBody,
 ) -> AgentRequestPlan<AgentPauseRequestBody> {
     AgentRequestPlan::with_body(
-        arkret_core::ServiceOperationId::SELF_AGENT_COMMAND_PAUSE,
+        arkret_wire::ServiceOperationId::SELF_AGENT_COMMAND_PAUSE,
         AgentHttpMethod::Post,
         format!("{}/{}/pause", AGENTS_PATH, agent_path_component(agent_id)),
         body,
@@ -1067,7 +1067,7 @@ pub fn plan_agent_resume(
     body: AgentResumeRequestBody,
 ) -> AgentRequestPlan<AgentResumeRequestBody> {
     AgentRequestPlan::with_body(
-        arkret_core::ServiceOperationId::SELF_AGENT_COMMAND_RESUME,
+        arkret_wire::ServiceOperationId::SELF_AGENT_COMMAND_RESUME,
         AgentHttpMethod::Post,
         format!("{}/{}/resume", AGENTS_PATH, agent_path_component(agent_id)),
         body,
@@ -1079,7 +1079,7 @@ pub fn plan_agent_deactivate(
     body: AgentDeactivateRequestBody,
 ) -> AgentRequestPlan<AgentDeactivateRequestBody> {
     AgentRequestPlan::with_body(
-        arkret_core::ServiceOperationId::SELF_AGENT_COMMAND_DEACTIVATE,
+        arkret_wire::ServiceOperationId::SELF_AGENT_COMMAND_DEACTIVATE,
         AgentHttpMethod::Post,
         format!(
             "{}/{}/deactivate",
@@ -1095,7 +1095,7 @@ pub fn plan_agent_grant_attach(
     body: AgentGrantAttachRequestBody,
 ) -> AgentRequestPlan<AgentGrantAttachRequestBody> {
     AgentRequestPlan::with_body(
-        arkret_core::ServiceOperationId::SELF_AGENT_GRANT_COMMAND_ATTACH,
+        arkret_wire::ServiceOperationId::SELF_AGENT_GRANT_COMMAND_ATTACH,
         AgentHttpMethod::Post,
         format!("{}/{}/grants", AGENTS_PATH, agent_path_component(agent_id)),
         body,
@@ -1104,7 +1104,7 @@ pub fn plan_agent_grant_attach(
 
 pub fn plan_agent_grant_detach(agent_id: &str, grant_id: &GrantId) -> AgentRequestPlan<()> {
     AgentRequestPlan::without_body(
-        arkret_core::ServiceOperationId::SELF_AGENT_GRANT_RESOURCE_DELETE,
+        arkret_wire::ServiceOperationId::SELF_AGENT_GRANT_RESOURCE_DELETE,
         AgentHttpMethod::Delete,
         format!(
             "{}/{}/grants/{}",
@@ -1119,7 +1119,7 @@ pub fn plan_agent_sidecar_ensure(
     body: AgentSidecarEnsureRequestBody,
 ) -> AgentRequestPlan<AgentSidecarEnsureRequestBody> {
     AgentRequestPlan::with_body(
-        arkret_core::ServiceOperationId::SELF_AGENT_SIDECAR_COMMAND_ENSURE,
+        arkret_wire::ServiceOperationId::SELF_AGENT_SIDECAR_COMMAND_ENSURE,
         AgentHttpMethod::Post,
         AGENT_SIDECAR_ENSURE_PATH,
         body,
@@ -1128,7 +1128,7 @@ pub fn plan_agent_sidecar_ensure(
 
 pub fn plan_agent_sidecar_get(sidecar_id: &SidecarId) -> AgentRequestPlan<()> {
     AgentRequestPlan::without_body(
-        arkret_core::ServiceOperationId::SELF_AGENT_SIDECAR_RESOURCE_GET,
+        arkret_wire::ServiceOperationId::SELF_AGENT_SIDECAR_RESOURCE_GET,
         AgentHttpMethod::Get,
         format!(
             "{}/{}",
@@ -1158,7 +1158,7 @@ pub fn plan_agent_sidecar_list(
         format!("{}?{}", AGENT_SIDECARS_PATH, query.join("&"))
     };
     AgentRequestPlan::without_body(
-        arkret_core::ServiceOperationId::SELF_AGENT_SIDECAR_QUERY_LIST,
+        arkret_wire::ServiceOperationId::SELF_AGENT_SIDECAR_QUERY_LIST,
         AgentHttpMethod::Get,
         path,
     )
@@ -1398,9 +1398,8 @@ mod tests {
         agent_key_proof_signing_input_for_session_grant,
     };
     use arkret_canonical::canonical;
-    use arkret_core::{MoveSignature, MoveSigner, UnsignedMove, proof_kind};
-    use arkret_wire::Result as WireResult;
     use arkret_wire::move_event::Move;
+    use arkret_wire::{MoveSignature, MoveSigner, Result as WireResult, UnsignedMove, proof_kind};
     use chrono::TimeZone;
     use ed25519_dalek::Verifier as _;
     use serde_json::json;
@@ -1441,12 +1440,15 @@ mod tests {
             resources: vec![],
             constraints: vec![],
         };
-        let requested_scope_digest =
-            arkret_core::agent_requested_scope_digest(&agent_id, &controller_id, &requested_scope)
-                .unwrap();
+        let requested_scope_digest = arkret_signatures::agent::agent_requested_scope_digest(
+            &agent_id,
+            &controller_id,
+            &requested_scope,
+        )
+        .unwrap();
         let issued_at = Utc.with_ymd_and_hms(2026, 7, 17, 0, 0, 0).unwrap();
         let mut disclosure = AgentRequestedScopeDisclosure {
-            schema: arkret_core::AGENT_REQUESTED_SCOPE_DISCLOSURE_SCHEMA.to_owned(),
+            schema: arkret_models_collaboration::agent_operations::AGENT_REQUESTED_SCOPE_DISCLOSURE_SCHEMA.to_owned(),
             request_id: RequestId::new(
                 "ak:request:01970000-0000-7000-8000-000000000021".to_owned(),
             )
@@ -1582,7 +1584,7 @@ mod tests {
         assert!(
             String::from_utf8(payload.canonical_proof_binding_bytes().unwrap())
                 .unwrap()
-                .contains(arkret_core::ProofContextId::ACCOUNTABILITY_GRANT_PROOF_V1)
+                .contains(arkret_wire::ProofContextId::ACCOUNTABILITY_GRANT_PROOF_V1)
         );
         assert_eq!(
             events.selector_claim.payload["source_refs"][0],
@@ -1620,7 +1622,7 @@ mod tests {
         let plan = plan_agent_provision(provision);
         assert_eq!(
             plan.operation_id,
-            arkret_core::ServiceOperationId::SELF_AGENT_COMMAND_PROVISION
+            arkret_wire::ServiceOperationId::SELF_AGENT_COMMAND_PROVISION
         );
         assert_eq!(plan.method.as_str(), "POST");
         assert_eq!(plan.path, "/_arkret/self/agents");
@@ -1644,7 +1646,7 @@ mod tests {
         let get = plan_agent_get("did:webvh:z6mkfixture:agent.example");
         assert_eq!(
             get.operation_id,
-            arkret_core::ServiceOperationId::SELF_AGENT_RESOURCE_GET
+            arkret_wire::ServiceOperationId::SELF_AGENT_RESOURCE_GET
         );
         assert_eq!(get.method.as_str(), "GET");
         assert_eq!(
@@ -1657,7 +1659,7 @@ mod tests {
         let detach = plan_agent_grant_detach("did:webvh:z6mkfixture:agent.example", &grant_id);
         assert_eq!(
             detach.operation_id,
-            arkret_core::ServiceOperationId::SELF_AGENT_GRANT_RESOURCE_DELETE
+            arkret_wire::ServiceOperationId::SELF_AGENT_GRANT_RESOURCE_DELETE
         );
         assert_eq!(detach.method.as_str(), "DELETE");
         assert_eq!(
@@ -1680,7 +1682,7 @@ mod tests {
         });
         assert_eq!(
             ensure.operation_id,
-            arkret_core::ServiceOperationId::SELF_AGENT_SIDECAR_COMMAND_ENSURE
+            arkret_wire::ServiceOperationId::SELF_AGENT_SIDECAR_COMMAND_ENSURE
         );
         assert_eq!(ensure.path, AGENT_SIDECAR_ENSURE_PATH);
         assert_eq!(
@@ -1691,7 +1693,7 @@ mod tests {
         let get_sidecar = plan_agent_sidecar_get(&sidecar_id);
         assert_eq!(
             get_sidecar.operation_id,
-            arkret_core::ServiceOperationId::SELF_AGENT_SIDECAR_RESOURCE_GET
+            arkret_wire::ServiceOperationId::SELF_AGENT_SIDECAR_RESOURCE_GET
         );
         assert_eq!(
             get_sidecar.path,
@@ -1701,7 +1703,7 @@ mod tests {
         let list_sidecars = plan_agent_sidecar_list(Some(&realm_id), Some("next cursor"));
         assert_eq!(
             list_sidecars.operation_id,
-            arkret_core::ServiceOperationId::SELF_AGENT_SIDECAR_QUERY_LIST
+            arkret_wire::ServiceOperationId::SELF_AGENT_SIDECAR_QUERY_LIST
         );
         assert_eq!(
             list_sidecars.path,

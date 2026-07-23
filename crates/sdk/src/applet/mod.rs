@@ -20,10 +20,11 @@ pub use portal::*;
 mod tests {
     use std::collections::BTreeMap;
 
-    use arkret_core::{
-        AppletInstallAppletId, AppletInstallPlan, E2eeEffect, EffectiveScope, WidgetEffect,
+    use arkret_models_integration::{
+        AppletInstallAppletId, AppletInstallPlan, AppletTransactionOutcome, E2eeEffect,
+        WidgetEffect,
     };
-    use arkret_models_integration::AppletTransactionOutcome;
+    use arkret_wire::EffectiveScope;
     use chrono::{DateTime, Duration, Utc};
     use serde_json::{Value, json};
 
@@ -725,11 +726,9 @@ mod tests {
         use std::collections::BTreeMap;
 
         use arkret_canonical as canonical;
-        use arkret_core::{
-            Did as CoreDid, Hash as CoreHash, MoveSignature, MoveSigner, UnsignedMove,
-        };
-        use arkret_wire::Result as WireResult;
+        use arkret_identifiers::{Did as CoreDid, Hash as CoreHash};
         use arkret_wire::move_event::Move;
+        use arkret_wire::{MoveSignature, MoveSigner, Result as WireResult, UnsignedMove};
 
         struct StubSigner {
             did: CoreDid,

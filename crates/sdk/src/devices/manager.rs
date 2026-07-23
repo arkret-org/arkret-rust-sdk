@@ -1,4 +1,5 @@
-use arkret_core::{BackupId, KeyBackup};
+use arkret_identifiers::BackupId;
+use arkret_models_crypto::KeyBackup;
 
 use super::*;
 

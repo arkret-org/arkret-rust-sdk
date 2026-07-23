@@ -2,14 +2,15 @@
 
 use std::collections::{BTreeMap, VecDeque};
 
-use arkret_core::CrossSigningPublish;
-pub use arkret_core::{
-    CrossSigningResetPayload, CrossSigningResetProof, CrossSigningResetReason,
-    DeviceMessageEnvelope, DeviceQuorumSignature, DeviceQuorumThreshold,
-};
 pub use arkret_crypto::{
     DeviceCrossSigningChainVerification, DeviceTrustBinding, DeviceTrustChainOutcome,
     DeviceTrustState, cross_signing_publish_cell_subject, verify_device_cross_signing_chain,
+};
+pub use arkret_models_collaboration::sync_frames::account_sync::DeviceMessageEnvelope;
+use arkret_models_identity::CrossSigningPublish;
+pub use arkret_models_identity::{
+    CrossSigningResetPayload, CrossSigningResetProof, CrossSigningResetReason,
+    DeviceQuorumSignature, DeviceQuorumThreshold,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};

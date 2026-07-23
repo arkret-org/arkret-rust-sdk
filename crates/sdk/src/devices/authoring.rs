@@ -1,7 +1,7 @@
-use arkret_core::{
-    CellRef, CrossSigningPublish, DeviceAuthorizePayload, Effect, Event, Hlc, LatticeOp,
-    LatticeOpType, RealmId, composite_subject,
-};
+use arkret_identifiers::{CellRef, Hlc, RealmId};
+use arkret_models_collaboration::events_payloads::device_identity::DeviceAuthorizePayload;
+use arkret_models_identity::CrossSigningPublish;
+use arkret_wire::{Effect, Event, LatticeOp, LatticeOpType, composite_subject};
 use chrono::{DateTime, Utc};
 
 use crate::{Did, Result};
@@ -93,11 +93,15 @@ pub fn build_device_authorize_event_at(
 
 #[cfg(test)]
 mod tests {
-    use arkret_core::{
-        DeviceCrossSigningBinding, DeviceId, DeviceOrPrincipalRef, DidUrl, KeyFormat,
-        NonEmptyString, PublishedKey, SignatureMaterial, SubordinateSignedKey,
-        SubordinateSignedKeyBinding, TypedTrustDomainId,
+    use arkret_identifiers::{DeviceId, TypedTrustDomainId};
+    use arkret_models_collaboration::events_payloads::device_identity::{
+        DeviceCrossSigningBinding, DeviceOrPrincipalRef,
     };
+    use arkret_models_collaboration::events_payloads::preview_realm_reaction::SignatureMaterial;
+    use arkret_models_identity::{
+        KeyFormat, PublishedKey, SubordinateSignedKey, SubordinateSignedKeyBinding,
+    };
+    use arkret_wire::{Base64UrlString, DidUrl, NonEmptyString};
 
     use super::*;
 
@@ -190,7 +194,7 @@ mod tests {
                 verification_method: DidUrl::new("did:web:alice.example#ssk").unwrap(),
                 alg: NonEmptyString::new("EdDSA").unwrap(),
                 ssk_generation: std::num::NonZeroU64::new(1).unwrap(),
-                signature: arkret_core::Base64UrlString::new("c2lnbmF0dXJl").unwrap(),
+                signature: Base64UrlString::new("c2lnbmF0dXJl").unwrap(),
             }),
             enrollment_authority_binding: None,
             recovery_session_id: None,

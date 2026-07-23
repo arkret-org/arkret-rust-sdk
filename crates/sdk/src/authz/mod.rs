@@ -23,7 +23,7 @@ use crate::resolver::RealmState;
 /// `arkret-policy` free of any dependency on the state runtime.
 pub fn capability_grants_from_realm_state(
     state: &RealmState,
-) -> Result<Vec<arkret_core::CapabilityGrant>> {
+) -> Result<Vec<arkret_models_collaboration::governance::grant_constraint::CapabilityGrant>> {
     let mut grants = Vec::new();
     for event in state.resolved_state.values() {
         if !matches!(

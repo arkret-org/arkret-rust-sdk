@@ -1,9 +1,10 @@
 use std::num::NonZeroU64;
 
-use arkret_core::{
-    Base64UrlString, CrossSigningPublish, DidUrl, EventId, KeyFormat, NonEmptyString, PublishedKey,
-    SubordinateSignedKey, SubordinateSignedKeyBinding,
+use arkret_identifiers::{EventId, TypedTrustDomainId};
+use arkret_models_identity::{
+    CrossSigningPublish, KeyFormat, PublishedKey, SubordinateSignedKey, SubordinateSignedKeyBinding,
 };
+use arkret_wire::{Base64UrlString, DidUrl, NonEmptyString};
 use chrono::Utc;
 use serde_json::json;
 
@@ -41,7 +42,7 @@ fn fake_binding(generation: u64) -> DeviceTrustBinding {
 fn sample_publish(principal: &Did, generation: u64) -> CrossSigningPublish {
     CrossSigningPublish {
         principal_id: principal.clone(),
-        trust_domain: arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         principal_signing_key: PublishedKey {
             kid: non_empty(format!("{principal}#cx_principal_signing_v1")),
             alg: non_empty("EdDSA"),
@@ -337,7 +338,7 @@ fn cross_signing_reset_marks_devices_needing_reverification() {
         .unwrap();
 
     let reset = CrossSigningResetPayload::new(
-        arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         EventId::new("ak:event:01964137-0000-7000-8000-0000000000aa").unwrap(),
         alice.clone(),
         NonZeroU64::new(1).unwrap(),
@@ -644,7 +645,7 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
         .begin_sas_verification(&alice, &phone, "000000")
         .unwrap();
     let reset = CrossSigningResetPayload::new(
-        arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         EventId::new("ak:event:01964137-0000-7000-8000-0000000000aa").unwrap(),
         alice.clone(),
         NonZeroU64::new(1).unwrap(),
@@ -719,7 +720,7 @@ fn signed_chain_fixture(
     // The published SSK record (PSK signs this over the §5.1 canonical input).
     let mut publish = CrossSigningPublish {
         principal_id: principal.clone(),
-        trust_domain: arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         principal_signing_key: PublishedKey {
             kid: non_empty(format!("{principal}#ak_principal_signing_v1")),
             alg: non_empty("EdDSA"),

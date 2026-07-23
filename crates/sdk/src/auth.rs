@@ -4,7 +4,7 @@
 //! MFA, DID/OIDC/passkey proof verification) lives in the standalone
 //! `arkret-auth` crate; this module re-exports it so `arkret::auth::*` is
 //! unchanged for downstream consumers. The transport-bound one-shot
-//! `login_did_proof` helper — which speaks the core http session-grant DTOs and
+//! `login_did_proof` helper — which speaks the collaboration session-grant DTOs and
 //! drives the reqwest client — stays in the SDK as the [`AuthManagerLoginExt`]
 //! extension trait so `arkret-auth` carries only transport-free auth behavior.
 
@@ -14,6 +14,11 @@ pub use login_ext::AuthManagerLoginExt;
 
 #[cfg(all(feature = "client", feature = "signer"))]
 mod login_ext {
+    use arkret_models_collaboration::session_grant_bodies::{
+        SessionGrantOutcome, SessionGrantRequestBody, SessionGrantRequestProof,
+    };
+    use arkret_models_identity::SessionGrantProofKind;
+    use arkret_wire::MoveSigner;
     use chrono::{Duration, Utc};
 
     use super::AuthManager;
@@ -27,7 +32,7 @@ mod login_ext {
     /// strand that drives the single registered
     /// `POST /_arkret/gate/account/session-grants`
     /// (`ak.gate.account.command.issue_session_grant`) operation. Kept in the
-    /// SDK rather than `arkret-auth` because it speaks the core http
+    /// SDK rather than `arkret-auth` because it speaks the collaboration
     /// session-grant DTOs and the reqwest client.
     pub trait AuthManagerLoginExt {
         /// One-shot DID-proof login. Builds the `ak.did.proof` signing payload
@@ -44,9 +49,9 @@ mod login_ext {
             signer: &S,
             challenge: &str,
             audience: Did,
-        ) -> Result<arkret_core::SessionGrantOutcome>
+        ) -> Result<SessionGrantOutcome>
         where
-            S: arkret_core::MoveSigner + ?Sized;
+            S: MoveSigner + ?Sized;
     }
 
     impl AuthManagerLoginExt for AuthManager {
@@ -58,9 +63,9 @@ mod login_ext {
             signer: &S,
             challenge: &str,
             audience: Did,
-        ) -> Result<arkret_core::SessionGrantOutcome>
+        ) -> Result<SessionGrantOutcome>
         where
-            S: arkret_core::MoveSigner + ?Sized,
+            S: MoveSigner + ?Sized,
         {
             if challenge.len() < 16 {
                 return Err(Error::Protocol(
@@ -101,7 +106,7 @@ mod login_ext {
             let move_sig = signer.sign_payload(&payload_bytes)?;
 
             client
-                .auth_issue_session_grant(&arkret_core::SessionGrantRequestBody {
+                .auth_issue_session_grant(&SessionGrantRequestBody {
                     principal_id,
                     device_id: Some(device_id),
                     requested_scope: Vec::new(),
@@ -109,8 +114,8 @@ mod login_ext {
                     agent_scope_request: None,
                     dpop_binding_proof: None,
                     applet_delegation: None,
-                    proof: arkret_core::SessionGrantRequestProof {
-                        proof_kind: arkret_core::SessionGrantProofKind::DidBoundSignature,
+                    proof: SessionGrantRequestProof {
+                        proof_kind: SessionGrantProofKind::DidBoundSignature,
                         challenge: challenge.to_owned(),
                         request_canonical_digest,
                         audience,

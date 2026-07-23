@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
-use arkret_core::{
-    DeviceId, Did, Hash, IdentityLink, IdentityLinkStatus, RealmId, compute_policy_frontier_digest,
-};
+use arkret_identifiers::{DeviceId, Did, Hash, RealmId};
+use arkret_models_collaboration::objects::profiles::{IdentityLink, IdentityLinkStatus};
+use arkret_models_identity::identity_link_cache::compute_policy_frontier_digest;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -11,7 +11,7 @@ use crate::{Error, Result};
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// Client-local verified identity-link cache entry.
 ///
-/// Distinct from the wire cache model `arkret_core::IdentityLinkCacheEntry`
+/// Distinct from the wire cache model `arkret_models_identity::IdentityLinkCacheEntry`
 /// (identity-link-cache schema counterpart): this type only wraps an
 /// in-memory verification result.
 pub struct VerifiedLinkCacheEntry {
@@ -133,7 +133,8 @@ impl IdentityLinkCache {
 
 #[cfg(test)]
 mod tests {
-    use arkret_core::{Hash, IdentityLinkProof, TypedTrustDomainId};
+    use arkret_identifiers::{Hash, TypedTrustDomainId};
+    use arkret_models_collaboration::objects::profiles::IdentityLinkProof;
 
     use super::*;
 

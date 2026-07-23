@@ -26,7 +26,7 @@
 //! HPKE public key, NOT an MLS member or member device.
 
 use arkret_canonical::multibase::{decode_multibase_base58btc, decode_multicodec_varint};
-use arkret_core::EffectiveScope as WireEffectiveScope;
+use arkret_wire::EffectiveScope as WireEffectiveScope;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 

@@ -7,8 +7,9 @@
 //! without panicking: a malformed proof or key is a rejection, never a crash
 //! and never a spurious "valid".
 
-use arkret_core::Did;
+use arkret_identifiers::Did;
 use arkret_signatures::proof::{PublicKeyMaterial, verify_eddsa_detached_jws_proof};
+use arkret_wire::Proof;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
@@ -30,7 +31,7 @@ fuzz_target!(|data: &[u8]| {
     let Ok(text) = std::str::from_utf8(rest) else {
         return;
     };
-    let Ok(proof) = serde_json::from_str::<arkret_core::Proof>(text) else {
+    let Ok(proof) = serde_json::from_str::<Proof>(text) else {
         return;
     };
 
