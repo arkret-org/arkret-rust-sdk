@@ -10,9 +10,9 @@ use crate::artifacts_applet::ExternalRef;
 ///
 /// An Applet service / bridge asks the Principal Server to provision (or
 /// re-validate) an Applet-managed Ghost Actor profile plus accountability
-/// grant for one external user. Built by the bridge side and parsed by the
-/// authz service; the server still re-checks `applet_id`/`service_id`/
-/// `realm_id` against the installed package before minting anything.
+/// grant for one external user. The bridge supplies the two complete,
+/// caller-signed Events; the Principal Server validates their exact business
+/// binding and commits them as one atomic provisioning unit.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GhostActorProvisionRequestBody {
     /// Always [`GhostActorProvisionRequestBody::SCHEMA`].
@@ -27,6 +27,8 @@ pub struct GhostActorProvisionRequestBody {
     pub display_name: Option<String>,
     pub realm_id: RealmId,
     pub external_ref: ExternalRef,
+    pub accountability_grant_event: Event,
+    pub profile_event: Event,
 }
 
 impl GhostActorProvisionRequestBody {
@@ -44,6 +46,8 @@ impl GhostActorProvisionRequestBody {
         external_user_id: impl Into<String>,
         realm_id: RealmId,
         external_ref: ExternalRef,
+        accountability_grant_event: Event,
+        profile_event: Event,
     ) -> Self {
         Self {
             schema: Self::SCHEMA.to_owned(),
@@ -56,6 +60,8 @@ impl GhostActorProvisionRequestBody {
             display_name: None,
             realm_id,
             external_ref,
+            accountability_grant_event,
+            profile_event,
         }
     }
 
@@ -67,10 +73,10 @@ impl GhostActorProvisionRequestBody {
 
 /// `POST /_arkret/self/applets/{applet_id}/ghosts/provision` response.
 ///
-/// Carries the durable event refs the Principal Server minted: the Ghost
-/// Actor `ak.profile.create` ref, the `ak.identity.accountability_grant` ref
-/// (also surfaced as the delegated `authorization_ref` for subsequent ghost
-/// events).
+/// Carries the durable refs the Principal Server atomically accepted. The
+/// `authorization_ref` is the active Applet capability grant used by the
+/// provisioning pair; an accountability grant records responsibility and is
+/// never itself treated as authorization for later Ghost Actor actions.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GhostActorProvisionOutcome {
     pub ghost_actor_id: Did,
@@ -154,6 +160,18 @@ mod tests {
 
     use super::*;
 
+    fn event(kind: &str, actor: &str, suffix: &str) -> Event {
+        Event::new(
+            kind,
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            Did::new(actor).unwrap(),
+            0,
+            Hlc::new(format!("019041000000-0000-{suffix}")).unwrap(),
+            serde_json::json!({"object": {}}),
+        )
+        .unwrap()
+    }
+
     #[test]
     fn applet_delegation_applies_all_signed_envelope_fields() {
         let mut event = Event::new(
@@ -179,5 +197,65 @@ mod tests {
             Some(authorization.authorization_ref.as_str())
         );
         assert_eq!(event.applet_id.as_ref(), Some(&authorization.applet_id));
+    }
+
+    #[test]
+    fn ghost_provision_request_carries_both_complete_events() {
+        let accountability = event(
+            "ak.identity.accountability_grant",
+            "did:web:applet.example",
+            "00000001",
+        );
+        let profile = event("ak.profile.create", "did:web:ghost.example", "00000002");
+        let request = GhostActorProvisionRequestBody::new(
+            AppletId::new("ak:applet:01904100-0000-7000-8000-000000000003").unwrap(),
+            Did::new("did:web:applet.example").unwrap(),
+            Did::new("did:web:ghost.example").unwrap(),
+            "slack",
+            "tenant-1",
+            "user-1",
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            serde_json::from_value(serde_json::json!({
+                "protocol": "slack",
+                "external_id": "user-1"
+            }))
+            .unwrap(),
+            accountability.clone(),
+            profile.clone(),
+        );
+
+        let value = serde_json::to_value(&request).unwrap();
+        assert_eq!(
+            value["accountability_grant_event"]["event_id"],
+            accountability.event_id.as_str()
+        );
+        assert_eq!(
+            value["profile_event"]["event_id"],
+            profile.event_id.as_str()
+        );
+        assert_eq!(
+            serde_json::from_value::<GhostActorProvisionRequestBody>(value).unwrap(),
+            request
+        );
+    }
+
+    #[test]
+    fn ghost_provision_request_rejects_missing_event_pair() {
+        let value = serde_json::json!({
+            "schema": GhostActorProvisionRequestBody::SCHEMA,
+            "applet_id": "ak:applet:01904100-0000-7000-8000-000000000003",
+            "service_id": "did:web:applet.example",
+            "ghost_actor_id": "did:web:ghost.example",
+            "protocol": "slack",
+            "tenant": "tenant-1",
+            "external_user_id": "user-1",
+            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+            "external_ref": {
+                "protocol": "slack",
+                "external_id": "user-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<GhostActorProvisionRequestBody>(value).is_err());
     }
 }
