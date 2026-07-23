@@ -459,8 +459,6 @@ pub use arkret_lattice_registry as lattice_registry;
 pub use arkret_signatures::dpop;
 #[cfg(feature = "full-surface")]
 pub use arkret_signatures::http_signature;
-#[cfg(feature = "full-surface")]
-pub mod media;
 // The MLS (RFC 9420) behavior layer lives in the standalone `arkret-mls` crate
 // (the sole OpenMLS boundary). Keep the `arkret::mls::*` path stable by
 // re-exporting it here under the same feature gate it always carried.
@@ -468,10 +466,6 @@ pub mod media;
 pub mod mls {
     pub use arkret_mls::*;
 }
-#[cfg(feature = "full-surface")]
-pub use arkret_crypto::sframe;
-#[cfg(feature = "full-surface")]
-pub mod webrtc;
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub use applet::{
     AppletAcceptedSigningKeyEvidence, AppletBridgeErrorBuilder, AppletBridgeErrorClass,
@@ -483,6 +477,8 @@ pub use applet::{
     WireAppletRegistration, applet_did_document_digest, applet_signing_key_material_digest,
     namespace_pattern_matches, normalize_applet_signing_key_ref, sign_registration,
 };
+#[cfg(feature = "full-surface")]
+pub use arkret_crypto::sframe;
 #[cfg(feature = "full-surface")]
 pub use arkret_crypto::{
     AEAD_NONCE_AES_GCM_LEN, AEAD_NONCE_COUNTER_LEN, AEAD_NONCE_EXPORTER_LABEL,
@@ -517,6 +513,11 @@ pub use arkret_server::{
     CursorAuthority, CursorAuthorityError, CursorBindingContext, CursorBindingRecord,
     IdempotencyClaim, IdempotencyDirection, IdempotencyIdentity, IdempotencyWindow,
     MemoryCursorAuthority, TransactionClaim, TransactionIdempotencyStore, cursor_filter_digest,
+};
+pub use arkret_signatures::media::{
+    CallMediaTokenVerification, IceConfig, MediaBackendType, MediaServiceAnchors,
+    call_media_token_exchange, participant_binding_signing_input, validate_token_ttl,
+    verify_call_media_token_outcome, verify_ice_config_outcome,
 };
 pub use auth::{
     ARKRET_DEVICE_SCOPE_PREFIX, AccountAuthState, AccountRecoveryMethod,
@@ -579,11 +580,6 @@ pub use identity::{
     feature = "client"
 ))]
 pub use key_backup_client::KeyBackupClient;
-#[cfg(feature = "full-surface")]
-pub use media::{
-    CallMediaTokenVerification, MediaBackendType, MediaServiceAnchors, call_media_token_exchange,
-    participant_binding_signing_input, validate_token_ttl, verify_call_media_token_outcome,
-};
 #[cfg(all(feature = "full-surface", feature = "mls"))]
 pub use mls::*;
 #[cfg(feature = "full-surface")]
@@ -605,5 +601,3 @@ pub use sframe::{
     RecordingKeyContext, TRANSCRIPT_KEY_LABEL, TranscriptKeyContext, derive_frame_key,
     derive_recording_key, derive_transcript_key,
 };
-#[cfg(feature = "full-surface")]
-pub use webrtc::{IceConfig, verify_ice_config_outcome};

@@ -4,11 +4,12 @@ use arkret_canonical::base64url::base64url_decode;
 use arkret_models_collaboration::objects::media::{
     MediaIceConfigOutcome, MediaIceServer, MediaIceSignatureAlgorithm, MediaIceSignatureInput,
 };
+use arkret_wire::{Did, Hash, RealmId};
 use ed25519_dalek::Signature;
 use serde::{Deserialize, Serialize};
 
 use crate::media::MediaServiceAnchors;
-use crate::{Did, Error, RealmId, Result};
+use crate::{Error, Result};
 
 /// Strongly-typed ICE configuration parsed from a verified
 /// [`MediaIceConfigOutcome`] (`webrtc-signaling.md` §4 / §4.1).
@@ -95,7 +96,7 @@ fn verify_ice_config_signature(
         ));
     }
     let canonical = ice_config_canonical_payload(outcome)?;
-    let expected_digest = crate::Hash::new(arkret_canonical::sha256_digest(&canonical))?;
+    let expected_digest = Hash::new(arkret_canonical::sha256_digest(&canonical))?;
     if outcome.signature.payload_digest != expected_digest {
         return Err(Error::Protocol(
             "ice_config_denied: payload digest mismatch".to_owned(),
@@ -237,7 +238,7 @@ mod tests {
             kid: kid.to_owned(),
             alg: MediaIceSignatureAlgorithm::EdDsa,
             signature_input: MediaIceSignatureInput::IceConfigV1,
-            payload_digest: crate::Hash::new(arkret_canonical::sha256_digest(&canonical)).unwrap(),
+            payload_digest: Hash::new(arkret_canonical::sha256_digest(&canonical)).unwrap(),
             sig: arkret_canonical::base64url_encode(key.sign(&signing_input).to_bytes()),
         };
         outcome
@@ -252,7 +253,7 @@ mod tests {
             realm_id: realm(),
             call_id: "ak:call:0196441c-0000-7000-8000-000000000000".to_owned(),
             actor_id: did("alice"),
-            device_id: crate::DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005")
+            device_id: arkret_wire::DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005")
                 .unwrap(),
             ice_servers: vec![
                 MediaIceServer {
@@ -281,7 +282,7 @@ mod tests {
                 kid: kid.to_owned(),
                 alg: MediaIceSignatureAlgorithm::EdDsa,
                 signature_input: MediaIceSignatureInput::IceConfigV1,
-                payload_digest: crate::Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 sig: "AAAA".to_owned(),
             },
             extensions: XExtensionMap::default(),
@@ -315,7 +316,7 @@ mod tests {
 
         let mut bad_digest = signed_ice_outcome(MEDIA_KID, &key);
         bad_digest.signature.payload_digest =
-            crate::Hash::new(format!("sha256:{}", "f".repeat(64))).unwrap();
+            Hash::new(format!("sha256:{}", "f".repeat(64))).unwrap();
         assert!(verify_ice_config_outcome(&bad_digest, &anchors).is_err());
     }
 
