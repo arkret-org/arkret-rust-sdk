@@ -581,10 +581,8 @@ pub use identity::{
 pub use key_backup_client::KeyBackupClient;
 #[cfg(feature = "full-surface")]
 pub use media::{
-    Attachment, AuthenticatedDownloadGrant, CallMediaTokenVerification, DownloadGrantScope,
-    MediaBackendType, MediaMetadata, MediaServiceAnchors, Thumbnail, call_media_token_exchange,
-    participant_binding_signing_input, safe_content_disposition, safe_content_type,
-    validate_token_ttl, verify_call_media_token_outcome,
+    CallMediaTokenVerification, MediaBackendType, MediaServiceAnchors, call_media_token_exchange,
+    participant_binding_signing_input, validate_token_ttl, verify_call_media_token_outcome,
 };
 #[cfg(all(feature = "full-surface", feature = "mls"))]
 pub use mls::*;
