@@ -12,6 +12,7 @@
 //! [`Event`]: arkret_wire::Event
 
 mod accountability;
+mod agent;
 mod applet;
 mod device;
 mod event_payload;
@@ -25,6 +26,9 @@ mod rank;
 mod registry;
 
 pub use accountability::accountability_grant_event;
+pub use agent::{
+    build_agent_key_authorize_event, build_agent_pause_event, build_agent_resume_event,
+};
 pub use applet::AppletBridgeErrorBuilder;
 pub use device::{build_cross_signing_publish_event_at, build_device_authorize_event_at};
 pub use event_payload::{EventPayloadExt, MessageEventPayload};

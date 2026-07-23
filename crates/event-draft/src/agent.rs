@@ -1,0 +1,261 @@
+//! Personal-agent Event materialization.
+
+use arkret_models_collaboration::events_payloads::agent::{
+    AgentKeyAuthorizePayload, AgentPausePayload, AgentResumePayload, AgentSidecarExposureAck,
+};
+use arkret_wire::{CellRef, Did, Effect, Event, EventKind, Hlc, LatticeOp, LatticeOpType, RealmId};
+use chrono::{DateTime, Utc};
+use serde_json::Value;
+
+use crate::Result;
+
+/// Build an unsigned controller-executed `ak.agent.key.authorize` Event draft.
+pub fn build_agent_key_authorize_event(
+    payload: &AgentKeyAuthorizePayload,
+    realm_id: RealmId,
+    agent_actor_id: Did,
+    controller_id: Did,
+    controller_authorization_ref: impl Into<String>,
+    actor_seq: u64,
+    hlc: Hlc,
+) -> Result<Event> {
+    let mut event = Event::new(
+        EventKind::AGENT_KEY_AUTHORIZE,
+        realm_id,
+        agent_actor_id,
+        actor_seq,
+        hlc,
+        serde_json::to_value(payload)?,
+    )?;
+    event.executed_by = Some(controller_id);
+    event.authorization_ref = Some(controller_authorization_ref.into());
+    Ok(event)
+}
+
+struct AgentLifecycleEventInput {
+    kind: &'static str,
+    payload: Value,
+    agent_id: Did,
+    controller_id: Did,
+    principal_control_realm_id: RealmId,
+    controller_authorization_ref: String,
+    previous_status: &'static str,
+    next_status: &'static str,
+    reason: Option<String>,
+    actor_seq: u64,
+    hlc: Hlc,
+    status_changed_at: DateTime<Utc>,
+}
+
+fn build_agent_lifecycle_event(input: AgentLifecycleEventInput) -> Result<Event> {
+    let mut event = Event::new_at(
+        input.kind,
+        input.principal_control_realm_id,
+        input.agent_id.clone(),
+        input.actor_seq,
+        input.hlc,
+        input.payload,
+        input.status_changed_at,
+    )?;
+    event.executed_by = Some(input.controller_id);
+    event.authorization_ref = Some(input.controller_authorization_ref);
+    event.effects = vec![Effect {
+        cell: CellRef::new(format!(
+            "ak:cell:ak.component.agent.status.v1:{}",
+            input.agent_id.as_str()
+        ))?,
+        op: LatticeOp {
+            op_type: LatticeOpType::Transition,
+            tag: None,
+            value: None,
+            from: Some(Value::String(input.previous_status.to_owned())),
+            to: Some(Value::String(input.next_status.to_owned())),
+            reason: input.reason,
+            issuer_seq: None,
+        },
+    }];
+    Ok(event)
+}
+
+/// Build an unsigned controller-executed `ak.self.agent.pause` Event draft.
+#[allow(clippy::too_many_arguments)]
+pub fn build_agent_pause_event(
+    agent_id: Did,
+    controller_id: Did,
+    principal_control_realm_id: RealmId,
+    controller_authorization_ref: impl Into<String>,
+    reason: Option<String>,
+    actor_seq: u64,
+    hlc: Hlc,
+    status_changed_at: DateTime<Utc>,
+) -> Result<Event> {
+    let payload = serde_json::to_value(AgentPausePayload {
+        agent_id: agent_id.clone(),
+        controller_id: controller_id.clone(),
+        transition: "pause".to_owned(),
+        previous_status: "active".to_owned(),
+        status_changed_at,
+        reason: reason.clone(),
+    })?;
+    build_agent_lifecycle_event(AgentLifecycleEventInput {
+        kind: EventKind::SELF_AGENT_PAUSE,
+        payload,
+        agent_id,
+        controller_id,
+        principal_control_realm_id,
+        controller_authorization_ref: controller_authorization_ref.into(),
+        previous_status: "active",
+        next_status: "paused",
+        reason,
+        actor_seq,
+        hlc,
+        status_changed_at,
+    })
+}
+
+/// Build an unsigned controller-executed `ak.self.agent.resume` Event draft.
+#[allow(clippy::too_many_arguments)]
+pub fn build_agent_resume_event(
+    agent_id: Did,
+    controller_id: Did,
+    principal_control_realm_id: RealmId,
+    controller_authorization_ref: impl Into<String>,
+    sidecar_exposure_ack: Option<AgentSidecarExposureAck>,
+    actor_seq: u64,
+    hlc: Hlc,
+    status_changed_at: DateTime<Utc>,
+) -> Result<Event> {
+    let payload = serde_json::to_value(AgentResumePayload {
+        agent_id: agent_id.clone(),
+        controller_id: controller_id.clone(),
+        transition: "resume".to_owned(),
+        previous_status: "paused".to_owned(),
+        status_changed_at,
+        sidecar_exposure_ack,
+        reason: None,
+    })?;
+    build_agent_lifecycle_event(AgentLifecycleEventInput {
+        kind: EventKind::SELF_AGENT_RESUME,
+        payload,
+        agent_id,
+        controller_id,
+        principal_control_realm_id,
+        controller_authorization_ref: controller_authorization_ref.into(),
+        previous_status: "paused",
+        next_status: "active",
+        reason: None,
+        actor_seq,
+        hlc,
+        status_changed_at,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use arkret_models_collaboration::events_payloads::agent::{
+        AgentKeyApprovalEvidence, AgentKeyApprovalEvidenceKind, AgentKeyScope,
+    };
+    use chrono::TimeZone;
+    use serde_json::json;
+
+    use super::*;
+
+    fn did(name: &str) -> Did {
+        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+    }
+
+    fn realm() -> RealmId {
+        RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap()
+    }
+
+    fn key_authorize_payload(agent_id: Did, controller_id: Did) -> AgentKeyAuthorizePayload {
+        AgentKeyAuthorizePayload {
+            agent_id: agent_id.clone(),
+            key_id: "runtime-key-1".to_owned(),
+            verification_method: format!("{agent_id}#runtime-key-1"),
+            public_key_digest: None,
+            accountable_principal_id: controller_id.clone(),
+            agent_key_scope: AgentKeyScope {
+                actions: vec!["ak.message.create".to_owned()],
+                resources: vec![],
+                constraints: vec![],
+            },
+            audience: vec!["https://arkret.example".to_owned()],
+            issued_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 0, 0).unwrap(),
+            expires_at: Some(Utc.with_ymd_and_hms(2026, 5, 26, 10, 15, 0).unwrap()),
+            approval_evidence: AgentKeyApprovalEvidence {
+                kind: AgentKeyApprovalEvidenceKind::ApprovalEvent,
+                evidence_ref: Some("ak:event:01970000-0000-7000-8000-000000000021".to_owned()),
+                request_canonical_digest: None,
+                pairing_request_id: None,
+                approved_by: Some(controller_id),
+            },
+            supersedes: vec![],
+            revocation_check_ref: None,
+            runtime_attestation: None,
+        }
+    }
+
+    #[test]
+    fn key_authorize_event_binds_controller_execution() {
+        let agent_id = did("agent");
+        let controller_id = did("controller");
+        let event = build_agent_key_authorize_event(
+            &key_authorize_payload(agent_id.clone(), controller_id.clone()),
+            realm(),
+            agent_id.clone(),
+            controller_id.clone(),
+            format!("{agent_id}#managed-controller"),
+            7,
+            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(event.kind.as_str(), EventKind::AGENT_KEY_AUTHORIZE);
+        assert_eq!(event.actor_id, agent_id);
+        assert_eq!(event.executed_by, Some(controller_id));
+        assert_eq!(event.payload["key_id"], "runtime-key-1");
+    }
+
+    #[test]
+    fn lifecycle_events_bind_payload_and_status_transition() {
+        let agent_id = did("agent");
+        let controller_id = did("controller");
+        let changed_at = Utc.with_ymd_and_hms(2026, 7, 19, 8, 0, 0).unwrap();
+        let authorization_ref = format!("{agent_id}#managed-controller");
+
+        let pause = build_agent_pause_event(
+            agent_id.clone(),
+            controller_id.clone(),
+            realm(),
+            authorization_ref.clone(),
+            Some("user_requested".to_owned()),
+            8,
+            Hlc::new("01970e589d21-0008-a13f9c2e").unwrap(),
+            changed_at,
+        )
+        .unwrap();
+        assert_eq!(pause.kind.as_str(), EventKind::SELF_AGENT_PAUSE);
+        assert_eq!(pause.effects[0].op.from, Some(json!("active")));
+        assert_eq!(pause.effects[0].op.to, Some(json!("paused")));
+        assert_eq!(
+            pause.effects[0].op.reason.as_deref(),
+            Some("user_requested")
+        );
+
+        let resume = build_agent_resume_event(
+            agent_id,
+            controller_id,
+            realm(),
+            authorization_ref,
+            None,
+            9,
+            Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
+            changed_at,
+        )
+        .unwrap();
+        assert_eq!(resume.kind.as_str(), EventKind::SELF_AGENT_RESUME);
+        assert_eq!(resume.effects[0].op.from, Some(json!("paused")));
+        assert_eq!(resume.effects[0].op.to, Some(json!("active")));
+    }
+}

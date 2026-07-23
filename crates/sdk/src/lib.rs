@@ -331,12 +331,6 @@ pub use arkret_server as server;
 pub use arkret_signatures as signatures;
 #[cfg(feature = "signer")]
 pub use arkret_signatures::Ed25519MoveSigner;
-pub use arkret_signatures::agent::{
-    agent_key_pair_proof_request_binding_digest, agent_key_pairing_request_binding_digest,
-    agent_requested_scope_digest, agent_runtime_attestation_digest,
-    agent_runtime_key_binding_digest, agent_runtime_key_binding_digest_from_digests,
-    agent_runtime_public_key_digest,
-};
 pub use arkret_signatures::federation::*;
 pub use arkret_signatures::keypackages::{
     KeyPackageSignatureError, KeyPackageSignatureResult, keypackage_signature_from_bytes,
@@ -405,9 +399,6 @@ pub mod sync {
 // re-exports these symbols, but listing them explicitly keeps them
 // visible in `cargo doc` and signals the supported surface to
 // downstream crates that depend only on the `arkret` umbrella.
-pub use arkret_state::{consent, mls_move, resolver};
-#[cfg(feature = "full-surface")]
-pub mod agent;
 /// Canonical encrypted attachment codec (`ak.blob.stream_aead.v1` /
 /// `ak.blob.whole_file_aead.v1`, `media-and-blob.md` §3.2/§3.3).
 #[cfg(feature = "full-surface")]
@@ -454,6 +445,7 @@ pub use arkret_lattice_registry as lattice_registry;
 pub use arkret_signatures::dpop;
 #[cfg(feature = "full-surface")]
 pub use arkret_signatures::http_signature;
+pub use arkret_state::{consent, mls_move, resolver};
 // The MLS (RFC 9420) behavior layer lives in the standalone `arkret-mls` crate
 // (the sole OpenMLS boundary). Keep the `arkret::mls::*` path stable by
 // re-exporting it here under the same feature gate it always carried.

@@ -1328,4 +1328,46 @@ mod tests {
         };
         assert_eq!(signature.verification_method, signer.verification_method);
     }
+
+    #[test]
+    fn managed_agent_provision_events_bind_accountability_and_selector() {
+        let controller = Did::new("did:webvh:z6mkfixture:controller.example").unwrap();
+        let agent = Did::new("did:webvh:z6mkfixture:agent.example").unwrap();
+        let signer = FixtureSigner {
+            did: controller.clone(),
+            verification_method: format!("{controller}#device-1"),
+        };
+        let events = build_agent_provision_event_drafts(
+            &controller,
+            &RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            &agent,
+            "summary",
+            AgentProvisionEventDraftOptions {
+                created_at: "2026-07-18T01:02:03Z".parse().unwrap(),
+                accountability_actor_seq: 4,
+                accountability_hlc: Hlc::new("01980a8f3980-0001-a13f9c2e").unwrap(),
+                selector_actor_seq: 5,
+                selector_hlc: Hlc::new("01980a8f3980-0002-a13f9c2e").unwrap(),
+            },
+            &signer,
+        )
+        .unwrap();
+
+        let payload: AccountabilityGrantPayload = serde_json::from_value(
+            serde_json::to_value(&events.accountability_grant.payload).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            payload.proof.payload_digest,
+            payload.payload_digest().unwrap()
+        );
+        assert_eq!(
+            events.selector_claim.payload["source_refs"][0],
+            events.accountability_grant.event_id.as_str()
+        );
+        assert_eq!(
+            serde_json::to_value(events).unwrap()["accountability_grant"]["created_at"],
+            "2026-07-18T01:02:03.000Z"
+        );
+    }
 }
