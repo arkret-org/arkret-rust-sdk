@@ -17,6 +17,10 @@ const EMBEDDED_ARTIFACTS_SENTINEL: &str = "<embedded-spec-artifacts>";
 const EMBEDDED_SPEC_ARTIFACTS_JSON: &str = include_str!("embedded_artifacts.json");
 #[cfg(not(feature = "embedded-artifacts"))]
 const EMBEDDED_SPEC_ARTIFACTS_JSON: &str = "{}";
+#[cfg(feature = "embedded-artifacts")]
+const EMBEDDED_OPENAPI_YAML: &str = include_str!("embedded_openapi.yaml");
+#[cfg(not(feature = "embedded-artifacts"))]
+const EMBEDDED_OPENAPI_YAML: &str = "";
 
 static EMBEDDED_SPEC_ARTIFACTS: OnceLock<std::result::Result<BTreeMap<String, Value>, String>> =
     OnceLock::new();
@@ -1128,6 +1132,17 @@ pub fn embedded_json_artifact(path: &str) -> Result<Value> {
     read_embedded_json_artifact(path)
 }
 
+/// Return the canonical OpenAPI YAML copied from the spec artifact pipeline.
+pub fn embedded_openapi_yaml() -> Result<&'static str> {
+    if EMBEDDED_OPENAPI_YAML.is_empty() {
+        return Err(Error::Protocol(
+            "embedded OpenAPI artifact is unavailable; enable the embedded-artifacts feature"
+                .to_owned(),
+        ));
+    }
+    Ok(EMBEDDED_OPENAPI_YAML)
+}
+
 #[doc(hidden)]
 pub fn embedded_spec_artifact_paths() -> Result<Vec<String>> {
     Ok(embedded_spec_artifacts()?.keys().cloned().collect())
@@ -1436,6 +1451,24 @@ mod tests {
                 .unwrap_or_else(|error| panic!("embedded artifact {path} failed to load: {error}"));
             assert_eq!(embedded_value, live_value, "artifact {path} drifted");
         }
+    }
+
+    #[cfg(feature = "embedded-artifacts")]
+    #[test]
+    fn embedded_openapi_matches_live_spec_when_available() {
+        let embedded = embedded_openapi_yaml().expect("embedded OpenAPI must load");
+        assert!(embedded.starts_with("openapi: 3.1.0\n"));
+        assert!(embedded.contains("\npaths:\n"));
+
+        let Some(artifacts_dir) = local_spec_artifacts_dir() else {
+            return;
+        };
+        let live_path = artifacts_dir
+            .join("openapi")
+            .join("arkret-service-api.openapi.yaml");
+        let live = fs::read_to_string(&live_path)
+            .unwrap_or_else(|error| panic!("failed to read {}: {error}", live_path.display()));
+        assert_eq!(embedded, live, "embedded OpenAPI artifact drifted");
     }
 
     #[test]
