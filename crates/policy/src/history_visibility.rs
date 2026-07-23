@@ -4,7 +4,7 @@
 //! gate types) lives in `arkret-models-collaboration`; this module holds the
 //! policy-evaluation behavior that consumes the
 //! `HistorySharingPolicyPayloadValue` payload and the `HistorySharingRestrictedRule`
-//! family. `arkret-core` re-exports these functions so the
+//! family. the `arkret` umbrella re-exports these functions so the
 //! former Core compatibility panel was unchanged during the move.
 
 use std::collections::BTreeSet;

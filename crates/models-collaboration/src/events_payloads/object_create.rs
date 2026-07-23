@@ -1,7 +1,7 @@
 //! Generic object-create payload envelope and strand patch payload.
 //!
 //! The `ak.strand.create` wire object (`StrandCreateObject`) stays in
-//! `arkret-core` until the strand collaboration-object module migrates.
+//! the `arkret` umbrella until the strand collaboration-object module migrates.
 
 use std::collections::BTreeMap;
 

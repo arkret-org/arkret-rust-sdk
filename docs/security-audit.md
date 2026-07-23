@@ -93,12 +93,12 @@ audit attestation.
 
 | Area | Source |
 | --- | --- |
-| Identifiers, canonical JSON and digests | `crates/identifiers/src/lib.rs`, `crates/canonical/src/canonical.rs`, `crates/core/src/models/` |
+| Identifiers, canonical JSON and digests | `crates/identifiers/src/lib.rs`, `crates/canonical/src/canonical.rs`, `crates/wire/src/`, `crates/models-*/src/` |
 | Auth and recovery | `crates/sdk/src/auth.rs`, `identity.rs` |
 | Capability decisions | `crates/sdk/src/authz.rs`, `resolver.rs` |
 | Repo and crypto stores | `crates/sdk/src/store.rs`, `crypto_store.rs` |
 | E2EE and MLS | `crates/sdk/src/e2ee.rs`, `mls.rs`, `devices.rs` |
-| Federation and service identity | `crates/sdk/src/federation.rs`, `crates/core/src/service.rs` |
+| Federation and service identity | `crates/sdk/src/federation.rs`, `crates/identity/src/service_identity.rs`, `crates/models-discovery/src/service_description.rs` |
 | Log redaction and feature safety | `crates/sdk/src/crypto.rs`, `crates/http-client/src/lib.rs`, `crates/server/src/lib.rs` |
 
 ## Agent Runtime + Recovery Surface (P5 / spec head 37ce729)

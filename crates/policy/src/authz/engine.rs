@@ -286,7 +286,7 @@ impl PolicyEvaluationResult {
 
 /// Client-local moderation report bound to a restrictive policy outcome.
 ///
-/// Distinct from the wire `arkret_core::ModerationReport`
+/// Distinct from the wire `arkret::ModerationReport`
 /// (moderation.md §3 report resource).
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PolicyModerationReport {

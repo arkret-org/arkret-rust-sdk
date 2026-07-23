@@ -1,10 +1,9 @@
 //! Object-patch payload for `event-payload.schema.json#/$defs/object_patch_payload`.
 //!
-//! Migrated from `arkret-core` (`models/patch.rs`); a shim there
-//! re-exports `ObjectPatchPayload` to preserve the `arkret_core::` path.
+//! The `arkret` umbrella re-exports `ObjectPatchPayload` at its root.
 //! The `ak.schema.patch.v1` container grammar (`Patch` / `PatchOp` and the
 //! path / semantic-safety validators) is owned by `arkret_wire::patch` and
-//! re-exported through the core shim unchanged. This module keeps only the
+//! re-exported through the umbrella unchanged. This module keeps only the
 //! payload-shaped `ObjectPatchPayload`, whose `target_ref` validation is
 //! defined by the event-payload schema rather than the patch container
 //! itself.

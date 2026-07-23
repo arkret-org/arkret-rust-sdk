@@ -75,9 +75,9 @@ backend 的开发者、需要理解 SDK 内部边界的 third-party 用户。
 
 依赖方向：上层只依赖下层抽象；下层不引用上层具体类型。
 
-- `arkret-core`：typed model（`Move`、`Seal`、`Bottom`、`CellId`、`NotaryValue`）。
-- `arkret-core::lattice`：纯 Lattice trait + 6 实现，不依赖 store。
-- `arkret-core::state`：托管 verifier 流水线、`apply_seal`、
+- `arkret-wire`：typed model（`Move`、`Seal`、`Bottom`、`CellId`、`NotaryValue`）。
+- `arkret_state::lattice`：纯 Lattice trait + 6 实现，不依赖 store。
+- `arkret_state::state`：托管 verifier 流水线、`apply_seal`、
   `effective_seal_view`、`state_root` 编码。**store traits 也住在这里**，
   让 SDK 用户 / soland / 第三方 server 三方都能依赖一份。
 - `soland` / 第三方 server：实现 `MoveStore` / `SealStore` / `CellStore` /
@@ -87,8 +87,8 @@ backend 的开发者、需要理解 SDK 内部边界的 third-party 用户。
 
 ## 3. Store 接口契约
 
-四个 trait 全部住在 `arkret-core::state::store` 模块。所有方法都返回 `Result`，
-错误用 `arkret-core::Error::Protocol` 表达 wire 级问题，用专属
+四个 trait 全部住在 `arkret_state::state::store` 模块。所有方法都返回 `Result`，
+错误用 `arkret_wire::WireError` 表达 wire 级问题，用专属
 `StoreError` 表达 IO / 后端失败。
 
 ### 3.1 MoveStore
@@ -277,7 +277,7 @@ verify_move(M, pre_state, registry) -> Result<(), MoveReject>:
 ## 5. `apply_seal` 算法
 
 `apply_seal(A, stores, registry)` 是 server 接收 Seal 时的入口。算法实现
-spec §4.2 normative 文本，可以放在 `arkret-core::state::seal::apply_seal`。
+spec §4.2 normative 文本，可以放在 `arkret_state::state::seal::apply_seal`。
 
 ```rust
 fn apply_seal(
@@ -375,11 +375,11 @@ fn apply_seal(
 （leaf shape、tree 形、空 list 处理、`bottom.anchor_view` 字段必须省略）。
 SDK 实现 MUST 严格遵循。
 
-实现位置：`arkret-core::state::state_root::compute_state_root(view: &SealView, cells: &dyn CellStore) -> Result<Hash>`。
+实现位置：`arkret_state::state::state_root::compute_state_root(view: &SealView, cells: &dyn CellStore) -> Result<Hash>`。
 
 实现要点：
 
-- Leaf JSON 序列化复用 `arkret-core::canonical::canonical_json_bytes`，确保
+- Leaf JSON 序列化复用 `arkret_canonical::canonical::canonical_json_bytes`，确保
   与 Move/Seal canonical bytes 同一编码 profile（key 排序、no whitespace、
   integer-only number、UTF-8）。
 - `Bottom` 序列化时 set `bottom.anchor_view = None` 后再 canonical_json，
@@ -504,7 +504,7 @@ fn resolve(&self, space_id, cell) -> Result<CellLatticeBinding> {
 
 落地顺序（每条 ≤1 PR）：
 
-1. **store traits + 内存实现**（`arkret-core::state::store::memory`）：让 SDK
+1. **store traits + 内存实现**（`arkret_state::state::store::memory`）：让 SDK
    测试不依赖 Pg。
 2. **CellRegistry + spec registry 加载器**：消费 event-kind-registry.json 的
    `cell_family` / `lattice` / `bottom` 字段。

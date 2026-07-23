@@ -74,9 +74,9 @@ were stuffing them into `Event.unsigned` and tagging the line with
 
 As of this commit:
 
-- `arkret_core::Event::applet_id: Option<String>` is a first-class
+- `arkret::Event::applet_id: Option<String>` is a first-class
   field.
-- `arkret_core::Event::external_ref: Option<serde_json::Value>` is a
+- `arkret::Event::external_ref: Option<serde_json::Value>` is a
   first-class field.
 - Both are folded into `Event::event_digest()` (canonical event bytes)
   whenever set — no special-cased signing transcript wiring is needed.

@@ -368,9 +368,9 @@ impl MembershipManager {
         })
     }
 
-    /// Send a DID invite using the default TTL
-    /// ([`DEFAULT_INVITE_TTL_DAYS`] — `invite.schema.json` requires a
-    /// hard expiry on every invite).
+    /// Send a DID invite using the seven-day default TTL.
+    ///
+    /// `invite.schema.json` requires a hard expiry on every invite.
     pub fn send_invite(
         &mut self,
         actor_id: Did,

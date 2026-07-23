@@ -5,7 +5,7 @@
 //! media query and outcome shapes. The transaction envelope (which embeds
 //! the core HTTP transaction body and RFC 9421 signature envelope), the
 //! in-memory replay store, and the delta batch aggregate stay in
-//! `arkret-core`.
+//! the `arkret` umbrella.
 
 use std::collections::BTreeSet;
 

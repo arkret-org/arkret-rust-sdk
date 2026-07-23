@@ -25,7 +25,7 @@ than a version stamp — see [`CHANGELOG.md`](../../CHANGELOG.md).
 - Added id-kind / wire form for `CircleId` (`^ak:circle:[0-9a-f]{8}-...$`)
   to back `ResourceSelector::Circle(CircleId)`.
 
-### Core wire models (`crates/core/`)
+### Protocol wire models (now split across semantic owner crates)
 
 - `events/kinds.rs` — registered new agent event kinds
   (`ak.agent.draft.propose`, `ak.agent.action_request`,
@@ -86,7 +86,7 @@ than a version stamp — see [`CHANGELOG.md`](../../CHANGELOG.md).
 | Crate | Tests |
 |---|---|
 | `crates/identifiers/` | `recovery_session_id::round_trip`, `circle_id::pattern_match`, `circle_id::reject_malformed` |
-| `crates/core/` | `events::kinds::agent_event_kinds_registered`, `models::call_media::participant_binding_round_trip`, `models::call_media::token_ttl_gate_rejects_above_600s`, `models::call_media::backend_type_unknown_rejects`, `models::recovery::policy_round_trip`, `models::recovery::receipt_round_trip`, `models::handle::homograph_skeleton_rejects` |
+| `crates/wire/`, `crates/models-*/` | Historical R3 wire-model and validation coverage, now colocated with each semantic owner |
 | `crates/http-client/` | `call_media::token_exchange_request_shape` (mock transport), `agent::deactivate_path_no_revoke` (path-regression guard) |
 | `crates/server/` | `registry::call_media_token_exchange_registered`, `registry::agent_runtime_tier_surface` |
 
@@ -107,7 +107,7 @@ relaxed validators would have let through.
   per-arm verifier table.
 - Planned `uts39_full_skeleton_table` handle-model hook — minimal
   confusable skeleton ships in R3; full UTS#39 table import deferred.
-- `crates/core/src/models/member_identity.rs` (R3.1) — `ak.member.identity.update`,
+- `crates/models-identity/src/member_identity.rs` (R3.1) — `ak.member.identity.update`,
   `MemberIdentity` / `VerifiedHandle` shapes, effective-set computation,
   identity_state_digest helper. Tracked under R3.1 items HDLREN-* / MID-*
   in `_arkret-rust-sdk_todos.md`.

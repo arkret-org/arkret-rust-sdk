@@ -62,7 +62,9 @@ def topological_order(metadata: dict) -> list[str]:
     workspace_names = {pkg["name"] for pkg in metadata["packages"]}
     deps: dict[str, set[str]] = {
         pkg["name"]: {
-            dep["name"] for dep in pkg["dependencies"] if dep["name"] in workspace_names
+            dep["name"]
+            for dep in pkg["dependencies"]
+            if dep["kind"] != "dev" and dep["name"] in workspace_names
         }
         for pkg in metadata["packages"]
     }
@@ -141,7 +143,9 @@ def main(argv: list[str]) -> int:
     workspace_names = {pkg["name"] for pkg in metadata["packages"]}
     workspace_deps = {
         pkg["name"]: {
-            dep["name"] for dep in pkg["dependencies"] if dep["name"] in workspace_names
+            dep["name"]
+            for dep in pkg["dependencies"]
+            if dep["kind"] != "dev" and dep["name"] in workspace_names
         }
         for pkg in metadata["packages"]
     }

@@ -11,7 +11,7 @@ use ed25519_dalek::{SIGNATURE_LENGTH, Signature, Signer, SigningKey, VerifyingKe
 use crate::{Error, Result};
 
 /// Produce the canonical Provider proof for a typed service-registration
-/// receipt. Transcript construction remains owned by `arkret-core`.
+/// receipt. Transcript construction remains owned by the `arkret` umbrella.
 pub fn sign_registration_receipt_proof(
     receipt: &ServiceRegistrationReceipt,
     signing_key: &SigningKey,

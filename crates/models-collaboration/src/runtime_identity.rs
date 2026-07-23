@@ -1,7 +1,6 @@
 //! Runtime identifier wire wrappers for agents and applets.
 //!
-//! Migrated from `arkret-core` (`models/runtime_identity.rs`); a shim
-//! there re-exports `AgentId` to preserve the `arkret_core::` path.
+//! The `arkret` umbrella re-exports the owner-defined `AgentId` at its root.
 //!
 //! `AppletIdentifier` lives in `arkret-identifiers` as a cross-domain wire scalar.
 

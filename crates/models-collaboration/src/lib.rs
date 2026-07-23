@@ -6,7 +6,7 @@
 //! receive-policy, audit, and plaintext-classification wire shapes;
 //! phase 1B-c2 lands the governance domain (realm governance, circle,
 //! invite addressing, moderation, grant constraints, delivery bindings)
-//! plus the first event-payload faces migrated from `arkret-core`.
+//! plus the first event-payload faces migrated from the `arkret` umbrella.
 
 pub mod account_lifecycle;
 pub mod agent_operations;

@@ -2,7 +2,7 @@
 //! snapshots, device metadata, key-authorization state, seal signatures).
 //!
 //! The `AgentOperations` aggregation enum and `KeyState` stay in
-//! `arkret-core` because they bind the agent lifecycle status/scope
+//! the `arkret` umbrella because they bind the agent lifecycle status/scope
 //! enums (`AgentStatus`, `AgentPcrRecoveryState`, `AgentPairingMode`) that
 //! remain core-resident.
 

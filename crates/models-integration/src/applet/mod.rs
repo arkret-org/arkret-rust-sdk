@@ -4,7 +4,7 @@
 //! `AppletRegistrationEpochTranscript`, `AppletRegistrationEpochEvidence`),
 //! which bind the DID document (`arkret-models-identity`) and the widget
 //! declaration (`crate::Widget`). The Ghost Actor profile /
-//! accountability-grant builders stay in `arkret-core` (they build
+//! accountability-grant builders stay in the `arkret` umbrella (they build
 //! collaboration-owned events and grants).
 
 mod ghost;

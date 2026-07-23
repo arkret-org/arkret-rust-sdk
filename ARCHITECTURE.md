@@ -9,7 +9,8 @@ application
     |
 arkret (umbrella SDK)
     |-- arkret-identifiers: validated DIDs, typed IDs, hashes, cursors and HLC values
-    |-- arkret-core: transitional compatibility facade pending retirement
+    |-- arkret-wire: cross-domain wire primitives, registries and error codes
+    |-- arkret-models-*: protocol model leaves split by consumer surface
     |-- arkret-crypto: local encryption, backup and key-management helpers
     |-- arkret-http-client: HTTP transport for Arkret service endpoints
     |-- arkret-keystore: platform KeyStore backends behind target feature gates
@@ -34,11 +35,11 @@ Arkret IDs, hashes, cursor tokens and HLC values. Serde decoding validates
 the same invariants as constructors so malformed wire identifiers fail at the
 edge.
 
-`crates/core/src/models/` owns object state enums, Realm /
-ActorProfile / Strand / Message / Morph / Relation / View objects, signed
-Events, canonical Operations, signed Operation envelopes, Commits, capability
-grants, policies, invites, read markers, notifications, blob metadata and
-service request/response envelopes.
+The `crates/models-identity`, `crates/models-crypto`,
+`crates/models-collaboration`, `crates/models-discovery`, and
+`crates/models-integration` leaves own protocol data shapes. The
+`crates/models` package is a namespaced documentation aggregate; SDK-internal
+and server consumers depend on the semantic leaves directly.
 
 Model types should remain stable, explicit and serializable. Validation that is
 required for protocol safety belongs close to these types, especially when it
@@ -80,9 +81,10 @@ SDK does not hash plaintext payloads into `payload_digest`.
 
 ## Service Profiles
 
-`crates/core/src/service.rs` verifies that a remote service advertises
-the expected service type, protocol version, schema profile, reducer profile and
-required operations before a client depends on it.
+`crates/models-discovery/src/service_requirements.rs` defines the advertised
+service requirements. Consuming behavior crates verify the expected service
+type, protocol version, schema profile, reducer profile and required operations
+before a client depends on a remote service.
 
 This keeps service discovery explicit and prevents silent downgrade or partial
 implementation mistakes.

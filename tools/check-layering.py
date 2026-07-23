@@ -100,7 +100,7 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-state",
         "arkret-wire",
     },
-    # Phase 2-b: signatures behavior signs over data owned by three model
+    # Signatures behavior signs over data owned by four model
     # crates ("behavior depends on data"): models-identity (service-identity /
     # webvh inception contracts), models-collaboration (realm-organization
     # statement family + ephemeral proof envelope), models-discovery (DID
@@ -108,6 +108,7 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     "arkret-signatures": _WIRE
     | {
         "arkret-models-identity",
+        "arkret-models-crypto",
         "arkret-models-collaboration",
         "arkret-models-discovery",
     },
@@ -125,9 +126,9 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # arkret-egress-policy carries the outbound SSRF host/IP deny-list
     # classifier (STA-05-001) the did:web / did:webvh resolvers guard fetches
     # with; it is a leaf crate (no arkret deps), so the edge is cycle-free.
-    # Batch 4c (core retirement): the service identity bundle backends
-    # (FileIdentityBundleBackend + KeyStoreIdentityBundleBackend) moved from
-    # arkret-core to arkret-identity. The KeyStore-backed backend wraps a
+    # The service identity bundle backends
+    # (FileIdentityBundleBackend + KeyStoreIdentityBundleBackend) are owned by
+    # arkret-identity. The KeyStore-backed backend wraps a
     # `KeyStore` from arkret-keystore (a leaf crate, no arkret deps — the edge
     # is cycle-free), mirroring the batch 4b auth->keystore precedent.
     "arkret-identity": _WIRE
@@ -137,8 +138,7 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-egress-policy",
         "arkret-keystore",
     },
-    # Batch 4b (core retirement): the per-admin signing-key store (AdminKeyStore)
-    # moved from arkret-core to arkret-auth. It wraps a `KeyStore` backend keyed
+    # The per-admin signing-key store (AdminKeyStore) is owned by arkret-auth. It wraps a `KeyStore` backend keyed
     # by admin DID, so auth consumes the storage contract from arkret-keystore
     # (a leaf crate, no arkret deps — the edge is cycle-free).
     "arkret-auth": _WIRE
@@ -161,9 +161,8 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-policy",
         "arkret-signatures",
     },
-    # R1 (frozen): keystore owns trait + backends, standalone. Phase 2-b
-    # moved the KeyStore contract (trait + error + in-memory backend) here
-    # from arkret-core; the crate now has no arkret dependencies at all.
+    # R1 (frozen): keystore owns the trait and backends as a standalone crate
+    # with no Arkret dependencies.
     "arkret-keystore": set(),
     "arkret-egress-policy": set(),
     "arkret-http-client": _WIRE
@@ -192,68 +191,17 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-signatures",
         "arkret-state",
     },
-    # Legacy crates: retired in phase 1A (wire-edge) / phase 5 (core, ffi).
-    "arkret-core": {
+    "arkret-sdk-fuzz": {
         "arkret-canonical",
-        "arkret-identifiers",
-        "arkret-policy",
-        "arkret-schema",
-        "arkret-state",
-        "arkret-wire",
-        # Transitional shim targets while core re-exports migrate (phase 5 removes core).
         "arkret-hlc",
-        "arkret-event-draft",
-        "arkret-models-identity",
+        "arkret-identifiers",
         "arkret-models-crypto",
-        "arkret-models-integration",
-        "arkret-models-discovery",
-        "arkret-models-collaboration",
-        # Phase 2-b transitional edges: the KeyStore contract moved into
-        # arkret-keystore (core re-exports it), and signatures / crypto own
-        # their boundary errors (core keeps the `From` bridges into its
-        # facade `Error`). All three edges retire with core in phase 5.
-        "arkret-keystore",
         "arkret-signatures",
-        "arkret-crypto",
-        # Phase 2-c1: optional (mls-feature-only) edge so the facade `Error`
-        # can bridge `arkret_mls::MlsError`. openmls stays out of the default
-        # core graph.
-        "arkret-mls",
-        # Phase 2-c2b: facade `Error` bridges `arkret_identity::IdentityError`
-        # and `arkret_auth::AuthError` (same transitional pattern as
-        # signatures/crypto/mls). Retire with core in phase 5.
-        "arkret-identity",
-        "arkret-auth",
-        # Phase 5-i: the transport `Error` moved to arkret-http-client; core
-        # keeps an optional (client-feature-only) `From` bridge into its facade
-        # `Error`. One-directional (http-client no longer depends on core), so
-        # the edge is cycle-free. Retires with core.
-        "arkret-http-client",
+        "arkret-wire",
     },
-    "arkret-sdk-fuzz": {"arkret-core", "arkret-signatures"},
 }
 
-# Edges tolerated until the named phase removes them. Reported, not failed.
-#
-# Phase 2-b cleared signatures/crypto/keystore -> arkret-core (and the stale
-# crypto -> arkret-schema entry: schema is dev-dependency-only there). The two
-# remaining edges are endpoint-definition dependencies; their residual core
-# symbol surface and destination plan:
-#
-# arkret-http-client -> arkret-core:
-#   - `Error` / `Result` transport contract (`Error::Http` / `Error::Url` /
-#     `Error::Api` client variants) — splits out with the facade in phase 5;
-#   - `http::{paths, params, bodies}` endpoint DTO clusters consumed by every
-#     `endpoints_*.rs` module — follow the http-face extraction (pre-phase-5);
-#   - `models` aggregate re-exports (sync/event DTOs), `Cursor`,
-#     `StreamTraceValidator`, `is_query_auth_parameter` — move with their
-#     owning modules when core's leftover clusters are rehomed.
-#
-# Phase 5-f cleared arkret-server -> arkret-core: the endpoint contracts now
-# import their DTO clusters from the owning model crates + arkret-event-draft
-# (federation transaction bodies), error handling uses `arkret_wire::WireError`,
-# and `SpecArtifactBundle` (tests only) comes from arkret-schema as a
-# dev-dependency.
+# No legacy Arkret dependency edges are tolerated.
 LEGACY_EDGES: dict[tuple[str, str], str] = {}
 
 UMBRELLA = "arkret"

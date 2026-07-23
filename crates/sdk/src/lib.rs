@@ -74,17 +74,53 @@ compile_error!(
 );
 
 mod sdk_error;
+pub use arkret_auth::AdminKeyStore;
 pub use arkret_canonical as canonical;
-pub use arkret_core::{KeyRefObject, identifiers, *};
+pub use arkret_canonical::base64url::{
+    base64_standard_decode, base64_standard_encode, base64url_decode, base64url_encode,
+};
+pub use arkret_canonical::multibase::{
+    MULTICODEC_ED25519_PUB, decode_base58btc, decode_ed25519_multibase,
+    decode_ed25519_signature_multibase, decode_multibase_base58btc, decode_multicodec_varint,
+    ed25519_pubkey_to_did_key_multibase, encode_base58btc, encode_multibase_base58btc,
+    sha256_multihash_base58btc,
+};
 pub use arkret_crypto::identity_root;
 pub use arkret_egress_policy as network_policy;
-pub use arkret_event_draft::operations;
+pub use arkret_event_draft::{
+    CausalRef, ContainerRebalanceAssignment, EventDraftKindConformanceVector,
+    EventDraftKindRegistry, EventDraftKindSpec, EventDraftKindValidation, EventPayloadExt,
+    FederationPullOperationsOutcome, FederationPushOperationsOutcome,
+    FederationPushOperationsRequestBody, FederationTransactionOutcome,
+    FederationTransactionRequestBody, GhostActorProfileRequest, MessageEventPayload,
+    MlsEnvelopeOperationExt, Operation, OperationEnvelope, OperationEnvelopeBuilder,
+    OperationEventConversion, OperationSignature, StrandCreateObject, StrandTracksUpdatePayload,
+    accountability_grant_event, container_rebalance_assignments,
+    event_draft_kind_conformance_vectors, operations, rank_between, rank_exhausted,
+};
 pub use arkret_hlc::{
     CURSOR_HANDLE_MIN_LEN, Cursor, CursorPurpose, HlcGenerator, RealmSyncPosition, SyncPositions,
     SyncTracker, cursor, generate_cursor_handle,
 };
 #[cfg(feature = "client")]
 pub use arkret_http_client as http_client;
+pub use arkret_identifiers as identifiers;
+pub use arkret_identifiers::{
+    ActorProfileId, AnnounceId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,
+    AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
+    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, ConsentId, DeviceId, DeviceMessageId, Did,
+    EventId, FilterId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId,
+    MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId, OperationId, PolicyId,
+    PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId,
+    RequestId, RtcParticipantId, SealId, SidecarId, SnapshotId, SpaceId, StrandId, TransactionId,
+    TypedAppealId, TypedTrustDomainId, ViewId, new_prefixed_uuid7,
+};
+pub use arkret_identity::service_identity::{
+    FileIdentityBundleBackend, IdentityBundleBackend, IdentityBundleBackendAvailability,
+    KeyStoreIdentityBundleBackend, LocalServiceIdentity, ResolvedService, ServiceIdentityBundle,
+    ServiceIdentityDiagnostic, ServiceIdentityKeyRef, ServiceIdentityProviderRef,
+    ServiceIdentityState, StoredServiceIdentity,
+};
 #[cfg(feature = "keystore-encrypted-file")]
 pub use arkret_keystore::EncryptedFileKeyStore;
 pub use arkret_keystore::{
@@ -93,21 +129,220 @@ pub use arkret_keystore::{
     platform_default_keystore_with_kind,
 };
 pub use arkret_models as models;
+pub use arkret_models_collaboration::account_lifecycle::*;
+pub use arkret_models_collaboration::agent_operations::*;
+pub use arkret_models_collaboration::event_query::*;
+pub use arkret_models_collaboration::event_sync::*;
+pub use arkret_models_collaboration::events_payloads::account_misc::*;
+pub use arkret_models_collaboration::events_payloads::agent::*;
+pub use arkret_models_collaboration::events_payloads::audit::*;
+pub use arkret_models_collaboration::events_payloads::call::*;
+pub use arkret_models_collaboration::events_payloads::capability_circle_consent_contact::*;
+pub use arkret_models_collaboration::events_payloads::content_block_poll::*;
+pub use arkret_models_collaboration::events_payloads::device_identity::*;
+pub use arkret_models_collaboration::events_payloads::ephemeral::*;
+pub use arkret_models_collaboration::events_payloads::event_wire::*;
+pub use arkret_models_collaboration::events_payloads::list_message_mimi_mls::*;
+pub use arkret_models_collaboration::events_payloads::mention::*;
+pub use arkret_models_collaboration::events_payloads::moderation::*;
+pub use arkret_models_collaboration::events_payloads::moderation_morph_misc::*;
+pub use arkret_models_collaboration::events_payloads::morph_message::*;
+pub use arkret_models_collaboration::events_payloads::object_create::*;
+pub use arkret_models_collaboration::events_payloads::preview_realm_reaction::*;
+pub use arkret_models_collaboration::events_payloads::strand_history_join::*;
+pub use arkret_models_collaboration::events_payloads::strand_ops::*;
+pub use arkret_models_collaboration::federation::wire_dtos::*;
+pub use arkret_models_collaboration::governance::accountability::{
+    ACCOUNTABILITY_GRANT_SCHEMA, AccountabilityGrantPayload, AccountabilityGrantStatus,
+    AccountabilityScope, AccountabilityScopeKind,
+};
+pub use arkret_models_collaboration::governance::agent_artifacts::*;
+pub use arkret_models_collaboration::governance::agent_participation::*;
+pub use arkret_models_collaboration::governance::audit::{
+    ABSOLUTE_HARD_CEILING_MS, AccessKind, AuditAssurance, AuditPolicyAccessPayload,
+    AuditRywReceipt, E2EE_RELAXED_INCOMPATIBLE_COMPLIANCE_PROFILES, PROFILE_E2EE_RELAXED,
+    ReceiptIndependence, RywActorFrontierEntry, RywFrontier, RywIssuerRole,
+    is_e2ee_relaxed_compatible_with_compliance, validate_relaxed_window_ms,
+};
+pub use arkret_models_collaboration::governance::authorization::*;
+pub use arkret_models_collaboration::governance::circle::*;
+pub use arkret_models_collaboration::governance::delivery_binding::*;
+pub use arkret_models_collaboration::governance::erasure::*;
+pub use arkret_models_collaboration::governance::grant_constraint::*;
+pub use arkret_models_collaboration::governance::handle_claim::*;
+pub use arkret_models_collaboration::governance::history_visibility::*;
+pub use arkret_models_collaboration::governance::invite_addressing::*;
+pub use arkret_models_collaboration::governance::member_delivery_binding_candidate::*;
+pub use arkret_models_collaboration::governance::membership_invite::*;
+pub use arkret_models_collaboration::governance::moderation::*;
+pub use arkret_models_collaboration::governance::moderation_appeal::*;
+pub use arkret_models_collaboration::governance::moderation_queue::*;
+pub use arkret_models_collaboration::governance::operation_wire::*;
+pub use arkret_models_collaboration::governance::peer_contact::*;
+pub use arkret_models_collaboration::governance::plaintext_visibility::*;
+pub use arkret_models_collaboration::governance::policy_check::*;
+pub use arkret_models_collaboration::governance::realm_governance::*;
+pub use arkret_models_collaboration::governance::realm_lifecycle::*;
+pub use arkret_models_collaboration::governance::resource_selector::*;
+pub use arkret_models_collaboration::governance::third_party_invite::*;
+pub use arkret_models_collaboration::governance_payloads::*;
+pub use arkret_models_collaboration::http_bodies::*;
+pub use arkret_models_collaboration::http_params::*;
+pub use arkret_models_collaboration::object_lifecycle::*;
+pub use arkret_models_collaboration::object_patch::*;
+pub use arkret_models_collaboration::objects::account_status::{
+    AccountStatus, AccountStatusProjection, AccountStatusProjectionCandidate,
+    AccountStatusProjectionRejected, AccountStatusTransitionRejection,
+    project_account_status_heads,
+};
+pub use arkret_models_collaboration::objects::blob::*;
+pub use arkret_models_collaboration::objects::direct_conversation::*;
+pub use arkret_models_collaboration::objects::interop::*;
+pub use arkret_models_collaboration::objects::media::*;
+pub use arkret_models_collaboration::objects::mimi::*;
+pub use arkret_models_collaboration::objects::object_facets::*;
+pub use arkret_models_collaboration::objects::productivity::*;
+pub use arkret_models_collaboration::objects::profiles::*;
+pub use arkret_models_collaboration::objects::queries::*;
+pub use arkret_models_collaboration::objects::query_projection::*;
+pub use arkret_models_collaboration::objects::read_receipts::*;
+pub use arkret_models_collaboration::objects::realm::*;
+pub use arkret_models_collaboration::objects::realm_alias::*;
+pub use arkret_models_collaboration::objects::relation::*;
+pub use arkret_models_collaboration::objects::space::*;
+pub use arkret_models_collaboration::objects::strand::*;
+pub use arkret_models_collaboration::objects::view::*;
+pub use arkret_models_collaboration::runtime_identity::*;
+pub use arkret_models_collaboration::seal_transparency::*;
+pub use arkret_models_collaboration::session_grant_bodies::*;
 pub use arkret_models_collaboration::sync_frames::account_subscribe::{
-    AccountSubscribeBatch, AccountSubscribeReconnectAfter, AccountSubscribeSnapshotResult,
-    DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS, MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS,
+    AccountStreamInterrupt, AccountSubscribeBatch, AccountSubscribeFrame,
+    AccountSubscribeFrameKind, AccountSubscribeRealms, AccountSubscribeReconnectAfter,
+    AccountSubscribeSnapshotResult, DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS,
+    MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS,
+};
+pub use arkret_models_collaboration::sync_frames::account_sync::*;
+pub use arkret_models_collaboration::sync_frames::client_sync::{
+    BackfillDirection, BackfillFrom, BackfillOutcome, BackfillRequestBody, LimitedTimelineState,
+    MembershipBucket, RealmSubscription, RealmUpdate, SubscriptionConfig, SyncFilter, SyncGap,
+    SyncGapReason, SyncMode, SyncRequestBody, SyncSemantics, SyncStreamPosition, SyncTokenBinding,
+    SyncUpdates, TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, WaitForFrontier,
+    sync_filter_digest,
+};
+pub use arkret_models_collaboration::sync_frames::snapshot::*;
+pub use arkret_models_collaboration::sync_frames::stream_trace::{
+    StreamTraceError, StreamTraceFrame, StreamTraceFrameKind, StreamTraceUpdate,
+    StreamTraceValidator,
+};
+pub use arkret_models_crypto::artifacts_keys::*;
+pub use arkret_models_crypto::encrypted_envelope::{EncryptedPayload, KeyRefObject};
+pub use arkret_models_crypto::http_bodies::*;
+pub use arkret_models_crypto::key_backup::*;
+pub use arkret_models_crypto::key_transparency::{
+    KEY_TRANSPARENCY_SCHEMA, KeyTransparencyError, KeyTransparencyEvidence,
+    TransparencyConsistencyProof, TransparencyInclusionProof, TransparencyLogHead,
+    TransparencyWitnessSignature,
+};
+pub use arkret_models_crypto::keys::*;
+pub use arkret_models_crypto::mls_envelopes::{
+    MlsAppStateRef, MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
+};
+pub use arkret_models_crypto::mls_payloads::*;
+pub use arkret_models_crypto::mls_records::MlsKeyPackageRecord;
+pub use arkret_models_discovery::directory::*;
+pub use arkret_models_discovery::directory_artifacts::*;
+pub use arkret_models_discovery::http_bodies::*;
+pub use arkret_models_discovery::http_params::*;
+pub use arkret_models_discovery::presence::{
+    LAST_ACTIVE_BUCKET_FLOOR_SECONDS, PRESENCE_PREFERENCE_ACCOUNT_DATA_KEY,
+    PRESENCE_VISIBILITY_ACCOUNT_DATA_KEY, PresencePreference, PresenceStatus,
+    PresenceValidationError, STATUS_MESSAGE_MAX_CODE_POINTS, aggregate_presence_states,
+    validate_last_active_at, validate_status_message,
+};
+pub use arkret_models_discovery::service_description::*;
+pub use arkret_models_discovery::service_requirements::{
+    ApiConventionMetadata, HttpTraceMetadata, NotFoundPrivacy, QuotaKind, QuotaMetadata,
+    RateLimitMetadata, RateLimitScopeKind, ServiceEndpointBinding, ServiceIdAllowlist,
+    ServiceRequirements,
 };
 pub use arkret_models_discovery::{ops, service_requirements as service};
+pub use arkret_models_identity::account::*;
+pub use arkret_models_identity::actor_profile::*;
+pub use arkret_models_identity::admin_grant::{SessionGrantIntrospection, admin_scopes};
+pub use arkret_models_identity::artifacts_account::*;
+pub use arkret_models_identity::artifacts_device_identity::*;
+pub use arkret_models_identity::attestation::*;
+pub use arkret_models_identity::claim_presentation::{
+    AgentSelectorClaim, DIRECTORY_RESTRICTED_CLAIM_PRESENTATION_KIND, DirectoryPresentedClaim,
+    DirectoryRestrictedClaimPresentation, validate_agent_slug,
+};
+pub use arkret_models_identity::device_verification::*;
+pub use arkret_models_identity::did_continuity::*;
+pub use arkret_models_identity::handle::*;
+pub use arkret_models_identity::http_bodies::*;
+pub use arkret_models_identity::http_params::*;
+pub use arkret_models_identity::identity::*;
+pub use arkret_models_identity::identity_key_log::{DidKeyLogEntry, DidKeyLogOperation};
+pub use arkret_models_identity::identity_link_cache::*;
+pub use arkret_models_identity::member_identity::*;
+pub use arkret_models_identity::service_identity::*;
+pub use arkret_models_identity::session_credential::*;
+pub use arkret_models_identity::{
+    DID_WEBVH_V1_METHOD, principal_control_realm_id, validate_did_webvh_v1_method,
+};
+pub use arkret_models_integration::applet::*;
+pub use arkret_models_integration::applet_audit_payload::*;
+pub use arkret_models_integration::applet_install_plan::*;
+pub use arkret_models_integration::applet_models::*;
+pub use arkret_models_integration::artifacts_applet::*;
+pub use arkret_models_integration::http_bodies::*;
+pub use arkret_models_integration::http_params::*;
 pub use arkret_models_integration::integration;
 pub use arkret_models_integration::integration::*;
+pub use arkret_models_integration::models_push::*;
+pub use arkret_policy::authz::*;
 pub use arkret_policy::blind_payload_sanitizer::*;
+pub use arkret_policy::generated::profiles::{
+    PROFILE_ROLES, ProfileRole, profile_ids_with_role, profile_role,
+};
+pub use arkret_policy::history_visibility::*;
+pub use arkret_policy::http_params::*;
+pub use arkret_policy::profile_claim::{
+    ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator,
+};
+pub use arkret_policy::profile_feature_guard::{
+    ProfileFeatureGap, implied_features_for_profiles,
+    verify_declared_profiles_against_core_features, verify_declared_profiles_against_features,
+};
+pub use arkret_policy::profile_semantics::{
+    ProfileSemanticCoverageError, ProfileSemanticCoverageReport, ProfileSemanticRequirements,
+    ProfileSemanticSurface, collect_profile_semantic_requirements,
+    profile_capability_action_coverage_report, profile_semantic_coverage_report,
+    validate_profile_semantic_coverage,
+};
+pub use arkret_policy::realm_organization::*;
 pub use arkret_policy::{blind_payload_sanitizer, push_rule_core};
 pub use arkret_schema as schema;
+pub use arkret_schema::EventSchemaExt;
+pub use arkret_schema::protocol::*;
 #[cfg(feature = "server")]
 pub use arkret_server as server;
 pub use arkret_signatures as signatures;
 #[cfg(feature = "signer")]
 pub use arkret_signatures::Ed25519MoveSigner;
+pub use arkret_signatures::agent::{
+    agent_key_pair_proof_request_binding_digest, agent_key_pairing_request_binding_digest,
+    agent_requested_scope_digest, agent_runtime_attestation_digest,
+    agent_runtime_key_binding_digest, agent_runtime_key_binding_digest_from_digests,
+    agent_runtime_public_key_digest,
+};
+pub use arkret_signatures::federation::*;
+pub use arkret_signatures::keypackages::{
+    KeyPackageSignatureError, KeyPackageSignatureResult, keypackage_signature_from_bytes,
+    sign_keypackage_signing_input, sign_keypackage_upload_entry, sign_keypackages_consume_request,
+    sign_keypackages_revoke_request, sign_keypackages_upload_request,
+    verify_keypackage_signing_input,
+};
 // Shared `did:webvh` inception builder + organization statement signer, surfaced
 // at the SDK root so clients (sodmin / inkson) and servers (soland / coauth)
 // reach one implementation: `arkret_sdk::webvh::prepare_principal_inception`,
@@ -115,9 +350,41 @@ pub use arkret_signatures::Ed25519MoveSigner;
 pub use arkret_signatures::{
     realm_organization, realm_organization_statement_sign, service_identity, webvh,
 };
+pub use arkret_state::mls_governance_proof::*;
 pub use arkret_state::{lattice, snapshot, state, *};
+pub use arkret_wire::bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
+pub use arkret_wire::cell::{CellId, composite_subject, composite_subject_pipe};
+pub use arkret_wire::constants::*;
+pub use arkret_wire::error_codes::*;
+pub use arkret_wire::event_envelope::*;
+pub use arkret_wire::http_signature::HttpMessageSignature;
+pub use arkret_wire::move_event::{
+    Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,
+    Predicate, PredicateOp, SealBasis, SemanticRef,
+};
+pub use arkret_wire::notary::{ForensicAttribution, NotaryValue};
+pub use arkret_wire::object_address::*;
+pub use arkret_wire::patch::*;
+pub use arkret_wire::plaintext::PlaintextDataClassKind;
+pub use arkret_wire::primitives::*;
+pub use arkret_wire::problem_details::*;
+pub use arkret_wire::receive_policy::{
+    InviteReceiveAction, ReceivePolicyConstraints, ReceivePolicySurface, UnknownInviteAction,
+};
+pub use arkret_wire::seal::{
+    MultiSigKind, MultiSignature, NotarySig, SEAL_SIGNATURE_ALGS, Seal, SealKind, ThresholdSigKind,
+    ThresholdSignature, compute_seal_id, seal_canonical_bytes,
+};
+pub use arkret_wire::self_contact_paths::*;
+pub use arkret_wire::signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};
+pub use arkret_wire::string_profiles::*;
+pub use arkret_wire::wire_strings::*;
 pub use arkret_wire::{
-    QUERY_AUTH_PARAMETER_NAMES, contains_query_auth_material, error_codes as error,
+    CapabilityActionId, DIGEST_SUITES, EXPORTER_LABELS, EvaluationClass, ExporterLabelId,
+    HPKE_SUITES, MLS_CIPHERSUITES, MLS_EXTENSIONS, PROOF_CONTEXTS, ProofContextId,
+    QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS,
+    SERVICE_TYPE_DESCRIPTORS, SIGNATURE_ALGORITHMS, ServiceOperationDescriptor, ServiceOperationId,
+    ServiceType, WireError, XExtensionMap, contains_query_auth_material, error_codes as error,
     is_query_auth_parameter,
 };
 pub use sdk_error::{Error, Result};
@@ -136,7 +403,7 @@ pub mod sync {
 // Platform-native KeyStore backends. The glob import above already
 // re-exports these symbols, but listing them explicitly keeps them
 // visible in `cargo doc` and signals the supported surface to
-// downstream crates that depend only on `arkret` (not `arkret-core`).
+// downstream crates that depend only on the `arkret` umbrella.
 pub mod account_data_crypto;
 #[cfg(feature = "full-surface")]
 pub mod agent;
@@ -261,16 +528,14 @@ pub use agent::{
 };
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub use applet::{
-    AccountabilityGrantPayload, AccountabilityGrantStatus, AccountabilityScope,
-    AccountabilityScopeKind, AppletAcceptedSigningKeyEvidence, AppletBridgeErrorBuilder,
-    AppletBridgeErrorClass, AppletBridgeErrorVisibility, AppletDelegatedEventAuthorization,
-    AppletEpochEvidenceError, AppletNamespaceConflict, AppletNamespaceDomain, AppletNamespaceEntry,
-    AppletPackage, AppletPortal, AppletRegistrationEpochEvidence, AppletServiceIntent,
-    AppletServiceTransaction, AppletWireNamespaces, GhostActorProfileFields,
-    GhostActorProfileRequest, GhostActorProvisionOutcome, GhostActorProvisionRequestBody,
-    PortalMode, PortalRealmMapping, WebhookAuth, WireAppletRegistration,
-    applet_did_document_digest, applet_signing_key_material_digest, namespace_pattern_matches,
-    normalize_applet_signing_key_ref, sign_registration,
+    AppletAcceptedSigningKeyEvidence, AppletBridgeErrorBuilder, AppletBridgeErrorClass,
+    AppletBridgeErrorVisibility, AppletDelegatedEventAuthorization, AppletEpochEvidenceError,
+    AppletNamespaceConflict, AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage,
+    AppletPortal, AppletRegistrationEpochEvidence, AppletServiceIntent, AppletServiceTransaction,
+    AppletWireNamespaces, GhostActorProfileFields, GhostActorProvisionOutcome,
+    GhostActorProvisionRequestBody, PortalMode, PortalRealmMapping, WebhookAuth,
+    WireAppletRegistration, applet_did_document_digest, applet_signing_key_material_digest,
+    namespace_pattern_matches, normalize_applet_signing_key_ref, sign_registration,
 };
 pub use arkret_identifiers::hlc::{
     EXPECTED_FUTURE_SKEW_MS, HARD_FUTURE_SKEW_MS, HlcComponents, HlcFutureDrift, compare_hlc,
@@ -372,11 +637,10 @@ pub use e2ee::{
 pub use federation::{
     FederationBackfillAuthorization, FederationManager, FederationQuarantineKind,
     FederationQuarantineRecord, FederationReplayDecision, FederationReplayRecord,
-    FederationReplayStore, FederationTransactionEnvelope, HttpMessageSignature, ServerInfo,
-    ServiceEndpointDescriptor, SovereignDeployment, VerifyActorChallenge,
-    VerifyActorChallengeSignature, WellKnownArkretServer, content_digest_sha256,
-    did_document_service_endpoint_matches, duplicate_transaction_quarantine,
-    fork_quarantine_record,
+    FederationReplayStore, FederationTransactionEnvelope, ServerInfo, ServiceEndpointDescriptor,
+    SovereignDeployment, VerifyActorChallenge, VerifyActorChallengeSignature,
+    WellKnownArkretServer, content_digest_sha256, did_document_service_endpoint_matches,
+    duplicate_transaction_quarantine, fork_quarantine_record,
 };
 pub use fixtures::{
     CANONICAL_FIXTURE_DEFAULT_KIND, CanonicalFixtureBuilder, CanonicalFixtureSuite,
@@ -403,19 +667,18 @@ pub use http_did_resolver::{
 #[cfg(feature = "full-surface")]
 pub use identity::{
     CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument,
-    DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyLogEntry, DidKeyLogOperation,
-    DidKeyResolver, DidMigration, DidRegistryReceipt, DidResolver, DidVisibility,
-    DidWebDocumentOutcome, DidWebResolver, ExternalHandleProof, HandleAttestation,
-    HandleClaimChallenge, HandleProofProfile, IdentityManager, IdentityReceiptWitnessRole,
-    InMemoryStaridRegistryAdapter, PairwiseDidBinding, PairwiseDidResolutionProof,
-    PairwiseDidStore, ResolvedVerificationMethodKey, StaridControlProofRequestBody,
-    StaridControlProofVerification, StaridRegistryAdapter, StaridRegistryRecord, VerifiedDidKeyLog,
-    attach_did_key_log_controller_proof, event_proof_verification_context, handle_claim_proof,
-    handle_dns_txt_name, handle_well_known_url, pairwise_resolution_proof,
-    resolve_verification_method_key, resolve_verification_method_key_from_document,
-    starid_control_proof, verification_method_did, verify_canonical_proof_with_did_resolver,
-    verify_did_key_log, verify_event_proof_with_did_resolver,
-    verify_event_proof_with_did_resolver_context,
+    DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyResolver, DidMigration,
+    DidRegistryReceipt, DidResolver, DidVisibility, DidWebDocumentOutcome, DidWebResolver,
+    ExternalHandleProof, HandleAttestation, HandleClaimChallenge, HandleProofProfile,
+    IdentityManager, IdentityReceiptWitnessRole, InMemoryStaridRegistryAdapter, PairwiseDidBinding,
+    PairwiseDidResolutionProof, PairwiseDidStore, ResolvedVerificationMethodKey,
+    StaridControlProofRequestBody, StaridControlProofVerification, StaridRegistryAdapter,
+    StaridRegistryRecord, VerifiedDidKeyLog, attach_did_key_log_controller_proof,
+    event_proof_verification_context, handle_claim_proof, handle_dns_txt_name,
+    handle_well_known_url, pairwise_resolution_proof, resolve_verification_method_key,
+    resolve_verification_method_key_from_document, starid_control_proof, verification_method_did,
+    verify_canonical_proof_with_did_resolver, verify_did_key_log,
+    verify_event_proof_with_did_resolver, verify_event_proof_with_did_resolver_context,
 };
 #[cfg(feature = "full-surface")]
 pub use identity_link::{IdentityLinkCache, VerifiedLinkCacheEntry};

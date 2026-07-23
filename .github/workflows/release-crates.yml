@@ -15,18 +15,29 @@ jobs:
       # `cargo metadata --no-deps`; keep in sync with `RELEASING.md`.
       CRATES: >-
         arkret-canonical
+        arkret-egress-policy
         arkret-identifiers
+        arkret-keystore
         arkret-wire
-        arkret-wire-edge
-        arkret-state
+        arkret-hlc
+        arkret-models-identity
+        arkret-models-crypto
+        arkret-models-collaboration
+        arkret-models-discovery
+        arkret-models-integration
+        arkret-event-draft
+        arkret-models
         arkret-schema
         arkret-policy
-        arkret-core
-        arkret-ffi
-        arkret-keystore
         arkret-signatures
-        arkret-http-client
+        arkret-auth
         arkret-crypto
+        arkret-identity
+        arkret-mls
+        arkret-state
+        arkret-http-client
+        arkret-lattice-registry
+        arkret-bootstrap
         arkret-server
         arkret
     steps:

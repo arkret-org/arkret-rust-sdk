@@ -3,7 +3,7 @@
 //!
 //! The remaining device-identity artifact counterparts (cross-signing
 //! publish, key-verification content, delivery-binding stale) stay in
-//! `arkret-core` until their sibling shapes migrate.
+//! the `arkret` umbrella until their sibling shapes migrate.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroU64;
@@ -599,8 +599,7 @@ mod tests {
 }
 
 // ── Device-message / delivery-binding / key-verification counterparts ────
-// Migrated from `arkret-core` (`models/artifacts/device_identity.rs`); a
-// shim there re-exports these shapes to preserve the `arkret_core::` path.
+// The `arkret` umbrella re-exports these owner-defined shapes at its root.
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/delivery-binding-stale.schema.json#/properties/handover_proof`.

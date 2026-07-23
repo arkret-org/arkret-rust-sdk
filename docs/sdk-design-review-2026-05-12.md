@@ -8,8 +8,8 @@ Scope: `D:\Works\arkret\arkret-rust-sdk` checked against
 
 The current SDK design is broadly reasonable and mostly aligned with the v1
 spec. The workspace split is healthy: identifiers validate wire IDs,
-`arkret-core` owns protocol models and canonical behavior, `arkret-contracts` owns
-shared wire contracts and product-local DTOs, `arkret-server` owns framework-neutral routing
+semantic model leaves own protocol data, `arkret-canonical` owns canonical
+behavior, and `arkret-server` owns framework-neutral routing
 plus Salvo integration, and the top-level SDK crate keeps high-level client
 state and feature helpers out of the protocol core.
 
@@ -25,7 +25,7 @@ types themselves through `ToSchema` / `ToParameters` derives.
 
 Historically the API-named contracts crate exposed endpoint contracts matching the active
 operation IDs in `operation-registry.json`. The crate has since been renamed to
-`arkret-contracts`, and service route truth now lives with the server/core
+the semantic model leaves, and service route truth now lives with the server
 registries while this crate carries shared DTO contracts.
 
 ### P1 - Salvo OAPI Types Were Previously Incomplete
@@ -69,7 +69,7 @@ wire schema registries.
 ## Verification Performed
 
 - `cargo check -p arkret-server --features salvo`
-- `cargo test -p arkret-core --features salvo --no-default-features`
-- `cargo test -p arkret-contracts`
+- `cargo test -p arkret --features salvo --no-default-features`
+- `cargo test -p arkret-models-collaboration`
 - `cargo test -p arkret-server --features salvo`
 - `cargo check -p arkret --features salvo --no-default-features`

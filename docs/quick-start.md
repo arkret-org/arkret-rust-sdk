@@ -99,7 +99,7 @@ Use the `EndpointHandler` shape and the typed `ServerRequest` /
 `ServerResponse` protocol enums. Host applications own HTTP parsing, routing,
 authentication and response writing.
 
-When `salvo` is enabled, every public `arkret-core` model and identifier
+When `salvo` is enabled, every public `arkret` model and identifier
 type derives `salvo::oapi::ToSchema` / `ToParameters`, so applications that use
 Salvo OAPI can attach real field-level schemas directly to their own handlers.
 

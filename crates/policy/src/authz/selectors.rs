@@ -483,7 +483,7 @@ impl ResourceSelector {
     /// `{"kind": "...", ...}`) into the engine selector model.
     ///
     /// This is the wire → engine direction used when projecting a
-    /// [`arkret_core::CapabilityGrant`] (whose `resources` are untyped spec
+    /// [`arkret::CapabilityGrant`] (whose `resources` are untyped spec
     /// values) for evaluation. Unknown `kind` values fail closed.
     pub fn from_spec_value(value: &Value) -> Result<Self> {
         let object = value

@@ -3,7 +3,7 @@
 use arkret_canonical::{base64url_decode, canonical};
 /// The immutable provision ceiling commitment digest migrated with the agent
 /// lifecycle models to `arkret-models-collaboration`; re-exported here so the
-/// `arkret_core::agent_requested_scope_digest` path stays stable.
+/// `arkret::agent_requested_scope_digest` path stays stable.
 pub use arkret_models_collaboration::agent_operations::agent_requested_scope_digest;
 use arkret_models_collaboration::governance::agent_artifacts::PublicKey;
 use arkret_wire::{Did, Hash, ServiceOperationId};

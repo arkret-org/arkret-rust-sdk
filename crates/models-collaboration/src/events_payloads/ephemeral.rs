@@ -1,8 +1,7 @@
 //! Broadcast ephemeral envelope wire model.
 //!
-//! The typed `ak.call.signal` payload helpers and the per-key sequence
-//! monotonicity bookkeeping migrated here from `arkret-core`; a shim there
-//! re-exports them to preserve the `arkret_core::` path.
+//! This module owns the typed `ak.call.signal` payload helpers and per-key
+//! sequence monotonicity bookkeeping; the `arkret` umbrella re-exports them.
 
 use std::collections::BTreeMap;
 

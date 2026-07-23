@@ -1,7 +1,6 @@
 //! Object lifecycle event payloads and cell-subject helpers.
 //!
-//! Migrated from `arkret-core` (`models/object_lifecycle.rs`); a shim
-//! there re-exports these shapes to preserve the `arkret_core::` path.
+//! The `arkret` umbrella re-exports these owner-defined shapes at its root.
 
 use arkret_wire::{EventRef, SpaceId, StrandId};
 use chrono::{DateTime, Utc};

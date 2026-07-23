@@ -2,7 +2,7 @@
 //!
 //! Counterparts for `spec/v1/artifacts/schemas/inclusion-list.schema.json`
 //! and `spec/v1/artifacts/schemas/seal-transparency.schema.json`. Migrated
-//! from `arkret-core` (`models::artifacts::self_ops`).
+//! from the `arkret` umbrella (`models::artifacts::self_ops`).
 
 use arkret_wire::{Did, Hash, PayloadProof, RealmId, SealId};
 use chrono::{DateTime, Utc};

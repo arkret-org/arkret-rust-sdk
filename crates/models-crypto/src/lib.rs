@@ -5,8 +5,8 @@
 //! session artifact counterparts, encrypted event envelopes, and
 //! encrypted blob attachment descriptors. Behavior that needs key
 //! derivation, signature verification, schema validation, or state
-//! reduction lives in `arkret-core` and its behavior crates; this crate
-//! holds data shapes and type-local invariants only.
+//! reduction lives in the behavior crates; this crate holds data shapes and
+//! type-local invariants only.
 
 pub mod artifacts_keys;
 pub mod encrypted_attachment;

@@ -1,5 +1,5 @@
 //! Account consent-cell, lifecycle-proof, register/view, and session-revoke
-//! wire models relocated from `arkret-core`.
+//! wire models relocated from the `arkret` umbrella.
 //!
 //! These shapes bind cross-domain types: consent cells (`ConsentScope`,
 //! `arkret-wire`), session-grant selectors (`EffectiveScope`, `arkret-wire`),
@@ -7,7 +7,7 @@
 //! status rollups (`AccountStatus`), handle claims (`HandleClaim`,
 //! `arkret-models-identity`), and the identity-face registration evidence /
 //! audit shapes. They live here in the collaboration/governance domain, which
-//! reaches all of them within its layering edge. `arkret-core` re-exports them
+//! reaches all of them within its layering edge. the `arkret` umbrella re-exports them
 //! for path stability.
 
 use arkret_models_identity::account::{
@@ -288,7 +288,7 @@ pub struct SessionRevokeOutcome {
 /// `ak.self.applet.command.revoke` request body. Binds the account-lifecycle
 /// proof (`AccountLifecycleProof`) alongside the applet revoke mode
 /// (`AppletRevokeMode`, `arkret-wire`), so it lives in the collaboration domain
-/// which reaches both. `arkret-core` re-exports it for path stability.
+/// which reaches both. the `arkret` umbrella re-exports it for path stability.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]

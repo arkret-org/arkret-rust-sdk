@@ -124,9 +124,9 @@ pub fn verify_declared_profiles_against_features(
     }
 }
 
-/// The Cargo feature set compiled into `arkret-core`.
+/// The Cargo feature set compiled into the `arkret` umbrella.
 ///
-/// Only `mls` is observable from this crate (see `crates/core/Cargo.toml`);
+/// Only `mls` is observable from this crate (see `crates/sdk/Cargo.toml`);
 /// the client-side key-backup crypto (`backup`) lives in `arkret-crypto` and is
 /// not a feature of `core`, so higher crates that can observe it should call
 /// [`verify_declared_profiles_against_features`] with an augmented feature set.
@@ -139,7 +139,7 @@ pub fn current_core_feature_set() -> Vec<&'static str> {
 }
 
 /// Convenience wrapper: cross-check declared profiles against the features
-/// `arkret-core` itself was compiled with. Higher-level crates that can also
+/// the `arkret` umbrella itself was compiled with. Higher-level crates that can also
 /// observe `backup` should call [`verify_declared_profiles_against_features`]
 /// directly with the fuller set.
 pub fn verify_declared_profiles_against_core_features(

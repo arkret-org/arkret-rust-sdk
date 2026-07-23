@@ -1335,8 +1335,7 @@ mod recovery_completion_tests {
 }
 
 // ── Keypackage operations aggregate ──────────────────────────────────────
-// Migrated from `arkret-core` (`models/artifacts/keys.rs`); a shim there
-// re-exports this enum to preserve the `arkret_core::` path.
+// The `arkret` umbrella re-exports this owner-defined enum at its root.
 
 /// Counterpart for `spec/v1/artifacts/schemas/keypackage-operations.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

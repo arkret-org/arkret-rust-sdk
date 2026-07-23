@@ -1,7 +1,6 @@
 //! Governance and audit event payload helpers.
 //!
-//! Migrated from `arkret-core` (`models/governance_payloads.rs`); a shim
-//! there re-exports these shapes to preserve the `arkret_core::` path.
+//! The `arkret` umbrella re-exports these owner-defined shapes at its root.
 
 use std::collections::BTreeSet;
 

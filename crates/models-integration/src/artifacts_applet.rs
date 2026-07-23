@@ -3,7 +3,7 @@
 //! Includes the widget declaration shapes (`Widget`, `WidgetTokenScope`),
 //! which bind the resource selector now owned by `arkret-wire`
 //! (`WireResourceSelector`). The `AppletEdgeOperations` /
-//! `AppletInstallOperations` aggregate enums stay in `arkret-core` because
+//! `AppletInstallOperations` aggregate enums stay in the `arkret` umbrella because
 //! their variants span request bodies rehomed across model crates.
 
 use std::collections::BTreeMap;

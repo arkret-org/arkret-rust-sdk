@@ -1,12 +1,11 @@
 //! DID Document data shape and did:web helpers.
 //!
-//! Migrated verbatim from `arkret-core` so the
-//! identity behavior crates (`arkret-identity`, `arkret-auth`) can operate on
-//! the DID Document data model without reaching up into a facade. The umbrella
-//! `arkret::identity::*` surface remains available to application consumers.
+//! Identity behavior crates (`arkret-identity`, `arkret-auth`) operate directly
+//! on this owner-defined model. The `arkret::identity::*` surface remains
+//! available to application consumers.
 //!
 //! Behavior that needs signature verification, DID resolution, or state
-//! reduction stays in `arkret-core` and the behavior crates; this module holds
+//! reduction lives in the behavior crates; this module holds
 //! the DID Document serde shape, its type-local helpers, and the pure did:web
 //! document-URL derivation only.
 
@@ -89,7 +88,7 @@ pub struct HandleAttestation {
 /// Shared identity wire helper for DID resolution producers/consumers.
 ///
 /// This is intentionally a product/shared contract, not the normative DID
-/// data model for `arkret-core`. Core keeps the protocol response envelope
+/// data model for the SDK. The protocol response envelope
 /// (`IdentityResolveOutcome`) while this type provides the
 /// serde shape and convenience helpers used by identity resolvers.
 #[derive(Clone, Debug, PartialEq, Eq)]

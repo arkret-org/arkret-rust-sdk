@@ -271,7 +271,7 @@ mod tests {
             other => panic!("expected Duplicate, got {other:?}"),
         }
 
-        let mut changed = transaction.clone();
+        let mut changed = transaction;
         changed.request.source_service_id = did("svc-other");
         let changed_digest =
             crate::Hash::new(crate::canonical::canonical_sha256(&changed.request).unwrap())

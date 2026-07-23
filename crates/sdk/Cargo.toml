@@ -44,7 +44,16 @@ salvo = [
     "dep:salvo",
     "salvo/oapi",
     "arkret-server/salvo",
-    "arkret-core/salvo",
+    "arkret-identifiers/salvo",
+    "arkret-event-draft/salvo-oapi",
+    "arkret-wire/salvo-oapi",
+    "arkret-models-identity/salvo-oapi",
+    "arkret-models-collaboration/salvo-oapi",
+    "arkret-models-crypto/salvo-oapi",
+    "arkret-models-discovery/salvo-oapi",
+    "arkret-models-integration/salvo-oapi",
+    "arkret-schema/salvo-oapi",
+    "arkret-policy/salvo-oapi",
     "arkret-state/salvo",
     # The applet transactions handler verifies signatures / resolves DIDs on
     # the blocking pool (tokio::task::spawn_blocking).
@@ -83,7 +92,6 @@ arkret-canonical = {workspace = true}
 base64 = {workspace = true}
 chacha20poly1305 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
-arkret-core = {workspace = true}
 arkret-crypto = {workspace = true,features = ["account-data", "aead", "identity-root"]}
 arkret-event-draft = {workspace = true}
 arkret-hlc = {workspace = true}

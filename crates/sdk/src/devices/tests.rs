@@ -905,7 +905,7 @@ fn verify_chain_rejects_non_eddsa_alg_declarations() {
     );
 
     // And for the SSK record / SSK binding alg fields.
-    let mut forged_ssk = publish.clone();
+    let mut forged_ssk = publish;
     forged_ssk.self_signing_key.binding.alg = NonEmptyString::new("ML-DSA-65").unwrap();
     assert_eq!(
         verify_chain(

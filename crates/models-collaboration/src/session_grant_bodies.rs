@@ -1,9 +1,8 @@
 //! Session-grant HTTP request/outcome DTOs
 //! (`service-operation-dtos.schema.json`): the `ak.session.grant` issue proof
 //! bodies, the DPoP-bound session-grant lifecycle (refresh / introspect /
-//! auth-session logout), and the session-login outcome. Migrated from
-//! `arkret-core` so `arkret-auth` can bind to these strong types without a
-//! core edge; `arkret-core` re-exports them for the Salvo OpenAPI bindings.
+//! auth-session logout), and the session-login outcome. `arkret-auth` binds
+//! directly to these owner-defined types; the `arkret` umbrella re-exports them.
 
 use arkret_models_identity::SessionGrantProofKind;
 use arkret_wire::{

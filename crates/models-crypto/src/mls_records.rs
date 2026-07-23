@@ -4,7 +4,7 @@
 //! These record shapes moved here so the MLS behavior layer can consume them
 //! without depending on the higher crates that previously owned them:
 //! `MlsKeyPackageState` from `arkret-models-collaboration`,
-//! `MlsKeyPackageRecord` from `arkret-core`, and `MlsGroupStateRecord` from the
+//! `MlsKeyPackageRecord` from the `arkret` umbrella, and `MlsGroupStateRecord` from the
 //! SDK crypto store. The original owners keep re-export shims so downstream
 //! paths are unchanged.
 

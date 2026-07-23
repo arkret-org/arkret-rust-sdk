@@ -427,7 +427,7 @@ fn main() -> arkret::Result<()> {
                 &replacement_public_key_value,
             )?),
             accountable_principal_id: controller.clone(),
-            agent_key_scope: requested_scope.clone(),
+            agent_key_scope: requested_scope,
             audience: vec!["did:web:soland.local".to_owned()],
             issued_at: Utc::now(),
             expires_at: None,
@@ -497,7 +497,7 @@ fn main() -> arkret::Result<()> {
         Hlc::new("01970e589d21-0007-a13f9c2e")?,
         resume_created_at,
     )?;
-    resume_event.seal_basis = Some(seal_basis.clone());
+    resume_event.seal_basis = Some(seal_basis);
     arkret::signatures::sign_event(
         &mut resume_event,
         &signer,

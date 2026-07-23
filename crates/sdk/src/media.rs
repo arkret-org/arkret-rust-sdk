@@ -31,7 +31,7 @@ pub const THUMBNAIL_DERIVATION_PROFILE: &str = "ak.profile.media.thumbnail_previ
 
 /// Backend type for a call's media focus. Wire enum mirrors
 /// `ak.realm.media_service.foci[].type`. Receivers MUST fail closed with
-/// [`ErrorCode::UNKNOWN_FOCUS_TYPE`](arkret_wire::ErrorCode::UNKNOWN_FOCUS_TYPE)
+/// [`ReasonCode::UNKNOWN_FOCUS_TYPE`](arkret_wire::ReasonCode::UNKNOWN_FOCUS_TYPE)
 /// on unrecognized variants.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -49,12 +49,12 @@ pub enum MediaBackendType {
 
 impl MediaBackendType {
     /// Reject the focus when the SDK does not understand the backend
-    /// label. Surface: [`unknown_focus_type`].
+    /// label. Surface: `unknown_focus_type`.
     pub fn ensure_known(&self) -> Result<()> {
         match self {
-            Self::Unknown => Err(Error::Protocol(format!(
-                "unknown_focus_type: media focus backend label not recognised"
-            ))),
+            Self::Unknown => Err(Error::Protocol(
+                "unknown_focus_type: media focus backend label not recognised".to_owned(),
+            )),
             _ => Ok(()),
         }
     }
@@ -62,19 +62,19 @@ impl MediaBackendType {
 
 /// Validate that `expires_at - now` is within the spec TTL ceiling
 /// ([`MEDIA_TOKEN_TTL_MAX_SECS`](arkret_wire::MEDIA_TOKEN_TTL_MAX_SECS)).
-/// Returns [`Ok(())`] when the TTL is within bounds, otherwise a
+/// Returns `Ok(())` when the TTL is within bounds, otherwise a
 /// `participant_binding_invalid` protocol error.
 pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Result<()> {
     let remaining = (expires_at - now).num_seconds();
     if remaining <= 0 {
-        return Err(Error::Protocol(format!(
-            "participant_binding_invalid: token already expired"
-        )));
+        return Err(Error::Protocol(
+            "participant_binding_invalid: token already expired".to_owned(),
+        ));
     }
     if (remaining as u64) > arkret_wire::MEDIA_TOKEN_TTL_MAX_SECS {
-        return Err(Error::Protocol(format!(
-            "participant_binding_invalid: token TTL exceeds 600s ceiling"
-        )));
+        return Err(Error::Protocol(
+            "participant_binding_invalid: token TTL exceeds 600s ceiling".to_owned(),
+        ));
     }
     Ok(())
 }
@@ -401,9 +401,9 @@ pub fn verify_call_media_token_outcome(
         || binding.sig.trim().is_empty()
         || binding.issuer_kid.trim().is_empty()
     {
-        return Err(Error::Protocol(format!(
-            "participant_binding_invalid: token response missing required fields"
-        )));
+        return Err(Error::Protocol(
+            "participant_binding_invalid: token response missing required fields".to_owned(),
+        ));
     }
 
     if binding.scheme != arkret_wire::PARTICIPANT_BINDING_SCHEMA {
@@ -435,22 +435,23 @@ pub fn verify_call_media_token_outcome(
         || binding.actor_id != request.actor_id
         || binding.device_id != request.device_id
     {
-        return Err(Error::Protocol(format!(
-            "participant_binding_invalid: binding tuple does not match the request"
-        )));
+        return Err(Error::Protocol(
+            "participant_binding_invalid: binding tuple does not match the request".to_owned(),
+        ));
     }
     if binding.participant_identity != outcome.participant_identity {
-        return Err(Error::Protocol(format!(
+        return Err(Error::Protocol(
             "participant_binding_invalid: participant_identity mismatch between binding and outcome"
-        )));
+                .to_owned(),
+        ));
     }
 
     // The binding's issued_at MUST precede its expiry (a non-positive TTL
     // window is a malformed binding).
     if binding.expires_at <= binding.issued_at {
-        return Err(Error::Protocol(format!(
-            "participant_binding_invalid: binding expires_at not after issued_at"
-        )));
+        return Err(Error::Protocol(
+            "participant_binding_invalid: binding expires_at not after issued_at".to_owned(),
+        ));
     }
 
     // TTL ceiling — both the binding and the outcome expiry MUST be ≤ 600s.

@@ -3,7 +3,7 @@
 //! [`SyncTracker`] is a small client-side runtime helper that couples the
 //! issuing-service [`Cursor`] surface with per-service sync tokens. It lives
 //! next to the [`cursor`](crate::cursor) family it depends on. Migrated out of
-//! `arkret-core` (core-retirement batch 2): the previous `update` method bound
+//! the `arkret` umbrella (core-retirement batch 2): the previous `update` method bound
 //! the `AccountSubscribeBatch` wire model owned by `arkret-models-collaboration`
 //! — an edge that would invert the layering (`hlc -> models-collaboration` is
 //! not an allowed edge). Since the tracker only ever records the batch's cursor

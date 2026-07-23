@@ -8,10 +8,9 @@ attestation; it is the evidence bundle a reviewer needs before the local
 
 ## Scope
 
-- Workspace crates: `arkret-identifiers`, `arkret-core`,
-  `arkret-http-client`, `arkret-signatures`,
-  `arkret-crypto`, `arkret-contracts`, `arkret-server`, and
-  `arkret`.
+- Workspace crates: `arkret-identifiers`, `arkret-wire`, the semantic
+  `arkret-models-*` leaves, `arkret-http-client`, `arkret-signatures`,
+  `arkret-crypto`, `arkret-server`, and the `arkret` umbrella.
 - Wire-critical surfaces: canonical JSON, Event Envelope signatures,
   capability grants, profile claims, federation signatures, MLS helpers,
   blind-payload sanitizer, and session-grant outbox.

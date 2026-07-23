@@ -734,8 +734,7 @@ mod tests {
 }
 
 // ── Push schema artifact counterparts ────────────────────────────────────
-// Migrated from `arkret-core` (`models/artifacts/push.rs`); a shim there
-// re-exports these shapes to preserve the `arkret_core::` path.
+// The `arkret` umbrella re-exports these owner-defined shapes at its root.
 
 /// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

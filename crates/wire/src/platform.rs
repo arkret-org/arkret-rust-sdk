@@ -1,8 +1,6 @@
 //! Runtime platform wire shapes shared by SDK and FFI crates.
 //!
-//! Migrated from `arkret-core` (`platform.rs`); a shim there re-exports
-//! these shapes to preserve the `arkret_core::` path (the FFI crate is the
-//! sole consumer).
+//! The `arkret` umbrella re-exports these owner-defined shapes at its root.
 
 use std::collections::BTreeMap;
 

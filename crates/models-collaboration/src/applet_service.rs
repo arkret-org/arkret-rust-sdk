@@ -1,6 +1,6 @@
 //! Applet service transaction envelope.
 //!
-//! Migrated from `arkret-core` (`applet::service`). The envelope embeds
+//! Migrated from the `arkret` umbrella (`applet::service`). The envelope embeds
 //! [`AppletTransactionRequestBody`], whose `ephemeral` member is the
 //! collaboration-owned `EphemeralEnvelope`, so it belongs alongside that
 //! body in `arkret-models-collaboration`.

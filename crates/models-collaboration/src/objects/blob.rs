@@ -210,7 +210,7 @@ pub struct BlobPresignEnvelope {
 /// Counterpart for `spec/v1/artifacts/schemas/blob-operations.schema.json`.
 ///
 /// Aggregates the blob upload request/response bodies; migrated from
-/// `arkret-core` (`models::artifacts::blob`).
+/// the `arkret` umbrella (`models::artifacts::blob`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum BlobOperations {

@@ -10,7 +10,7 @@ use arkret_wire::{Hash, TypedTrustDomainId};
 /// three federation trust-domain headers. Callers append this fragment
 /// to the existing RFC 9421 signature base produced by
 /// the RFC 9421 helpers in `crates/signatures/src/http_signature.rs` and
-/// `crates/core/src/http/signature.rs`.
+/// `crates/wire/src/http_signature.rs`.
 ///
 /// Wire shape: three lines, each with the header name in lower-case
 /// quoted form per RFC 9421 §2.2.

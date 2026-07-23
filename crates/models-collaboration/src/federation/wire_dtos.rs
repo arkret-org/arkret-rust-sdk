@@ -1,8 +1,8 @@
 //! Federation realm-membership and actor-verification wire DTOs.
 //!
-//! The transaction / push / pull operation bodies stay in `arkret-core`
-//! because they bind `arkret_event_draft::Operation`, which the model
-//! crates must not depend on.
+//! Transaction / push / pull bodies that bind
+//! `arkret_event_draft::Operation` are owned by `arkret-event-draft`, which
+//! keeps this model crate free of behavior dependencies.
 
 use arkret_wire::{Did, Hash, RealmId};
 use chrono::{DateTime, Utc};

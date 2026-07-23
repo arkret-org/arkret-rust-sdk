@@ -5,7 +5,7 @@
 //! DID continuity and operations, handles, identity-link cache
 //! projections, and member identity segments. Behavior that needs
 //! signature verification, schema validation, or state reduction lives
-//! in `arkret-core` and its behavior crates; this crate holds data
+//! in the `arkret` umbrella and its behavior crates; this crate holds data
 //! shapes and type-local invariants only.
 
 pub mod account;

@@ -1,6 +1,6 @@
 //! Strand track profiles, Morph object, identity-link binding, and
 //! federation actor validation wire shapes (split from the former
-//! `arkret-core` `models::profiles` module).
+//! the `arkret` umbrella `models::profiles` module).
 
 use std::collections::{BTreeMap, BTreeSet};
 

@@ -1,7 +1,6 @@
 //! Per-message redaction tombstone wire shape.
 //!
-//! Migrated from `arkret-core` (`events/redaction.rs`); a shim there
-//! re-exports these helpers to preserve the `arkret_core::` path.
+//! The `arkret` umbrella re-exports these owner-defined helpers at its root.
 //!
 //! Spec `models/strand-and-message.md §9` (Message lifecycle): a redacted
 //! `ak.message.create` keeps its slot and audit metadata (`event_id`,

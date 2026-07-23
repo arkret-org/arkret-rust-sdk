@@ -5,7 +5,7 @@ param(
     [int]$Runs = 3,
     [string]$OutputRoot = "",
     [switch]$IncludeIncremental,
-    [string[]]$Scenario = @("core", "core-salvo", "floria", "bridges", "garth")
+    [string[]]$Scenario = @("umbrella", "umbrella-salvo", "floria", "bridges", "garth")
 )
 
 $ErrorActionPreference = "Stop"
@@ -25,13 +25,13 @@ $env:CARGO_TERM_COLOR = "never"
 $env:RUSTUP_TOOLCHAIN = "1.96"
 
 $scenarios = @{
-    "core" = @{
+    "umbrella" = @{
         Root = Join-Path $workspace "arkret-rust-sdk"
-        Args = @("check", "-p", "arkret-core", "--no-default-features", "--locked", "--timings")
+        Args = @("check", "-p", "arkret", "--no-default-features", "--locked", "--timings")
     }
-    "core-salvo" = @{
+    "umbrella-salvo" = @{
         Root = Join-Path $workspace "arkret-rust-sdk"
-        Args = @("check", "-p", "arkret-core", "--no-default-features", "--features", "salvo", "--locked", "--timings")
+        Args = @("check", "-p", "arkret", "--no-default-features", "--features", "salvo", "--locked", "--timings")
     }
     "floria" = @{
         Root = Join-Path $workspace "floria"
@@ -130,7 +130,7 @@ foreach ($name in $Scenario) {
 }
 
 if ($IncludeIncremental) {
-    $representative = Join-Path $workspace "arkret-rust-sdk\crates\core\src\models\message.rs"
+    $representative = Join-Path $workspace "arkret-rust-sdk\crates\models-collaboration\src\events_payloads\morph_message.rs"
     if (-not (Test-Path -LiteralPath $representative)) {
         throw "representative model file is missing: $representative"
     }

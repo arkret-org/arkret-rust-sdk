@@ -1,11 +1,11 @@
 # Feature Matrix
 
 > **Authoritative source.** The conformance-profile requirement surface is
-> defined by the generated `arkret_core::generated::profile_requirements` table
+> defined by the generated `arkret::generated::profile_requirements` table
 > (derived from `arkret-spec` `conformance-profiles.json`). The profile tables
 > in this document are a **human-readable mirror only** — when they disagree,
 > the generated table wins. The `feature_matrix_profiles_subset_of_generated`
-> test in `crates/core/tests/feature_matrix_doc.rs` fails if any profile ID
+> test in `crates/schema/tests/feature_matrix_doc.rs` fails if any profile ID
 > named here is absent from the generated table, so the mirror cannot drift
 > ahead of the code.
 

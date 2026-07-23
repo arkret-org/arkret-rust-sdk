@@ -1,6 +1,6 @@
 //! Encrypted blob attachment key descriptors for `blob.schema.json`.
 //!
-//! Blob operation DTOs stay in `arkret-core`; this module owns the
+//! Blob operation DTOs stay in the `arkret` umbrella; this module owns the
 //! encryption/key-reference half of the blob artifact.
 
 use arkret_wire::{Base64UrlString, BlobId, EventId, Hash};

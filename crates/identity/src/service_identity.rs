@@ -4,9 +4,8 @@
 //! documents, WebVH inception operations, receipts, ensure request/outcome
 //! DTOs) is owned by `arkret_models_identity::service_identity`; this module
 //! keeps the runtime side: local identity state, identity bundles, and their
-//! file / KeyStore persistence backends. `arkret-core` re-exports both halves
-//! so downstream `arkret_core::` / `arkret_sdk::` paths stay byte-stable until
-//! the facade retires.
+//! file / KeyStore persistence backends. The `arkret` umbrella re-exports both
+//! halves as one public service-identity surface.
 
 use std::fs;
 use std::path::{Path, PathBuf};

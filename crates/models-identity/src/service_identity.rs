@@ -4,8 +4,8 @@
 //! `service-operation-dtos.schema.json` and the lifecycle rules in
 //! `identity-did.md` section 3.7. Services and providers use these types
 //! directly; product crates must not define parallel request/response DTOs.
-//! Runtime state (local identity bundles, KeyStore/file persistence) stays
-//! in `arkret-core::service_identity` until the facade retires.
+//! Runtime state (local identity bundles and KeyStore/file persistence) is
+//! owned by `arkret-identity`.
 
 use std::fmt;
 

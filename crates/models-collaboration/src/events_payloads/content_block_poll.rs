@@ -1,7 +1,7 @@
 //! Content-block poll wire shapes.
 //!
 //! Counterparts for `spec/v1/artifacts/schemas/content-block-poll.schema.json`.
-//! Migrated from `arkret-core` (`models::artifacts::self_ops`); the poll and
+//! Migrated from the `arkret` umbrella (`models::artifacts::self_ops`); the poll and
 //! poll-response content blocks embed the collaboration-owned
 //! [`ContentBlock`] and are consumed by the message content-block
 //! validators in [`crate::events_payloads::morph_message`].

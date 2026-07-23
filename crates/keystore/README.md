@@ -2,15 +2,13 @@
 
 Durable `KeyStore` backends for the Arkret v1 SDK.
 
-The pure storage contract — the `KeyStore` trait, `KeyStoreError`, and the
-dependency-free `InMemoryKeyStore` — lives in `arkret-core`. This crate adds
-an encrypted-file backend plus OS-native backends that carry platform IO and
-native dependencies, kept out of `arkret-core` so the core wire/model crate
-stays light:
+This crate owns the pure storage contract (`KeyStore`, `KeyStoreError`, and
+`InMemoryKeyStore`), an encrypted-file backend, and OS-native backends behind
+target-specific features. The `arkret` umbrella re-exports the public surface:
 
 | Backend | Feature | `target_os` |
 |---|---|---|
-| `InMemoryKeyStore` (re-exported from `arkret-core`) | always available | any |
+| `InMemoryKeyStore` (re-exported from the `arkret` umbrella) | always available | any |
 | `EncryptedFileKeyStore` | `keystore-encrypted-file` | native targets |
 | `MacOsKeychainKeyStore` | `keystore-macos` | `macos` |
 | `LinuxSecretServiceKeyStore` | `keystore-linux` | `linux` |

@@ -1,10 +1,10 @@
 //! Personal-Agent lifecycle wire models and the requested-scope commitment
-//! digest, relocated from `arkret-core`. These bind agent-key payloads
+//! digest, relocated from the `arkret` umbrella. These bind agent-key payloads
 //! (`events_payloads::agent`), grant / key-state artifacts
 //! (`governance::agent_artifacts`), capability grants
 //! (`governance::grant_constraint`), and the managed-frontier reference
 //! (`arkret-models-crypto`), all reachable within the collaboration layering
-//! edge. `arkret-core` re-exports them for path stability.
+//! edge. the `arkret` umbrella re-exports them for path stability.
 
 use std::collections::BTreeSet;
 

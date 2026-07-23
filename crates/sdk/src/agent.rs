@@ -798,43 +798,45 @@ pub fn build_agent_key_authorize_event(
     Ok(event)
 }
 
-fn build_agent_lifecycle_event(
+struct AgentLifecycleEventInput {
     kind: &'static str,
     payload: Value,
     agent_id: Did,
     controller_id: Did,
     principal_control_realm_id: RealmId,
-    controller_authorization_ref: impl Into<String>,
+    controller_authorization_ref: String,
     previous_status: &'static str,
     next_status: &'static str,
     reason: Option<String>,
     actor_seq: u64,
     hlc: Hlc,
     status_changed_at: DateTime<Utc>,
-) -> Result<Event> {
+}
+
+fn build_agent_lifecycle_event(input: AgentLifecycleEventInput) -> Result<Event> {
     let mut event = Event::new_at(
-        kind,
-        principal_control_realm_id,
-        agent_id.clone(),
-        actor_seq,
-        hlc,
-        payload,
-        status_changed_at,
+        input.kind,
+        input.principal_control_realm_id,
+        input.agent_id.clone(),
+        input.actor_seq,
+        input.hlc,
+        input.payload,
+        input.status_changed_at,
     )?;
-    event.executed_by = Some(controller_id);
-    event.authorization_ref = Some(controller_authorization_ref.into());
+    event.executed_by = Some(input.controller_id);
+    event.authorization_ref = Some(input.controller_authorization_ref);
     event.effects = vec![Effect {
         cell: CellRef::new(format!(
             "ak:cell:ak.component.agent.status.v1:{}",
-            agent_id.as_str()
+            input.agent_id.as_str()
         ))?,
         op: LatticeOp {
             op_type: LatticeOpType::Transition,
             tag: None,
             value: None,
-            from: Some(Value::String(previous_status.to_owned())),
-            to: Some(Value::String(next_status.to_owned())),
-            reason,
+            from: Some(Value::String(input.previous_status.to_owned())),
+            to: Some(Value::String(input.next_status.to_owned())),
+            reason: input.reason,
             issuer_seq: None,
         },
     }];
@@ -864,20 +866,20 @@ pub fn build_agent_pause_event(
         status_changed_at,
         reason: reason.clone(),
     })?;
-    build_agent_lifecycle_event(
-        arkret_wire::events::EventKind::SELF_AGENT_PAUSE,
+    build_agent_lifecycle_event(AgentLifecycleEventInput {
+        kind: arkret_wire::events::EventKind::SELF_AGENT_PAUSE,
         payload,
         agent_id,
         controller_id,
         principal_control_realm_id,
-        controller_authorization_ref,
-        "active",
-        "paused",
+        controller_authorization_ref: controller_authorization_ref.into(),
+        previous_status: "active",
+        next_status: "paused",
         reason,
         actor_seq,
         hlc,
         status_changed_at,
-    )
+    })
 }
 
 /// Build an unsigned controller-executed `ak.self.agent.resume` Event draft.
@@ -900,23 +902,23 @@ pub fn build_agent_resume_event(
         transition: "resume".to_owned(),
         previous_status: "paused".to_owned(),
         status_changed_at,
-        sidecar_exposure_ack: sidecar_exposure_ack.clone(),
+        sidecar_exposure_ack,
         reason: None,
     })?;
-    build_agent_lifecycle_event(
-        arkret_wire::events::EventKind::SELF_AGENT_RESUME,
+    build_agent_lifecycle_event(AgentLifecycleEventInput {
+        kind: arkret_wire::events::EventKind::SELF_AGENT_RESUME,
         payload,
         agent_id,
         controller_id,
         principal_control_realm_id,
-        controller_authorization_ref,
-        "paused",
-        "active",
-        None,
+        controller_authorization_ref: controller_authorization_ref.into(),
+        previous_status: "paused",
+        next_status: "active",
+        reason: None,
         actor_seq,
         hlc,
         status_changed_at,
-    )
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1489,7 +1491,7 @@ mod tests {
         assert_eq!(value["expires_at"], "2026-07-17T00:05:00.000Z");
 
         let mut non_canonical = value;
-        non_canonical["issued_at"] = serde_json::json!("2026-07-17T00:00:00.000Z");
+        non_canonical["issued_at"] = serde_json::json!("2026-07-17T00:00:00Z");
         assert!(serde_json::from_value::<AgentRequestedScopeDisclosure>(non_canonical).is_err());
     }
 

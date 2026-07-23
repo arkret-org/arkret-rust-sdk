@@ -153,7 +153,7 @@ pub enum WebhookSignatureAlg {
 
 impl WebhookSignatureAlg {
     /// Wire name used for serialization and canonical epoch-transcript
-    /// ordering (`AppletRegistrationEpochTranscript` in `arkret-core`).
+    /// ordering (`AppletRegistrationEpochTranscript` in the `arkret` umbrella).
     pub fn as_wire_name(self) -> &'static str {
         match self {
             Self::EdDsa => "EdDSA",
@@ -421,7 +421,7 @@ pub struct AppletRegistrationEpochDidDocument {
 ///
 /// This is the on-the-wire shape every external Applet implementation
 /// sends. Build it directly via [`WireAppletRegistration::new`] or derive
-/// it from an `AppletPackage` (in `arkret-core`) with
+/// it from an `AppletPackage` (in the `arkret` umbrella) with
 /// `AppletPackage::to_registration`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
@@ -450,7 +450,7 @@ pub struct WireAppletRegistration {
     /// grants bind this epoch (`applet-integration.md` §11). Direct wire
     /// builders supply the value; package producers compute it with
     /// `AppletRegistrationEpochTranscript` or
-    /// `AppletPackage::seal_registration_epoch` (both in `arkret-core`).
+    /// `AppletPackage::seal_registration_epoch` (both in the `arkret` umbrella).
     pub registration_epoch: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub webhook_auth: Option<WebhookAuth>,

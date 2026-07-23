@@ -31,7 +31,7 @@ The spec-side comparison is in [`migrating-from-matrix.md` §4.5](../../arkret-s
 | --- | --- | --- |
 | Ed25519 fingerprint key | [`DeviceKeyBundle.signing_key`](../crates/crypto/src/lib.rs) | Implemented |
 | Curve25519 identity key | [`DeviceKeyBundle.identity_key`](../crates/crypto/src/lib.rs) | Implemented |
-| One-time keys (Curve25519) | `KeysUploadRequestBody.one_time_keys` ([crates/core/src/models/keys.rs](../crates/core/src/models/keys.rs)) | Wire shape implemented; consumed by Olm-style bootstraps where applicable. MLS bootstrapping uses MLS KeyPackages instead — see below. |
+| One-time keys (Curve25519) | [`KeysUploadRequestBody.one_time_keys`](../crates/models-crypto/src/keys.rs) | Wire shape implemented; consumed by Olm-style bootstraps where applicable. MLS bootstrapping uses MLS KeyPackages instead — see below. |
 | Fallback key | `KeysUploadRequestBody.fallback_keys` | Wire shape implemented; SHOULD rotate after first use (spec §8). |
 | Device verify_key on the device record | [`Device.device_public_key`](../crates/sdk/src/devices/mod.rs) | Implemented in v0.7 (was missing in earlier revisions). |
 
@@ -45,7 +45,7 @@ The Arkret SDK ships the full three-key hierarchy as typed records, not as a sin
 | `self_signing_key` (SSK) | [`SignedCrossSigningKey`](../crates/crypto/src/lib.rs) under `self_signing_key`, bound to PSK via [`CrossSigningBinding`](../crates/crypto/src/lib.rs) | SSK is the only signer on per-device trust bindings; canonical bytes are `ak-cross-signing-bind-v1\n` + canonical JSON. |
 | `user_signing_key` (USK) | Same envelope as SSK, distinct `public_key` | Signs other principals' identity keys; manual trust only — does NOT promote the other principal's device set. |
 | Wire envelope: `ak.cross_signing.publish.v1` | [`CrossSigningPublishContent`](../crates/crypto/src/lib.rs) + [`DeviceManager::record_cross_signing_publish`](../crates/sdk/src/devices/manager.rs) | `generation` is monotonic; stale publishes are rejected; advancing the generation drops every accepted device binding to `NeedsReverification`. |
-| Wire envelope: `ak.cross_signing.reset.v1` | [`CrossSigningResetPayload` + `CrossSigningResetProof`](../crates/core/src/models/cross_signing.rs) + [`DeviceManager::record_cross_signing_reset`](../crates/sdk/src/devices/manager.rs) | Requires `principal_signing` / `recovery_unlock` / `device_quorum` / `trusted_recovery_service` proof; cancels in-flight SAS / QR transactions for the principal. |
+| Wire envelope: `ak.cross_signing.reset.v1` | [`CrossSigningResetPayload` + `CrossSigningResetProof`](../crates/models-identity/src/cross_signing.rs) + [`DeviceManager::record_cross_signing_reset`](../crates/sdk/src/devices/manager.rs) | Requires `principal_signing` / `recovery_unlock` / `device_quorum` / `trusted_recovery_service` proof; cancels in-flight SAS / QR transactions for the principal. |
 
 ### Per-device trust binding (spec §5.2)
 

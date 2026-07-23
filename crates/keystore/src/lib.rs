@@ -2,7 +2,7 @@
 //!
 //! The pure storage contract — the [`KeyStore`] trait, [`KeyStoreError`] and
 //! the dependency-free [`InMemoryKeyStore`] — lives in [`contract`] (owned by
-//! this crate; `arkret-core` re-exports it transitionally). The sibling
+//! this crate; the `arkret` umbrella re-exports it). The sibling
 //! modules add the OS-native backends that carry platform IO and native OS
 //! dependencies.
 //!

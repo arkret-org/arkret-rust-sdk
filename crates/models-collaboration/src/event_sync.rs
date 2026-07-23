@@ -1,8 +1,7 @@
 //! Event frontier, submission, subscription, and snapshot wire models.
 //!
-//! Migrated from `arkret-core` (`models/event_sync.rs`); a shim there
-//! re-exports these shapes to preserve the `arkret_core::` path. Generated
-//! reducer-profile digests are owned by `arkret-policy`.
+//! The `arkret` umbrella re-exports these owner-defined shapes at its root.
+//! Generated reducer-profile digests are owned by `arkret-policy`.
 
 use std::collections::BTreeMap;
 
@@ -508,7 +507,7 @@ impl EventsSubmitFederationRequestBody {
 }
 
 // `SnapshotBootstrap` migrated to `sync_frames::snapshot`. It reaches the
-// `arkret_core::SnapshotBootstrap` path via the `artifacts::sync`
+// `arkret::SnapshotBootstrap` path via the `artifacts::sync`
 // re-export, so no shim is needed here.
 
 #[cfg(test)]

@@ -14,7 +14,7 @@ use crate::governance::invite_addressing::InviteDeliveryTarget;
 /// Canonical membership state for `ak.member.state` payloads
 /// (`event-payload.schema.json#/$defs/membership_state`).
 ///
-/// Distinct from `MembershipState` (the `arkret-core` roster projection enum, which
+/// Distinct from `MembershipState` (the `arkret` umbrella roster projection enum, which
 /// only models the live `join`/`invite`/`knock` states): the FSM transition
 /// payload additionally carries the terminal `leave`/`ban` states.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

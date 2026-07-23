@@ -800,7 +800,7 @@ pub struct DirectoryTakedownAppealOutcome {
 /// Embeds the collaboration `DeliveryBindingHint` (now owned by
 /// `arkret-models-identity`) and the discovery-local [`UserSearchMembership`];
 /// hosting it here keeps directory user-search outcomes off the
-/// `arkret-core` facade without a discovery -> collaboration edge.
+/// the `arkret` umbrella facade without a discovery -> collaboration edge.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct UserSearchOutcome {

@@ -7,8 +7,7 @@
 //!
 //! This module owns the proof request / bundle / chunk data shapes and the
 //! chunk build / assemble commitment machinery. Verification and control-state
-//! root derivation need `arkret-state` and therefore live in `arkret-core`
-//! (`models::mls_governance_proof`).
+//! root derivation are owned by `arkret-state::mls_governance_proof`.
 
 use arkret_wire::base64url::base64url_decode;
 use arkret_wire::cell::CellId;

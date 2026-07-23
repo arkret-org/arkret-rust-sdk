@@ -42,9 +42,6 @@ pub const RRK_SERVICE_TYPE: &str = "ArkretRealmHistoryRecoveryKey";
 /// `serviceEndpoint.domain` an RRK service entry MUST carry (history-recovery
 /// domain, separate from `did_recovery`).
 pub const RRK_SERVICE_DOMAIN: &str = "mls_history";
-/// Reason code (`error-code-registry.json`) surfaced when a recovery recipient's
-/// verification method cannot be resolved to an active RRK service entry.
-
 /// X25519 public-key multicodec prefix (`0xec 0x01` unsigned-varint), the wire
 /// form a `Multikey` `publicKeyMultibase` RRK key uses for HPKE key agreement.
 const MULTICODEC_X25519_PUB: u64 = 0xec;

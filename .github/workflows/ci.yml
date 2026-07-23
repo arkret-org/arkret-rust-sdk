@@ -64,7 +64,7 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - run: rustup target add wasm32-unknown-unknown
-      - run: cargo check -p arkret-core --target wasm32-unknown-unknown --no-default-features --features client
+      - run: cargo check -p arkret --target wasm32-unknown-unknown --no-default-features --features client
       - run: cargo check -p arkret-identifiers --target wasm32-unknown-unknown --no-default-features
 
   embedded-snapshot:
@@ -96,7 +96,7 @@ jobs:
         env:
           ARKRET_REQUIRE_SPEC: "1"
           ARKRET_SPEC_ARTIFACTS: ${{ github.workspace }}/arkret-spec/spec/v1/artifacts
-        run: cargo test -p arkret-core --lib embedded_spec_artifacts_match_live_spec_when_available
+        run: cargo test -p arkret-schema --lib embedded_spec_artifacts_match_live_spec_when_available
 
   docs:
     name: Documentation

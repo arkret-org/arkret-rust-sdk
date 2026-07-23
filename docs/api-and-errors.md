@@ -7,9 +7,9 @@ as `membership`, `devices`, `receipts`, `media`,
 `profile`, `settings`, `search`, `discovery`, `e2ee`, `auth`, `identity`,
 `federation`, `push`, `typing`, `webrtc` and `store`.
 
-Shared product and service DTOs live in `arkret-core` and are re-exported
-from the umbrella crate as `arkret::api`, with narrower facades for
-`identity`, `federation` and `push`. Protocol DTOs are not
+Protocol DTOs live in the semantic model leaves and are re-exported from the
+`arkret` umbrella as a curated root surface. The namespaced `arkret::models`
+aggregate is provided for discovery and documentation; protocol DTOs are not
 duplicated in a parallel SDK-local client API module.
 
 Most fallible APIs return `arkret::Result<T>`, whose error type is

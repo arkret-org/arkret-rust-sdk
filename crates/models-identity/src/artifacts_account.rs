@@ -1,6 +1,6 @@
 //! Account-operations schema artifact counterparts (identity face).
 //!
-//! The account-subscribe sync frame containers stay in `arkret-core`
+//! The account-subscribe sync frame containers stay in the `arkret` umbrella
 //! (`models/artifacts/account_sync.rs`).
 
 use arkret_wire::{EventId, Hash};

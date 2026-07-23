@@ -3,7 +3,7 @@
 //! subscribe frames, ephemeral submission, query projections
 //! (space/strand/morph), blob transfer headers, and the MIMI interop
 //! operation bodies. Cross-domain aggregation outcomes and auth-domain
-//! session bodies stay in `arkret-core`.
+//! session bodies remain with their semantic owners.
 
 use std::collections::BTreeMap;
 

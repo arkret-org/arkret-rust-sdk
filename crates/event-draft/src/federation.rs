@@ -1,7 +1,7 @@
 //! Federation transaction envelope, replay-protection store, and delta
 //! batch.
 //!
-//! Migrated from `arkret-core` (`federation`). These bind [`Operation`] and
+//! Migrated from the `arkret` umbrella (`federation`). These bind [`Operation`] and
 //! [`FederationTransactionRequestBody`] — the SDK-local draft records owned
 //! by this crate — so they belong alongside them here (the model crates must
 //! not depend on `arkret-event-draft`). The pure federation frame shapes

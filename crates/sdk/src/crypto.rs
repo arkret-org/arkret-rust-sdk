@@ -627,7 +627,7 @@ mod tests {
 
     #[test]
     fn feature_safety_report_rejects_unsafe_combinations() {
-        let report = feature_safety_report(["mls", "salvo", "sync-runtime"]);
+        let report = feature_safety_report(["mls", "salvo", "device-runtime"]);
         assert!(report.validate().is_err());
         assert!(
             report

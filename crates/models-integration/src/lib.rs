@@ -6,7 +6,7 @@
 //! integration services. Behavior (blind-payload sanitization, push-rule
 //! evaluation) lives in `arkret-policy`; behavior that needs schema
 //! validation, state reduction, or signature verification lives in
-//! `arkret-core`. This crate holds data shapes and type-local
+//! the `arkret` umbrella. This crate holds data shapes and type-local
 //! invariants only.
 
 pub mod applet;

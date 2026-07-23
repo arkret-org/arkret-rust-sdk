@@ -45,7 +45,7 @@ pub enum MlsError {
 }
 
 // The crypto crate's boundary error is flattened into this layer's surface
-// (mirroring `arkret-core`'s facade bridge): typed AEAD / KDF failures collapse
+// (mirroring the SDK error bridge): typed AEAD / KDF failures collapse
 // to `Protocol` / `Crypto` while the shared wire / canonical / identifier / JSON
 // carriers are preserved.
 impl From<arkret_crypto::Error> for MlsError {

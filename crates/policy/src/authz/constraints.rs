@@ -311,7 +311,7 @@ pub struct ConstraintDuration {
 
 /// Grant-constraint-local rate limit scope (quota constraint evaluation).
 ///
-/// Distinct from the wire `arkret_core::RateLimitScope`
+/// Distinct from the wire `arkret::RateLimitScope`
 /// (service-description `rate_limit_scope`: `string | string[]`).
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]

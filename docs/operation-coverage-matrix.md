@@ -4,10 +4,10 @@
 > Coverage is credited only from explicit evidence in `tools/operation-coverage-evidence.json`.
 
 - Claimable profiles: 65 (implementation + deployment + hardening profiles)
-- Effective profile/operation requirements: 499
+- Effective profile/operation requirements: 517
 - Complete rows: 10
 - Partial rows: 8
-- Gap rows: 481
+- Gap rows: 499
 
 `gap` is an explicit non-claim: registry recognition or a generated constant is not SDK implementation evidence. Inherited requirements are expanded into every claiming child profile.
 
@@ -18,10 +18,16 @@
 | `ak.profile.agent_auth.v1` | `server` | `ak.self.authz.query.check` | `POST /_arkret/self/authz/check` | — | — | — | gap |
 | `ak.profile.agent_auth.v1` | `server` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.agent_auth.v1` | `server` | `ak.self.events.query.scan` | `GET /_arkret/self/events` | — | — | — | gap |
+| `ak.profile.agent_auth.v1` | `server` | `ak.self.keys.keypackages.command.consume` | `POST /_arkret/self/keys/keypackages/consume` | — | — | — | gap |
+| `ak.profile.agent_auth.v1` | `server` | `ak.self.keys.keypackages.command.revoke` | `POST /_arkret/self/keys/keypackages/revoke` | — | — | — | gap |
+| `ak.profile.agent_auth.v1` | `server` | `ak.self.keys.keypackages.upload.create` | `POST /_arkret/self/keys/keypackages/upload` | — | — | — | gap |
 | `ak.profile.agent_auth.v1` | `server` | `ak.server.query.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.agent_delegation_policy.v1` | `server` | `ak.self.authz.query.check` | `POST /_arkret/self/authz/check` | — | — | — | gap |
 | `ak.profile.agent_delegation_policy.v1` | `server` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.agent_delegation_policy.v1` | `server` | `ak.self.events.query.scan` | `GET /_arkret/self/events` | — | — | — | gap |
+| `ak.profile.agent_delegation_policy.v1` | `server` | `ak.self.keys.keypackages.command.consume` | `POST /_arkret/self/keys/keypackages/consume` | — | — | — | gap |
+| `ak.profile.agent_delegation_policy.v1` | `server` | `ak.self.keys.keypackages.command.revoke` | `POST /_arkret/self/keys/keypackages/revoke` | — | — | — | gap |
+| `ak.profile.agent_delegation_policy.v1` | `server` | `ak.self.keys.keypackages.upload.create` | `POST /_arkret/self/keys/keypackages/upload` | — | — | — | gap |
 | `ak.profile.agent_delegation_policy.v1` | `server` | `ak.server.query.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.agent_participation_policy.v1` | `server` | `ak.gate.account.command.pair_agent_key` | `POST /_arkret/gate/account/agent-key-pair` | — | — | — | gap |
 | `ak.profile.agent_participation_policy.v1` | `server` | `ak.self.agent.command.provision` | `POST /_arkret/self/agents` | — | — | — | gap |
@@ -34,10 +40,16 @@
 | `ak.profile.agent_participation_policy.v1` | `server` | `ak.self.keys.backups.command.unlock` | `POST /_arkret/self/keys/backups/{backup_id}/unlock` | — | — | — | gap |
 | `ak.profile.agent_participation_policy.v1` | `server` | `ak.self.keys.backups.query.list` | `GET /_arkret/self/keys/backups` | — | — | — | gap |
 | `ak.profile.agent_participation_policy.v1` | `server` | `ak.self.keys.backups.resource.replace` | `PUT /_arkret/self/keys/backups/{backup_id}` | — | — | — | gap |
+| `ak.profile.agent_participation_policy.v1` | `server` | `ak.self.keys.keypackages.command.consume` | `POST /_arkret/self/keys/keypackages/consume` | — | — | — | gap |
+| `ak.profile.agent_participation_policy.v1` | `server` | `ak.self.keys.keypackages.command.revoke` | `POST /_arkret/self/keys/keypackages/revoke` | — | — | — | gap |
+| `ak.profile.agent_participation_policy.v1` | `server` | `ak.self.keys.keypackages.upload.create` | `POST /_arkret/self/keys/keypackages/upload` | — | — | — | gap |
 | `ak.profile.agent_participation_policy.v1` | `server` | `ak.server.query.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.agent_runtime.v1` | `server` | `ak.self.authz.query.check` | `POST /_arkret/self/authz/check` | — | — | — | gap |
 | `ak.profile.agent_runtime.v1` | `server` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.agent_runtime.v1` | `server` | `ak.self.events.query.scan` | `GET /_arkret/self/events` | — | — | — | gap |
+| `ak.profile.agent_runtime.v1` | `server` | `ak.self.keys.keypackages.command.consume` | `POST /_arkret/self/keys/keypackages/consume` | — | — | — | gap |
+| `ak.profile.agent_runtime.v1` | `server` | `ak.self.keys.keypackages.command.revoke` | `POST /_arkret/self/keys/keypackages/revoke` | — | — | — | gap |
+| `ak.profile.agent_runtime.v1` | `server` | `ak.self.keys.keypackages.upload.create` | `POST /_arkret/self/keys/keypackages/upload` | — | — | — | gap |
 | `ak.profile.agent_runtime.v1` | `server` | `ak.server.query.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.gate.account.command.pair_agent_key` | `POST /_arkret/gate/account/agent-key-pair` | — | — | — | gap |
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.self.agent.command.provision` | `POST /_arkret/self/agents` | — | — | — | gap |
@@ -51,6 +63,9 @@
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.self.keys.backups.command.unlock` | `POST /_arkret/self/keys/backups/{backup_id}/unlock` | — | — | — | gap |
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.self.keys.backups.query.list` | `GET /_arkret/self/keys/backups` | — | — | — | gap |
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.self.keys.backups.resource.replace` | `PUT /_arkret/self/keys/backups/{backup_id}` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.keys.keypackages.command.consume` | `POST /_arkret/self/keys/keypackages/consume` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.keys.keypackages.command.revoke` | `POST /_arkret/self/keys/keypackages/revoke` | — | — | — | gap |
+| `ak.profile.agent_sidecar.v1` | `server` | `ak.self.keys.keypackages.upload.create` | `POST /_arkret/self/keys/keypackages/upload` | — | — | — | gap |
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.server.query.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.applet_bridge.v1` | `server` | `ak.edge.applet.actor.query.resolve` | `GET /_arkret/edge/applet/actors/{actor_id}` | `crates/server/src/applet.rs::AppletHandler::resolve_actor` | `crates/server/src/applet.rs::actor_handler` | — | partial |
 | `ak.profile.applet_bridge.v1` | `server` | `ak.edge.applet.command.transaction` | `POST /_arkret/edge/applet/transactions` | `crates/server/src/applet.rs::AppletHandler::handle_transaction` | `crates/server/src/applet.rs::transactions_handler` | `crates/server/src/applet.rs::dispatch_replays_duplicates_and_fails_closed_on_conflicts` | complete |
@@ -399,6 +414,9 @@
 | `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.self.keys.backups.command.unlock` | `POST /_arkret/self/keys/backups/{backup_id}/unlock` | — | — | — | gap |
 | `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.self.keys.backups.query.list` | `GET /_arkret/self/keys/backups` | — | — | — | gap |
 | `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.self.keys.backups.resource.replace` | `PUT /_arkret/self/keys/backups/{backup_id}` | — | — | — | gap |
+| `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.self.keys.keypackages.command.consume` | `POST /_arkret/self/keys/keypackages/consume` | — | — | — | gap |
+| `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.self.keys.keypackages.command.revoke` | `POST /_arkret/self/keys/keypackages/revoke` | — | — | — | gap |
+| `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.self.keys.keypackages.upload.create` | `POST /_arkret/self/keys/keypackages/upload` | — | — | — | gap |
 | `ak.profile.personal_agent_provisioning.v1` | `server` | `ak.server.query.describe` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.personal_node.v1` | `admin` | `ak.self.account.stream.subscribe` | `GET /_arkret/self/account/subscribe` | — | — | — | gap |
 | `ak.profile.personal_node.v1` | `admin` | `ak.self.events.command.submit` | `POST /_arkret/self/events` | — | — | — | gap |
