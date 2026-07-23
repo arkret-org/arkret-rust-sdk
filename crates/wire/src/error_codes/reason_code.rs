@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=91a3e58764d67c3dd35dd4f1092dc3479ef8489a3b3166d3674eaa0dd7ef0dcc
+//! sha256=1f519d7574fc38347a77b278e6c3ada653f5c4f150a3399476d86cd98089ecfb
 //! Entries: reason_codes=420
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2642,7 +2642,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "direct_download_disallowed_presign_forbidden",
         applies_to: &["authz", "service_call"],
-        description: "A presigned blob URL was requested for a Realm whose policy sets direct_download_allowed=false. The service MUST deny presign and require access through the authenticated media proxy.",
+        description: "A presigned blob URL was requested for a Realm-owned blob whose current effective asset policy does not explicitly set direct_download_allowed=true. Missing, unverifiable, non-effective, omitted, or false policy state all fail closed. The service MUST deny presign and require authenticated fetch or an authorized proxy path.",
     },
     ReasonCodeDescriptor {
         code: "duplicate_conflict",

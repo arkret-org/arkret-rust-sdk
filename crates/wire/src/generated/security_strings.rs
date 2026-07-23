@@ -11,11 +11,11 @@
 //! hpke-suite-registry.json; version=2026-07-13;
 //! sha256=bbb4b335c9d8e33b7c3b378932dedaa7aff019c5dec21225576632d88374a5d2 Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-07-13;
-//! sha256=0fa9193fba7c2b4d1f7e36cc92c669f3dca251272897ac20cdbc70d5d160613b Input: registry/
+//! sha256=a480b2b689250123d2cc22e004bc376cb8080d9f6bf1500886271ff30b5a6ad6 Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
 //! sha256=0fbcc85e00b58715c360aa0ed37acf11d858fd6b1a7d0ceb9b0c82bda99f1614
 //! Entries: proof_contexts=24, exporter_labels=8, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=3, mls_extensions=1
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -838,6 +838,12 @@ pub const MLS_CIPHERSUITES: &[AlgorithmSuiteDescriptor] = &[
         status: "reserved",
         role: "reserved_pqc_hybrid",
         profile_gate: Some("ak.profile.kem.hybrid_xwing.v1"),
+    },
+    AlgorithmSuiteDescriptor {
+        canonical_id: "MLS_128_MLKEM768X25519_CHACHA20POLY1305_SHA384_MLDSA44",
+        status: "reserved",
+        role: "reserved_pqc_hybrid_authentication",
+        profile_gate: Some("ak.profile.mls_ciphersuite.pq_auth.v1"),
     },
 ];
 
