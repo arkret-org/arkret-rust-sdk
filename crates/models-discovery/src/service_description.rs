@@ -249,6 +249,15 @@ pub struct ServiceDescribe {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
     )]
     pub last_materialized_at: Option<DateTime<Utc>>,
+    /// Vendor extensions permitted by the service-describe schema. Keys must
+    /// use the reserved `x_<vendor>_*` namespace and are serialized at the
+    /// top level.
+    #[cfg_attr(
+        feature = "salvo-oapi",
+        salvo(schema(value_type = serde_json::Value))
+    )]
+    #[serde(default, flatten)]
+    pub extensions: BTreeMap<String, Value>,
 }
 
 impl ServiceDescribe {
@@ -300,6 +309,7 @@ impl ServiceDescribe {
             snapshot_frontier: Vec::new(),
             reducer_profile: None,
             last_materialized_at: None,
+            extensions: BTreeMap::new(),
         }
     }
 
@@ -332,6 +342,17 @@ impl ServiceDescribe {
             return Err(Error::Protocol(format!(
                 "ServiceDescribe: one of rate_limit_policy or rate_limit_policy_id is required \
                  ({})",
+                ErrorCode::SCHEMA_VIOLATION
+            )));
+        }
+        if self.extensions.keys().any(|key| {
+            let mut suffix = key.strip_prefix("x_").map(str::bytes).into_iter().flatten();
+            !suffix.next().is_some_and(|byte| byte.is_ascii_lowercase())
+                || !suffix
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+        }) {
+            return Err(Error::Protocol(format!(
+                "ServiceDescribe: extension keys must match ^x_[a-z][a-z0-9_]*$ ({})",
                 ErrorCode::SCHEMA_VIOLATION
             )));
         }
@@ -468,6 +489,7 @@ mod tests {
             snapshot_frontier: vec![],
             reducer_profile: None,
             last_materialized_at: None,
+            extensions: BTreeMap::new(),
         }
     }
 

@@ -362,6 +362,7 @@ mod tests {
             snapshot_frontier: Vec::new(),
             reducer_profile: None,
             last_materialized_at: None,
+            extensions: Default::default(),
         };
 
         ServiceRequirements::new()
@@ -437,6 +438,7 @@ mod tests {
             snapshot_frontier: Vec::new(),
             reducer_profile: None,
             last_materialized_at: None,
+            extensions: Default::default(),
         };
 
         allowlist.verify_description(&description).unwrap();

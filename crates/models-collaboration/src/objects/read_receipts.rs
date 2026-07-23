@@ -1,13 +1,11 @@
-//! Read-cursor, read-receipt, notification, and blob-metadata wire shapes.
+//! Read-cursor, read-receipt, and notification wire shapes.
 
 use std::collections::BTreeMap;
 use std::fmt;
 
-use arkret_models_crypto::encrypted_attachment::EncryptedAttachment;
 use arkret_wire::{
-    BlobRef, DeviceId, Did, EventId, Hlc, NotificationPriority, NotificationState,
-    NotificationType, ReadCursorId, ReadCursorScope, ReadReceiptScope, RealmId, Result, StrandId,
-    canonical,
+    DeviceId, Did, EventId, Hlc, NotificationPriority, NotificationState, NotificationType,
+    ReadCursorId, ReadCursorScope, ReadReceiptScope, RealmId, Result, StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -279,39 +277,6 @@ pub struct Notification {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
     )]
     pub created_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(
-        default,
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
-    pub updated_at: Option<DateTime<Utc>>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-pub struct BlobMetadata {
-    pub schema: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
-    pub blob_ref: BlobRef,
-    pub content_digest: String,
-    /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
-    pub size_bytes: u64,
-    pub media_type: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub filename: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
-    pub encryption: Option<EncryptedAttachment>,
-    pub created_by: Did,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
-    pub created_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,

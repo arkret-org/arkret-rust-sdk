@@ -23,11 +23,10 @@ use arkret_models_collaboration::governance::policy_check::{
     PolicyCheckOutcome, PolicyCheckRequestBody,
 };
 use arkret_models_collaboration::http_bodies::{AppletTransactionRequestBody, EventsQueryOutcome};
-use arkret_models_collaboration::objects::blob::{BlobUploadMetadata, BlobUploadOutcome};
+use arkret_models_collaboration::objects::blob::{Blob, BlobUploadMetadata, BlobUploadOutcome};
 use arkret_models_collaboration::objects::media::{
     MediaIceConfigOutcome, MediaIceConfigRequestBody,
 };
-use arkret_models_collaboration::objects::read_receipts::BlobMetadata;
 pub use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeFrame, AccountSubscribeFrameKind, AccountSubscribeRealms,
 };

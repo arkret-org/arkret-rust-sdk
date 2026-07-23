@@ -38,7 +38,7 @@ use std::collections::BTreeMap;
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical::{canonical_json_bytes, sha256_hex};
-use arkret_models_crypto::KeyRefObject;
+use arkret_models_crypto::{EncryptedAttachment, KeyRefObject};
 use chacha20poly1305::XChaCha20Poly1305;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use serde::{Deserialize, Serialize};
@@ -116,7 +116,7 @@ const FLAG_LAST: u8 = 0x01;
 ///
 /// All serde `rename`s match the schema exactly; absent optionals are skipped.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct EncryptedAttachmentEnvelope {
+struct AttachmentEnvelopeFields {
     /// Content-addressed blob reference. May be filled in by the caller after
     /// addressing the ciphertext bytes; left empty by the encrypt helpers.
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -152,6 +152,22 @@ pub struct EncryptedAttachmentEnvelope {
     /// Streaming: number of segments.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub segment_count: Option<u32>,
+}
+
+fn typed_envelope(fields: AttachmentEnvelopeFields) -> Result<EncryptedAttachment> {
+    serde_json::from_value(
+        serde_json::to_value(fields)
+            .map_err(|error| Error::Protocol(format!("attachment encode: {error}")))?,
+    )
+    .map_err(|error| Error::Protocol(format!("attachment model conversion: {error}")))
+}
+
+fn envelope_fields(envelope: &EncryptedAttachment) -> Result<AttachmentEnvelopeFields> {
+    serde_json::from_value(
+        serde_json::to_value(envelope)
+            .map_err(|error| Error::Protocol(format!("attachment encode: {error}")))?,
+    )
+    .map_err(|error| Error::Protocol(format!("attachment model conversion: {error}")))
 }
 
 /// Parameters for [`encrypt_stream`].
@@ -263,13 +279,13 @@ fn segment_count_for(plaintext_size: usize, segment_size: u32) -> u32 {
 ///
 /// Returns `(ciphertext, envelope)` where `ciphertext` is the concatenation of
 /// every segment ciphertext (each carrying its own AEAD tag) in ascending
-/// `segment_index` order, and `envelope.blob_ref` is left empty for the caller
-/// to fill after content-addressing the ciphertext.
+/// `segment_index` order. The returned typed envelope is content-addressed
+/// over those ciphertext bytes.
 pub fn encrypt_stream(
     plaintext: &[u8],
     content_key: &[u8; 32],
     params: &StreamEncryptParams,
-) -> Result<(Vec<u8>, EncryptedAttachmentEnvelope)> {
+) -> Result<(Vec<u8>, EncryptedAttachment)> {
     // Enforce the §6 hard limits on the send path too: an envelope outside
     // them is not interoperable and every conforming receiver MUST reject it.
     if !(MIN_SEGMENT_SIZE..=MAX_SEGMENT_SIZE).contains(&params.segment_size) {
@@ -328,8 +344,8 @@ pub fn encrypt_stream(
         ciphertext.extend_from_slice(&segment_ct);
     }
 
-    let envelope = EncryptedAttachmentEnvelope {
-        blob_ref: String::new(),
+    let envelope = AttachmentEnvelopeFields {
+        blob_ref: format!("ak:blob:sha256:{}", sha256_hex(&ciphertext)),
         encrypted: true,
         scheme: SCHEME_STREAM.to_owned(),
         alg: ALG_STREAM_XCHACHA.to_owned(),
@@ -344,7 +360,7 @@ pub fn encrypt_stream(
         segment_count: Some(segment_count),
     };
 
-    Ok((ciphertext, envelope))
+    Ok((ciphertext, typed_envelope(envelope)?))
 }
 
 // ─── streaming decrypt ──────────────────────────────────────────────────────
@@ -365,7 +381,7 @@ struct StreamContext {
 }
 
 impl StreamContext {
-    fn new(env: &EncryptedAttachmentEnvelope, content_key: &[u8; 32]) -> Result<Self> {
+    fn new(env: &AttachmentEnvelopeFields, content_key: &[u8; 32]) -> Result<Self> {
         if env.scheme != SCHEME_STREAM || env.alg != ALG_STREAM_XCHACHA {
             return Err(protocol(
                 "unsupported_attachment_scheme",
@@ -456,9 +472,10 @@ pub struct StreamDecryptor {
 
 impl StreamDecryptor {
     /// Build a decryptor from an envelope, running scheme/alg/field checks.
-    pub fn new(env: &EncryptedAttachmentEnvelope, content_key: &[u8; 32]) -> Result<Self> {
+    pub fn new(env: &EncryptedAttachment, content_key: &[u8; 32]) -> Result<Self> {
+        let env = envelope_fields(env)?;
         Ok(Self {
-            ctx: StreamContext::new(env, content_key)?,
+            ctx: StreamContext::new(&env, content_key)?,
             next_index: 0,
             seen_last: false,
             digest_input: Vec::new(),
@@ -605,7 +622,7 @@ impl StreamDecryptor {
 /// returning the recovered plaintext.
 pub fn decrypt_stream(
     ciphertext: &[u8],
-    env: &EncryptedAttachmentEnvelope,
+    env: &EncryptedAttachment,
     content_key: &[u8; 32],
 ) -> Result<Vec<u8>> {
     let mut decryptor = StreamDecryptor::new(env, content_key)?;
@@ -637,7 +654,7 @@ pub fn decrypt_stream(
         ));
     }
 
-    let mut plaintext = Vec::with_capacity(env.size_bytes as usize);
+    let mut plaintext = Vec::with_capacity(ctx.size_bytes as usize);
     let mut offset = 0usize;
     for (index, seg_len) in boundaries.into_iter().enumerate() {
         let segment = &ciphertext[offset..offset + seg_len];
@@ -652,15 +669,15 @@ pub fn decrypt_stream(
 // ─── whole-file ──────────────────────────────────────────────────────────────
 
 /// Encrypt `plaintext` into `ak.blob.whole_file_aead.v1` form (single nonce,
-/// single ciphertext+tag). Returns `(ciphertext, envelope)` with `blob_ref`
-/// left empty for the caller.
+/// single ciphertext+tag). The returned typed envelope is content-addressed
+/// over the ciphertext bytes.
 pub fn encrypt_whole_file(
     plaintext: &[u8],
     content_key: &[u8; 32],
     key_ref: KeyRefObject,
     epoch: u64,
     media_type: String,
-) -> Result<(Vec<u8>, EncryptedAttachmentEnvelope)> {
+) -> Result<(Vec<u8>, EncryptedAttachment)> {
     let cipher = cipher_from_key(content_key)?;
     let mut nonce = [0u8; N_AEAD];
     getrandom::fill(&mut nonce).map_err(|error| Error::Crypto(error.to_string()))?;
@@ -678,8 +695,8 @@ pub fn encrypt_whole_file(
         )
         .map_err(|_| Error::Crypto("whole-file AEAD encryption failed".to_owned()))?;
 
-    let envelope = EncryptedAttachmentEnvelope {
-        blob_ref: String::new(),
+    let envelope = AttachmentEnvelopeFields {
+        blob_ref: format!("ak:blob:sha256:{}", sha256_hex(&ciphertext)),
         encrypted: true,
         scheme: SCHEME_WHOLE_FILE.to_owned(),
         alg: ALG_WHOLE_FILE_XCHACHA.to_owned(),
@@ -693,7 +710,7 @@ pub fn encrypt_whole_file(
         segment_size: None,
         segment_count: None,
     };
-    Ok((ciphertext, envelope))
+    Ok((ciphertext, typed_envelope(envelope)?))
 }
 
 /// Decrypt a `ak.blob.whole_file_aead.v1` attachment. Verifies the overall
@@ -701,9 +718,10 @@ pub fn encrypt_whole_file(
 /// plaintext is never returned.
 pub fn decrypt_whole_file(
     ciphertext: &[u8],
-    env: &EncryptedAttachmentEnvelope,
+    env: &EncryptedAttachment,
     content_key: &[u8; 32],
 ) -> Result<Vec<u8>> {
+    let env = envelope_fields(env)?;
     if env.scheme != SCHEME_WHOLE_FILE || env.alg != ALG_WHOLE_FILE_XCHACHA {
         return Err(protocol(
             "unsupported_attachment_scheme",
@@ -789,7 +807,8 @@ mod tests {
 
     /// Split a concatenated stream ciphertext into per-segment slices using the
     /// envelope (mirrors what decrypt_stream does internally).
-    fn split_segments(ct: &[u8], env: &EncryptedAttachmentEnvelope) -> Vec<Vec<u8>> {
+    fn split_segments(ct: &[u8], env: &EncryptedAttachment) -> Vec<Vec<u8>> {
+        let env = envelope_fields(env).unwrap();
         let segment_size = env.segment_size.unwrap() as usize;
         let segment_count = env.segment_count.unwrap();
         let mut out = Vec::new();
@@ -815,9 +834,10 @@ mod tests {
         // 3 segments: S, S, 10.
         let plaintext: Vec<u8> = (0..(2 * S + 10) as u32).map(|i| (i % 251) as u8).collect();
         let (ct, env) = encrypt_stream(&plaintext, &key, &p).unwrap();
-        assert_eq!(env.segment_count, Some(3));
-        assert_eq!(env.scheme, SCHEME_STREAM);
-        assert_eq!(env.alg, ALG_STREAM_XCHACHA);
+        let fields = envelope_fields(&env).unwrap();
+        assert_eq!(fields.segment_count, Some(3));
+        assert_eq!(fields.scheme, SCHEME_STREAM);
+        assert_eq!(fields.alg, ALG_STREAM_XCHACHA);
 
         // one-shot
         assert_eq!(decrypt_stream(&ct, &env, &key).unwrap(), plaintext);
@@ -838,26 +858,27 @@ mod tests {
         let key = key();
         // empty plaintext → single zero-length last segment, count 1
         let (ct, env) = encrypt_stream(&[], &key, &params(MIN_SEGMENT_SIZE)).unwrap();
-        assert_eq!(env.segment_count, Some(1));
-        assert_eq!(env.size_bytes, 0);
+        let fields = envelope_fields(&env).unwrap();
+        assert_eq!(fields.segment_count, Some(1));
+        assert_eq!(fields.size_bytes, 0);
         assert_eq!(decrypt_stream(&ct, &env, &key).unwrap(), Vec::<u8>::new());
 
         // single short segment
         let p = vec![7u8; 30];
         let (ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
-        assert_eq!(env.segment_count, Some(1));
+        assert_eq!(envelope_fields(&env).unwrap().segment_count, Some(1));
         assert_eq!(decrypt_stream(&ct, &env, &key).unwrap(), p);
 
         // exactly divisible: 2*S / S == 2 segments, last == segment_size
         let p = vec![3u8; 2 * S];
         let (ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
-        assert_eq!(env.segment_count, Some(2));
+        assert_eq!(envelope_fields(&env).unwrap().segment_count, Some(2));
         assert_eq!(decrypt_stream(&ct, &env, &key).unwrap(), p);
 
         // last segment of exactly 1 byte: (S+1) / S -> 2 segments (S + 1)
         let p = vec![9u8; S + 1];
         let (ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
-        assert_eq!(env.segment_count, Some(2));
+        assert_eq!(envelope_fields(&env).unwrap().segment_count, Some(2));
         assert_eq!(decrypt_stream(&ct, &env, &key).unwrap(), p);
     }
 
@@ -880,9 +901,11 @@ mod tests {
     fn stream_truncation_via_count_mismatch() {
         let key = key();
         let p = vec![1u8; 3 * S + 8];
-        let (_ct, mut env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
+        let (_ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
         // declared count no longer matches ceil(size/segment_size)
-        env.segment_count = Some(5);
+        let mut fields = envelope_fields(&env).unwrap();
+        fields.segment_count = Some(5);
+        let env = typed_envelope(fields).unwrap();
         let Err(err) = StreamDecryptor::new(&env, &key) else {
             panic!("expected count-mismatch rejection");
         };
@@ -965,11 +988,13 @@ mod tests {
     fn stream_digest_mismatch_rejected() {
         let key = key();
         let p = vec![8u8; 100];
-        let (ct, mut env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
+        let (ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
         // corrupt the declared overall digest; per-segment AEAD still passes,
         // so the mismatch is only caught at finish().
-        env.ciphertext_digest =
+        let mut fields = envelope_fields(&env).unwrap();
+        fields.ciphertext_digest =
             "sha256:0000000000000000000000000000000000000000000000000000000000000000".to_owned();
+        let env = typed_envelope(fields).unwrap();
         let err = decrypt_stream(&ct, &env, &key).unwrap_err();
         assert_eq!(reason(&err), "digest_mismatch");
     }
@@ -981,14 +1006,14 @@ mod tests {
         let (ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
 
         // unknown scheme
-        let mut bad = env.clone();
+        let mut bad = envelope_fields(&env).unwrap();
         bad.scheme = "ak.blob.unknown.v1".to_owned();
-        let err = decrypt_stream(&ct, &bad, &key).unwrap_err();
-        assert_eq!(reason(&err), "unsupported_attachment_scheme");
+        assert!(typed_envelope(bad).is_err());
 
         // AES-GCM alg under the stream scheme must NOT be force-decrypted
-        let mut bad = env;
+        let mut bad = envelope_fields(&env).unwrap();
         bad.alg = "mls_exporter_aead_aes_256_gcm_stream".to_owned();
+        let bad = typed_envelope(bad).unwrap();
         let err = decrypt_stream(&ct, &bad, &key).unwrap_err();
         assert_eq!(reason(&err), "unsupported_attachment_scheme");
     }
@@ -999,23 +1024,26 @@ mod tests {
         let p = b"the quick brown fox".to_vec();
         let (ct, env) =
             encrypt_whole_file(&p, &key, test_key_ref(), 7, "text/plain".to_owned()).unwrap();
-        assert_eq!(env.scheme, SCHEME_WHOLE_FILE);
-        assert_eq!(env.alg, ALG_WHOLE_FILE_XCHACHA);
-        assert!(env.nonce.is_some());
+        let fields = envelope_fields(&env).unwrap();
+        assert_eq!(fields.scheme, SCHEME_WHOLE_FILE);
+        assert_eq!(fields.alg, ALG_WHOLE_FILE_XCHACHA);
+        assert!(fields.nonce.is_some());
         assert_eq!(decrypt_whole_file(&ct, &env, &key).unwrap(), p);
 
         // digest mismatch
-        let mut bad = env.clone();
+        let mut bad = envelope_fields(&env).unwrap();
         bad.ciphertext_digest =
             "sha256:1111111111111111111111111111111111111111111111111111111111111111".to_owned();
+        let bad = typed_envelope(bad).unwrap();
         assert_eq!(
             reason(&decrypt_whole_file(&ct, &bad, &key).unwrap_err()),
             "digest_mismatch"
         );
 
         // AES alg closure
-        let mut bad = env.clone();
+        let mut bad = envelope_fields(&env).unwrap();
         bad.alg = "mls_exporter_aead_aes_256_gcm".to_owned();
+        let bad = typed_envelope(bad).unwrap();
         assert_eq!(
             reason(&decrypt_whole_file(&ct, &bad, &key).unwrap_err()),
             "unsupported_attachment_scheme"
@@ -1026,8 +1054,9 @@ mod tests {
         // the digest to isolate the AEAD path)
         let mut tampered = ct;
         tampered[0] ^= 0xff;
-        let mut env2 = env;
+        let mut env2 = envelope_fields(&env).unwrap();
         env2.ciphertext_digest = format!("sha256:{}", sha256_hex(&tampered));
+        let env2 = typed_envelope(env2).unwrap();
         assert_eq!(
             reason(&decrypt_whole_file(&tampered, &env2, &key).unwrap_err()),
             "segment_aead_failed"
@@ -1051,11 +1080,12 @@ mod tests {
             "size_bytes": 3211264,
             "media_type": "video/mp4"
         }"#;
-        let env: EncryptedAttachmentEnvelope = serde_json::from_str(raw).unwrap();
-        assert_eq!(env.scheme, SCHEME_STREAM);
-        assert_eq!(env.segment_size, Some(262_144));
-        assert_eq!(env.segment_count, Some(13));
-        assert!(env.nonce.is_none());
+        let env: EncryptedAttachment = serde_json::from_str(raw).unwrap();
+        let fields = envelope_fields(&env).unwrap();
+        assert_eq!(fields.scheme, SCHEME_STREAM);
+        assert_eq!(fields.segment_size, Some(262_144));
+        assert_eq!(fields.segment_count, Some(13));
+        assert!(fields.nonce.is_none());
 
         // round-trip back to JSON: whole-file optionals are skipped.
         let value = serde_json::to_value(&env).unwrap();

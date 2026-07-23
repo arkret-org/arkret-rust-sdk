@@ -99,7 +99,6 @@ arkret-state = {workspace = true}
 arkret-wire = {workspace = true}
 reqwest = {workspace = true,features = ["json", "gzip", "http2"],optional = true}
 salvo = {workspace = true,features = ["oapi"],optional = true}
-serde = {workspace = true}
 serde_json = {workspace = true}
 thiserror = {workspace = true}
 tokio = {workspace = true,features = ["rt", "macros"],optional = true}

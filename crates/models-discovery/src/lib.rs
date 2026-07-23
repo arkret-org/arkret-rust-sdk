@@ -13,6 +13,7 @@ pub mod ops;
 pub mod presence;
 pub mod service_description;
 pub mod service_requirements;
+pub mod verified_profiles;
 
 pub use directory::*;
 pub use directory_artifacts::*;
@@ -22,3 +23,4 @@ pub use ops::*;
 pub use presence::*;
 pub use service_description::*;
 pub use service_requirements::*;
+pub use verified_profiles::*;

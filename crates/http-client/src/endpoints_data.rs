@@ -2,9 +2,8 @@
 
 use arkret_canonical::base64url::base64_standard_encode;
 use arkret_models_collaboration::objects::blob::{
-    BlobPresignOutcome, BlobPresignRequestBody, BlobUploadMetadata, BlobUploadOutcome,
+    Blob, BlobPresignOutcome, BlobPresignRequestBody, BlobUploadMetadata, BlobUploadOutcome,
 };
-use arkret_models_collaboration::objects::read_receipts::BlobMetadata;
 use arkret_models_collaboration::sync_frames::account_sync::{
     DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody, DeviceMessagesGetOutcome,
     DeviceMessagesSendOutcome, DeviceMessagesSendRequestBody,
@@ -174,7 +173,7 @@ impl Client {
         self.apply_auth(builder, &method_for_auth, &url)
     }
 
-    pub async fn blob_metadata(&self, blob_ref: &BlobRef) -> Result<BlobMetadata> {
+    pub async fn blob_metadata(&self, blob_ref: &BlobRef) -> Result<Blob> {
         let builder = self
             .request(Method::GET, "/_arkret/self/blob/get")?
             .query(&[("blob_ref", blob_ref.as_str())]);

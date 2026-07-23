@@ -194,6 +194,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                         snapshot_frontier: Vec::new(),
                         reducer_profile: None,
                         last_materialized_at: None,
+                        extensions: Default::default(),
                     })))
                 }
                 _ => Err(arkret_wire::Error::Protocol(

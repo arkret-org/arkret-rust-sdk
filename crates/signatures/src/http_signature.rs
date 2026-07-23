@@ -138,6 +138,15 @@ pub enum SignaturePolicyError {
 /// End-to-end raw HTTP message verification failures.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum HttpMessageVerificationError {
+    /// Signed JSON requests must be transmitted without content codings so the
+    /// verified bytes are the exact canonical JSON bytes the application
+    /// parses.
+    #[error("signed canonical JSON request must not use Content-Encoding")]
+    ContentEncodingNotAllowed,
+    /// The raw request body was valid JSON but not byte-for-byte canonical
+    /// Arkret JSON.
+    #[error("signed request body is not canonical JSON: {0}")]
+    NonCanonicalJson(String),
     /// A required HTTP header is absent after case-insensitive lookup.
     #[error("required HTTP message signature header `{0}` is missing")]
     MissingHeader(&'static str),
@@ -784,6 +793,61 @@ where
     })
 }
 
+/// Verify an Arkret signed canonical-JSON HTTP request.
+///
+/// This is the complete receiver-side preflight required by
+/// `service-http-binding.md` §2.5.1: content codings are rejected, the exact
+/// body bytes must already be canonical JSON, and the RFC 9421 signature and
+/// RFC 9530 content digest are then verified over those same bytes.
+///
+/// Framework adapters should pass `true` for
+/// `content_encoding_present` whenever the request contains a
+/// `Content-Encoding` header, regardless of its value.
+#[allow(clippy::too_many_arguments)]
+pub fn verify_signed_canonical_json_message<I, N, V>(
+    method: &str,
+    target_uri: &str,
+    authority: &str,
+    path: &str,
+    headers: I,
+    content_encoding_present: bool,
+    body: &[u8],
+    public_key: &Ed25519PublicKey,
+    policy: &SignatureVerificationPolicy,
+    now_unix_seconds: i64,
+) -> Result<VerifiedHttpMessageSignature, HttpMessageVerificationError>
+where
+    I: IntoIterator<Item = (N, V)>,
+    N: AsRef<str>,
+    V: AsRef<str>,
+{
+    validate_signed_canonical_json_body(content_encoding_present, body)?;
+    verify_signed_http_message(
+        method,
+        target_uri,
+        authority,
+        path,
+        headers,
+        body,
+        public_key,
+        policy,
+        now_unix_seconds,
+    )
+}
+
+/// Validate the representation requirements shared by every signed JSON
+/// receiver before signature verification.
+pub fn validate_signed_canonical_json_body(
+    content_encoding_present: bool,
+    body: &[u8],
+) -> Result<(), HttpMessageVerificationError> {
+    if content_encoding_present {
+        return Err(HttpMessageVerificationError::ContentEncodingNotAllowed);
+    }
+    arkret_canonical::canonical::validate_canonical_bytes(body)
+        .map_err(|error| HttpMessageVerificationError::NonCanonicalJson(error.to_string()))
+}
+
 // =====================================================================
 // Canonical message construction (RFC 9421 §2.5)
 // =====================================================================
@@ -1241,6 +1305,25 @@ mod tests {
             err,
             HttpMessageVerificationError::Signature(SignatureError::ContentDigestMismatch)
         );
+    }
+
+    #[test]
+    fn signed_json_preflight_rejects_content_encoding_and_noncanonical_bytes() {
+        assert_eq!(
+            validate_signed_canonical_json_body(true, br#"{"ok":true}"#).unwrap_err(),
+            HttpMessageVerificationError::ContentEncodingNotAllowed
+        );
+        for body in [
+            br#"{ "ok": true }"#.as_slice(),
+            br#"{"text":"e\u0301"}"#.as_slice(),
+            br#"{"text":"\u0061"}"#.as_slice(),
+        ] {
+            assert!(matches!(
+                validate_signed_canonical_json_body(false, body),
+                Err(HttpMessageVerificationError::NonCanonicalJson(_))
+            ));
+        }
+        validate_signed_canonical_json_body(false, "{\"text\":\"é\"}".as_bytes()).unwrap();
     }
 
     #[test]

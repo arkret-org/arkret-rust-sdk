@@ -244,7 +244,7 @@ mod salvo_router {
     use arkret_canonical::canonical;
     use arkret_signatures::http_signature::{
         SignatureVerificationPolicy, parse_signature_input, public_key_from_bytes,
-        verify_signed_http_message,
+        verify_signed_canonical_json_message,
     };
     use arkret_signatures::{
         DidVerificationMethodResolver, EventProofBuilder, ProofVerificationContext,
@@ -414,12 +414,13 @@ mod salvo_router {
             .map_err(|err| Error::Protocol(format!("source service verifying key: {err}")))?;
 
         let now = chrono::Utc::now().timestamp();
-        verify_signed_http_message(
+        verify_signed_canonical_json_message(
             &parts.method,
             &target_uri,
             &parts.authority,
             &parts.path,
             parts.headers.iter().map(|(n, v)| (n.as_str(), v.as_str())),
+            header_value(&parts.headers, "content-encoding").is_some(),
             &parts.body_bytes,
             &public_key,
             &SignatureVerificationPolicy::service_ingest(),

@@ -3,7 +3,7 @@
 //! Blob operation DTOs stay in the `arkret` umbrella; this module owns the
 //! encryption/key-reference half of the blob artifact.
 
-use arkret_wire::{Base64UrlString, BlobId, EventId, Hash};
+use arkret_wire::{Base64UrlString, BlobRef, EventId, Hash};
 use serde::{Deserialize, Serialize};
 
 /// Counterpart for
@@ -63,13 +63,14 @@ pub enum WholeFileEncryptionScheme {
 #[serde(rename_all = "snake_case")]
 pub enum WholeFileEncryptionAlgorithm {
     MlsExporterAeadXchacha20poly1305,
+    #[serde(rename = "mls_exporter_aead_aes_256_gcm")]
     MlsExporterAeadAes256Gcm,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WholeFileEncryptedAttachment {
-    pub blob_ref: BlobId,
+    pub blob_ref: BlobRef,
     pub encrypted: EncryptedAttachmentMarker,
     pub scheme: WholeFileEncryptionScheme,
     pub alg: WholeFileEncryptionAlgorithm,
@@ -91,13 +92,14 @@ pub enum StreamEncryptionScheme {
 #[serde(rename_all = "snake_case")]
 pub enum StreamEncryptionAlgorithm {
     MlsExporterAeadXchacha20poly1305Stream,
+    #[serde(rename = "mls_exporter_aead_aes_256_gcm_stream")]
     MlsExporterAeadAes256GcmStream,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StreamEncryptedAttachment {
-    pub blob_ref: BlobId,
+    pub blob_ref: BlobRef,
     pub encrypted: EncryptedAttachmentMarker,
     pub scheme: StreamEncryptionScheme,
     pub alg: StreamEncryptionAlgorithm,

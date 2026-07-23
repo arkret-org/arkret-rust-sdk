@@ -23,7 +23,6 @@ arkret-keystore = {workspace = true}
 arkret-models-identity = {workspace = true}
 arkret-signatures = {workspace = true,features = ["webvh"]}
 arkret-wire = {workspace = true}
-base64 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 ed25519-dalek = {workspace = true}
 serde = {workspace = true}

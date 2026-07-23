@@ -3,9 +3,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::base64url::base64url_encode;
 use arkret_wire::constants::{
-    ACCOUNT_DATA_TYPE_CONTACTS_REALM, ACCOUNT_DATA_TYPE_DRAFT, ACCOUNT_DATA_TYPE_FILE_TRANSFER,
-    ACCOUNT_DATA_TYPE_REMINDER, ACCOUNT_DATA_TYPE_SAVED, ACCOUNT_DATA_TYPE_SCHEDULED_SEND,
-    ACCOUNT_DATA_TYPE_SEARCH_INDEX_MANIFEST, ACCOUNT_DATA_TYPE_SNOOZE, FILE_TRANSFER_SCHEMA,
+    ACCOUNT_DATA_TYPE_CONTACTS_ACTOR, ACCOUNT_DATA_TYPE_CONTACTS_REALM, ACCOUNT_DATA_TYPE_DRAFT,
+    ACCOUNT_DATA_TYPE_FILE_TRANSFER, ACCOUNT_DATA_TYPE_REMINDER, ACCOUNT_DATA_TYPE_SAVED,
+    ACCOUNT_DATA_TYPE_SCHEDULED_SEND, ACCOUNT_DATA_TYPE_SEARCH_INDEX_MANIFEST,
+    ACCOUNT_DATA_TYPE_SNOOZE, FILE_TRANSFER_SCHEMA,
 };
 use arkret_wire::{
     BlobId, CallId, CircleId, DeviceId, Did, EffectiveScope, Error, Hash, Hlc, MessageId, RealmId,
@@ -1202,6 +1203,230 @@ pub struct RealmRemark {
 pub struct RealmRemarkAccountDataUpdate {
     pub key: String,
     pub remark: Option<RealmRemark>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContactRemarkSubject {
+    pub kind: String,
+    pub did: Did,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContactRemark {
+    pub version: u32,
+    pub subject: ContactRemarkSubject,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub local_name: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub note: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub pinned: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verified_handle_at_save: Option<String>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
+    pub saved_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+impl ContactRemark {
+    pub fn new(actor_did: Did, local_name: impl Into<String>, saved_at: DateTime<Utc>) -> Self {
+        Self {
+            version: 1,
+            subject: ContactRemarkSubject {
+                kind: "actor".to_owned(),
+                did: actor_did,
+            },
+            local_name: local_name.into(),
+            note: String::new(),
+            tags: Vec::new(),
+            pinned: false,
+            verified_handle_at_save: None,
+            saved_at,
+            updated_at: None,
+        }
+    }
+
+    pub fn with_pinned_preserving_fields(
+        actor_did: Did,
+        existing: Option<&Self>,
+        pinned: bool,
+        updated_at: DateTime<Utc>,
+    ) -> Self {
+        let mut next = existing
+            .cloned()
+            .unwrap_or_else(|| Self::new(actor_did.clone(), "", updated_at));
+        next.version = 1;
+        next.subject = ContactRemarkSubject {
+            kind: "actor".to_owned(),
+            did: actor_did,
+        };
+        next.pinned = pinned;
+        next.updated_at = Some(updated_at);
+        next
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.local_name.trim().is_empty()
+            && self.note.trim().is_empty()
+            && self.tags.is_empty()
+            && !self.pinned
+    }
+
+    pub fn display_name<'a>(&'a self, fallback: &'a str) -> &'a str {
+        let trimmed = self.local_name.trim();
+        if trimmed.is_empty() {
+            fallback
+        } else {
+            trimmed
+        }
+    }
+
+    pub fn validate_for_account_data_key(&self, key: &str) -> Result<()> {
+        let actor_did = parse_contact_remark_account_data_key(key)?;
+        if self.version != 1 {
+            return Err(Error::Protocol(
+                "contact remark version must be 1".to_owned(),
+            ));
+        }
+        if self.subject.kind != "actor" {
+            return Err(Error::Protocol(
+                "contact remark subject.kind must be actor".to_owned(),
+            ));
+        }
+        if self.subject.did != actor_did {
+            return Err(Error::Protocol(
+                "contact remark subject.did must match its account-data key".to_owned(),
+            ));
+        }
+        if self.local_name.chars().count() > 128 {
+            return Err(Error::Protocol(
+                "contact remark local_name exceeds 128 characters".to_owned(),
+            ));
+        }
+        if self.note.chars().count() > 4_096 {
+            return Err(Error::Protocol(
+                "contact remark note exceeds 4096 characters".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+pub fn contact_remark_account_data_key(actor_did: &Did) -> String {
+    format!("{ACCOUNT_DATA_TYPE_CONTACTS_ACTOR}.{actor_did}")
+}
+
+pub fn parse_contact_remark_account_data_key(key: &str) -> Result<Did> {
+    let raw = key
+        .strip_prefix(&format!("{ACCOUNT_DATA_TYPE_CONTACTS_ACTOR}."))
+        .ok_or_else(|| Error::Protocol("invalid contact remark account-data key".to_owned()))?;
+    Ok(Did::new(raw.to_owned())?)
+}
+
+pub const ACCOUNT_DATA_BLOCKLIST: &str = "ak.account.blocklist";
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountBlocklistPayload {
+    pub version: u32,
+    #[serde(default)]
+    pub entries: Vec<AccountBlocklistPayloadEntry>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountBlocklistPayloadEntry {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entry_id: Option<arkret_wire::NonEmptyString>,
+    pub target: AccountBlocklistTarget,
+    pub mode: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub applies_to: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<arkret_wire::NonEmptyString>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
+    pub created_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountBlocklistTarget {
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub did: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub object_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<arkret_wire::NonEmptyString>,
+}
+
+impl AccountBlocklistPayload {
+    pub fn validate(&self) -> Result<()> {
+        if self.version != 1 {
+            return Err(Error::Protocol(
+                "account blocklist version must be 1".to_owned(),
+            ));
+        }
+        for entry in &self.entries {
+            entry.validate()?;
+        }
+        Ok(())
+    }
+}
+
+impl AccountBlocklistPayloadEntry {
+    pub fn validate(&self) -> Result<()> {
+        if !matches!(self.mode.as_str(), "block" | "mute" | "hide") {
+            return Err(Error::Protocol(
+                "account blocklist mode must be block, mute, or hide".to_owned(),
+            ));
+        }
+        let target_count = usize::from(self.target.did.is_some())
+            + usize::from(self.target.object_ref.is_some())
+            + usize::from(self.target.value.is_some());
+        if target_count != 1 {
+            return Err(Error::Protocol(
+                "account blocklist target must contain exactly one identifier".to_owned(),
+            ));
+        }
+        if !matches!(
+            self.target.kind.as_str(),
+            "actor"
+                | "device"
+                | "service"
+                | "handle"
+                | "domain"
+                | "organization"
+                | "applet"
+                | "keyword"
+        ) {
+            return Err(Error::Protocol(
+                "account blocklist target.kind is not recognized".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 impl RealmRemark {

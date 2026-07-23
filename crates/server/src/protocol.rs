@@ -145,7 +145,7 @@ pub enum ServerOutcome {
     DirectorySearchUsers(DirectoryUserSearchOutcome),
     DirectoryResolveHandle(Box<DirectoryHandleResolutionOutcome>),
     BlobUpload(BlobUploadOutcome),
-    BlobHead(BlobMetadata),
+    BlobHead(Blob),
     BlobBytes(Vec<u8>),
     PushRegisterDevice(PushRegisterDeviceOutcome),
     Ok(OkOutcome),

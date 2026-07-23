@@ -6,7 +6,7 @@ pub use arkret_models_crypto::encrypted_attachment::{
     StreamEncryptionAlgorithm, StreamEncryptionScheme, WholeFileEncryptedAttachment,
     WholeFileEncryptionAlgorithm, WholeFileEncryptionScheme,
 };
-use arkret_wire::{BlobId, BlobRef, Did, Hash, RealmId};
+use arkret_wire::{BlobRef, Did, Hash, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -42,7 +42,7 @@ pub struct UploadReceipt {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Blob {
-    pub blob_ref: BlobId,
+    pub blob_ref: BlobRef,
     pub schema: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
@@ -54,7 +54,7 @@ pub struct Blob {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encryption: Option<EncryptedAttachment>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub thumbnail_blob_ref: Option<BlobId>,
+    pub thumbnail_blob_ref: Option<BlobRef>,
     pub created_by: Did,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
@@ -70,6 +70,11 @@ pub struct Blob {
     )]
     pub updated_at: Option<DateTime<Utc>>,
 }
+
+/// Compatibility name for consumers that historically imported blob metadata
+/// from an unrelated model module. This is an alias to the single canonical
+/// [`Blob`] wire model, not a second DTO.
+pub type BlobMetadata = Blob;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]

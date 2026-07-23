@@ -25,6 +25,7 @@
 //!     None,
 //!     BackupClass::SecretStorage,
 //!     "kb_1",
+//!     "recovery_vault",
 //!     &kek,
 //!     br#"{"recovery":"..."}"#,
 //!     &[("recovery_secret", None)],
@@ -164,6 +165,99 @@ pub struct VaultCiphertext {
     pub digest_sha256: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SecretStorageCiphertext {
+    pub ciphertext_b64: String,
+    pub nonce_b64: String,
+    pub digest_sha256: String,
+}
+
+/// Derive a named device-local secret-storage wrap key from recoverable root
+/// material. The key id is part of the HKDF info so sibling secret-storage
+/// purposes cannot reuse the same AEAD key.
+pub fn derive_secret_storage_key(root: &[u8], key_id: &str) -> Result<[u8; 32]> {
+    if root.is_empty() || key_id.trim().is_empty() {
+        return Err(KeyBackupError::InvalidInput(
+            "secret-storage root and key id must be non-empty".to_owned(),
+        ));
+    }
+    let hkdf = Hkdf::<Sha256>::new(None, root);
+    let mut key = [0u8; 32];
+    hkdf.expand(
+        format!("arkret-secret-storage/{key_id}/v1").as_bytes(),
+        &mut key,
+    )
+    .map_err(|error| KeyBackupError::Kdf(format!("secret-storage hkdf: {error}")))?;
+    Ok(key)
+}
+
+/// Encrypt a `secret_storage_key` recipient envelope with a fresh random
+/// XChaCha20-Poly1305 nonce and the canonical domain-separation AAD.
+pub fn encrypt_with_secret_storage_key(
+    wrap_key: &[u8; 32],
+    binding: &VaultBinding,
+    plaintext: &[u8],
+) -> Result<SecretStorageCiphertext> {
+    let mut nonce = [0u8; VAULT_NONCE_LEN];
+    fill(&mut nonce).map_err(|error| KeyBackupError::Rng(format!("nonce rng: {error}")))?;
+    let mut aead_key = binding.subkey(wrap_key, &binding.subdomain);
+    let cipher = XChaCha20Poly1305::new((&aead_key).into());
+    let ciphertext = cipher
+        .encrypt(
+            &XNonce::from(nonce),
+            Payload {
+                msg: plaintext,
+                aad: &binding.aad()?,
+            },
+        )
+        .map_err(|error| KeyBackupError::Aead(format!("secret-storage encrypt: {error}")))?;
+    aead_key.zeroize();
+    Ok(SecretStorageCiphertext {
+        ciphertext_b64: base64url_encode(&ciphertext),
+        nonce_b64: base64url_encode(nonce),
+        digest_sha256: sha256_digest(&ciphertext),
+    })
+}
+
+pub fn decrypt_with_secret_storage_key(
+    wrap_key: &[u8; 32],
+    binding: &VaultBinding,
+    nonce_b64: &str,
+    ciphertext_b64: &str,
+    ciphertext_digest: &str,
+) -> Result<Zeroizing<Vec<u8>>> {
+    let nonce = base64url_decode(nonce_b64.trim_end_matches('='))
+        .map_err(|error| KeyBackupError::Encoding(format!("nonce base64: {error}")))?;
+    let nonce: [u8; VAULT_NONCE_LEN] = nonce
+        .try_into()
+        .map_err(|_| KeyBackupError::Encoding("nonce must be 24 bytes".to_owned()))?;
+    let ciphertext = base64url_decode(ciphertext_b64.trim_end_matches('='))
+        .map_err(|error| KeyBackupError::Encoding(format!("ciphertext base64: {error}")))?;
+    if sha256_digest(&ciphertext) != ciphertext_digest {
+        return Err(KeyBackupError::InvalidInput(
+            "secret-storage ciphertext_digest mismatch".to_owned(),
+        ));
+    }
+    let mut aead_key = binding.subkey(wrap_key, &binding.subdomain);
+    let cipher = XChaCha20Poly1305::new((&aead_key).into());
+    let plaintext = cipher
+        .decrypt(
+            &XNonce::from(nonce),
+            Payload {
+                msg: &ciphertext,
+                aad: &binding.aad()?,
+            },
+        )
+        .map(Zeroizing::new)
+        .map_err(|_| {
+            KeyBackupError::Aead(
+                "secret-storage decrypt failed: wrong key or corrupt ciphertext".to_owned(),
+            )
+        });
+    aead_key.zeroize();
+    plaintext
+}
+
 /// Stretch a user passphrase into a 32-byte key under Argon2id with a
 /// fresh random salt. Returns the KEK alongside the salt so the caller
 /// can store the salt as backup metadata.
@@ -208,6 +302,8 @@ pub fn derive_vault_kek_with_salt(
 #[derive(Clone, Debug)]
 pub struct VaultBinding {
     pub backup_id: BackupId,
+    /// Domain-separation subdomain from the persisted envelope.
+    pub subdomain: String,
     /// Exact persisted AAD object. Encryption and decryption canonicalize this
     /// value directly instead of reconstructing a parallel field set.
     pub aead_aad: KeyBackupDomainSeparationAad,
@@ -331,7 +427,7 @@ pub fn encrypt_vault_with_nonce_salt(
 ) -> Result<VaultCiphertext> {
     let nonce_salt_b64 = base64url_encode(nonce_salt);
 
-    let mut aead_key = binding.subkey(&kek.key, "aead");
+    let mut aead_key = binding.subkey(&kek.key, &binding.subdomain);
     let cipher = XChaCha20Poly1305::new((&aead_key).into());
     let nonce_bytes = binding.derive_nonce(&kek.key, &nonce_salt_b64)?;
     let nonce = XNonce::from(nonce_bytes);
@@ -399,7 +495,7 @@ pub fn decrypt_vault(
         ));
     }
 
-    let mut aead_key = binding.subkey(&kek.key, "aead");
+    let mut aead_key = binding.subkey(&kek.key, &binding.subdomain);
     let cipher = XChaCha20Poly1305::new((&aead_key).into());
     let aad = binding.aad()?;
     let nonce = XNonce::from(nonce_array);
@@ -419,6 +515,108 @@ pub fn decrypt_vault(
         });
     aead_key.zeroize();
     plaintext
+}
+
+/// Open a typed `passphrase_kdf` key-backup envelope and enforce every
+/// producer/receiver invariant owned by the SDK: recipient method, ciphertext
+/// digest, key commitment, deterministic nonce, domain binding, and AEAD tag.
+pub fn decrypt_key_backup_envelope(
+    passphrase: &[u8],
+    envelope: &KeyBackup,
+) -> Result<Zeroizing<Vec<u8>>> {
+    if envelope.encryption.recipient_method != KeyBackupRecipientMethod::PassphraseKdf {
+        return Err(KeyBackupError::InvalidInput(
+            "key backup is not a passphrase_kdf envelope".to_owned(),
+        ));
+    }
+    let domain = &envelope.domain_separation;
+    let aad = &domain.aead_aad;
+    if domain.subdomain.trim().is_empty()
+        || domain.hkdf_info != envelope.backup_class.hkdf_info(&domain.subdomain)
+    {
+        return Err(KeyBackupError::InvalidInput(
+            "key backup domain separation mismatch".to_owned(),
+        ));
+    }
+    let device_id = envelope
+        .device_id
+        .as_ref()
+        .map(|device_id| device_id.as_str());
+    let item_types = envelope
+        .contents
+        .iter()
+        .map(|item| item.item_type.as_str())
+        .collect::<Vec<_>>();
+    if aad.schema != VAULT_SCHEMA_ID
+        || aad.actor_id != envelope.actor_id
+        || aad.device_id.as_deref() != device_id
+        || aad.backup_class != envelope.backup_class
+        || aad.backup_version != envelope.backup_version
+        || aad.created_at != envelope.created_at
+        || aad
+            .item_types
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>()
+            != item_types
+        || aad.recipient_method != Some(envelope.encryption.recipient_method)
+        || aad.recipient_key_ref != envelope.encryption.recipient_key_ref
+    {
+        return Err(KeyBackupError::InvalidInput(
+            "key backup authenticated metadata mismatch".to_owned(),
+        ));
+    }
+    let kdf = envelope.encryption.kdf.as_ref().ok_or_else(|| {
+        KeyBackupError::InvalidInput("passphrase_kdf envelope is missing kdf".to_owned())
+    })?;
+    let salt = kdf.salt.as_str();
+    let nonce =
+        envelope.encryption.aead.nonce.as_ref().ok_or_else(|| {
+            KeyBackupError::InvalidInput("key backup is missing nonce".to_owned())
+        })?;
+    let nonce_salt = envelope
+        .encryption
+        .aead
+        .nonce_salt
+        .as_ref()
+        .ok_or_else(|| {
+            KeyBackupError::InvalidInput("key backup is missing nonce_salt".to_owned())
+        })?;
+    let ciphertext = base64url_decode(envelope.ciphertext.trim_end_matches('='))
+        .map_err(|error| KeyBackupError::Encoding(format!("ciphertext base64: {error}")))?;
+    let actual_digest = sha256_digest(&ciphertext);
+    if actual_digest != envelope.ciphertext_digest {
+        return Err(KeyBackupError::InvalidInput(
+            "key backup ciphertext_digest mismatch".to_owned(),
+        ));
+    }
+    let salt_bytes = base64url_decode(salt.trim_end_matches('='))
+        .map_err(|error| KeyBackupError::Encoding(format!("salt base64: {error}")))?;
+    let salt_array: [u8; VAULT_SALT_LEN] = salt_bytes
+        .try_into()
+        .map_err(|_| KeyBackupError::Encoding(format!("salt must be {VAULT_SALT_LEN} bytes")))?;
+    let kek = derive_vault_kek_with_salt(passphrase, &salt_array)?;
+    let expected_commitment = format!(
+        "sha256:{}",
+        sha256_hex(commitment_digest(&kek.key, envelope.backup_class))
+    );
+    if envelope.encryption.key_commitment.as_deref() != Some(expected_commitment.as_str()) {
+        return Err(KeyBackupError::InvalidInput(
+            "key backup key_commitment mismatch".to_owned(),
+        ));
+    }
+    decrypt_vault(
+        passphrase,
+        &VaultBinding {
+            backup_id: envelope.backup_id.clone(),
+            subdomain: envelope.domain_separation.subdomain.clone(),
+            aead_aad: envelope.domain_separation.aead_aad.clone(),
+        },
+        salt,
+        nonce.as_str(),
+        nonce_salt.as_str(),
+        &envelope.ciphertext,
+    )
 }
 
 /// Generate a fresh Recovery Key as a human-readable string of
@@ -514,6 +712,7 @@ pub fn build_key_backup_envelope(
     device_id: Option<DeviceId>,
     backup_class: BackupClass,
     backup_version: &str,
+    subdomain: &str,
     kek: &VaultKek,
     plaintext: &[u8],
     contents: &[(&str, Option<&str>)],
@@ -528,6 +727,11 @@ pub fn build_key_backup_envelope(
         return Err(KeyBackupError::InvalidInput(format!(
             "backup_version must match the kb_<id> pattern (got {backup_version:?})"
         )));
+    }
+    if subdomain.trim().is_empty() {
+        return Err(KeyBackupError::InvalidInput(
+            "key backup subdomain must not be empty".to_owned(),
+        ));
     }
 
     // Truncate to whole seconds so the binding's canonical timestamp
@@ -547,12 +751,13 @@ pub fn build_key_backup_envelope(
             .map(|(item_type, _)| (*item_type).to_owned())
             .collect(),
         managed_principal_bindings: Vec::new(),
-        recipient_method: None,
+        recipient_method: Some(KeyBackupRecipientMethod::PassphraseKdf),
         recipient_key_ref: None,
         extra: Default::default(),
     };
     let binding = VaultBinding {
         backup_id: backup_id.clone(),
+        subdomain: subdomain.to_owned(),
         aead_aad: aead_aad.clone(),
     };
     let ciphertext = encrypt_vault(kek, &binding, plaintext)?;
@@ -600,8 +805,8 @@ pub fn build_key_backup_envelope(
         extra: Default::default(),
     };
     let domain_separation = KeyBackupDomainSeparation {
-        hkdf_info: backup_class.hkdf_info("aead"),
-        subdomain: "aead".to_owned(),
+        hkdf_info: backup_class.hkdf_info(subdomain),
+        subdomain: subdomain.to_owned(),
         aead_aad,
         extra: Default::default(),
     };
@@ -696,6 +901,7 @@ pub fn build_key_backup_successor_envelope(
         predecessor.device_id.clone(),
         predecessor.backup_class,
         backup_version,
+        &predecessor.domain_separation.subdomain,
         kek,
         plaintext,
         contents,
@@ -845,6 +1051,7 @@ mod tests {
             backup_id: "ak:backup:01964137-0000-7000-8000-000000000000"
                 .parse()
                 .unwrap(),
+            subdomain: "aead".to_owned(),
             aead_aad: KeyBackupDomainSeparationAad {
                 schema: VAULT_SCHEMA_ID.to_owned(),
                 actor_id: "did:webvh:alice.example".parse().unwrap(),
@@ -1020,6 +1227,7 @@ mod tests {
             None,
             BackupClass::SecretStorage,
             "kb_1",
+            "recovery_vault",
             &kek,
             b"hello",
             &[("recovery_secret", Some("vault_payload"))],
@@ -1061,6 +1269,7 @@ mod tests {
             None,
             BackupClass::SecretStorage,
             "kb_1",
+            "account_keys",
             &kek,
             plaintext,
             &[("self_signing_key", Some("self_signing_key"))],
@@ -1069,6 +1278,7 @@ mod tests {
         let aead = &envelope.encryption.aead;
         let binding = VaultBinding {
             backup_id: envelope.backup_id.clone(),
+            subdomain: envelope.domain_separation.subdomain.clone(),
             aead_aad: envelope.domain_separation.aead_aad.clone(),
         };
         let recovered = decrypt_vault(
@@ -1084,6 +1294,33 @@ mod tests {
     }
 
     #[test]
+    fn secret_storage_encryption_round_trips_and_binds_digest() {
+        let binding = test_binding(BackupClass::MlsHistory, "mls_group_state");
+        let key =
+            derive_secret_storage_key(b"account secret", "mls_group_secrets_backup_key").unwrap();
+        let sealed = encrypt_with_secret_storage_key(&key, &binding, b"snapshot").unwrap();
+        let opened = decrypt_with_secret_storage_key(
+            &key,
+            &binding,
+            &sealed.nonce_b64,
+            &sealed.ciphertext_b64,
+            &sealed.digest_sha256,
+        )
+        .unwrap();
+        assert_eq!(*opened, b"snapshot");
+
+        let error = decrypt_with_secret_storage_key(
+            &key,
+            &binding,
+            &sealed.nonce_b64,
+            &sealed.ciphertext_b64,
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("ciphertext_digest mismatch"));
+    }
+
+    #[test]
     fn successor_envelope_binds_predecessor_and_frontier() {
         let kek = derive_vault_kek_with_salt(b"pp", &[5u8; VAULT_SALT_LEN]).unwrap();
         let genesis = build_key_backup_envelope(
@@ -1094,6 +1331,7 @@ mod tests {
             None,
             BackupClass::SecretStorage,
             "kb_1",
+            "recovery_vault",
             &kek,
             b"genesis",
             &[("recovery_secret", Some("genesis"))],
@@ -1144,6 +1382,7 @@ mod tests {
             None,
             BackupClass::SecretStorage,
             "1",
+            "recovery_vault",
             &kek,
             b"x",
             &[],
@@ -1163,6 +1402,7 @@ mod tests {
             None,
             BackupClass::MlsHistory,
             "kb_1",
+            "mls_snapshot",
             &kek,
             b"x",
             &[("mls_group_state", Some("snapshot"))],
@@ -1190,6 +1430,7 @@ mod tests {
             None,
             BackupClass::SecretStorage,
             DEFAULT_BACKUP_VERSION,
+            "account_keys",
             &kek,
             b"{\"private_account_state\":\"fixture-plaintext\"}",
             &[("private_account_state", None)],
@@ -1204,6 +1445,7 @@ mod tests {
 
         let sealed_aad = VaultBinding {
             backup_id: envelope.backup_id.clone(),
+            subdomain: envelope.domain_separation.subdomain.clone(),
             aead_aad: envelope.domain_separation.aead_aad.clone(),
         }
         .aad()

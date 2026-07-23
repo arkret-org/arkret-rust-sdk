@@ -21,9 +21,6 @@ salvo = ["arkret-wire/salvo-oapi", "arkret-identifiers/salvo"]
 arkret-canonical = {workspace = true}
 arkret-identifiers = {workspace = true}
 arkret-wire = {workspace = true}
-chrono = {workspace = true,features = ["serde"]}
-getrandom = {workspace = true}
-serde = {workspace = true}
 thiserror = {workspace = true}
 
 [dev-dependencies]

@@ -83,6 +83,7 @@ fn run_kat(kat: &Value) {
         backup_id: str_field(binding_json, "backup_id")
             .parse()
             .expect("backup_id parses"),
+        subdomain: "aead".to_owned(),
         aead_aad: KeyBackupDomainSeparationAad {
             schema: "ak.schema.key_backup.v1".to_owned(),
             actor_id: str_field(binding_json, "actor_id")

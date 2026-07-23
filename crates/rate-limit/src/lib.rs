@@ -1,6 +1,6 @@
 //! Framework-independent, capacity-bounded rate-limit mechanisms shared by Arkret services.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -58,12 +58,14 @@ struct TokenBucket {
 
 struct TokenBucketState<K> {
     buckets: HashMap<K, TokenBucket>,
+    insertion_order: VecDeque<K>,
 }
 
 impl<K> Default for TokenBucketState<K> {
     fn default() -> Self {
         Self {
             buckets: HashMap::new(),
+            insertion_order: VecDeque::new(),
         }
     }
 }
@@ -88,12 +90,17 @@ where
     pub fn check(&self, key: K) -> Result<(), RateLimitRejection<K>> {
         let now = Instant::now();
         let mut state = self.state.lock().unwrap_or_else(|error| error.into_inner());
-        evict_oldest_if_full(
+        let state = &mut *state;
+        evict_fifo_if_full(
             &mut state.buckets,
+            &mut state.insertion_order,
             &key,
             self.config.max_entries,
-            |bucket| bucket.touched_at,
         );
+        let is_new = !state.buckets.contains_key(&key);
+        if is_new {
+            state.insertion_order.push_back(key.clone());
+        }
         let bucket = state.buckets.entry(key.clone()).or_insert(TokenBucket {
             tokens: f64::from(self.config.burst),
             touched_at: now,
@@ -139,18 +146,18 @@ where
 struct FixedWindow {
     count: u64,
     started_at: Instant,
-    touched_at: Instant,
-    expires_at: Instant,
 }
 
 struct FixedWindowState<K> {
     windows: HashMap<K, FixedWindow>,
+    insertion_order: VecDeque<K>,
 }
 
 impl<K> Default for FixedWindowState<K> {
     fn default() -> Self {
         Self {
             windows: HashMap::new(),
+            insertion_order: VecDeque::new(),
         }
     }
 }
@@ -198,6 +205,7 @@ where
     {
         let now = Instant::now();
         let mut state = self.state.lock().unwrap_or_else(|error| error.into_inner());
+        let state = &mut *state;
         let mut staged = HashMap::<K, (FixedWindow, usize)>::new();
 
         for (key, units, config) in checks {
@@ -208,15 +216,11 @@ where
                 .unwrap_or(FixedWindow {
                     count: 0,
                     started_at: now,
-                    touched_at: now,
-                    expires_at: now.checked_add(config.window).unwrap_or(now),
                 });
             if now.duration_since(window.started_at) >= config.window {
                 window.count = 0;
                 window.started_at = now;
             }
-            window.touched_at = now;
-            window.expires_at = window.started_at.checked_add(config.window).unwrap_or(now);
             if window.count.saturating_add(units) > config.max_requests {
                 return Err(RateLimitRejection {
                     key,
@@ -229,12 +233,18 @@ where
             staged.insert(key, (window, config.max_entries));
         }
 
-        state.windows.retain(|_, window| window.expires_at > now);
         for (key, (window, max_entries)) in staged {
-            evict_oldest_if_full(&mut state.windows, &key, max_entries, |entry| {
-                entry.touched_at
-            });
-            state.windows.insert(key, window);
+            evict_fifo_if_full(
+                &mut state.windows,
+                &mut state.insertion_order,
+                &key,
+                max_entries,
+            );
+            let is_new = !state.windows.contains_key(&key);
+            state.windows.insert(key.clone(), window);
+            if is_new {
+                state.insertion_order.push_back(key);
+            }
         }
         Ok(())
     }
@@ -248,24 +258,21 @@ where
     }
 }
 
-fn evict_oldest_if_full<K, V, F>(
+fn evict_fifo_if_full<K, V>(
     entries: &mut HashMap<K, V>,
+    insertion_order: &mut VecDeque<K>,
     incoming_key: &K,
     max_entries: usize,
-    touched_at: F,
 ) where
     K: Clone + Eq + Hash,
-    F: Fn(&V) -> Instant,
 {
     if entries.len() < max_entries || entries.contains_key(incoming_key) {
         return;
     }
-    if let Some(oldest) = entries
-        .iter()
-        .min_by_key(|(_, value)| touched_at(value))
-        .map(|(key, _)| key.clone())
-    {
-        entries.remove(&oldest);
+    while let Some(oldest) = insertion_order.pop_front() {
+        if entries.remove(&oldest).is_some() {
+            break;
+        }
     }
 }
 

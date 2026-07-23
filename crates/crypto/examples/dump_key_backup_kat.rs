@@ -42,6 +42,7 @@ fn main() {
             serde_json::from_value(binding_json["backup_class"].clone()).unwrap();
         let binding = VaultBinding {
             backup_id: string(binding_json, "backup_id").parse().unwrap(),
+            subdomain: "aead".to_owned(),
             aead_aad: KeyBackupDomainSeparationAad {
                 schema: VAULT_SCHEMA_ID.to_owned(),
                 actor_id: string(binding_json, "actor_id").parse().unwrap(),
