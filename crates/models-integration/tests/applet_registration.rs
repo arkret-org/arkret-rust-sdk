@@ -2,8 +2,8 @@ use arkret_canonical as canonical;
 use arkret_models_identity::DidDocument;
 use arkret_models_integration::{
     AppletDidMethodVersionEvidence, AppletEndpointAuth, AppletEndpointEntry, AppletEndpointMethod,
-    AppletInstallAppletId, AppletInstallPlan, AppletNamespaceEntry, AppletPackage,
-    AppletRegistrationEpochEvidence, AppletWireNamespaces, E2eeEffect, WebhookAuth,
+    AppletInstallAppletId, AppletInstallPlan, AppletNamespaceDomain, AppletNamespaceEntry,
+    AppletPackage, AppletRegistrationEpochEvidence, AppletWireNamespaces, E2eeEffect, WebhookAuth,
     WebhookSignatureAlg, WidgetEffect, WireAppletRegistration, sign_registration,
 };
 use arkret_wire::move_event::Move;
@@ -61,6 +61,45 @@ fn sample_wire_registration() -> WireAppletRegistration {
         },
         sample_epoch(),
     )
+}
+
+#[test]
+fn exclusive_namespace_claims_conflict_only_within_the_same_domain() {
+    let exclusive_pattern = AppletWireNamespaces {
+        actors: vec![AppletNamespaceEntry::exclusive(
+            "did:webvh:z6mkfixture:slack-bridge.example:ghost:*",
+        )],
+        ..Default::default()
+    };
+    let exclusive_concrete = AppletWireNamespaces {
+        actors: vec![AppletNamespaceEntry::exclusive(
+            "did:webvh:z6mkfixture:slack-bridge.example:ghost:u1",
+        )],
+        ..Default::default()
+    };
+    let conflicts = exclusive_pattern.conflicts_with(&exclusive_concrete);
+    assert_eq!(conflicts.len(), 1);
+    assert_eq!(conflicts[0].domain, AppletNamespaceDomain::Actors);
+
+    let shared_pattern = AppletWireNamespaces {
+        actors: vec![AppletNamespaceEntry::shared(
+            "did:webvh:z6mkfixture:slack-bridge.example:ghost:*",
+        )],
+        ..Default::default()
+    };
+    let shared_concrete = AppletWireNamespaces {
+        actors: vec![AppletNamespaceEntry::shared(
+            "did:webvh:z6mkfixture:slack-bridge.example:ghost:u1",
+        )],
+        ..Default::default()
+    };
+    assert!(shared_pattern.conflicts_with(&shared_concrete).is_empty());
+
+    let realm_only = AppletWireNamespaces {
+        realms: vec![AppletNamespaceEntry::exclusive("slack:team:*")],
+        ..Default::default()
+    };
+    assert!(exclusive_pattern.conflicts_with(&realm_only).is_empty());
 }
 
 fn package_with_required_fields() -> AppletPackage {
