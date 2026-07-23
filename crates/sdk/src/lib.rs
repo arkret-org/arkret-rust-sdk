@@ -155,6 +155,7 @@ pub use arkret_models_collaboration::events_payloads::object_create::*;
 pub use arkret_models_collaboration::events_payloads::preview_realm_reaction::*;
 pub use arkret_models_collaboration::events_payloads::strand_history_join::*;
 pub use arkret_models_collaboration::events_payloads::strand_ops::*;
+pub use arkret_models_collaboration::federation;
 pub use arkret_models_collaboration::federation::wire_dtos::*;
 pub use arkret_models_collaboration::governance::accountability::{
     ACCOUNTABILITY_GRANT_SCHEMA, AccountabilityGrantPayload, AccountabilityGrantStatus,
@@ -301,9 +302,9 @@ pub use arkret_models_integration::applet_models::*;
 pub use arkret_models_integration::artifacts_applet::*;
 pub use arkret_models_integration::http_bodies::*;
 pub use arkret_models_integration::http_params::*;
-pub use arkret_models_integration::integration;
 pub use arkret_models_integration::integration::*;
 pub use arkret_models_integration::models_push::*;
+pub use arkret_models_integration::{integration, push};
 pub use arkret_policy::authz::*;
 pub use arkret_policy::blind_payload_sanitizer::*;
 pub use arkret_policy::generated::profiles::{
@@ -423,12 +424,6 @@ pub use arkret_crypto::blob_aead;
 pub mod crypto;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub mod devices;
-#[cfg(feature = "full-surface")]
-#[cfg(feature = "full-surface")]
-pub mod e2ee;
-#[cfg(feature = "full-surface")]
-pub mod federation;
-pub mod fixtures;
 pub use arkret_hlc as hlc;
 pub use arkret_signatures::dpop;
 // Realm Recovery Key (RRK) durable history sealing — provider-initiated
@@ -454,10 +449,6 @@ pub mod history_recovery;
     not(target_arch = "wasm32")
 ))]
 pub use arkret_http_client::http_did_resolver;
-#[cfg(feature = "full-surface")]
-pub use arkret_signatures::http_signature;
-#[cfg(feature = "full-surface")]
-pub mod identity_link;
 /// RFC 7515 detached Ed25519 JWS verifier (see [`jws`] module docs).
 /// Lives at the SDK root so principal-server-style consumers (inkson,
 /// floria, cotest, teabay, soland) all reach the same verifier. Depends
@@ -470,6 +461,8 @@ pub mod identity_link;
     feature = "client"
 ))]
 pub use arkret_http_client::key_backup_client;
+#[cfg(feature = "full-surface")]
+pub use arkret_signatures::http_signature;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub mod key_verification;
 // `secret_share` moved to `arkret-crypto` (HPKE base-mode seal). Re-exported
@@ -484,8 +477,6 @@ pub use arkret_crypto::secret_share;
 pub use arkret_lattice_registry as lattice_registry;
 #[cfg(feature = "full-surface")]
 pub mod media;
-#[cfg(feature = "full-surface")]
-pub mod membership;
 // The MLS (RFC 9420) behavior layer lives in the standalone `arkret-mls` crate
 // (the sole OpenMLS boundary). Keep the `arkret::mls::*` path stable by
 // re-exporting it here under the same feature gate it always carried.
@@ -493,8 +484,6 @@ pub mod membership;
 pub mod mls {
     pub use arkret_mls::*;
 }
-#[cfg(feature = "full-surface")]
-pub mod push;
 #[cfg(feature = "full-surface")]
 pub use arkret_crypto::sframe;
 #[cfg(feature = "full-surface")]
@@ -608,25 +597,6 @@ pub use devices::{
     build_device_authorize_event_at, cross_signing_publish_cell_subject,
     device_verification_commitment, verify_device_cross_signing_chain,
 };
-#[cfg(feature = "full-surface")]
-#[cfg(feature = "full-surface")]
-pub use e2ee::{
-    AuditAction, AuditEntry, E2eeGroup, E2eeKeyBackup, E2eeKeyRecord, E2eeManager, E2eeMessage,
-    E2eeMessageValidation, E2eeMessageValidationFailure,
-};
-#[cfg(feature = "full-surface")]
-pub use federation::{
-    FederationBackfillAuthorization, FederationManager, FederationQuarantineKind,
-    FederationQuarantineRecord, FederationReplayDecision, FederationReplayRecord,
-    FederationReplayStore, FederationTransactionEnvelope, ServerInfo, ServiceEndpointDescriptor,
-    SovereignDeployment, VerifyActorChallenge, VerifyActorChallengeSignature,
-    WellKnownArkretServer, content_digest_sha256, did_document_service_endpoint_matches,
-    duplicate_transaction_quarantine, fork_quarantine_record,
-};
-pub use fixtures::{
-    CANONICAL_FIXTURE_DEFAULT_KIND, CanonicalFixtureBuilder, CanonicalFixtureSuite,
-    CanonicalFixtureVector,
-};
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use history_recovery::{
     RRK_SERVICE_DOMAIN, RRK_SERVICE_TYPE, RealmHistoryRecoveryKeyError,
@@ -660,8 +630,6 @@ pub use identity::{
     verify_canonical_proof_with_did_resolver, verify_did_key_log,
     verify_event_proof_with_did_resolver, verify_event_proof_with_did_resolver_context,
 };
-#[cfg(feature = "full-surface")]
-pub use identity_link::{IdentityLinkCache, VerifiedLinkCacheEntry};
 #[cfg(all(
     feature = "full-surface",
     feature = "device-runtime",
@@ -684,19 +652,8 @@ pub use media::{
 };
 #[cfg(all(feature = "full-surface", feature = "client"))]
 pub use media::{MediaClient, VerifiedCallMediaTokenExchange, VerifiedMediaIceConfig};
-#[cfg(feature = "full-surface")]
-pub use membership::{
-    Invite, Member, MemberChange, MemberProfile, MemberRole, MembershipManager,
-    MembershipPayloadState, ThirdPartyInvite, is_legal_membership_transition,
-};
 #[cfg(all(feature = "full-surface", feature = "mls"))]
 pub use mls::*;
-#[cfg(feature = "full-surface")]
-pub use push::{
-    CHIME_PUSH_REGISTRATION_VERSION, ChimePushRegistration, DndPeriod, DndSchedule, DndSettings,
-    EncryptedPushPayload, PushCondition, PushEventNotification, PushGateway, PushPayload,
-    PushPlatform, PushPriority, PushPrivacyPolicy, PushRule, PushRulesConfig, PushToken,
-};
 #[cfg(feature = "full-surface")]
 pub use resolver::{
     REDUCER_SNAPSHOT_PROFILE, REDUCER_SNAPSHOT_SCHEMA, RealmState, ReducerSnapshotManifest,
