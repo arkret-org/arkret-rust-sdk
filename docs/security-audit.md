@@ -76,9 +76,7 @@ This SDK audit checklist is intended for release review.
 - Re-run protocol conformance vectors.
 - Review the coverage list below and confirm each non-external area still has
   live tests or conformance vectors.
-- Validate downstream-reported feature strings with `feature_safety_report(...)`.
-  Scope note: this API checks self-reported feature strings (describe/manifest
-  payloads), not this SDK's own build — Cargo's feature graph plus the
+- Validate the supported Cargo feature matrix. Cargo's feature graph plus the
   `compile_error!` guards in `crates/sdk/src/lib.rs` are the compile-time gate
   for the SDK's own feature combinations.
 

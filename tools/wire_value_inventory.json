@@ -49,7 +49,7 @@
       "rust_field": "crates/crypto/src/aead_nonce.rs::AeadNonceContext.key_ref",
       "crate": "crypto",
       "file": "crates/crypto/src/aead_nonce.rs",
-      "line": 32,
+      "line": 41,
       "owner": "AeadNonceContext",
       "field": "key_ref",
       "rust_type": "Value",

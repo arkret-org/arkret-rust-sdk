@@ -52,9 +52,7 @@
 // `salvo = ["server", ...]`, `*-runtime = ["full-surface"]`), so the guards
 // below are unreachable. They exist as zero-cost regression armour: if a
 // future Cargo.toml edit drops one of the implications, the build fails here
-// instead of shipping a reviewed-unsafe feature combination. The runtime
-// `feature_safety_report` in `crypto.rs` is NOT this gate — its scope is
-// validating feature strings that downstream services self-report.
+// instead of shipping a reviewed-unsafe feature combination.
 // ---------------------------------------------------------------------------
 #[cfg(all(feature = "mls", not(feature = "full-surface")))]
 compile_error!("feature `mls` requires `full-surface` (see crates/sdk/Cargo.toml feature graph)");
@@ -87,6 +85,7 @@ pub use arkret_canonical::multibase::{
     ed25519_pubkey_to_did_key_multibase, encode_base58btc, encode_multibase_base58btc,
     sha256_multihash_base58btc,
 };
+pub use arkret_crypto as crypto;
 pub use arkret_crypto::{account_data_crypto, identity_root};
 pub use arkret_egress_policy as network_policy;
 pub use arkret_event_draft::{
@@ -420,8 +419,6 @@ pub mod authz;
 /// `ak.blob.whole_file_aead.v1`, `media-and-blob.md` §3.2/§3.3).
 #[cfg(feature = "full-surface")]
 pub use arkret_crypto::blob_aead;
-#[cfg(feature = "full-surface")]
-pub mod crypto;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub mod devices;
 pub use arkret_hlc as hlc;
@@ -508,6 +505,15 @@ pub use applet::{
     WireAppletRegistration, applet_did_document_digest, applet_signing_key_material_digest,
     namespace_pattern_matches, normalize_applet_signing_key_ref, sign_registration,
 };
+#[cfg(feature = "full-surface")]
+pub use arkret_crypto::{
+    AEAD_NONCE_AES_GCM_LEN, AEAD_NONCE_COUNTER_LEN, AEAD_NONCE_EXPORTER_LABEL,
+    AEAD_NONCE_XCHACHA20_POLY1305_LEN, AEAD_PROFILE_AES_256_GCM, AEAD_PROFILE_XCHACHA20_POLY1305,
+    AeadNonceContext, AeadNonceReplayTracker, EncryptedEnvelopeDigestReport,
+    aead_sender_nonce_context_bytes, compose_aead_nonce, derive_aead_sender_nonce_prefix,
+    encrypted_envelope_digest_report, envelope_aad_digest, json_aad_digest,
+    verify_aead_nonce_derivation, verify_aead_sender_nonce, verify_envelope_aad_digest,
+};
 pub use arkret_identifiers::hlc::{
     EXPECTED_FUTURE_SKEW_MS, HARD_FUTURE_SKEW_MS, HlcComponents, HlcFutureDrift, compare_hlc,
     parse_hlc, time_until_hlc, validate_hlc_format, validate_hlc_future_drift,
@@ -576,17 +582,6 @@ pub use blob_aead::{
     StreamDecryptor, StreamEncryptParams, decrypt_stream, decrypt_whole_file, encrypt_stream,
     encrypt_whole_file,
 };
-#[cfg(feature = "full-surface")]
-pub use crypto::{
-    AEAD_ALGORITHM, AEAD_NONCE_AES_GCM_LEN, AEAD_NONCE_COUNTER_LEN, AEAD_NONCE_EXPORTER_LABEL,
-    AEAD_NONCE_XCHACHA20_POLY1305_LEN, AEAD_PROFILE_AES_256_GCM, AEAD_PROFILE_XCHACHA20_POLY1305,
-    AeadNonceContext, AeadNonceReplayTracker, EncryptedEnvelopeDigestReport, FeatureSafetyReport,
-    REDACTED_SECRET, UnsafeFeatureCombination, aead_sender_nonce_context_bytes, compose_aead_nonce,
-    current_feature_safety_report, derive_aead_sender_nonce_prefix,
-    encrypted_envelope_digest_report, envelope_aad_digest, feature_safety_report,
-    is_sensitive_log_key, json_aad_digest, redact_log_value, verify_aead_nonce_derivation,
-    verify_aead_sender_nonce, verify_envelope_aad_digest,
-};
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use devices::{
     CrossSigningResetPayload, CrossSigningResetProof, CrossSigningResetReason, Device,
@@ -645,10 +640,9 @@ pub use key_verification::{
 #[cfg(feature = "full-surface")]
 pub use media::{
     Attachment, AuthenticatedDownloadGrant, CallMediaTokenVerification, DownloadGrantScope,
-    EncryptedAttachment, MediaBackendType, MediaMetadata, MediaServiceAnchors, MemoryBlobStore,
-    Thumbnail, call_media_token_exchange, participant_binding_signing_input,
-    safe_content_disposition, safe_content_type, validate_token_ttl,
-    verify_call_media_token_outcome,
+    MediaBackendType, MediaMetadata, MediaServiceAnchors, MemoryBlobStore, Thumbnail,
+    call_media_token_exchange, participant_binding_signing_input, safe_content_disposition,
+    safe_content_type, validate_token_ttl, verify_call_media_token_outcome,
 };
 #[cfg(all(feature = "full-surface", feature = "client"))]
 pub use media::{MediaClient, VerifiedCallMediaTokenExchange, VerifiedMediaIceConfig};

@@ -14,9 +14,9 @@ version.workspace = true
 [features]
 default = []
 # MLS-Exporter AEAD nonce derivation + encrypted-envelope AAD digest helpers
-# (`aead_nonce` module). Only pulls in HKDF-SHA256; kept behind a feature so the
-# bare `arkret-crypto` types crate stays light.
-aead = ["dep:hkdf"]
+# (`aead_nonce` module). Pulls in HKDF-SHA256 and constant-time comparison;
+# kept behind a feature so the bare `arkret-crypto` types crate stays light.
+aead = ["dep:hkdf", "dep:subtle"]
 # Principal-private Account Data value sealing (`account_data_crypto` module):
 # XChaCha20-Poly1305 + HKDF-SHA256 over canonical JSON. Pulls in the AEAD/KDF
 # stack and `regex` (canonical data-type validation) only when enabled.
@@ -86,6 +86,7 @@ regex = {workspace = true,optional = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
 sha2 = {workspace = true}
+subtle = {workspace = true,optional = true}
 thiserror = {workspace = true}
 x25519-dalek = {workspace = true,optional = true}
 zeroize = {workspace = true,optional = true}

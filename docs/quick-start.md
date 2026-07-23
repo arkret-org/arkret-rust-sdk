@@ -71,14 +71,12 @@ adapter.
 
 ### Review Security Gates
 
-Review `docs/security-audit.md` for internal pre-audit evidence. Use
-`feature_safety_report(...)` to validate feature strings that downstream
-services self-report (describe/manifest payloads); note its scope — it is not
-a compile gate for this SDK's own Cargo features. Cargo's feature graph plus
-the `compile_error!` guards at the top of `crates/sdk/src/lib.rs` enforce the
-reviewed feature combinations at build time.
-Use `redact_log_value()` on structured diagnostics that may contain tokens,
-proofs, signatures or private key references.
+Review `docs/security-audit.md` for internal pre-audit evidence. Cargo's
+feature graph plus the `compile_error!` guards at the top of
+`crates/sdk/src/lib.rs` enforce reviewed feature combinations at build time.
+Do not log payloads that may contain tokens, proofs, signatures or private key
+material; applications must apply field-aware redaction at their logging
+boundary.
 
 ### Model Capability Facets
 

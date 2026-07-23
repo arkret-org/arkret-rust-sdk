@@ -86,10 +86,9 @@ verification (DID resolved, key store loaded, MLS state ready).
 
 - The SDK gates all `tracing` calls on the `tracing` feature flag, off by
   default. Enable it in the binary when you wire in a `tracing-subscriber`.
-- Log redaction: use `redact_log_value()` (re-exported from `arkret`) on any
-  structured field that may contain DIDs, tokens, signatures or proof
-  references. The push-payload validator and TURN credential validator do
-  this automatically; manual log sites must opt in.
+- Do not log structured fields that may contain DIDs, tokens, signatures,
+  proofs or private key material. Apply field-aware redaction at the
+  application's logging boundary; validators are not log sanitizers.
 - Surface `X-Arkret-Request-Id` from inbound requests into log fields and
   echo it on outbound responses so client traces line up with server traces.
 

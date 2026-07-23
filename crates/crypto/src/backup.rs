@@ -901,13 +901,12 @@ mod tests {
         // §7.1: AAD binds the envelope identity, so changing the
         // backup_class (cross-domain replay) MUST fail AEAD.
         let kek = derive_vault_kek_with_salt(b"pp", &[9u8; VAULT_SALT_LEN]).unwrap();
-        let binding = test_binding(BackupClass::SecretStorage, "recovery_secret");
+        let mut binding = test_binding(BackupClass::SecretStorage, "recovery_secret");
         let ct = encrypt_vault(&kek, &binding, b"secret").unwrap();
-        let mut tampered = binding.clone();
-        tampered.aead_aad.backup_class = BackupClass::DidRecovery;
+        binding.aead_aad.backup_class = BackupClass::DidRecovery;
         let err = decrypt_vault(
             b"pp",
-            &tampered,
+            &binding,
             &ct.salt_b64,
             &ct.nonce_b64,
             &ct.nonce_salt_b64,

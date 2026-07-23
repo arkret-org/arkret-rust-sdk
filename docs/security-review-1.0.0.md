@@ -20,7 +20,8 @@ attestation; it is the evidence bundle a reviewer needs before the local
 ## Local Evidence
 
 - Internal checklist: `docs/security-audit.md`.
-- Feature safety gate: `arkret::current_feature_safety_report().validate()`.
+- Feature safety gate: compile the supported Cargo feature matrix; invalid implications fail in
+  `crates/sdk/src/lib.rs`.
 - Dependency gates:
   - `cargo deny check --config .deny.toml`
   - `cargo audit --deny warnings --ignore RUSTSEC-2024-0384 --ignore RUSTSEC-2026-0124`

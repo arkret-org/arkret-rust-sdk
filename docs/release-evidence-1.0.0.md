@@ -46,7 +46,8 @@ inkson mock-vs-live soland parity.
 
 - Local review packet: `docs/security-review-1.0.0.md`
 - Internal checklist: `docs/security-audit.md`
-- Feature safety API: `arkret::current_feature_safety_report().validate()`
+- Feature safety gate: supported Cargo feature-matrix compilation and the
+  `compile_error!` implications in `crates/sdk/src/lib.rs`
 - Semver gate: `.github/workflows/ci.yml` now treats
   `cargo semver-checks check-release --workspace --baseline-rev HEAD~1` as
   blocking. Local pre-commit validation used `--baseline-rev HEAD` so the
