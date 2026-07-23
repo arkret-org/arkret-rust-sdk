@@ -22,13 +22,13 @@
 //! cargo run --example key_backup_recovery_chain
 //! ```
 
-use arkret::models::{
+use arkret::{BackupId, BackupSeriesId, Base64UrlString, DeviceId, Did, DidUrl, Hash};
+use arkret_models_crypto::{
     BackupClass, KeyBackup, KeyBackupAead, KeyBackupAeadName, KeyBackupAuthData,
     KeyBackupContentItem, KeyBackupDomainSeparation, KeyBackupDomainSeparationAad,
     KeyBackupEncryption, KeyBackupFrontierRef, KeyBackupKdf, KeyBackupKdfName, KeyBackupKdfParams,
     KeyBackupRecipientMethod, KeyBackupSignatureAlgorithm,
 };
-use arkret::{BackupId, BackupSeriesId, Base64UrlString, DeviceId, Did, DidUrl, Hash};
 
 fn build_envelope(
     actor_id: &Did,

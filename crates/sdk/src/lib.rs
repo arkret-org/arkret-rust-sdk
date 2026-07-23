@@ -75,7 +75,7 @@ compile_error!(
 
 mod sdk_error;
 pub use arkret_canonical as canonical;
-pub use arkret_core::{KeyRefObject, identifiers, models, *};
+pub use arkret_core::{KeyRefObject, identifiers, *};
 pub use arkret_crypto::identity_root;
 pub use arkret_egress_policy as network_policy;
 pub use arkret_event_draft::operations;
@@ -92,6 +92,7 @@ pub use arkret_keystore::{
     MacOsKeychainKeyStore, WindowsCredentialKeyStore, durable_platform_keystore,
     platform_default_keystore_with_kind,
 };
+pub use arkret_models as models;
 pub use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeBatch, AccountSubscribeReconnectAfter, AccountSubscribeSnapshotResult,
     DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS, MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS,

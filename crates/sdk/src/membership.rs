@@ -1,6 +1,6 @@
 //! Realm membership management.
 //!
-//! Wire-shaped types are reused from `arkret-core`:
+//! Wire-shaped types are reused from their SDK owner crates:
 //! [`MembershipPayloadState`] (spec vocabulary `invite/join/knock/leave/ban`),
 //! [`Invite`] (mirrors `invite.schema.json`) and [`ThirdPartyInvite`]
 //! (3PID carrier — the plaintext address MUST NEVER appear on the wire).
@@ -12,10 +12,11 @@ use std::collections::BTreeMap;
 pub use arkret_core::{
     INVITE_SCHEMA, Invite, InviteState, MembershipPayloadState, ThirdPartyInvite,
 };
+use arkret_models_collaboration::governance::membership_invite::MembershipPayload;
+use arkret_models_identity::DeliveryStatus;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::models::{DeliveryStatus, MembershipPayload};
 use crate::{BlobRef, Did, Error, InviteId, Operation, OperationId, RealmId, Result};
 
 /// Generate a new UUIDv7-based wire ID with the given Arkret typed prefix

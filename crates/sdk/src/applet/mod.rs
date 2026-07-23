@@ -23,11 +23,11 @@ mod tests {
     use arkret_core::{
         AppletInstallAppletId, AppletInstallPlan, E2eeEffect, EffectiveScope, WidgetEffect,
     };
+    use arkret_models_integration::AppletTransactionOutcome;
     use chrono::{DateTime, Duration, Utc};
     use serde_json::{Value, json};
 
     use super::*;
-    use crate::models::AppletTransactionOutcome;
     use crate::{ActorKind, ActorProfileId, AppletId, Did, Hlc, PayloadProof, Proof, RealmId};
 
     fn did(name: &str) -> Did {

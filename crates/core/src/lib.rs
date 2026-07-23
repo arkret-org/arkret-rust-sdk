@@ -4,7 +4,7 @@
 //! level SDK state machines. It intentionally contains no HTTP transport,
 //! framework adapter, mutable reducer, store, or snapshot runtime.
 
-pub mod models;
+mod models;
 
 pub use arkret_auth::AdminKeyStore;
 pub use arkret_canonical::base64url::{

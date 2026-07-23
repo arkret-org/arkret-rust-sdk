@@ -6,7 +6,7 @@
 //! `DirectoryHandleResolutionOutcome`, `DirectorySubjectHandleList`) live in
 //! `arkret-models-discovery`; the claim-presentation and agent-selector claim
 //! shapes live in `arkret-models-identity`. Both are re-exported here so the
-//! `arkret_core::models` directory panel is unchanged.
+//! internal Core directory re-export panel is unchanged.
 
 pub use arkret_models_discovery::directory::*;
 pub use arkret_models_identity::claim_presentation::{

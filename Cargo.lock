@@ -121,6 +121,7 @@ dependencies = [
  "arkret-keystore",
  "arkret-lattice-registry",
  "arkret-mls",
+ "arkret-models",
  "arkret-models-collaboration",
  "arkret-models-crypto",
  "arkret-models-discovery",

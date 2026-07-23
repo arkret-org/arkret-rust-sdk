@@ -1,5 +1,5 @@
 //! Crate-internal prelude for the artifact-counterpart modules migrated
-//! from `arkret-core`, mirroring the flat `arkret_core::models` namespace
+//! from the former Core compatibility panel, mirroring its flat namespace
 //! they were originally written against. New modules should prefer
 //! explicit imports; this exists to keep the migrated payload files
 //! byte-stable. Entries are kept trimmed to the names those files

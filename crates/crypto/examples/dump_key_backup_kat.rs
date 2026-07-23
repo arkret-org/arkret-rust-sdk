@@ -1,10 +1,10 @@
 use std::fs;
 
-use arkret_core::{BackupClass, KeyBackupDomainSeparationAad};
 use arkret_crypto::backup::{
     VAULT_SCHEMA_ID, VaultBinding, commitment_digest, derive_subkey, derive_vault_kek_with_salt,
     encrypt_vault_with_nonce_salt,
 };
+use arkret_models_crypto::{BackupClass, KeyBackupDomainSeparationAad};
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};

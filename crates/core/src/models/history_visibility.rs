@@ -5,7 +5,7 @@
 //! policy-evaluation behavior that consumes the
 //! `HistorySharingPolicyPayloadValue` payload migrated to `arkret-policy`
 //! (`arkret_policy::history_visibility`). Both are re-exported here so the
-//! `arkret_core::models` panel is unchanged.
+//! internal Core re-export panel is unchanged.
 
 pub use arkret_models_collaboration::governance::history_visibility::*;
 pub use arkret_policy::history_visibility::*;

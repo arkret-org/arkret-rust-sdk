@@ -9,5 +9,4 @@
 //! `arkret_core::` through the `account_lifecycle` re-export in
 //! `crate::models::account`.
 
-pub use arkret_models_collaboration::http_bodies::AppletTransactionRequestBody;
 pub use arkret_models_integration::applet_models::*;

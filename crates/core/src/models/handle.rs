@@ -5,7 +5,7 @@
 //! `HandleClaim` / `DeliveryBindingHint` live in
 //! `arkret-models-collaboration` (they embed the collaboration
 //! delivery-binding types). This module re-exports both so the
-//! `arkret_core::models` panel is unchanged.
+//! internal Core re-export panel is unchanged.
 
 pub use arkret_models_collaboration::governance::handle_claim::*;
 pub use arkret_models_identity::handle::*;

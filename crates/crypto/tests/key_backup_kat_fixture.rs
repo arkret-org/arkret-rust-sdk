@@ -11,11 +11,11 @@
 //! derivation stage is attributable, replacing the SDK's previous
 //! self-certifying determinism tests with spec-anchored bytes.
 
-use arkret_core::BackupClass;
 use arkret_crypto::backup::{
     VAULT_AEAD_PROFILE, VaultBinding, commitment_digest, decrypt_vault, derive_subkey,
     derive_vault_kek_with_salt, encrypt_vault_with_nonce_salt,
 };
+use arkret_models_crypto::{BackupClass, KeyBackupDomainSeparationAad};
 use arkret_schema::embedded_json_artifact;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -83,7 +83,7 @@ fn run_kat(kat: &Value) {
         backup_id: str_field(binding_json, "backup_id")
             .parse()
             .expect("backup_id parses"),
-        aead_aad: arkret_core::KeyBackupDomainSeparationAad {
+        aead_aad: KeyBackupDomainSeparationAad {
             schema: "ak.schema.key_backup.v1".to_owned(),
             actor_id: str_field(binding_json, "actor_id")
                 .parse()

@@ -5,7 +5,7 @@
 //! policy-evaluation behavior that consumes the
 //! `HistorySharingPolicyPayloadValue` payload and the `HistorySharingRestrictedRule`
 //! family. `arkret-core` re-exports these functions so the
-//! `arkret_core::models` panel is unchanged.
+//! former Core compatibility panel was unchanged during the move.
 
 use std::collections::BTreeSet;
 
