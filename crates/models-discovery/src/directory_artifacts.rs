@@ -108,4 +108,4 @@ pub type SourceRefs = Vec<EventId>;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/subscription_id`.
-pub type SubscriptionId = String;
+pub use arkret_wire::SubscriptionId;

@@ -27,6 +27,6 @@ pub struct ResolvedStateEvent {
     pub source_event_id: EventId,
     pub actor_id: Did,
     pub actor_seq: u64,
-    pub hlc: Hlc,
+    pub hlc: Option<Hlc>,
     pub content: Value,
 }

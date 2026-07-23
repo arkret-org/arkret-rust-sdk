@@ -956,8 +956,8 @@ fn proof_audience_covers_expected(proof: Option<&Audience>, expected: Option<&Au
 #[serde(deny_unknown_fields)]
 pub struct Proof {
     pub kind: String,
-    pub alg: String,
     pub verification_method: String,
+    pub alg: String,
     pub event_digest: Hash,
     #[serde(
         serialize_with = "crate::serde_helpers::serialize_canonical_timestamp",
@@ -968,6 +968,8 @@ pub struct Proof {
     pub domain: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audience: Option<Audience>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof_purpose: Option<PayloadProofPurpose>,
     pub jws: String,
 }
 
@@ -1460,6 +1462,7 @@ mod tests {
             created_at: echo.observed_at,
             domain: None,
             audience: None,
+            proof_purpose: None,
             jws: "server.signature".to_owned(),
         });
 

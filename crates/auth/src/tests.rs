@@ -768,6 +768,7 @@ fn auth_uses_provider_did_proof_verifier_for_recovery() {
         created_at: Utc::now(),
         domain: Some("arkret-auth".to_owned()),
         audience: None,
+        proof_purpose: None,
         jws: "signed-proof".to_owned(),
     };
     let verifier = |request: &DidProofVerificationRequestBody| {

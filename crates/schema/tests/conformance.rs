@@ -248,6 +248,7 @@ fn signature_binding_payload_matches_spec_encoding_vector() {
         created_at: input["created_at"].as_str().unwrap().parse().unwrap(),
         domain: None,
         audience: None,
+        proof_purpose: None,
         jws: String::new(),
     };
 

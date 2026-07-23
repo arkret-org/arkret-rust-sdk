@@ -14,6 +14,7 @@ fn proof_with_submillisecond_created_at() -> Proof {
             .unwrap(),
         domain: None,
         audience: None,
+        proof_purpose: None,
         jws: "header..signature".to_owned(),
     }
 }

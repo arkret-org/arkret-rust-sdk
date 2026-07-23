@@ -316,6 +316,7 @@ fn main() -> arkret::Result<()> {
             created_at: disclosure_issued_at,
             domain: None,
             audience: None,
+            proof_purpose: None,
             jws: "eyJhbGciOiJFZERTQSJ9..AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ".to_owned(),
         }],
     };

@@ -670,7 +670,7 @@ pub struct DirectoryPushRegisterRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryPushRegisterOutcome {
-    pub subscription_id: String,
+    pub subscription_id: crate::SubscriptionId,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"

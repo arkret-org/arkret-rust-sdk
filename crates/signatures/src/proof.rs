@@ -853,6 +853,7 @@ pub fn build_proof_envelope(
         created_at: Utc::now(),
         domain,
         audience,
+        proof_purpose: None,
         jws: jws.into(),
     }
 }

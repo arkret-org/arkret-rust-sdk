@@ -495,7 +495,7 @@ mod tests {
             actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             actor_seq: 1,
             created_at: Utc.with_ymd_and_hms(2026, 7, 14, 0, 0, 0).unwrap(),
-            hlc: Hlc::new("01980b44cc00-0000-aabbccdd").unwrap(),
+            hlc: Some(Hlc::new("01980b44cc00-0000-aabbccdd").unwrap()),
             prev_refs: Vec::new(),
             effective_scope: Some(scope),
             refs: Vec::new(),
@@ -524,6 +524,8 @@ mod tests {
             external_ref: None,
             actor_kind: None,
             unsigned: BTreeMap::new(),
+            causal_refs: Vec::new(),
+            conflict_keys_digest: None,
             proofs: Vec::new(),
         };
         let digest = Hash::new(event.event_digest().unwrap()).unwrap();
@@ -535,6 +537,7 @@ mod tests {
             created_at: event.created_at,
             domain: None,
             audience: None,
+            proof_purpose: None,
             jws: "AAAA.BBBB.CCCC".to_owned(),
         });
         event

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=c2e881cd622a4c8e14dfeecc3ed3bc2db19336ede13c2ab4acbcc725bb56ec8e Entries: error_codes=246
+//! sha256=91a3e58764d67c3dd35dd4f1092dc3479ef8489a3b3166d3674eaa0dd7ef0dcc Entries: error_codes=254
 
 use serde::{Deserialize, Serialize};
 
@@ -71,7 +71,12 @@ pub enum ErrorCode {
     DependencyMissing,
     DeviceAlreadyAuthorized,
     DeviceEnrollmentAuthorityNotDesignated,
+    DeviceGenerationFenced,
     DeviceNotAuthorized,
+    DeviceReanchorAuthorizeMismatch,
+    DeviceReanchorConflict,
+    DeviceReanchorEntryNotHead,
+    DeviceReanchorFrontierMismatch,
     DeviceRecoverySskGenerationMismatch,
     DeviceRevoked,
     DeviceUnknown,
@@ -191,6 +196,7 @@ pub enum ErrorCode {
     RecoveryPolicyConflict,
     RecoveryPolicyDeviceNotAuthorized,
     RecoveryPolicyIdMismatch,
+    RecoveryPolicyMismatch,
     RecoveryPolicyMissing,
     RecoveryPolicyRevoked,
     RecoveryPolicyTrustDomainMismatch,
@@ -208,6 +214,7 @@ pub enum ErrorCode {
     SealIncomplete,
     SealRefUnknown,
     SealSignerUnauthorized,
+    SelectorTooComplex,
     ServiceIdentityConflict,
     ServiceIdentityProviderUnavailable,
     ServiceIdentityUnavailable,
@@ -237,6 +244,7 @@ pub enum ErrorCode {
     TemporarilyUnavailable,
     Timeout,
     TooLarge,
+    TrackDisabled,
     TransportPrivacyRequired,
     TtlOutOfRange,
     TurnCredentialExpired,
@@ -330,7 +338,12 @@ impl ErrorCode {
         Self::DependencyMissing,
         Self::DeviceAlreadyAuthorized,
         Self::DeviceEnrollmentAuthorityNotDesignated,
+        Self::DeviceGenerationFenced,
         Self::DeviceNotAuthorized,
+        Self::DeviceReanchorAuthorizeMismatch,
+        Self::DeviceReanchorConflict,
+        Self::DeviceReanchorEntryNotHead,
+        Self::DeviceReanchorFrontierMismatch,
         Self::DeviceRecoverySskGenerationMismatch,
         Self::DeviceRevoked,
         Self::DeviceUnknown,
@@ -450,6 +463,7 @@ impl ErrorCode {
         Self::RecoveryPolicyConflict,
         Self::RecoveryPolicyDeviceNotAuthorized,
         Self::RecoveryPolicyIdMismatch,
+        Self::RecoveryPolicyMismatch,
         Self::RecoveryPolicyMissing,
         Self::RecoveryPolicyRevoked,
         Self::RecoveryPolicyTrustDomainMismatch,
@@ -467,6 +481,7 @@ impl ErrorCode {
         Self::SealIncomplete,
         Self::SealRefUnknown,
         Self::SealSignerUnauthorized,
+        Self::SelectorTooComplex,
         Self::ServiceIdentityConflict,
         Self::ServiceIdentityProviderUnavailable,
         Self::ServiceIdentityUnavailable,
@@ -496,6 +511,7 @@ impl ErrorCode {
         Self::TemporarilyUnavailable,
         Self::Timeout,
         Self::TooLarge,
+        Self::TrackDisabled,
         Self::TransportPrivacyRequired,
         Self::TtlOutOfRange,
         Self::TurnCredentialExpired,
@@ -584,7 +600,13 @@ impl ErrorCode {
     pub const DEVICE_ALREADY_AUTHORIZED: &'static str = "device_already_authorized";
     pub const DEVICE_ENROLLMENT_AUTHORITY_NOT_DESIGNATED: &'static str =
         "device_enrollment_authority_not_designated";
+    pub const DEVICE_GENERATION_FENCED: &'static str = "device_generation_fenced";
     pub const DEVICE_NOT_AUTHORIZED: &'static str = "device_not_authorized";
+    pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str =
+        "device_reanchor_authorize_mismatch";
+    pub const DEVICE_REANCHOR_CONFLICT: &'static str = "device_reanchor_conflict";
+    pub const DEVICE_REANCHOR_ENTRY_NOT_HEAD: &'static str = "device_reanchor_entry_not_head";
+    pub const DEVICE_REANCHOR_FRONTIER_MISMATCH: &'static str = "device_reanchor_frontier_mismatch";
     pub const DEVICE_RECOVERY_SSK_GENERATION_MISMATCH: &'static str =
         "device_recovery_ssk_generation_mismatch";
     pub const DEVICE_REVOKED: &'static str = "device_revoked";
@@ -719,6 +741,7 @@ impl ErrorCode {
     pub const RECOVERY_POLICY_DEVICE_NOT_AUTHORIZED: &'static str =
         "recovery_policy_device_not_authorized";
     pub const RECOVERY_POLICY_ID_MISMATCH: &'static str = "recovery_policy_id_mismatch";
+    pub const RECOVERY_POLICY_MISMATCH: &'static str = "recovery_policy_mismatch";
     pub const RECOVERY_POLICY_MISSING: &'static str = "recovery_policy_missing";
     pub const RECOVERY_POLICY_REVOKED: &'static str = "recovery_policy_revoked";
     pub const RECOVERY_POLICY_TRUST_DOMAIN_MISMATCH: &'static str =
@@ -737,6 +760,7 @@ impl ErrorCode {
     pub const SEAL_INCOMPLETE: &'static str = "seal_incomplete";
     pub const SEAL_REF_UNKNOWN: &'static str = "seal_ref_unknown";
     pub const SEAL_SIGNER_UNAUTHORIZED: &'static str = "seal_signer_unauthorized";
+    pub const SELECTOR_TOO_COMPLEX: &'static str = "selector_too_complex";
     pub const SERVICE_IDENTITY_CONFLICT: &'static str = "service_identity_conflict";
     pub const SERVICE_IDENTITY_PROVIDER_UNAVAILABLE: &'static str =
         "service_identity_provider_unavailable";
@@ -767,6 +791,7 @@ impl ErrorCode {
     pub const TEMPORARILY_UNAVAILABLE: &'static str = "temporarily_unavailable";
     pub const TIMEOUT: &'static str = "timeout";
     pub const TOO_LARGE: &'static str = "too_large";
+    pub const TRACK_DISABLED: &'static str = "track_disabled";
     pub const TRANSPORT_PRIVACY_REQUIRED: &'static str = "transport_privacy_required";
     pub const TTL_OUT_OF_RANGE: &'static str = "ttl_out_of_range";
     pub const TURN_CREDENTIAL_EXPIRED: &'static str = "turn_credential_expired";
@@ -858,7 +883,12 @@ impl ErrorCode {
             Self::DeviceEnrollmentAuthorityNotDesignated => {
                 "device_enrollment_authority_not_designated"
             }
+            Self::DeviceGenerationFenced => "device_generation_fenced",
             Self::DeviceNotAuthorized => "device_not_authorized",
+            Self::DeviceReanchorAuthorizeMismatch => "device_reanchor_authorize_mismatch",
+            Self::DeviceReanchorConflict => "device_reanchor_conflict",
+            Self::DeviceReanchorEntryNotHead => "device_reanchor_entry_not_head",
+            Self::DeviceReanchorFrontierMismatch => "device_reanchor_frontier_mismatch",
             Self::DeviceRecoverySskGenerationMismatch => "device_recovery_ssk_generation_mismatch",
             Self::DeviceRevoked => "device_revoked",
             Self::DeviceUnknown => "device_unknown",
@@ -980,6 +1010,7 @@ impl ErrorCode {
             Self::RecoveryPolicyConflict => "recovery_policy_conflict",
             Self::RecoveryPolicyDeviceNotAuthorized => "recovery_policy_device_not_authorized",
             Self::RecoveryPolicyIdMismatch => "recovery_policy_id_mismatch",
+            Self::RecoveryPolicyMismatch => "recovery_policy_mismatch",
             Self::RecoveryPolicyMissing => "recovery_policy_missing",
             Self::RecoveryPolicyRevoked => "recovery_policy_revoked",
             Self::RecoveryPolicyTrustDomainMismatch => "recovery_policy_trust_domain_mismatch",
@@ -997,6 +1028,7 @@ impl ErrorCode {
             Self::SealIncomplete => "seal_incomplete",
             Self::SealRefUnknown => "seal_ref_unknown",
             Self::SealSignerUnauthorized => "seal_signer_unauthorized",
+            Self::SelectorTooComplex => "selector_too_complex",
             Self::ServiceIdentityConflict => "service_identity_conflict",
             Self::ServiceIdentityProviderUnavailable => "service_identity_provider_unavailable",
             Self::ServiceIdentityUnavailable => "service_identity_unavailable",
@@ -1026,6 +1058,7 @@ impl ErrorCode {
             Self::TemporarilyUnavailable => "temporarily_unavailable",
             Self::Timeout => "timeout",
             Self::TooLarge => "too_large",
+            Self::TrackDisabled => "track_disabled",
             Self::TransportPrivacyRequired => "transport_privacy_required",
             Self::TtlOutOfRange => "ttl_out_of_range",
             Self::TurnCredentialExpired => "turn_credential_expired",
@@ -1119,7 +1152,12 @@ impl ErrorCode {
             "device_enrollment_authority_not_designated" => {
                 Some(Self::DeviceEnrollmentAuthorityNotDesignated)
             }
+            "device_generation_fenced" => Some(Self::DeviceGenerationFenced),
             "device_not_authorized" => Some(Self::DeviceNotAuthorized),
+            "device_reanchor_authorize_mismatch" => Some(Self::DeviceReanchorAuthorizeMismatch),
+            "device_reanchor_conflict" => Some(Self::DeviceReanchorConflict),
+            "device_reanchor_entry_not_head" => Some(Self::DeviceReanchorEntryNotHead),
+            "device_reanchor_frontier_mismatch" => Some(Self::DeviceReanchorFrontierMismatch),
             "device_recovery_ssk_generation_mismatch" => {
                 Some(Self::DeviceRecoverySskGenerationMismatch)
             }
@@ -1257,6 +1295,7 @@ impl ErrorCode {
                 Some(Self::RecoveryPolicyDeviceNotAuthorized)
             }
             "recovery_policy_id_mismatch" => Some(Self::RecoveryPolicyIdMismatch),
+            "recovery_policy_mismatch" => Some(Self::RecoveryPolicyMismatch),
             "recovery_policy_missing" => Some(Self::RecoveryPolicyMissing),
             "recovery_policy_revoked" => Some(Self::RecoveryPolicyRevoked),
             "recovery_policy_trust_domain_mismatch" => {
@@ -1276,6 +1315,7 @@ impl ErrorCode {
             "seal_incomplete" => Some(Self::SealIncomplete),
             "seal_ref_unknown" => Some(Self::SealRefUnknown),
             "seal_signer_unauthorized" => Some(Self::SealSignerUnauthorized),
+            "selector_too_complex" => Some(Self::SelectorTooComplex),
             "service_identity_conflict" => Some(Self::ServiceIdentityConflict),
             "service_identity_provider_unavailable" => {
                 Some(Self::ServiceIdentityProviderUnavailable)
@@ -1307,6 +1347,7 @@ impl ErrorCode {
             "temporarily_unavailable" => Some(Self::TemporarilyUnavailable),
             "timeout" => Some(Self::Timeout),
             "too_large" => Some(Self::TooLarge),
+            "track_disabled" => Some(Self::TrackDisabled),
             "transport_privacy_required" => Some(Self::TransportPrivacyRequired),
             "ttl_out_of_range" => Some(Self::TtlOutOfRange),
             "turn_credential_expired" => Some(Self::TurnCredentialExpired),
@@ -1774,11 +1815,46 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "A service-attested ak.device.authorize names an executed_by / authority_did that is not designated as an enrollment authority by the principal DID document (resolved at the event's accepted-at), or its authorization_ref delegation does not cover device authorization.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::DeviceGenerationFenced,
+        http_status: 409,
+        scope: "both",
+        applies_to: &[],
+        description: "A normal Event or Seal was signed by a device whose authorized_generation_ref does not equal the active current_device_generation_ref, or the principal generation state is conflicted. Dual-registered as a service code and a reason_code (see reason_codes[]). See zh/identity/key-management.md and zh/authz/event-auth-state-resolution.md §4.3.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::DeviceNotAuthorized,
         http_status: 403,
         scope: "endpoint",
         applies_to: &[],
         description: "The device is not authorized for the requested operation.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::DeviceReanchorAuthorizeMismatch,
+        http_status: 409,
+        scope: "both",
+        applies_to: &[],
+        description: "A device re-anchor completion authorization does not match the expected re-anchor authorization. Dual-registered as a service code and a reason_code (see reason_codes[]).",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::DeviceReanchorConflict,
+        http_status: 409,
+        scope: "both",
+        applies_to: &[],
+        description: "Concurrent device re-anchor completions conflict on the same principal generation state. Dual-registered as a service code and a reason_code (see reason_codes[]).",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::DeviceReanchorEntryNotHead,
+        http_status: 409,
+        scope: "both",
+        applies_to: &[],
+        description: "A device re-anchor completion references a DID key-log entry that is not the current head. Dual-registered as a service code and a reason_code (see reason_codes[]).",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::DeviceReanchorFrontierMismatch,
+        http_status: 409,
+        scope: "both",
+        applies_to: &[],
+        description: "A device re-anchor completion carries a frontier that does not match the recomputed device frontier. Dual-registered as a service code and a reason_code (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceRecoverySskGenerationMismatch,
@@ -2614,6 +2690,13 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The recovery policy id does not match.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::RecoveryPolicyMismatch,
+        http_status: 409,
+        scope: "both",
+        applies_to: &[],
+        description: "A recovery session or proof does not satisfy the principal's declared recovery policy. Dual-registered as a service code and a reason_code (see reason_codes[]). See zh/identity/key-management.md §9.5.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::RecoveryPolicyMissing,
         http_status: 409,
         scope: "endpoint",
@@ -2731,6 +2814,13 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "The submitted Seal signature does not satisfy the predecessor governance state's ak.component.notary.v1 membership and threshold rules. Visibility or ownership of the signing device is never sufficient.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::SelectorTooComplex,
+        http_status: 422,
+        scope: "both",
+        applies_to: &[],
+        description: "Resource selector or constraint exceeds parser hard limits defined in resource-selector-grammar.md §3.3 (string length, resources[] length, token count, nesting depth, single-field length, requires_claims item count, constraint nesting). Dual-registered as a service code and a reason_code (see reason_codes[]) so it can be emitted as a top-level error and audit / abuse-detection can separate suspected parser-DoS attempts from ordinary format errors. See zh/authz/resource-selector-grammar.md §5.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ServiceIdentityConflict,
@@ -2934,6 +3024,13 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "Generic request, query, batch, or envelope size limit exceeded. More specific blob/push/payload variants may be used when available.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::TrackDisabled,
+        http_status: 409,
+        scope: "both",
+        applies_to: &[],
+        description: "The target Strand track has enabled=false and does not accept new writes (synthesis edits or track-scoped patches). Generic freeze code for any track; discussion_track_disabled is the discussion-track-specific specialization for ak.message.* writes. See zh/models/strand-and-message.md §4.1 / §4.7.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::TransportPrivacyRequired,

@@ -106,7 +106,7 @@ mod tests {
             actor_id: alice(),
             actor_seq: 1,
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
-            hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+            hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
             prev_refs: Vec::new(),
             effective_scope: None,
             refs: Vec::new(),
@@ -129,6 +129,8 @@ mod tests {
             external_ref: None,
             actor_kind: None,
             unsigned: BTreeMap::new(),
+            causal_refs: Vec::new(),
+            conflict_keys_digest: None,
             proofs: Vec::new(),
         }
     }

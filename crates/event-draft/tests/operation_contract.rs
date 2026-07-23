@@ -61,6 +61,7 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
         audience: Some(Audience::Single(
             "did:webvh:z6mkfixture:service.example".to_owned(),
         )),
+        proof_purpose: None,
         jws: "sig".to_owned(),
     }];
 

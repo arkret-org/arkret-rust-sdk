@@ -560,23 +560,20 @@ mod tests {
                 )
                 .is_err()
         );
-        let warnings = catalog
-            .validate_payload_with_warnings(
-                events::EventKind::STRAND_MOVE,
-                &json!({
-                    "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
-                    "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
-                    "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
-                    "rank": "U",
-                    "unexpected": true
-                }),
-            )
-            .unwrap();
         assert!(
-            warnings.iter().any(|warning| {
-                warning.contains("additional field") && warning.contains("unexpected")
-            }),
-            "expected warning for unexpected additional field, got {warnings:?}"
+            catalog
+                .validate_payload(
+                    events::EventKind::STRAND_MOVE,
+                    &json!({
+                        "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
+                        "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
+                        "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
+                        "rank": "U",
+                        "unexpected": true
+                    }),
+                )
+                .is_err(),
+            "closed strand-move payload accepted an unexpected field"
         );
     }
 

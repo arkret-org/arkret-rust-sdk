@@ -230,6 +230,7 @@ fn proof_for_negative(base: &Value, alg: &str, jws: &str) -> Proof {
         created_at: s(&base["proof"], "created_at").parse().unwrap(),
         domain: base["proof"]["domain"].as_str().map(str::to_owned),
         audience: None,
+        proof_purpose: None,
         jws: jws.to_owned(),
     }
 }

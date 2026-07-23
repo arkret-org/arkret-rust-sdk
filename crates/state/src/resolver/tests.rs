@@ -20,7 +20,7 @@ fn event(kind: &str, seq: u64, content: Value) -> Event {
         actor_id: actor_id(),
         actor_seq: seq,
         created_at: chrono::Utc::now(),
-        hlc: Hlc::new(format!("01970e589d22-{seq:04x}-11111111")).unwrap(),
+        hlc: Some(Hlc::new(format!("01970e589d22-{seq:04x}-11111111")).unwrap()),
         prev_refs: vec![],
         effective_scope: None,
         refs: vec![],
@@ -38,6 +38,8 @@ fn event(kind: &str, seq: u64, content: Value) -> Event {
         external_ref: None,
         actor_kind: None,
         unsigned: BTreeMap::new(),
+        causal_refs: Vec::new(),
+        conflict_keys_digest: None,
         proofs: vec![],
     }
 }
@@ -678,11 +680,11 @@ fn realm_state_applies_morph_events() {
 #[test]
 fn realm_state_sorts_events_by_hlc() {
     let event1 = Event {
-        hlc: Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
+        hlc: Some(Hlc::new("01970e589d21-0002-a13f9c2e").unwrap()),
         ..morph_event(1, "ak:morph:01904100-0000-7000-8000-d48c478ecd0b", "Task 1")
     };
     let event2 = Event {
-        hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
+        hlc: Some(Hlc::new("01970e589d21-0001-a13f9c2e").unwrap()),
         ..morph_event(2, "ak:morph:01904100-0000-7000-8000-e75dc3f6ab2e", "Task 2")
     };
 

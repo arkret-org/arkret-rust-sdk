@@ -536,6 +536,7 @@ pub fn sign_registration<S: MoveSigner + ?Sized>(
         created_at: Utc::now(),
         domain: None,
         audience: None,
+        proof_purpose: None,
         jws: sig.jws,
     });
     Ok(())
@@ -1245,6 +1246,7 @@ impl AppletPackage {
             created_at: Utc::now(),
             domain: None,
             audience: None,
+            proof_purpose: None,
             jws: sig.jws,
         });
         Ok(())

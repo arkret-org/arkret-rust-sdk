@@ -300,6 +300,7 @@ mod event_batch_receipt_tests {
                 created_at: Utc::now(),
                 domain: None,
                 audience: None,
+                proof_purpose: None,
                 jws: "AAAA..BBBB".to_owned(),
             }],
         };

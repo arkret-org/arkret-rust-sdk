@@ -14,10 +14,11 @@ use crate::{
     AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
     CapabilityId, CellRef, ChunkId, CircleId, ClaimId, ConsentId, Cursor, DeviceId,
     DeviceMessageId, Did, EventId, FilterId, FrameId, FrankingProofId, GrantId, Hash, Hlc,
-    InviteId, KeyEventId, MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId,
-    OperationId, PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId,
-    RelationId, ReportId, RequestId, RtcParticipantId, SealId, SidecarId, SnapshotId, SpaceId,
-    StrandId, TransactionId, TypedAppealId, TypedTrustDomainId, ViewId,
+    InviteId, InviteLocatorId, KeyEventId, MessageId, ModerationQueueItemId, MorphId, MoveId,
+    NotificationId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId,
+    RecoverySessionId, RelationId, ReportId, RequestId, RtcParticipantId, SealId, SidecarId,
+    SnapshotId, SpaceId, StrandId, SubscriptionId, TransactionId, TypedAppealId,
+    TypedTrustDomainId, ViewId,
 };
 
 fn string_schema(pattern: &str) -> RefOr<Schema> {
@@ -188,6 +189,10 @@ impl_string_schema!(
     r"^ak:invite:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
+    InviteLocatorId,
+    r"^ak:invite_locator:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+);
+impl_string_schema!(
     KeyEventId,
     r"^ak:key_event:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
@@ -230,6 +235,10 @@ impl_string_schema!(
 impl_string_schema!(
     SnapshotId,
     r"^ak:snapshot:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+);
+impl_string_schema!(
+    SubscriptionId,
+    r"^ak:subscription:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
     TransactionId,

@@ -112,6 +112,7 @@ impl SnapshotManifest {
             created_at: self.signature.created_at,
             domain: None,
             audience: None,
+            proof_purpose: None,
             jws: self.signature.jws.clone(),
         }
     }

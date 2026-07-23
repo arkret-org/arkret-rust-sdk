@@ -41,15 +41,6 @@ mod events {
 
 use models::*;
 
-fn assert_warns_additional_field(warnings: &[String], field: &str) {
-    assert!(
-        warnings
-            .iter()
-            .any(|warning| warning.contains("additional field") && warning.contains(field)),
-        "expected warning for additional field {field:?}, got {warnings:?}"
-    );
-}
-
 #[test]
 fn relation_create_payload_strong_type_passes_spec_validator() {
     let catalog = event_payload_validator_catalog().unwrap();
@@ -354,13 +345,10 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
     registry
         .validate_value(&history_ref, &restricted.to_value().unwrap())
         .unwrap();
-    // Unknown additive keys are reported but do not fail schema validation.
+    // The named payload definition is closed at the top level.
     let mut leaky = shared.to_value().unwrap();
     leaky["unexpected"] = json!(true);
-    let warnings = registry
-        .validate_value_with_warnings(&history_ref, &leaky)
-        .unwrap();
-    assert_warns_additional_field(&warnings, "unexpected");
+    assert!(registry.validate_value(&history_ref, &leaky).is_err());
 
     let history_policy = HistorySharingPolicyPayload {
         value: HistorySharingPolicyPayloadValue {
@@ -405,13 +393,15 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
     registry
         .validate_value(&services_ref, &services.to_value().unwrap())
         .unwrap();
-    // Top-level additive keys are warnings, not schema violations.
+    // The payload is closed at the top level even though service entries
+    // remain forward-compatible.
     let mut leaky_services = services.to_value().unwrap();
     leaky_services["unexpected"] = json!(true);
-    let warnings = registry
-        .validate_value_with_warnings(&services_ref, &leaky_services)
-        .unwrap();
-    assert_warns_additional_field(&warnings, "unexpected");
+    assert!(
+        registry
+            .validate_value(&services_ref, &leaky_services)
+            .is_err()
+    );
 }
 
 #[test]

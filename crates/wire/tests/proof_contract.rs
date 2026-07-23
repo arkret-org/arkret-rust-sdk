@@ -20,6 +20,7 @@ fn valid_proof() -> Proof {
         created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
         domain: None,
         audience: None,
+        proof_purpose: None,
         jws: "header.payload.signature".to_owned(),
     }
 }
@@ -301,6 +302,7 @@ fn event_validate_proof_bindings_checks_digest_match() {
         created_at: Utc::now(),
         domain: None,
         audience: None,
+        proof_purpose: None,
         jws: "sig".to_owned(),
     };
 
@@ -332,6 +334,7 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
         created_at: Utc::now(),
         domain: None,
         audience: None,
+        proof_purpose: None,
         jws: "sig".to_owned(),
     };
 
@@ -363,6 +366,7 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
         audience: Some(Audience::Single(
             "did:webvh:z6mkfixture:service.example".to_owned(),
         )),
+        proof_purpose: None,
         jws: "sig".to_owned(),
     };
     let mut signed_event = event;

@@ -186,6 +186,7 @@ impl DetachedSignature {
             created_at: self.created_at,
             domain: self.domain,
             audience: self.audience,
+            proof_purpose: None,
             jws: self.jws,
         }
     }
@@ -477,6 +478,7 @@ mod tests {
             audience: Some(Audience::Single(
                 "did:webvh:z6mkfixture:service.example".to_owned(),
             )),
+            proof_purpose: None,
             jws: "sig".to_owned(),
         };
         let mut context = ProofVerificationContext::new(actor, payload_digest);
@@ -527,6 +529,7 @@ mod tests {
             audience: Some(Audience::Single(
                 "did:webvh:z6mkfixture:service.example".to_owned(),
             )),
+            proof_purpose: None,
             jws: "sig".to_owned(),
         };
         let context = ProofVerificationContext::new(actor, payload_digest).cross_domain(

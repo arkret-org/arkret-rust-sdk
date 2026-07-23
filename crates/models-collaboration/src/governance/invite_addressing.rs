@@ -11,8 +11,8 @@ use arkret_wire::serde_helpers::{
     serialize_canonical_timestamp, serialize_optional_canonical_timestamp,
 };
 use arkret_wire::{
-    BlobRef, Did, Error, EventId, Hash, INVITE_DELIVERY_REQUEST_SCHEMA, InviteReceiveAction,
-    PRINCIPAL_LOCATOR_SCHEMA, RealmId, Result, UnknownInviteAction, is_lowercase_uuidv7,
+    BlobRef, Did, Error, EventId, Hash, INVITE_DELIVERY_REQUEST_SCHEMA, InviteLocatorId,
+    InviteReceiveAction, PRINCIPAL_LOCATOR_SCHEMA, RealmId, Result, UnknownInviteAction,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -136,7 +136,7 @@ impl InviteLocatorIssueRequestBody {
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteLocatorRotateRequestBody {
-    pub locator_id: String,
+    pub locator_id: InviteLocatorId,
     #[serde(
         default,
         deserialize_with = "deserialize_non_null_optional",
@@ -159,7 +159,6 @@ pub struct InviteLocatorRotateRequestBody {
 
 impl InviteLocatorRotateRequestBody {
     pub fn validate_minimal(&self) -> Result<()> {
-        validate_locator_id(&self.locator_id)?;
         if let Some(ttl) = self.ttl_seconds
             && !(INVITE_LOCATOR_MIN_TTL_SECONDS..=INVITE_LOCATOR_MAX_TTL_SECONDS).contains(&ttl)
         {
@@ -178,12 +177,12 @@ impl InviteLocatorRotateRequestBody {
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteLocatorRevokeRequestBody {
-    pub locator_id: String,
+    pub locator_id: InviteLocatorId,
 }
 
 impl InviteLocatorRevokeRequestBody {
     pub fn validate_minimal(&self) -> Result<()> {
-        validate_locator_id(&self.locator_id)
+        Ok(())
     }
 }
 
@@ -198,7 +197,7 @@ pub enum InviteLocatorStatus {
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteLocatorIssueOutcome {
-    pub locator_id: String,
+    pub locator_id: InviteLocatorId,
     pub locator_token: String,
     #[serde(
         serialize_with = "serialize_canonical_timestamp",
@@ -212,25 +211,13 @@ pub struct InviteLocatorIssueOutcome {
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteLocatorRevokeOutcome {
-    pub locator_id: String,
+    pub locator_id: InviteLocatorId,
     pub status: InviteLocatorStatus,
     #[serde(
         serialize_with = "serialize_canonical_timestamp",
         deserialize_with = "deserialize_canonical_timestamp"
     )]
     pub revoked_at: DateTime<Utc>,
-}
-
-fn validate_locator_id(value: &str) -> Result<()> {
-    let suffix = value.strip_prefix("ak:invite_locator:").ok_or_else(|| {
-        Error::Protocol("invite locator id must use ak:invite_locator:<uuid>".to_owned())
-    })?;
-    if !is_lowercase_uuidv7(suffix) {
-        return Err(Error::Protocol(
-            "invite locator id must contain a lowercase UUIDv7".to_owned(),
-        ));
-    }
-    Ok(())
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -642,7 +629,10 @@ mod tests {
             .is_err()
         );
         let rotate = InviteLocatorRotateRequestBody {
-            locator_id: "ak:invite_locator:0196419b-0000-7000-8000-000000000000".to_owned(),
+            locator_id: InviteLocatorId::new(
+                "ak:invite_locator:0196419b-0000-7000-8000-000000000000",
+            )
+            .unwrap(),
             ttl_seconds: Some(900),
             one_time_use: Some(true),
             display_hint: None,
@@ -651,10 +641,9 @@ mod tests {
             .validate_minimal()
             .expect("valid locator rotate body");
         assert!(
-            InviteLocatorRevokeRequestBody {
-                locator_id: "wrong".to_owned()
-            }
-            .validate_minimal()
+            serde_json::from_value::<InviteLocatorRevokeRequestBody>(serde_json::json!({
+                "locator_id": "wrong"
+            }))
             .is_err()
         );
     }

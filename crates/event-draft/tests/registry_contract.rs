@@ -22,6 +22,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
         created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
         domain: None,
         audience: None,
+        proof_purpose: None,
         jws: "sig-a".to_owned(),
     };
     let envelope = OperationEnvelope {

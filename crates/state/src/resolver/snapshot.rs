@@ -130,7 +130,7 @@ pub struct ResolvedMessage {
     pub created_by: Did,
     pub latest_actor_id: Did,
     pub latest_actor_seq: u64,
-    pub latest_hlc: crate::Hlc,
+    pub latest_hlc: Option<crate::Hlc>,
     pub content: Value,
     pub revision_event_ids: Vec<EventId>,
     pub redacted: bool,
@@ -143,7 +143,7 @@ pub struct ResolvedReaction {
     pub reaction_key: String,
     pub source_event_id: EventId,
     pub actor_seq: u64,
-    pub hlc: crate::Hlc,
+    pub hlc: Option<crate::Hlc>,
     pub active: bool,
 }
 

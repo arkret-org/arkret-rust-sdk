@@ -1187,6 +1187,7 @@ mod tests {
                 created_at: issued_at,
                 domain: None,
                 audience: None,
+                proof_purpose: None,
                 jws: "eyJhbGciOiJFZERTQSJ9..AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ".to_owned(),
             }],
         };

@@ -48,6 +48,7 @@ fn ephemeral_proof(created_at: DateTime<Utc>) -> Proof {
         created_at,
         domain: None,
         audience: None,
+        proof_purpose: None,
         jws: "header..signature".to_owned(),
     }
 }

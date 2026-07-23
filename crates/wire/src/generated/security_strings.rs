@@ -3,7 +3,7 @@
 //! Input: registry/proof-context-registry.json; version=2026-07-16;
 //! sha256=2dfe74804a47e3904c3e339472227b4524c60bd57992b41e6612af632dd071cc Input: registry/
 //! exporter-label-registry.json; version=2026-06-10;
-//! sha256=e119ced0d8bff290880df1e6ecaa31946d6a2a6ffc005d144e60db26a4a01ecd Input: registry/
+//! sha256=7d67b5d14ab81711347af19f9f1759d9ee35dd1f15d96c92ed02fd6b27847d76 Input: registry/
 //! digest-suite-registry.json; version=2026-06-10;
 //! sha256=a2ec09df95e7115ea2feba454b121cb9095f21e42313422ac6d9b9c9cd5f7573 Input: registry/
 //! signature-alg-registry.json; version=2026-07-13;
@@ -671,7 +671,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
     ExporterLabelDescriptor {
         id: ExporterLabelId::RtcFrameKeyV1,
         label: "ak.rtc-frame-key/v1",
-        primitive: None,
+        primitive: Some("MLS-Exporter"),
         context_fields: &[
             "realm_id",
             "call_id",
@@ -687,7 +687,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
     ExporterLabelDescriptor {
         id: ExporterLabelId::RtcRecordingKeyV1,
         label: "ak.rtc-recording-key/v1",
-        primitive: None,
+        primitive: Some("MLS-Exporter"),
         context_fields: &[
             "realm_id",
             "call_id",
@@ -703,7 +703,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
     ExporterLabelDescriptor {
         id: ExporterLabelId::RtcTranscriptKeyV1,
         label: "ak.rtc-transcript-key/v1",
-        primitive: None,
+        primitive: Some("MLS-Exporter"),
         context_fields: &[
             "realm_id",
             "call_id",
@@ -719,7 +719,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
     ExporterLabelDescriptor {
         id: ExporterLabelId::AeadSenderNoncePrefixV1,
         label: "arkret-aead-sender-nonce-prefix-v1",
-        primitive: None,
+        primitive: Some("MLS-Exporter"),
         context_fields: &["key_ref", "epoch", "device_id", "purpose", "aead_profile"],
         output_length: "N_AEAD - 8 (16 for XChaCha20-Poly1305, 4 for AES-GCM)",
         empty_context_forbidden: true,
@@ -728,7 +728,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
     ExporterLabelDescriptor {
         id: ExporterLabelId::MentionRoutingV1,
         label: "arkret-mention-routing-v1",
-        primitive: None,
+        primitive: Some("MLS-Exporter"),
         context_fields: &["realm_id"],
         output_length: "32",
         empty_context_forbidden: true,
@@ -737,7 +737,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
     ExporterLabelDescriptor {
         id: ExporterLabelId::ReactionRoutingV1,
         label: "arkret-reaction-routing-v1",
-        primitive: None,
+        primitive: Some("MLS-Exporter"),
         context_fields: &["realm_id"],
         output_length: "32",
         empty_context_forbidden: true,

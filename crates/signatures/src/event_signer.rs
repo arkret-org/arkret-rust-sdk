@@ -125,6 +125,7 @@ pub fn sign_event<S: MoveSigner + ?Sized>(
         created_at,
         domain: options.domain,
         audience: options.audience,
+        proof_purpose: None,
         jws: String::new(),
     };
     let binding_bytes = proof.canonical_binding_bytes(&event.actor_id)?;
@@ -186,7 +187,7 @@ mod tests {
             actor_id: alice(),
             actor_seq: 1,
             created_at: Utc.with_ymd_and_hms(2026, 4, 26, 0, 0, 0).unwrap(),
-            hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+            hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
             prev_refs: Vec::new(),
             effective_scope: None,
             refs: Vec::new(),
@@ -204,6 +205,8 @@ mod tests {
             external_ref: None,
             actor_kind: None,
             unsigned: BTreeMap::new(),
+            causal_refs: Vec::new(),
+            conflict_keys_digest: None,
             proofs: Vec::new(),
         }
     }

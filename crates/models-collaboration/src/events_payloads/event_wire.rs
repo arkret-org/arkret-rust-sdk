@@ -83,7 +83,7 @@ pub struct VerificationStub {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/board_space_id`.
-pub type BoardSpaceId = String;
+pub type BoardSpaceId = SpaceId;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -106,7 +106,7 @@ pub type FeatureRef = String;
 pub type GrantRef = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/list_space_id`.
-pub type ListSpaceId = String;
+pub type ListSpaceId = SpaceId;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/profile_ref`.
 pub type ProfileRef = String;

@@ -5,7 +5,7 @@
 //! capability-action-registry.json; version=2026-07-20;
 //! sha256=467b314e3f9fe21aba8fac5c8b5df948a91c8932850d6ef21def3ff019b68563 Input: registry/
 //! schema-registry.json; version=2026-07-20;
-//! sha256=cf6dbc3fc2f5de3ca9b4c2f8e4d1e1cf12d089adf3a08f5002415265f102f716 Input: registry/
+//! sha256=e16edf442891a2453c03a4ac6ef285fab8d69ede450255ed323b9f6d2c97ce50 Input: registry/
 //! account-data-type-registry.json; version=2026-07-03;
 //! sha256=90662737689befb83dab6d6570abc38d62d6b05b45901cc23ec80938e3bffd55 Entries: id_kinds=50,
 //! special_forms=9, actions=152, schemas=125, account_data_patterns=23

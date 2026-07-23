@@ -286,6 +286,7 @@ mod tests {
                 created_at: "2026-05-19T00:00:00.000Z".parse().unwrap(),
                 domain: None,
                 audience: None,
+                proof_purpose: None,
                 jws: "aaa.bbb.ccc".to_owned(),
             }],
             claim_digest: Some(Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap()),

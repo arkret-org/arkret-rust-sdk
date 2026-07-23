@@ -1089,6 +1089,7 @@ mod tests {
             created_at: event.created_at,
             domain: None,
             audience: None,
+            proof_purpose: None,
             jws: "fixture.signature".to_owned(),
         }];
     }

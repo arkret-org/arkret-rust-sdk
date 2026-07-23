@@ -174,7 +174,7 @@ pub struct TimelineOrderKey {
     /// Transitive causal depth in the local event graph.
     pub causal_depth: u64,
     /// Hybrid logical clock for the event.
-    pub hlc: Hlc,
+    pub hlc: Option<Hlc>,
     /// Event actor.
     pub actor_id: Did,
     /// Actor-local sequence.

@@ -1519,7 +1519,7 @@ mod capability_grant_builder_tests {
             .unwrap(),
             actor_id: alice(),
             actor_seq: 1,
-            hlc: hlc(),
+            hlc: Some(hlc()),
             content: Value::Object(event.payload.clone().into_iter().collect()),
         };
         let grant = capability_grant_from_resolved_event(&event_view, None).unwrap();
@@ -1682,7 +1682,7 @@ mod capability_grant_builder_tests {
             .unwrap(),
             actor_id: alice(),
             actor_seq: 1,
-            hlc: hlc(),
+            hlc: Some(hlc()),
             content,
         };
         let err = capability_grant_from_resolved_event(&event, None).unwrap_err();

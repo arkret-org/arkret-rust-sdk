@@ -456,6 +456,7 @@ id_type!(OperationId, |value: &str| is_strict_typed_id(
 ) || is_hash(value));
 uuid_id_type!(GrantId, "ak:grant:");
 uuid_id_type!(InviteId, "ak:invite:");
+uuid_id_type!(InviteLocatorId, "ak:invite_locator:");
 uuid_id_type!(KeyEventId, "ak:key_event:");
 uuid_id_type!(DeviceId, "ak:device:");
 uuid_id_type!(NotificationId, "ak:notification:");
@@ -467,6 +468,7 @@ uuid_id_type!(ReadCursorId, "ak:read_cursor:");
 uuid_id_type!(ModerationQueueItemId, "ak:moderation_queue_item:");
 uuid_id_type!(RequestId, "ak:request:");
 uuid_id_type!(SnapshotId, "ak:snapshot:");
+uuid_id_type!(SubscriptionId, "ak:subscription:");
 uuid_id_type!(TransactionId, "ak:transaction:");
 // BlobRef is hybrid (hash or `ak:blob:` typed) — stays text.
 id_type!(BlobRef, is_blob_ref);

@@ -460,6 +460,7 @@ mod tests {
             created_at: Utc::now(),
             domain: None,
             audience: None,
+            proof_purpose: None,
             jws: "header..sig".to_owned(),
         });
         let digest_after = with_proof.payload_digest().unwrap();
@@ -576,6 +577,7 @@ mod tests {
             created_at: Utc::now(),
             domain: None,
             audience: None,
+            proof_purpose: None,
             jws: "header..sig".to_owned(),
         });
         package.validate().unwrap();

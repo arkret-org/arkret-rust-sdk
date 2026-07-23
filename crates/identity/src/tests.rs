@@ -679,6 +679,7 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
         created_at: Utc::now(),
         domain: None,
         audience: None,
+        proof_purpose: None,
         jws: String::new(),
     };
     // Spec §6: the detached JWS signs the canonical proof binding object,
@@ -727,6 +728,7 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
         created_at: Utc::now(),
         domain: None,
         audience: None,
+        proof_purpose: None,
         jws: String::new(),
     };
     // Binding object actor_id is the Event envelope `actor_id` (here

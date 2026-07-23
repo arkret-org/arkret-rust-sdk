@@ -506,7 +506,6 @@ pub struct AgentLifecycleOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AgentList {
-    #[serde(default)]
     pub agents: Vec<AgentProjection>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<cursor::Cursor>,

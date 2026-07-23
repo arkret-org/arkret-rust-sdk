@@ -18,7 +18,6 @@ use arkret_models_collaboration::governance::agent_participation::{
 };
 use arkret_wire::{GrantId, RealmId, SidecarId};
 use reqwest::Method;
-use serde_json::Value;
 
 use crate::{Client, Error, Result, retry_after_ms};
 
@@ -111,8 +110,7 @@ impl Client {
 
     /// `GET /_arkret/self/agents` (`ak.self.agent.query.list`).
     pub async fn agent_list(&self) -> Result<AgentList> {
-        let value: Value = self.get(AGENTS_PATH).await?;
-        decode_agent_list_response(value)
+        self.get(AGENTS_PATH).await
     }
 
     /// `GET /_arkret/self/agents/{agent_id}`
@@ -250,20 +248,6 @@ impl Client {
     }
 }
 
-fn decode_agent_list_response(mut value: Value) -> Result<AgentList> {
-    if let Some(object) = value.as_object_mut() {
-        if !object.contains_key("agents") {
-            return Err(Error::Protocol(
-                "agent list response is missing required `agents` field".to_owned(),
-            ));
-        }
-        object
-            .entry("has_more".to_owned())
-            .or_insert(Value::Bool(false));
-    }
-    serde_json::from_value(value).map_err(|error| Error::Protocol(error.to_string()))
-}
-
 fn agent_path_component(value: &str) -> Result<String> {
     if value.trim().is_empty() || value == "." || value == ".." {
         return Err(Error::Protocol(
@@ -306,17 +290,25 @@ mod tests {
     }
 
     #[test]
-    fn agent_list_rejects_legacy_items_field() {
-        let error = decode_agent_list_response(serde_json::json!({
+    fn agent_list_requires_agents_and_has_more() {
+        let error = serde_json::from_value::<AgentList>(serde_json::json!({
             "items": [{
                 "agent_id": "did:web:agents.example:summary",
                 "display_name": "Summary",
                 "slug": "summary",
                 "status": "active"
-            }]
+            }],
+            "has_more": false
         }))
         .unwrap_err();
 
         assert!(error.to_string().contains("agents"));
+
+        let error = serde_json::from_value::<AgentList>(serde_json::json!({
+            "agents": []
+        }))
+        .unwrap_err();
+
+        assert!(error.to_string().contains("has_more"));
     }
 }

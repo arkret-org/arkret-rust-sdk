@@ -301,23 +301,29 @@ pub struct Event {
     pub event_id: EventId,
     pub kind: EventKind,
     pub realm_id: RealmId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_scope: Option<EffectiveScope>,
     pub actor_id: Did,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub executed_by: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorization_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applet_id: Option<AppletId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_ref: Option<BTreeMap<String, Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor_kind: Option<EnvelopeActorKind>,
     pub actor_seq: u64,
     #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    pub hlc: Hlc,
-    pub prev_refs: Vec<EventId>,
-    /// AKP-0007 (spec b7d35be, schemas/event-envelope.schema.json
-    /// `$defs.effective_scope`) reducer-stamped immutable scope binding.
-    /// `Realm` for events emitted in Realm-default scope; `Circle` for
-    /// events emitted in a Circle scope. SDK helpers that mint envelopes
-    /// for a Strand / Morph / Space carrying `scope_circle_id` MUST set the
-    /// `Circle` variant; envelopes for scope-unaware events MAY omit the
-    /// field (deserializes as `None`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_scope: Option<EffectiveScope>,
+    pub hlc: Option<Hlc>,
+    pub prev_refs: Vec<EventId>,
     #[serde(default)]
     pub refs: Vec<EventRef>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub causal_refs: Vec<Hash>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub preconditions: Vec<Precondition>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -325,62 +331,21 @@ pub struct Event {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seal_ref: Option<SealId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conflict_keys_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth_context: Option<AuthContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seal_basis: Option<SealBasis>,
-    #[serde(default, skip_serializing_if = "EventRequirements::is_empty")]
-    pub requirements: EventRequirements,
+    pub payload: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redacts: Option<EventId>,
-    pub payload: BTreeMap<String, Value>,
-    /// AKP-0008 / AKP-0009 (spec head 37ce729) DID of the runtime that
-    /// actually executed this envelope on behalf of `actor_id`. When
-    /// present, the reducer MUST verify that the DID resolved from
-    /// `proof.verification_method` equals `executed_by`. Signed; nested
-    /// into the canonical signing transcript when set.
-    ///
-    /// The SDK model represents the accepted/read envelope. Actor-supplied
-    /// submit envelopes remain a reducer validation surface: reject
-    /// client-supplied `actor_kind` and verify `executed_by` against the
-    /// proof verification method DID.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub executed_by: Option<Did>,
-    /// AKP-0008 / AKP-0009 typed reference (e.g. `ak:grant:<uuidv7>` /
-    /// `ak:accountability_grant:<uuidv7>`) to the authorization artifact
-    /// that authorized this envelope. Conditional; when present, MUST be
-    /// included in the canonical signing transcript.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorization_ref: Option<String>,
-    /// Signed Applet provenance (`event-envelope.schema.json#/$defs/applet_id`,
-    /// shape `ak:applet:<uuidv7>`). Present when the Event is introduced by an
-    /// Applet / Ghost Actor / bridge / delegated applet path. Enters canonical
-    /// event bytes and therefore `proof.event_digest`. Invariant: when present,
-    /// `authorization_ref` MUST also be present (the accepted grant that binds
-    /// this applet_id + registration_epoch).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub applet_id: Option<AppletId>,
-    /// Signed external provenance reference for Applet / bridge-originated
-    /// Events (`event-envelope.schema.json#/$defs/external_ref`). Open object
-    /// whose field vocabulary is defined by extension profiles (protocol,
-    /// network_id, instance_id, external_id, url, ...). Covered by
-    /// `event_digest`. Invariant: only meaningful when bound to a signed
-    /// `applet_id` (schema `allOf`: external_ref ⇒ applet_id).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub external_ref: Option<BTreeMap<String, Value>>,
-    /// AKP-0008 / AKP-0009 runtime-origin classifier. Reducer-stamped
-    /// projection; clients MUST NOT supply it. See
-    /// [`EnvelopeActorKind`] for invariants.
-    ///
-    /// Actor-supplied submit envelopes MUST be rejected with
-    /// `actor_kind_reducer_managed`; reducers stamp this immutable projection
-    /// on accepted envelopes.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_kind: Option<EnvelopeActorKind>,
     /// Reducer/client-local extension data that is not part of the signed
     /// canonical Event Envelope transcript.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub unsigned: BTreeMap<String, Value>,
     pub proofs: Vec<Proof>,
+    #[serde(default, skip_serializing_if = "EventRequirements::is_empty")]
+    pub requirements: EventRequirements,
 }
 
 /// Portable authorization evidence for an active participant device signing
@@ -463,31 +428,9 @@ struct EventWire {
     pub event_id: EventId,
     pub kind: String,
     pub realm_id: RealmId,
-    pub actor_id: Did,
-    pub actor_seq: u64,
-    #[serde(deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    pub hlc: Hlc,
-    pub prev_refs: Vec<EventId>,
     #[serde(default)]
     pub effective_scope: Option<EffectiveScope>,
-    #[serde(default)]
-    pub refs: Vec<EventRef>,
-    #[serde(default)]
-    pub preconditions: Vec<Precondition>,
-    #[serde(default)]
-    pub effects: Vec<Effect>,
-    #[serde(default)]
-    pub seal_ref: Option<SealId>,
-    #[serde(default)]
-    pub auth_context: Option<AuthContext>,
-    #[serde(default)]
-    pub seal_basis: Option<SealBasis>,
-    #[serde(default)]
-    pub requirements: EventRequirements,
-    #[serde(default)]
-    pub redacts: Option<EventId>,
-    pub payload: BTreeMap<String, Value>,
+    pub actor_id: Did,
     #[serde(default)]
     pub executed_by: Option<Did>,
     #[serde(default)]
@@ -498,9 +441,36 @@ struct EventWire {
     pub external_ref: Option<BTreeMap<String, Value>>,
     #[serde(default)]
     pub actor_kind: Option<EnvelopeActorKind>,
+    pub actor_seq: u64,
+    #[serde(deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+    #[serde(default)]
+    pub hlc: Option<Hlc>,
+    pub prev_refs: Vec<EventId>,
+    #[serde(default)]
+    pub refs: Vec<EventRef>,
+    #[serde(default)]
+    pub causal_refs: Vec<Hash>,
+    #[serde(default)]
+    pub preconditions: Vec<Precondition>,
+    #[serde(default)]
+    pub effects: Vec<Effect>,
+    #[serde(default)]
+    pub seal_ref: Option<SealId>,
+    #[serde(default)]
+    pub conflict_keys_digest: Option<Hash>,
+    #[serde(default)]
+    pub auth_context: Option<AuthContext>,
+    #[serde(default)]
+    pub seal_basis: Option<SealBasis>,
+    pub payload: BTreeMap<String, Value>,
+    #[serde(default)]
+    pub redacts: Option<EventId>,
     #[serde(default)]
     pub unsigned: BTreeMap<String, Value>,
     pub proofs: Vec<Proof>,
+    #[serde(default)]
+    pub requirements: EventRequirements,
 }
 
 impl TryFrom<EventWire> for Event {
@@ -511,29 +481,36 @@ impl TryFrom<EventWire> for Event {
             event_id: wire.event_id,
             kind: EventKind::from_wire(&wire.kind),
             realm_id: wire.realm_id,
-            actor_id: wire.actor_id,
-            actor_seq: wire.actor_seq,
-            created_at: wire.created_at,
-            hlc: wire.hlc,
-            prev_refs: wire.prev_refs,
             effective_scope: wire.effective_scope,
-            refs: wire.refs,
-            preconditions: wire.preconditions,
-            effects: wire.effects,
-            seal_ref: wire.seal_ref,
-            auth_context: wire.auth_context,
-            seal_basis: wire.seal_basis,
-            requirements: wire.requirements,
-            redacts: wire.redacts,
-            payload: wire.payload,
+            actor_id: wire.actor_id,
             executed_by: wire.executed_by,
             authorization_ref: wire.authorization_ref,
             applet_id: wire.applet_id,
             external_ref: wire.external_ref,
             actor_kind: wire.actor_kind,
+            actor_seq: wire.actor_seq,
+            created_at: wire.created_at,
+            hlc: wire.hlc,
+            prev_refs: wire.prev_refs,
+            refs: wire.refs,
+            causal_refs: wire.causal_refs,
+            preconditions: wire.preconditions,
+            effects: wire.effects,
+            seal_ref: wire.seal_ref,
+            conflict_keys_digest: wire.conflict_keys_digest,
+            auth_context: wire.auth_context,
+            seal_basis: wire.seal_basis,
+            payload: wire.payload,
+            redacts: wire.redacts,
             unsigned: wire.unsigned,
             proofs: wire.proofs,
+            requirements: wire.requirements,
         };
+        if event.causal_refs.len() > 128
+            || event.causal_refs.iter().collect::<BTreeSet<_>>().len() != event.causal_refs.len()
+        {
+            return Err("causal_refs must contain at most 128 unique hashes".to_owned());
+        }
         event.validate_applet_provenance_invariants()?;
         Ok(event)
     }
@@ -846,13 +823,15 @@ impl Event {
             actor_id,
             actor_seq,
             created_at: canonical::normalize_timestamp_canonical(created_at),
-            hlc,
+            hlc: Some(hlc),
             prev_refs: Vec::new(),
             effective_scope: None,
             refs: Vec::new(),
+            causal_refs: Vec::new(),
             preconditions: Vec::new(),
             effects: Vec::new(),
             seal_ref: None,
+            conflict_keys_digest: None,
             auth_context: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
@@ -893,13 +872,15 @@ mod event_wire_surface_tests {
             actor_id: alice(),
             actor_seq: 1,
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
-            hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+            hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
             prev_refs: Vec::new(),
             effective_scope: None,
             refs: Vec::new(),
+            causal_refs: Vec::new(),
             preconditions: Vec::new(),
             effects: Vec::new(),
             seal_ref: None,
+            conflict_keys_digest: None,
             auth_context: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
@@ -941,6 +922,7 @@ mod event_wire_surface_tests {
             created_at: whole_second,
             domain: None,
             audience: None,
+            proof_purpose: None,
             jws: "a..b".to_owned(),
         });
         let value = serde_json::to_value(&event).unwrap();
@@ -1004,6 +986,27 @@ mod event_wire_surface_tests {
             serde_json::to_value(event).unwrap()["created_at"],
             json!("2026-06-03T12:34:56.000Z")
         );
+    }
+
+    #[test]
+    fn event_ingress_enforces_causal_ref_uniqueness_and_bound() {
+        let mut duplicate = serde_json::to_value(base_event()).unwrap();
+        let digest = format!("sha256:{}", "a".repeat(64));
+        duplicate["causal_refs"] = json!([digest.clone(), digest]);
+        let error = serde_json::from_value::<Event>(duplicate).unwrap_err();
+        assert!(error.to_string().contains("causal_refs"), "{error}");
+
+        let refs = (0_u64..=128)
+            .map(|index| format!("sha256:{index:064x}"))
+            .collect::<Vec<_>>();
+        let mut at_limit = serde_json::to_value(base_event()).unwrap();
+        at_limit["causal_refs"] = json!(refs[..128]);
+        serde_json::from_value::<Event>(at_limit).unwrap();
+
+        let mut over_limit = serde_json::to_value(base_event()).unwrap();
+        over_limit["causal_refs"] = json!(refs);
+        let error = serde_json::from_value::<Event>(over_limit).unwrap_err();
+        assert!(error.to_string().contains("causal_refs"), "{error}");
     }
 
     #[test]

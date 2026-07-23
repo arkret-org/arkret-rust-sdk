@@ -1696,7 +1696,6 @@ fn scid_skeleton_from_genesis(
     if let Value::Object(map) = &mut stripped {
         map.remove("proof");
         map.remove("versionId");
-        map.remove("witness");
     }
     let encoded = serde_json::to_string(&stripped)
         .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
