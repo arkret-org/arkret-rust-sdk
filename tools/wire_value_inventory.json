@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 243,
+    "total": 238,
     "by_crate": {
       "auth": 1,
       "crypto": 1,
@@ -12,14 +12,14 @@
       "models-identity": 18,
       "models-integration": 18,
       "schema": 9,
-      "sdk": 6,
+      "sdk": 1,
       "server": 4,
       "signatures": 8,
       "state": 9,
       "wire": 13
     },
     "by_classification": {
-      "internal_or_fixture": 57,
+      "internal_or_fixture": 52,
       "open_json": 184,
       "polymorphic_boundary": 2
     },
@@ -28,7 +28,7 @@
       "open_json": 12,
       "open_json_container": 35,
       "open_map": 137,
-      "unknown": 57
+      "unknown": 52
     }
   },
   "entries": [
@@ -2670,71 +2670,6 @@
       "schema_shape": "unknown",
       "classification": "internal_or_fixture",
       "reason": "Conformance vectors are test inputs, not an Arkret wire DTO."
-    },
-    {
-      "rust_field": "crates/sdk/src/agent.rs::AgentPrincipal.metadata",
-      "crate": "sdk",
-      "file": "crates/sdk/src/agent.rs",
-      "line": 278,
-      "owner": "AgentPrincipal",
-      "field": "metadata",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "internal_or_fixture",
-      "reason": "Agent runtime metadata is local application state."
-    },
-    {
-      "rust_field": "crates/sdk/src/agent.rs::AgentRun.input",
-      "crate": "sdk",
-      "file": "crates/sdk/src/agent.rs",
-      "line": 1219,
-      "owner": "AgentRun",
-      "field": "input",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "internal_or_fixture",
-      "reason": "Agent run input is local runtime data selected by the application."
-    },
-    {
-      "rust_field": "crates/sdk/src/agent.rs::AgentRun.output",
-      "crate": "sdk",
-      "file": "crates/sdk/src/agent.rs",
-      "line": 1221,
-      "owner": "AgentRun",
-      "field": "output",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "internal_or_fixture",
-      "reason": "Agent run output is local runtime data selected by the application."
-    },
-    {
-      "rust_field": "crates/sdk/src/agent.rs::AgentToolAuditEntry.input",
-      "crate": "sdk",
-      "file": "crates/sdk/src/agent.rs",
-      "line": 1332,
-      "owner": "AgentToolAuditEntry",
-      "field": "input",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "internal_or_fixture",
-      "reason": "Tool audit input is a local runtime record."
-    },
-    {
-      "rust_field": "crates/sdk/src/agent.rs::AgentToolAuditEntry.output",
-      "crate": "sdk",
-      "file": "crates/sdk/src/agent.rs",
-      "line": 1334,
-      "owner": "AgentToolAuditEntry",
-      "field": "output",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "internal_or_fixture",
-      "reason": "Tool audit output is a local runtime record."
     },
     {
       "rust_field": "crates/sdk/src/devices/mod.rs::ToDeviceEnvelope.content",

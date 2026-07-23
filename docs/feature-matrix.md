@@ -49,5 +49,5 @@ remainder of the catalog is represented by the generated
 | --- | --- | --- |
 | `ak.profile.personal_agent_provisioning.v1` | ✓ implemented | Full `ak.gate.account.command.pair_agent_key` + `ak.agent.*` (provision / list / get / pause / resume / rotate-key / grant.attach / grant.detach / sidecar.ensure / deactivate) wiring; example: `personal_agent_provision.rs`. |
 | `ak.profile.agent_auth.v1` | ✓ implemented | S-1 signing-key + S-2 session-key binding and controller-grant verification on every agent Event envelope. |
-| `ak.profile.agent_delegation_policy.v1` | ✓ implemented | Delegation grants gated by `ak.profile.agent_delegation_policy.v1` via `authz::delegation`; controller can revoke without rotating the agent key. |
+| `ak.profile.agent_delegation_policy.v1` | ✓ implemented | Delegation grants gated by `ak.profile.agent_delegation_policy.v1` via `arkret_policy::authz::delegation`; controller can revoke without rotating the agent key. |
 | `ak.profile.agent_sidecar.v1` | ✓ implemented | First-class `SidecarId`, ensure/get/list DTOs, derived access readiness, hosted view state and per-exchange private echo projection; backing Circle remains an internal MLS binding. |

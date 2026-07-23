@@ -1148,31 +1148,6 @@
       "reason": "Schema validation vectors intentionally carry arbitrary test input."
     },
     {
-      "rust_field": "crates/sdk/src/agent.rs::AgentPrincipal.metadata",
-      "classification": "internal_or_fixture",
-      "reason": "Agent runtime metadata is local application state."
-    },
-    {
-      "rust_field": "crates/sdk/src/agent.rs::AgentRun.input",
-      "classification": "internal_or_fixture",
-      "reason": "Agent run input is local runtime data selected by the application."
-    },
-    {
-      "rust_field": "crates/sdk/src/agent.rs::AgentRun.output",
-      "classification": "internal_or_fixture",
-      "reason": "Agent run output is local runtime data selected by the application."
-    },
-    {
-      "rust_field": "crates/sdk/src/agent.rs::AgentToolAuditEntry.input",
-      "classification": "internal_or_fixture",
-      "reason": "Tool audit input is a local runtime record."
-    },
-    {
-      "rust_field": "crates/sdk/src/agent.rs::AgentToolAuditEntry.output",
-      "classification": "internal_or_fixture",
-      "reason": "Tool audit output is a local runtime record."
-    },
-    {
       "rust_field": "crates/auth/src/claims.rs::PresentedClaim.value",
       "spec_pointer": "directory-operations.schema.json#/$defs/directory_presented_claim/properties/value",
       "classification": "open_json",

@@ -413,8 +413,6 @@ pub use arkret_state::{consent, mls_move, resolver};
 pub mod agent;
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub mod applet;
-#[cfg(feature = "full-surface")]
-pub mod authz;
 /// Canonical encrypted attachment codec (`ak.blob.stream_aead.v1` /
 /// `ak.blob.whole_file_aead.v1`, `media-and-blob.md` §3.2/§3.3).
 #[cfg(feature = "full-surface")]
@@ -485,11 +483,6 @@ pub mod mls {
 pub use arkret_crypto::sframe;
 #[cfg(feature = "full-surface")]
 pub mod webrtc;
-#[cfg(feature = "full-surface")]
-pub use agent::{
-    AgentPrincipal, AgentRun, AgentRunState, AgentToolAuditAction, AgentToolAuditEntry,
-    DelegatedActor,
-};
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub use applet::{
     AppletAcceptedSigningKeyEvidence, AppletBridgeErrorBuilder, AppletBridgeErrorClass,
@@ -556,20 +549,6 @@ pub use auth::{
     WebAuthnPasskeyOutcome, arkret_device_scope, device_id_from_scope_token,
     issue_session_grant_with_signer, primary_device_id_from_scopes, validate_presentation,
     verify_presentation_with_adapter, verify_session_grant_with_verifier,
-};
-#[cfg(feature = "full-surface")]
-pub use authz::{
-    ApprovalMode, ApprovalStrandManager, AuthzContext, AuthzEngine, AuthzEngineRealmStateExt,
-    CapabilityFrontierValidation, CapabilityGrantBuilder, ClaimRequirement, Constraint,
-    ConstraintDuration, ConstraintEffect, ConstraintEntry, EngineDecision, FieldScope,
-    GrantProposal, GrantRateLimitScope, PolicyEvaluationRequest, PolicyEvaluationResult,
-    PolicyModerationReport, PolicyServerEffect, ProposalApproval, ProposalStatus,
-    ProtocolResourceSelector, ProtocolResourceSelectorKind, ProtocolResourceSelectorScope,
-    Recurrence, Resource, ResourceSelector, ScopeLimitation, VerifiedClaim, apply_policy_response,
-    capability_grants_from_realm_state, current_capability_action_registry_digest,
-    grant_requires_approval, moderation_report_for_policy_outcome,
-    reject_unknown_critical_constraints, validate_capability_action_registry_binding,
-    validate_capability_frontier,
 };
 #[cfg(feature = "full-surface")]
 pub use blob_aead::{
