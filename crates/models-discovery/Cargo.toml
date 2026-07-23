@@ -13,11 +13,16 @@ version.workspace = true
 
 [features]
 default = []
+# OpenAPI `ToSchema` derives on the discovery/service-description wire types.
+# Off by default so the data-layer graph stays framework-free; service crates
+# opt in.
+openapi = ["dep:salvo-oapi"]
 
 [dependencies]
 arkret-canonical = {workspace = true}
 arkret-models-identity = {workspace = true}
 arkret-wire = {workspace = true}
+salvo-oapi = {workspace = true, optional = true}
 chrono = {workspace = true,features = ["serde"]}
 serde = {workspace = true}
 serde_json = {workspace = true}

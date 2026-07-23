@@ -18,7 +18,7 @@ pub const MEMBER_APPLICATION_REVIEW_CANDIDATE_KIND: &str = "member.application.r
 pub const MEMBER_APPLICATION_CANCEL_CANDIDATE_KIND: &str = "member.application.cancel";
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(untagged)]
 pub enum JoinApplicationAnswerValue {
     String(String),
@@ -27,7 +27,7 @@ pub enum JoinApplicationAnswerValue {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationAnswer {
     pub question_id: String,
@@ -35,7 +35,7 @@ pub struct JoinApplicationAnswer {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationEnvelopeRecipient {
     pub reviewer_did: Did,
@@ -46,7 +46,7 @@ pub struct JoinApplicationEnvelopeRecipient {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationEncryptionEnvelope {
     pub scheme: String,
@@ -55,13 +55,13 @@ pub struct JoinApplicationEncryptionEnvelope {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(tag = "mode", rename_all = "snake_case")]
 pub enum JoinApplicationPrivateBody {
     ServerProtected {
         answers: Vec<JoinApplicationAnswer>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
         gate_proofs: Vec<Value>,
         #[serde(skip_serializing_if = "Option::is_none")]
         applicant_note: Option<String>,
@@ -135,7 +135,7 @@ pub fn join_application_revision_digest(
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationReceiptUnsigned {
     pub candidate_kind: String,
@@ -159,7 +159,7 @@ impl JoinApplicationReceiptUnsigned {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationReceipt {
     pub candidate_kind: String,
@@ -245,7 +245,7 @@ impl JoinApplicationReceipt {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationSubmitRequest {
     pub receipt: JoinApplicationReceipt,
@@ -264,7 +264,7 @@ impl JoinApplicationSubmitRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum JoinApplicationDecision {
     Accept,
@@ -273,7 +273,7 @@ pub enum JoinApplicationDecision {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum JoinApplicationReasonCode {
     Ok,
@@ -287,7 +287,7 @@ pub enum JoinApplicationReasonCode {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationReviewerCapabilityProof {
     pub grant_id: GrantId,
@@ -295,7 +295,7 @@ pub struct JoinApplicationReviewerCapabilityProof {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationReviewReceiptUnsigned {
     pub candidate_kind: String,
@@ -325,7 +325,7 @@ impl JoinApplicationReviewReceiptUnsigned {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationReviewReceipt {
     pub candidate_kind: String,
@@ -442,14 +442,14 @@ impl JoinApplicationReviewReceipt {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationReviewRequest {
     pub receipt: JoinApplicationReviewReceipt,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationCancelReceiptUnsigned {
     pub candidate_kind: String,
@@ -472,7 +472,7 @@ impl JoinApplicationCancelReceiptUnsigned {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationCancelReceipt {
     pub candidate_kind: String,
@@ -564,14 +564,14 @@ impl JoinApplicationCancelReceipt {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationCancelRequest {
     pub receipt: JoinApplicationCancelReceipt,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum JoinApplicationStatus {
     AwaitingReview,
@@ -584,7 +584,7 @@ pub enum JoinApplicationStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationMutationOutcome {
     pub realm_id: RealmId,
@@ -595,7 +595,7 @@ pub struct JoinApplicationMutationOutcome {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationEntry {
     pub application_ref: Hash,
@@ -618,7 +618,7 @@ pub struct JoinApplicationEntry {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationListOutcome {
     pub realm_id: RealmId,
@@ -629,14 +629,14 @@ pub struct JoinApplicationListOutcome {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationGetOutcome {
     pub application: JoinApplicationEntry,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum JoinApplicationAuditAction {
     Submitted,
@@ -647,7 +647,7 @@ pub enum JoinApplicationAuditAction {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationAuditEntry {
     pub action: JoinApplicationAuditAction,
@@ -661,7 +661,7 @@ pub struct JoinApplicationAuditEntry {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct JoinApplicationAuditOutcome {
     pub realm_id: RealmId,

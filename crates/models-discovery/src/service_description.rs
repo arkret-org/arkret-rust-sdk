@@ -451,7 +451,7 @@ impl ServiceDescribe {
 
 /// Profile-specific interoperable carrier binding.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ProfileBinding {
     pub carrier: String,
