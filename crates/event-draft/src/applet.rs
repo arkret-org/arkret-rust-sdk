@@ -1,0 +1,163 @@
+//! Applet-originated Event materialization.
+
+use std::collections::BTreeMap;
+
+use arkret_models_integration::{
+    AppletBridgeErrorClass, AppletBridgeErrorPayload, AppletBridgeVisibilityScope, AppletIdentifier,
+};
+use arkret_wire::{Did, Event, EventKind, Hlc, NonEmptyString, RealmId};
+use serde_json::Value;
+
+use crate::{EventDraftError, Result};
+
+/// Draft builder for the canonical `ak.applet.bridge_error` Event payload.
+#[derive(Clone, Debug)]
+pub struct AppletBridgeErrorBuilder {
+    realm_id: RealmId,
+    applet_id: AppletIdentifier,
+    actor_id: Did,
+    failed_transaction_ref: String,
+    error_class: AppletBridgeErrorClass,
+    error_code: String,
+    retriable: bool,
+    visibility_scope: AppletBridgeVisibilityScope,
+    message: Option<String>,
+    external_ref: Option<Value>,
+    retry_after_ms: Option<u64>,
+}
+
+impl AppletBridgeErrorBuilder {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        realm_id: RealmId,
+        applet_id: AppletIdentifier,
+        actor_id: Did,
+        failed_transaction_ref: impl Into<String>,
+        error_class: AppletBridgeErrorClass,
+        error_code: impl Into<String>,
+        retriable: bool,
+        visibility_scope: AppletBridgeVisibilityScope,
+    ) -> Self {
+        Self {
+            realm_id,
+            applet_id,
+            actor_id,
+            failed_transaction_ref: failed_transaction_ref.into(),
+            error_class,
+            error_code: error_code.into(),
+            retriable,
+            visibility_scope,
+            message: None,
+            external_ref: None,
+            retry_after_ms: None,
+        }
+    }
+
+    pub fn with_message(mut self, message: impl Into<String>) -> Self {
+        self.message = Some(message.into());
+        self
+    }
+
+    pub fn with_external_ref(mut self, external_ref: Value) -> Self {
+        self.external_ref = Some(external_ref);
+        self
+    }
+
+    pub fn with_retry_after_ms(mut self, retry_after_ms: u64) -> Self {
+        self.retry_after_ms = Some(retry_after_ms);
+        self
+    }
+
+    pub fn build(self, actor_seq: u64, hlc: Hlc) -> Result<Event> {
+        let external_ref = self
+            .external_ref
+            .map(|value| match value {
+                Value::Object(entries) => Ok(entries.into_iter().collect::<BTreeMap<_, _>>()),
+                _ => Err(EventDraftError::Protocol(
+                    "applet bridge external_ref must be an object".to_owned(),
+                )),
+            })
+            .transpose()?;
+        let payload = AppletBridgeErrorPayload {
+            applet_id: self.applet_id,
+            realm_id: self.realm_id.clone(),
+            failed_transaction_ref: self.failed_transaction_ref,
+            error_class: self.error_class,
+            error_code: NonEmptyString::new(self.error_code)
+                .map_err(|reason| EventDraftError::Protocol(reason.to_owned()))?,
+            retriable: self.retriable,
+            visibility_scope: self.visibility_scope,
+            external_ref,
+            message: self.message,
+            retry_after_ms: self.retriable.then_some(self.retry_after_ms).flatten(),
+        };
+        Ok(Event::new(
+            EventKind::APPLET_BRIDGE_ERROR,
+            self.realm_id,
+            self.actor_id,
+            actor_seq,
+            hlc,
+            serde_json::to_value(payload)?,
+        )?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use arkret_wire::{AppletId, AppletIdentifier};
+    use serde_json::json;
+
+    use super::*;
+
+    fn realm() -> RealmId {
+        RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+    }
+
+    #[test]
+    fn bridge_error_builder_emits_canonical_typed_payload() {
+        let event = AppletBridgeErrorBuilder::new(
+            realm(),
+            AppletIdentifier::Cx(
+                AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
+            ),
+            Did::new("did:webvh:z6mkfixture:bot.example").unwrap(),
+            "ak:event:01904100-0000-7000-8000-deadbeefdead",
+            AppletBridgeErrorClass::ExternalNetwork,
+            "external_rate_limited",
+            true,
+            AppletBridgeVisibilityScope::RealmAdmins,
+        )
+        .with_message("external network rejected the message")
+        .with_external_ref(json!({"slack_response_code": 429}))
+        .with_retry_after_ms(1000)
+        .build(1, Hlc::new("01970e589d21-0004-a13f9c2e").unwrap())
+        .unwrap();
+
+        assert_eq!(event.kind, EventKind::APPLET_BRIDGE_ERROR);
+        assert_eq!(event.payload["realm_id"], realm().as_str());
+        assert_eq!(event.payload["error_class"], "external_network");
+        assert_eq!(event.payload["visibility_scope"], "realm_admins");
+        assert_eq!(event.payload["retry_after_ms"], 1000);
+        assert_eq!(event.payload["external_ref"]["slack_response_code"], 429);
+    }
+
+    #[test]
+    fn bridge_error_builder_rejects_non_object_external_ref() {
+        let result = AppletBridgeErrorBuilder::new(
+            realm(),
+            AppletIdentifier::Cx(
+                AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
+            ),
+            Did::new("did:webvh:z6mkfixture:bot.example").unwrap(),
+            "ak:event:01904100-0000-7000-8000-deadbeefdead",
+            AppletBridgeErrorClass::Schema,
+            "invalid_external_ref",
+            false,
+            AppletBridgeVisibilityScope::AppletController,
+        )
+        .with_external_ref(json!(["not", "an", "object"]))
+        .build(1, Hlc::new("01970e589d21-0004-a13f9c2e").unwrap());
+
+        assert!(matches!(result, Err(EventDraftError::Protocol(_))));
+    }
+}
