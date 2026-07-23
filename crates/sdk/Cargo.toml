@@ -133,10 +133,6 @@ tokio = {workspace = true,features = ["rt-multi-thread"],optional = true}
 tokio = {workspace = true,features = ["macros", "rt", "rt-multi-thread"]}
 
 [[example]]
-name = "media_roundtrip"
-required-features = ["full-surface"]
-
-[[example]]
 name = "personal_agent_provision"
 required-features = ["full-surface", "signer"]
 
