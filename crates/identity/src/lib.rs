@@ -9,6 +9,7 @@
 mod error;
 mod handles;
 pub(crate) mod helpers;
+pub mod history_recovery;
 pub mod jws;
 mod records;
 mod resolvers;

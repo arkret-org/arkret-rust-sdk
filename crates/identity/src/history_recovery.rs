@@ -1,0 +1,398 @@
+//! Realm Recovery Key (RRK) DID service resolution for offline recovery
+//! recipients
+//! (`crypto-media/encryption-and-audit.md` §2.10.8, `identity/identity-did.md`
+//! §8.3, `models/realm-and-space.md` §2.3.1).
+//!
+//! Given a recovery recipient reference and the recipient principal's raw DID
+//! Document JSON, this module verifies that the named verification method is
+//! designated by an active `ArkretRealmHistoryRecoveryKey` service entry,
+//! referenced by `keyAgreement`, and encoded as an X25519 Multikey. Resolution
+//! is fail-closed and never falls back to an arbitrary key.
+
+use arkret_canonical::multibase::{decode_multibase_base58btc, decode_multicodec_varint};
+use arkret_identifiers::Did;
+use serde_json::Value;
+
+/// DID service entry `type` designating an offline RRK (`identity-did.md` §8.3).
+pub const RRK_SERVICE_TYPE: &str = "ArkretRealmHistoryRecoveryKey";
+/// `serviceEndpoint.domain` an RRK service entry MUST carry (history-recovery
+/// domain, separate from `did_recovery`).
+pub const RRK_SERVICE_DOMAIN: &str = "mls_history";
+/// X25519 public-key multicodec prefix (`0xec 0x01` unsigned-varint), the wire
+/// form a `Multikey` `publicKeyMultibase` RRK key uses for HPKE key agreement.
+const MULTICODEC_X25519_PUB: u64 = 0xec;
+
+/// Fail-closed outcome of [`resolve_realm_history_recovery_key`]. Every variant
+/// maps to the spec reason code
+/// [`arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED`]; the inner string is a
+/// human-readable diagnostic only (never relax the fail-closed contract).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RealmHistoryRecoveryKeyError {
+    /// The recipient's `verification_method` is not designated by an active
+    /// `ArkretRealmHistoryRecoveryKey` service entry, or the DID Document /
+    /// key material is unparseable, revoked, or malformed.
+    Unverified(String),
+}
+
+impl RealmHistoryRecoveryKeyError {
+    /// Spec reason code for this failure (always
+    /// [`arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED`]).
+    pub fn reason_code(&self) -> &'static str {
+        arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
+    }
+
+    /// Human-readable diagnostic detail.
+    pub fn detail(&self) -> &str {
+        match self {
+            Self::Unverified(detail) => detail,
+        }
+    }
+}
+
+impl std::fmt::Display for RealmHistoryRecoveryKeyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}: {}",
+            arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED,
+            self.detail()
+        )
+    }
+}
+
+impl std::error::Error for RealmHistoryRecoveryKeyError {}
+
+fn unverified(detail: impl Into<String>) -> RealmHistoryRecoveryKeyError {
+    RealmHistoryRecoveryKeyError::Unverified(detail.into())
+}
+
+/// A verified RRK public key resolved from a recipient's DID Document.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ResolvedRealmHistoryRecoveryKey {
+    /// The recipient stable id (`durability_policy.recovery_recipients[].recipient_id`).
+    pub recipient_id: String,
+    /// The principal that published the RRK service entry.
+    pub principal_id: Did,
+    /// The verification method id the RRK service entry designates.
+    pub verification_method: String,
+    /// Decoded raw 32-byte X25519 HPKE public key the provider seals to.
+    pub hpke_public_key: [u8; 32],
+}
+
+/// Resolve and verify the offline RRK HPKE public key for `recipient` from its
+/// principal's `did_document` (the raw W3C DID Document JSON, e.g. the
+/// raw DID Document value or a freshly resolved document).
+///
+/// Verification (`identity-did.md` §8.3, `encryption-and-audit.md` §2.10.8),
+/// all fail-closed:
+///
+/// 1. `did_document.id` MUST equal `recipient.principal_id`.
+/// 2. Some entry in `service[]` MUST have `type == "ArkretRealmHistoryRecoveryKey"`,
+///    `serviceEndpoint.verificationMethod == recipient.verification_method`, and
+///    `serviceEndpoint.domain == "mls_history"`.
+/// 3. The designated VM MUST appear in `keyAgreement[]` (it is an encryption / key-agreement key)
+///    and MUST resolve to a `verificationMethod[]` entry of `type == "Multikey"` carrying a
+///    `publicKeyMultibase` X25519 key.
+/// 4. The `publicKeyMultibase` MUST decode to the X25519-pub multicodec (`0xec 0x01`) + a 32-byte
+///    key.
+///
+/// Any miss returns [`RealmHistoryRecoveryKeyError::Unverified`]
+/// (`durability_recovery_recipient_unverified`); the function MUST NOT fall back
+/// to any other key. Point-in-time resolution (validating the RRK active at a
+/// historical seal Event's accepted-at) is the caller's responsibility — pass
+/// the DID Document resolved as of that instant.
+pub fn resolve_realm_history_recovery_key(
+    recipient_id: &str,
+    principal_id: &Did,
+    verification_method: &str,
+    did_document: &Value,
+) -> Result<ResolvedRealmHistoryRecoveryKey, RealmHistoryRecoveryKeyError> {
+    let document = did_document
+        .as_object()
+        .ok_or_else(|| unverified("DID Document is not a JSON object"))?;
+
+    // (1) The document MUST belong to the recipient principal.
+    let document_id = document
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| unverified("DID Document missing string `id`"))?;
+    if document_id != principal_id.as_str() {
+        return Err(unverified(format!(
+            "DID Document id {document_id} does not match recipient principal_id {}",
+            principal_id.as_str()
+        )));
+    }
+
+    // (2) An active ArkretRealmHistoryRecoveryKey service entry MUST designate
+    // exactly recipient.verification_method with domain == mls_history.
+    let services = document
+        .get("service")
+        .and_then(Value::as_array)
+        .ok_or_else(|| unverified("DID Document has no `service` array"))?;
+    let designates = services.iter().any(|entry| {
+        let Some(entry) = entry.as_object() else {
+            return false;
+        };
+        if entry.get("type").and_then(Value::as_str) != Some(RRK_SERVICE_TYPE) {
+            return false;
+        }
+        let Some(endpoint) = entry.get("serviceEndpoint").and_then(Value::as_object) else {
+            return false;
+        };
+        endpoint.get("verificationMethod").and_then(Value::as_str) == Some(verification_method)
+            && endpoint.get("domain").and_then(Value::as_str) == Some(RRK_SERVICE_DOMAIN)
+    });
+    if !designates {
+        return Err(unverified(format!(
+            "no active ArkretRealmHistoryRecoveryKey service entry designates {} with domain {RRK_SERVICE_DOMAIN}",
+            verification_method
+        )));
+    }
+
+    // (3a) The designated VM MUST be referenced by keyAgreement (encryption-to).
+    let key_agreement_refs = document
+        .get("keyAgreement")
+        .and_then(Value::as_array)
+        .ok_or_else(|| unverified("DID Document has no `keyAgreement` array"))?;
+    let in_key_agreement = key_agreement_refs
+        .iter()
+        .any(|reference| reference.as_str() == Some(verification_method));
+    if !in_key_agreement {
+        return Err(unverified(format!(
+            "RRK verification method {} is not referenced by keyAgreement",
+            verification_method
+        )));
+    }
+
+    // (3b) Resolve the VM entry and require a Multikey publicKeyMultibase.
+    let verification_methods = document
+        .get("verificationMethod")
+        .and_then(Value::as_array)
+        .ok_or_else(|| unverified("DID Document has no `verificationMethod` array"))?;
+    let method = verification_methods
+        .iter()
+        .filter_map(Value::as_object)
+        .find(|method| method.get("id").and_then(Value::as_str) == Some(verification_method))
+        .ok_or_else(|| {
+            unverified(format!(
+                "RRK verification method {} not present in verificationMethod",
+                verification_method
+            ))
+        })?;
+    if method.get("type").and_then(Value::as_str) != Some("Multikey") {
+        return Err(unverified(format!(
+            "RRK verification method {} is not a Multikey",
+            verification_method
+        )));
+    }
+    let multibase = method
+        .get("publicKeyMultibase")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            unverified(format!(
+                "RRK verification method {} has no publicKeyMultibase",
+                verification_method
+            ))
+        })?;
+
+    // (4) Decode the X25519-pub multicodec key.
+    let hpke_public_key = decode_x25519_multibase(multibase)?;
+
+    Ok(ResolvedRealmHistoryRecoveryKey {
+        recipient_id: recipient_id.to_owned(),
+        principal_id: principal_id.clone(),
+        verification_method: verification_method.to_owned(),
+        hpke_public_key,
+    })
+}
+
+/// Decode a `z<base58btc(0xec01 || key)>` multibase string into the raw 32-byte
+/// X25519 public key, fail-closed to the RRK reason code on any malformation.
+fn decode_x25519_multibase(multibase: &str) -> Result<[u8; 32], RealmHistoryRecoveryKeyError> {
+    let decoded = decode_multibase_base58btc(multibase)
+        .map_err(|err| unverified(format!("RRK publicKeyMultibase decode failed: {err}")))?;
+    let (code, header_len) = decode_multicodec_varint(&decoded)
+        .ok_or_else(|| unverified("RRK publicKeyMultibase has a truncated multicodec header"))?;
+    if code != MULTICODEC_X25519_PUB {
+        return Err(unverified(format!(
+            "RRK publicKeyMultibase multicodec is 0x{code:x}, expected x25519-pub (0xec)"
+        )));
+    }
+    let key = &decoded[header_len..];
+    key.try_into().map_err(|_| {
+        unverified(format!(
+            "RRK X25519 public key must be 32 bytes, got {}",
+            key.len()
+        ))
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use arkret_canonical::multibase::encode_multibase_base58btc;
+
+    use super::*;
+
+    struct TestRecipient {
+        recipient_id: String,
+        principal_id: Did,
+        verification_method: String,
+    }
+
+    fn recipient() -> TestRecipient {
+        TestRecipient {
+            recipient_id: "acme-org-rrk-1".to_owned(),
+            principal_id: Did::new("did:webvh:z6mkfixture:acme.example").unwrap(),
+            verification_method: "did:webvh:z6mkfixture:acme.example#realm-history-recovery-1"
+                .to_owned(),
+        }
+    }
+
+    fn x25519_multibase(pubkey: &[u8; 32]) -> String {
+        let mut bytes = Vec::with_capacity(34);
+        bytes.push(0xec);
+        bytes.push(0x01);
+        bytes.extend_from_slice(pubkey);
+        encode_multibase_base58btc(bytes)
+    }
+
+    fn did_document(recipient: &TestRecipient, pubkey: &[u8; 32]) -> Value {
+        serde_json::json!({
+            "id": recipient.principal_id.as_str(),
+            "verificationMethod": [
+                {
+                    "id": recipient.verification_method,
+                    "type": "Multikey",
+                    "controller": recipient.principal_id.as_str(),
+                    "publicKeyMultibase": x25519_multibase(pubkey),
+                }
+            ],
+            "keyAgreement": [recipient.verification_method],
+            "service": [
+                {
+                    "id": "did:webvh:z6mkfixture:acme.example#realm-history-recovery",
+                    "type": RRK_SERVICE_TYPE,
+                    "serviceEndpoint": {
+                        "verificationMethod": recipient.verification_method,
+                        "kem": "hpke",
+                        "domain": RRK_SERVICE_DOMAIN,
+                    }
+                }
+            ]
+        })
+    }
+
+    fn resolve(
+        recipient: &TestRecipient,
+        document: &Value,
+    ) -> Result<ResolvedRealmHistoryRecoveryKey, RealmHistoryRecoveryKeyError> {
+        resolve_realm_history_recovery_key(
+            &recipient.recipient_id,
+            &recipient.principal_id,
+            &recipient.verification_method,
+            document,
+        )
+    }
+
+    #[test]
+    fn resolves_active_rrk_service_entry_to_hpke_pubkey() {
+        let recipient = recipient();
+        let rrk_pub = [5u8; 32];
+        let document = did_document(&recipient, &rrk_pub);
+
+        let resolved = resolve(&recipient, &document).unwrap();
+        assert_eq!(resolved.hpke_public_key, rrk_pub);
+        assert_eq!(resolved.recipient_id, "acme-org-rrk-1");
+        assert_eq!(resolved.verification_method, recipient.verification_method);
+    }
+
+    #[test]
+    fn rejects_when_service_entry_absent() {
+        let recipient = recipient();
+        let rrk_pub = [5u8; 32];
+        let mut document = did_document(&recipient, &rrk_pub);
+        document["service"] = serde_json::json!([]);
+
+        let err = resolve(&recipient, &document).unwrap_err();
+        assert_eq!(
+            err.reason_code(),
+            arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
+        );
+    }
+
+    #[test]
+    fn rejects_wrong_domain() {
+        let recipient = recipient();
+        let rrk_pub = [5u8; 32];
+        let mut document = did_document(&recipient, &rrk_pub);
+        document["service"][0]["serviceEndpoint"]["domain"] = serde_json::json!("did_recovery");
+
+        let err = resolve(&recipient, &document).unwrap_err();
+        assert_eq!(
+            err.reason_code(),
+            arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
+        );
+    }
+
+    #[test]
+    fn rejects_vm_not_in_key_agreement() {
+        let recipient = recipient();
+        let rrk_pub = [5u8; 32];
+        let mut document = did_document(&recipient, &rrk_pub);
+        document["keyAgreement"] = serde_json::json!([]);
+
+        let err = resolve(&recipient, &document).unwrap_err();
+        assert_eq!(
+            err.reason_code(),
+            arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
+        );
+    }
+
+    #[test]
+    fn rejects_service_designating_a_different_vm() {
+        let recipient = recipient();
+        let rrk_pub = [5u8; 32];
+        let mut document = did_document(&recipient, &rrk_pub);
+        // Service points at a different VM than the recipient names — MUST NOT
+        // fall back to whatever key the document happens to carry.
+        document["service"][0]["serviceEndpoint"]["verificationMethod"] =
+            serde_json::json!("did:webvh:z6mkfixture:acme.example#some-other-key");
+
+        let err = resolve(&recipient, &document).unwrap_err();
+        assert_eq!(
+            err.reason_code(),
+            arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
+        );
+    }
+
+    #[test]
+    fn rejects_non_x25519_multicodec_key() {
+        let recipient = recipient();
+        let mut document = did_document(&recipient, &[5u8; 32]);
+        // Ed25519-pub multicodec (0xed 0x01) instead of x25519-pub.
+        let mut bytes = vec![0xedu8, 0x01];
+        bytes.extend_from_slice(&[0u8; 32]);
+        document["verificationMethod"][0]["publicKeyMultibase"] =
+            serde_json::json!(encode_multibase_base58btc(bytes));
+
+        let err = resolve(&recipient, &document).unwrap_err();
+        assert_eq!(
+            err.reason_code(),
+            arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
+        );
+    }
+
+    #[test]
+    fn rejects_document_for_wrong_principal() {
+        let recipient = recipient();
+        let rrk_pub = [5u8; 32];
+        let mut document = did_document(&recipient, &rrk_pub);
+        document["id"] = serde_json::json!("did:webvh:z6mkfixture:evil.example");
+
+        let err = resolve(&recipient, &document).unwrap_err();
+        assert_eq!(
+            err.reason_code(),
+            arkret_wire::ReasonCode::DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED
+        );
+    }
+}

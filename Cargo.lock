@@ -142,7 +142,6 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
- "x25519-dalek",
 ]
 
 [[package]]

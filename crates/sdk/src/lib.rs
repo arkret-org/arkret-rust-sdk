@@ -418,14 +418,11 @@ pub mod applet;
 #[cfg(feature = "full-surface")]
 pub use arkret_crypto::blob_aead;
 pub use arkret_hlc as hlc;
-pub use arkret_signatures::dpop;
 // Realm Recovery Key (RRK) durable history sealing — provider-initiated
 // `ak.realm_key.share` to offline recovery recipients (encryption-and-audit.md
 // §2.10.8). Resolves the RRK HPKE public key from a recipient's DID Document
 // and HPKE-seals retained per-epoch history secrets to it. Reuses
 // `secret_share`'s HPKE seal primitive, so it carries the same feature gate.
-#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
-pub mod history_recovery;
 // RFC 9421 HTTP Message Signatures (Ed25519) + RFC 9530 Content-Digest.
 // The single source of truth now lives in `arkret-signatures`; this re-export
 // keeps the existing `arkret::http_signature::*` / `arkret_sdk::http_signature::*`
@@ -436,11 +433,6 @@ pub mod history_recovery;
 // arkret-http-client; this shim keeps the `arkret::http_did_resolver::*`
 // path stable. Gated out on wasm32; web embedders should plug in a
 // fetch-based resolver via the `DidResolver` trait directly.
-// `secret_share` moved to `arkret-crypto` (HPKE base-mode seal). Re-exported
-// here to keep the `arkret::secret_share::*` / `crate::secret_share::*` paths
-// stable for `history_recovery` and the `mls` tests.
-#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
-pub use arkret_crypto::secret_share;
 #[cfg(all(
     feature = "full-surface",
     feature = "client",
@@ -464,6 +456,7 @@ pub use arkret_http_client::key_backup_client;
 // registry independently of the higher-level full-surface client
 // runtime.
 pub use arkret_lattice_registry as lattice_registry;
+pub use arkret_signatures::dpop;
 #[cfg(feature = "full-surface")]
 pub use arkret_signatures::http_signature;
 #[cfg(feature = "full-surface")]
@@ -553,12 +546,6 @@ pub use blob_aead::{
     StreamDecryptor, StreamEncryptParams, decrypt_stream, decrypt_whole_file, encrypt_stream,
     encrypt_whole_file,
 };
-#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
-pub use history_recovery::{
-    RRK_SERVICE_DOMAIN, RRK_SERVICE_TYPE, RealmHistoryRecoveryKeyError,
-    ResolvedRealmHistoryRecoveryKey, resolve_realm_history_recovery_key, rrk_key_scope,
-    seal_history_secrets_to_recovery_recipient,
-};
 #[cfg(feature = "client")]
 pub use http_client::{
     AccountSubscribeFolder, Auth, Client, ClientBuilder, ClientRequestOptions, RetryConfig,
@@ -609,14 +596,6 @@ pub use resolver::{
     SnapshotChunkManifest, SnapshotRestore, SnapshotRestoreSource, SnapshotSignature,
     SnapshotSignatureBindingPayload, StateSnapshot, merkle_root, state_merkle_root,
     verify_snapshot_chunks,
-};
-#[cfg(feature = "full-surface")]
-#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
-pub use secret_share::{
-    HPKE_SECRET_SHARE_SCHEME, SECRET_ID_MLS_ACCOUNT, SECRET_REQUEST_KIND, SECRET_SEND_KIND,
-    SecretShareRequestContent, SecretShareSendContent, open_base_mode_with_x25519_privkey,
-    open_history_secret_with_device_privkey, seal_base_mode_to_x25519_pubkey,
-    seal_history_secret_to_device_pubkey,
 };
 #[cfg(all(feature = "full-surface", feature = "server"))]
 pub use server::{

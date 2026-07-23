@@ -69,7 +69,6 @@ applet = ["applet-runtime", "client", "server", "salvo"]
 device-runtime = [
     "full-surface",
     "arkret-crypto/backup",
-    "arkret-crypto/secret-share",
 ]
 # Round 23 (2026-05-09): expose the platform KeyStore feature gates so apps
 # embedding the umbrella `arkret` crate can opt into OS-native key storage
@@ -123,7 +122,6 @@ tokio = {workspace = true,features = ["rt", "macros"],optional = true}
 tracing = {workspace = true,optional = true}
 url = {workspace = true,features = ["serde"],optional = true}
 uuid = {workspace = true}
-x25519-dalek = {workspace = true}
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # rt-multi-thread is required for tokio::task::block_in_place, which the
 # sync HttpDidResolver facade uses to block safely on multi-thread runtimes.
