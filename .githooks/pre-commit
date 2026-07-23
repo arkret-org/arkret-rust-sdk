@@ -8,7 +8,7 @@ if [ -z "$rust_touched" ]; then
     exit 0
 fi
 
-cargo fmt --all -- --check
+cargo +nightly fmt --all -- --check
 
 workspace_touched=false
 packages=
@@ -25,17 +25,8 @@ for path in $rust_touched; do
         Cargo.toml|Cargo.lock)
             workspace_touched=true
             ;;
-        crates/api/*)
-            add_package arkret-api
-            ;;
-        crates/core/*)
-            add_package arkret-core
-            ;;
         crates/crypto/*)
             add_package arkret-crypto
-            ;;
-        crates/ffi/*)
-            add_package arkret-ffi
             ;;
         crates/http-client/*)
             add_package arkret-http-client
