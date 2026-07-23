@@ -247,7 +247,6 @@ def generate_error_codes(artifacts: Path) -> str:
             "use serde::{Deserialize, Serialize};",
             "",
             "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]",
-            '#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]',
             '#[serde(rename_all = "snake_case")]',
             "#[repr(usize)]",
             "pub enum ErrorCode {",
@@ -474,7 +473,6 @@ def generate_service_types(artifacts: Path) -> str:
             "use serde::{Deserialize, Serialize};",
             "",
             "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]",
-            '#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]',
             '#[serde(rename_all = "snake_case")]',
             "#[repr(usize)]",
             "pub enum ServiceType {",
@@ -556,7 +554,6 @@ def generate_relation_kinds(artifacts: Path) -> str:
             "use serde::{Deserialize, Deserializer, Serialize, Serializer};",
             "",
             "#[derive(Clone, Debug, PartialEq, Eq, Hash)]",
-            '#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]',
             "pub enum RelationKind {",
         ]
     )

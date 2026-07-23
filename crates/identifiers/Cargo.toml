@@ -18,7 +18,6 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
-salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono"]
 # Server-only: PostgreSQL `uuid` ToSql/FromSql for the pure-uuid typed ids so
 # they persist as native `uuid` columns. `postgres_backend` gives the Pg type
 # + serialize/deserialize traits WITHOUT linking libpq, so this stays a pure
@@ -40,8 +39,6 @@ diesel = {workspace = true,features = [
     "uuid",
 ],optional = true}
 getrandom = {workspace = true}
-salvo = {workspace = true,features = ["oapi"],optional = true}
-salvo-oapi = {workspace = true,optional = true}
 serde = {workspace = true}
 thiserror = {workspace = true}
 uuid = {workspace = true}

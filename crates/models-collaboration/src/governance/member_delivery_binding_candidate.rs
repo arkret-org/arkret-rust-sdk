@@ -28,7 +28,6 @@ use crate::governance::handle_claim::DeliveryBindingHint;
 /// Builder entry-point hint. Advisory for audit / telemetry only; reducer
 /// behaviour MUST NOT branch on this.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CandidateIntent {
     MemberAdd,
@@ -120,7 +119,6 @@ pub enum CandidateError {
 /// `#[serde(deny_unknown_fields)]` so the SDK refuses to silently widen
 /// the wire shape.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MemberDeliveryBindingCandidate {
     pub subject_id: Did,

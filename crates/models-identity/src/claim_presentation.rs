@@ -15,7 +15,6 @@ pub const DIRECTORY_RESTRICTED_CLAIM_PRESENTATION_KIND: &str =
     "ak.directory.restricted_claim_presentation.v1";
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DirectoryPresentedClaim {
     pub claim_id: String,
@@ -54,7 +53,6 @@ pub struct DirectoryPresentedClaim {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DirectoryRestrictedClaimPresentation {
     pub kind: String,
@@ -85,7 +83,6 @@ fn default_agent_selector_claim_schema() -> String {
 /// Signed controller-scoped selector claim for
 /// `@<controller-handle>/<agent_slug>` resolution.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSelectorClaim {
     #[serde(default = "default_agent_selector_claim_schema")]

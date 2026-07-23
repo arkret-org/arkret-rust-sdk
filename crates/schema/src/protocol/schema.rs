@@ -10,7 +10,6 @@ use super::validators::{
 
 /// Protocol JSON Schema registry.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ProtocolSchemaRegistry {
     schemas: BTreeMap<String, Value>,
     trusted_extension_prefixes: Vec<String>,
@@ -18,7 +17,6 @@ pub struct ProtocolSchemaRegistry {
 
 /// JSON value type rule extracted from a supported JSON Schema document.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum GeneratedSchemaValueType {
     Any,
     Array,
@@ -73,7 +71,6 @@ impl GeneratedSchemaValueType {
 
 /// One field rule in a generated schema validator.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct GeneratedSchemaField {
     pub name: String,
     pub value_type: GeneratedSchemaValueType,
@@ -82,7 +79,6 @@ pub struct GeneratedSchemaField {
 
 /// Runtime validator generated from the JSON Schema subset supported by the SDK.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct GeneratedSchemaValidator {
     pub schema_id: String,
     pub fields: Vec<GeneratedSchemaField>,

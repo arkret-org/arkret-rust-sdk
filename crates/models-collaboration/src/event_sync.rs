@@ -22,7 +22,6 @@ use serde_json::Value;
 /// [`EventsFrontierFederationPeerState`] shape defined by the spec
 /// artifacts (`service-operation-dtos.schema.json`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum FrontierPeerRole {
     AccountClient,
@@ -42,7 +41,6 @@ pub enum FrontierPeerRole {
 /// `receipts` carries the full `ak.managed_agent_pcr.seal_head.v1` Seal needed
 /// by the controller device to author its successor.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventsFrontierAccountClientState {
     pub frontier: EventsFrontierView,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -52,7 +50,6 @@ pub struct EventsFrontierAccountClientState {
 /// Typed, closed receipt carrying the last accepted controller-device-signed
 /// Seal for a managed Agent PCR whose Event log is ahead of Seal coverage.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ManagedAgentPcrSealHeadReceipt {
     pub kind: ManagedAgentPcrSealHeadReceiptKind,
@@ -60,7 +57,6 @@ pub struct ManagedAgentPcrSealHeadReceipt {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum ManagedAgentPcrSealHeadReceiptKind {
     #[serde(rename = "ak.managed_agent_pcr.seal_head.v1")]
     ManagedAgentPcrSealHeadV1,
@@ -75,21 +71,18 @@ pub use arkret_wire::MAX_ACTOR_SEQ_TOTAL_SIBLINGS as MAX_ACTOR_FRONTIER_EVENT_ID
 pub const REALM_ACTOR_FRONTIER_DIGEST_DOMAIN: &[u8] = b"ak-realm-actor-frontier-v1\0";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum RealmActorFrontierKind {
     #[serde(rename = "realm_actor")]
     RealmActor,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum RealmSealFrontierKind {
     #[serde(rename = "realm_seal")]
     RealmSeal,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum ActorAggregateFrontierKind {
     #[serde(rename = "actor_aggregate")]
     ActorAggregate,
@@ -149,7 +142,6 @@ impl EventsFrontierSelector {
 
 /// Selector-dependent, closed and wire-discriminated frontier union.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum EventsFrontierView {
     RealmActor(RealmActorFrontierView),
@@ -168,7 +160,6 @@ struct RealmActorFrontierDigestTranscript<'a> {
 
 /// Deterministic authoring frontier for one `(realm_id, actor_id)` chain.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmActorFrontierView {
     pub kind: RealmActorFrontierKind,
@@ -283,7 +274,6 @@ impl RealmActorFrontierView {
 
 /// Read-only actor aggregate. It deliberately exposes no authoring helper.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ActorAggregateFrontierView {
     pub kind: ActorAggregateFrontierKind,
@@ -293,7 +283,6 @@ pub struct ActorAggregateFrontierView {
 
 /// Closed `error.details` for an explicit actor-chain CAS conflict.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct EventsActorCasConflictDetails {
     pub accepted: bool,
@@ -339,7 +328,6 @@ impl ActorAggregateFrontierView {
 /// Control Move basis (`leaves=[seal_id]`); `seal_id` alone is the DataEvent
 /// `seal_ref`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmSealFrontierView {
     pub kind: RealmSealFrontierKind,
@@ -388,7 +376,6 @@ impl RealmSealFrontierView {
 /// canonical shape shared by the spec artifacts, the producing service, and
 /// every consumer.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventsFrontierFederationPeerState {
     pub realm_id: RealmId,
     /// Current federation-visible head Event IDs for the realm.
@@ -416,7 +403,6 @@ pub struct EventsFrontierFederationPeerState {
 /// receipts, signatures, or actor_seq_upper_bounds. Type system
 /// enforces this (no such fields).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventsFrontierAnonymousHealthState {
     pub peer_role: FrontierPeerRole,
     pub service_id: Did,
@@ -432,7 +418,6 @@ pub struct EventsFrontierAnonymousHealthState {
 
 /// Round 4 — discriminated `/events/frontier` response.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 #[allow(clippy::large_enum_variant)]
 pub enum EventsFrontierState {
@@ -449,7 +434,6 @@ pub enum EventsFrontierState {
 /// `events/frontier` federation-peer response so a receiver can verify
 /// the request is bound to the sender's current reducer state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct FederationServiceBindingRef {
     pub realm_id: RealmId,
     pub realm_policy_digest: Hash,
@@ -472,7 +456,6 @@ pub const MAX_FEDERATED_EVENT_SIGNER_EVIDENCE: usize = 64;
 /// the full [`FederationServiceBindingRef`] so the receiver can verify
 /// origin reducer state.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventsSubmitFederationRequestBody {
     pub service_binding_ref: FederationServiceBindingRef,
     pub events: Vec<Event>,

@@ -29,7 +29,6 @@ pub struct ModerationEvidencePackage {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ModerationReportOutcome {
     pub report_id: String,
     pub status: String,
@@ -44,7 +43,6 @@ pub struct ModerationReportOutcome {
 
 /// Moderation action (moderation.md §5.3).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ModerationAction {
     DenyJoin,
@@ -59,7 +57,6 @@ pub enum ModerationAction {
 /// `ak.self.moderation.command.report` request body. Embeds the
 /// `FrankingProof` artifacts type owned by `events_payloads::moderation`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ModerationReportRequestBody {
     pub realm_id: RealmId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -72,16 +69,13 @@ pub struct ModerationReportRequestBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub evidence_package: Option<ModerationEvidencePackage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub franking_proof: Option<FrankingProof>,
 }
 
 /// Moderation report (moderation.md §3).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ModerationReport {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub schema: Option<String>,
@@ -132,7 +126,6 @@ impl ModerationReport {
 /// only the reporter could have produced; spec leaves the algorithm open
 /// per profile — this struct just carries the wire shape.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ModerationFrankingProof {
     pub algorithm: String,
     pub franking_tag: String,

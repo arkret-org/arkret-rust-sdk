@@ -18,7 +18,6 @@ use crate::governance::invite_addressing::InviteDeliveryTarget;
 /// only models the live `join`/`invite`/`knock` states): the FSM transition
 /// payload additionally carries the terminal `leave`/`ban` states.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MembershipPayloadState {
     Join,
@@ -44,7 +43,6 @@ pub enum MembershipPayloadState {
 /// when `delivery_status == routable`, `delivery_binding` is required. These
 /// are enforced by [`MembershipPayload::to_value`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MembershipPayload {
     pub membership: MembershipPayloadState,
@@ -78,12 +76,10 @@ pub struct MembershipPayload {
     pub reason: Option<String>,
     /// `oneOf(event_ref | invite_id)` — both are opaque strings on the wire.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub invite_ref: Option<MembershipInviteRef>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum MembershipInviteRef {
     Event(EventId),
@@ -181,7 +177,6 @@ impl MembershipPayload {
 /// the typed `x_*` extensions (e.g. `x_role`) are carried in [`Self::extensions`]
 /// and re-prefixed on serialize.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct InviteCreatePayload {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub invite_id: Option<InviteId>,
@@ -196,7 +191,6 @@ pub struct InviteCreatePayload {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     /// `x_*` extension properties.
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten, default)]
     pub extensions: XExtensionMap,
 }
@@ -289,7 +283,6 @@ fn valid_invite_create_extension_key(key: &str) -> bool {
 /// `invite_id`). Carried by `ak.invite.accept` / `ak.invite.cancel` /
 /// `ak.invite.revoke`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteRefPayload {
     pub invite_id: InviteId,
@@ -323,7 +316,6 @@ pub const INVITE_SUBJECT_PROOF_TRANSCRIPT_DOMAIN: &str = "ak.invite.claim.subjec
 
 /// Verification-service proof carried by `ak.invite.claim`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteClaimBindingProof {
     pub verification_service_id: Did,
@@ -404,7 +396,6 @@ impl InviteClaimBindingProof {
 
 /// `binding_proof` with only the `signature` member removed.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteClaimUnsignedBindingProof {
     pub verification_service_id: Did,
@@ -418,7 +409,6 @@ pub struct InviteClaimUnsignedBindingProof {
 
 /// Canonical `ak.invite.claim.binding_proof.v1` transcript body.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteClaimBindingProofBody {
     pub audience: String,
@@ -522,7 +512,6 @@ pub fn invite_binding_proof_transcript_digest(
 
 /// Subject DID proof carried by `ak.invite.claim`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteSubjectProof {
     pub verification_method: String,
@@ -572,7 +561,6 @@ impl InviteSubjectProof {
 
 /// Canonical `ak.invite.claim.subject_proof.v1` transcript body.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteSubjectProofBody {
     pub subject_id: Did,
@@ -715,7 +703,6 @@ pub fn invite_subject_proof_transcript_digest(
 /// or the flat `{kind, from_ref, to_ref}` triple; this strong type models the
 /// flat form (the only shape inkson constructs).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RelationCreatePayload {
     /// Registered `relation_kind` (e.g. `ak.relation.parent_of`).

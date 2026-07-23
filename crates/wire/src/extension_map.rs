@@ -10,15 +10,6 @@ use serde_json::Value;
 #[serde(transparent)]
 pub struct XExtensionMap(BTreeMap<String, Value>);
 
-#[cfg(feature = "salvo-oapi")]
-impl salvo::oapi::ToSchema for XExtensionMap {
-    fn to_schema(
-        _components: &mut salvo::oapi::Components,
-    ) -> salvo::oapi::RefOr<salvo::oapi::Schema> {
-        salvo::oapi::Object::new().into()
-    }
-}
-
 impl XExtensionMap {
     pub fn new(values: BTreeMap<String, Value>) -> Result<Self, &'static str> {
         if values.keys().all(|key| is_x_extension_key(key)) {

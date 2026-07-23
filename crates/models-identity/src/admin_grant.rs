@@ -41,7 +41,6 @@ pub mod admin_scopes {
 /// strict subset of the RFC 7662 introspection response plus the
 /// `org.arkret.*` extensions soland already uses.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantIntrospection {
     /// Whether the bearer token is currently valid. Receivers MUST
     /// reject any introspection where `active=false`.

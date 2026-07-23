@@ -44,7 +44,6 @@ pub const STATUS_MESSAGE_MAX_CODE_POINTS: usize = 256;
 /// (fail closed) instead of guessing a nearby state; use
 /// [`PresenceStatus::parse_wire`] for that strict path.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PresenceStatus {
     Online,

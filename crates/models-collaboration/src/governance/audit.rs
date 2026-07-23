@@ -8,7 +8,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AccessKind {
     Plaintext,
@@ -20,7 +19,6 @@ pub enum AccessKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AuditPolicyAccessPayload {
     pub realm_id: RealmId,
     pub actor: Did,
@@ -48,7 +46,6 @@ impl AuditPolicyAccessPayload {
 
 /// Audit assurance class (encryption-and-audit.md §3.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AuditAssurance {
     AttestedHardware,
@@ -134,7 +131,6 @@ impl AuditAssurance {
 /// Combine with [`ReceiptIndependence`] to detect single-source receipts
 /// that don't satisfy the attested-mode independence requirement.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RywIssuerRole {
     EventsApi,
@@ -145,7 +141,6 @@ pub enum RywIssuerRole {
 /// Whether the RYW receipt was issued by an issuer independent of the
 /// Events API node that accepted the audit envelope.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ReceiptIndependence {
     /// At least one issuer is distinct from the originating Events API.
@@ -156,7 +151,6 @@ pub enum ReceiptIndependence {
 
 /// Per-actor frontier entry referenced by the RYW receipt.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RywActorFrontierEntry {
     pub actor_seq: u64,
     pub event_id: EventId,
@@ -165,7 +159,6 @@ pub struct RywActorFrontierEntry {
 /// Frontier reference inside an RYW receipt
 /// (`audit-ryw-receipt.schema.json`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RywFrontier {
     pub realm_frontier: Vec<EventId>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -180,7 +173,6 @@ pub struct RywFrontier {
 /// Agent MUST gate plaintext release on receiving a receipt that meets
 /// the Realm's declared `audit_assurance`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AuditRywReceipt {
     pub receipt_id: String,
     pub schema: String,

@@ -65,7 +65,6 @@ pub struct PlaintextItem {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/key-backup-unlock-proof.schema.json#/properties/auth_data`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupUnlockProofAuthData {
     pub verification_method: DidUrl,
@@ -75,7 +74,6 @@ pub struct KeyBackupUnlockProofAuthData {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupUnlockProof {
     pub schema: String,
     pub recovery_session_id: RecoverySessionId,
@@ -95,7 +93,6 @@ pub struct KeyBackupUnlockProof {
     )]
     pub issued_at: DateTime<Utc>,
     pub auth_data: KeyBackupUnlockProofAuthData,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
 }
@@ -103,7 +100,6 @@ pub struct KeyBackupUnlockProof {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/key-backup-unlock-proof.schema.json#/$defs/proof_kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ProofKind {
     PrincipalSigning,
@@ -118,7 +114,6 @@ pub enum ProofKind {
 /// `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/signature`
 /// (identical shape: `{kid, alg?, sig}`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeyOperationSignature {
     pub kid: NonEmptyString,
@@ -129,7 +124,6 @@ pub struct KeyOperationSignature {
 
 /// Counterpart for `spec/v1/artifacts/schemas/keypackage-operations.schema.json#/$defs/failure`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Failure {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -144,7 +138,6 @@ pub struct Failure {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keypackage-operations.schema.json#/$defs/keypackage_claim_record`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackageClaimRecord {
     pub claim_id: String,
@@ -180,7 +173,6 @@ pub type KeyPackageRefArray = Vec<String>;
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keypackage-operations.schema.json#/$defs/keypackage_upload_entry`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackageUploadEntry {
     pub keypackage_id: String,
@@ -280,7 +272,6 @@ pub type DeviceKeyRecords = BTreeMap<DeviceId, AlgorithmKeyRecords>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/key_record`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeyRecord {
     pub key: Base64UrlString,
@@ -319,7 +310,6 @@ pub type QueryDeviceMap = BTreeMap<Did, Vec<DeviceId>>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-policy.schema.json#/$defs/share`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ShareShareCommitment {
     pub algorithm: RecoveryShareCommitmentAlgorithm,
@@ -327,7 +317,6 @@ pub struct ShareShareCommitment {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "kebab-case")]
 pub enum RecoveryShareCommitmentAlgorithm {
     FeldmanVssSha256,
@@ -577,7 +566,6 @@ fn valid_did_version_id(value: &str) -> bool {
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/proof_summary`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ProofSummary {
     pub kind: RecoveryProofKind,
@@ -589,7 +577,6 @@ pub struct ProofSummary {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/recovery_policy_ref`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryPolicyRef {
     pub policy_id: PolicyId,
@@ -600,7 +587,6 @@ pub struct RecoveryPolicyRef {
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
 /// recovery_session_complete_outcome`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionCompleteOutcome {
     pub ok: bool,
@@ -618,7 +604,6 @@ pub struct RecoverySessionCompleteOutcome {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RecoveryIdentityModel {
     CrossSigning,
@@ -693,7 +678,6 @@ impl RecoverySessionCompleteOutcome {
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
 /// recovery_session_complete_request_body`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionCompleteRequestBody {
     pub authorization_event_id: EventId,
@@ -794,7 +778,6 @@ fn validate_recovery_completion_shape(
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
 /// recovery_session_create_request_body`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionCreateRequestBody {
     pub principal_id: Did,
@@ -808,7 +791,6 @@ pub struct RecoverySessionCreateRequestBody {
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
 /// recovery_session_proof_submit_outcome`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionProofSubmitOutcome {
     pub recovery_session_id: RecoverySessionId,
@@ -822,10 +804,8 @@ pub struct RecoverySessionProofSubmitOutcome {
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
 /// recovery_session_proof_submit_request_body`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionProofSubmitRequestBody {
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub proof: RecoverySessionProof,
 }
 
@@ -932,7 +912,6 @@ where
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/recovery_session_state`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RecoverySessionState {
     pub schema: String,
     pub recovery_session_id: RecoverySessionId,
@@ -1168,7 +1147,6 @@ impl RecoverySessionState {
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/session_state`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SessionState {
     Pending,

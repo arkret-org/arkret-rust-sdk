@@ -22,7 +22,6 @@ use crate::directory_artifacts::ObjectPreview;
 use crate::service_description::DirectoryResourceKind;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchRealmsRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<String>,
@@ -43,7 +42,6 @@ pub struct DirectorySearchRealmsRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryRealmSearchOutcome {
     #[serde(default)]
     pub realms: Vec<RealmPreview>,
@@ -53,7 +51,6 @@ pub struct DirectoryRealmSearchOutcome {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum RealmMemberCountBucketLabel {
     #[serde(rename = "1-10")]
     OneToTen,
@@ -70,7 +67,6 @@ pub enum RealmMemberCountBucketLabel {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum RealmMemberCountBucket {
     Bucket(RealmMemberCountBucketLabel),
@@ -78,7 +74,6 @@ pub enum RealmMemberCountBucket {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RealmPreview {
     pub realm_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -121,7 +116,6 @@ pub struct RealmPreview {
 
 /// Service class that can receive Realm join-side submissions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinCandidateServiceType {
     PrincipalServer,
@@ -132,7 +126,6 @@ pub enum RealmJoinCandidateServiceType {
 /// Routing role for a Realm join candidate. This is an ordering and
 /// diagnostics hint, not an authorization grant.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinCandidateRole {
     Primary,
@@ -146,7 +139,6 @@ pub enum RealmJoinCandidateRole {
 
 /// Join-side strand supported by a Realm join candidate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinMethod {
     InviteAccept,
@@ -158,7 +150,6 @@ pub enum RealmJoinMethod {
 
 /// Source from which a Realm join candidate was derived.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinCandidateSource {
     RealmSyncEndpoint,
@@ -174,7 +165,6 @@ pub enum RealmJoinCandidateSource {
 /// It is distinct from member delivery binding and does not authorize
 /// membership by itself.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RealmJoinCandidate {
     pub realm_id: RealmId,
     pub service_id: Did,
@@ -211,7 +201,6 @@ pub struct RealmJoinCandidate {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryResolveRealmRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
@@ -230,7 +219,6 @@ pub struct DirectoryResolveRealmRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryRealmResolutionOutcome {
     pub realm_preview: RealmPreview,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -245,7 +233,6 @@ pub struct DirectoryRealmResolutionOutcome {
 /// shareable address. The address grammar (`crate::models::object_address`)
 /// fixes the hierarchy `realm` ⊃ `strand` ⊃ `m` (message).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum TargetKind {
     Realm,
@@ -261,7 +248,6 @@ pub enum TargetKind {
 /// the address carries `lt=invite` or `lt=preview`; the server MUST bind it to
 /// the resolved object via [`crate::models::object_address::verify_token_target`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryResolveTargetRequestBody {
     pub address: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -284,7 +270,6 @@ pub struct DirectoryResolveTargetRequestBody {
 /// (a stripped Strand / Message projection); it stays a `serde_json::Value`
 /// because its shape varies by `target_kind`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryTargetResolutionOutcome {
     pub target_kind: TargetKind,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -306,7 +291,6 @@ pub struct DirectoryTargetResolutionOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchOrganizationsRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<String>,
@@ -319,7 +303,6 @@ pub struct DirectorySearchOrganizationsRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryOrganizationSearchOutcome {
     #[serde(default)]
     pub organizations: Vec<OrganizationPreview>,
@@ -329,7 +312,6 @@ pub struct DirectoryOrganizationSearchOutcome {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationPreview {
     pub organization_did: Did,
@@ -362,7 +344,6 @@ pub struct OrganizationPreview {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryResolveOrganizationRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub organization_did: Option<Did>,
@@ -373,7 +354,6 @@ pub struct DirectoryResolveOrganizationRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryOrganizationResolutionOutcome {
     pub organization_preview: OrganizationPreview,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -383,7 +363,6 @@ pub struct DirectoryOrganizationResolutionOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchActorsRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<String>,
@@ -398,7 +377,6 @@ pub struct DirectorySearchActorsRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryActorSearchOutcome {
     #[serde(default)]
     pub actors: Vec<ActorPreview>,
@@ -408,7 +386,6 @@ pub struct DirectoryActorSearchOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ActorPreview {
     pub actor_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -433,7 +410,6 @@ pub struct ActorPreview {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DirectoryIntent {
     Lookup,
@@ -479,7 +455,6 @@ impl std::str::FromStr for DirectoryIntent {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchUsersRequestBody {
     pub query: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -493,7 +468,6 @@ pub struct DirectorySearchUsersRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum UserSearchMembership {
     Joined,
@@ -504,7 +478,6 @@ pub enum UserSearchMembership {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryResolveHandleRequestBody {
     pub handle: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -535,7 +508,6 @@ pub struct DirectoryResolveHandleRequestBody {
 
 /// Request body for `ak.find.directory.query.resolve_agent_selector`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryResolveAgentSelectorRequestBody {
     pub controller_handle: Handle,
     pub agent_slug: String,
@@ -553,7 +525,6 @@ pub struct DirectoryResolveAgentSelectorRequestBody {
 
 /// Response body for `ak.find.directory.query.resolve_agent_selector`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryAgentSelectorResolutionOutcome {
     pub controller_subject: Did,
     pub subject: Did,
@@ -604,7 +575,6 @@ impl DirectoryAgentSelectorResolutionOutcome {
 /// `ak.find.directory.query.list_handles_for_subject`. Known holder/principal DID +
 /// context → current visible handle claims (inverse of `resolve_handle`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryListHandlesForSubjectRequestBody {
     /// Holder/principal DID reverse-lookup key. NOT a Realm actor_id.
     pub subject: Did,
@@ -632,7 +602,6 @@ pub struct DirectoryListHandlesForSubjectRequestBody {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DirectoryPushResourceKind {
     Realm,
@@ -643,7 +612,6 @@ pub enum DirectoryPushResourceKind {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryPushRegisterResourceFilter {
     pub resource_kinds: Vec<DirectoryPushResourceKind>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -651,7 +619,6 @@ pub struct DirectoryPushRegisterResourceFilter {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryPushRegisterRequestBody {
     pub subscriber_did: Did,
     pub resource_filter: DirectoryPushRegisterResourceFilter,
@@ -668,7 +635,6 @@ pub struct DirectoryPushRegisterRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryPushRegisterOutcome {
     pub subscription_id: crate::SubscriptionId,
     #[serde(
@@ -679,7 +645,6 @@ pub struct DirectoryPushRegisterOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryAnnounceRequestBody {
     pub resource_kind: DirectoryResourceKind,
     pub resource_id: String,
@@ -699,7 +664,6 @@ pub struct DirectoryAnnounceRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryAnnounceOutcome {
     pub announce_id: String,
     #[serde(
@@ -718,7 +682,6 @@ pub struct DirectoryAnnounceOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryWithdrawRequestBody {
     pub resource_id: String,
     pub governance_proof: BTreeMap<String, Value>,
@@ -733,7 +696,6 @@ pub struct DirectoryWithdrawRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryWithdrawOutcome {
     pub withdrawal_ref: String,
     #[serde(
@@ -745,7 +707,6 @@ pub struct DirectoryWithdrawOutcome {
 
 /// Requested outcome of a directory takedown appeal (`discovery-directory.md §8.7`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DirectoryTakedownAppealOutcomeRequest {
     Overturn,
@@ -757,7 +718,6 @@ pub enum DirectoryTakedownAppealOutcomeRequest {
 /// of an operator takedown. Mirrors
 /// `service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealRequestBody`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryTakedownAppealRequestBody {
     /// The operator `takedown_id` from the takedown notice
     /// (`takedown:<token>`).
@@ -781,7 +741,6 @@ pub struct DirectoryTakedownAppealRequestBody {
 /// receipt. Mirrors
 /// `service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealOutcome`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryTakedownAppealOutcome {
     /// Directory-local audit reference (`appeal:<token>`); not a registered
     /// `ak:<kind>` typed id.
@@ -802,7 +761,6 @@ pub struct DirectoryTakedownAppealOutcome {
 /// hosting it here keeps directory user-search outcomes off the
 /// the `arkret` umbrella facade without a discovery -> collaboration edge.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct UserSearchOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle: Option<String>,
@@ -824,7 +782,6 @@ pub struct UserSearchOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryUserSearchOutcome {
     #[serde(default)]
     pub users: Vec<UserSearchOutcome>,
@@ -834,7 +791,6 @@ pub struct DirectoryUserSearchOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryHandleResolutionOutcome {
     pub did: Did,
     pub handle: String,
@@ -872,7 +828,6 @@ pub struct DirectoryHandleResolutionOutcome {
 /// `claims[].subject` MUST equal [`Self::subject`] (byte-equal); use
 /// [`Self::validate`] to enforce.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySubjectHandleList {
     pub subject: Did,
     #[serde(default)]

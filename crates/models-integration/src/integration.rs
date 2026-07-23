@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct IntegrationDescribeOutcome {
     pub contract: String,
     pub version: String,
@@ -21,7 +20,6 @@ pub struct IntegrationDescribeOutcome {
     pub dependencies: Vec<IntegrationDependencyDescriptor>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub surfaces: Vec<IntegrationSurfaceDescriptor>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default)]
     pub examples: Value,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -41,7 +39,6 @@ impl IntegrationDescribeOutcome {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct IntegrationDependencyDescriptor {
     pub service: String,
     pub purpose: String,
@@ -51,7 +48,6 @@ pub struct IntegrationDependencyDescriptor {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct IntegrationSurfaceDescriptor {
     pub name: String,
     pub method: String,

@@ -13,13 +13,6 @@ version.workspace = true
 
 [features]
 default = []
-salvo-oapi = [
-    "arkret-models-collaboration/salvo-oapi",
-    "arkret-models-crypto/salvo-oapi",
-    "arkret-models-discovery/salvo-oapi",
-    "arkret-models-identity/salvo-oapi",
-    "arkret-models-integration/salvo-oapi",
-]
 
 [dependencies]
 arkret-models-collaboration = {workspace = true}

@@ -29,7 +29,6 @@ pub const DIRECT_CONVERSATION_COLLABORATION_ROLE_FIELD: &str = "collaboration_ro
 pub const DIRECT_CONVERSATION_COLLABORATION_ROLE: &str = "direct_conversation";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DirectConversationAuthoredBindingState {
     Active,
@@ -37,7 +36,6 @@ pub enum DirectConversationAuthoredBindingState {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DirectConversationAuthorizationKind {
     AcceptedContact,
@@ -45,7 +43,6 @@ pub enum DirectConversationAuthorizationKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationAuthorizationBasis {
     pub kind: DirectConversationAuthorizationKind,
@@ -83,14 +80,12 @@ impl DirectConversationAuthorizationBasis {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CollaborationRealmRole {
     DirectConversation,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationPairKeyParticipant {
     pub did: Did,

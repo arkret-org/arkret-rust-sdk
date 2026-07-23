@@ -17,7 +17,6 @@ use crate::registry::EventDraftKindRegistry;
 use crate::{EventDraftError, Result};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct Operation {
     pub schema: String,
     pub operation_id: OperationId,
@@ -115,7 +114,6 @@ impl Operation {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct OperationEnvelope {
     pub operation_id: OperationId,
     pub realm_id: RealmId,
@@ -238,7 +236,6 @@ impl OperationEnvelope {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct OperationEventConversion {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub prev_refs: Vec<EventId>,
@@ -379,7 +376,6 @@ impl OperationEnvelopeBuilder {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct CausalRef {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub deps: Vec<OperationId>,
@@ -388,7 +384,6 @@ pub struct CausalRef {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct OperationSignature {
     pub key_id: String,
     pub alg: String,

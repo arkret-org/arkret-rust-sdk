@@ -69,7 +69,6 @@ pub fn rank_exhausted(before: Option<&str>, after: Option<&str>) -> Result<bool>
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ContainerRebalanceAssignment {
     pub object_ref: String,
     pub rank: String,

@@ -13,7 +13,6 @@ version.workspace = true
 
 [features]
 default = []
-salvo-oapi = ["dep:salvo", "salvo/oapi", "arkret-identifiers/salvo"]
 
 [dependencies]
 arkret-canonical = {workspace = true}
@@ -23,7 +22,6 @@ getrandom = {workspace = true}
 hex = {workspace = true}
 idna = {workspace = true}
 precis-profiles = {workspace = true}
-salvo = {workspace = true,features = ["oapi"],optional = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
 thiserror = {workspace = true}

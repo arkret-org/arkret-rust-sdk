@@ -9,7 +9,6 @@ use serde_json::Value;
 /// Plaintext exposure level for a declared service
 /// (`plaintext_visible_services_payload` item `visibility`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PlaintextServiceVisibility {
     PrivatePlaintext,
@@ -23,7 +22,6 @@ pub enum PlaintextServiceVisibility {
 /// `deny_unknown_fields`; the required fields are strongly typed and any future
 /// extension keys remain wire-compatible.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PlaintextVisibleService {
     pub service_id: Did,
     pub service_type: String,
@@ -69,7 +67,6 @@ impl PlaintextVisibleService {
 /// this type still gives compile-time field safety, and the guard test
 /// validates directly against the named def schema_ref.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PlaintextVisibleServicesPayload {
     pub services: Vec<PlaintextVisibleService>,

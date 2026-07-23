@@ -138,8 +138,6 @@ proptest = {version = "1",default-features = false}
 precis-profiles = {version = "0.1.13",default-features = false}
 regex = {version = "1.12.4",default-features = false,features = ["std", "unicode-perl"]}
 reqwest = {version = "0.13.4",default-features = false,features = ["query"]}
-salvo = {version = "0.95",default-features = false}
-salvo-oapi = {version = "0.95",default-features = false}
 # Linux KeyStore backend, enabled only by the keystore crate target cfg.
 secret-service = {version = "5.1.0",default-features = false,features = ["rt-tokio-crypto-rust"]}
 rand_chacha = {version = "0.3.1",default-features = false}

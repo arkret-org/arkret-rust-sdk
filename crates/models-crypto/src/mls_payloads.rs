@@ -22,7 +22,6 @@ pub const MLS_GOVERNANCE_BINDING_RELAXED_PROFILE: &str = "ak.profile.e2ee_relaxe
 
 /// Sidecar-specific extension of an MLS governance binding.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SidecarMlsBinding {
     pub sidecar_id: SidecarId,
@@ -58,7 +57,6 @@ impl SidecarMlsBinding {
 
 /// `event-payload.schema.json#/$defs/mls_governance_binding`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MlsGovernanceBindingPayload {
     binding_version: u8,
     encoding_profile: String,
@@ -704,7 +702,6 @@ pub fn verify_mls_governance_binding_extension(
 
 /// `event-payload.schema.json#/$defs/mls_commit_payload`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MlsCommitPayload {
     mls_group_id: MlsGroupId,
     base_epoch: u64,
@@ -872,7 +869,6 @@ impl MlsCommitPayload {
 /// member can independently recompute from the MLS transcript are bound into
 /// the digest; transport-only metadata MUST NOT leak in here.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MediaPlaintextService {
     /// Service DID authorised to decrypt media (`data_classes=media_plaintext`).
     pub service_id: Did,
@@ -889,7 +885,6 @@ pub struct MediaPlaintextService {
 /// [`derive_media_decrypt_metadata_digest`]; it mirrors the policy cell value
 /// that §10.5.1 rules 1–3 already place under `policy_root` coverage.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MediaDecryptPolicyValue {
     /// `ak.realm.policy_components.media_service_decrypts` (§10.5.1 rule 1).
     pub media_service_decrypts: bool,

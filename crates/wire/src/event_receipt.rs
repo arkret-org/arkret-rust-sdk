@@ -16,7 +16,6 @@ use crate::wire_strings::NonEmptyString;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-batch-receipt.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum EventBatchReceiptScope {
     DeviceReanchor(DeviceReanchorReceiptScope),
@@ -24,7 +23,6 @@ pub enum EventBatchReceiptScope {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct EventBatchOrdinaryReceiptScope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -36,14 +34,12 @@ pub struct EventBatchOrdinaryReceiptScope {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum DeviceReanchorReceiptScopeKind {
     #[serde(rename = "device_reanchor_unit")]
     DeviceReanchorUnit,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DeviceReanchorReceiptScope {
     pub kind: DeviceReanchorReceiptScopeKind,
@@ -56,7 +52,6 @@ pub struct DeviceReanchorReceiptScope {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct EventBatchReceiptFrontier {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -70,7 +65,6 @@ pub struct EventBatchReceiptFrontier {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct EventBatchReceipt {
     pub schema: String,
@@ -88,7 +82,6 @@ pub struct EventBatchReceipt {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum EventBatchReceiptEvent {
     Digest(Hash),
@@ -96,7 +89,6 @@ pub enum EventBatchReceiptEvent {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct EventBatchReceiptItem {
     pub event_id: EventId,

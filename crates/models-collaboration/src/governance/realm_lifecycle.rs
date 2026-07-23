@@ -7,7 +7,6 @@ use crate::ObjectRef;
 
 /// Closed v1 value set for `ak.realm.join_rule`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinRuleValue {
     Public,
@@ -20,7 +19,6 @@ pub enum RealmJoinRuleValue {
 
 /// Strong payload for `ak.realm.join_rule`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmJoinRulePayload {
     pub value: RealmJoinRuleValue,
@@ -39,7 +37,6 @@ impl RealmJoinRulePayload {
 
 /// Closed v1 value set for `ak.realm.discovery`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmDiscoveryValue {
     Public,
@@ -52,7 +49,6 @@ pub enum RealmDiscoveryValue {
 
 /// Strong payload for `ak.realm.discovery`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmDiscoveryPayload {
     pub value: RealmDiscoveryValue,
@@ -75,7 +71,6 @@ impl RealmDiscoveryPayload {
 /// Reversible boolean register (there is no separate `ak.realm.restore`):
 /// `archived:false` un-archives. `additionalProperties:false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmArchivePayload {
     pub archived: bool,
@@ -120,7 +115,6 @@ impl RealmArchivePayload {
 /// `successor_realm_id` are both required by spec; callers without a successor
 /// must use [`RealmDestroyPayload`] instead. `additionalProperties:false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmTombstonePayload {
     pub reason: String,
@@ -160,7 +154,6 @@ impl RealmTombstonePayload {
 /// `verification_stub_required` defaults to `true` (omitted on the wire when
 /// unset so the reducer applies its default). `additionalProperties:false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmDestroyPayload {
     pub reason: String,
@@ -201,7 +194,6 @@ impl RealmDestroyPayload {
 /// target object is single-sourced by `target_ref`. Required: `target_ref`.
 /// `additionalProperties:false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ObjectLifecyclePayload {
     pub target_ref: ObjectRef,
@@ -257,7 +249,6 @@ impl ObjectLifecyclePayload {
 /// named schema def, so producers and validators share the same fail-closed
 /// shape.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct HistoryVisibilityPayload {
     pub value: HistoryVisibility,

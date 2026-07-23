@@ -21,7 +21,6 @@ use crate::applet_models::AppletIdentifier;
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/external_ref`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ExternalRef {
     pub protocol: Protocol,
@@ -37,7 +36,6 @@ pub struct ExternalRef {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/field_type`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FieldType {
     pub r#type: String,
@@ -55,7 +53,6 @@ pub type Protocol = String;
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/protocol_instance`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ProtocolInstance {
     pub instance_id: String,
@@ -67,7 +64,6 @@ pub struct ProtocolInstance {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/rejected_item`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RejectedItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -91,7 +87,6 @@ pub struct ThirdPartyQuery {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-operations.schema.json#/$defs/e2ee_policy`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct E2eePolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -101,7 +96,6 @@ pub struct E2eePolicy {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-operations.schema.json#/$defs/scope_grant`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ScopeGrant {
     pub actions: Vec<String>,
@@ -118,7 +112,6 @@ pub type TypedRef = String;
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/capability_constraint`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CapabilityConstraint {
     pub constraint_type: String,
@@ -128,7 +121,6 @@ pub struct CapabilityConstraint {
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/denied_scope`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DeniedScope {
     pub requested_scope: String,
@@ -137,7 +129,6 @@ pub struct DeniedScope {
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/e2ee_effect`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct E2eeEffect {
     pub requires_mls_join: bool,
@@ -149,7 +140,6 @@ pub struct E2eeEffect {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/event_submission`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct EventSubmission {
     pub event_kind: String,
@@ -161,7 +151,6 @@ pub struct EventSubmission {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/namespace_conflict`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct NamespaceConflict {
     pub namespace: String,
@@ -173,7 +162,6 @@ pub struct NamespaceConflict {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/widget_effect`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct WidgetEffect {
     pub allow_widget: bool,
@@ -192,22 +180,18 @@ pub struct AppletNamespaces {
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/delegation_policy`.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DelegationPolicy {
     pub enabled: bool,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub extra: XExtensionMap,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletPackageE2eePolicy {
     pub enabled: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_join_requested: Option<bool>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub extensions: XExtensionMap,
 }
 
@@ -322,7 +306,6 @@ pub struct Applet {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-widget-declaration.schema.json#/properties/token_scope`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct WidgetTokenScope {
     pub actions: Vec<String>,
     pub resources: Vec<WireResourceSelector>,
@@ -336,13 +319,11 @@ pub struct WidgetTokenScope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_ttl_seconds: Option<u64>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub extra: XExtensionMap,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-widget-declaration.schema.json`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct Widget {
     pub schema: String,
     pub widget_origin: String,
@@ -350,6 +331,5 @@ pub struct Widget {
     pub token_scope: WidgetTokenScope,
     pub requires_consent: bool,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub extra: XExtensionMap,
 }

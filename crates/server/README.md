@@ -8,14 +8,12 @@ Framework-independent server handler contracts for Arkret v1 services.
 > today). Shared DTOs used by both producers and consumers live in
 > semantic model leaves and are re-exported here for server-side users.
 
-## Salvo OAPI integration
+## Framework integration
 
-The base build remains framework-independent and stays free of any HTTP runtime
-dependency.
+The crate is framework-independent and stays free of HTTP runtime dependencies.
+Host applications parse path/query/header inputs, JSON request bodies and
+successful outputs with framework-local adapters.
 
-When the `salvo` feature is enabled, the DTO types in the `arkret` umbrella and
-`arkret-identifiers` carry feature-gated Salvo OAPI derives. Endpoint
-path/query/header inputs are grouped as `<Operation>Params`, JSON request
-bodies as `<Operation>RequestBody`, and successful outputs as
-`<Operation>Outcome`.
-Host applications wire these types into their own framework handlers.
+The canonical OpenAPI document is owned by the Arkret Spec artifact. Host
+applications may add a separately declared product appendix, but must not
+derive a competing protocol schema from SDK DTO metadata.

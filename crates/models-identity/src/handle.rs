@@ -17,7 +17,6 @@ use serde::{Deserialize, Serialize};
 ///
 /// Spec source: `string-profiles.schema.json#/$defs/canonical_handle`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(try_from = "String", into = "String")]
 pub struct Handle {
     canonical: String,
@@ -207,7 +206,6 @@ pub fn validate_handle_claim_subject(subject: &Did) -> Result<()> {
 
 /// Default visibility for a handle claim disclosure boundary.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum HandleVisibility {
     Public,
@@ -217,7 +215,6 @@ pub enum HandleVisibility {
 
 /// Binding-state machine for the handle claim.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum HandleBindingState {
     Pending,
@@ -234,7 +231,6 @@ pub enum HandleBindingState {
 /// resource schema; organization-assigned user / principal handles use
 /// `organization_handle`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum HandleClaimKind {
     HandleBinding,
@@ -245,7 +241,6 @@ pub enum HandleClaimKind {
 /// `did_document_default` — handle claims MUST commit to a concrete
 /// recipient service when ferrying a builder payload.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum HandleHintBindingSource {
     Explicit,

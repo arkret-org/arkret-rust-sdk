@@ -15,14 +15,12 @@ use serde::{Deserialize, Serialize};
 /// value or for actor attribution — verifier / reducer / policy engine
 /// MUST ignore them and read `subject_id` exclusively.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum MentionKind {
     #[serde(rename = "mention")]
     Mention,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Mention {
     pub kind: MentionKind,
@@ -69,7 +67,6 @@ pub struct Mention {
 /// `StrandEngaged` is the v1 mapping for common UI token `@here`; it means
 /// `strand_participants ∪ strand_watchers` and is never presence-filtered.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AudienceMentionAudience {
     EffectiveScopeMembers,
@@ -108,7 +105,6 @@ impl AudienceMentionAudience {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum AudienceMentionKind {
     #[serde(rename = "audience_mention")]
     AudienceMention,
@@ -121,7 +117,6 @@ pub enum AudienceMentionKind {
 /// `ak.message.mention.broadcast`, Realm/Circle audience policy, finite
 /// recipient/quota limits, and receiver visibility.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AudienceMention {
     pub kind: AudienceMentionKind,
@@ -142,7 +137,6 @@ pub struct AudienceMention {
 /// Entity/object references are modeled separately as links or relation refs,
 /// not as `mentions[]` entries.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 #[allow(clippy::large_enum_variant)]
 pub enum MentionNode {

@@ -28,7 +28,6 @@ fn registration_policy_enabled_default() -> bool {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegistrationVerificationPolicy {
     #[serde(default, skip_serializing_if = "is_false")]
@@ -38,7 +37,6 @@ pub struct AccountRegistrationVerificationPolicy {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegistrationInvitationPolicy {
     #[serde(default, skip_serializing_if = "is_false")]
@@ -48,7 +46,6 @@ pub struct AccountRegistrationInvitationPolicy {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegistrationRateLimitPolicy {
     pub max_attempts: u32,
@@ -56,7 +53,6 @@ pub struct AccountRegistrationRateLimitPolicy {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegistrationPolicy {
     #[serde(default = "registration_policy_enabled_default")]
@@ -90,7 +86,6 @@ impl Default for AccountRegistrationPolicy {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegistrationPolicyEvidence {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -102,7 +97,6 @@ pub struct AccountRegistrationPolicyEvidence {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AccountRegistrationAuditOutcome {
     Accepted,
@@ -133,7 +127,6 @@ impl AccountRegistrationAuditOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegistrationEvidenceSummary {
     #[serde(default, skip_serializing_if = "is_false")]
@@ -145,7 +138,6 @@ pub struct AccountRegistrationEvidenceSummary {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegistrationAudit {
     pub outcome: AccountRegistrationAuditOutcome,
@@ -156,19 +148,15 @@ pub struct AccountRegistrationAudit {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountDataReplaceRequestBody {
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub content: Value,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountDataEntry {
     pub data_type: String,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub content: Value,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
@@ -178,7 +166,6 @@ pub struct AccountDataEntry {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountDataList {
     #[serde(default)]
@@ -186,7 +173,6 @@ pub struct AccountDataList {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountDataDeleteOutcome {
     pub ok: bool,
@@ -194,7 +180,6 @@ pub struct AccountDataDeleteOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AccountDeviceSummary {
     pub device_id: DeviceId,
     pub status: String,
@@ -232,14 +217,12 @@ pub const ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_DOMAIN: &str =
 pub const IDENTITY_CREATION_CONTROL_PROOF_DOMAIN: &str = "ak.identity-creation-control-proof-v1\n";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AccountHandoffAuthenticationProofKind {
     OidcCodeExchange,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountHandoffAuthenticationProof {
     pub proof_kind: AccountHandoffAuthenticationProofKind,
@@ -272,7 +255,6 @@ impl AccountHandoffAuthenticationProof {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountHandoffRequestBody {
     pub request_id: RequestId,
@@ -294,7 +276,6 @@ impl AccountHandoffRequestBody {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum AccountHandoffAllowedOperation {
     #[serde(rename = "ak.gate.account.command.issue_identity_binding_challenge")]
     IssueIdentityBindingChallenge,
@@ -311,7 +292,6 @@ pub const ACCOUNT_HANDOFF_ALLOWED_OPERATIONS: [AccountHandoffAllowedOperation; 3
 ];
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ReservedIdentityCreation {
     pub principal_id: Did,
@@ -333,7 +313,6 @@ impl ReservedIdentityCreation {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct IdentityCreationLease {
     pub lease_id: String,
@@ -348,7 +327,6 @@ pub struct IdentityCreationLease {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AccountHandoffBinding {
     IdentityCreationActive {
@@ -363,7 +341,6 @@ pub enum AccountHandoffBinding {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountHandoffOutcome {
     pub request_id: RequestId,
@@ -395,7 +372,6 @@ impl AccountHandoffOutcome {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct IdentityBindingChallengeRequestBody {
     pub request_id: RequestId,
@@ -411,14 +387,12 @@ impl IdentityBindingChallengeRequestBody {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum IdentityBindingPurpose {
     AccountBinding,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct IdentityBindingChallengeOutcome {
     pub request_id: RequestId,
@@ -446,14 +420,12 @@ pub struct IdentityBindingChallengeOutcome {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum IdentityCreationControlProofKind {
     DidWebvhInceptionUpdateKey,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct IdentityCreationControlProof {
     pub proof_kind: IdentityCreationControlProofKind,
@@ -496,7 +468,6 @@ impl IdentityCreationControlProof {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct IdentityCreationRegistration {
     pub lease_id: String,
@@ -506,14 +477,12 @@ pub struct IdentityCreationRegistration {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AccountBindingState {
     Bound,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum IdentityCreationOperationStatus {
     Accepted,
@@ -521,7 +490,6 @@ pub enum IdentityCreationOperationStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountBindingReceipt {
     pub binding_state: AccountBindingState,
@@ -533,13 +501,11 @@ pub struct AccountBindingReceipt {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AccountUpdateProfileOutcome {
     pub profile: ActorProfile,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CursorRevokeScope {
     ThisCursor,
@@ -548,7 +514,6 @@ pub enum CursorRevokeScope {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AccountCursorRevokeRequestBody {
     pub cursor: String,
     pub reason_code: String,
@@ -557,7 +522,6 @@ pub struct AccountCursorRevokeRequestBody {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AccountCursorRevokeOutcome {
     pub revoked: bool,
     #[serde(

@@ -29,26 +29,6 @@ mls = ["dep:arkret-mls"]
 # arkret-http-client crate docs for the recommended provider configuration.
 tls-rustls = ["client", "arkret-http-client/tls-rustls", "reqwest/rustls"]
 tracing = ["dep:tracing", "arkret-http-client?/tracing"]
-salvo = [
-    "server",
-    "dep:salvo",
-    "salvo/oapi",
-    "arkret-server/salvo",
-    "arkret-identifiers/salvo",
-    "arkret-event-draft/salvo-oapi",
-    "arkret-wire/salvo-oapi",
-    "arkret-models-identity/salvo-oapi",
-    "arkret-models-collaboration/salvo-oapi",
-    "arkret-models-crypto/salvo-oapi",
-    "arkret-models-discovery/salvo-oapi",
-    "arkret-models-integration/salvo-oapi",
-    "arkret-schema/salvo-oapi",
-    "arkret-policy/salvo-oapi",
-    "arkret-state/salvo",
-    # The applet transactions handler verifies signatures / resolves DIDs on
-    # the blocking pool (tokio::task::spawn_blocking).
-    "dep:tokio",
-]
 # Round 23 (2026-05-09): expose the platform KeyStore feature gates so apps
 # embedding the umbrella `arkret` crate can opt into OS-native key storage
 # without a direct arkret-keystore dependency.
@@ -98,7 +78,6 @@ arkret-signatures = {workspace = true,features = [
 arkret-state = {workspace = true}
 arkret-wire = {workspace = true}
 reqwest = {workspace = true,features = ["json", "gzip", "http2"],optional = true}
-salvo = {workspace = true,features = ["oapi"],optional = true}
 serde_json = {workspace = true}
 thiserror = {workspace = true}
 tokio = {workspace = true,features = ["rt", "macros"],optional = true}

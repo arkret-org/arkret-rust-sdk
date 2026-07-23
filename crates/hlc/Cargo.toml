@@ -13,9 +13,6 @@ version.workspace = true
 
 [features]
 default = []
-# The cursor surface moved to arkret-wire; its `ToSchema` derives are gated by
-# arkret-wire's `salvo-oapi` feature, re-exported through this crate's shim.
-salvo = ["arkret-wire/salvo-oapi", "arkret-identifiers/salvo"]
 
 [dependencies]
 arkret-canonical = {workspace = true}

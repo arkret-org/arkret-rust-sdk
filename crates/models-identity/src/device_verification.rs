@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 
 /// Verification state for a device.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DeviceVerificationState {
     /// Device has not been verified.

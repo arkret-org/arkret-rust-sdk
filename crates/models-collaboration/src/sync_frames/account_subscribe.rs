@@ -5,7 +5,6 @@ use crate::internal_prelude::*;
 
 /// One NDJSON frame on `ak.self.account.stream.subscribe`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountSubscribeFrame {
     pub kind: AccountSubscribeFrameKind,
@@ -14,15 +13,12 @@ pub struct AccountSubscribeFrame {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realms: Option<AccountSubscribeRealms>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub to_device: Option<DeviceMessageContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_lists: Option<AccountSubscribeDeviceListChanges>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub account_data: Option<EventContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub presence: Option<EphemeralEventContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notifications: Option<NotificationContainer>,
@@ -42,7 +38,6 @@ pub struct AccountSubscribeFrame {
 /// treating it as a delta or a state transition). Deserialisation itself
 /// stays closed-set: an unknown wire value still fails the frame parse.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum AccountSubscribeFrameKind {
@@ -318,10 +313,8 @@ mod account_subscribe_frame_tests {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AccountSubscribeRealms {
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub entries: BTreeMap<String, RealmSyncEntry>,
 }
 

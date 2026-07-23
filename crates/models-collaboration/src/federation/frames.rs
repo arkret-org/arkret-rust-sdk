@@ -144,7 +144,6 @@ pub struct VerifyActorChallenge {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct VerifyActorChallengeSignature {
     pub key_id: String,
     pub signature: String,

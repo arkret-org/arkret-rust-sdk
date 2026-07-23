@@ -30,7 +30,6 @@ pub fn validate_history_visibility_content_scheme_values(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum HistoryKeyShareDefault {
     Deny,
@@ -38,7 +37,6 @@ pub enum HistoryKeyShareDefault {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum HistorySharingPreJoinPolicy {
     Deny,
@@ -47,7 +45,6 @@ pub enum HistorySharingPreJoinPolicy {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum HistorySharingPostRemovalRecoveryPolicy {
     Deny,
@@ -55,7 +52,6 @@ pub enum HistorySharingPostRemovalRecoveryPolicy {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum HistoryKeySource {
     OwnDevice,
@@ -66,7 +62,6 @@ pub enum HistoryKeySource {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum HistorySharingReceiverClass {
     ActiveMember,
@@ -77,7 +72,6 @@ pub enum HistorySharingReceiverClass {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum HistorySharingRange {
     AllVisibleAtT0,
@@ -87,7 +81,6 @@ pub enum HistorySharingRange {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum HistorySharingScopeKind {
     Realm,
@@ -95,7 +88,6 @@ pub enum HistorySharingScopeKind {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmKeyWithheldReasonCode {
     UnverifiedDevice,
@@ -107,7 +99,6 @@ pub enum RealmKeyWithheldReasonCode {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum HistoryMembershipTransition {
     Invite,
@@ -122,7 +113,6 @@ pub enum HistoryMembershipTransition {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct HistoryMembershipEvent<F = String> {
     pub member: String,
@@ -298,7 +288,6 @@ pub fn history_reader_state_at_t0<F>(
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum HistoryReaderEventState {
     #[default]

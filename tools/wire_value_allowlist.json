@@ -928,6 +928,12 @@
       "reason": "The Spec server limits object explicitly permits extension properties."
     },
     {
+      "rust_field": "crates/models-discovery/src/service_description.rs::ServiceDescribe.extensions",
+      "spec_pointer": "service-describe.schema.json#/patternProperties/^x_[a-z][a-z0-9_]{0,63}$",
+      "classification": "open_json",
+      "reason": "The Spec permits only namespaced top-level x_* extension values at this flattened boundary."
+    },
+    {
       "rust_field": "crates/models-discovery/src/service_description.rs::ServiceDescribe.accept_policy_ref",
       "spec_pointer": "service-describe.schema.json/properties/accept_policy_ref",
       "classification": "open_json",

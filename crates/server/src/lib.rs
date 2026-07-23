@@ -81,8 +81,6 @@ mod registry;
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "salvo")]
-pub use applet::router as applet_router;
 pub use applet::{AppletHandler, AppletService, ServiceRoute, TransactionDispatch, service_routes};
 pub use arkret_rate_limit::{
     FixedWindowConfig, MemoryFixedWindowRateLimiter, MemoryTokenBucketRateLimiter,

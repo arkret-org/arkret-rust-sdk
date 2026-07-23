@@ -9,7 +9,6 @@ use serde_json::Value;
 
 /// Counterpart for JSON Schema string definitions with `minLength: 1`.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct NonEmptyString(String);
 
 impl NonEmptyString {
@@ -85,7 +84,6 @@ impl<'de> Deserialize<'de> for NonEmptyString {
 
 /// Arkret protocol kind matching `^ak\.[a-z0-9_]+(\.[a-z0-9_]+)*$`.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(transparent)]
 pub struct ProtocolKind(String);
 
@@ -175,7 +173,6 @@ macro_rules! non_empty_wire_string {
     ($(#[$meta:meta])* $name:ident) => {
         $(#[$meta])*
         #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-        #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
         #[serde(transparent)]
         pub struct $name(NonEmptyString);
 
@@ -246,7 +243,6 @@ non_empty_wire_string!(
 
 /// Non-empty unpadded base64url value (`[A-Za-z0-9_-]+`).
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(transparent)]
 pub struct Base64UrlString(String);
 
@@ -318,7 +314,6 @@ impl<'de> Deserialize<'de> for Base64UrlString {
 
 /// Open JSON object that is required to contain at least one property.
 #[derive(Clone, Debug, PartialEq, Serialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(transparent)]
 pub struct NonEmptyJsonObject(BTreeMap<String, Value>);
 
@@ -351,7 +346,6 @@ impl<'de> Deserialize<'de> for NonEmptyJsonObject {
 
 /// MIMI room URI accepted by `mimi_room_binding_payload`.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(transparent)]
 pub struct MimiRoomUri(String);
 
@@ -404,7 +398,6 @@ impl<'de> Deserialize<'de> for MimiRoomUri {
 
 /// DID URL with a required verification-method fragment.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(transparent)]
 pub struct DidUrl(String);
 
@@ -477,7 +470,6 @@ impl<'de> Deserialize<'de> for DidUrl {
 
 /// Ed25519 public key encoded as a `did:key` multibase value.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(transparent)]
 pub struct DidKey(String);
 

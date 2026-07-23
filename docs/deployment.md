@@ -1,20 +1,21 @@
 # Deployment
 
-This guide covers running a Arkret service implemented with the SDK in a
-production environment. The SDK ships protocol request/response types and the
-Salvo OAPI-ready DTO types; host applications own HTTP routing.
+This guide covers running an Arkret service implemented with the SDK in a
+production environment. The SDK ships framework-independent protocol
+request/response types; host applications own HTTP routing and serve OpenAPI
+from the canonical Spec artifact.
 
 ## Build matrix
 
-| Feature flag      | What it pulls in                                                  |
-| ----------------- | ----------------------------------------------------------------- |
-| (default)         | Client + MLS + full sync/timeline/applet runtimes                 |
-| `client` (subset) | HTTP client only — no server, no MLS                              |
-| `server`          | Protocol request/response enums                                   |
-| `salvo`           | Activates `server` plus Salvo OAPI derives on DTO types           |
+| Feature flag | What it pulls in |
+| --- | --- |
+| (default) | Protocol IDs, wire models and runtime-neutral helpers |
+| `client` | HTTP client only — no server or MLS |
+| `server` | Framework-independent server contracts |
+| `mls` | OpenMLS-backed MLS helpers |
 
-For a server binary, enable `server`. Enable `salvo` only if the host
-application uses Salvo OAPI derives for its own handlers.
+For a server binary, enable `server`. Select and configure the HTTP framework
+in the host application rather than through SDK features.
 
 ## Minimal HTTP binding
 

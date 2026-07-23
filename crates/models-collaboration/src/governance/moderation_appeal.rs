@@ -5,7 +5,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 /// Verdict on a moderation appeal (decision payload).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AppealVerdict {
     /// Original decision stands.
@@ -20,7 +19,6 @@ pub enum AppealVerdict {
 
 /// Who may decrypt / read appeal evidence narrative.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AppealEvidenceVisibility {
     AppellantOnly,
@@ -31,7 +29,6 @@ pub enum AppealEvidenceVisibility {
 
 /// `ak.moderation.appeal.submit` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppealSubmitPayload {
     pub appeal_id: TypedAppealId,
     pub realm_id: RealmId,
@@ -52,7 +49,6 @@ pub struct AppealSubmitPayload {
 
 /// `ak.moderation.appeal.review` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppealReviewPayload {
     pub appeal_id: TypedAppealId,
     pub realm_id: RealmId,
@@ -68,7 +64,6 @@ pub struct AppealReviewPayload {
 
 /// `ak.moderation.appeal.decision` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppealDecisionPayload {
     pub appeal_id: TypedAppealId,
     pub realm_id: RealmId,
@@ -87,7 +82,6 @@ pub struct AppealDecisionPayload {
 
 /// `ak.moderation.appeal.close` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppealClosePayload {
     pub appeal_id: TypedAppealId,
     pub realm_id: RealmId,
@@ -105,7 +99,6 @@ pub struct AppealClosePayload {
 
 /// `ak.schema.moderation_appeal.v1` payload — `oneOf` of the four variants.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum ModerationAppealPayload {
     Submit(AppealSubmitPayload),

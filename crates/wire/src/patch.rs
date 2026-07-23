@@ -68,7 +68,6 @@ const REDACTABLE_UNSET_PATCH_PATHS: &[&str] = &[
 
 /// Explicit op discriminator.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PatchOpKind {
     /// Replace the field with `value`.

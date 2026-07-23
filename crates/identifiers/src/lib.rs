@@ -400,7 +400,6 @@ uuid_id_type!(AppletId, "ak:applet:");
 /// Applet identity accepted by the v1 wire protocol: either a service DID or
 /// a typed `ak:applet:<uuidv7>` identifier.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum AppletIdentifier {
     Did(Did),
@@ -624,9 +623,6 @@ fn parse_lower_hex(part: &str, original: &str) -> Result<u64> {
 }
 
 pub mod hlc;
-
-#[cfg(feature = "salvo")]
-mod oapi;
 
 #[cfg(test)]
 mod tests {

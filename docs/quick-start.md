@@ -80,8 +80,8 @@ Enable `server` for framework-independent handler contracts and endpoint
 fixture coverage. Host applications own HTTP parsing, routing, authentication
 and response writing.
 
-Enable `salvo` when a Salvo application needs OAPI derives and the Arkret
-router integration.
+OpenAPI is served from the canonical Spec artifact. Framework adapters must not
+derive a second protocol document from SDK DTO metadata.
 
 For TLS, CORS, rate limits, body size, systemd and other production concerns,
 see [`docs/deployment.md`](deployment.md).

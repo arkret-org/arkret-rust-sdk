@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 
 /// Typed payload for `ak.space.archive` and `ak.space.restore`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SpaceStateTransitionPayload {
     pub space_id: SpaceId,
@@ -26,7 +25,6 @@ pub struct SpaceStateTransitionPayload {
 
 /// Typed payload for `ak.space.tombstone`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SpaceObjectTombstonePayload {
     pub space_id: SpaceId,

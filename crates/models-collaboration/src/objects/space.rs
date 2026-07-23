@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Space {
     pub id: SpaceId,
@@ -77,7 +76,6 @@ pub struct Space {
 /// Mirrors `spec/v1/artifacts/schemas/space.schema.json` `$defs.child_scope_policy`.
 /// The `require_scope_circle_id` variant carries the required Circle id.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ChildScopePolicy {
     /// Any scope is accepted, including unscoped.

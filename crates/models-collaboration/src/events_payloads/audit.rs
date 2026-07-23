@@ -16,7 +16,6 @@ use crate::ObjectRef;
 use crate::governance::audit::AuditAssurance;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AuditAccessedKind {
     WatchSetOthers,
@@ -62,7 +61,6 @@ pub struct AuditAccessedPayload {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AuditReleaseMode {
     TargetedEvidenceRelease,
@@ -70,14 +68,12 @@ pub enum AuditReleaseMode {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AuditRetroactiveReleasePolicy {
     Forbidden,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AuditEligibilityBasis {
     EncryptedAfterBindingActivation,
@@ -98,7 +94,6 @@ pub struct AuditAppletBindingPayloadReleaseWindowPolicy {
 
 /// Closed state set for `ak.component.audit.binding.v1`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AuditBindingStatus {
     Active,
@@ -221,7 +216,6 @@ pub struct AuditReleasePayload {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AuditSessionStage {
     Request,

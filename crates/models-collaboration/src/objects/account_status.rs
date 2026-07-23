@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 
 /// Account lifecycle status (account-lifecycle.md §3).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AccountStatus {
     Active,

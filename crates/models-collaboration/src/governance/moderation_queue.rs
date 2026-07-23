@@ -13,7 +13,6 @@ use crate::governance::moderation::ModerationReport;
 
 /// Lifecycle status shared by `ModerationReport` and `ModerationQueueItem`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ModerationQueueStatus {
     Submitted,
@@ -27,7 +26,6 @@ pub enum ModerationQueueStatus {
 
 /// Priority bucket for queue routing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ModerationQueuePriority {
     Low,
@@ -38,7 +36,6 @@ pub enum ModerationQueuePriority {
 
 /// Visibility class describing what evidence form the queue carries.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ModerationQueueVisibility {
     MetadataOnly,
@@ -49,7 +46,6 @@ pub enum ModerationQueueVisibility {
 
 /// Evidence-handling policy embedded in a queue item.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ModerationEvidencePolicy {
     pub plaintext_allowed: bool,
     pub requires_franking_proof_verification: bool,
@@ -66,7 +62,6 @@ pub struct ModerationEvidencePolicy {
 /// Moderation queue container (`ak.component.moderation_queue.v1` cell
 /// body). Mirrors `moderation-queue-item.schema.json`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ModerationQueueItem {
     /// `ak:moderation_queue_item:<uuidv7>`.
     pub id: String,

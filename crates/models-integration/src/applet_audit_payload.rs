@@ -10,7 +10,6 @@ use serde_json::Value;
 use crate::applet_models::AppletIdentifier;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AppletBridgeVisibilityScope {
     RealmAdmins,
@@ -19,7 +18,6 @@ pub enum AppletBridgeVisibilityScope {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AppletBridgeErrorClass {
     ExternalNetwork,

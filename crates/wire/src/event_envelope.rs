@@ -195,7 +195,6 @@ where
 /// closed-set: an unknown wire value still fails the parse (fail-closed per
 /// conformance-profiles.md: implementations MUST reject illegal enum values).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum EnvelopeActorKind {
@@ -211,7 +210,6 @@ pub enum EnvelopeActorKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SemanticRefProof {
     pub kind: SemanticRefProofKind,
@@ -222,14 +220,12 @@ pub struct SemanticRefProof {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum SemanticRefProofKind {
     #[serde(rename = "rfc6962_merkle")]
     Rfc6962Merkle,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct EventRef {
     pub id: String,
@@ -260,7 +256,6 @@ fn default_event_ref_critical() -> bool {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct EventRequirements {
     #[serde(default, rename = "schema", skip_serializing_if = "Vec::is_empty")]
@@ -274,7 +269,6 @@ pub struct EventRequirements {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AuthContext {
     pub did: Did,
@@ -295,7 +289,6 @@ impl EventRequirements {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(try_from = "EventWire")]
 pub struct Event {
     pub event_id: EventId,
@@ -354,7 +347,6 @@ pub struct Event {
 /// service only attests current lifecycle freshness. This transport context is
 /// never part of another Event's canonical bytes.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FederatedDeviceSigningKeyEvidence {
     pub actor_id: Did,
@@ -530,7 +522,6 @@ impl TryFrom<EventWire> for Event {
 /// denied, never as Realm-wide). Deserialisation itself stays closed-set: an
 /// unknown `kind` still fails the parse.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum EffectiveScope {

@@ -26,7 +26,6 @@ pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_SCHEMA: &str =
 /// Controller-signed, verifier-bound private disclosure of an Agent's
 /// immutable requested-scope ceiling.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentRequestedScopeDisclosure {
     pub schema: String,
@@ -137,7 +136,6 @@ impl AgentRequestedScopeDisclosure {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyPairRequestBody {
     pub pairing_request_id: NonEmptyString,
@@ -152,14 +150,12 @@ pub struct AgentKeyPairRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AgentKeyPairOutcome {
     pub ok: bool,
     pub authorized_event_ref: EventId,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentRuntimeApprovalRequestBody {
     pub pairing_code: NonEmptyString,
@@ -173,7 +169,6 @@ pub struct AgentRuntimeApprovalRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentRuntimeApprovalOutcome {
     pub ok: bool,
@@ -187,7 +182,6 @@ pub struct AgentRuntimeApprovalOutcome {
 /// mismatch are indistinguishable (both not_found). Mirrors
 /// `agent-operations.schema.json#/$defs/agent_runtime_approval_status_request_body`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentRuntimeApprovalStatusRequestBody {
     pub pairing_request_id: String,
@@ -202,7 +196,6 @@ pub struct AgentRuntimeApprovalStatusRequestBody {
 /// as paired-by-another-runtime. Mirrors
 /// `agent-operations.schema.json#/$defs/agent_runtime_approval_status_outcome`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentRuntimeApprovalStatusOutcome {
     pub ok: bool,
@@ -218,7 +211,6 @@ pub struct AgentRuntimeApprovalStatusOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "phase", rename_all = "snake_case")]
 pub enum AgentProvisionRequestBody {
     Prepare {
@@ -251,7 +243,6 @@ pub enum AgentProvisionRequestBody {
 /// envelopes through the ordinary Event pipeline; it never authors a proof on
 /// the controller's behalf.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentProvisionEvents {
     pub accountability_grant: Event,
@@ -275,7 +266,6 @@ pub struct AgentProvisionEvents {
 /// `deactivated` rejects. Mirrors
 /// `agent-operations.schema.json#/$defs/agent_renew_pairing_request_body`.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentRenewPairingRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -283,7 +273,6 @@ pub struct AgentRenewPairingRequestBody {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentPcrRecoveryStatus {
     Pending,
@@ -295,7 +284,6 @@ pub enum AgentPcrRecoveryStatus {
 /// representation preserves the schema invariant that only ready/stale states
 /// carry an accepted backup reference.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AgentPcrRecoveryState {
     Pending,
@@ -330,14 +318,12 @@ impl AgentPcrRecoveryState {
 /// Provisioning is the raw allocation stage, so its recovery projection is
 /// constrained to pending and carries no backup reference.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentProvisionPcrRecovery {
     pub status: AgentProvisionPcrRecoveryStatus,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentProvisionPcrRecoveryStatus {
     #[default]
@@ -345,7 +331,6 @@ pub enum AgentProvisionPcrRecoveryStatus {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentPairingMode {
     Bootstrap,
@@ -353,7 +338,6 @@ pub enum AgentPairingMode {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AgentProvisionOutcome {
     AwaitingControllerEvents {
@@ -370,7 +354,6 @@ pub enum AgentProvisionOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentProvisionComplete {
     pub agent_id: Did,
@@ -389,7 +372,6 @@ pub struct AgentProvisionComplete {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentRenewPairingOutcome {
     pub agent_id: Did,
@@ -415,7 +397,6 @@ pub struct AgentRenewPairingOutcome {
 /// carries no scope payload (the authoritative ceiling lives in
 /// `ak.agent.key.authorize` and the effective-permission intersection).
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentPairingBootstrap {
     pub arkret_base_url: String,
@@ -431,14 +412,12 @@ pub struct AgentPairingBootstrap {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentPairingResolveRequestBody {
     pub pairing_token: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentStatus {
     PendingRuntimeKey,
@@ -449,7 +428,6 @@ pub enum AgentStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentProjection {
     pub agent_id: Did,
@@ -476,7 +454,6 @@ pub struct AgentProjection {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentLifecycleState {
     #[default]
@@ -496,7 +473,6 @@ impl AgentLifecycleState {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentLifecycleOutcome {
     pub ok: bool,
@@ -504,7 +480,6 @@ pub struct AgentLifecycleOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AgentList {
     pub agents: Vec<AgentProjection>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -513,7 +488,6 @@ pub struct AgentList {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AgentView {
     pub agent: AgentProjection,
     pub status: AgentStatus,
@@ -524,7 +498,6 @@ pub struct AgentView {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AgentPauseRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -534,7 +507,6 @@ pub struct AgentPauseRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AgentResumeRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sidecar_exposure_ack: Option<AgentSidecarExposureAck>,
@@ -544,27 +516,23 @@ pub struct AgentResumeRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AgentDeactivateRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AgentGrantAttachRequestBody {
     pub grant: CapabilityGrant,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AgentGrantAttachOutcome {
     pub ok: bool,
     pub grant_id: GrantId,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AgentGrantDetachOutcome {
     pub ok: bool,
     #[serde(
@@ -575,7 +543,6 @@ pub struct AgentGrantDetachOutcome {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarStrandContextRef {
     pub realm_id: RealmId,
@@ -583,7 +550,6 @@ pub struct AgentSidecarStrandContextRef {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarRelationContextRef {
     pub realm_id: RealmId,
@@ -591,7 +557,6 @@ pub struct AgentSidecarRelationContextRef {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum AgentSidecarContextRef {
     Strand(AgentSidecarStrandContextRef),
@@ -622,7 +587,6 @@ impl AgentSidecarContextRef {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarEnsureRequestBody {
     pub controller_id: Did,
@@ -653,7 +617,6 @@ impl AgentSidecarEnsureRequestBody {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarAccessReadiness {
     Opening,
@@ -665,7 +628,6 @@ pub enum AgentSidecarAccessReadiness {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PendingSidecarAccessReconciliationStage {
     BackingScopeMembership,
@@ -676,7 +638,6 @@ pub enum PendingSidecarAccessReconciliationStage {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PendingSidecarAccessReconciliationItem {
     pub agent_id: Did,
@@ -709,7 +670,6 @@ impl PendingSidecarAccessReconciliationItem {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarEnsureOutcome {
     pub ok: bool,
@@ -739,21 +699,18 @@ impl AgentSidecarEnsureOutcome {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum AgentSidecarSchema {
     #[serde(rename = "ak.schema.agent_sidecar.v1")]
     V1,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum AgentSidecarEncryptionProfile {
     #[serde(rename = "mls_rfc9420")]
     MlsRfc9420,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarState {
     Active,
@@ -820,7 +777,6 @@ pub fn agent_sidecar_desired_access_digest(
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarMlsContext {
     pub desired_access_digest: Hash,
@@ -863,7 +819,6 @@ impl AgentSidecarMlsContext {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecar {
     pub id: SidecarId,
@@ -906,7 +861,6 @@ impl AgentSidecar {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarView {
     pub sidecar: AgentSidecar,
@@ -968,7 +922,6 @@ impl AgentSidecarView {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarList {
     pub items: Vec<AgentSidecarView>,
@@ -977,7 +930,6 @@ pub struct AgentSidecarList {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarDisplayMode {
     #[default]
@@ -986,7 +938,6 @@ pub enum AgentSidecarDisplayMode {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarTrackMergePolicy {
     TimelineInterleave,
@@ -994,7 +945,6 @@ pub enum AgentSidecarTrackMergePolicy {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarProjectionProvenance {
     Shared,
@@ -1003,14 +953,12 @@ pub enum AgentSidecarProjectionProvenance {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum AgentSidecarViewStateSchema {
     #[serde(rename = "ak.schema.agent_sidecar_view_state.v1")]
     V1,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarViewState {
     pub schema: AgentSidecarViewStateSchema,
@@ -1090,30 +1038,7 @@ impl<'de> Deserialize<'de> for AgentSidecarExchangeId {
     }
 }
 
-#[cfg(feature = "salvo-oapi")]
-impl salvo::oapi::ToSchema for AgentSidecarExchangeId {
-    fn to_schema(
-        _components: &mut salvo::oapi::Components,
-    ) -> salvo::oapi::RefOr<salvo::oapi::Schema> {
-        salvo::oapi::Object::new()
-            .schema_type(salvo::oapi::BasicType::String)
-            .pattern(r"^[A-Za-z0-9._~=-]{22,128}$")
-            .into()
-    }
-}
-
-#[cfg(feature = "salvo-oapi")]
-impl salvo::oapi::ComposeSchema for AgentSidecarExchangeId {
-    fn compose(
-        components: &mut salvo::oapi::Components,
-        _generics: Vec<salvo::oapi::RefOr<salvo::oapi::Schema>>,
-    ) -> salvo::oapi::RefOr<salvo::oapi::Schema> {
-        <Self as salvo::oapi::ToSchema>::to_schema(components)
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarSourceTrackRef {
     pub realm_id: RealmId,
@@ -1138,7 +1063,6 @@ impl AgentSidecarSourceTrackRef {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarExchangeOrigin {
     SourceTrackRouted,
@@ -1149,7 +1073,6 @@ pub enum AgentSidecarExchangeOrigin {
 /// client-local pre-submission intent and never enters the projection: an
 /// accepted request folds to `delivered` (see `zh/models/sidecar.md` §7.2.4).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarExchangeStatus {
     Delivered,
@@ -1162,7 +1085,6 @@ pub const AGENT_SIDECAR_EXCHANGE_FAILURE_CONTROLLER_CLOSED_EMPTY: &str = "contro
 pub const AGENT_SIDECAR_EXCHANGE_FAILURE_CONTROLLER_CANCELLED: &str = "controller_cancelled";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarExchangeCompletionPolicy {
     Coordinator,
@@ -1213,7 +1135,6 @@ fn validate_unique_sorted_event_ids(values: &[EventId], label: &str) -> Result<(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum AgentSidecarEventExchangeBindingSchema {
     #[serde(rename = "ak.schema.agent_sidecar_event_exchange_binding.v1")]
     V1,
@@ -1223,7 +1144,6 @@ pub enum AgentSidecarEventExchangeBindingSchema {
 /// Consumers MUST fail closed to non-echo on any unlisted value; serde's
 /// closed enum plus the outer `deny_unknown_fields` provide exactly that.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarExchangeBindingRole {
     Request,
@@ -1235,7 +1155,6 @@ pub enum AgentSidecarExchangeBindingRole {
 /// durable source of every projection write-once field. Counterpart for
 /// `agent-sidecar-event-exchange-binding.schema.json#/$defs/request_context`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarExchangeRequestContext {
     pub source_track_ref: AgentSidecarSourceTrackRef,
@@ -1302,7 +1221,6 @@ impl AgentSidecarExchangeRequestContext {
 /// sidecar_exchange_binding`) of an Event whose effective scope is the Sidecar
 /// backing Circle. Any Event without a valid binding is non-echo by default.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarEventExchangeBinding {
     pub schema: AgentSidecarEventExchangeBindingSchema,
@@ -1448,14 +1366,12 @@ impl AgentSidecarEventExchangeBinding {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum AgentSidecarExchangeControlSchema {
     #[serde(rename = "ak.schema.agent_sidecar_exchange_control.v1")]
     V1,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarExchangeControlAction {
     Close,
@@ -1475,7 +1391,6 @@ impl AgentSidecarExchangeControlAction {
 /// Sidecar controller may author it; it is the sole source of coordinator
 /// reassignment and terminal exchange state (`zh/models/sidecar.md` §7.2.3).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarExchangeControl {
     pub schema: AgentSidecarExchangeControlSchema,
@@ -1522,17 +1437,14 @@ impl AgentSidecarExchangeControl {
                     "response_event_ids is forbidden on reassign_coordinator".to_owned(),
                 ));
             }
-            let (expected, next) = match (
+            let (Some(expected), Some(next)) = (
                 &self.expected_coordinator_agent_id,
                 &self.coordinator_agent_id,
-            ) {
-                (Some(expected), Some(next)) => (expected, next),
-                _ => {
-                    return Err(Error::Protocol(
-                        "reassign_coordinator requires expected_coordinator_agent_id and coordinator_agent_id"
-                            .to_owned(),
-                    ));
-                }
+            ) else {
+                return Err(Error::Protocol(
+                    "reassign_coordinator requires expected_coordinator_agent_id and coordinator_agent_id"
+                        .to_owned(),
+                ));
             };
             if expected == next {
                 return Err(Error::Protocol(
@@ -1615,11 +1527,9 @@ pub struct AgentSidecarExchangeTerminalOutcome {
 /// routing plus ciphertext; admission MUST require the effective scope to be
 /// the matching Sidecar backing Circle and the actor to be its controller.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarExchangeControlPayload {
     pub strand_id: StrandId,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub encrypted_payload: EncryptedEnvelope,
 }
 
@@ -1638,7 +1548,6 @@ pub fn agent_sidecar_exchange_event_set_digest(event_ids: &[EventId]) -> Result<
 /// Event-id set. `max_hlc` is display/cache metadata only and never proves
 /// causal dominance.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarExchangeFoldedFrontier {
     pub event_ids: Vec<EventId>,
@@ -1653,7 +1562,6 @@ impl AgentSidecarExchangeFoldedFrontier {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum AgentSidecarExchangeProjectionSchema {
     #[serde(rename = "ak.schema.agent_sidecar_exchange_projection.v1")]
     V1,
@@ -1666,7 +1574,6 @@ pub enum AgentSidecarExchangeProjectionSchema {
 /// deleted and rebuilt from the accepted private-Strand Event history
 /// (`zh/models/sidecar.md` §7.2.4).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarExchangeProjection {
     pub schema: AgentSidecarExchangeProjectionSchema,
@@ -1866,7 +1773,6 @@ pub enum AgentOperations {
 
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/key_state`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeyState {
     pub agent_id: Did,
@@ -2215,7 +2121,7 @@ mod tests {
         assert_eq!(value["role"], "request");
         assert!(value.get("request_event_id").is_none());
 
-        let mut smuggled_request_event = request.clone();
+        let mut smuggled_request_event = request;
         smuggled_request_event.request_event_id = Some(fixture_event_id(0x34));
         assert!(smuggled_request_event.validate().is_err());
 
@@ -2237,7 +2143,7 @@ mod tests {
             orphan_completion.validate().is_err(),
             "completes_exchange requires coordinator_assignment_event_id"
         );
-        let mut false_completion = response.clone();
+        let mut false_completion = response;
         false_completion.completes_exchange = Some(false);
         assert!(false_completion.validate().is_err());
 
@@ -2331,7 +2237,7 @@ mod tests {
         reassign.coordinator_agent_id =
             Some(Did::new("did:webvh:z6mkfixture:reviewer.agents.example").unwrap());
         assert!(reassign.terminal_outcome().unwrap().is_none());
-        let mut identity_reassign = reassign.clone();
+        let mut identity_reassign = reassign;
         identity_reassign.coordinator_agent_id = Some(fixture_agent());
         assert!(identity_reassign.validate().is_err());
 

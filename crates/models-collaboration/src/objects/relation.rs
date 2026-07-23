@@ -15,7 +15,6 @@ pub const RELATION_KIND_BELONGS_TO: &str = "belongs_to";
 pub const RELATION_KIND_WATCHES: &str = "watches";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct Relation {
     pub schema: String,
     pub id: RelationId,
@@ -64,7 +63,6 @@ pub struct Relation {
 /// `(from, relation_kind, to)` tuple would violate the declared
 /// cardinality of its profile.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RelationCardinality {
     /// At most one `to` per `from` and at most one `from` per `to`.
@@ -78,7 +76,6 @@ pub enum RelationCardinality {
 
 /// Per-Space `relation_profile` row that constrains a `relation_kind`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RelationProfile {
     pub relation_kind: String,
     pub cardinality: RelationCardinality,

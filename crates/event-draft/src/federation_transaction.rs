@@ -19,7 +19,6 @@ fn is_false(value: &bool) -> bool {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct FederationTransactionRequestBody {
     pub origin: Did,
     pub destination: Did,
@@ -33,7 +32,6 @@ pub struct FederationTransactionRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct FederationTransactionOutcome {
     pub ok: bool,
     #[serde(default)]
@@ -55,7 +53,6 @@ pub struct FederationTransactionOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct FederationPushOperationsRequestBody {
     pub origin: Did,
     pub destination: Did,
@@ -66,7 +63,6 @@ pub struct FederationPushOperationsRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct FederationPushOperationsOutcome {
     #[serde(default)]
     pub accepted: Vec<OperationId>,
@@ -77,7 +73,6 @@ pub struct FederationPushOperationsOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct FederationPullOperationsOutcome {
     #[serde(default)]
     pub operations: Vec<Operation>,

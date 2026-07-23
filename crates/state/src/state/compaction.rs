@@ -21,7 +21,6 @@ use crate::Seal;
 /// Compaction policy parameters. Tunable per Realm; sensible defaults
 /// are provided by [`CompactionPolicy::default`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CompactionPolicy {
     /// Minimum age (in seconds) of a Seal before it becomes
     /// prune-eligible. Seals younger than this MUST NOT be pruned even

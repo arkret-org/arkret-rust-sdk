@@ -28,7 +28,6 @@ pub const STRAND_TRACK_NAME_DISCUSSION: &str = "discussion";
 
 /// Per-track configuration carried as the value side of the `Strand.tracks` map.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct StrandTrackConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -192,7 +191,6 @@ where
 
 /// Morph object (data-structures.md §7).
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Morph {
     pub id: MorphId,
@@ -221,13 +219,10 @@ pub struct Morph {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<MorphMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub encrypted_metadata: Option<EncryptedEnvelope>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub content: Option<ContentBlock>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub encrypted_content: Option<EncryptedEnvelope>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
@@ -341,7 +336,6 @@ impl Morph {
 
 /// Constraint evaluation class (constraint-schema.md §2.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum IdentityLinkStatus {
     Active,
@@ -353,7 +347,6 @@ fn identity_link_default_status() -> IdentityLinkStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct IdentityLinkProof {
     pub verification_method: String,
     pub signature_algorithm: String,
@@ -362,7 +355,6 @@ pub struct IdentityLinkProof {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct IdentityLink {
     pub schema: String,
     #[serde(default = "identity_link_default_status")]
@@ -463,7 +455,6 @@ impl IdentityLink {
 
 /// Verification class returned by federation `verify_actor` (M-19).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum FederationActorValidationClass {
     Valid,

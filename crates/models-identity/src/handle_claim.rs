@@ -22,7 +22,6 @@ use crate::handle::{
 
 /// Builder-side member delivery binding offered by a handle claim.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DeliveryBindingHint {
     pub recipient_service_id: Did,
     #[serde(default = "default_hint_recipient_service_type")]
@@ -45,7 +44,6 @@ fn default_handle_claim_schema() -> String {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct HandleClaim {
     #[serde(default = "default_handle_claim_schema")]
     pub schema: String,

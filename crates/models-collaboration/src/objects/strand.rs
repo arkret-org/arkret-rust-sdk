@@ -24,7 +24,6 @@ use crate::objects::profiles::{
 /// `metadata.fields` (e.g. Morph, which carries top-level `fields`) serialise
 /// identically to a metadata object without a `fields` member.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ObjectMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
@@ -32,7 +31,6 @@ pub struct ObjectMetadata {
     pub summary: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -50,11 +48,9 @@ impl ObjectMetadata {
 pub type StrandMetadata = ObjectMetadata;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MessageMetadata {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -103,7 +99,6 @@ impl MessageMetadata {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Strand {
     pub id: StrandId,
@@ -126,13 +121,10 @@ pub struct Strand {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<StrandMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub encrypted_metadata: Option<EncryptedEnvelope>,
     #[serde(rename = "content", skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub body: Option<ContentBlock>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub encrypted_content: Option<EncryptedEnvelope>,
     /// Active Strand tracks keyed by canonical track name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]

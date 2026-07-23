@@ -34,7 +34,6 @@ use crate::objects::space::ChildScopePolicy;
 /// Top-level Circle directory visibility (spec circle.schema.json
 /// `directory_visibility` enum).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CircleDirectoryVisibility {
     /// Only Circle members see this Circle in any directory listing.
@@ -48,7 +47,6 @@ pub enum CircleDirectoryVisibility {
 /// How an actor becomes a Circle member (spec circle.schema.json
 /// `join_rule` enum).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CircleJoinRule {
     /// Admin must invite or add.
@@ -68,7 +66,6 @@ pub enum CircleJoinRule {
 /// `allow_plaintext < e2ee_required`; the effective floor MAY only
 /// tighten, never widen, and is a one-way ratchet (reducer enforces).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum EncryptionFloor {
     AllowPlaintext,
@@ -80,7 +77,6 @@ pub enum EncryptionFloor {
 /// token → theme color is a client responsibility; clients MUST NOT
 /// reassign tokens.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CircleColorToken {
     Slate,
@@ -106,7 +102,6 @@ pub enum CircleColorToken {
 /// `$defs.display.symbol` oneOf). Exactly one of `emoji` / `glyph` is
 /// populated.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum CircleSymbol {
     Emoji { emoji: String },
@@ -116,7 +111,6 @@ pub enum CircleSymbol {
 /// Closed enum of glyph symbols accepted on `Circle.display.symbol.glyph`
 /// (spec circle.schema.json).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CircleGlyph {
     Lock,
@@ -150,7 +144,6 @@ pub enum CircleGlyph {
 
 /// Display-only nameplate (spec circle.schema.json `$defs.display`).
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct CircleDisplay {
     pub short_name: String,
     pub color_token: CircleColorToken,
@@ -223,7 +216,6 @@ pub struct Circle {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CirclePendingMlsRemoval {
     pub principal_id: Did,
@@ -246,7 +238,6 @@ impl CirclePendingMlsRemoval {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CircleView {
     pub circle_id: CircleId,
@@ -296,7 +287,6 @@ pub struct CircleView {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CircleCreateRequestBody {
     pub realm_id: RealmId,
@@ -320,7 +310,6 @@ pub struct CircleCreateRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CircleList {
     pub realm_id: RealmId,
@@ -329,7 +318,6 @@ pub struct CircleList {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CircleMembership {
     Join,
@@ -352,7 +340,6 @@ impl CircleMembership {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CircleMemberRequestBody {
     pub actor_id: Did,
@@ -361,7 +348,6 @@ pub struct CircleMemberRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CircleMembershipOutcome {
     pub circle_id: CircleId,
@@ -370,7 +356,6 @@ pub struct CircleMembershipOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CircleScopeRotateRequestBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -380,7 +365,6 @@ pub struct CircleScopeRotateRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CircleScopeRotateOutcome {
     pub circle_id: CircleId,
@@ -391,7 +375,6 @@ pub struct CircleScopeRotateOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CircleLifecycleRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -421,7 +404,6 @@ pub struct CircleLifecycleRequestBody {
 /// (`ak.circle.tombstone`) and per-object redaction events (`ak.redaction`)
 /// run on independent state machines.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CircleState {
     Active,

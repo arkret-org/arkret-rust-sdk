@@ -15,7 +15,6 @@ use crate::artifacts_keys::{
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeysUploadRequestBody {
     pub device_id: DeviceId,
@@ -27,7 +26,6 @@ pub struct KeysUploadRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeysUploadOutcome {
     pub one_time_key_counts: AlgorithmCounts,
@@ -36,12 +34,10 @@ pub struct KeysUploadOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeysQueryRequestBody {
     pub device_keys: QueryDeviceMap,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = u64)))]
     pub timeout_ms: Option<NonZeroU64>,
 }
 
@@ -52,7 +48,6 @@ pub struct KeysQueryRequestBody {
 /// [`QueryDeviceRecord::device_signing_key`] for any non-active device.
 /// Mirrors `keys-operations.schema.json#/$defs/device_status`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DeviceStatus {
     Active,
@@ -60,7 +55,6 @@ pub enum DeviceStatus {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DeviceGenerationStatus {
     Active,
@@ -68,7 +62,6 @@ pub enum DeviceGenerationStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DeviceGenerationState {
     pub current_device_generation_ref: NonEmptyString,
@@ -87,7 +80,6 @@ pub struct DeviceGenerationState {
 /// verifier's input type), but defined here in `core` because `core` cannot
 /// depend on `crypto`; `alg` is optional per schema.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct QueryDeviceCrossSigningBinding {
     /// DID URL of the self-signing key (SSK) that produced the binding
@@ -111,7 +103,6 @@ pub struct QueryDeviceCrossSigningBinding {
 /// populated only for verified, non-revoked devices. Mirrors
 /// `keys-operations.schema.json#/$defs/query_device_record`.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct QueryDeviceRecord {
     /// Prekey bundle keyed by algorithm name. The demo projection carries the
@@ -189,7 +180,6 @@ impl QueryDeviceRecord {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeysQueryOutcome {
     pub device_keys: BTreeMap<Did, BTreeMap<DeviceId, QueryDeviceRecord>>,
@@ -208,7 +198,6 @@ pub struct KeysQueryOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeysClaimRequestBody {
     pub one_time_keys: PrincipalDeviceAlgorithmMap,
@@ -216,7 +205,6 @@ pub struct KeysClaimRequestBody {
 
 /// Per-target failure returned by keys query and claim operations.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeysOperationFailure {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -227,12 +215,10 @@ pub struct KeysOperationFailure {
     pub algorithm: Option<NonEmptyString>,
     pub reason_code: NonEmptyString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = u64)))]
     pub retry_after_ms: Option<NonZeroU64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeysClaimOutcome {
     pub one_time_keys: PrincipalDeviceKeyRecords,

@@ -60,7 +60,6 @@ pub const REALM_MODERATION_POLICY_FANOUT_SOURCE_ORGANIZATION_POLICY: &str = "org
 /// Realm/Space boundary split; link payloads MUST carry exactly one of
 /// these. Wire form is snake_case.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmLinkKind {
     /// Target Realm is the governing authority for source Realm.
@@ -133,7 +132,6 @@ impl RealmLinkKind {
 
 /// Lifecycle status of an `ak.realm.link` FSM cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmLinkStatus {
     Active,
@@ -201,7 +199,6 @@ pub const REALM_LINK_ALLOWED_TRANSITIONS: &[(RealmLinkStatus, RealmLinkStatus)] 
 /// Cell family: `ak.component.realm.link.v1` (`fsm` / `reject`). Cell
 /// subject key: `(target_realm_id, link_kind)` inside the envelope Realm.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmLinkPayload {
     /// Target Realm id (the link's "to" side). `source_realm_id` is the
@@ -225,7 +222,6 @@ fn default_link_status() -> RealmLinkStatus {
 /// Operation DTO for creating a Realm Link. The HTTP default is materialized
 /// when this value is converted into the strict durable payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmLinkCreateRequestBody {
     pub target_realm_id: RealmId,
@@ -336,7 +332,6 @@ pub fn evaluate_realm_link_transition(
 /// Direction filter used by the realm-link query API to scope the
 /// returned edges.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmLinkDirection {
     /// Edges where this Realm is the source — `realm_id == realm_id`.
@@ -360,7 +355,6 @@ impl RealmLinkDirection {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmLinkEntry {
     pub realm_id: RealmId,
@@ -384,7 +378,6 @@ pub struct RealmLinkEntry {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmLinkList {
     pub realm_id: RealmId,
@@ -394,7 +387,6 @@ pub struct RealmLinkList {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmLinkMutationOutcome {
     pub realm_id: RealmId,
@@ -404,7 +396,6 @@ pub struct RealmLinkMutationOutcome {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmEffectivePolicyInheritanceMode {
     Explicit,
@@ -412,11 +403,9 @@ pub enum RealmEffectivePolicyInheritanceMode {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmEffectivePolicyOutcome {
     pub realm_id: RealmId,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub effective_policy: BTreeMap<String, Value>,
     #[serde(default)]
     pub inheritance_chain: Vec<RealmId>,
@@ -424,7 +413,6 @@ pub struct RealmEffectivePolicyOutcome {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmLifecycleView {
     pub ok: bool,
@@ -450,7 +438,6 @@ pub struct RealmLifecycleView {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmExport {
     pub schema: String,
@@ -460,14 +447,11 @@ pub struct RealmExport {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
     )]
     pub generated_at: DateTime<Utc>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub operations: Vec<BTreeMap<String, Value>>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub events: Vec<BTreeMap<String, Value>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmModerationInheritanceMode {
     None,
@@ -475,18 +459,14 @@ pub enum RealmModerationInheritanceMode {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RealmEffectiveModerationPolicy {
     pub realm_id: RealmId,
     pub inheritance_mode: RealmModerationInheritanceMode,
     #[serde(default)]
     pub inheritance_chain: Vec<Did>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub organization_policy_layers: Vec<BTreeMap<String, Value>>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_policy: Option<BTreeMap<String, Value>>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub effective_rules: Vec<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub override_requires_organization_approval: Option<bool>,
@@ -498,26 +478,21 @@ pub struct RealmEffectiveModerationPolicy {
     /// the target.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub policy_merge_strategy: Option<String>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RealmModerationPolicyReplaceRequestBody {
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
     pub policy: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmModerationPolicyDocument {
     pub kind: String,
     pub realm_id: RealmId,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub policy: BTreeMap<String, Value>,
     pub updated_by: Did,
     #[serde(
@@ -528,7 +503,6 @@ pub struct RealmModerationPolicyDocument {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmPolicyServerOnTimeout {
     FailClosed,
@@ -536,7 +510,6 @@ pub enum RealmPolicyServerOnTimeout {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmPolicyServerView {
     pub realm_id: RealmId,
@@ -554,7 +527,6 @@ pub struct RealmPolicyServerView {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmPolicyServerReplaceRequestBody {
     pub policy_server_did: Did,
@@ -571,7 +543,6 @@ pub struct RealmPolicyServerReplaceRequestBody {
 /// relationship row
 /// (`realm-organization-operations.schema.json#/$defs/lifecycle_phase`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmOrganizationLifecyclePhase {
     /// Latest accepted statement for `(organization_id, relationship)` is
@@ -588,7 +559,6 @@ pub enum RealmOrganizationLifecyclePhase {
 /// from a parent (source) Realm. The reducer rejects payloads with
 /// `max_depth > 1` (the wire spec currently caps inheritance at depth 1).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RealmInheritancePolicy {
     /// Parent Realm whose policies / capabilities are being inherited.
     pub source_realm_id: RealmId,
@@ -643,7 +613,6 @@ impl RealmInheritancePolicy {
 /// reducer's audit pipeline. At schema level the soland reducer accepts
 /// the payload + projects the cell so downstream consumers can introspect it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct CapabilityDerived {
     pub capability_id: CapabilityId,
     pub source_grant_ref: EventRef,
@@ -664,7 +633,6 @@ pub struct CapabilityDerived {
 /// reducer-derived. A row here is a projection only: an organization
 /// relationship is only verified when `lifecycle_phase=verified_active`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmOrganizationRelationshipRow {
     pub statement_id: String,
@@ -710,7 +678,6 @@ pub struct RealmOrganizationRelationshipRow {
 /// Response DTO for `ak.self.realm_organization.query.list`
 /// (`realm-organization-operations.schema.json#/$defs/realm_organization_relationship_list`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmOrganizationRelationshipList {
     pub realm_id: RealmId,

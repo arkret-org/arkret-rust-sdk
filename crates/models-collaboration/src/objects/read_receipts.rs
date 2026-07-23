@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ReadCursor {
     pub id: ReadCursorId,
@@ -37,7 +36,6 @@ impl ReadCursor {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ReadCursorPosition {
     pub event_id: EventId,
@@ -45,7 +43,6 @@ pub struct ReadCursorPosition {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ReadCursorAdvanceRequestBody {
     pub realm_id: RealmId,
@@ -54,7 +51,6 @@ pub struct ReadCursorAdvanceRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ReadMarkerOutcome {
     pub realm_id: RealmId,
@@ -70,7 +66,6 @@ pub struct ReadMarkerOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ReadCursorList {
     #[serde(default)]
@@ -78,7 +73,6 @@ pub struct ReadCursorList {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ReadReceipt {
     pub receipt_type: String,
@@ -253,7 +247,6 @@ impl ReadReceiptPolicy {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct Notification {
     pub schema: String,
     pub id: String,

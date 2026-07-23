@@ -44,7 +44,6 @@ pub fn compute_audit_policy_version_digest(
 
 /// Round 4 — `source` discriminator for [`PolicyCheckRequestBody`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PolicyCheckSource {
     pub service_id: Did,
     pub service_type: String,
@@ -57,7 +56,6 @@ pub struct PolicyCheckSource {
 ///
 /// Wire-breaking: replaces the pre-round-4 `PolicyCheckRequestBody`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PolicyCheckRequestBody {
     pub request_id: String,
     pub realm_id: RealmId,
@@ -78,7 +76,6 @@ pub struct PolicyCheckRequestBody {
 /// MUST include all five fields so the response can be verified against
 /// the request transcript without trusting the policy server.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PolicyCheckBoundTo {
     pub realm_id: RealmId,
     pub actor_id: Did,
@@ -89,7 +86,6 @@ pub struct PolicyCheckBoundTo {
 
 /// Round 4 — signature carrier for [`PolicyCheckOutcome`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PolicyCheckSignature {
     /// DID URL verification method, MUST match
     /// `^did:[a-z0-9]+:[^\s]+#.+$`.
@@ -100,7 +96,6 @@ pub struct PolicyCheckSignature {
 /// Round 4 (commit 7446832) — `/policy/check` response with full
 /// binding transcript.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PolicyCheckOutcome {
     pub request_id: String,
     pub decision: AuthzDecision,

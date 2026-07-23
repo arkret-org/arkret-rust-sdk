@@ -17,12 +17,10 @@ use crate::identity::{
 /// `ak.gate.account.command.logout` request (Principal Server device logout).
 /// Empty body — the session bearer identifies the device session to terminate.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AccountLogoutRequestBody {}
 
 /// `ak.gate.account.command.logout` outcome.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AccountLogoutOutcome {
     pub ok: bool,
     pub revoked: bool,
@@ -35,7 +33,6 @@ pub struct AccountLogoutOutcome {
 /// §5.4, key-management.md §5.0.6). Mirrors
 /// `agent-operations.schema.json#/$defs/account_device_enroll_request_body`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AccountDeviceEnrollRequestBody {
     pub device_id: DeviceId,
     /// did:key multibase (`z6Mk…`) or base64 of this session's device public key.
@@ -66,7 +63,6 @@ pub struct AccountDeviceEnrollRequestBody {
 /// verbatim to `POST /_arkret/self/events`. Mirrors
 /// `agent-operations.schema.json#/$defs/account_device_enroll_outcome`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AccountDeviceEnrollOutcome {
     pub principal_id: Did,
     pub device_id: DeviceId,
@@ -78,7 +74,6 @@ pub struct AccountDeviceEnrollOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AccountOidcCallbackRequestBody {
     pub state: String,
     pub code: String,
@@ -90,31 +85,19 @@ pub struct AccountOidcCallbackRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = IdentityDescription)))]
 pub struct IdentityDescribeOutcome(pub IdentityDescription);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = IdentityDocumentView)))]
 pub struct IdentityDocumentViewOutcome(pub IdentityDocumentView);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = IdentityLogListOutcome)))]
 pub struct IdentityLogResultBody(pub IdentityLogListOutcome);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = DidOperationSubmitRequestBody)))]
 pub struct IdentitySubmitDidOperationRequestBody(pub DidOperationSubmitRequestBody);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = DidOperationSubmitOutcome)))]
 pub struct IdentitySubmitDidOperationOutcome(pub DidOperationSubmitOutcome);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = IdentityReceiptListOutcome)))]
 pub struct IdentityReceiptsResultBody(pub IdentityReceiptListOutcome);

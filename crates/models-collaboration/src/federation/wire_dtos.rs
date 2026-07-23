@@ -12,7 +12,6 @@ use crate::federation::frames::VerifyActorChallengeSignature;
 use crate::sync_frames::account_sync::MembershipState;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct FederationRealmMemberList {
     #[serde(default)]
     pub members: Vec<MemberRef>,
@@ -22,14 +21,12 @@ pub struct FederationRealmMemberList {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MemberRef {
     pub principal_id: Did,
     pub membership: MembershipState,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct FederationVerifyActorRequestBody {
     pub actor_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -43,7 +40,6 @@ pub struct FederationVerifyActorRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct FederationVerifyActorOutcome {
     pub valid: bool,
     pub actor_id: Did,

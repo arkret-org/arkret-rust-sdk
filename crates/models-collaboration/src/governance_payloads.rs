@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 /// Mirrors `event-payload.schema.json#/$defs/consent_revoke_payload`
 /// `observed_dots[]`: `<canonical event ref>:<actor sequence>`.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(try_from = "String", into = "String")]
 pub struct ConsentObservedDot(String);
 
@@ -57,7 +56,6 @@ impl From<ConsentObservedDot> for String {
 /// field with `schema_violation` (it would otherwise enable implicit
 /// cascade revoke).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ConsentRevokePayload {
     pub consent_id: ConsentId,

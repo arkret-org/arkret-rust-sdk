@@ -43,7 +43,6 @@ pub fn compute_policy_frontier_digest(
 /// `minimal_metadata_mode`) have shifted at the policy frontier and the
 /// cached link must be re-derived.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct IdentityLinkCacheEntry {
     pub pairwise_did: Did,
 

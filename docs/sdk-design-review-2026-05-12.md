@@ -1,5 +1,10 @@
 # SDK Design Review - 2026-05-12
 
+> Historical record. Superseded on 2026-07-24: OpenAPI is now owned solely by
+> the canonical Spec artifact, and all SDK Salvo/ToSchema features, derives and
+> dependencies have been removed. The findings and commands below describe the
+> repository state at the original review date.
+
 Scope: `D:\Works\arkret\arkret-rust-sdk` checked against
 `D:\Works\arkret\arkret-spec\spec\v1\zh` and
 `D:\Works\arkret\arkret-spec\spec\v1\artifacts`.

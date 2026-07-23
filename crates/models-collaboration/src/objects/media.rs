@@ -13,7 +13,6 @@ fn is_false(value: &bool) -> bool {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MediaIceMode {
     P2p,
@@ -22,7 +21,6 @@ pub enum MediaIceMode {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MediaIceConfigRequestBody {
     pub realm_id: RealmId,
@@ -33,7 +31,6 @@ pub struct MediaIceConfigRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MediaIceConfigOutcome {
     pub realm_id: RealmId,
     pub call_id: String,
@@ -104,7 +101,6 @@ impl MediaIceConfigOutcome {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum MediaIceCredentialType {
     Password,
@@ -112,7 +108,6 @@ pub enum MediaIceCredentialType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MediaIceServer {
     #[serde(
@@ -145,7 +140,6 @@ impl MediaIceServer {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MediaIceConstraints {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -157,7 +151,6 @@ pub struct MediaIceConstraints {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum MediaIceSignatureAlgorithm {
     #[serde(rename = "ES256")]
     Es256,
@@ -168,14 +161,12 @@ pub enum MediaIceSignatureAlgorithm {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum MediaIceSignatureInput {
     #[serde(rename = "ak.media.ice_config.v1")]
     IceConfigV1,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MediaIceConfigSignature {
     pub kid: String,
@@ -213,7 +204,6 @@ where
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct CallMediaDesiredMedia {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audio: Option<bool>,
@@ -224,7 +214,6 @@ pub struct CallMediaDesiredMedia {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct CallMediaTokenExchangeRequestBody {
     pub realm_id: RealmId,
     pub call_id: CallId,
@@ -238,7 +227,6 @@ pub struct CallMediaTokenExchangeRequestBody {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct CallMediaParticipantBinding {
     pub scheme: String,
     pub sig: String,
@@ -270,14 +258,12 @@ impl CallMediaParticipantBinding {
 /// resolve to a realm media-service anchor; `sig` is the backend-specific
 /// detached signature.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct CallMediaServiceSignature {
     pub kid: String,
     pub sig: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct CallMediaTokenExchangeOutcome {
     pub focus_id: String,
     #[serde(rename = "type")]

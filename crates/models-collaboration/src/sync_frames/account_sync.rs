@@ -9,7 +9,6 @@ use crate::internal_prelude::*;
 
 /// Closed action set for account notification projection deltas.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationDeltaAction {
     Add,
@@ -19,7 +18,6 @@ pub enum NotificationDeltaAction {
 
 /// Closed notification data discriminator.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AccountNotificationDataKind {
     AgentRuntimeApproval,
@@ -27,7 +25,6 @@ pub enum AccountNotificationDataKind {
 
 /// Account-private Agent runtime approval projection.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentRuntimeApprovalNotificationData {
     pub kind: AccountNotificationDataKind,
@@ -47,7 +44,6 @@ pub struct AgentRuntimeApprovalNotificationData {
 
 /// Closed terminal reasons for an Agent runtime approval notification.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentRuntimeApprovalRemovalReason {
     Approved,
@@ -59,7 +55,6 @@ pub enum AgentRuntimeApprovalRemovalReason {
 
 /// Optional data carried by a remove delta.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentRuntimeApprovalNotificationRemovalData {
     pub kind: AccountNotificationDataKind,
@@ -68,7 +63,6 @@ pub struct AgentRuntimeApprovalNotificationRemovalData {
 
 /// Closed data branches for account notification deltas.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum NotificationData {
     AgentRuntimeApproval(AgentRuntimeApprovalNotificationData),
@@ -77,7 +71,6 @@ pub enum NotificationData {
 
 /// Strongly typed account notification projection delta.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct NotificationDelta {
     pub id: NotificationId,
     #[serde(rename = "type")]
@@ -140,7 +133,6 @@ impl<'de> Deserialize<'de> for NotificationDelta {
 
 /// Dedicated notification container for account subscribe.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct NotificationContainer {
     pub items: Vec<NotificationDelta>,
@@ -149,7 +141,6 @@ pub struct NotificationContainer {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/device-message.schema.json`.
 #[derive(Clone, Debug, Serialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DeviceMessageEnvelope {
     pub message_id: DeviceMessageId,
@@ -267,14 +258,12 @@ pub struct EventContainer {
 
 /// Closed container for broadcast ephemeral envelopes carried by account sync.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct EphemeralEventContainer {
     pub events: Vec<EphemeralEnvelope>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountSubscribeDeviceListChanges {
     pub changed: Vec<Did>,
@@ -408,13 +397,11 @@ pub struct RealmSyncEntry {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DeviceMessagesSendRequestBody {
     pub messages: BTreeMap<Did, BTreeMap<DeviceId, DeviceMessageTarget>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DeviceMessageTarget {
     pub message_id: DeviceMessageId,
@@ -428,7 +415,6 @@ pub struct DeviceMessageTarget {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DeviceMessagesSendOutcome {
     pub ok: bool,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -438,7 +424,6 @@ pub struct DeviceMessagesSendOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DeviceMessagesGetOutcome {
     pub messages: Vec<DeviceMessageEnvelope>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -454,13 +439,11 @@ pub struct DeviceMessagesGetOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DeviceMessagesAckRequestBody {
     pub ack_token: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DeviceMessagesAckOutcome {
     pub ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -558,7 +541,6 @@ mod device_message_tests {
 /// Membership state in [`MemberRosterEntry`]. Mirrors
 /// `account-subscribe-frame.schema.json#/$defs/member_roster_entry.membership`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MembershipState {
     Join,
@@ -576,7 +558,6 @@ pub enum MembershipState {
 /// be omitted unless [`Self::subject_id`] is disclosed — enforced by
 /// [`Self::validate`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MemberRosterEntry {
     pub actor_id: Did,

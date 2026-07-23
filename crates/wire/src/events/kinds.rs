@@ -347,33 +347,6 @@ pub fn is_strand_tracks_kind(kind: &str) -> bool {
     matches!(kind, EventKind::STRAND_TRACKS_UPDATE)
 }
 
-// ── Typed `EventKind` ──────────────────────────────────────────────────
-//
-// Hand-written OpenAPI schema: `EventKind` serialises as the bare wire
-// string, so expose it as a string schema carrying the registry kind
-// pattern rather than a derive-from-variants object.
-#[cfg(feature = "salvo-oapi")]
-impl salvo::oapi::ToSchema for EventKind {
-    fn to_schema(
-        _components: &mut salvo::oapi::Components,
-    ) -> salvo::oapi::RefOr<salvo::oapi::Schema> {
-        salvo::oapi::Object::new()
-            .schema_type(salvo::oapi::BasicType::String)
-            .pattern(r"^ak\.[a-z0-9_]+(\.[a-z0-9_]+)*$")
-            .into()
-    }
-}
-
-#[cfg(feature = "salvo-oapi")]
-impl salvo::oapi::ComposeSchema for EventKind {
-    fn compose(
-        components: &mut salvo::oapi::Components,
-        _generics: Vec<salvo::oapi::RefOr<salvo::oapi::Schema>>,
-    ) -> salvo::oapi::RefOr<salvo::oapi::Schema> {
-        <Self as salvo::oapi::ToSchema>::to_schema(components)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

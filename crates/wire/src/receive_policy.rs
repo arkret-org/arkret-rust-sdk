@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use crate::Did;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum InviteReceiveAction {
     Drop,
@@ -12,7 +11,6 @@ pub enum InviteReceiveAction {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum UnknownInviteAction {
     Drop,
@@ -20,7 +18,6 @@ pub enum UnknownInviteAction {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ReceivePolicySurface {
     InviteDelivery,
@@ -28,7 +25,6 @@ pub enum ReceivePolicySurface {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ReceivePolicyConstraints {
     #[serde(default, skip_serializing_if = "Option::is_none")]

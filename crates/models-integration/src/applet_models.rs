@@ -18,7 +18,6 @@ use crate::artifacts_applet::{
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletPingOutcome {
     pub ok: bool,
     pub applet_id: String,
@@ -27,7 +26,6 @@ pub struct AppletPingOutcome {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletTransactionOutcome {
     pub ok: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -37,7 +35,6 @@ pub struct AppletTransactionOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AppletApprovalRequest {
     pub approve_actions: Vec<String>,
@@ -48,7 +45,6 @@ pub struct AppletApprovalRequest {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AppletBotMembership {
     Invite,
@@ -57,7 +53,6 @@ pub enum AppletBotMembership {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AppletGhostActorMode {
     Disallowed,
@@ -66,7 +61,6 @@ pub enum AppletGhostActorMode {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AppletActorPolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -76,7 +70,6 @@ pub struct AppletActorPolicy {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AppletWidgetPolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -84,7 +77,6 @@ pub struct AppletWidgetPolicy {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletRejectedItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requested_scope: Option<String>,
@@ -92,7 +84,6 @@ pub struct AppletRejectedItem {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AppletInstallEffectiveStatus {
     Installed,
@@ -101,7 +92,6 @@ pub enum AppletInstallEffectiveStatus {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletInstallOutcome {
     pub ok: bool,
     pub install_id: String,
@@ -123,7 +113,6 @@ pub struct AppletInstallOutcome {
 pub use arkret_wire::AppletRevokeMode;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletRevokeOutcome {
     pub ok: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -133,7 +122,6 @@ pub struct AppletRevokeOutcome {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletActorView {
     pub exists: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -145,7 +133,6 @@ pub struct AppletActorView {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletRealmView {
     pub exists: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -157,7 +144,6 @@ pub struct AppletRealmView {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletProtocolMetadata {
     pub protocol: String,
     pub display_name: String,
@@ -169,7 +155,6 @@ pub struct AppletProtocolMetadata {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AppletInstallPreviewRequestBody {
     pub applet_package: AppletPackage,
@@ -178,7 +163,6 @@ pub struct AppletInstallPreviewRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AppletInstallRequestBody {
     pub plan_digest: Hash,

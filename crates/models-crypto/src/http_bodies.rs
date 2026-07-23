@@ -21,7 +21,6 @@ use crate::key_backup::KeyBackup;
 use crate::mls_records::MlsKeyPackageRecord;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesUploadRequestBody {
     pub principal_id: Did,
     pub device_id: DeviceId,
@@ -173,7 +172,6 @@ pub fn keypackage_upload_entry_signing_input(
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesUploadOutcome {
     pub accepted: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -185,7 +183,6 @@ pub struct KeyPackagesUploadOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesClaimRequestBody {
     pub target_principal_id: Did,
     pub intended_realm_id: RealmId,
@@ -212,7 +209,6 @@ pub struct KeyPackagesClaimRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesClaimOutcome {
     #[serde(default)]
     pub claims: Vec<KeyPackageClaimRecord>,
@@ -223,7 +219,6 @@ pub struct KeyPackagesClaimOutcome {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PeerKeyPackageClaimPurpose {
     RealmMembership,
@@ -231,7 +226,6 @@ pub enum PeerKeyPackageClaimPurpose {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackageRequesterAuthorization {
     pub verification_method: NonEmptyString,
@@ -250,7 +244,6 @@ pub struct PeerKeyPackageRequesterAuthorization {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimUnsignedRequest {
     pub claim_request_id: Base64UrlString,
@@ -281,7 +274,6 @@ pub struct PeerKeyPackagesClaimUnsignedRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimTransportBinding {
     pub source_service_id: Did,
@@ -291,7 +283,6 @@ pub struct PeerKeyPackagesClaimTransportBinding {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimAuthorizationDraft {
     pub request: PeerKeyPackagesClaimUnsignedRequest,
@@ -299,7 +290,6 @@ pub struct PeerKeyPackagesClaimAuthorizationDraft {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimRequestBody {
     pub claim_request_id: Base64UrlString,
@@ -393,7 +383,6 @@ impl PeerKeyPackagesClaimRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackageClaimReceipt {
     pub claim_request_id: Base64UrlString,
@@ -416,7 +405,6 @@ pub struct PeerKeyPackageClaimReceipt {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimOutcome {
     pub claim_request_id: Base64UrlString,
@@ -451,7 +439,6 @@ impl PeerKeyPackagesClaimOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimQueryRequestBody {
     pub claim_request_id: Base64UrlString,
@@ -468,7 +455,6 @@ impl PeerKeyPackagesClaimQueryRequestBody {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PeerKeyPackagesClaimQueryState {
     Unknown,
@@ -480,7 +466,6 @@ pub enum PeerKeyPackagesClaimQueryState {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimQueryOutcome {
     pub claim_request_id: Base64UrlString,
@@ -538,7 +523,6 @@ impl PeerKeyPackagesClaimQueryOutcome {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum PeerKeyPackageClaimErrorCode {
     #[serde(rename = "claim_failed")]
     ClaimFailed,
@@ -678,7 +662,6 @@ pub fn peer_keypackage_claim_receipt_signing_bytes(
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesConsumeRequestBody {
     #[serde(default)]
     pub key_package_refs: Vec<String>,
@@ -758,7 +741,6 @@ pub fn keypackages_consume_signing_input(
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesConsumeOutcome {
     #[serde(default)]
     pub consumed: KeyPackageRefArray,
@@ -767,7 +749,6 @@ pub struct KeyPackagesConsumeOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesRevokeRequestBody {
     #[serde(default)]
     pub key_package_refs: Vec<String>,
@@ -817,7 +798,6 @@ pub fn keypackages_revoke_signing_input(
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesRevokeOutcome {
     #[serde(default)]
     pub revoked: KeyPackageRefArray,
@@ -829,16 +809,12 @@ pub struct KeyPackagesRevokeOutcome {
 /// request body Salvo OpenAPI bindings.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = KeyBackup)))]
 pub struct KeysBackupsPutRequestBody(pub KeyBackup);
 
 /// Transparent wrapper over `KeyBackup` for the `ak.self.keys.query.get_backup`
 /// outcome Salvo OpenAPI bindings.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = KeyBackup)))]
 pub struct KeysBackupsGetOutcome(pub KeyBackup);
 
 #[cfg(test)]

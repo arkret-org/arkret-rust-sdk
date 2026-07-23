@@ -11,22 +11,17 @@ use crate::service_description::ServiceDescribe;
 /// `ak.gate.service.query.describe` (Principal Server) Salvo OpenAPI bindings.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = ServiceDescribe)))]
 pub struct ServerDescribeOutcome(pub ServiceDescribe);
 
 /// Transparent wrapper over `ServiceDescribe` for
 /// `ak.find.directory.query.describe` (directory service) Salvo OpenAPI bindings.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = ServiceDescribe)))]
 pub struct DirectoryDescribeOutcome(pub ServiceDescribe);
 
 /// Two-round RFC 9497 VOPRF request for
 /// `ak.find.directory.query.private_contact_discovery`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "phase", rename_all = "snake_case", deny_unknown_fields)]
 pub enum DirectoryPrivateContactDiscoveryRequestBody {
     Blind {
@@ -66,7 +61,6 @@ impl DirectoryPrivateContactDiscoveryRequestBody {
 
 /// Fixed-shape response for the corresponding private-discovery round.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "phase", rename_all = "snake_case", deny_unknown_fields)]
 pub enum DirectoryPrivateContactDiscoveryOutcome {
     Blind {

@@ -18,7 +18,6 @@ pub type Base64url = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/grant_snapshot`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct GrantSnapshot {
     pub grant_id: GrantId,
@@ -35,7 +34,6 @@ pub struct GrantSnapshot {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DeviceMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -51,7 +49,6 @@ pub struct DeviceMetadata {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/agent_key_authorization_state`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyAuthorizationState {
     pub key_id: String,
@@ -72,7 +69,6 @@ pub type OpaqueLocalId = String;
 /// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/
 /// pending_member_reconciliation_item`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PendingMemberReconciliationItem {
     pub agent_id: Did,
@@ -81,7 +77,6 @@ pub struct PendingMemberReconciliationItem {
 
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/public_key`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PublicKey {
     pub kty: NonEmptyString,

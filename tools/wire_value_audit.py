@@ -417,6 +417,8 @@ class SchemaResolver:
                     if owner is False:
                         return "closed", pointer
                     return "open_map", pointer
+                if "/patternProperties/" in normalized_pointer:
+                    return self.classify_node(path, owner), pointer
             properties = owner.get("properties") if isinstance(owner, dict) else None
             if not isinstance(properties, dict) or field_name not in properties:
                 if pointer and field_name == "extra" and isinstance(owner, dict):

@@ -17,7 +17,6 @@ use crate::{AppletPackageE2eePolicy, DelegationPolicy, Widget};
 /// field — determines the segment separator set used for pattern
 /// matching (§2).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AppletNamespaceDomain {
     /// Actor / DID namespace. Separator: `:` only; `#fragment` is ignored.
@@ -43,7 +42,6 @@ impl AppletNamespaceDomain {
 /// `InstallPlan::namespace_conflicts` and by
 /// [`AppletWireNamespaces::conflicts_with`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletNamespaceConflict {
     pub domain: AppletNamespaceDomain,
     pub pattern: String,
@@ -58,7 +56,6 @@ pub struct AppletNamespaceConflict {
 /// (see [`AppletWireNamespaces::conflicts_with`]); non-exclusive claims
 /// may coexist.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletNamespaceEntry {
     #[serde(default)]
     pub exclusive: bool,
@@ -89,7 +86,6 @@ impl AppletNamespaceEntry {
 /// which could not express exclusivity and so could not round-trip the
 /// spec's object-form namespace entries).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletWireNamespaces {
     #[serde(default)]
     pub actors: Vec<AppletNamespaceEntry>,
@@ -134,14 +130,12 @@ impl AppletWireNamespaces {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum WebhookAuthType {
     HttpMessageSignature,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum WebhookSignatureAlg {
     #[serde(rename = "EdDSA")]
     EdDsa,
@@ -177,28 +171,6 @@ pub struct WebhookAuth {
     pub extra: XExtensionMap,
 }
 
-#[cfg(feature = "salvo-oapi")]
-impl salvo::oapi::ToSchema for WebhookAuth {
-    fn to_schema(
-        components: &mut salvo::oapi::Components,
-    ) -> salvo::oapi::RefOr<salvo::oapi::Schema> {
-        use salvo::oapi::Object;
-
-        Object::new()
-            .property("type", WebhookAuthType::to_schema(components))
-            .required("type")
-            .property("key_ref", String::to_schema(components))
-            .required("key_ref")
-            .property(
-                "accepted_algs",
-                Vec::<WebhookSignatureAlg>::to_schema(components),
-            )
-            .required("accepted_algs")
-            .property("signature_header", String::to_schema(components))
-            .into()
-    }
-}
-
 impl WebhookAuth {
     pub fn http_message_signature(
         key_ref: impl Into<String>,
@@ -217,7 +189,6 @@ impl WebhookAuth {
 /// HTTP method of a single supported Applet API endpoint
 /// (`applet-package.schema.json#/$defs/endpoint_entry.method`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum AppletEndpointMethod {
     #[serde(rename = "GET")]
     Get,
@@ -234,7 +205,6 @@ pub enum AppletEndpointMethod {
 /// Auth requirement of a single supported Applet API endpoint
 /// (`applet-package.schema.json#/$defs/endpoint_entry.auth`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AppletEndpointAuth {
     None,
@@ -246,7 +216,6 @@ pub enum AppletEndpointAuth {
 /// One supported Applet API endpoint and its auth requirement
 /// (`applet-package.schema.json#/$defs/endpoint_entry`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletEndpointEntry {
     pub method: AppletEndpointMethod,
     pub path: String,
@@ -256,7 +225,6 @@ pub struct AppletEndpointEntry {
     pub description: Option<String>,
     /// `x_`-prefixed protocol extension members
     /// (`patternProperties ^x_[a-z][a-z0-9_]{0,63}$`).
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
 }
@@ -268,11 +236,9 @@ pub struct AppletEndpointEntry {
 /// enforced at schema-validation time, while the type permits an empty list
 /// during registration assembly (consistent with the rest of the wire models).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletEndpointPolicy {
     #[serde(default)]
     pub endpoints: Vec<AppletEndpointEntry>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
 }
@@ -280,7 +246,6 @@ pub struct AppletEndpointPolicy {
 /// Service-side resource hints derived into the registration manifest
 /// (`applet-package.schema.json#/$defs/limits`). All members are optional.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletLimits {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_transaction_events: Option<u64>,
@@ -288,7 +253,6 @@ pub struct AppletLimits {
     pub max_payload_bytes: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rate_limit_per_minute: Option<u64>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
 }
@@ -298,18 +262,15 @@ pub struct AppletLimits {
 /// it carries no `default` in the schema, so it is a non-`Option` field that
 /// the producer MUST set explicitly.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletGhostPolicy {
     pub enabled: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accountability_template: Option<String>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletAcceptedSigningKeyEvidence {
     pub key_ref: String,
     pub public_key_digest: Hash,
@@ -320,7 +281,6 @@ pub struct AppletAcceptedSigningKeyEvidence {
 /// unversioned methods carry neither selector and require a fresh canonical
 /// resolution whenever the epoch is verified.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletDidMethodVersionEvidence {
     pub method: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -387,7 +347,6 @@ impl AppletDidMethodVersionEvidence {
 
 /// Security-relevant registration fields included in the epoch transcript.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletRegistrationEpochDerivedRegistration {
     pub kind: String,
     pub applet_id: String,
@@ -409,7 +368,6 @@ pub struct AppletRegistrationEpochDerivedRegistration {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletRegistrationEpochDidDocument {
     pub service_id: Did,
     pub document_digest: Hash,
@@ -423,7 +381,6 @@ pub struct AppletRegistrationEpochDidDocument {
 /// sends. Build it directly via [`WireAppletRegistration::new`] or derive
 /// it from an [`AppletPackage`] with [`AppletPackage::to_registration`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct WireAppletRegistration {
     pub applet_id: String,
     pub service_id: Did,
@@ -562,7 +519,6 @@ pub fn normalize_applet_signing_key_ref(service_id: &Did, key_ref: &str) -> Stri
 /// and fail closed if the service DID document or accepted signing key set no
 /// longer matches the install-time epoch.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletRegistrationEpochEvidence {
     pub service_id: Did,
     pub did_document_digest: Hash,
@@ -708,7 +664,6 @@ impl AppletRegistrationEpochEvidence {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletRegistrationEpochSecurityPolicy {
     pub claimed_profiles: Vec<String>,
     pub limits: AppletLimits,
@@ -721,7 +676,6 @@ pub struct AppletRegistrationEpochSecurityPolicy {
 
 /// Closed normalized transcript hashed to derive `registration_epoch`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletRegistrationEpochTranscript {
     pub schema: String,
     pub derived_registration: AppletRegistrationEpochDerivedRegistration,
@@ -1039,7 +993,6 @@ pub fn applet_did_document_digest(document: &DidDocument) -> Result<Hash> {
 /// signer. [`to_registration`](Self::to_registration) performs the
 /// spec §1a Package→registration derivation.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletPackage {
     /// Always `ak.schema.applet_package.v1`.
     pub schema: String,

@@ -16,8 +16,7 @@ Arkret SDK uses additive Cargo features.
 | Default / type surface | none, or `default-features = false` | Protocol IDs, wire models, canonical digests and shared DTO contracts, including Applet contracts, without `openmls`, `reqwest`, `tokio` or server framework integrations. |
 | Client | `--features client` | Reqwest/tokio-based HTTP client for the Arkret v1 service binding. |
 | Server | `--features server` | Framework-independent server handler contracts, shared contract re-exports and endpoint fixture coverage. |
-| Salvo OAPI | `--features salvo` | Server feature plus Salvo OAPI derives on Arkret DTO and identifier types. |
-| Applet contracts | none | Applet wire models are owned by `arkret-models-integration`; bridge-error Event drafting is owned by `arkret-event-draft`. Enable `client`, `server` and/or `salvo` independently for transport and handler support. |
+| Applet contracts | none | Applet wire models are owned by `arkret-models-integration`; bridge-error Event drafting is owned by `arkret-event-draft`. Enable `client` and/or `server` independently for transport and handler support. |
 | MLS | `--features mls` | OpenMLS-backed group creation, Welcome/Commit envelopes and payload encryption/decryption. |
 | All features | `--all-features` | Release and conformance validation build. |
 

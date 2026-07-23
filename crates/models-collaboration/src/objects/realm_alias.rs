@@ -31,7 +31,6 @@ use serde::{Deserialize, Serialize};
 /// [`RealmAlias::parse`] (canonical input) or [`RealmAlias::parse_display`]
 /// (tolerates a leading `#` share sigil).
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(try_from = "String", into = "String")]
 pub struct RealmAlias {
     canonical: String,

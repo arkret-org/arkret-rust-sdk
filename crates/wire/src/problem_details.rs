@@ -11,7 +11,6 @@ use serde_json::Value;
 /// The fields are private so callers cannot construct a value with a different
 /// reason code or an empty approval request id.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AgentHumanApprovalErrorDetails {
     reason_code: &'static str,
     approval_request_id: String,
@@ -98,13 +97,11 @@ pub enum AgentHumanApprovalErrorDetailsError {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ErrorDetail {
     pub code: String,
     pub message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub details: BTreeMap<String, Value>,
 }
@@ -149,7 +146,6 @@ impl ErrorDetail {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ErrorEnvelope {
     pub ok: bool,
     pub error: ErrorDetail,
@@ -157,7 +153,6 @@ pub struct ErrorEnvelope {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct Problem {
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub problem_type: Option<String>,
@@ -169,7 +164,6 @@ pub struct Problem {
     pub detail: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instance: Option<String>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }

@@ -16,7 +16,6 @@ use crate::governance::invite_addressing::InviteDeliveryTarget;
 use crate::governance::third_party_invite::ThirdPartyInvite;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct Policy {
     pub schema: String,
     pub id: PolicyId,
@@ -61,7 +60,6 @@ pub struct Policy {
 /// Discriminator for a [`PolicyRule`] (mirrors `policy.schema.json`
 /// `$defs.policy_rule.kind`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PolicyRuleKind {
     Action,
@@ -82,12 +80,10 @@ pub enum PolicyRuleKind {
 /// untyped `Vec<Value>` so callers can no longer build a rule that is
 /// missing its required discriminators without the SDK noticing.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PolicyRule {
     pub rule_id: String,
     pub kind: PolicyRuleKind,
     pub effect: PolicyEffect,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
     pub extra: XExtensionMap,
 }
@@ -129,7 +125,6 @@ impl PolicyRule {
 /// `realm_id`, `inviter`, `join_rule_snapshot`, `state`, `expires_at`,
 /// `created_at`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct Invite {
     pub id: InviteId,
     pub schema: String,

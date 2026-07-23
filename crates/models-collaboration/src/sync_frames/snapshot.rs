@@ -203,7 +203,6 @@ pub struct Snapshot {
 /// pulls. The referenced snapshot manifest remains the authoritative signed
 /// object; consumers must verify it before applying any snapshot state.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SnapshotBootstrap {
     pub snapshot_ref: SnapshotId,
     pub state_digest: Hash,
@@ -214,10 +213,8 @@ pub struct SnapshotBootstrap {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
     )]
     pub created_at: DateTime<Utc>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub authority_binding: SnapshotAuthorityBinding,
     pub signature: PayloadProof,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub verification_hints: Option<SnapshotVerificationHintsValue>,
 }

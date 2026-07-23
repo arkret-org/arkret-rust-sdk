@@ -15,7 +15,6 @@ pub type MediaType = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/blob-operations.schema.json#/$defs/upload_receipt`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SignatureValue {
     pub kid: Did,
@@ -24,7 +23,6 @@ pub struct SignatureValue {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct UploadReceipt {
     pub blob_ref: BlobRef,
@@ -77,7 +75,6 @@ pub struct Blob {
 pub type BlobMetadata = Blob;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum BlobVisibility {
     Public,
@@ -99,7 +96,6 @@ impl BlobVisibility {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct BlobUploadMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
@@ -116,7 +112,6 @@ pub struct BlobUploadMetadata {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct BlobUploadOutcome {
     pub blob_ref: BlobRef,
     /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
@@ -129,7 +124,6 @@ pub struct BlobUploadOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BlobPresignRequestBody {
     pub blob_ref: BlobRef,
@@ -142,7 +136,6 @@ pub struct BlobPresignRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BlobPresignOutcome {
     pub url: String,
@@ -160,7 +153,6 @@ pub struct BlobPresignOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BlobPresignAccessScope {
     pub method: Vec<String>,
@@ -169,7 +161,6 @@ pub struct BlobPresignAccessScope {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BlobPresignPayload {
     pub scheme: String,
@@ -195,7 +186,6 @@ pub struct BlobPresignPayload {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BlobPresignDetachedJwsProof {
     pub kind: String,
@@ -205,7 +195,6 @@ pub struct BlobPresignDetachedJwsProof {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BlobPresignEnvelope {
     pub payload: BlobPresignPayload,

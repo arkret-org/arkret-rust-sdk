@@ -202,7 +202,6 @@ pub fn content_type_byte(byte: u8) -> bool {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EncryptedPayload {
     pub scheme: EncryptedPayloadScheme,
     pub group_id: String,
@@ -210,7 +209,6 @@ pub struct EncryptedPayload {
     pub content_type: String,
     pub ciphertext: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub aad: Option<EncryptedEnvelopeAad>,
     pub payload_digest: Hash,
     /// Reference to the key material that decrypts `ciphertext`.
@@ -220,7 +218,6 @@ pub struct EncryptedPayload {
 
 /// Typed `key_ref` per `media-and-blob.md` §encrypted-payload (B-22).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct KeyRefObject {
     pub algorithm: String,
     pub group_state_ref: String,

@@ -15,7 +15,6 @@ use serde::{Deserialize, Serialize};
 /// Spec source: `event-payload.schema.json#/$defs/member_delivery_binding`
 /// (commit 0a5ab85, 2026-05-19).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MemberDeliveryBinding {
     pub recipient_service_id: Did,
@@ -58,7 +57,6 @@ fn default_binding_scope() -> BindingScope {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RecipientServiceType {
     PrincipalServer,
@@ -67,14 +65,12 @@ pub enum RecipientServiceType {
 /// The binding is scoped to the Realm security boundary. The wire value is
 /// the canonical token `"realm"`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum BindingScope {
     Realm,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum BindingSource {
     Explicit,
@@ -86,7 +82,6 @@ pub enum BindingSource {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DeliveryMode {
     Events,
@@ -146,7 +141,6 @@ impl MemberDeliveryBinding {
 
 /// Membership delivery routability flag carried on `ak.member.state{join}`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DeliveryStatus {
     Routable,
@@ -159,7 +153,6 @@ pub enum DeliveryStatus {
 /// `push_target_id` MUST be derived against this scope; push registration
 /// MUST be scoped to the current Principal Server's service DID.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PushRouteScope {
     pub recipient_service_id: Did,
     pub principal_id: Did,
@@ -169,7 +162,6 @@ pub struct PushRouteScope {
 
 /// Per-device push route binding payload (`ak.device.push_route`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DevicePushRoutePayload {
     pub recipient_service_id: Did,
     pub principal_id: Did,

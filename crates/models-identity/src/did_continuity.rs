@@ -7,7 +7,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DidContinuityPurpose {
     PrincipalMethodUpgrade,
@@ -16,7 +15,6 @@ pub enum DidContinuityPurpose {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DidContinuityOobConfirmationMethod {
     OfflinePaper,
@@ -25,7 +23,6 @@ pub enum DidContinuityOobConfirmationMethod {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum DidContinuitySignatureAlgorithm {
     #[serde(rename = "Ed25519")]
     Ed25519,
@@ -36,7 +33,6 @@ pub enum DidContinuitySignatureAlgorithm {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DidContinuityTransferEvidence {
     pub old_did_document_canonical_digest: Hash,
     #[serde(
@@ -50,7 +46,6 @@ pub struct DidContinuityTransferEvidence {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DidContinuitySignatureLink {
     pub principal_id: Did,
     pub verification_method: String,
@@ -62,7 +57,6 @@ pub struct DidContinuitySignatureLink {
 /// `ak.schema.did_continuity_proof.v1` payload profile for DID method upgrades
 /// and account-binding continuity claims.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DidContinuityProof {
     pub schema: String,
     pub old_did: Did,

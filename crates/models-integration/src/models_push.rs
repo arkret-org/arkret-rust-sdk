@@ -12,7 +12,6 @@ fn is_false(value: &bool) -> bool {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PushRegisterDeviceRequestBody {
     pub device_id: DeviceId,
@@ -29,7 +28,6 @@ pub struct PushRegisterDeviceRequestBody {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PushRegisterDeviceOutcome {
     pub ok: bool,
@@ -45,7 +43,6 @@ pub struct PushRegisterDeviceOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PushUnregisterDeviceRequestBody {
     pub device_id: DeviceId,
@@ -56,21 +53,18 @@ pub struct PushUnregisterDeviceRequestBody {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PushUnregisterDeviceOutcome {
     pub ok: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OkOutcome {
     pub ok: bool,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PushCounts {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -86,7 +80,6 @@ pub struct PushCounts {
 /// The wire value is either a boolean presence bit or a policy-declared bucket
 /// label. Plain integer absolute counts are deliberately not representable.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum PushCountIndicator {
     Present(bool),
@@ -155,7 +148,6 @@ fn is_valid_push_count_bucket(value: &str) -> bool {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PushDeviceRoute {
     pub device_id: DeviceId,
@@ -175,7 +167,6 @@ pub type PushRouteToken = String;
 
 /// Canonical v1 wire values for the Realm `mention_routing_hint` policy.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MentionRoutingHint {
     /// Do not register, compare, or persist mention-routing sidecars.
@@ -269,7 +260,6 @@ pub fn effective_mention_routing_hint<S: AsRef<str>>(
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PushRouteTokens {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -283,7 +273,6 @@ pub struct PushRouteTokens {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PushTimingProfileHint {
     #[default]
@@ -305,7 +294,6 @@ impl PushTimingProfileHint {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PushNotificationEnvelope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -351,7 +339,6 @@ pub struct PushNotificationEnvelope {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PushAuditEnvelopeMetadata {
     pub access_kind: String,
@@ -360,7 +347,6 @@ pub struct PushAuditEnvelopeMetadata {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PushNotifyRequestBody {
     pub notification: PushNotificationEnvelope,
@@ -373,7 +359,6 @@ pub struct PushNotifyRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PushNotifyOutcome {
     #[serde(default)]
@@ -381,7 +366,6 @@ pub struct PushNotifyOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PushNotifyRejection {
     pub push_target_id: String,

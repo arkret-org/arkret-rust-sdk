@@ -12,7 +12,6 @@ use serde_json::{Value, json};
 use crate::artifacts_device_identity::CrossSigningResetProof;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CrossSigningResetReason {
     Rotation,
@@ -38,21 +37,17 @@ impl CrossSigningResetReason {
 
 /// Typed payload for `ak.cross_signing.reset`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CrossSigningResetPayload {
     trust_domain: TypedTrustDomainId,
     reset_event_id: EventId,
     principal_id: Did,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = u64)))]
     previous_generation: NonZeroU64,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = u64)))]
     new_generation: NonZeroU64,
     #[serde(rename = "reset_reason_code")]
     reset_reason: CrossSigningResetReason,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     revoked_device_ids: Option<Vec<DeviceId>>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     proof: CrossSigningResetProof,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     issued_at: DateTime<Utc>,

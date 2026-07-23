@@ -22,7 +22,6 @@ use crate::governance::resource_selector::WireResourceSelector;
 /// Approval workflow mode (`grant-constraint.schema.json` /
 /// `moderation.md`): when the approval gate runs relative to commit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ApprovalWorkflowMode {
     BeforeCommit,
@@ -31,7 +30,6 @@ pub enum ApprovalWorkflowMode {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum CapabilitySubject {
     Did(Did),
@@ -40,7 +38,6 @@ pub enum CapabilitySubject {
 
 /// Grant constraint family discriminator from `grant-constraint.schema.json`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum GrantConstraintType {
     Temporal,
@@ -55,7 +52,6 @@ pub enum GrantConstraintType {
 
 /// Grant constraint effect from `grant-constraint.schema.json`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum GrantConstraintEffect {
     Allow,
@@ -66,7 +62,6 @@ pub enum GrantConstraintEffect {
 
 /// Optional specialization discriminator inside a grant constraint family.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum GrantConstraintSubtype {
     Claim,
@@ -84,7 +79,6 @@ pub enum GrantConstraintSubtype {
 
 /// Quota counting scope from `grant-constraint.schema.json`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum GrantConstraintScope {
     PerActor,
@@ -94,7 +88,6 @@ pub enum GrantConstraintScope {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum GrantConstraintRecurrenceFrequency {
     Daily,
@@ -104,7 +97,6 @@ pub enum GrantConstraintRecurrenceFrequency {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum GrantConstraintRecurrenceDay {
     Mon,
@@ -118,7 +110,6 @@ pub enum GrantConstraintRecurrenceDay {
 
 /// Recurrence rule for temporal grant constraints.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct GrantConstraintRecurrence {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub frequency: Option<GrantConstraintRecurrenceFrequency>,
@@ -130,14 +121,12 @@ pub struct GrantConstraintRecurrence {
     pub window_end: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timezone: Option<String>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
 }
 
 /// Named condition predicate for grant constraints.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum GrantConstraintConditionKind {
     ObjectIsOwnedByActor,
@@ -153,16 +142,13 @@ pub enum GrantConstraintConditionKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct GrantConstraintCondition {
     pub kind: GrantConstraintConditionKind,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum GrantConstraintSensitiveHandling {
     Redact,
@@ -171,7 +157,6 @@ pub enum GrantConstraintSensitiveHandling {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum GrantApprovalRelation {
     Responsible,
@@ -182,7 +167,6 @@ pub enum GrantApprovalRelation {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum GrantApprovalThreshold {
     Majority,
@@ -193,7 +177,6 @@ pub enum GrantApprovalThreshold {
 
 /// Conditional claim requirement in a grant constraint.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct GrantConstraintClaimRequirement {
     pub claim_type: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -202,7 +185,6 @@ pub struct GrantConstraintClaimRequirement {
     pub trusted_issuers: Vec<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subject_matches_actor: Option<bool>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub value_constraints: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -211,13 +193,11 @@ pub struct GrantConstraintClaimRequirement {
     pub status: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub roles: Vec<String>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum BlobPresignPurpose {
     MediaInline,
@@ -227,7 +207,6 @@ pub enum BlobPresignPurpose {
 
 /// Scope limiter for blob presign grants.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BlobPresignScope {
     pub allowed_purposes: Vec<BlobPresignPurpose>,
@@ -242,7 +221,6 @@ pub struct BlobPresignScope {
 /// `grant-constraint.schema.json` only allows top-level extension fields
 /// matching `^x_[a-z][a-z0-9_]{0,63}$`.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct GrantConstraintExtensionKey(String);
 
 impl GrantConstraintExtensionKey {
@@ -306,7 +284,6 @@ fn grant_constraint_extension_key_is_valid(value: &str) -> bool {
 
 /// Strong wire DTO for `grant-constraint.schema.json`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub constraint_id: Option<String>,
@@ -502,7 +479,6 @@ pub struct GrantConstraint {
     pub approved_key_issuers: Vec<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub depends_on_moderation_state: Option<bool>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
     pub extensions: XExtensionMap,
 }
@@ -688,7 +664,6 @@ impl GrantConstraint {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct CapabilityGrant {
     pub id: GrantId,
     pub schema: String,

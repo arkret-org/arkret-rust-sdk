@@ -17,7 +17,6 @@ use serde::{Deserialize, Serialize};
 /// MUST NOT be re-claimed; once `consumed` it MUST NOT return to
 /// `published`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MlsKeyPackageState {
     #[default]
@@ -29,7 +28,6 @@ pub enum MlsKeyPackageState {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MlsKeyPackageRecord {
     /// Globally unique identifier (`ak:mls:kp:<uuid>`, RFC 9562 UUIDv7).
     pub keypackage_id: String,

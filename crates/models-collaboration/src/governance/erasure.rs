@@ -14,7 +14,6 @@ use serde_json::Value;
 use crate::events_payloads::event_wire::VerificationStub;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ErasureSubjectKind {
     Principal,
@@ -26,7 +25,6 @@ pub enum ErasureSubjectKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ErasureStorageBoundary {
     CanonicalLogMinimization,
@@ -41,7 +39,6 @@ pub enum ErasureStorageBoundary {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ErasureOutcome {
     Completed,
@@ -50,7 +47,6 @@ pub enum ErasureOutcome {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ErasedClass {
     CanonicalPayloadBytes,
@@ -65,14 +61,12 @@ pub enum ErasedClass {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ErasureSubject {
     pub kind: ErasureSubjectKind,
     pub subject_ref: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ErasureScope {
     pub storage_boundary: ErasureStorageBoundary,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -86,12 +80,10 @@ pub struct ErasureScope {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ErasureReceiptProof {
     pub verification_method: String,
     pub payload_digest: Hash,
     pub signature: String,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -101,7 +93,6 @@ pub struct ErasureReceiptProof {
 /// models/realm-and-space.md §2.6.2). Replaces the dropped point-dotted pseudo
 /// kind `ak.audit.erasure_receipt.fanout_status`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ErasureFanoutStatus {
     /// Peers still within `erasure_propagation_window_ms` and not all
@@ -118,7 +109,6 @@ pub enum ErasureFanoutStatus {
 /// Per-peer fanout acknowledgement status (mirrors `erasure-receipt.schema.json`
 /// `peer_receipts[].status`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ErasurePeerStatus {
     /// Awaiting this peer's feedback receipt.
@@ -136,7 +126,6 @@ pub enum ErasurePeerStatus {
 /// (mirrors `erasure-receipt.schema.json` `peer_receipts[]`). One entry per peer
 /// Principal Server that ever held this Realm's content.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ErasurePeerReceipt {
     /// Peer Principal Server DID.
     pub peer: Did,
@@ -154,7 +143,6 @@ pub struct ErasurePeerReceipt {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ErasureReceipt {
     pub receipt_id: String,
     pub schema: String,
@@ -165,7 +153,6 @@ pub struct ErasureReceipt {
     pub erased_classes: Vec<ErasedClass>,
     pub retained_stub_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub retained_stub: Option<VerificationStub>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub legal_hold_ref: Option<String>,

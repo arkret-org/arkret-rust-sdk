@@ -47,7 +47,6 @@ const POLICY_COMPONENTS_CELL: &str = "ak.component.realm.policy_components.v1";
 const PLAINTEXT_VISIBLE_SERVICES_CELL: &str = "ak.component.realm.plaintext_visible_services.v1";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceProofRequest {
     pub realm_id: RealmId,
@@ -135,7 +134,6 @@ impl MlsGovernanceProofRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceProofCollectionTotals {
     pub seal_path: u32,
@@ -145,7 +143,6 @@ pub struct MlsGovernanceProofCollectionTotals {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceProofChunkItemLimits {
     pub seal_path: u32,
@@ -166,7 +163,6 @@ impl Default for MlsGovernanceProofChunkItemLimits {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceProofChunkManifest {
     pub manifest_version: u8,
@@ -180,7 +176,6 @@ pub struct MlsGovernanceProofChunkManifest {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "collection", rename_all = "snake_case", deny_unknown_fields)]
 pub enum MlsGovernanceProofChunk {
     SealPath {
@@ -318,7 +313,6 @@ impl MlsGovernanceProofChunk {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceProofBundle {
     pub bundle_version: u8,
@@ -354,7 +348,6 @@ pub struct MaterializedMlsGovernanceProofBundle {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceControlStateLeaf {
     pub cell: CellRef,
@@ -362,7 +355,6 @@ pub struct MlsGovernanceControlStateLeaf {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceControlStateValue {
     pub value: Value,

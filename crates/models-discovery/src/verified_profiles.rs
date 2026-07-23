@@ -69,9 +69,15 @@ struct RawVerifiedEntry {
     verifier_did: Option<String>,
     #[serde(default)]
     signature: Option<String>,
-    #[serde(default)]
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     timestamp: Option<DateTime<Utc>>,
-    #[serde(default)]
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     expires_at: Option<DateTime<Utc>>,
 }
 
@@ -207,7 +213,7 @@ mod tests {
                         "artifact_ref": "file:///artifact.json",
                         "verifier_did": "did:web:cotest.example",
                         "signature": "signature",
-                        "timestamp": "2026-05-20T00:00:00Z"
+                        "timestamp": "2026-05-20T00:00:00.000Z"
                     },
                     {
                         "profile_id": "ak.profile.auth_server.v1",

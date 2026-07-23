@@ -13,7 +13,6 @@ use serde_json::Value;
 use crate::ObjectRef;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ReferenceProjectionStatus {
     Accessible,
@@ -22,7 +21,6 @@ pub enum ReferenceProjectionStatus {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ViewProjectionRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -32,7 +30,6 @@ pub struct ViewProjectionRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct StateFrontier {
     pub state_digest: Hash,
@@ -43,7 +40,6 @@ pub struct StateFrontier {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct StateFrontierActor {
     pub actor_id: Did,
@@ -54,7 +50,6 @@ pub struct StateFrontierActor {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ProjectionObjectKind {
     Realm,
@@ -66,7 +61,6 @@ pub enum ProjectionObjectKind {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ProjectionObject {
     pub id: String,
@@ -83,7 +77,6 @@ pub struct ProjectionObject {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ProjectionItemRender {
     Card,
@@ -95,7 +88,6 @@ pub enum ProjectionItemRender {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ProjectionItem {
     pub object: ProjectionObject,
@@ -104,21 +96,18 @@ pub struct ProjectionItem {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub display: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub position: Option<CollectionPosition>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub state: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum FieldValuePositionModel {
     #[serde(rename = "field_value")]
     FieldValue,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FieldValueCollectionPosition {
     pub model: FieldValuePositionModel,
@@ -127,14 +116,12 @@ pub struct FieldValueCollectionPosition {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum RelationPositionModel {
     #[serde(rename = "relation")]
     Relation,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RelationCollectionPosition {
     pub model: RelationPositionModel,
@@ -146,14 +133,12 @@ pub struct RelationCollectionPosition {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum TimeWindowPositionModel {
     #[serde(rename = "time_window")]
     TimeWindow,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct TimeWindowCollectionPosition {
     pub model: TimeWindowPositionModel,
@@ -174,14 +159,12 @@ pub struct TimeWindowCollectionPosition {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum CrosstabPositionModel {
     #[serde(rename = "crosstab_cell")]
     CrosstabCell,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CrosstabCollectionPosition {
     pub model: CrosstabPositionModel,
@@ -191,14 +174,12 @@ pub struct CrosstabCollectionPosition {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SortKeyCollectionPosition {
     pub sort_key: NonEmptyString,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum CollectionPosition {
     FieldValue(FieldValueCollectionPosition),
@@ -292,7 +273,6 @@ pub enum CollectionGroupSource {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CollectionProjectionGroupWipState {
     Ok,
@@ -301,7 +281,6 @@ pub enum CollectionProjectionGroupWipState {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CollectionProjectionGroupView {
     pub key: NonEmptyString,
@@ -309,7 +288,6 @@ pub struct CollectionProjectionGroupView {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rank: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub source: Option<CollectionGroupSource>,
     #[serde(default)]
     pub items: Vec<ProjectionItem>,
@@ -329,10 +307,8 @@ pub enum CollectionProjectionKind {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CollectionProjectionView {
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = String)))]
     pub projection: CollectionProjectionKind,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub renderer: Option<ViewRenderer>,
@@ -353,7 +329,6 @@ pub struct CollectionProjectionView {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DocumentMorphProjectionOutcome {
     pub document: DocumentMorphProjection,
@@ -370,7 +345,6 @@ pub struct DocumentMorphProjectionOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DocumentMorphProjection {
     pub morph_id: MorphId,
     pub realm_id: RealmId,
@@ -408,6 +382,5 @@ pub struct DocumentMorphProjection {
     )]
     pub updated_at: Option<DateTime<Utc>>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub extensions: BTreeMap<String, Value>,
 }

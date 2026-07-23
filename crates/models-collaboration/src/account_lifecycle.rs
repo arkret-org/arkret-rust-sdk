@@ -28,7 +28,6 @@ use crate::governance::handle_claim::HandleClaim;
 use crate::objects::account_status::AccountStatus;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ConsentState {
     Active,
@@ -37,7 +36,6 @@ pub enum ConsentState {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ConsentCellView {
     pub ok: bool,
@@ -74,7 +72,6 @@ pub struct ConsentCellView {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ConsentCellList {
     pub ok: bool,
@@ -83,7 +80,6 @@ pub struct ConsentCellList {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ConsentUpdateRequestBody {
     pub peer_did: Did,
@@ -99,7 +95,6 @@ pub struct ConsentUpdateRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ConsentRequestRequestBody {
     pub holder_did: Did,
@@ -110,7 +105,6 @@ pub struct ConsentRequestRequestBody {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AccountLifecycleProof {
     pub proof_kind: String,
     pub challenge: String,
@@ -135,7 +129,6 @@ pub const ACCOUNT_LIFECYCLE_PROOF_SCHEMA: &str = "ak.schema.account_lifecycle_pr
 pub const SESSION_REVOKE_LIFECYCLE_PROOF_KIND: &str =
     "ak.account.lifecycle_proof.session_revoke.v1";
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantAppletSelector {
     pub applet_id: String,
     pub effective_scope: EffectiveScope,
@@ -186,7 +179,6 @@ impl AccountLifecycleProof {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AccountView {
     pub principal_id: Did,
     pub state: AccountStatus,
@@ -208,7 +200,6 @@ pub struct AccountView {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegisterRequestBody {
     pub principal_id: Did,
@@ -225,7 +216,6 @@ pub struct AccountRegisterRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AccountRegisterOutcome {
     pub principal_id: Did,
     pub state: AccountStatus,
@@ -246,15 +236,12 @@ pub struct AccountRegisterOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountUpdateProfileRequestBody {
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub patch: Patch,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SessionRevokeRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -278,7 +265,6 @@ pub struct SessionRevokeRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SessionRevokeOutcome {
     pub revoked_count: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -290,7 +276,6 @@ pub struct SessionRevokeOutcome {
 /// (`AppletRevokeMode`, `arkret-wire`), so it lives in the collaboration domain
 /// which reaches both. the `arkret` umbrella re-exports it for path stability.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AppletRevokeRequestBody {
     pub effective_scope: EffectiveScope,

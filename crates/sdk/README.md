@@ -30,7 +30,6 @@ Common opt-ins:
 - `client`: reqwest/tokio HTTP client bindings.
 - `mls`: OpenMLS-backed MLS helpers.
 - `server`: framework-independent server contracts.
-- `salvo`: Salvo OAPI derives and router integration.
 - Applet wire contracts are always available from `arkret-models-integration`;
   use `arkret-event-draft` for bridge-error Event construction and enable
-  `client`, `server` or `salvo` independently when those runtime layers are needed.
+  `client` and/or `server` when those runtime layers are needed.

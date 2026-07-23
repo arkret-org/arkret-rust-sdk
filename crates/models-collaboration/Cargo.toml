@@ -13,13 +13,6 @@ version.workspace = true
 
 [features]
 default = []
-salvo-oapi = [
-    "dep:salvo",
-    "salvo/oapi",
-    "arkret-wire/salvo-oapi",
-    "arkret-models-crypto/salvo-oapi",
-    "arkret-models-identity/salvo-oapi",
-]
 
 [dependencies]
 arkret-canonical = {workspace = true}
@@ -31,7 +24,6 @@ chrono = {workspace = true,features = ["serde"]}
 chrono-tz = {workspace = true}
 hmac = {workspace = true}
 regex = {workspace = true}
-salvo = {workspace = true,features = ["oapi"],optional = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
 sha2 = {workspace = true}

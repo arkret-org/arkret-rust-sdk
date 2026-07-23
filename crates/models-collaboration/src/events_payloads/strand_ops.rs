@@ -9,7 +9,6 @@ use serde_json::Value;
 /// All three fields are optional in the spec sub-schema; `additionalProperties
 /// :false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct StrandMoveExpectedPosition {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -30,7 +29,6 @@ pub struct StrandMoveExpectedPosition {
 /// hint the reducer can infer. Required: `board_space_id`, `strand_id`,
 /// `target_space_id`, `rank`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct StrandMovePayload {
     pub board_space_id: SpaceId,
@@ -83,7 +81,6 @@ impl StrandMovePayload {
 /// [`StrandMoveExpectedPosition`] there is no `space_id` field here.
 /// `additionalProperties:false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct StrandReorderExpectedPosition {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -99,7 +96,6 @@ pub struct StrandReorderExpectedPosition {
 /// changed. Required: `board_space_id`, `strand_id`, `space_id`, `rank`.
 /// `additionalProperties:false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct StrandReorderPayload {
     pub board_space_id: SpaceId,
@@ -143,7 +139,6 @@ impl StrandReorderPayload {
 /// `null` on the wire (a cleared cell) is modeled as `None` on the
 /// [`StrandWatchSetPayload::level`] field rather than a variant here.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum StrandWatchLevel {
     MentionsOnly,
@@ -158,7 +153,6 @@ pub enum StrandWatchLevel {
 /// Carries the prior cell value `{ level, level_public? }` for a `head_eq`
 /// compare. `additionalProperties:false`; `level` is required when present.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct StrandWatchExpectedValue {
     pub level: StrandWatchLevel,
@@ -176,7 +170,6 @@ pub struct StrandWatchExpectedValue {
 /// keep `level_public` separate from the clearing path.
 /// `additionalProperties:false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct StrandWatchSetPayload {
     pub strand_id: StrandId,

@@ -8,7 +8,6 @@ use crate::{Did, Error, Hash, MoveSignature, RealmId, Result};
 /// verified, the receiver can fetch chunks lazily and verify each one
 /// against `merkle_root` via [`super::merkle::SnapshotMerkleTree::verify`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct GeneratorProof {
     /// DID of the snapshot generator (typically the principal server's
     /// `service_id`).

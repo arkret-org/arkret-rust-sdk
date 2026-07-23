@@ -42,7 +42,6 @@ fn is_false(value: &bool) -> bool {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum EventsSubmitStatus {
     Accepted,
@@ -52,7 +51,6 @@ pub enum EventsSubmitStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventsSubmitRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event: Option<Event>,
@@ -65,7 +63,6 @@ pub struct EventsSubmitRequestBody {
 /// envelope independently; partial-success returns the per-envelope
 /// rejected list.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventsSubmitBatchRequestBody {
     pub events: Vec<Event>,
     /// Optional idempotency key for the entire batch.
@@ -77,7 +74,6 @@ pub struct EventsSubmitBatchRequestBody {
 /// `spec/v1/artifacts/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome`
 /// `rejected` array items: `{id, reason_code, detail?}`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventsSubmitRejectedItem {
     pub id: String,
     pub reason_code: String,
@@ -86,7 +82,6 @@ pub struct EventsSubmitRejectedItem {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct EventsSubmitOutcome {
     pub status: EventsSubmitStatus,
@@ -116,7 +111,6 @@ pub struct EventsSubmitOutcome {
 /// than with the other applet DTOs in `arkret-models-integration` (which does
 /// not depend on this crate).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AppletTransactionRequestBody {
     pub source_service_id: Did,
     #[serde(default)]
@@ -128,7 +122,6 @@ pub struct AppletTransactionRequestBody {
 /// Result of `ak.self.events.command.submit_seal` after the receiver has
 /// recomputed the Seal body, coverage and post-state.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct EventSealSubmitOutcome {
     pub seal_id: SealId,
@@ -138,7 +131,6 @@ pub struct EventSealSubmitOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventView {
     pub event: Event,
     /// Spec-loose object: `service-operation-dtos.schema.json` declares
@@ -150,7 +142,6 @@ pub struct EventView {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventsResolveRequestBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub event_ids: Vec<EventId>,
@@ -161,7 +152,6 @@ pub struct EventsResolveRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventsResolveOutcome {
     #[serde(default)]
     pub events: Vec<Event>,
@@ -172,7 +162,6 @@ pub struct EventsResolveOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EphemeralSubmitOutcome {
     pub accepted: bool,
     pub kind: String,
@@ -189,7 +178,6 @@ pub struct EphemeralSubmitOutcome {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ProjectionSpaceState {
     Active,
@@ -198,7 +186,6 @@ pub enum ProjectionSpaceState {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ProjectionObjectState {
     Active,
@@ -207,7 +194,6 @@ pub enum ProjectionObjectState {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ProjectionSpaceRow {
     pub space_id: SpaceId,
     pub realm_id: RealmId,
@@ -244,7 +230,6 @@ pub struct ProjectionSpaceRow {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ProjectionSpaceList {
     pub realm_id: RealmId,
     #[serde(default)]
@@ -256,7 +241,6 @@ pub struct ProjectionSpaceList {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ProjectionStrandRow {
     pub strand_id: StrandId,
     pub realm_id: RealmId,
@@ -319,14 +303,12 @@ pub struct ProjectionStrandRow {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ProjectionAssignedToRelation {
     pub relation_id: RelationId,
     pub actor_id: Did,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ProjectionStrandList {
     pub realm_id: RealmId,
     #[serde(default)]
@@ -338,7 +320,6 @@ pub struct ProjectionStrandList {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ProjectionMorphRow {
     pub morph_id: MorphId,
     pub realm_id: RealmId,
@@ -372,7 +353,6 @@ pub struct ProjectionMorphRow {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ProjectionMorphList {
     pub realm_id: RealmId,
     #[serde(default)]
@@ -391,7 +371,6 @@ pub struct ProjectionMorphList {
 /// treating it as an event or a state transition). Deserialisation itself
 /// stays closed-set: an unknown wire value still fails the frame parse.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum EventsSubscribeFrameKind {
@@ -406,7 +385,6 @@ pub enum EventsSubscribeFrameKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventsSubscribeFrame {
     pub kind: EventsSubscribeFrameKind,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -453,8 +431,6 @@ impl EventsSubscribeFrame {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = EventsSubscribeFrame)))]
 pub struct EventsSubscribeFrameOutcome(pub EventsSubscribeFrame);
 
 impl StreamTraceFrame for EventsSubscribeFrame {
@@ -477,7 +453,6 @@ impl StreamTraceFrame for EventsSubscribeFrame {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct BlobHeadOutcome {
     #[serde(skip_serializing_if = "Option::is_none", rename = "Content-Length")]
     pub content_length: Option<u64>,
@@ -496,12 +471,9 @@ pub struct BlobHeadOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = String, format = Binary)))]
 pub struct BlobGetOutcome(pub Vec<u8>);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiKeyMaterialRequestBody {
     pub requester: Did,
     pub strand_id: StrandId,
@@ -519,7 +491,6 @@ pub struct MimiKeyMaterialRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiKeyMaterialOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub key_packages: Vec<MimiKeyPackage>,
@@ -533,7 +504,6 @@ pub struct MimiKeyMaterialOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiRoomUpdateRequestBody {
     pub mls_group_id: MlsGroupId,
     pub update: MimiRoomUpdate,
@@ -546,7 +516,6 @@ pub struct MimiRoomUpdateRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiRoomUpdateOutcome {
     pub accepted: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -556,7 +525,6 @@ pub struct MimiRoomUpdateOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiNotifyRequestBody {
     pub notification: MimiNotification,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -566,7 +534,6 @@ pub struct MimiNotifyRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiNotifyOutcome {
     pub accepted: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -575,7 +542,6 @@ pub struct MimiNotifyOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiSubmitMessageRequestBody {
     pub sender_actor_id: Did,
     pub device_id: DeviceId,
@@ -589,7 +555,6 @@ pub struct MimiSubmitMessageRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiSubmitMessageOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event_ref: Option<EventId>,
@@ -599,7 +564,6 @@ pub struct MimiSubmitMessageOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiGroupInfoOutcome {
     pub group_info: MimiGroupInfo,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -609,7 +573,6 @@ pub struct MimiGroupInfoOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiRequestConsentRequestBody {
     pub requester_id: Did,
     pub target: MimiConsentTarget,
@@ -628,7 +591,6 @@ pub struct MimiRequestConsentRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiRequestConsentOutcome {
     pub consent_id: ConsentId,
     pub status: String,
@@ -637,7 +599,6 @@ pub struct MimiRequestConsentOutcome {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MimiConsentDecision {
     Accept,
@@ -646,7 +607,6 @@ pub enum MimiConsentDecision {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MimiUpdateConsentRequestBody {
     pub consent_id: ConsentId,
@@ -723,7 +683,6 @@ impl MimiUpdateConsentRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiUpdateConsentOutcome {
     pub status: String,
     #[serde(
@@ -736,7 +695,6 @@ pub struct MimiUpdateConsentOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiIdentifierQueryRequestBody {
     #[serde(default)]
     pub identifiers: Vec<MimiIdentifier>,
@@ -749,7 +707,6 @@ pub struct MimiIdentifierQueryRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiIdentifierQueryOutcome {
     #[serde(default)]
     pub matches: Vec<MimiIdentifierMatch>,
@@ -759,7 +716,6 @@ pub struct MimiIdentifierQueryOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiReportAbuseRequestBody {
     pub strand_id: StrandId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -778,7 +734,6 @@ pub struct MimiReportAbuseRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiReportAbuseOutcome {
     pub report_id: ReportId,
     pub status: String,
@@ -787,7 +742,6 @@ pub struct MimiReportAbuseOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiProxyDownloadRequestBody {
     pub asset_ref: NonEmptyString,
     pub requester: Did,
@@ -800,7 +754,6 @@ pub struct MimiProxyDownloadRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MimiProxyDownloadOutcome {
     pub download_ref: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -899,7 +852,6 @@ mod mimi_consent_tests {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct EventsRangeCompleteness {
     pub attestation_refs: Vec<EventId>,
@@ -908,7 +860,6 @@ pub struct EventsRangeCompleteness {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ContactState {
     PendingOutgoing,
@@ -919,7 +870,6 @@ pub enum ContactState {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DirectConversationBindingState {
     Active,
@@ -929,7 +879,6 @@ pub enum DirectConversationBindingState {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DirectConversationResolveState {
     Found,
@@ -940,7 +889,6 @@ pub enum DirectConversationResolveState {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DirectConversationAuthoringKind {
     RemoteKeypackageClaim,
@@ -948,7 +896,6 @@ pub enum DirectConversationAuthoringKind {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectConversationSummary {
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
@@ -958,7 +905,6 @@ pub struct DirectConversationSummary {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ContactAgentProjection {
     pub agent_id: Did,
     pub controller_id: Did,
@@ -973,7 +919,6 @@ pub struct ContactAgentProjection {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ContactListRow {
     pub peer: Did,
     pub state: ContactState,
@@ -1010,24 +955,16 @@ pub struct ContactListRow {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "salvo-oapi",
-    derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema)
-)]
 pub struct ContactListQuery {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(parameter(parameter_in = Query)))]
     pub state: Option<ContactState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(parameter(parameter_in = Query)))]
     pub cursor: Option<arkret_wire::cursor::Cursor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(parameter(parameter_in = Query)))]
     pub limit: Option<u32>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ContactList {
     #[serde(default)]
     pub contacts: Vec<ContactListRow>,
@@ -1038,7 +975,6 @@ pub struct ContactList {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ContactRequestOutcome {
     pub request_event_ref: EventId,
     #[serde(default)]
@@ -1047,7 +983,6 @@ pub struct ContactRequestOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ContactRespondRequestBody {
     pub request_id: EventId,
     pub requester: Did,
@@ -1064,7 +999,6 @@ pub struct ContactRespondRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ContactRespondOutcome {
     pub response_event_ref: EventId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1073,7 +1007,6 @@ pub struct ContactRespondOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ContactTombstoneRequestBody {
     pub contact: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1094,7 +1027,6 @@ pub struct ContactTombstoneRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ContactTombstone {
     pub tombstone_event_ref: EventId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1105,7 +1037,6 @@ pub struct ContactTombstone {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectConversationResolveRequestBody {
     pub peer: Did,
     #[serde(default, skip_serializing_if = "is_false")]
@@ -1117,7 +1048,6 @@ pub struct DirectConversationResolveRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationMaterializationDraft {
     pub materialization_id: NonEmptyString,
@@ -1233,7 +1163,6 @@ impl DirectConversationMaterializationDraft {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DirectConversationResolveOutcome {
     pub state: DirectConversationResolveState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1296,7 +1225,6 @@ impl DirectConversationResolveOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AccountOidcCallbackOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub principal_id: Option<Did>,
@@ -1308,12 +1236,9 @@ pub struct AccountOidcCallbackOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = SyncRequestBody)))]
 pub struct AccountSubscribeRequestBody(pub SyncRequestBody);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventsQueryOutcome {
     #[serde(default)]
     pub events: Vec<Event>,
@@ -1330,7 +1255,6 @@ pub struct EventsQueryOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ContactRequestRequestBody {
     pub target: Did,
     #[serde(default)]
@@ -1351,7 +1275,6 @@ pub struct ContactRequestRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountDevicePairRequestBody {
     pub pairing_code: NonEmptyString,
@@ -1364,7 +1287,6 @@ pub struct AccountDevicePairRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountDevicePairOutcome {
     pub device_id: DeviceId,
@@ -1377,12 +1299,8 @@ pub struct AccountDevicePairOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = BlobUploadMetadata)))]
 pub struct BlobUploadRequestBody(pub BlobUploadMetadata);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = GrantList)))]
 pub struct GrantListOutcome(pub GrantList);

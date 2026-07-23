@@ -44,7 +44,6 @@ where
 /// kinds MUST go through a schema profile bump and new `BottomKind`
 /// variant — receivers MUST fail closed on unrecognized kinds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum BottomKind {
     /// Concurrent cas-register / fsm divergence on a safety-critical cell.
@@ -67,7 +66,6 @@ pub enum BottomKind {
 /// observed. Diagnostics MUST include this so the receiver can reproduce
 /// the join without ambiguity.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SealView {
     pub leaves: Vec<SealId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -76,7 +74,6 @@ pub struct SealView {
 
 /// Structured bottom diagnostic for a cell join.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct Bottom {
     pub kind: BottomKind,
     /// Cell ids participating in this bottom. Multi-cell when an atomic

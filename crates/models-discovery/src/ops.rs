@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 /// config. Fields are coarse by design and must not contain paths, hosts, token
 /// tails, or other secrets.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct HardeningStatus {
     #[serde(default)]
     pub development_mode: bool,

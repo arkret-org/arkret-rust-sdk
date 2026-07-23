@@ -181,7 +181,6 @@ pub struct AgentKeyApprovalEvidence {
 /// Counterpart for the `agent_key_scope.resources[].kind` enum in
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_scope`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentKeyScopeResourceKind {
     Realm,
@@ -208,7 +207,6 @@ pub enum AgentKeyScopeResourceKind {
 /// Counterpart for the `agent_key_scope.resources[]` item shape in
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_scope`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyScopeResource {
     pub kind: AgentKeyScopeResourceKind,
@@ -234,7 +232,6 @@ pub struct AgentKeyScopeResource {
 /// Realm access; later key scopes, Realm grants, participation and sessions
 /// must remain subsets, and provision constraints stay mandatory.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyScope {
     pub actions: Vec<String>,
@@ -248,7 +245,6 @@ pub struct AgentKeyScope {
 /// v1 registers only `self_asserted`; unknown kinds fail closed at decode
 /// (AKP-0008 §4.5).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentKeyRuntimeAttestationKind {
     SelfAsserted,
@@ -258,7 +254,6 @@ pub enum AgentKeyRuntimeAttestationKind {
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_authorize_payload`
 /// `runtime_attestation` object.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyAuthorizePayloadRuntimeAttestation {
     pub kind: AgentKeyRuntimeAttestationKind,
@@ -376,7 +371,6 @@ pub struct AgentResumePayload {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_sidecar_exposure_ack`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarExposureAck {
     #[serde(

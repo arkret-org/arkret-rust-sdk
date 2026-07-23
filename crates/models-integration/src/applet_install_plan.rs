@@ -9,7 +9,6 @@ use crate::artifacts_applet::{
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum AppletInstallAppletId {
     Did(Did),
@@ -17,7 +16,6 @@ pub enum AppletInstallAppletId {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AppletInstallPlan {
     pub schema: String,

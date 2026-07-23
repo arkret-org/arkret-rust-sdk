@@ -57,14 +57,12 @@ where
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteLocatorResolveRequestBody {
     pub locator_token: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PrincipalLocatorResolveRequestBody {
     pub locator_token: String,
@@ -89,7 +87,6 @@ impl InviteLocatorResolveRequestBody {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteLocatorIssueRequestBody {
     #[serde(
@@ -133,7 +130,6 @@ impl InviteLocatorIssueRequestBody {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteLocatorRotateRequestBody {
     pub locator_id: InviteLocatorId,
@@ -174,7 +170,6 @@ impl InviteLocatorRotateRequestBody {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteLocatorRevokeRequestBody {
     pub locator_id: InviteLocatorId,
@@ -187,14 +182,12 @@ impl InviteLocatorRevokeRequestBody {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum InviteLocatorStatus {
     Revoked,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteLocatorIssueOutcome {
     pub locator_id: InviteLocatorId,
@@ -208,7 +201,6 @@ pub struct InviteLocatorIssueOutcome {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteLocatorRevokeOutcome {
     pub locator_id: InviteLocatorId,
@@ -221,7 +213,6 @@ pub struct InviteLocatorRevokeOutcome {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteAddress {
     pub subject_id: Did,
@@ -252,7 +243,6 @@ impl InviteAddress {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteDeliveryTarget {
     pub recipient_service_id: Did,
@@ -288,7 +278,6 @@ impl InviteDeliveryTarget {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PrincipalLocator {
     pub schema: String,
@@ -360,7 +349,6 @@ impl PrincipalLocator {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PrincipalLocatorDisplayHint {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -385,7 +373,6 @@ impl PrincipalLocatorDisplayHint {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PrincipalLocatorProofPurpose {
     SubjectLocatorAuthorization,
@@ -393,7 +380,6 @@ pub enum PrincipalLocatorProofPurpose {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PrincipalLocatorProof {
     pub proof_purpose: PrincipalLocatorProofPurpose,
@@ -403,7 +389,6 @@ pub struct PrincipalLocatorProof {
 pub use arkret_models_identity::proof::DetachedPayloadProof;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum IntroductionEvidence {
     LocatorRef {
@@ -452,7 +437,6 @@ impl IntroductionEvidence {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteDeliveryRequest {
     pub schema: String,
@@ -494,7 +478,6 @@ impl InviteDeliveryRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum InviteDeliveryOutcomeStatus {
     Accepted,
@@ -503,7 +486,6 @@ pub enum InviteDeliveryOutcomeStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteDeliveryOutcome {
     pub status: InviteDeliveryOutcomeStatus,
@@ -521,7 +503,6 @@ pub struct InviteDeliveryOutcome {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DisclosedOutcome {
     Delivered,
@@ -530,7 +511,6 @@ pub enum DisclosedOutcome {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteReceivePolicy {
     pub schema: String,
@@ -561,7 +541,6 @@ pub struct InviteReceivePolicy {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DisclosureLevel {
     Opaque,
@@ -569,7 +548,6 @@ pub enum DisclosureLevel {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DisclosurePolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]

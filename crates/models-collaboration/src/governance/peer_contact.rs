@@ -14,7 +14,6 @@ pub const PEER_CONTACT_DELIVERY_REQUEST_SCHEMA: &str = "ak.schema.peer_contact_d
 pub const MAX_PEER_CONTACT_SIGNER_KEY_EVIDENCE: usize = 16;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PeerContactAddress {
     pub subject_id: Did,
@@ -24,7 +23,6 @@ pub struct PeerContactAddress {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum PeerContactFactKind {
     #[serde(rename = "ak.contact.requested")]
     Requested,
@@ -64,7 +62,6 @@ impl PeerContactFactKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ContactIntroductionEvidence {
     LocatorRef {
@@ -111,7 +108,6 @@ impl ContactIntroductionEvidence {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PeerContactDeliveryRequest {
     pub schema: String,

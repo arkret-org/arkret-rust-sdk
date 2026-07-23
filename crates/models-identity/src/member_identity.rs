@@ -41,7 +41,6 @@ pub const MEMBER_IDENTITY_SCHEMA: &str = "ak.schema.member_identity.v1";
 /// `encrypted_envelope` carrier. Replacement events that name
 /// `segment=member_identity` MUST carry this complete object.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MemberIdentity {
     /// `ak.schema.member_identity.v1`.
@@ -114,7 +113,6 @@ impl MemberIdentity {
 
 /// Display profile carried inside a [`MemberIdentity`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DisplayProfile {
     /// 1..=128 chars per spec; we keep validation at the schema layer
@@ -128,7 +126,6 @@ pub struct DisplayProfile {
 /// out-of-band (MLS / DID signature suite); this struct just types the
 /// wire surface.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MemberIdentityProof {
     /// `did:method:identifier#fragment`.
@@ -141,7 +138,6 @@ pub struct MemberIdentityProof {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum MemberIdentitySignatureAlgorithm {
     Ed25519,
     #[serde(rename = "ES256")]
@@ -155,7 +151,6 @@ pub enum MemberIdentitySignatureAlgorithm {
 /// reject any other value. Narrower segments require a future
 /// schema/profile revision that extends this enum.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MemberIdentitySegment {
     MemberIdentity,
@@ -166,7 +161,6 @@ pub enum MemberIdentitySegment {
 /// `identity_payload` carrier wrapper. The digest binding prevents
 /// replacing a different payload under a reused / confused event id.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MemberIdentityReplacementRef {
     pub event_id: EventId,

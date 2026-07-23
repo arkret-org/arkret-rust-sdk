@@ -44,18 +44,6 @@
 //! let did: arkret::Did = "did:webvh:z6mkfixture:alice.example";
 //! ```
 
-// ---------------------------------------------------------------------------
-// Compile-time feature-combination gates (SDK-FEAT-01).
-//
-// Today's Cargo feature graph already forces this implication at resolution
-// time (`salvo = ["server", ...]`), so the guard below is unreachable. It
-// exists as zero-cost regression armour: if a future Cargo.toml edit drops the
-// implication, the build fails here instead of shipping an invalid feature
-// combination.
-// ---------------------------------------------------------------------------
-#[cfg(all(feature = "salvo", not(feature = "server")))]
-compile_error!("feature `salvo` requires `server` (see crates/sdk/Cargo.toml feature graph)");
-
 mod sdk_error;
 pub use arkret_auth as auth;
 pub use arkret_auth::{AdminKeyStore, session_grant};
@@ -442,8 +430,6 @@ pub use arkret_identifiers::hlc::{
 // contract (owned by arkret-models-crypto, OpenMLS-free), so surface them on the
 // umbrella independently of the heavier `mls` group-machine feature.
 pub use arkret_models_crypto::{MlsCommitSource, MlsGroupStateSink};
-#[cfg(feature = "salvo")]
-pub use arkret_server::applet_router;
 #[cfg(feature = "server")]
 pub use arkret_server::{
     AppletHandler, AppletService, ServiceRoute, TransactionDispatch, service_routes,

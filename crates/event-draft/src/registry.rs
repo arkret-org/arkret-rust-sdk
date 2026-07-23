@@ -11,7 +11,6 @@ use crate::{EventDraftError, Result};
 
 /// Registry entry for one event draft kind.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventDraftKindSpec {
     pub kind: String,
     pub schema: String,
@@ -21,14 +20,12 @@ pub struct EventDraftKindSpec {
 
 /// Result of validating an event draft kind against the registry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventDraftKindValidation {
     pub canonical_kind: String,
 }
 
 /// Canonical event draft kind registry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventDraftKindRegistry {
     specs: BTreeMap<String, EventDraftKindSpec>,
 }
@@ -211,7 +208,6 @@ pub fn required_fields_for_event_kind(kind: &str) -> Vec<String> {
 
 /// Operation registry conformance vector.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EventDraftKindConformanceVector {
     pub input_kind: String,
     pub canonical_kind: String,

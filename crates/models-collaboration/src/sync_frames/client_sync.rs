@@ -16,7 +16,6 @@ use crate::internal_prelude::*;
 
 /// Query parameters for `ak.self.account.stream.subscribe`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SyncRequestBody {
     /// Exclusive stream cursor used to resume account-aggregate delivery.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -37,7 +36,6 @@ pub struct SyncRequestBody {
 
 /// Sync filter for selective synchronization.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SyncFilter {
     /// Realm IDs to sync.
     #[serde(default)]
@@ -59,13 +57,11 @@ pub struct SyncFilter {
     pub not_event_types: Vec<String>,
     /// Forward-compatible service-specific filter extensions.
     #[serde(default, flatten)]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub extra: BTreeMap<String, Value>,
 }
 
 /// Subscription configuration for realms.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SubscriptionConfig {
     /// Realm subscriptions.
     pub subscriptions: Vec<RealmSubscription>,
@@ -79,7 +75,6 @@ pub struct SubscriptionConfig {
 
 /// Realm subscription.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RealmSubscription {
     /// Realm ID.
     pub realm_id: RealmId,
@@ -93,7 +88,6 @@ pub struct RealmSubscription {
 
 /// Timeline filter options.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum TimelineFilter {
     /// All events
@@ -106,7 +100,6 @@ pub enum TimelineFilter {
 
 /// Backfill request for historical events.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct BackfillRequestBody {
     /// Realm ID to backfill.
     pub realm_id: RealmId,
@@ -122,7 +115,6 @@ pub struct BackfillRequestBody {
 
 /// Backfill starting point.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum BackfillFrom {
     /// Start from a cursor
@@ -135,7 +127,6 @@ pub enum BackfillFrom {
 
 /// Backfill direction.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum BackfillDirection {
     /// Backward (newer to older)
@@ -149,7 +140,6 @@ pub enum BackfillDirection {
 
 /// Backfill response.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct BackfillOutcome {
     /// Events in reverse chronological order
     pub events: Vec<Event>,
@@ -169,7 +159,6 @@ pub struct BackfillOutcome {
 /// Events sort by causal depth, HLC, actor ID, actor sequence and event ID. The
 /// caller supplies causal depth because it depends on the known event graph.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct TimelineOrderKey {
     /// Transitive causal depth in the local event graph.
     pub causal_depth: u64,
@@ -198,7 +187,6 @@ impl TimelineOrderKey {
 
 /// Stream position for one Realm at a sync boundary.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SyncStreamPosition {
     /// Realm covered by this position.
     pub realm_id: RealmId,
@@ -352,7 +340,6 @@ fn normalized_realm_subscription(subscription: &RealmSubscription) -> Value {
 
 /// Sync token binding context.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SyncTokenBinding {
     /// Opaque token received from the sync service.
     pub token: String,
@@ -429,7 +416,6 @@ impl SyncTokenBinding {
 
 /// Whether a request starts from scratch or resumes an existing token.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SyncMode {
     /// No `after` token. The response should establish full local state.
@@ -440,7 +426,6 @@ pub enum SyncMode {
 
 /// Client-visible sync semantics for one request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SyncSemantics {
     /// Initial or incremental.
     pub mode: SyncMode,
@@ -472,7 +457,6 @@ impl SyncSemantics {
 
 /// Realm membership bucket in sync responses and list projections.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MembershipBucket {
     /// Joined realms.
@@ -487,7 +471,6 @@ pub enum MembershipBucket {
 
 /// Reason a timeline gap exists locally.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SyncGapReason {
     /// Server returned `timeline.limited`.
@@ -500,7 +483,6 @@ pub enum SyncGapReason {
 
 /// Backfill gap descriptor created from a limited timeline or token expiry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SyncGap {
     /// Realm containing the gap.
     pub realm_id: RealmId,
@@ -519,7 +501,6 @@ pub struct SyncGap {
 
 /// Model for `timeline.limited` and the backfill work it creates.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct LimitedTimelineState {
     /// Realm containing the limited timeline.
     pub realm_id: RealmId,
@@ -581,7 +562,6 @@ impl LimitedTimelineState {
 
 /// `X-Arkret-Wait-For` frontier wait request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct WaitForFrontier {
     /// Required positions before the server should return.
     #[serde(default)]
@@ -601,7 +581,6 @@ impl WaitForFrontier {
 
 /// To-device delivery acknowledgement state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ToDeviceAckStatus {
     /// Message was received by the client SDK.
@@ -614,7 +593,6 @@ pub enum ToDeviceAckStatus {
 
 /// Acknowledgement for one to-device message.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ToDeviceAck {
     /// Message ID from to-device content.
     pub message_id: String,

@@ -14,7 +14,6 @@ use crate::{Error, ProtocolSchemaRegistry, Result};
 
 /// Profile-specific protocol conformance domains.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ConformanceProfile {
     Encoding,
@@ -32,7 +31,6 @@ pub enum ConformanceProfile {
 
 /// One conformance test case descriptor.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ConformanceCase {
     pub case_id: String,
     pub description: String,
@@ -42,14 +40,12 @@ pub struct ConformanceCase {
 
 /// Conformance suite for one protocol profile.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ConformanceSuite {
     pub profile: ConformanceProfile,
     pub cases: Vec<ConformanceCase>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ConformanceCaseOutcome {
     pub profile: ConformanceProfile,
     pub case_id: String,
@@ -59,7 +55,6 @@ pub struct ConformanceCaseOutcome {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ConformanceProfileCoverage {
     pub profile: ConformanceProfile,
     pub cases_total: usize,
@@ -67,7 +62,6 @@ pub struct ConformanceProfileCoverage {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ConformanceReport {
     pub fixture_version: String,
     pub passed: bool,
@@ -77,7 +71,6 @@ pub struct ConformanceReport {
 
 /// Loadable conformance fixture set used by SDK and external fixtures.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ConformanceFixtureSet {
     pub fixture_version: String,
     pub suites: Vec<ConformanceSuite>,

@@ -8,7 +8,6 @@ use crate::artifacts_device_identity::IdentityReceipt;
 use crate::identity_key_log::DidKeyLogEntry;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct IdentityDescription {
     pub service_id: Did,
     pub registry_mode: String,
@@ -20,7 +19,6 @@ pub struct IdentityDescription {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct IdentityResolveRequestBody {
     pub did: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -28,7 +26,6 @@ pub struct IdentityResolveRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct IdentityResolveOutcome {
     pub did_document: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -40,7 +37,6 @@ pub struct IdentityResolveOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct IdentityDocumentView {
     pub did_document: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -52,7 +48,6 @@ pub struct IdentityDocumentView {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DidOperationSubmitRequestBody {
     pub did: Did,
@@ -81,7 +76,6 @@ impl DidOperationSubmitRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct DidOperationSubmitOutcome {
     pub status: String,
     pub did: Did,
@@ -96,7 +90,6 @@ pub struct DidOperationSubmitOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct IdentityReceiptListOutcome {
     #[serde(default)]
     pub receipts: Vec<IdentityReceipt>,
@@ -105,10 +98,8 @@ pub struct IdentityReceiptListOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct IdentityLogListOutcome {
     #[serde(default)]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub events: Vec<DidKeyLogEntry>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,

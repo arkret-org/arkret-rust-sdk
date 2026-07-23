@@ -4,7 +4,6 @@ use std::str::FromStr;
 use super::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum Discoverability {
     Public,
@@ -16,7 +15,6 @@ pub enum Discoverability {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum JoinRule {
     Public,
@@ -28,7 +26,6 @@ pub enum JoinRule {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum HistoryVisibility {
     WorldReadable,
@@ -81,7 +78,6 @@ impl fmt::Display for HistoryVisibilityParseError {
 impl std::error::Error for HistoryVisibilityParseError {}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum FederationPolicy {
     Open,
@@ -91,7 +87,6 @@ pub enum FederationPolicy {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SecurityClass {
     Standard,
@@ -99,7 +94,6 @@ pub enum SecurityClass {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum EncryptionProfile {
     None,
@@ -108,7 +102,6 @@ pub enum EncryptionProfile {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ActorKind {
     User,
@@ -124,7 +117,6 @@ pub enum ActorKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ActorStatus {
     Active,
@@ -136,7 +128,6 @@ pub enum ActorStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum Facet {
     Container,
@@ -152,7 +143,6 @@ pub enum Facet {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct FacetSelector {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub all: Vec<Facet>,
@@ -171,7 +161,6 @@ impl FacetSelector {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum Facets {
     Names(Vec<Facet>),
@@ -216,7 +205,6 @@ pub use crate::generated::relation_kinds::{
     STANDARD_RELATION_KIND_METADATA, StandardRelationKindMetadata, standard_relation_kind_metadata,
 };
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ViewKind {
     Collection,
@@ -257,7 +245,6 @@ impl ViewKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ViewRenderer {
     Board,
@@ -280,7 +267,6 @@ pub enum ViewRenderer {
 /// View sharing visibility (spec e10b6ad, view.schema.json). Private views are
 /// actor-private account data; shared views are canonical Space objects.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ViewVisibility {
     Private,
@@ -294,7 +280,6 @@ pub enum ViewVisibility {
 /// terminal state now; `ak.strand.tombstone` / `ak.strand.delete` / equivalent
 /// kinds collapse into a single `ak.redaction` event targeting the object.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ObjectState {
     Active,
@@ -308,7 +293,6 @@ pub enum ObjectState {
 /// lattice is mutated only through the dedicated `ak.<object>.stage.set`
 /// event family; create payloads must set an initial stage.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ObjectStage {
     Draft,
@@ -322,7 +306,6 @@ pub enum ObjectStage {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SpaceState {
     Active,
@@ -331,7 +314,6 @@ pub enum SpaceState {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RelationState {
     Active,
@@ -339,7 +321,6 @@ pub enum RelationState {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PolicyType {
     Access,
@@ -357,7 +338,6 @@ pub enum PolicyType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PolicyEffect {
     Allow,
@@ -367,7 +347,6 @@ pub enum PolicyEffect {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AuthzDecision {
     Allow,
@@ -382,7 +361,6 @@ pub type Decision = AuthzDecision;
 /// Frontier freshness classification for revocation-sensitive authz decisions.
 /// Spec `AuthzCheckOutcome.freshness_state` enum.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum FreshnessState {
     Fresh,
@@ -393,7 +371,6 @@ pub enum FreshnessState {
 /// Coarse status of the notary / frontier source used to diagnose stale or
 /// unknown revocation freshness. Spec `AuthzCheckOutcome.notary_status` enum.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum NotaryStatus {
     Fresh,
@@ -403,7 +380,6 @@ pub enum NotaryStatus {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum InviteState {
     Pending,
@@ -419,7 +395,6 @@ pub enum InviteState {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationType {
     Message,
@@ -438,7 +413,6 @@ pub enum NotificationType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationPriority {
     Low,
@@ -448,7 +422,6 @@ pub enum NotificationPriority {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationState {
     Unread,
@@ -458,7 +431,6 @@ pub enum NotificationState {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ReadScopeKind {
     Realm,
@@ -505,7 +477,6 @@ impl ReadScopeKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ReadCursorScope {
     pub kind: ReadScopeKind,
@@ -605,7 +576,6 @@ impl ReadCursorScope {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ReadReceiptScope {
     pub kind: ReadScopeKind,
@@ -729,7 +699,6 @@ fn validate_read_scope_track(track: &str) -> Result<()> {
 
 /// Account lifecycle states.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AccountState {
     Active,
@@ -741,7 +710,6 @@ pub enum AccountState {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum OperationType {
     Create,
@@ -759,7 +727,6 @@ pub enum OperationType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SortDirection {
     Asc,
@@ -767,7 +734,6 @@ pub enum SortDirection {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum NullsOrder {
     First,
@@ -775,7 +741,6 @@ pub enum NullsOrder {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum FilterOp {
     Eq,
@@ -793,7 +758,6 @@ pub enum FilterOp {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RelationDirection {
     Out,
@@ -802,7 +766,6 @@ pub enum RelationDirection {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 // Deliberate exception to the crate-wide `snake_case` enum convention: the
 // `encrypted-envelope.schema.json` `scheme` const is the kebab-case token
 // `mls-rfc9420` (distinct from the `encryption_profile` enum value
@@ -832,7 +795,6 @@ impl EncryptedPayloadScheme {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum Audience {
     Single(String),
@@ -888,7 +850,6 @@ impl Audience {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ProofBindingRequirements {
     pub require_domain: bool,
     pub require_audience: bool,
@@ -952,7 +913,6 @@ fn proof_audience_covers_expected(proof: Option<&Audience>, expected: Option<&Au
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Proof {
     pub kind: String,
@@ -974,7 +934,6 @@ pub struct Proof {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "snake_case")]
 pub enum PayloadProofPurpose {
@@ -983,7 +942,6 @@ pub enum PayloadProofPurpose {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PayloadProof {
     pub kind: String,
@@ -1073,7 +1031,6 @@ pub mod proof_kind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CriticalExtension {
     pub id: String,
@@ -1360,7 +1317,6 @@ impl Proof {
 
 /// Server-verified fact-chain echo returned to clients after write admission.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct FactChainEcho {
     pub echo_id: String,
     pub subject_ref: String,
@@ -1421,7 +1377,6 @@ impl FactChainEcho {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SignatureBindingPayload {
     pub payload_digest: Hash,
     pub actor_id: Did,

@@ -22,7 +22,6 @@ use serde_json::Value;
 pub const IDENTITY_RECEIPT_PROOF_BINDING_CONTEXT: &str = ProofContextId::IDENTITY_RECEIPT_PROOF_V1;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct IdentityReceipt {
     pub schema: String,
@@ -148,7 +147,6 @@ impl IdentityReceipt {
 
 /// Counterpart for `spec/v1/artifacts/schemas/cross-signing-publish.schema.json`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CrossSigningPublish {
     pub principal_id: Did,
@@ -156,7 +154,6 @@ pub struct CrossSigningPublish {
     pub principal_signing_key: PublishedKey,
     pub self_signing_key: SubordinateSignedKey,
     pub user_signing_key: SubordinateSignedKey,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = u64)))]
     pub generation: NonZeroU64,
     pub expected_previous_generation: u64,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
@@ -260,7 +257,6 @@ impl CrossSigningPublish {
 
 /// Counterpart for `spec/v1/artifacts/schemas/cross-signing-publish.schema.json#/$defs/key_format`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum KeyFormat {
     Multibase,
@@ -281,7 +277,6 @@ impl KeyFormat {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/cross-signing-publish.schema.json#/$defs/published_key`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PublishedKey {
     pub kid: NonEmptyString,
@@ -293,7 +288,6 @@ pub struct PublishedKey {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/cross-signing-publish.schema.json#/$defs/subordinate_signed_key`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SubordinateSignedKeyBinding {
     pub verification_method: NonEmptyString,
@@ -302,7 +296,6 @@ pub struct SubordinateSignedKeyBinding {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SubordinateSignedKey {
     pub kid: NonEmptyString,
@@ -321,7 +314,6 @@ pub struct SubordinateSignedKey {
 /// envelope proof (`verification_method` maps to `executed_by`); this object
 /// records the trust root. See `zh/crypto-media/device-lifecycle.md` §5.4.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DeviceEnrollmentAuthorityBinding {
     /// MUST be `"service_attested"`.
@@ -336,7 +328,6 @@ pub struct DeviceEnrollmentAuthorityBinding {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DeviceEnrollmentAuthorityBindingKind {
     ServiceAttested,
