@@ -37,6 +37,7 @@ mod endpoints_agent;
 mod endpoints_data;
 mod endpoints_events;
 mod endpoints_identity;
+mod endpoints_join_policy;
 mod endpoints_misc;
 mod error;
 // Production reqwest + Tokio DID resolver. Leans on a live Tokio runtime,
@@ -66,6 +67,7 @@ pub use endpoints_data::{
     RESUMABLE_UPLOAD_THRESHOLD_BYTES, blob_resumable_upload_base_url,
 };
 pub use endpoints_events::{EventsSubscribeFrameStream, EventsSubscribeOptions};
+pub use endpoints_join_policy::JoinApplicationListOptions;
 pub use endpoints_misc::SignedAppletTransactionOptions;
 pub use error::{Error, Result};
 

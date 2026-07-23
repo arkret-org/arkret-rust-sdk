@@ -377,10 +377,19 @@ mod tests {
     }
 
     #[test]
-    fn capability_action_coverage_can_satisfy_action_only_profile() {
+    fn candidate_join_policy_requires_complete_private_carrier_surface() {
         validate_profile_semantic_coverage(
             &["ak.profile.candidate.join_policy.v1"],
             &ProfileSemanticSurface {
+                operations: vec![
+                    "ak.self.realm.join_application.audit.query.list".to_owned(),
+                    "ak.self.realm.join_application.command.cancel".to_owned(),
+                    "ak.self.realm.join_application.command.review".to_owned(),
+                    "ak.self.realm.join_application.command.submit".to_owned(),
+                    "ak.self.realm.join_application.query.list".to_owned(),
+                    "ak.self.realm.join_application.resource.get".to_owned(),
+                ],
+                schemas: vec!["ak.schema.join_policy_operations.v1".to_owned()],
                 capability_actions: vec!["ak.realm.join.review".to_owned()],
                 ..ProfileSemanticSurface::default()
             },
