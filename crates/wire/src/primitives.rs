@@ -27,6 +27,7 @@ pub enum JoinRule {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum HistoryVisibility {
     WorldReadable,
     Shared,
@@ -95,6 +96,7 @@ pub enum SecurityClass {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum EncryptionProfile {
     None,
     MlsRfc9420,

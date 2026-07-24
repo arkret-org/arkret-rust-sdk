@@ -84,6 +84,7 @@ impl AgentParticipation {
 /// objects. Omitted bits inherit the parent ceiling independently.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentParticipationCeiling {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reply: Option<bool>,
@@ -98,6 +99,7 @@ pub struct AgentParticipationCeiling {
 /// applet-agent policy cannot be confused with this ceiling.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentParticipationPolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub native_agent: Option<AgentParticipationCeiling>,

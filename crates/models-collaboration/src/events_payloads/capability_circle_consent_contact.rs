@@ -58,6 +58,7 @@ pub struct CircleSealCommitPayload {
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/circle_create_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleCreatePayload {
     pub object: Circle,
 }

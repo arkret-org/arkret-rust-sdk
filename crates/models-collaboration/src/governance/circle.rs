@@ -35,6 +35,7 @@ use crate::objects::space::ChildScopePolicy;
 /// `directory_visibility` enum).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum CircleDirectoryVisibility {
     /// Only Circle members see this Circle in any directory listing.
     Members,
@@ -48,6 +49,7 @@ pub enum CircleDirectoryVisibility {
 /// `join_rule` enum).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum CircleJoinRule {
     /// Admin must invite or add.
     Invite,
@@ -67,6 +69,7 @@ pub enum CircleJoinRule {
 /// tighten, never widen, and is a one-way ratchet (reducer enforces).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum EncryptionFloor {
     AllowPlaintext,
     E2eeRequired,
@@ -78,6 +81,7 @@ pub enum EncryptionFloor {
 /// reassign tokens.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum CircleColorToken {
     Slate,
     Red,
@@ -103,6 +107,7 @@ pub enum CircleColorToken {
 /// populated.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum CircleSymbol {
     Emoji { emoji: String },
     Glyph { glyph: CircleGlyph },
@@ -112,6 +117,7 @@ pub enum CircleSymbol {
 /// (spec circle.schema.json).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum CircleGlyph {
     Lock,
     Shield,
@@ -144,6 +150,7 @@ pub enum CircleGlyph {
 
 /// Display-only nameplate (spec circle.schema.json `$defs.display`).
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleDisplay {
     pub short_name: String,
     pub color_token: CircleColorToken,
@@ -155,6 +162,7 @@ pub struct CircleDisplay {
 /// Field order/shape mirrors `spec/v1/artifacts/schemas/circle.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct Circle {
     pub id: CircleId,
     pub schema: String,
@@ -217,6 +225,7 @@ pub struct Circle {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CirclePendingMlsRemoval {
     pub principal_id: Did,
     /// Exact membership/device-trust frontier that caused this MLS-backed
@@ -239,6 +248,7 @@ impl CirclePendingMlsRemoval {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleView {
     pub circle_id: CircleId,
     pub realm_id: RealmId,
@@ -288,6 +298,7 @@ pub struct CircleView {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleCreateRequestBody {
     pub realm_id: RealmId,
     pub title: String,
@@ -311,6 +322,7 @@ pub struct CircleCreateRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleList {
     pub realm_id: RealmId,
     #[serde(default)]
@@ -319,6 +331,7 @@ pub struct CircleList {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum CircleMembership {
     Join,
     Invite,
@@ -341,6 +354,7 @@ impl CircleMembership {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleMemberRequestBody {
     pub actor_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -349,6 +363,7 @@ pub struct CircleMemberRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleMembershipOutcome {
     pub circle_id: CircleId,
     pub actor_id: Did,
@@ -357,8 +372,10 @@ pub struct CircleMembershipOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleScopeRotateRequestBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
@@ -366,6 +383,7 @@ pub struct CircleScopeRotateRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleScopeRotateOutcome {
     pub circle_id: CircleId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -405,6 +423,7 @@ pub struct CircleLifecycleRequestBody {
 /// run on independent state machines.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum CircleState {
     Active,
     Archived,
