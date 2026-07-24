@@ -36,6 +36,96 @@ use crate::sync_frames::client_sync::SyncRequestBody;
 use crate::sync_frames::snapshot::SnapshotBootstrap;
 use crate::sync_frames::stream_trace::{StreamTraceFrame, StreamTraceFrameKind};
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DevicePairingRequestId(String);
+
+impl DevicePairingRequestId {
+    pub fn new(value: String) -> Result<Self> {
+        static PATTERN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+            regex::Regex::new(
+                r"^device_pairing_request:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            )
+            .expect("device pairing request id regex")
+        });
+        if !PATTERN.is_match(&value) {
+            return Err(Error::Protocol(
+                "device pairing request id must contain a canonical UUIDv7".to_owned(),
+            ));
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl TryFrom<String> for DevicePairingRequestId {
+    type Error = Error;
+
+    fn try_from(value: String) -> Result<Self> {
+        Self::new(value)
+    }
+}
+
+impl From<DevicePairingRequestId> for String {
+    fn from(value: DevicePairingRequestId) -> Self {
+        value.0
+    }
+}
+
+impl std::fmt::Display for DevicePairingRequestId {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DevicePairingCode(String);
+
+impl DevicePairingCode {
+    pub fn new(value: String) -> Result<Self> {
+        if value.len() != 8
+            || !value
+                .bytes()
+                .all(|byte| b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789".contains(&byte))
+        {
+            return Err(Error::Protocol(
+                "device pairing code must be 8 Crockford-style characters".to_owned(),
+            ));
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl TryFrom<String> for DevicePairingCode {
+    type Error = Error;
+
+    fn try_from(value: String) -> Result<Self> {
+        Self::new(value)
+    }
+}
+
+impl From<DevicePairingCode> for String {
+    fn from(value: DevicePairingCode) -> Self {
+        value.0
+    }
+}
+
+impl std::fmt::Display for DevicePairingCode {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
 // is_false is used as a serde skip_serializing_if predicate in this module.
 fn is_false(value: &bool) -> bool {
     !*value
@@ -1310,13 +1400,21 @@ pub struct ContactRequestRequestBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDevicePairRequestBody {
-    pub pairing_code: NonEmptyString,
+    pub pairing_code: DevicePairingCode,
     pub new_device_pubkey: PublicKey,
     pub challenge_signature: Base64UrlString,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_metadata: Option<DeviceMetadata>,
+    /// When the approving device recovered this pairing via the server-mediated
+    /// short-link (`ak.open.device_pairing.query.resolve`), it echoes the staged
+    /// `device_pairing_request_id` here so the server can flip that staged row to
+    /// `authorized` (carrying `device_id` + `authorized_event_ref`) for the new
+    /// device's status poll to observe. Omitted for direct QR/paste pairing that
+    /// never staged server-side.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_pairing_request_id: Option<DevicePairingRequestId>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1331,6 +1429,132 @@ pub struct AccountDevicePairOutcome {
     pub key_backup_hint: Option<BTreeMap<String, Value>>,
 }
 
+// ── Device-pairing short-link (server-mediated resolve) ──────────────────
+//
+// Mirrors the agent-pairing `open` surface (`agent_operations.rs`): a
+// not-yet-authorized device stages its device key server-side and receives a
+// short `device_pairing_request_id` + `pairing_code` it encodes into a QR
+// deep-link. An already-authorized device resolves that token to recover the
+// full pairing material, then drives the existing authenticated
+// `ak.gate.account.command.pair_device`. See
+// `crypto-media/device-lifecycle.md` §2.1.
+
+/// Staging request POSTed by a not-yet-authorized device to the unauthenticated
+/// `POST /_arkret/open/device-pairing/requests`
+/// (`ak.open.device_pairing.command.stage`). The staged row is account-less and
+/// inert until a verified sibling authorizes it.
+///
+/// Mirrors `device-pairing.schema.json#/$defs/device_pairing_stage_request_body`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DevicePairingStageRequestBody {
+    pub new_device_pubkey: PublicKey,
+    pub challenge_signature: Base64UrlString,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_metadata: Option<DeviceMetadata>,
+}
+
+/// Outcome of a device-pairing stage: the short handle + code the new device
+/// encodes into its QR deep-link, plus the pairing window.
+///
+/// Mirrors `device-pairing.schema.json#/$defs/device_pairing_stage_outcome`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DevicePairingStageOutcome {
+    pub device_pairing_request_id: DevicePairingRequestId,
+    pub pairing_code: DevicePairingCode,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
+    pub expires_at: DateTime<Utc>,
+}
+
+/// Body of the unauthenticated resolve call
+/// (`POST /_arkret/open/device-pairing/resolve`,
+/// `ak.open.device_pairing.query.resolve`). The token is the compact
+/// `base64url({"r":device_pairing_request_id,"c":pairing_code})` envelope; it
+/// MUST be carried in the body, never in the URL.
+///
+/// Mirrors `device-pairing.schema.json#/$defs/device_pairing_resolve_request_body`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DevicePairingResolveRequestBody {
+    pub pairing_token: String,
+}
+
+/// The pairing material an already-authorized device recovers by resolving a
+/// device-pairing token, before it drives
+/// `ak.gate.account.command.pair_device`.
+///
+/// Mirrors `device-pairing.schema.json#/$defs/device_pairing_bootstrap`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DevicePairingBootstrap {
+    pub arkret_base_url: String,
+    pub device_pairing_request_id: DevicePairingRequestId,
+    pub pairing_code: DevicePairingCode,
+    pub new_device_pubkey: PublicKey,
+    pub challenge_signature: Base64UrlString,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_metadata: Option<DeviceMetadata>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
+    pub expires_at: DateTime<Utc>,
+}
+
+/// Lifecycle state of a staged device-pairing request.
+///
+/// Mirrors `device-pairing.schema.json#/$defs/device_pairing_state`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum DevicePairingState {
+    /// Staged and awaiting authorization by a verified sibling device.
+    PendingAuthorization,
+    /// A verified sibling authorized the pairing; the new device is now a
+    /// verified device (`device_id` / `authorized_event_ref` populated).
+    Authorized,
+    /// The pairing window elapsed before authorization.
+    Expired,
+}
+
+/// Body of the unauthenticated status poll
+/// (`POST /_arkret/open/device-pairing/requests/status`,
+/// `ak.open.device_pairing.query.status`) the new device calls while waiting
+/// for a sibling to approve.
+///
+/// Mirrors `device-pairing.schema.json#/$defs/device_pairing_status_request_body`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DevicePairingStatusRequestBody {
+    pub device_pairing_request_id: DevicePairingRequestId,
+    pub pairing_code: DevicePairingCode,
+}
+
+/// Status outcome for a staged device-pairing request.
+///
+/// Mirrors `device-pairing.schema.json#/$defs/device_pairing_status_outcome`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DevicePairingStatusOutcome {
+    pub state: DevicePairingState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorized_event_ref: Option<EventId>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct BlobUploadRequestBody(pub BlobUploadMetadata);
@@ -1338,3 +1562,24 @@ pub struct BlobUploadRequestBody(pub BlobUploadMetadata);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct GrantListOutcome(pub GrantList);
+
+#[cfg(test)]
+mod device_pairing_tests {
+    use super::*;
+
+    #[test]
+    fn device_pairing_identifiers_enforce_the_wire_profiles() {
+        assert!(
+            DevicePairingRequestId::new(
+                "device_pairing_request:01964137-0000-7000-8000-0000000000c1".to_owned()
+            )
+            .is_ok()
+        );
+        assert!(
+            DevicePairingRequestId::new("device_pairing_request:not-a-uuid".to_owned()).is_err()
+        );
+        assert!(DevicePairingCode::new("7H2K9M4Q".to_owned()).is_ok());
+        assert!(DevicePairingCode::new("00000000".to_owned()).is_err());
+        assert!(DevicePairingCode::new("TOO-SHORT".to_owned()).is_err());
+    }
+}
