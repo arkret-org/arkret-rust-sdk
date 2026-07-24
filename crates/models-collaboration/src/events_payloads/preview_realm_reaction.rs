@@ -274,6 +274,7 @@ pub struct RealmInheritancePolicyPayload {
 /// `relationship` discriminator for [`RealmOrganizationPayload`]
 /// (event-payload.schema.json `#/$defs/realm_organization_payload`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmOrganizationRelationship {
     Owner,
@@ -284,6 +285,7 @@ pub enum RealmOrganizationRelationship {
 
 /// `status` discriminator for [`RealmOrganizationPayload`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmOrganizationStatus {
     Active,
@@ -294,6 +296,7 @@ pub enum RealmOrganizationStatus {
 /// endorsement boundary only; actual Realm control still requires the matching
 /// Realm policy / notary / capability / service-binding event.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmOrganizationControlScope {
     OfficialBadge,
@@ -310,6 +313,7 @@ pub enum RealmOrganizationControlScope {
 
 /// `authorization.issuer_role` enum for [`RealmOrganizationAuthorization`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmOrganizationIssuerRole {
     OrganizationDid,

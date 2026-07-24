@@ -60,6 +60,7 @@ pub const REALM_MODERATION_POLICY_FANOUT_SOURCE_ORGANIZATION_POLICY: &str = "org
 /// Realm/Space boundary split; link payloads MUST carry exactly one of
 /// these. Wire form is snake_case.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmLinkKind {
     /// Target Realm is the governing authority for source Realm.
@@ -132,6 +133,7 @@ impl RealmLinkKind {
 
 /// Lifecycle status of an `ak.realm.link` FSM cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmLinkStatus {
     Active,
@@ -222,6 +224,7 @@ fn default_link_status() -> RealmLinkStatus {
 /// Operation DTO for creating a Realm Link. The HTTP default is materialized
 /// when this value is converted into the strict durable payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmLinkCreateRequestBody {
     pub target_realm_id: RealmId,
@@ -332,6 +335,7 @@ pub fn evaluate_realm_link_transition(
 /// Direction filter used by the realm-link query API to scope the
 /// returned edges.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmLinkDirection {
     /// Edges where this Realm is the source — `realm_id == realm_id`.
@@ -355,6 +359,7 @@ impl RealmLinkDirection {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmLinkEntry {
     pub realm_id: RealmId,
@@ -378,6 +383,7 @@ pub struct RealmLinkEntry {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmLinkList {
     pub realm_id: RealmId,
@@ -387,6 +393,7 @@ pub struct RealmLinkList {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmLinkMutationOutcome {
     pub realm_id: RealmId,
@@ -396,6 +403,7 @@ pub struct RealmLinkMutationOutcome {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmEffectivePolicyInheritanceMode {
     Explicit,
@@ -403,6 +411,7 @@ pub enum RealmEffectivePolicyInheritanceMode {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmEffectivePolicyOutcome {
     pub realm_id: RealmId,
@@ -543,6 +552,7 @@ pub struct RealmPolicyServerReplaceRequestBody {
 /// relationship row
 /// (`realm-organization-operations.schema.json#/$defs/lifecycle_phase`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmOrganizationLifecyclePhase {
     /// Latest accepted statement for `(organization_id, relationship)` is
@@ -633,6 +643,7 @@ pub struct CapabilityDerived {
 /// reducer-derived. A row here is a projection only: an organization
 /// relationship is only verified when `lifecycle_phase=verified_active`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmOrganizationRelationshipRow {
     pub statement_id: String,
@@ -678,6 +689,7 @@ pub struct RealmOrganizationRelationshipRow {
 /// Response DTO for `ak.self.realm_organization.query.list`
 /// (`realm-organization-operations.schema.json#/$defs/realm_organization_relationship_list`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmOrganizationRelationshipList {
     pub realm_id: RealmId,
