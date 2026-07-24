@@ -524,6 +524,7 @@ impl TryFrom<EventWire> for Event {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 #[non_exhaustive]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum EffectiveScope {
     /// Event was emitted under Realm-default encryption scope.
     Realm { realm_id: RealmId },

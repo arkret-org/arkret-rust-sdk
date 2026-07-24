@@ -100,6 +100,7 @@ pub const MODERATION_FRANKING_PROOF_KIND: &str = "ak.moderation.franking_proof";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct FrankingProofSenderClaim {
     pub actor_id: Did,
     pub device_id: String,
@@ -108,6 +109,7 @@ pub struct FrankingProofSenderClaim {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct FrankingProof {
     pub kind: String,
     pub franking_proof_id: String,

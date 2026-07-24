@@ -29,6 +29,7 @@ pub struct ModerationEvidencePackage {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ModerationReportOutcome {
     pub report_id: String,
     pub status: String,
@@ -57,6 +58,7 @@ pub enum ModerationAction {
 /// `ak.self.moderation.command.report` request body. Embeds the
 /// `FrankingProof` artifacts type owned by `events_payloads::moderation`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ModerationReportRequestBody {
     pub realm_id: RealmId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -69,6 +71,7 @@ pub struct ModerationReportRequestBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub evidence_package: Option<ModerationEvidencePackage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub franking_proof: Option<FrankingProof>,
