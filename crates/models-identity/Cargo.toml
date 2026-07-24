@@ -13,11 +13,20 @@ version.workspace = true
 
 [features]
 default = []
+# OpenAPI `ToSchema` derives on the identity wire types. Off by default so the
+# data-layer graph stays framework-free; service crates opt in. Forwards to the
+# wire/identifier newtypes and enables salvo-oapi's chrono schemas.
+openapi = [
+    "dep:salvo-oapi",
+    "arkret-wire/openapi",
+    "salvo-oapi/chrono",
+]
 
 [dependencies]
 arkret-canonical = {workspace = true}
 arkret-wire = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
+salvo-oapi = {workspace = true,optional = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
 sha2 = {workspace = true}

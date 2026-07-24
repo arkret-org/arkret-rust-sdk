@@ -22,6 +22,7 @@ pub const SERVICE_REGISTRATION_GET_PATH: &str = "/_arkret/root/identity/service-
 
 /// Canonical public base URL used as one half of a service registration key.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CanonicalServiceUrl(String);
 
 impl CanonicalServiceUrl {
@@ -151,6 +152,7 @@ impl<'de> Deserialize<'de> for CanonicalServiceUrl {
 /// registered for `service_registration_key` are accepted.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceRegistrationKey {
     service_type: ServiceType,
     public_base: CanonicalServiceUrl,
@@ -201,6 +203,7 @@ impl<'de> Deserialize<'de> for ServiceRegistrationKey {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceDidVerificationMethod {
     pub id: String,
     #[serde(rename = "type")]
@@ -211,6 +214,7 @@ pub struct ServiceDidVerificationMethod {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceDidEndpoint {
     pub id: String,
     #[serde(rename = "type")]
@@ -221,6 +225,7 @@ pub struct ServiceDidEndpoint {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceDidDocument {
     #[serde(rename = "@context")]
     pub context: Vec<String>,
@@ -331,6 +336,7 @@ impl ServiceDidDocument {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceWebvhInceptionParameters {
     pub scid: String,
     pub method: String,
@@ -340,6 +346,7 @@ pub struct ServiceWebvhInceptionParameters {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceWebvhDataIntegrityProof {
     #[serde(rename = "type")]
     pub proof_type: String,
@@ -367,6 +374,7 @@ impl ServiceWebvhDataIntegrityProof {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceWebvhInceptionOperation {
     pub version_id: String,
     pub version_time: DateTime<Utc>,
@@ -455,6 +463,7 @@ impl ServiceWebvhInceptionOperation {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceRegistrationReceipt {
     pub receipt_id: String,
     pub registration_key: ServiceRegistrationKey,
@@ -560,6 +569,7 @@ impl ServiceRegistrationReceipt {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceRegistrationEnsureRequestBody {
     pub service_type: ServiceType,
     pub public_base: CanonicalServiceUrl,
@@ -611,6 +621,7 @@ impl ServiceRegistrationEnsureRequestBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceRegistrationOutcome {
     pub service_id: Did,
     pub did_document: ServiceDidDocument,
