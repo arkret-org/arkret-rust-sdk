@@ -310,7 +310,6 @@ fn effective_state_for_covered_events(
             .into_iter()
             .filter(|op| covered.contains(&op.move_id))
             .collect();
-        let ops = deterministic_sealed_ops(ops);
         if ops.is_empty() {
             continue;
         }
@@ -368,11 +367,6 @@ fn move_causal_dependencies(m: &Move) -> Vec<String> {
         })
         .map(|reference| reference.id.clone())
         .collect()
-}
-
-fn deterministic_sealed_ops(mut ops: Vec<SealedOp>) -> Vec<SealedOp> {
-    ops.sort_by(|a, b| b.move_id.as_str().cmp(a.move_id.as_str()));
-    ops
 }
 
 fn joined_control_view_hash(
@@ -670,13 +664,53 @@ mod tests {
     }
 
     #[test]
-    fn deterministic_sealed_ops_ignores_insertion_order() {
-        let low = SealedOp::new(move_id(0x01), add_op("low", "low"));
-        let high = SealedOp::new(move_id(0xff), add_op("high", "high"));
+    fn effective_state_preserves_cross_seal_fsm_order() {
+        let seals = MemorySealStore::default();
+        let cells = MemoryCellStore::default();
+        let registry = MemoryCellRegistry::default();
+        let realm = realm();
+        let cell =
+            CellRef::new("ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned())
+                .unwrap();
+        let join_id = move_id(0x01);
+        let ban_id = move_id(0xff);
+        let seal = materialized_seal(seal_id(0xa1), vec![join_id.clone(), ban_id.clone()]);
+        let transition = |from: &str, to: &str| LatticeOp {
+            op_type: LatticeOpType::Transition,
+            tag: None,
+            value: None,
+            from: Some(json!(from)),
+            to: Some(json!(to)),
+            reason: None,
+            issuer_seq: None,
+        };
 
-        let ordered = deterministic_sealed_ops(vec![low.clone(), high.clone()]);
+        cells
+            .append_sealed_effects(
+                &realm,
+                &seal.id,
+                &[
+                    (
+                        cell.clone(),
+                        SealedOp::new(join_id, transition("invited", "join")),
+                    ),
+                    (
+                        cell.clone(),
+                        SealedOp::new(ban_id, transition("join", "ban")),
+                    ),
+                ],
+            )
+            .unwrap();
+        seals.put(&seal).unwrap();
 
-        assert_eq!(ordered[0].move_id, high.move_id);
-        assert_eq!(ordered[1].move_id, low.move_id);
+        let state = effective_state_at(
+            std::slice::from_ref(&seal.id),
+            &realm,
+            &seals,
+            &cells,
+            &registry,
+        )
+        .unwrap();
+        assert_eq!(state.get(&cell), Some(&CellState::Value(json!("ban"))));
     }
 }
