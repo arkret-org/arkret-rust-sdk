@@ -92,6 +92,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(RealmInheritancePolicy);
     registry.register(RealmUpgrade);
     registry.register(RealmCreate);
+    registry.register(StrandObject);
     registry.register(StrandMetadata);
     registry.register(StrandTracks);
 
@@ -178,6 +179,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ak.component.realm.inheritance_policy.v1",
         "ak.component.realm.upgrade.v1",
         "ak.component.realm.create.v1",
+        "ak.component.strand.object.v1",
         "ak.component.strand.metadata.v1",
         "ak.component.strand.tracks.v1",
     ];

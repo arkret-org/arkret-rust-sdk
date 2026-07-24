@@ -1121,6 +1121,20 @@ singleton_lattice!(
     &["ak.realm.create"]
 );
 
+// `ak.strand.create` writes the strand object cell
+// (contract-catalog `cell_writes`: lattice `mv_register`, bottom `expose`).
+// Without this registration a governance proof over a realm whose accepted
+// history carries a drafted strand-create cell (e.g. the direct-conversation
+// materialization) fails with `no lattice registered for governance cell`.
+singleton_lattice!(
+    StrandObject,
+    "ak.component.strand.object.v1",
+    SdkLatticeKind::MvRegister,
+    BottomPolicy::Expose,
+    Criticality::Required,
+    &["ak.strand.create"]
+);
+
 // ── New Strand facet families (per-subject by Strand id) ──
 
 pub struct StrandMetadata;

@@ -58,11 +58,12 @@ mod tests {
 
     #[test]
     fn default_registry_kind_count_matches_expected_total() {
-        // The registry covers the 65 cell families declared by
-        // event-kind-registry plus the three reducer-local seal/MLS
-        // families (`notary`, `mls.epoch`, `covered_seals`).
+        // The registry covers the 66 cell families declared by
+        // event-kind-registry (including `strand.object`, the
+        // `ak.strand.create` cell write) plus the three reducer-local
+        // seal/MLS families (`notary`, `mls.epoch`, `covered_seals`).
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 68);
+        assert_eq!(registry.len(), 69);
     }
 
     #[test]
