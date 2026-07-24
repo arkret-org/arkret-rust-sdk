@@ -14,6 +14,7 @@ fn is_false(value: &bool) -> bool {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum MediaIceMode {
     P2p,
     Sfu,
@@ -22,6 +23,7 @@ pub enum MediaIceMode {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MediaIceConfigRequestBody {
     pub realm_id: RealmId,
     pub call_id: String,
@@ -31,6 +33,7 @@ pub struct MediaIceConfigRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MediaIceConfigOutcome {
     pub realm_id: RealmId,
     pub call_id: String,
@@ -102,6 +105,7 @@ impl MediaIceConfigOutcome {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum MediaIceCredentialType {
     Password,
     OAuth,
@@ -109,6 +113,7 @@ pub enum MediaIceCredentialType {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MediaIceServer {
     #[serde(
         deserialize_with = "deserialize_ice_server_urls",
@@ -141,6 +146,7 @@ impl MediaIceServer {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MediaIceConstraints {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allow_udp: Option<bool>,
@@ -151,6 +157,7 @@ pub struct MediaIceConstraints {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum MediaIceSignatureAlgorithm {
     #[serde(rename = "ES256")]
     Es256,
@@ -161,6 +168,7 @@ pub enum MediaIceSignatureAlgorithm {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum MediaIceSignatureInput {
     #[serde(rename = "ak.media.ice_config.v1")]
     IceConfigV1,
@@ -168,6 +176,7 @@ pub enum MediaIceSignatureInput {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MediaIceConfigSignature {
     pub kid: String,
     pub alg: MediaIceSignatureAlgorithm,
@@ -204,6 +213,7 @@ where
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CallMediaDesiredMedia {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audio: Option<bool>,
@@ -214,6 +224,7 @@ pub struct CallMediaDesiredMedia {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CallMediaTokenExchangeRequestBody {
     pub realm_id: RealmId,
     pub call_id: CallId,
@@ -227,6 +238,7 @@ pub struct CallMediaTokenExchangeRequestBody {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CallMediaParticipantBinding {
     pub scheme: String,
     pub sig: String,
@@ -258,12 +270,14 @@ impl CallMediaParticipantBinding {
 /// resolve to a realm media-service anchor; `sig` is the backend-specific
 /// detached signature.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CallMediaServiceSignature {
     pub kid: String,
     pub sig: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CallMediaTokenExchangeOutcome {
     pub focus_id: String,
     #[serde(rename = "type")]

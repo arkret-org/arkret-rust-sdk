@@ -8,6 +8,7 @@ use serde_json::Value;
 /// namespace (`^x_[a-z][a-z0-9_]{0,63}$`).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct XExtensionMap(BTreeMap<String, Value>);
 
 impl XExtensionMap {
