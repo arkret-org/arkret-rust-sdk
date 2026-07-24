@@ -37,6 +37,7 @@ impl ReadCursor {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ReadCursorPosition {
     pub event_id: EventId,
     pub hlc: Hlc,
@@ -44,6 +45,7 @@ pub struct ReadCursorPosition {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ReadCursorAdvanceRequestBody {
     pub realm_id: RealmId,
     pub read_scope: ReadCursorScope,
@@ -52,6 +54,7 @@ pub struct ReadCursorAdvanceRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ReadMarkerOutcome {
     pub realm_id: RealmId,
     pub actor_id: Did,
@@ -67,6 +70,7 @@ pub struct ReadMarkerOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ReadCursorList {
     #[serde(default)]
     pub markers: Vec<ReadMarkerOutcome>,

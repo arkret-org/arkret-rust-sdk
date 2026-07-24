@@ -437,6 +437,7 @@ pub enum NotificationState {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ReadScopeKind {
     Realm,
     Circle,
@@ -483,6 +484,7 @@ impl ReadScopeKind {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ReadCursorScope {
     pub kind: ReadScopeKind,
     #[serde(skip_serializing_if = "Option::is_none")]
