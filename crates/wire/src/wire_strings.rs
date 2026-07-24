@@ -175,6 +175,7 @@ macro_rules! non_empty_wire_string {
     ($(#[$meta:meta])* $name:ident) => {
         $(#[$meta])*
         #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+        #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
         #[serde(transparent)]
         pub struct $name(NonEmptyString);
 
@@ -351,6 +352,7 @@ impl<'de> Deserialize<'de> for NonEmptyJsonObject {
 /// MIMI room URI accepted by `mimi_room_binding_payload`.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiRoomUri(String);
 
 impl MimiRoomUri {

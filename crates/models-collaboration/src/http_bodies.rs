@@ -474,6 +474,7 @@ pub struct BlobHeadOutcome {
 pub struct BlobGetOutcome(pub Vec<u8>);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiKeyMaterialRequestBody {
     pub requester: Did,
     pub strand_id: StrandId,
@@ -491,6 +492,7 @@ pub struct MimiKeyMaterialRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiKeyMaterialOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub key_packages: Vec<MimiKeyPackage>,
@@ -504,6 +506,7 @@ pub struct MimiKeyMaterialOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiRoomUpdateRequestBody {
     pub mls_group_id: MlsGroupId,
     pub update: MimiRoomUpdate,
@@ -516,6 +519,7 @@ pub struct MimiRoomUpdateRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiRoomUpdateOutcome {
     pub accepted: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -525,6 +529,7 @@ pub struct MimiRoomUpdateOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiNotifyRequestBody {
     pub notification: MimiNotification,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -534,6 +539,7 @@ pub struct MimiNotifyRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiNotifyOutcome {
     pub accepted: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -542,6 +548,7 @@ pub struct MimiNotifyOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiSubmitMessageRequestBody {
     pub sender_actor_id: Did,
     pub device_id: DeviceId,
@@ -555,6 +562,7 @@ pub struct MimiSubmitMessageRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiSubmitMessageOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event_ref: Option<EventId>,
@@ -564,6 +572,7 @@ pub struct MimiSubmitMessageOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiGroupInfoOutcome {
     pub group_info: MimiGroupInfo,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -573,6 +582,7 @@ pub struct MimiGroupInfoOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiRequestConsentRequestBody {
     pub requester_id: Did,
     pub target: MimiConsentTarget,
@@ -591,6 +601,7 @@ pub struct MimiRequestConsentRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiRequestConsentOutcome {
     pub consent_id: ConsentId,
     pub status: String,
@@ -600,6 +611,7 @@ pub struct MimiRequestConsentOutcome {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum MimiConsentDecision {
     Accept,
     Deny,
@@ -608,6 +620,7 @@ pub enum MimiConsentDecision {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiUpdateConsentRequestBody {
     pub consent_id: ConsentId,
     pub decision: MimiConsentDecision,
@@ -683,6 +696,7 @@ impl MimiUpdateConsentRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiUpdateConsentOutcome {
     pub status: String,
     #[serde(
@@ -695,6 +709,7 @@ pub struct MimiUpdateConsentOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiIdentifierQueryRequestBody {
     #[serde(default)]
     pub identifiers: Vec<MimiIdentifier>,
@@ -707,6 +722,7 @@ pub struct MimiIdentifierQueryRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiIdentifierQueryOutcome {
     #[serde(default)]
     pub matches: Vec<MimiIdentifierMatch>,
@@ -716,6 +732,7 @@ pub struct MimiIdentifierQueryOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiReportAbuseRequestBody {
     pub strand_id: StrandId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -734,6 +751,7 @@ pub struct MimiReportAbuseRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiReportAbuseOutcome {
     pub report_id: ReportId,
     pub status: String,
@@ -742,6 +760,7 @@ pub struct MimiReportAbuseOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiProxyDownloadRequestBody {
     pub asset_ref: NonEmptyString,
     pub requester: Did,
@@ -754,6 +773,7 @@ pub struct MimiProxyDownloadRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiProxyDownloadOutcome {
     pub download_ref: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
