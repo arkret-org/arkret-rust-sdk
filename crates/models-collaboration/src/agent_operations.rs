@@ -179,7 +179,7 @@ pub struct AgentRuntimeApprovalRequestBody {
 pub struct AgentRuntimeApprovalOutcome {
     pub ok: bool,
     pub approval_request_id: String,
-    pub status: AgentStatus,
+    pub status: AgentLifecycleState,
 }
 
 /// Runtime-side poll for the controller decision on a previously submitted
@@ -207,7 +207,8 @@ pub struct AgentRuntimeApprovalStatusRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRuntimeApprovalStatusOutcome {
     pub ok: bool,
-    pub status: AgentStatus,
+    pub status: AgentLifecycleState,
+    pub runtime_state: AgentRuntimeState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_request_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -268,12 +269,14 @@ pub struct AgentProvisionEvents {
 
 /// Re-open pairing on any non-terminal agent. The service issues a fresh
 /// one-time pairing handle and every previously issued handle becomes
-/// permanently unresolvable. `pending_runtime_key` / `pairing_expired`
-/// re-open bootstrap pairing; `active` / `paused` perform runtime
-/// replacement re-pairing (existing keys stay valid until the new pairing
-/// completes, then are atomically superseded by the single accepted
-/// authorization Event).
-/// `deactivated` rejects. Mirrors
+/// permanently unresolvable. Agents without an active authorized key
+/// (`runtime_state` `pending_runtime_key` / `pairing_expired`) re-open
+/// bootstrap pairing; agents that already hold an active authorized key
+/// (lifecycle `active` or `paused`) perform runtime replacement re-pairing
+/// (existing keys stay valid until the new pairing completes, then are
+/// atomically superseded by the single accepted authorization Event, and the
+/// lifecycle intent is preserved unchanged — an `active` agent needs no
+/// resume). `deactivated` rejects. Mirrors
 /// `agent-operations.schema.json#/$defs/agent_renew_pairing_request_body`.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -438,15 +441,49 @@ pub struct AgentPairingResolveRequestBody {
     pub pairing_token: String,
 }
 
+/// Derived, read-only runtime key readiness axis, orthogonal to the
+/// controller lifecycle intent axis (`AgentLifecycleState`). See
+/// `key-management.md` §3.6.1. It is never written directly nor treated as a
+/// lifecycle transition target; services and clients MUST derive it from the
+/// same key/pairing facts through [`AgentRuntimeState::derive`] and MUST NOT
+/// maintain a second writable state machine.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum AgentStatus {
+pub enum AgentRuntimeState {
     PendingRuntimeKey,
-    Active,
+    Ready,
+    Replacing,
     PairingExpired,
-    Paused,
-    Deactivated,
+}
+
+impl AgentRuntimeState {
+    pub fn as_wire_str(self) -> &'static str {
+        match self {
+            Self::PendingRuntimeKey => "pending_runtime_key",
+            Self::Ready => "ready",
+            Self::Replacing => "replacing",
+            Self::PairingExpired => "pairing_expired",
+        }
+    }
+
+    /// Sole derivation of the runtime readiness axis from key/pairing facts
+    /// (`key-management.md` §3.6.1). `has_active_authorization` is whether the
+    /// agent currently holds an active accepted `ak.agent.key.authorize`;
+    /// `has_open_pairing_handle` is whether an unconsumed, unexpired pairing
+    /// handle exists. The pairing mode is implied by the pair: an open handle
+    /// on a keyed agent is a replacement handle (→ `replacing`), on an unkeyed
+    /// agent a bootstrap handle (→ `pending_runtime_key`). Replacement handle
+    /// expiry is side-effect free and returns the projection to `ready`;
+    /// bootstrap handle expiry projects `pairing_expired`.
+    pub fn derive(has_active_authorization: bool, has_open_pairing_handle: bool) -> Self {
+        match (has_active_authorization, has_open_pairing_handle) {
+            (true, true) => Self::Replacing,
+            (true, false) => Self::Ready,
+            (false, true) => Self::PendingRuntimeKey,
+            (false, false) => Self::PairingExpired,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -459,7 +496,8 @@ pub struct AgentProjection {
     pub slug: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
-    pub status: AgentStatus,
+    pub status: AgentLifecycleState,
+    pub runtime_state: AgentRuntimeState,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -517,7 +555,8 @@ pub struct AgentList {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentView {
     pub agent: AgentProjection,
-    pub status: AgentStatus,
+    pub status: AgentLifecycleState,
+    pub runtime_state: AgentRuntimeState,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub grants: Vec<GrantSnapshot>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1816,7 +1855,8 @@ pub struct KeyState {
     pub controller_id: Did,
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: String,
-    pub status: AgentStatus,
+    pub status: AgentLifecycleState,
+    pub runtime_state: AgentRuntimeState,
     pub pcr_recovery: AgentPcrRecoveryState,
     /// Immutable global Agent ceiling captured by provisioning.
     pub requested_scope: AgentKeyScope,
@@ -1851,6 +1891,18 @@ pub struct KeyState {
     pub authorized_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub active_authorizations: Vec<AgentKeyAuthorizationState>,
+}
+
+impl KeyState {
+    /// Derive the read-only runtime readiness axis from this projection's own
+    /// facts (`key-management.md` §3.6.1). Producers MUST set `runtime_state`
+    /// to this value rather than tracking a second writable state machine.
+    pub fn derived_runtime_state(&self) -> AgentRuntimeState {
+        AgentRuntimeState::derive(
+            !self.active_authorizations.is_empty(),
+            self.pairing_request_id.is_some(),
+        )
+    }
 }
 
 #[cfg(test)]

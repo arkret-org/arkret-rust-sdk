@@ -511,6 +511,7 @@ pub struct AccountUpdateProfileOutcome {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum CursorRevokeScope {
     ThisCursor,
     SameDevice,
@@ -518,6 +519,7 @@ pub enum CursorRevokeScope {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountCursorRevokeRequestBody {
     pub cursor: String,
     pub reason_code: String,
@@ -526,6 +528,7 @@ pub struct AccountCursorRevokeRequestBody {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountCursorRevokeOutcome {
     pub revoked: bool,
     #[serde(

@@ -242,10 +242,8 @@ pub fn build_sdk_cell_registry() -> MemoryCellRegistry {
         vec![
             (json!("active"), json!("paused")),
             (json!("paused"), json!("active")),
-            (json!("pending_runtime_key"), json!("deactivated")),
             (json!("active"), json!("deactivated")),
             (json!("paused"), json!("deactivated")),
-            (json!("pairing_expired"), json!("deactivated")),
         ],
         BottomMode::Reject,
     );

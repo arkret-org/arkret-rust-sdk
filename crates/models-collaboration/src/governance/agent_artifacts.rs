@@ -2,9 +2,9 @@
 //! snapshots, device metadata, key-authorization state, seal signatures).
 //!
 //! The `AgentOperations` aggregation enum and `KeyState` stay in
-//! the `arkret` umbrella because they bind the agent lifecycle status/scope
-//! enums (`AgentStatus`, `AgentPcrRecoveryState`, `AgentPairingMode`) that
-//! remain core-resident.
+//! the `arkret` umbrella because they bind the agent lifecycle/scope enums
+//! (`AgentLifecycleState`, `AgentRuntimeState`, `AgentPcrRecoveryState`,
+//! `AgentPairingMode`) that remain core-resident.
 
 use std::collections::BTreeMap;
 
@@ -36,6 +36,7 @@ pub struct GrantSnapshot {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DeviceMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<NonEmptyString>,

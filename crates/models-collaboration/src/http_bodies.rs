@@ -1308,6 +1308,7 @@ pub struct ContactRequestRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDevicePairRequestBody {
     pub pairing_code: NonEmptyString,
     pub new_device_pubkey: PublicKey,
@@ -1320,6 +1321,7 @@ pub struct AccountDevicePairRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDevicePairOutcome {
     pub device_id: DeviceId,
     pub authorized_event_ref: EventId,
