@@ -8,7 +8,9 @@ use arkret_models_collaboration::account_lifecycle::{
 use arkret_models_collaboration::http_bodies::{
     AccountDevicePairOutcome, AccountDevicePairRequestBody, ContactList, ContactRequestOutcome,
     ContactRequestRequestBody, ContactRespondOutcome, ContactRespondRequestBody, ContactTombstone,
-    ContactTombstoneRequestBody, DirectConversationResolveOutcome,
+    ContactTombstoneRequestBody, DevicePairingBootstrap, DevicePairingResolveRequestBody,
+    DevicePairingStageOutcome, DevicePairingStageRequestBody, DevicePairingStatusOutcome,
+    DevicePairingStatusRequestBody, DirectConversationResolveOutcome,
     DirectConversationResolveRequestBody,
 };
 use arkret_models_collaboration::session_grant_bodies::{
@@ -262,6 +264,41 @@ impl Client {
         request: &AccountDevicePairRequestBody,
     ) -> Result<AccountDevicePairOutcome> {
         self.post("/_arkret/gate/account/device-pair", request)
+            .await
+    }
+
+    /// `POST /_arkret/open/device-pairing/requests`
+    /// (`ak.open.device_pairing.command.stage`). Unauthenticated: the
+    /// not-yet-authorized device stages its device key and gets back a short
+    /// `device_pairing_request_id` + `pairing_code` to encode into its QR.
+    pub async fn device_pairing_stage(
+        &self,
+        request: &DevicePairingStageRequestBody,
+    ) -> Result<DevicePairingStageOutcome> {
+        self.post("/_arkret/open/device-pairing/requests", request)
+            .await
+    }
+
+    /// `POST /_arkret/open/device-pairing/resolve`
+    /// (`ak.open.device_pairing.query.resolve`). Unauthenticated, body-only: an
+    /// already-authorized device exchanges a scanned/pasted pairing token for the
+    /// staged `DevicePairingBootstrap`, then drives `account_device_pair`.
+    pub async fn device_pairing_resolve(
+        &self,
+        request: &DevicePairingResolveRequestBody,
+    ) -> Result<DevicePairingBootstrap> {
+        self.post("/_arkret/open/device-pairing/resolve", request)
+            .await
+    }
+
+    /// `POST /_arkret/open/device-pairing/requests/status`
+    /// (`ak.open.device_pairing.query.status`). Unauthenticated, body-only: the
+    /// new device polls whether a sibling has authorized its staged request.
+    pub async fn device_pairing_status(
+        &self,
+        request: &DevicePairingStatusRequestBody,
+    ) -> Result<DevicePairingStatusOutcome> {
+        self.post("/_arkret/open/device-pairing/requests/status", request)
             .await
     }
 
