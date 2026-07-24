@@ -88,6 +88,7 @@ impl InviteLocatorResolveRequestBody {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct InviteLocatorIssueRequestBody {
     #[serde(
         default,
@@ -131,6 +132,7 @@ impl InviteLocatorIssueRequestBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct InviteLocatorRotateRequestBody {
     pub locator_id: InviteLocatorId,
     #[serde(
@@ -171,6 +173,7 @@ impl InviteLocatorRotateRequestBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct InviteLocatorRevokeRequestBody {
     pub locator_id: InviteLocatorId,
 }
@@ -183,12 +186,14 @@ impl InviteLocatorRevokeRequestBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum InviteLocatorStatus {
     Revoked,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct InviteLocatorIssueOutcome {
     pub locator_id: InviteLocatorId,
     pub locator_token: String,
@@ -202,6 +207,7 @@ pub struct InviteLocatorIssueOutcome {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct InviteLocatorRevokeOutcome {
     pub locator_id: InviteLocatorId,
     pub status: InviteLocatorStatus,
@@ -279,6 +285,7 @@ impl InviteDeliveryTarget {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalLocator {
     pub schema: String,
     pub subject_id: Did,
@@ -350,6 +357,7 @@ impl PrincipalLocator {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalLocatorDisplayHint {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name_hint: Option<String>,
@@ -374,6 +382,7 @@ impl PrincipalLocatorDisplayHint {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum PrincipalLocatorProofPurpose {
     SubjectLocatorAuthorization,
     RecipientServiceAcceptance,
@@ -381,8 +390,10 @@ pub enum PrincipalLocatorProofPurpose {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalLocatorProof {
     pub proof_purpose: PrincipalLocatorProofPurpose,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub proof: DetachedPayloadProof,
 }
 
@@ -479,6 +490,7 @@ impl InviteDeliveryRequest {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum InviteDeliveryOutcomeStatus {
     Accepted,
     Duplicate,
@@ -487,6 +499,7 @@ pub enum InviteDeliveryOutcomeStatus {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct InviteDeliveryOutcome {
     pub status: InviteDeliveryOutcomeStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -504,6 +517,7 @@ pub struct InviteDeliveryOutcome {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum DisclosedOutcome {
     Delivered,
     Blocked,
@@ -512,6 +526,7 @@ pub enum DisclosedOutcome {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct InviteReceivePolicy {
     pub schema: String,
     pub subject_id: Did,
@@ -542,6 +557,7 @@ pub struct InviteReceivePolicy {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum DisclosureLevel {
     Opaque,
     Outcome,
@@ -549,6 +565,7 @@ pub enum DisclosureLevel {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DisclosurePolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub high_trust: Option<DisclosureLevel>,

@@ -233,10 +233,13 @@ pub struct AgentKeyScopeResource {
 /// must remain subsets, and provision constraints stay mandatory.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentKeyScope {
     pub actions: Vec<String>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub resources: Vec<AgentKeyScopeResource>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub constraints: Vec<GrantConstraint>,
 }
 
@@ -246,6 +249,7 @@ pub struct AgentKeyScope {
 /// (AKP-0008 §4.5).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentKeyRuntimeAttestationKind {
     SelfAsserted,
 }
@@ -255,6 +259,7 @@ pub enum AgentKeyRuntimeAttestationKind {
 /// `runtime_attestation` object.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentKeyAuthorizePayloadRuntimeAttestation {
     pub kind: AgentKeyRuntimeAttestationKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -372,6 +377,7 @@ pub struct AgentResumePayload {
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_sidecar_exposure_ack`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentSidecarExposureAck {
     #[serde(
         serialize_with = "serialize_canonical_timestamp",

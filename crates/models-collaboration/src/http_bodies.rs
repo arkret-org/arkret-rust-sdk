@@ -861,6 +861,7 @@ pub struct EventsRangeCompleteness {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ContactState {
     PendingOutgoing,
     PendingIncoming,
@@ -871,6 +872,7 @@ pub enum ContactState {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum DirectConversationBindingState {
     Active,
     Retired,
@@ -896,6 +898,7 @@ pub enum DirectConversationAuthoringKind {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DirectConversationSummary {
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
@@ -905,6 +908,7 @@ pub struct DirectConversationSummary {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactAgentProjection {
     pub agent_id: Did,
     pub controller_id: Did,
@@ -919,6 +923,7 @@ pub struct ContactAgentProjection {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactListRow {
     pub peer: Did,
     pub state: ContactState,
@@ -965,6 +970,7 @@ pub struct ContactListQuery {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactList {
     #[serde(default)]
     pub contacts: Vec<ContactListRow>,
@@ -975,6 +981,7 @@ pub struct ContactList {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactRequestOutcome {
     pub request_event_ref: EventId,
     #[serde(default)]
@@ -983,6 +990,7 @@ pub struct ContactRequestOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactRespondRequestBody {
     pub request_id: EventId,
     pub requester: Did,
@@ -999,6 +1007,7 @@ pub struct ContactRespondRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactRespondOutcome {
     pub response_event_ref: EventId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1007,6 +1016,7 @@ pub struct ContactRespondOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactTombstoneRequestBody {
     pub contact: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1027,6 +1037,7 @@ pub struct ContactTombstoneRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactTombstone {
     pub tombstone_event_ref: EventId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1255,6 +1266,7 @@ pub struct EventsQueryOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactRequestRequestBody {
     pub target: Did,
     #[serde(default)]

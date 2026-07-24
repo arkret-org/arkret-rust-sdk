@@ -24,6 +24,7 @@ pub const AGENT_PARTICIPATION_ACCOUNT_DATA_TYPE: &str = "ak.agent.participation.
 /// implication: `a ⊆ b` iff every bit set in `a` is set in `b`.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentParticipation {
     /// Agent may author `ak.message.create` / `ak.reaction.add` as
     /// itself (reply-as-agent) in this scope.
@@ -140,6 +141,7 @@ impl From<AgentParticipation> for AgentParticipationCeiling {
 /// selection and at which governance can declare a ceiling.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentParticipationScope {
     Realm {
         realm_id: RealmId,
@@ -288,6 +290,7 @@ pub fn validate_selection_within_ceiling(
 /// Request body for `ak.self.agent.participation.resource.replace`
 /// (`PUT /_arkret/self/agents/{agent_id}/participation`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentParticipationReplaceRequestBody {
     #[serde(rename = "participation_scope")]
     pub scope: AgentParticipationScope,
@@ -297,6 +300,7 @@ pub struct AgentParticipationReplaceRequestBody {
 /// One resolved per-scope participation entry: the controller-set
 /// selection, the governance ceiling, and their effective intersection.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentParticipationEntry {
     #[serde(rename = "participation_scope")]
     pub scope: AgentParticipationScope,
@@ -307,6 +311,7 @@ pub struct AgentParticipationEntry {
 
 /// Response for `ak.self.agent.participation.{set,get}`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentParticipationOutcome {
     pub ok: bool,
     pub agent_id: String,

@@ -19,6 +19,7 @@ pub type Base64url = String;
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/grant_snapshot`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct GrantSnapshot {
     pub grant_id: GrantId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -50,6 +51,7 @@ pub struct DeviceMetadata {
 /// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/agent_key_authorization_state`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentKeyAuthorizationState {
     pub key_id: String,
     pub verification_method: String,
@@ -78,6 +80,7 @@ pub struct PendingMemberReconciliationItem {
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/public_key`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PublicKey {
     pub kty: NonEmptyString,
     pub kid: NonEmptyString,

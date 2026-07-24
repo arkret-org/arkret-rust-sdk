@@ -142,6 +142,7 @@ pub struct NotificationContainer {
 /// `spec/v1/artifacts/schemas/device-message.schema.json`.
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DeviceMessageEnvelope {
     pub message_id: DeviceMessageId,
     pub kind: ProtocolKind,
@@ -397,12 +398,14 @@ pub struct RealmSyncEntry {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DeviceMessagesSendRequestBody {
     pub messages: BTreeMap<Did, BTreeMap<DeviceId, DeviceMessageTarget>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DeviceMessageTarget {
     pub message_id: DeviceMessageId,
     pub kind: ProtocolKind,
@@ -415,6 +418,7 @@ pub struct DeviceMessageTarget {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DeviceMessagesSendOutcome {
     pub ok: bool,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -424,6 +428,7 @@ pub struct DeviceMessagesSendOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DeviceMessagesGetOutcome {
     pub messages: Vec<DeviceMessageEnvelope>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -439,11 +444,13 @@ pub struct DeviceMessagesGetOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DeviceMessagesAckRequestBody {
     pub ack_token: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DeviceMessagesAckOutcome {
     pub ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]

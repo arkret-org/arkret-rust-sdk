@@ -11,6 +11,7 @@ use crate::governance::grant_constraint::CapabilityGrant;
 use crate::governance::operation_wire::Invite;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AuthzCheckRequestBody {
     pub actor_id: Did,
     pub action: String,
@@ -24,6 +25,7 @@ pub struct AuthzCheckRequestBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AuthzCheckOutcome {
     pub decision: AuthzDecision,
     #[serde(default)]

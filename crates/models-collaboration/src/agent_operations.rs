@@ -27,6 +27,7 @@ pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_SCHEMA: &str =
 /// immutable requested-scope ceiling.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRequestedScopeDisclosure {
     pub schema: String,
     pub request_id: RequestId,
@@ -137,6 +138,7 @@ impl AgentRequestedScopeDisclosure {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentKeyPairRequestBody {
     pub pairing_request_id: NonEmptyString,
     pub agent_id: Did,
@@ -146,10 +148,12 @@ pub struct AgentKeyPairRequestBody {
     pub requested_scope_disclosure: AgentRequestedScopeDisclosure,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub authorize_event: Event,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentKeyPairOutcome {
     pub ok: bool,
     pub authorized_event_ref: EventId,
@@ -157,6 +161,7 @@ pub struct AgentKeyPairOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRuntimeApprovalRequestBody {
     pub pairing_code: NonEmptyString,
     pub pairing_request_id: NonEmptyString,
@@ -170,6 +175,7 @@ pub struct AgentRuntimeApprovalRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRuntimeApprovalOutcome {
     pub ok: bool,
     pub approval_request_id: String,
@@ -183,6 +189,7 @@ pub struct AgentRuntimeApprovalOutcome {
 /// `agent-operations.schema.json#/$defs/agent_runtime_approval_status_request_body`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRuntimeApprovalStatusRequestBody {
     pub pairing_request_id: String,
     pub pairing_code: String,
@@ -197,6 +204,7 @@ pub struct AgentRuntimeApprovalStatusRequestBody {
 /// `agent-operations.schema.json#/$defs/agent_runtime_approval_status_outcome`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRuntimeApprovalStatusOutcome {
     pub ok: bool,
     pub status: AgentStatus,
@@ -212,6 +220,7 @@ pub struct AgentRuntimeApprovalStatusOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "phase", rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentProvisionRequestBody {
     Prepare {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -232,6 +241,7 @@ pub enum AgentProvisionRequestBody {
         #[serde(skip_serializing_if = "Option::is_none")]
         avatar_blob_ref: Option<BlobRef>,
         requested_scope: AgentKeyScope,
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         provision_events: Box<AgentProvisionEvents>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pairing_ttl_ms: Option<u64>,
@@ -267,6 +277,7 @@ pub struct AgentProvisionEvents {
 /// `agent-operations.schema.json#/$defs/agent_renew_pairing_request_body`.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRenewPairingRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing_ttl_ms: Option<u64>,
@@ -285,18 +296,21 @@ pub enum AgentPcrRecoveryStatus {
 /// carry an accepted backup reference.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentPcrRecoveryState {
     Pending,
     Ready {
         backup_id: BackupId,
         series_id: BackupSeriesId,
         series_seq: u64,
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         managed_frontier_ref: ManagedFrontierRef,
     },
     Stale {
         backup_id: BackupId,
         series_id: BackupSeriesId,
         series_seq: u64,
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         managed_frontier_ref: ManagedFrontierRef,
     },
 }
@@ -319,12 +333,14 @@ impl AgentPcrRecoveryState {
 /// constrained to pending and carries no backup reference.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentProvisionPcrRecovery {
     pub status: AgentProvisionPcrRecoveryStatus,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentProvisionPcrRecoveryStatus {
     #[default]
     Pending,
@@ -332,6 +348,7 @@ pub enum AgentProvisionPcrRecoveryStatus {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentPairingMode {
     Bootstrap,
     Replacement,
@@ -339,6 +356,7 @@ pub enum AgentPairingMode {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentProvisionOutcome {
     AwaitingControllerEvents {
         agent_id: Did,
@@ -355,6 +373,7 @@ pub enum AgentProvisionOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentProvisionComplete {
     pub agent_id: Did,
     pub principal_control_realm_id: RealmId,
@@ -373,6 +392,7 @@ pub struct AgentProvisionComplete {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRenewPairingOutcome {
     pub agent_id: Did,
     pub principal_control_realm_id: RealmId,
@@ -398,6 +418,7 @@ pub struct AgentRenewPairingOutcome {
 /// `ak.agent.key.authorize` and the effective-permission intersection).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentPairingBootstrap {
     pub arkret_base_url: String,
     pub service_id: Did,
@@ -419,6 +440,7 @@ pub struct AgentPairingResolveRequestBody {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentStatus {
     PendingRuntimeKey,
     Active,
@@ -429,6 +451,7 @@ pub enum AgentStatus {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentProjection {
     pub agent_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -455,6 +478,7 @@ pub struct AgentProjection {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentLifecycleState {
     #[default]
     Active,
@@ -474,12 +498,14 @@ impl AgentLifecycleState {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentLifecycleOutcome {
     pub ok: bool,
     pub status: AgentLifecycleState,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentList {
     pub agents: Vec<AgentProjection>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -488,6 +514,7 @@ pub struct AgentList {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentView {
     pub agent: AgentProjection,
     pub status: AgentStatus,
@@ -498,41 +525,50 @@ pub struct AgentView {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentPauseRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     /// Closed Agent-PCR lifecycle Event authored by the Agent principal and
     /// executed/signed by its controller delegation.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub lifecycle_event: Event,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentResumeRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sidecar_exposure_ack: Option<AgentSidecarExposureAck>,
     /// Closed Agent-PCR lifecycle Event authored by the Agent principal and
     /// executed/signed by its controller delegation.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub lifecycle_event: Event,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentDeactivateRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentGrantAttachRequestBody {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub grant: CapabilityGrant,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentGrantAttachOutcome {
     pub ok: bool,
     pub grant_id: GrantId,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentGrantDetachOutcome {
     pub ok: bool,
     #[serde(
@@ -1774,6 +1810,7 @@ pub enum AgentOperations {
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/key_state`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct KeyState {
     pub agent_id: Did,
     pub controller_id: Did,

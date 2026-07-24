@@ -51,6 +51,7 @@ pub fn generate_cursor_handle() -> Result<String> {
 /// Client SDKs / application layers MUST carry the encoded token verbatim.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct Cursor {
     /// Cursor version. Must be "1" for Arkret v1.
     ///
@@ -99,6 +100,7 @@ pub struct Cursor {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum CursorPurpose {
     Stream,
     Barrier,

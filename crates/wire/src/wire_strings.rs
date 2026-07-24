@@ -9,6 +9,7 @@ use serde_json::Value;
 
 /// Counterpart for JSON Schema string definitions with `minLength: 1`.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct NonEmptyString(String);
 
 impl NonEmptyString {
@@ -85,6 +86,7 @@ impl<'de> Deserialize<'de> for NonEmptyString {
 /// Arkret protocol kind matching `^ak\.[a-z0-9_]+(\.[a-z0-9_]+)*$`.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ProtocolKind(String);
 
 impl ProtocolKind {
@@ -244,6 +246,7 @@ non_empty_wire_string!(
 /// Non-empty unpadded base64url value (`[A-Za-z0-9_-]+`).
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct Base64UrlString(String);
 
 impl Base64UrlString {
@@ -315,6 +318,7 @@ impl<'de> Deserialize<'de> for Base64UrlString {
 /// Open JSON object that is required to contain at least one property.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(transparent)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct NonEmptyJsonObject(BTreeMap<String, Value>);
 
 impl NonEmptyJsonObject {
@@ -399,6 +403,7 @@ impl<'de> Deserialize<'de> for MimiRoomUri {
 /// DID URL with a required verification-method fragment.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DidUrl(String);
 
 impl DidUrl {

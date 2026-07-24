@@ -63,6 +63,7 @@ impl PeerContactFactKind {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ContactIntroductionEvidence {
     LocatorRef {
         principal_locator: PrincipalLocator,
@@ -78,7 +79,9 @@ pub enum ContactIntroductionEvidence {
         target_member_ref: EventId,
     },
     HandleClaim {
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         handle: Handle,
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         handle_claim: Box<HandleClaim>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         resolved_by: Option<Did>,

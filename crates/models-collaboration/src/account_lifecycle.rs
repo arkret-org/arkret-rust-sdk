@@ -29,6 +29,7 @@ use crate::objects::account_status::AccountStatus;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ConsentState {
     Active,
     Pending,
@@ -37,6 +38,7 @@ pub enum ConsentState {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ConsentCellView {
     pub ok: bool,
     pub cell_id: String,
@@ -73,6 +75,7 @@ pub struct ConsentCellView {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ConsentCellList {
     pub ok: bool,
     #[serde(default)]
@@ -81,6 +84,7 @@ pub struct ConsentCellList {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ConsentUpdateRequestBody {
     pub peer_did: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -96,6 +100,7 @@ pub struct ConsentUpdateRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ConsentRequestRequestBody {
     pub holder_did: Did,
     #[serde(skip_serializing_if = "Option::is_none")]

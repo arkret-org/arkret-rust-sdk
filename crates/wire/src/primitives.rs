@@ -348,6 +348,7 @@ pub enum PolicyEffect {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AuthzDecision {
     Allow,
     SoftDeny,
@@ -362,6 +363,7 @@ pub type Decision = AuthzDecision;
 /// Spec `AuthzCheckOutcome.freshness_state` enum.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum FreshnessState {
     Fresh,
     Stale,
@@ -372,6 +374,7 @@ pub enum FreshnessState {
 /// unknown revocation freshness. Spec `AuthzCheckOutcome.notary_status` enum.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum NotaryStatus {
     Fresh,
     Lagging,
@@ -914,6 +917,7 @@ fn proof_audience_covers_expected(proof: Option<&Audience>, expected: Option<&Au
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Proof {
     pub kind: String,

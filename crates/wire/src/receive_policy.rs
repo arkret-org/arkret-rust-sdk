@@ -4,6 +4,7 @@ use crate::Did;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum InviteReceiveAction {
     Drop,
     Quarantine,
@@ -12,6 +13,7 @@ pub enum InviteReceiveAction {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum UnknownInviteAction {
     Drop,
     Quarantine,
