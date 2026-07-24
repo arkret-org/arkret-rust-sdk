@@ -32,6 +32,7 @@ pub enum IdentifierError {
 macro_rules! id_type {
     ($name:ident, $expect:expr) => {
         #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
         pub struct $name(String);
 
         impl $name {

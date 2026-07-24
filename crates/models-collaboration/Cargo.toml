@@ -14,8 +14,15 @@ version.workspace = true
 [features]
 default = []
 # OpenAPI `ToSchema` derives on the collaboration wire types. Off by default so
-# the data-layer graph stays framework-free; service crates opt in.
-openapi = ["dep:salvo-oapi"]
+# the data-layer graph stays framework-free; service crates opt in. Forwards to
+# the wire/identifier newtypes and enables salvo-oapi's chrono schemas that the
+# derived records reference (`Hash`, `RealmId`, `PayloadProof`, `DateTime<Utc>`).
+openapi = [
+    "dep:salvo-oapi",
+    "arkret-wire/openapi",
+    "arkret-identifiers/openapi",
+    "salvo-oapi/chrono",
+]
 
 [dependencies]
 arkret-canonical = {workspace = true}

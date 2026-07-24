@@ -13,11 +13,17 @@ version.workspace = true
 
 [features]
 default = []
+# OpenAPI `ToSchema` derives on the shared wire primitives. Off by default so
+# the data-layer graph stays framework-free; service crates opt in. Forwards to
+# the identifier newtypes and enables salvo-oapi's chrono schemas for the
+# canonical `DateTime<Utc>` timestamps carried by proofs and records.
+openapi = ["dep:salvo-oapi", "arkret-identifiers/openapi", "salvo-oapi/chrono"]
 
 [dependencies]
 arkret-canonical = {workspace = true}
 arkret-identifiers = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
+salvo-oapi = {workspace = true,optional = true}
 getrandom = {workspace = true}
 hex = {workspace = true}
 idna = {workspace = true}

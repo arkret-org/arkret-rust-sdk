@@ -23,6 +23,9 @@ default = []
 # + serialize/deserialize traits WITHOUT linking libpq, so this stays a pure
 # Rust dep suitable for the protocol crate. Never activated on wasm builds.
 diesel = ["dep:diesel"]
+# OpenAPI `ToSchema` derives on the string-newtype identifiers. Off by default
+# so the data-layer graph stays framework-free; service crates opt in.
+openapi = ["dep:salvo-oapi"]
 
 [dependencies]
 arkret-canonical = {workspace = true}
@@ -39,6 +42,7 @@ diesel = {workspace = true,features = [
     "uuid",
 ],optional = true}
 getrandom = {workspace = true}
+salvo-oapi = {workspace = true,optional = true}
 serde = {workspace = true}
 thiserror = {workspace = true}
 uuid = {workspace = true}

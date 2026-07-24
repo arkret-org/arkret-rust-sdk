@@ -97,6 +97,7 @@ pub enum AgentHumanApprovalErrorDetailsError {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ErrorDetail {
     pub code: String,
     pub message: String,
@@ -146,6 +147,7 @@ impl ErrorDetail {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ErrorEnvelope {
     pub ok: bool,
     pub error: ErrorDetail,

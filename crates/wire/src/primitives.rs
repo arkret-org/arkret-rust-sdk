@@ -795,6 +795,7 @@ impl EncryptedPayloadScheme {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(untagged)]
 pub enum Audience {
     Single(String),
@@ -934,6 +935,7 @@ pub struct Proof {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "snake_case")]
 pub enum PayloadProofPurpose {
@@ -942,6 +944,7 @@ pub enum PayloadProofPurpose {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PayloadProof {
     pub kind: String,

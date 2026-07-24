@@ -287,6 +287,7 @@ dependencies = [
  "diesel",
  "getrandom 0.2.17",
  "getrandom 0.4.2",
+ "salvo-oapi",
  "serde",
  "serde_json",
  "thiserror",
@@ -589,6 +590,7 @@ dependencies = [
  "hex",
  "idna",
  "precis-profiles",
+ "salvo-oapi",
  "serde",
  "serde_json",
  "thiserror",
@@ -913,8 +915,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
 dependencies = [
  "iana-time-zone",
+ "js-sys",
  "num-traits",
  "serde",
+ "wasm-bindgen",
  "windows-link",
 ]
 
@@ -3708,6 +3712,7 @@ checksum = "61e20c7d23233e09336e99efbcb02c1725ecaf5cd25519f007f27c849336e2f5"
 dependencies = [
  "base64",
  "bytes",
+ "chrono",
  "futures-util",
  "http",
  "indexmap",
