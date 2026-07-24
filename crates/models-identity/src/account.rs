@@ -149,12 +149,14 @@ pub struct AccountRegistrationAudit {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataReplaceRequestBody {
     pub content: Value,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataEntry {
     pub data_type: String,
     pub content: Value,
@@ -167,6 +169,7 @@ pub struct AccountDataEntry {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataList {
     #[serde(default)]
     pub entries: Vec<AccountDataEntry>,
@@ -174,6 +177,7 @@ pub struct AccountDataList {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataDeleteOutcome {
     pub ok: bool,
     pub data_type: String,
