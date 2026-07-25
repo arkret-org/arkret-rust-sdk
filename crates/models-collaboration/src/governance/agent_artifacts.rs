@@ -8,7 +8,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{Base64UrlString, Did, EventId, GrantId, Hash, NonEmptyString};
+use arkret_wire::{Base64UrlString, Did, EventId, GrantId, Hash, NonEmptyString, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -22,6 +22,7 @@ pub type Base64url = String;
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct GrantSnapshot {
     pub grant_id: GrantId,
+    pub realm_id: RealmId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

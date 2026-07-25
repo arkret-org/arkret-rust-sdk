@@ -1,7 +1,9 @@
 //! Personal-agent Event materialization.
 
+use arkret_models_collaboration::agent_operations::AgentLifecycleState;
 use arkret_models_collaboration::events_payloads::agent::{
-    AgentKeyAuthorizePayload, AgentPausePayload, AgentResumePayload, AgentSidecarExposureAck,
+    AgentDeactivatePayload, AgentKeyAuthorizePayload, AgentKeyRevokePayload, AgentPausePayload,
+    AgentResumePayload, AgentSidecarExposureAck,
 };
 use arkret_wire::{CellRef, Did, Effect, Event, EventKind, Hlc, LatticeOp, LatticeOpType, RealmId};
 use chrono::{DateTime, Utc};
@@ -21,6 +23,30 @@ pub fn build_agent_key_authorize_event(
 ) -> Result<Event> {
     let mut event = Event::new(
         EventKind::AGENT_KEY_AUTHORIZE,
+        realm_id,
+        agent_actor_id,
+        actor_seq,
+        hlc,
+        serde_json::to_value(payload)?,
+    )?;
+    event.executed_by = Some(controller_id);
+    event.authorization_ref = Some(controller_authorization_ref.into());
+    Ok(event)
+}
+
+/// Build an unsigned controller-executed `ak.agent.key.revoke` Event draft.
+#[allow(clippy::too_many_arguments)]
+pub fn build_agent_key_revoke_event(
+    payload: &AgentKeyRevokePayload,
+    realm_id: RealmId,
+    agent_actor_id: Did,
+    controller_id: Did,
+    controller_authorization_ref: impl Into<String>,
+    actor_seq: u64,
+    hlc: Hlc,
+) -> Result<Event> {
+    let mut event = Event::new(
+        EventKind::AGENT_KEY_REVOKE,
         realm_id,
         agent_actor_id,
         actor_seq,
@@ -150,6 +176,53 @@ pub fn build_agent_resume_event(
     })
 }
 
+/// Build an unsigned controller-executed `ak.self.agent.deactivate` Event
+/// draft. Deactivation may start from either active or paused and is terminal.
+#[allow(clippy::too_many_arguments)]
+pub fn build_agent_deactivate_event(
+    agent_id: Did,
+    controller_id: Did,
+    principal_control_realm_id: RealmId,
+    controller_authorization_ref: impl Into<String>,
+    previous_status: AgentLifecycleState,
+    reason: Option<String>,
+    actor_seq: u64,
+    hlc: Hlc,
+    status_changed_at: DateTime<Utc>,
+) -> Result<Event> {
+    let previous_status = match previous_status {
+        AgentLifecycleState::Active => "active",
+        AgentLifecycleState::Paused => "paused",
+        AgentLifecycleState::Deactivated => {
+            return Err(crate::EventDraftError::Protocol(
+                "cannot author an Agent deactivation from terminal deactivated state".to_owned(),
+            ));
+        }
+    };
+    let payload = serde_json::to_value(AgentDeactivatePayload {
+        agent_id: agent_id.clone(),
+        controller_id: controller_id.clone(),
+        transition: "deactivate".to_owned(),
+        previous_status: previous_status.to_owned(),
+        status_changed_at,
+        reason: reason.clone(),
+    })?;
+    build_agent_lifecycle_event(AgentLifecycleEventInput {
+        kind: EventKind::SELF_AGENT_DEACTIVATE,
+        payload,
+        agent_id,
+        controller_id,
+        principal_control_realm_id,
+        controller_authorization_ref: controller_authorization_ref.into(),
+        previous_status,
+        next_status: "deactivated",
+        reason,
+        actor_seq,
+        hlc,
+        status_changed_at,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use arkret_models_collaboration::events_payloads::agent::{
@@ -257,5 +330,25 @@ mod tests {
         assert_eq!(resume.kind.as_str(), EventKind::SELF_AGENT_RESUME);
         assert_eq!(resume.effects[0].op.from, Some(json!("paused")));
         assert_eq!(resume.effects[0].op.to, Some(json!("active")));
+
+        let deactivate = build_agent_deactivate_event(
+            resume.actor_id.clone(),
+            resume.executed_by.clone().unwrap(),
+            realm(),
+            resume.authorization_ref.clone().unwrap(),
+            AgentLifecycleState::Paused,
+            Some("user_requested".to_owned()),
+            10,
+            Hlc::new("01970e589d21-000a-a13f9c2e").unwrap(),
+            changed_at,
+        )
+        .unwrap();
+        assert_eq!(deactivate.kind.as_str(), EventKind::SELF_AGENT_DEACTIVATE);
+        assert_eq!(deactivate.effects[0].op.from, Some(json!("paused")));
+        assert_eq!(deactivate.effects[0].op.to, Some(json!("deactivated")));
+        assert_eq!(
+            deactivate.effects[0].op.reason.as_deref(),
+            Some("user_requested")
+        );
     }
 }

@@ -590,6 +590,23 @@ pub struct AgentResumeRequestBody {
 pub struct AgentDeactivateRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    /// Closed Agent-PCR terminal lifecycle Event authored by the Agent
+    /// principal and executed/signed by its controller delegation.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub lifecycle_event: Event,
+    /// Closed `ak.agent.key.revoke` Events covering every active Agent key.
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
+    pub key_revocation_events: Vec<Event>,
+    /// Closed controller-authored `ak.capability.revoke` Events covering every
+    /// unrevoked grant held by the Agent in its owning Realm.
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
+    pub capability_revocation_events: Vec<Event>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
