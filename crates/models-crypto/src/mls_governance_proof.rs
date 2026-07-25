@@ -46,6 +46,7 @@ const MLS_GOVERNANCE_MAX_CHUNK_ITEM_BYTES: usize = 3_500_000;
 const POLICY_COMPONENTS_CELL: &str = "ak.component.realm.policy_components.v1";
 const PLAINTEXT_VISIBLE_SERVICES_CELL: &str = "ak.component.realm.plaintext_visible_services.v1";
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceProofRequest {
@@ -133,6 +134,7 @@ impl MlsGovernanceProofRequest {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceProofCollectionTotals {
@@ -142,6 +144,7 @@ pub struct MlsGovernanceProofCollectionTotals {
     pub frontier_events: u32,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceProofChunkItemLimits {
@@ -162,6 +165,7 @@ impl Default for MlsGovernanceProofChunkItemLimits {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceProofChunkManifest {
@@ -175,12 +179,17 @@ pub struct MlsGovernanceProofChunkManifest {
     pub max_items_per_chunk: MlsGovernanceProofChunkItemLimits,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "collection", rename_all = "snake_case", deny_unknown_fields)]
 pub enum MlsGovernanceProofChunk {
     SealPath {
         chunk_index: u32,
         start_index: u32,
+        #[cfg_attr(
+            feature = "openapi",
+            salvo(schema(value_type = Vec<serde_json::Value>))
+        )]
         items: Vec<Seal>,
         chunk_digest: Hash,
         chunk_proof: Vec<Hash>,
@@ -202,6 +211,10 @@ pub enum MlsGovernanceProofChunk {
     FrontierEvents {
         chunk_index: u32,
         start_index: u32,
+        #[cfg_attr(
+            feature = "openapi",
+            salvo(schema(value_type = Vec<serde_json::Value>))
+        )]
         items: Vec<Event>,
         chunk_digest: Hash,
         chunk_proof: Vec<Hash>,
@@ -312,6 +325,7 @@ impl MlsGovernanceProofChunk {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceProofBundle {
@@ -329,6 +343,7 @@ pub struct MlsGovernanceProofBundle {
     pub chunk: MlsGovernanceProofChunk,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MaterializedMlsGovernanceProofBundle {
     pub bundle_version: u8,
@@ -341,12 +356,21 @@ pub struct MaterializedMlsGovernanceProofBundle {
     pub governance_binding: MlsGovernanceBindingPayload,
     pub trusted_anchor_seal_id: SealId,
     pub accepted_seal_id: SealId,
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
     pub seal_path: Vec<Seal>,
     pub covered_event_digests: Vec<Hash>,
     pub control_state: Vec<MlsGovernanceControlStateLeaf>,
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
     pub frontier_events: Vec<Event>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceControlStateLeaf {
@@ -354,6 +378,7 @@ pub struct MlsGovernanceControlStateLeaf {
     pub state: MlsGovernanceControlStateValue,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceControlStateValue {

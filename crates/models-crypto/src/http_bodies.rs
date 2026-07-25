@@ -20,6 +20,7 @@ use crate::artifacts_keys::{
 use crate::key_backup::KeyBackup;
 use crate::mls_records::MlsKeyPackageRecord;
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyPackagesUploadRequestBody {
     pub principal_id: Did,
@@ -46,6 +47,7 @@ pub struct KeyPackagesUploadRequestBody {
 /// The request-level signature and every optional entry signature are absent
 /// by construction, so producers and verifiers cannot accidentally sign
 /// different upload shapes.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesUploadUnsignedRequest {
@@ -171,6 +173,7 @@ pub fn keypackage_upload_entry_signing_input(
     )
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyPackagesUploadOutcome {
     pub accepted: u32,
@@ -182,6 +185,7 @@ pub struct KeyPackagesUploadOutcome {
     pub available_count: Option<u64>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyPackagesClaimRequestBody {
     pub target_principal_id: Did,
@@ -208,6 +212,7 @@ pub struct KeyPackagesClaimRequestBody {
     pub proofs: Vec<Proof>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyPackagesClaimOutcome {
     #[serde(default)]
@@ -218,6 +223,7 @@ pub struct KeyPackagesClaimOutcome {
     pub available_count: Option<u64>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PeerKeyPackageClaimPurpose {
@@ -225,6 +231,7 @@ pub enum PeerKeyPackageClaimPurpose {
     DirectConversation,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackageRequesterAuthorization {
@@ -243,6 +250,7 @@ pub struct PeerKeyPackageRequesterAuthorization {
     pub signature: KeyOperationSignature,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimUnsignedRequest {
@@ -273,6 +281,7 @@ pub struct PeerKeyPackagesClaimUnsignedRequest {
     pub allow_last_resort: Option<bool>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimTransportBinding {
@@ -282,6 +291,7 @@ pub struct PeerKeyPackagesClaimTransportBinding {
     pub destination_trust_domain: TypedTrustDomainId,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimAuthorizationDraft {
@@ -289,6 +299,7 @@ pub struct PeerKeyPackagesClaimAuthorizationDraft {
     pub transport_binding: PeerKeyPackagesClaimTransportBinding,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimRequestBody {
@@ -319,6 +330,10 @@ pub struct PeerKeyPackagesClaimRequestBody {
     pub allow_last_resort: Option<bool>,
     pub requester_authorization: PeerKeyPackageRequesterAuthorization,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Option<serde_json::Value>))
+    )]
     pub requester_signing_key_evidence: Option<FederatedDeviceSigningKeyEvidence>,
 }
 
@@ -382,6 +397,7 @@ impl PeerKeyPackagesClaimRequestBody {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackageClaimReceipt {
@@ -404,6 +420,7 @@ pub struct PeerKeyPackageClaimReceipt {
     pub signature: KeyOperationSignature,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimOutcome {
@@ -438,6 +455,7 @@ impl PeerKeyPackagesClaimOutcome {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimQueryRequestBody {
@@ -454,6 +472,7 @@ impl PeerKeyPackagesClaimQueryRequestBody {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PeerKeyPackagesClaimQueryState {
@@ -465,6 +484,7 @@ pub enum PeerKeyPackagesClaimQueryState {
     Revoked,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimQueryOutcome {
@@ -522,6 +542,7 @@ impl PeerKeyPackagesClaimQueryOutcome {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PeerKeyPackageClaimErrorCode {
     #[serde(rename = "claim_failed")]
@@ -661,6 +682,7 @@ pub fn peer_keypackage_claim_receipt_signing_bytes(
     Ok(bytes)
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyPackagesConsumeRequestBody {
     #[serde(default)]
@@ -681,6 +703,7 @@ pub struct KeyPackagesConsumeRequestBody {
     pub epoch: Option<u64>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesConsumeUnsignedRequest {
@@ -740,6 +763,7 @@ pub fn keypackages_consume_signing_input(
     keypackage_signing_input(KEYPACKAGES_CONSUME_SIGNATURE_DOMAIN, unsigned)
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyPackagesConsumeOutcome {
     #[serde(default)]
@@ -748,6 +772,7 @@ pub struct KeyPackagesConsumeOutcome {
     pub failures: Vec<Failure>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyPackagesRevokeRequestBody {
     #[serde(default)]
@@ -758,6 +783,7 @@ pub struct KeyPackagesRevokeRequestBody {
     pub reason: Option<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesRevokeUnsignedRequest {
@@ -797,6 +823,7 @@ pub fn keypackages_revoke_signing_input(
     keypackage_signing_input(KEYPACKAGES_REVOKE_SIGNATURE_DOMAIN, unsigned)
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyPackagesRevokeOutcome {
     #[serde(default)]
@@ -807,12 +834,14 @@ pub struct KeyPackagesRevokeOutcome {
 
 /// Transparent wrapper over `KeyBackup` for the `ak.self.keys.command.put_backup`
 /// request body Salvo OpenAPI bindings.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct KeysBackupsPutRequestBody(pub KeyBackup);
 
 /// Transparent wrapper over `KeyBackup` for the `ak.self.keys.query.get_backup`
 /// outcome Salvo OpenAPI bindings.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct KeysBackupsGetOutcome(pub KeyBackup);

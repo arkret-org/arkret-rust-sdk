@@ -10,6 +10,7 @@
 use arkret_wire::{DeviceId, Did, Hash};
 use serde::{Deserialize, Serialize};
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MlsProposalEnvelope {
     pub group_id: String,
@@ -37,6 +38,7 @@ pub struct MlsProposalEnvelope {
 /// 2. `policy_root:        bstr` — Merkle root of policy events
 /// 3. `capability_root:    bstr` — Merkle root of capability events
 /// 4. `discussion_metadata_digest: bstr` — hash of discussion-track metadata
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MlsAppStateRef {
     /// Hex-encoded SHA-256 of the canonical state root.
@@ -113,6 +115,7 @@ impl MlsAppStateRef {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MlsCommitEnvelope {
     pub group_id: String,
@@ -127,6 +130,7 @@ pub struct MlsCommitEnvelope {
     pub app_state_ref: Option<MlsAppStateRef>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MlsWelcomeEnvelope {
     pub group_id: String,

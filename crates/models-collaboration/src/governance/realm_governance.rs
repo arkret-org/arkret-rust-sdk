@@ -200,6 +200,7 @@ pub const REALM_LINK_ALLOWED_TRANSITIONS: &[(RealmLinkStatus, RealmLinkStatus)] 
 ///
 /// Cell family: `ak.component.realm.link.v1` (`fsm` / `reject`). Cell
 /// subject key: `(target_realm_id, link_kind)` inside the envelope Realm.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmLinkPayload {
@@ -421,6 +422,7 @@ pub struct RealmEffectivePolicyOutcome {
     pub inheritance_mode: RealmEffectivePolicyInheritanceMode,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmLifecycleView {
@@ -446,6 +448,7 @@ pub struct RealmLifecycleView {
     pub freeze_expires_at: Option<DateTime<Utc>>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmExport {
@@ -460,6 +463,7 @@ pub struct RealmExport {
     pub events: Vec<BTreeMap<String, Value>>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmModerationInheritanceMode {
@@ -467,6 +471,7 @@ pub enum RealmModerationInheritanceMode {
     Organization,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RealmEffectiveModerationPolicy {
     pub realm_id: RealmId,
@@ -488,15 +493,19 @@ pub struct RealmEffectiveModerationPolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub policy_merge_strategy: Option<String>,
     #[serde(default, flatten)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub extra: BTreeMap<String, Value>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct RealmModerationPolicyReplaceRequestBody {
     #[serde(flatten)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub policy: BTreeMap<String, Value>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmModerationPolicyDocument {
@@ -511,6 +520,7 @@ pub struct RealmModerationPolicyDocument {
     pub updated_at: DateTime<Utc>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmPolicyServerOnTimeout {
@@ -518,6 +528,7 @@ pub enum RealmPolicyServerOnTimeout {
     Deny,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmPolicyServerView {
@@ -535,6 +546,7 @@ pub struct RealmPolicyServerView {
     pub from_org_fallback: bool,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmPolicyServerReplaceRequestBody {
@@ -568,6 +580,7 @@ pub enum RealmOrganizationLifecyclePhase {
 /// Declares which policy names and capability bundles a Realm inherits
 /// from a parent (source) Realm. The reducer rejects payloads with
 /// `max_depth > 1` (the wire spec currently caps inheritance at depth 1).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RealmInheritancePolicy {
     /// Parent Realm whose policies / capabilities are being inherited.
@@ -622,10 +635,13 @@ impl RealmInheritancePolicy {
 /// inheritance policy, project the resulting bundle) lives in the
 /// reducer's audit pipeline. At schema level the soland reducer accepts
 /// the payload + projects the cell so downstream consumers can introspect it.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CapabilityDerived {
     pub capability_id: CapabilityId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub source_grant_ref: EventRef,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub source_realm_inheritance_policy_ref: EventRef,
     /// Causal frontier (free-form string per spec event-kind-registry)
     /// that the derived capability is sealed against. Reducer treats

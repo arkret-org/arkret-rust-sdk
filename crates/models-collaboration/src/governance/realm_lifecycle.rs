@@ -6,6 +6,7 @@ use serde_json::Value;
 use crate::ObjectRef;
 
 /// Closed v1 value set for `ak.realm.join_rule`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinRuleValue {
@@ -18,6 +19,7 @@ pub enum RealmJoinRuleValue {
 }
 
 /// Strong payload for `ak.realm.join_rule`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmJoinRulePayload {
@@ -36,6 +38,7 @@ impl RealmJoinRulePayload {
 }
 
 /// Closed v1 value set for `ak.realm.discovery`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmDiscoveryValue {
@@ -48,6 +51,7 @@ pub enum RealmDiscoveryValue {
 }
 
 /// Strong payload for `ak.realm.discovery`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmDiscoveryPayload {
@@ -70,6 +74,7 @@ impl RealmDiscoveryPayload {
 ///
 /// Reversible boolean register (there is no separate `ak.realm.restore`):
 /// `archived:false` un-archives. `additionalProperties:false`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmArchivePayload {
@@ -114,6 +119,7 @@ impl RealmArchivePayload {
 /// Terminal lifecycle event pointing at a successor Realm. `reason` and
 /// `successor_realm_id` are both required by spec; callers without a successor
 /// must use [`RealmDestroyPayload`] instead. `additionalProperties:false`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmTombstonePayload {
@@ -153,6 +159,7 @@ impl RealmTombstonePayload {
 /// Terminal lifecycle event with no successor. `reason` is required;
 /// `verification_stub_required` defaults to `true` (omitted on the wire when
 /// unset so the reducer applies its default). `additionalProperties:false`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmDestroyPayload {
@@ -193,6 +200,7 @@ impl RealmDestroyPayload {
 /// Morph lifecycle events (e.g. `ak.strand.archive` / `ak.strand.restore`). The
 /// target object is single-sourced by `target_ref`. Required: `target_ref`.
 /// `additionalProperties:false`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ObjectLifecyclePayload {
@@ -248,6 +256,7 @@ impl ObjectLifecyclePayload {
 /// The event-payload validator resolves `ak.realm.history_visibility` to this
 /// named schema def, so producers and validators share the same fail-closed
 /// shape.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HistoryVisibilityPayload {

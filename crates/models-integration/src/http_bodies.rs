@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::artifacts_applet::ExternalRef;
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletThirdPartyUserList {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -14,6 +15,7 @@ pub struct AppletThirdPartyUserList {
     pub external_ref: Option<ExternalRef>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletThirdPartyLocationList {
     #[serde(skip_serializing_if = "Option::is_none")]

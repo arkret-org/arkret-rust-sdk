@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 /// `encryption-and-audit.md` §2.6. Once a KeyPackage is `claimed` it
 /// MUST NOT be re-claimed; once `consumed` it MUST NOT return to
 /// `published`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum MlsKeyPackageState {
@@ -27,6 +28,7 @@ pub enum MlsKeyPackageState {
     Revoked,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MlsKeyPackageRecord {
     /// Globally unique identifier (`ak:mls:kp:<uuid>`, RFC 9562 UUIDv7).
@@ -94,6 +96,7 @@ impl MlsKeyPackageRecord {
 /// `serialized_state` while using the typed Arkret envelopes for KeyPackages,
 /// Welcomes and Commits. The SDK crypto store keeps this layer independent
 /// from OpenMLS internals.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MlsGroupStateRecord {
     pub group_id: String,

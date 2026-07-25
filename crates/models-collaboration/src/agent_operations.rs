@@ -253,10 +253,13 @@ pub enum AgentProvisionRequestBody {
 /// provisioning. The server validates semantic cross-bindings and admits both
 /// envelopes through the ordinary Event pipeline; it never authors a proof on
 /// the controller's behalf.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentProvisionEvents {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub accountability_grant: Event,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub selector_claim: Event,
 }
 
@@ -286,6 +289,7 @@ pub struct AgentRenewPairingRequestBody {
     pub pairing_ttl_ms: Option<u64>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentPcrRecoveryStatus {
@@ -435,6 +439,7 @@ pub struct AgentPairingBootstrap {
     pub pairing_expires_at: DateTime<Utc>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentPairingResolveRequestBody {
@@ -634,6 +639,7 @@ pub struct AgentGrantDetachOutcome {
     pub revoked_at: DateTime<Utc>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarStrandContextRef {
@@ -641,6 +647,7 @@ pub struct AgentSidecarStrandContextRef {
     pub strand_id: StrandId,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarRelationContextRef {
@@ -648,6 +655,7 @@ pub struct AgentSidecarRelationContextRef {
     pub relation_id: RelationId,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AgentSidecarContextRef {
@@ -678,6 +686,7 @@ impl AgentSidecarContextRef {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarEnsureRequestBody {
@@ -708,6 +717,7 @@ impl AgentSidecarEnsureRequestBody {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarAccessReadiness {
@@ -719,6 +729,7 @@ pub enum AgentSidecarAccessReadiness {
     Failed,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PendingSidecarAccessReconciliationStage {
@@ -729,6 +740,7 @@ pub enum PendingSidecarAccessReconciliationStage {
     DeviceKeyMaterial,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PendingSidecarAccessReconciliationItem {
@@ -761,6 +773,7 @@ impl PendingSidecarAccessReconciliationItem {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarEnsureOutcome {
@@ -790,18 +803,21 @@ impl AgentSidecarEnsureOutcome {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentSidecarSchema {
     #[serde(rename = "ak.schema.agent_sidecar.v1")]
     V1,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentSidecarEncryptionProfile {
     #[serde(rename = "mls_rfc9420")]
     MlsRfc9420,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarState {
@@ -812,6 +828,7 @@ pub enum AgentSidecarState {
 
 pub const AGENT_SIDECAR_DESIRED_ACCESS_DOMAIN: &str = "ak.sidecar.desired_access.v1";
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarDesiredAccessTranscript {
@@ -868,6 +885,7 @@ pub fn agent_sidecar_desired_access_digest(
     .digest()
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarMlsContext {
@@ -910,6 +928,7 @@ impl AgentSidecarMlsContext {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecar {
@@ -952,6 +971,7 @@ impl AgentSidecar {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarView {
@@ -1013,6 +1033,7 @@ impl AgentSidecarView {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarList {
@@ -1021,6 +1042,7 @@ pub struct AgentSidecarList {
     pub next_cursor: Option<NonEmptyString>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarDisplayMode {
@@ -1029,6 +1051,7 @@ pub enum AgentSidecarDisplayMode {
     SidecarOnly,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarTrackMergePolicy {
@@ -1036,6 +1059,7 @@ pub enum AgentSidecarTrackMergePolicy {
     SharedBasePrivateOverlay,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarProjectionProvenance {
@@ -1044,12 +1068,14 @@ pub enum AgentSidecarProjectionProvenance {
     PrivateEcho,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentSidecarViewStateSchema {
     #[serde(rename = "ak.schema.agent_sidecar_view_state.v1")]
     V1,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarViewState {
@@ -1130,6 +1156,7 @@ impl<'de> Deserialize<'de> for AgentSidecarExchangeId {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarSourceTrackRef {
@@ -1154,6 +1181,7 @@ impl AgentSidecarSourceTrackRef {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarExchangeOrigin {
@@ -1164,6 +1192,7 @@ pub enum AgentSidecarExchangeOrigin {
 /// Deterministic fold status of one source-routed exchange. `pending` is a
 /// client-local pre-submission intent and never enters the projection: an
 /// accepted request folds to `delivered` (see `zh/models/sidecar.md` §7.2.4).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarExchangeStatus {
@@ -1176,6 +1205,7 @@ pub enum AgentSidecarExchangeStatus {
 pub const AGENT_SIDECAR_EXCHANGE_FAILURE_CONTROLLER_CLOSED_EMPTY: &str = "controller_closed_empty";
 pub const AGENT_SIDECAR_EXCHANGE_FAILURE_CONTROLLER_CANCELLED: &str = "controller_cancelled";
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarExchangeCompletionPolicy {
@@ -1226,6 +1256,7 @@ fn validate_unique_sorted_event_ids(values: &[EventId], label: &str) -> Result<(
     Ok(())
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentSidecarEventExchangeBindingSchema {
     #[serde(rename = "ak.schema.agent_sidecar_event_exchange_binding.v1")]
@@ -1235,6 +1266,7 @@ pub enum AgentSidecarEventExchangeBindingSchema {
 /// Closed producer disposition of one exchange-bound Sidecar Event.
 /// Consumers MUST fail closed to non-echo on any unlisted value; serde's
 /// closed enum plus the outer `deny_unknown_fields` provide exactly that.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarExchangeBindingRole {
@@ -1246,6 +1278,7 @@ pub enum AgentSidecarExchangeBindingRole {
 /// Write-once exchange identity carried only on `role=request`; the single
 /// durable source of every projection write-once field. Counterpart for
 /// `agent-sidecar-event-exchange-binding.schema.json#/$defs/request_context`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarExchangeRequestContext {
@@ -1312,10 +1345,12 @@ impl AgentSidecarExchangeRequestContext {
 /// only inside `encrypted_metadata` plaintext (`message_metadata.
 /// sidecar_exchange_binding`) of an Event whose effective scope is the Sidecar
 /// backing Circle. Any Event without a valid binding is non-echo by default.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarEventExchangeBinding {
     pub schema: AgentSidecarEventExchangeBindingSchema,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub exchange_id: AgentSidecarExchangeId,
     pub role: AgentSidecarExchangeBindingRole,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1457,12 +1492,14 @@ impl AgentSidecarEventExchangeBinding {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentSidecarExchangeControlSchema {
     #[serde(rename = "ak.schema.agent_sidecar_exchange_control.v1")]
     V1,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSidecarExchangeControlAction {
@@ -1482,10 +1519,12 @@ impl AgentSidecarExchangeControlAction {
 /// plaintext encrypted inside `ak.agent.sidecar.exchange.control`. Only the
 /// Sidecar controller may author it; it is the sole source of coordinator
 /// reassignment and terminal exchange state (`zh/models/sidecar.md` §7.2.3).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarExchangeControl {
     pub schema: AgentSidecarExchangeControlSchema,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub exchange_id: AgentSidecarExchangeId,
     pub request_event_id: EventId,
     /// Canonical UTF-8 byte-order sorted maximal causal heads observed at
@@ -1618,6 +1657,7 @@ pub struct AgentSidecarExchangeTerminalOutcome {
 /// `ak.agent.sidecar.exchange.control`. The service only sees private-Strand
 /// routing plus ciphertext; admission MUST require the effective scope to be
 /// the matching Sidecar backing Circle and the actor to be its controller.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarExchangeControlPayload {
@@ -1639,6 +1679,7 @@ pub fn agent_sidecar_exchange_event_set_digest(event_ids: &[EventId]) -> Result<
 /// causal heads plus the digest committing to the complete contributing
 /// Event-id set. `max_hlc` is display/cache metadata only and never proves
 /// causal dominance.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarExchangeFoldedFrontier {
@@ -1653,6 +1694,7 @@ impl AgentSidecarExchangeFoldedFrontier {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentSidecarExchangeProjectionSchema {
     #[serde(rename = "ak.schema.agent_sidecar_exchange_projection.v1")]
@@ -1665,6 +1707,7 @@ pub enum AgentSidecarExchangeProjectionSchema {
 /// merged across devices, or streamed to Agent runtimes, and may always be
 /// deleted and rebuilt from the accepted private-Strand Event history
 /// (`zh/models/sidecar.md` §7.2.4).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarExchangeProjection {
@@ -1672,6 +1715,7 @@ pub struct AgentSidecarExchangeProjection {
     pub controller_id: Did,
     pub sidecar_id: SidecarId,
     pub private_strand_id: StrandId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub exchange_id: AgentSidecarExchangeId,
     pub origin: AgentSidecarExchangeOrigin,
     pub source_track_ref: AgentSidecarSourceTrackRef,
@@ -1834,6 +1878,7 @@ pub fn agent_requested_scope_digest(
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AgentOperations {

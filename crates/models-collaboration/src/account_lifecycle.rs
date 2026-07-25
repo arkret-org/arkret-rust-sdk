@@ -109,6 +109,7 @@ pub struct ConsentRequestRequestBody {
     pub consent_scope: Option<ConsentScope>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccountLifecycleProof {
     pub proof_kind: String,
@@ -133,6 +134,7 @@ pub struct AccountLifecycleProof {
 pub const ACCOUNT_LIFECYCLE_PROOF_SCHEMA: &str = "ak.schema.account_lifecycle_proof.v1";
 pub const SESSION_REVOKE_LIFECYCLE_PROOF_KIND: &str =
     "ak.account.lifecycle_proof.session_revoke.v1";
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantAppletSelector {
     pub applet_id: String,
@@ -183,19 +185,23 @@ impl AccountLifecycleProof {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AccountView {
     pub principal_id: Did,
     pub state: AccountStatus,
     #[serde(default)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub devices: Vec<AccountDeviceSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub primary_handle_claim: Option<HandleClaim>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub primary_handle_claim_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub handle_claim_digests: Vec<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub profile: Option<ActorProfile>,
     /// True when the authenticated principal is a deployment server
     /// administrator (the server's configured admin principal set). Operator-only
@@ -204,6 +210,7 @@ pub struct AccountView {
     pub is_server_admin: bool,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegisterRequestBody {
@@ -215,37 +222,48 @@ pub struct AccountRegisterRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<AccountLifecycleProof>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub identity_creation: Option<IdentityCreationRegistration>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub policy_evidence: Option<AccountRegistrationPolicyEvidence>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AccountRegisterOutcome {
     pub principal_id: Did,
     pub state: AccountStatus,
     #[serde(default)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub devices: Vec<AccountDeviceSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub primary_handle_claim: Option<HandleClaim>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub primary_handle_claim_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub handle_claim_digests: Vec<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub profile: Option<ActorProfile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub registration_audit: Option<AccountRegistrationAudit>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub binding_receipt: Option<AccountBindingReceipt>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountUpdateProfileRequestBody {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub patch: Patch,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionRevokeRequestBody {
@@ -269,6 +287,7 @@ pub struct SessionRevokeRequestBody {
     pub proof: Option<AccountLifecycleProof>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionRevokeOutcome {
     pub revoked_count: u64,
@@ -280,11 +299,13 @@ pub struct SessionRevokeOutcome {
 /// proof (`AccountLifecycleProof`) alongside the applet revoke mode
 /// (`AppletRevokeMode`, `arkret-wire`), so it lives in the collaboration domain
 /// which reaches both. the `arkret` umbrella re-exports it for path stability.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletRevokeRequestBody {
     pub effective_scope: EffectiveScope,
     pub reason_code: String,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub revoke_mode: AppletRevokeMode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<AccountLifecycleProof>,

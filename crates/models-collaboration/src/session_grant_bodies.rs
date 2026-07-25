@@ -15,6 +15,7 @@ use serde_json::Value;
 
 use crate::governance::agent_participation::AgentParticipationEntry;
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantRequestBody {
     /// Existing principal DID. OIDC verifies a login factor and never mints or
@@ -50,11 +51,13 @@ impl SessionGrantRequestBody {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantDpopBindingProof {
     pub proof_jwt: String,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionGrantAgentScopeRequest {
@@ -66,6 +69,7 @@ pub struct SessionGrantAgentScopeRequest {
     pub track_names: Vec<NonEmptyString>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantAppletDelegation {
     pub applet_id: String,
@@ -77,8 +81,10 @@ pub struct SessionGrantAppletDelegation {
     pub capability_grant_refs: Vec<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantRequestProof {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub proof_kind: SessionGrantProofKind,
     pub challenge: String,
     pub request_canonical_digest: Hash,
@@ -129,6 +135,7 @@ impl SessionGrantRequestProof {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantOutcome {
     pub principal_id: Did,
@@ -188,6 +195,7 @@ pub fn validate_session_device_key_separation(
 ///
 /// Mirrors `service-operation-dtos.schema.json#/$defs/SessionGrantOutcome.scope_details`
 /// (`additionalProperties: false`).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionGrantScopeDetails {
@@ -203,6 +211,7 @@ pub struct SessionGrantScopeDetails {
     pub participation: Vec<AgentParticipationEntry>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionLoginOutcome {
@@ -217,6 +226,7 @@ pub struct SessionLoginOutcome {
     pub expires_at: DateTime<Utc>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionGrantIntrospectionProof {
@@ -227,6 +237,7 @@ pub struct SessionGrantIntrospectionProof {
 pub const SESSION_GRANT_INTROSPECTION_PROOF_CLAIMS_TYPE: &str =
     "ak.session_grant.introspection_proof.v1";
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionGrantIntrospectionProofClaims {
@@ -258,6 +269,7 @@ pub struct SessionGrantIntrospectionProofClaims {
 // types the spec/OpenAPI declare instead of hand-rolled structs.
 
 /// `ak.gate.account.command.refresh_session_grant` request.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantRefreshRequestBody {
     pub grant_jwt: String,
@@ -274,9 +286,11 @@ pub struct SessionGrantRefreshRequestBody {
     pub proof: Option<SessionGrantRefreshProof>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantRefreshProof {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub proof_kind: Option<SessionGrantProofKind>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub challenge: Option<String>,
@@ -303,6 +317,7 @@ pub struct SessionGrantRefreshProof {
 }
 
 /// `ak.gate.account.command.refresh_session_grant` outcome.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantRefreshOutcome {
     pub grant_id: GrantId,
@@ -325,6 +340,7 @@ pub struct SessionGrantRefreshOutcome {
 }
 
 /// `ak.gate.account.command.logout_auth_session` request.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthSessionLogoutRequestBody {
     pub grant_jwt: String,
@@ -341,6 +357,7 @@ pub struct AuthSessionLogoutRequestBody {
 }
 
 /// `ak.gate.account.command.logout_auth_session` outcome.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthSessionLogoutOutcome {
     pub ok: bool,
@@ -349,6 +366,7 @@ pub struct AuthSessionLogoutOutcome {
 }
 
 /// Standardized status returned by session-grant introspection.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SessionGrantIntrospectStatus {
@@ -365,6 +383,7 @@ pub enum SessionGrantIntrospectStatus {
 
 /// Non-secret grant metadata returned to a validating Principal Server. Never
 /// includes the grant JWT, refresh token, or session private key.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantIntrospectGrant {
     pub id: GrantId,
@@ -397,6 +416,7 @@ pub struct SessionGrantIntrospectGrant {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cnf_jkt: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub proof_kind: Option<SessionGrantProofKind>,
     /// Materialized scope details for `agent_key_proof` sessions. Human session
     /// grants omit this field.
@@ -408,6 +428,7 @@ pub struct SessionGrantIntrospectGrant {
 
 /// `ak.gate.account.command.introspect_session_grant` request. Exactly one of
 /// `id` / `grant_jwt` identifies the grant.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantIntrospectRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -422,6 +443,7 @@ pub struct SessionGrantIntrospectRequestBody {
 
 /// `ak.gate.account.command.introspect_session_grant` outcome. READ-ONLY:
 /// introspection never consumes the grant.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantIntrospectOutcome {
     pub active: bool,

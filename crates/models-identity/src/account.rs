@@ -27,6 +27,7 @@ fn registration_policy_enabled_default() -> bool {
     true
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegistrationVerificationPolicy {
@@ -36,6 +37,7 @@ pub struct AccountRegistrationVerificationPolicy {
     pub code_digest: Option<Hash>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegistrationInvitationPolicy {
@@ -45,6 +47,7 @@ pub struct AccountRegistrationInvitationPolicy {
     pub token_digests: Vec<Hash>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegistrationRateLimitPolicy {
@@ -52,6 +55,7 @@ pub struct AccountRegistrationRateLimitPolicy {
     pub window_seconds: u64,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegistrationPolicy {
@@ -85,6 +89,7 @@ impl Default for AccountRegistrationPolicy {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegistrationPolicyEvidence {
@@ -96,6 +101,7 @@ pub struct AccountRegistrationPolicyEvidence {
     pub invitation_token: Option<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AccountRegistrationAuditOutcome {
@@ -126,6 +132,7 @@ impl AccountRegistrationAuditOutcome {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegistrationEvidenceSummary {
@@ -137,6 +144,7 @@ pub struct AccountRegistrationEvidenceSummary {
     pub organization: Option<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegistrationAudit {
@@ -183,6 +191,7 @@ pub struct AccountDataDeleteOutcome {
     pub data_type: String,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AccountDeviceSummary {
     pub device_id: DeviceId,
@@ -220,12 +229,14 @@ pub const ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_DOMAIN: &str =
     "ak.account-handoff-authentication-proof-v1\n";
 pub const IDENTITY_CREATION_CONTROL_PROOF_DOMAIN: &str = "ak.identity-creation-control-proof-v1\n";
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AccountHandoffAuthenticationProofKind {
     OidcCodeExchange,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountHandoffAuthenticationProof {
@@ -258,6 +269,7 @@ impl AccountHandoffAuthenticationProof {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountHandoffRequestBody {
@@ -279,6 +291,7 @@ impl AccountHandoffRequestBody {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum AccountHandoffAllowedOperation {
     #[serde(rename = "ak.gate.account.command.issue_identity_binding_challenge")]
@@ -295,6 +308,7 @@ pub const ACCOUNT_HANDOFF_ALLOWED_OPERATIONS: [AccountHandoffAllowedOperation; 3
     AccountHandoffAllowedOperation::IssueSessionGrant,
 ];
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReservedIdentityCreation {
@@ -316,6 +330,7 @@ impl ReservedIdentityCreation {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityCreationLease {
@@ -330,6 +345,7 @@ pub struct IdentityCreationLease {
     pub reserved_identity: Option<ReservedIdentityCreation>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AccountHandoffBinding {
@@ -344,6 +360,7 @@ pub enum AccountHandoffBinding {
     },
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountHandoffOutcome {
@@ -352,6 +369,7 @@ pub struct AccountHandoffOutcome {
     ///
     /// This unsigned value is a UX hint for display and local artifact
     /// naming only. It is not principal identity evidence or authorization.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub account_handle: Handle,
     pub account_handoff_grant: String,
     #[serde(
@@ -375,6 +393,7 @@ impl AccountHandoffOutcome {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityBindingChallengeRequestBody {
@@ -390,12 +409,14 @@ impl IdentityBindingChallengeRequestBody {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IdentityBindingPurpose {
     AccountBinding,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityBindingChallengeOutcome {
@@ -423,12 +444,14 @@ pub struct IdentityBindingChallengeOutcome {
     pub expires_at: DateTime<Utc>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IdentityCreationControlProofKind {
     DidWebvhInceptionUpdateKey,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityCreationControlProof {
@@ -471,6 +494,7 @@ impl IdentityCreationControlProof {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityCreationRegistration {
@@ -480,12 +504,14 @@ pub struct IdentityCreationRegistration {
     pub control_proof: IdentityCreationControlProof,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AccountBindingState {
     Bound,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IdentityCreationOperationStatus {
@@ -493,6 +519,7 @@ pub enum IdentityCreationOperationStatus {
     Duplicate,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountBindingReceipt {
@@ -504,8 +531,10 @@ pub struct AccountBindingReceipt {
     pub head_event_digest: Hash,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AccountUpdateProfileOutcome {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub profile: ActorProfile,
 }
 

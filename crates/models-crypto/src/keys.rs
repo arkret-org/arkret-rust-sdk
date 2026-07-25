@@ -14,6 +14,7 @@ use crate::artifacts_keys::{
     PrincipalDeviceKeyRecords, QueryDeviceMap,
 };
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysUploadRequestBody {
@@ -25,6 +26,7 @@ pub struct KeysUploadRequestBody {
     pub device_signature: KeyOperationSignature,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysUploadOutcome {
@@ -33,11 +35,13 @@ pub struct KeysUploadOutcome {
     pub fallback_keys: AlgorithmKeyRecords,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysQueryRequestBody {
     pub device_keys: QueryDeviceMap,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<u64>)))]
     pub timeout_ms: Option<NonZeroU64>,
 }
 
@@ -47,6 +51,7 @@ pub struct KeysQueryRequestBody {
 /// revoked; `revoked` = a `ak.device.revoke` is in effect. Servers MUST omit
 /// [`QueryDeviceRecord::device_signing_key`] for any non-active device.
 /// Mirrors `keys-operations.schema.json#/$defs/device_status`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DeviceStatus {
@@ -54,6 +59,7 @@ pub enum DeviceStatus {
     Revoked,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DeviceGenerationStatus {
@@ -61,6 +67,7 @@ pub enum DeviceGenerationStatus {
     Conflicted,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceGenerationState {
@@ -79,6 +86,7 @@ pub struct DeviceGenerationState {
 /// Shape-identical to `arkret_crypto::DeviceTrustBinding` (the SDK chain
 /// verifier's input type), but defined here in `core` because `core` cannot
 /// depend on `crypto`; `alg` is optional per schema.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct QueryDeviceCrossSigningBinding {
@@ -102,6 +110,7 @@ pub struct QueryDeviceCrossSigningBinding {
 /// algorithm dimension, not repeated per algorithm. The directory facet is
 /// populated only for verified, non-revoked devices. Mirrors
 /// `keys-operations.schema.json#/$defs/query_device_record`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct QueryDeviceRecord {
@@ -114,6 +123,7 @@ pub struct QueryDeviceRecord {
     /// (multibase base58btc, multicodec ed25519-pub). Present only for
     /// verified, non-revoked devices.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<String>)))]
     pub device_signing_key: Option<DidKey>,
     /// Device HPKE sealing public key echoed verbatim from the authoritative
     /// `ak.device.authorize.payload.hpke_key` (`device-lifecycle.md` §8.2).
@@ -142,6 +152,10 @@ pub struct QueryDeviceRecord {
     /// `ak.device.authorize` payload. Present only for a verified, non-revoked
     /// device authorized by the designated enrollment authority.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Option<serde_json::Value>))
+    )]
     pub enrollment_authority_binding: Option<DeviceEnrollmentAuthorityBinding>,
     /// Accepted `ak.device.authorize` event id that anchored the device-set
     /// projection. For service-attested devices this pairs with
@@ -179,6 +193,7 @@ impl QueryDeviceRecord {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysQueryOutcome {
@@ -191,12 +206,17 @@ pub struct KeysQueryOutcome {
     /// `cross_signing_binding` (§8.3). Reuses the schema-counterpart type
     /// [`CrossSigningPublish`].
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = std::collections::BTreeMap<String, serde_json::Value>))
+    )]
     pub cross_signing: BTreeMap<Did, CrossSigningPublish>,
     /// Reducer-managed B-model device generation fence by principal.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub device_generations: BTreeMap<Did, DeviceGenerationState>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysClaimRequestBody {
@@ -204,6 +224,7 @@ pub struct KeysClaimRequestBody {
 }
 
 /// Per-target failure returned by keys query and claim operations.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysOperationFailure {
@@ -215,9 +236,11 @@ pub struct KeysOperationFailure {
     pub algorithm: Option<NonEmptyString>,
     pub reason_code: NonEmptyString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<u64>)))]
     pub retry_after_ms: Option<NonZeroU64>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysClaimOutcome {

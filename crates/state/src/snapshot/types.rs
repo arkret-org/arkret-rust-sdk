@@ -22,6 +22,7 @@ mod base64_url {
 }
 
 /// Full `ak.schema.snapshot.v1` manifest returned by `ak.self.snapshot.query.manifest_head`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SnapshotManifest {
     pub id: SnapshotId,
@@ -127,6 +128,7 @@ impl UnsignedSnapshotManifest<'_> {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SnapshotFrontier {
     #[serde(default)]
@@ -134,6 +136,7 @@ pub struct SnapshotFrontier {
     pub timeline_hlc: Hlc,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SnapshotSecurityClass {
@@ -150,6 +153,7 @@ impl SnapshotSecurityClass {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SnapshotChunkDescriptor {
     pub chunk_ref: BlobRef,
@@ -157,6 +161,7 @@ pub struct SnapshotChunkDescriptor {
     pub size_bytes: u64,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EventSetCommitment {
     pub algorithm: EventSetCommitmentAlgorithm,
@@ -168,6 +173,7 @@ pub struct EventSetCommitment {
     pub actor_seq_ranges: Vec<ActorSeqRangeCommitment>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EventSetCommitmentAlgorithm {
@@ -175,6 +181,7 @@ pub enum EventSetCommitmentAlgorithm {
     MerkleEventSetV1,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ActorSeqRangeCommitment {
     pub actor_id: Did,
@@ -183,6 +190,7 @@ pub struct ActorSeqRangeCommitment {
     pub root: Hash,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EventSetLeaf {
     pub event_id: EventId,
@@ -192,6 +200,7 @@ pub struct EventSetLeaf {
     pub hlc: Hlc,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AuthorityBinding {
     pub issuer: Did,
@@ -208,6 +217,7 @@ pub struct AuthorityBinding {
     pub witness_attestations: Vec<crate::models::Proof>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SnapshotAuthorityKind {
@@ -216,6 +226,7 @@ pub enum SnapshotAuthorityKind {
     WitnessQuorum,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DetachedJwsProof {
     pub kind: String,
@@ -248,6 +259,7 @@ impl DetachedJwsProof {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SnapshotVerificationHints {
     pub verification_profile: SnapshotSecurityClass,
@@ -266,6 +278,7 @@ pub struct SnapshotVerificationHints {
 }
 
 /// Materialized reducer output item stored inside spec snapshot chunks.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SnapshotMaterializedItem {
     pub kind: String,
@@ -274,6 +287,7 @@ pub struct SnapshotMaterializedItem {
     pub source_event_id: EventId,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SnapshotChunkPayload {
     #[serde(rename = "type")]
@@ -363,6 +377,7 @@ pub struct SnapshotVerifyReport {
 }
 
 /// One byte range of a snapshot, addressable by `chunk_id`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SnapshotChunk {
     /// Ordinal index starting at 0. Chunks MUST be delivered in

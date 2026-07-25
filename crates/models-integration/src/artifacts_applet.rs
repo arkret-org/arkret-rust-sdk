@@ -20,6 +20,7 @@ use crate::applet_models::AppletIdentifier;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/external_ref`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExternalRef {
@@ -35,6 +36,7 @@ pub struct ExternalRef {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/field_type`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FieldType {
@@ -52,6 +54,7 @@ pub type Protocol = String;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/protocol_instance`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProtocolInstance {
@@ -63,6 +66,7 @@ pub struct ProtocolInstance {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/rejected_item`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RejectedItem {
@@ -75,6 +79,7 @@ pub struct RejectedItem {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/third_party_query`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThirdPartyQuery {
@@ -86,6 +91,7 @@ pub struct ThirdPartyQuery {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-operations.schema.json#/$defs/e2ee_policy`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct E2eePolicy {
@@ -95,6 +101,7 @@ pub struct E2eePolicy {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-operations.schema.json#/$defs/scope_grant`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScopeGrant {
@@ -111,6 +118,7 @@ pub type TypedRef = String;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/capability_constraint`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CapabilityConstraint {
@@ -120,6 +128,7 @@ pub struct CapabilityConstraint {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/denied_scope`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeniedScope {
@@ -128,6 +137,7 @@ pub struct DeniedScope {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/e2ee_effect`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct E2eeEffect {
@@ -139,6 +149,7 @@ pub struct E2eeEffect {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/event_submission`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EventSubmission {
@@ -150,6 +161,7 @@ pub struct EventSubmission {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/namespace_conflict`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NamespaceConflict {
@@ -161,6 +173,7 @@ pub struct NamespaceConflict {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/widget_effect`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WidgetEffect {
@@ -170,6 +183,7 @@ pub struct WidgetEffect {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/applet_namespaces`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletNamespaces {
@@ -179,6 +193,7 @@ pub struct AppletNamespaces {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/delegation_policy`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct DelegationPolicy {
     pub enabled: bool,
@@ -186,6 +201,7 @@ pub struct DelegationPolicy {
     pub extra: XExtensionMap,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct AppletPackageE2eePolicy {
     pub enabled: bool,
@@ -196,6 +212,7 @@ pub struct AppletPackageE2eePolicy {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/detached_proof`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DetachedProof {
     pub kind: String,
@@ -210,6 +227,10 @@ pub struct DetachedProof {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Option<serde_json::Value>))
+    )]
     pub audience: Option<EventProofAudience>,
     pub jws: String,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
@@ -217,6 +238,7 @@ pub struct DetachedProof {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/endpoint_entry`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EndpointEntry {
     pub method: String,
@@ -230,6 +252,7 @@ pub struct EndpointEntry {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/endpoint_policy`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EndpointPolicy {
     pub endpoints: Vec<EndpointEntry>,
@@ -238,6 +261,7 @@ pub struct EndpointPolicy {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/ghost_policy`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GhostPolicy {
     pub enabled: bool,
@@ -248,6 +272,7 @@ pub struct GhostPolicy {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/limits`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Limits {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -261,6 +286,7 @@ pub struct Limits {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/namespace_entry`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NamespaceEntry {
@@ -279,6 +305,7 @@ pub type ProfileId = String;
 pub type SignatureAlg = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet.schema.json`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletError {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -289,9 +316,11 @@ pub struct AppletError {
     pub extra: XExtensionMap,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Applet {
     pub schema: String,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub applet_id: AppletIdentifier,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_id: Option<Did>,
@@ -305,9 +334,14 @@ pub struct Applet {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-widget-declaration.schema.json#/properties/token_scope`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WidgetTokenScope {
     pub actions: Vec<String>,
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
     pub resources: Vec<WireResourceSelector>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_ids: Option<Vec<RealmId>>,
@@ -323,6 +357,7 @@ pub struct WidgetTokenScope {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-widget-declaration.schema.json`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Widget {
     pub schema: String,

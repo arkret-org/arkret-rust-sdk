@@ -29,6 +29,7 @@ use crate::{CellRef, Did, Error, Hash, Hlc, MoveId, RealmId, Result, SealId, can
 pub const MOVE_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ES384", "ES512"];
 
 /// Top-level Control Move object defined by the event auth/state-resolution spec.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Move {
     pub id: MoveId,
@@ -43,6 +44,7 @@ pub struct Move {
     pub sig: MoveSignature,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SealBasis {
     pub leaves: Vec<SealId>,
@@ -51,6 +53,7 @@ pub struct SealBasis {
 }
 
 /// Single precondition: a cell + a predicate. Combined with AND across the Move.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Precondition {
     pub cell: CellRef,
@@ -62,6 +65,7 @@ pub struct Precondition {
 /// The four normative core ops live in [`PredicateOp`]; `predicate_id` is
 /// reserved for `satisfies`-mode lookups against a cell's schema-registered
 /// deterministic predicates.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Predicate {
     pub op: PredicateOp,
@@ -77,6 +81,7 @@ pub struct Predicate {
     pub predicate_id: Option<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PredicateOp {
@@ -91,6 +96,7 @@ pub enum PredicateOp {
 }
 
 /// Single effect: a cell + a lattice operation.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Effect {
     pub cell: CellRef,
@@ -102,6 +108,7 @@ pub struct Effect {
 /// Which fields are required depends on the cell's declared Lattice type
 /// (see spec §3.2). This struct accepts the union; per-type validation lives
 /// in the `lattice` crate's per-implementation `validate_op`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LatticeOp {
     #[serde(rename = "kind")]
@@ -132,6 +139,7 @@ pub struct LatticeOp {
     pub issuer_seq: Option<u64>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LatticeOpType {
@@ -155,6 +163,7 @@ pub enum LatticeOpType {
 /// `attestation`, `parent_move`, `after`, `recovery_capability`.
 /// `critical` defaults to `true`; unrecognized critical roles MUST fail
 /// closed.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SemanticRef {
     pub id: String,
@@ -175,6 +184,7 @@ fn is_default_critical(value: &bool) -> bool {
 }
 
 /// Issuer detached-JWS signature over canonical bytes (excluding `sig` and `id`).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MoveSignature {
     pub alg: String,

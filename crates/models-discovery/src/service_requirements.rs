@@ -22,6 +22,7 @@ use crate::service_description::ServiceDescribe;
 /// snake_case [`ServiceType`] used by `ServiceEndpointBinding`.
 pub const DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY: &str = "ArkretDeviceEnrollmentAuthority";
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ServiceEndpointBinding {
     pub service_id: Did,
@@ -31,6 +32,7 @@ pub struct ServiceEndpointBinding {
     pub operations: Vec<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ServiceIdAllowlist {
     #[serde(default)]
@@ -90,6 +92,7 @@ impl ServiceIdAllowlist {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NotFoundPrivacy {
@@ -97,6 +100,7 @@ pub enum NotFoundPrivacy {
     RevealForbiddenWhenAuthenticated,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RateLimitScopeKind {
@@ -106,6 +110,7 @@ pub enum RateLimitScopeKind {
     ServiceId,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RateLimitMetadata {
     pub scope: RateLimitScopeKind,
@@ -123,6 +128,7 @@ pub struct RateLimitMetadata {
     pub retry_after_ms: Option<u64>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum QuotaKind {
@@ -133,6 +139,7 @@ pub enum QuotaKind {
     OneTimeKeyCount,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QuotaMetadata {
     pub quota: QuotaKind,
@@ -142,6 +149,7 @@ pub struct QuotaMetadata {
     pub unit: String,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HttpTraceMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -156,6 +164,7 @@ pub struct HttpTraceMetadata {
     pub operation_id: Option<OperationId>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ApiConventionMetadata {
     pub not_found_privacy: NotFoundPrivacy,

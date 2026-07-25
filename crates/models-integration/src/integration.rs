@@ -8,6 +8,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntegrationDescribeOutcome {
     pub contract: String,
@@ -38,6 +39,7 @@ impl IntegrationDescribeOutcome {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntegrationDependencyDescriptor {
     pub service: String,
@@ -47,6 +49,7 @@ pub struct IntegrationDependencyDescriptor {
     pub mode: String,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntegrationSurfaceDescriptor {
     pub name: String,

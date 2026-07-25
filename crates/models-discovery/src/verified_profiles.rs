@@ -38,6 +38,7 @@ pub struct VerifiedProfilesArtifactReport {
     pub dropped: Vec<DroppedVerifiedProfileEntry>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Debug, Deserialize)]
 struct VerifiedProfilesArtifact {
     #[serde(default)]
@@ -48,6 +49,7 @@ struct VerifiedProfilesArtifact {
     verified: Vec<RawVerifiedEntry>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Debug, Deserialize)]
 struct RawVerifiedEntry {
     profile_id: String,

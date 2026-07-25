@@ -8,12 +8,14 @@ use serde::{Deserialize, Serialize};
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/blob.schema.json#/properties/encryption/properties/key_ref`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EncryptedAttachmentKeyAlgorithm {
     #[serde(rename = "MLS")]
     Mls,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum EncryptedAttachmentGroupStateRef {
@@ -21,6 +23,7 @@ pub enum EncryptedAttachmentGroupStateRef {
     Digest(Hash),
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EncryptedAttachmentKeyRef {
@@ -53,12 +56,14 @@ impl<'de> Deserialize<'de> for EncryptedAttachmentMarker {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WholeFileEncryptionScheme {
     #[serde(rename = "ak.blob.whole_file_aead.v1")]
     V1,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WholeFileEncryptionAlgorithm {
@@ -67,10 +72,12 @@ pub enum WholeFileEncryptionAlgorithm {
     MlsExporterAeadAes256Gcm,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WholeFileEncryptedAttachment {
     pub blob_ref: BlobRef,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = bool)))]
     pub encrypted: EncryptedAttachmentMarker,
     pub scheme: WholeFileEncryptionScheme,
     pub alg: WholeFileEncryptionAlgorithm,
@@ -82,12 +89,14 @@ pub struct WholeFileEncryptedAttachment {
     pub nonce: Base64UrlString,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum StreamEncryptionScheme {
     #[serde(rename = "ak.blob.stream_aead.v1")]
     V1,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StreamEncryptionAlgorithm {
@@ -96,10 +105,12 @@ pub enum StreamEncryptionAlgorithm {
     MlsExporterAeadAes256GcmStream,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StreamEncryptedAttachment {
     pub blob_ref: BlobRef,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = bool)))]
     pub encrypted: EncryptedAttachmentMarker,
     pub scheme: StreamEncryptionScheme,
     pub alg: StreamEncryptionAlgorithm,
@@ -113,6 +124,7 @@ pub struct StreamEncryptedAttachment {
     pub segment_count: u64,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum EncryptedAttachment {

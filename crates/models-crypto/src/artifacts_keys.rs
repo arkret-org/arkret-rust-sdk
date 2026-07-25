@@ -22,6 +22,7 @@ use crate::keys::{
 };
 
 /// Counterpart for `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyBackupPlaintext {
     pub schema: String,
@@ -39,6 +40,7 @@ pub type ItemType = String;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json#/$defs/plaintext_item`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PlaintextItem {
     pub item_type: ItemType,
@@ -64,6 +66,7 @@ pub struct PlaintextItem {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/key-backup-unlock-proof.schema.json#/properties/auth_data`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupUnlockProofAuthData {
@@ -73,6 +76,7 @@ pub struct KeyBackupUnlockProofAuthData {
     pub signed_fields: Vec<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyBackupUnlockProof {
     pub schema: String,
@@ -99,6 +103,7 @@ pub struct KeyBackupUnlockProof {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/key-backup-unlock-proof.schema.json#/$defs/proof_kind`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProofKind {
@@ -113,6 +118,7 @@ pub enum ProofKind {
 /// `spec/v1/artifacts/schemas/keypackage-operations.schema.json#/$defs/signature` and
 /// `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/signature`
 /// (identical shape: `{kid, alg?, sig}`).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyOperationSignature {
@@ -123,6 +129,7 @@ pub struct KeyOperationSignature {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/keypackage-operations.schema.json#/$defs/failure`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Failure {
@@ -137,6 +144,7 @@ pub struct Failure {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keypackage-operations.schema.json#/$defs/keypackage_claim_record`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackageClaimRecord {
@@ -172,6 +180,7 @@ pub type KeyPackageRefArray = Vec<String>;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keypackage-operations.schema.json#/$defs/keypackage_upload_entry`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackageUploadEntry {
@@ -198,6 +207,7 @@ pub struct KeyPackageUploadEntry {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum KeysOperations {
@@ -221,6 +231,7 @@ pub type AlgorithmCounts = BTreeMap<NonEmptyString, u64>;
 pub type AlgorithmKeyRecords = BTreeMap<NonEmptyString, KeyRecord>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/backup_metadata`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BackupMetadata {
@@ -271,6 +282,7 @@ pub type DeviceAlgorithmMap = BTreeMap<DeviceId, NonEmptyString>;
 pub type DeviceKeyRecords = BTreeMap<DeviceId, AlgorithmKeyRecords>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/key_record`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyRecord {
@@ -309,6 +321,7 @@ pub type PrincipalDeviceKeyRecords = BTreeMap<Did, DeviceKeyRecords>;
 pub type QueryDeviceMap = BTreeMap<Did, Vec<DeviceId>>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-policy.schema.json#/$defs/share`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ShareShareCommitment {
@@ -316,6 +329,7 @@ pub struct ShareShareCommitment {
     pub commitment_b64u: Base64UrlString,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum RecoveryShareCommitmentAlgorithm {
@@ -325,6 +339,7 @@ pub enum RecoveryShareCommitmentAlgorithm {
     ShareHashBlake3,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Share {
@@ -383,6 +398,7 @@ impl RecoveryModelGenerationRef {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(try_from = "GenericRecoveryTranscriptWire")]
 pub struct GenericRecoveryTranscript {
@@ -395,6 +411,7 @@ pub struct GenericRecoveryTranscript {
     pub policy_version: u64,
     pub recovery_session_id: RecoverySessionId,
     pub identity_model: RecoveryIdentityModel,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub model_generation_ref: RecoveryModelGenerationRef,
     pub challenge: Challenge,
     #[serde(
@@ -469,6 +486,7 @@ impl GenericRecoveryTranscript {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/principal_signing_transcript`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(try_from = "PrincipalSigningTranscriptWire")]
 pub struct PrincipalSigningTranscript {
@@ -481,6 +499,7 @@ pub struct PrincipalSigningTranscript {
     pub policy_version: u64,
     pub recovery_session_id: RecoverySessionId,
     pub identity_model: RecoveryIdentityModel,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub model_generation_ref: RecoveryModelGenerationRef,
     pub challenge: Challenge,
     #[serde(
@@ -565,6 +584,7 @@ fn valid_did_version_id(value: &str) -> bool {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/proof_summary`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProofSummary {
@@ -576,6 +596,7 @@ pub struct ProofSummary {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/recovery_policy_ref`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryPolicyRef {
@@ -586,6 +607,7 @@ pub struct RecoveryPolicyRef {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
 /// recovery_session_complete_outcome`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionCompleteOutcome {
@@ -603,6 +625,7 @@ pub struct RecoverySessionCompleteOutcome {
     pub reanchor_batch_receipt_id: Option<ReceiptId>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RecoveryIdentityModel {
@@ -677,6 +700,7 @@ impl RecoverySessionCompleteOutcome {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
 /// recovery_session_complete_request_body`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionCompleteRequestBody {
@@ -777,6 +801,7 @@ fn validate_recovery_completion_shape(
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
 /// recovery_session_create_request_body`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionCreateRequestBody {
@@ -790,6 +815,7 @@ pub struct RecoverySessionCreateRequestBody {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
 /// recovery_session_proof_submit_outcome`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionProofSubmitOutcome {
@@ -803,18 +829,21 @@ pub struct RecoverySessionProofSubmitOutcome {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
 /// recovery_session_proof_submit_request_body`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionProofSubmitRequestBody {
     pub proof: RecoverySessionProof,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RecoveryPrincipalSigningProofKind {
     #[serde(rename = "principal_signing")]
     PrincipalSigning,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryPrincipalSigningProof {
@@ -825,12 +854,14 @@ pub struct RecoveryPrincipalSigningProof {
     pub signature: Base64UrlString,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RecoverySessionUnlockProofKind {
     #[serde(rename = "recovery_unlock")]
     RecoveryUnlock,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionUnlockProof {
@@ -843,6 +874,7 @@ pub struct RecoverySessionUnlockProof {
     pub signature: Base64UrlString,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryDeviceQuorumSignature {
@@ -852,12 +884,14 @@ pub struct RecoveryDeviceQuorumSignature {
     pub signature: Base64UrlString,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RecoveryDeviceQuorumProofKind {
     #[serde(rename = "device_quorum")]
     DeviceQuorum,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryDeviceQuorumProof {
@@ -868,12 +902,14 @@ pub struct RecoveryDeviceQuorumProof {
     pub signatures: Vec<RecoveryDeviceQuorumSignature>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TrustedRecoveryServiceSessionProofKind {
     #[serde(rename = "trusted_recovery_service")]
     TrustedRecoveryService,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TrustedRecoveryServiceSessionProof {
@@ -888,6 +924,7 @@ pub struct TrustedRecoveryServiceSessionProof {
     pub signature: Base64UrlString,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RecoverySessionProof {
@@ -911,6 +948,7 @@ where
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/recovery_session_state`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RecoverySessionState {
     pub schema: String,
@@ -925,6 +963,10 @@ pub struct RecoverySessionState {
     pub current_device_generation_ref: Option<NonEmptyString>,
     pub device_generation_status: Option<DeviceGenerationStatus>,
     pub registry_head: Option<Hash>,
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Option<serde_json::Value>))
+    )]
     pub accepted_seal_frontier: Option<SealBasis>,
     pub challenge: Challenge,
     pub state: SessionState,
@@ -1146,6 +1188,7 @@ impl RecoverySessionState {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/session_state`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SessionState {
@@ -1158,6 +1201,7 @@ pub enum SessionState {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/threshold_recovery_proof`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThresholdRecoveryProofShareReleasesItem {
@@ -1169,12 +1213,14 @@ pub struct ThresholdRecoveryProofShareReleasesItem {
     pub signature: Base64UrlString,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ThresholdRecoveryProofKind {
     #[serde(rename = "threshold_recovery")]
     ThresholdRecovery,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThresholdRecoveryProof {
@@ -1316,6 +1362,7 @@ mod recovery_completion_tests {
 // The `arkret` umbrella re-exports this owner-defined enum at its root.
 
 /// Counterpart for `spec/v1/artifacts/schemas/keypackage-operations.schema.json`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum KeyPackageOperations {

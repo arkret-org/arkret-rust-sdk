@@ -12,6 +12,7 @@ use serde_json::Value;
 pub const MINIMAL_METADATA_REALM_PROFILE: &str = "ak.profile.mls.minimal_metadata_realm.v1";
 
 /// Counterpart for `spec/v1/artifacts/schemas/encrypted-envelope.schema.json`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EncryptedEnvelopeAad {
@@ -41,6 +42,7 @@ impl EncryptedEnvelopeAad {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EncryptedEnvelopeAadVisibility {
@@ -49,6 +51,7 @@ pub enum EncryptedEnvelopeAadVisibility {
     OpaqueId,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EncryptedEnvelopeKeyAlgorithm {
     #[serde(rename = "MLS")]
@@ -57,6 +60,7 @@ pub enum EncryptedEnvelopeKeyAlgorithm {
     MlsExporterAead,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum EncryptedEnvelopeGroupStateRef {
@@ -64,6 +68,7 @@ pub enum EncryptedEnvelopeGroupStateRef {
     Digest(Hash),
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EncryptedEnvelopeKeyRef {
@@ -71,9 +76,11 @@ pub struct EncryptedEnvelopeKeyRef {
     pub group_state_ref: EncryptedEnvelopeGroupStateRef,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EncryptedEnvelope {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub scheme: EncryptedPayloadScheme,
     pub version: String,
     pub group_id: String,
@@ -201,8 +208,10 @@ pub fn content_type_byte(byte: u8) -> bool {
     byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'+' | b'-')
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EncryptedPayload {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub scheme: EncryptedPayloadScheme,
     pub group_id: String,
     pub epoch: u64,
@@ -217,6 +226,7 @@ pub struct EncryptedPayload {
 }
 
 /// Typed `key_ref` per `media-and-blob.md` §encrypted-payload (B-22).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KeyRefObject {
     pub algorithm: String,

@@ -21,6 +21,7 @@ use serde_json::Value;
 use crate::directory_artifacts::ObjectPreview;
 use crate::service_description::DirectoryResourceKind;
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectorySearchRealmsRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -34,6 +35,10 @@ pub struct DirectorySearchRealmsRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
     pub claim_presentations: Vec<DirectoryRestrictedClaimPresentation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
@@ -41,6 +46,7 @@ pub struct DirectorySearchRealmsRequestBody {
     pub limit: Option<u32>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryRealmSearchOutcome {
     #[serde(default)]
@@ -50,6 +56,7 @@ pub struct DirectoryRealmSearchOutcome {
     pub has_more: bool,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RealmMemberCountBucketLabel {
     #[serde(rename = "1-10")]
@@ -66,6 +73,7 @@ pub enum RealmMemberCountBucketLabel {
     TwoThousandPlus,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RealmMemberCountBucket {
@@ -73,6 +81,7 @@ pub enum RealmMemberCountBucket {
     Exact(u64),
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RealmPreview {
     pub realm_id: RealmId,
@@ -115,6 +124,7 @@ pub struct RealmPreview {
 }
 
 /// Service class that can receive Realm join-side submissions.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinCandidateServiceType {
@@ -125,6 +135,7 @@ pub enum RealmJoinCandidateServiceType {
 
 /// Routing role for a Realm join candidate. This is an ordering and
 /// diagnostics hint, not an authorization grant.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinCandidateRole {
@@ -138,6 +149,7 @@ pub enum RealmJoinCandidateRole {
 }
 
 /// Join-side strand supported by a Realm join candidate.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinMethod {
@@ -149,6 +161,7 @@ pub enum RealmJoinMethod {
 }
 
 /// Source from which a Realm join candidate was derived.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinCandidateSource {
@@ -164,6 +177,7 @@ pub enum RealmJoinCandidateSource {
 /// submitting Realm join, invite-accept, knock, or restricted-join material.
 /// It is distinct from member delivery binding and does not authorize
 /// membership by itself.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RealmJoinCandidate {
     pub realm_id: RealmId,
@@ -185,6 +199,7 @@ pub struct RealmJoinCandidate {
     /// head at `as_of`. Principal server candidates MUST include this for
     /// pre-join join / invite acceptance because the invitee cannot read the
     /// membership-gated frontier view before joining.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub seal_basis: SealBasis,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
@@ -200,6 +215,7 @@ pub struct RealmJoinCandidate {
     pub proofs: Vec<PayloadProof>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryResolveRealmRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -215,15 +231,28 @@ pub struct DirectoryResolveRealmRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
     pub claim_presentations: Vec<DirectoryRestrictedClaimPresentation>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryRealmResolutionOutcome {
     pub realm_preview: RealmPreview,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
     pub stripped_state: Vec<Event>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Option<serde_json::Value>))
+    )]
     pub join_rule: Option<JoinRule>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub join_candidates: Vec<RealmJoinCandidate>,
@@ -232,6 +261,7 @@ pub struct DirectoryRealmResolutionOutcome {
 /// R3.3 (AKP-0011, arkret-spec @ cced4b8) — the resolved object class of a
 /// shareable address. The address grammar (`crate::models::object_address`)
 /// fixes the hierarchy `realm` ⊃ `strand` ⊃ `m` (message).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TargetKind {
@@ -247,6 +277,7 @@ pub enum TargetKind {
 /// [`crate::models::object_address::parse_address`]). `token` is present iff
 /// the address carries `lt=invite` or `lt=preview`; the server MUST bind it to
 /// the resolved object via [`crate::models::object_address::verify_token_target`].
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryResolveTargetRequestBody {
     pub address: String,
@@ -255,6 +286,10 @@ pub struct DirectoryResolveTargetRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
     pub claim_presentations: Vec<DirectoryRestrictedClaimPresentation>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proofs: Vec<Proof>,
@@ -269,6 +304,7 @@ pub struct DirectoryResolveTargetRequestBody {
 /// responses. `object_preview` is a target-kind-dependent opaque preview
 /// (a stripped Strand / Message projection); it stays a `serde_json::Value`
 /// because its shape varies by `target_kind`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryTargetResolutionOutcome {
     pub target_kind: TargetKind,
@@ -277,6 +313,10 @@ pub struct DirectoryTargetResolutionOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub object_preview: Option<ObjectPreview>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Option<serde_json::Value>))
+    )]
     pub join_rule: Option<JoinRule>,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
@@ -290,6 +330,7 @@ pub struct DirectoryTargetResolutionOutcome {
     pub policy_revision: NonEmptyString,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectorySearchOrganizationsRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -302,6 +343,7 @@ pub struct DirectorySearchOrganizationsRequestBody {
     pub limit: Option<u32>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryOrganizationSearchOutcome {
     #[serde(default)]
@@ -311,6 +353,7 @@ pub struct DirectoryOrganizationSearchOutcome {
     pub has_more: bool,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationPreview {
@@ -343,6 +386,7 @@ pub struct OrganizationPreview {
     pub divergent: Option<bool>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryResolveOrganizationRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -353,6 +397,7 @@ pub struct DirectoryResolveOrganizationRequestBody {
     pub proofs: Vec<Proof>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryOrganizationResolutionOutcome {
     pub organization_preview: OrganizationPreview,
@@ -362,6 +407,7 @@ pub struct DirectoryOrganizationResolutionOutcome {
     pub endorsements: Vec<Value>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectorySearchActorsRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -376,6 +422,7 @@ pub struct DirectorySearchActorsRequestBody {
     pub limit: Option<u32>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryActorSearchOutcome {
     #[serde(default)]
@@ -385,6 +432,7 @@ pub struct DirectoryActorSearchOutcome {
     pub has_more: bool,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ActorPreview {
     pub actor_id: Did,
@@ -409,6 +457,7 @@ pub struct ActorPreview {
     pub divergent: Option<bool>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DirectoryIntent {
@@ -454,6 +503,7 @@ impl std::str::FromStr for DirectoryIntent {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectorySearchUsersRequestBody {
     pub query: String,
@@ -467,6 +517,7 @@ pub struct DirectorySearchUsersRequestBody {
     pub intent: Option<DirectoryIntent>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum UserSearchMembership {
@@ -477,6 +528,7 @@ pub enum UserSearchMembership {
     Unknown,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryResolveHandleRequestBody {
     pub handle: String,
@@ -485,6 +537,10 @@ pub struct DirectoryResolveHandleRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
     pub claim_presentations: Vec<DirectoryRestrictedClaimPresentation>,
     /// Resolution purpose. `lookup` / `mention` return display-safe
     /// identity data; `member_add` / `invite` request a Realm/audience-bound
@@ -507,8 +563,10 @@ pub struct DirectoryResolveHandleRequestBody {
 }
 
 /// Request body for `ak.find.directory.query.resolve_agent_selector`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryResolveAgentSelectorRequestBody {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub controller_handle: Handle,
     pub agent_slug: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -524,12 +582,14 @@ pub struct DirectoryResolveAgentSelectorRequestBody {
 }
 
 /// Response body for `ak.find.directory.query.resolve_agent_selector`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryAgentSelectorResolutionOutcome {
     pub controller_subject: Did,
     pub subject: Did,
     pub agent_slug: String,
     pub verified: bool,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub selector_claim: AgentSelectorClaim,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<String>,
@@ -574,6 +634,7 @@ impl DirectoryAgentSelectorResolutionOutcome {
 /// R3.2 (arkret-spec @ b56cab1) — request body for
 /// `ak.find.directory.query.list_handles_for_subject`. Known holder/principal DID +
 /// context → current visible handle claims (inverse of `resolve_handle`).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryListHandlesForSubjectRequestBody {
     /// Holder/principal DID reverse-lookup key. NOT a Realm actor_id.
@@ -601,6 +662,7 @@ pub struct DirectoryListHandlesForSubjectRequestBody {
     pub limit: Option<u32>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DirectoryPushResourceKind {
@@ -611,6 +673,7 @@ pub enum DirectoryPushResourceKind {
     Handle,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryPushRegisterResourceFilter {
     pub resource_kinds: Vec<DirectoryPushResourceKind>,
@@ -618,6 +681,7 @@ pub struct DirectoryPushRegisterResourceFilter {
     pub resource_ids: Vec<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryPushRegisterRequestBody {
     pub subscriber_did: Did,
@@ -634,6 +698,7 @@ pub struct DirectoryPushRegisterRequestBody {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryPushRegisterOutcome {
     pub subscription_id: crate::SubscriptionId,
@@ -644,6 +709,7 @@ pub struct DirectoryPushRegisterOutcome {
     pub effective_at: DateTime<Utc>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryAnnounceRequestBody {
     pub resource_kind: DirectoryResourceKind,
@@ -663,6 +729,7 @@ pub struct DirectoryAnnounceRequestBody {
     pub supersedes_announce_id: Option<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryAnnounceOutcome {
     pub announce_id: String,
@@ -681,6 +748,7 @@ pub struct DirectoryAnnounceOutcome {
     pub warnings: Vec<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryWithdrawRequestBody {
     pub resource_id: String,
@@ -695,6 +763,7 @@ pub struct DirectoryWithdrawRequestBody {
     pub effective_at: Option<DateTime<Utc>>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryWithdrawOutcome {
     pub withdrawal_ref: String,
@@ -706,6 +775,7 @@ pub struct DirectoryWithdrawOutcome {
 }
 
 /// Requested outcome of a directory takedown appeal (`discovery-directory.md §8.7`).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DirectoryTakedownAppealOutcomeRequest {
@@ -717,6 +787,7 @@ pub enum DirectoryTakedownAppealOutcomeRequest {
 /// `ak.find.directory.command.takedown_appeal` request — resource-side appeal
 /// of an operator takedown. Mirrors
 /// `service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealRequestBody`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryTakedownAppealRequestBody {
     /// The operator `takedown_id` from the takedown notice
@@ -740,6 +811,7 @@ pub struct DirectoryTakedownAppealRequestBody {
 /// `ak.find.directory.command.takedown_appeal` outcome — signed decision
 /// receipt. Mirrors
 /// `service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealOutcome`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryTakedownAppealOutcome {
     /// Directory-local audit reference (`appeal:<token>`); not a registered
@@ -760,6 +832,7 @@ pub struct DirectoryTakedownAppealOutcome {
 /// `arkret-models-identity`) and the discovery-local [`UserSearchMembership`];
 /// hosting it here keeps directory user-search outcomes off the
 /// the `arkret` umbrella facade without a discovery -> collaboration edge.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UserSearchOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -778,9 +851,14 @@ pub struct UserSearchOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verified: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Option<serde_json::Value>))
+    )]
     pub member_delivery_binding: Option<DeliveryBindingHint>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryUserSearchOutcome {
     #[serde(default)]
@@ -790,6 +868,7 @@ pub struct DirectoryUserSearchOutcome {
     pub has_more: bool,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryHandleResolutionOutcome {
     pub did: Did,
@@ -797,12 +876,24 @@ pub struct DirectoryHandleResolutionOutcome {
     #[serde(default)]
     pub verified: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Option<Vec<serde_json::Value>>))
+    )]
     pub claims: Option<Vec<HandleClaim>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Option<serde_json::Value>))
+    )]
     pub member_delivery_binding: Option<DeliveryBindingHint>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Option<serde_json::Value>))
+    )]
     pub handle_claim: Option<HandleClaim>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
@@ -827,12 +918,18 @@ pub struct DirectoryHandleResolutionOutcome {
 /// Schema `ak.schema.list_handles_for_subject_response.v1`. Every
 /// `claims[].subject` MUST equal [`Self::subject`] (byte-equal); use
 /// [`Self::validate`] to enforce.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectorySubjectHandleList {
     pub subject: Did,
     #[serde(default)]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
     pub claims: Vec<HandleClaim>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<String>)))]
     pub primary_handle: Option<Handle>,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",

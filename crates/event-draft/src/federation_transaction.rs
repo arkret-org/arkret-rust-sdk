@@ -18,19 +18,23 @@ fn is_false(value: &bool) -> bool {
     !*value
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FederationTransactionRequestBody {
     pub origin: Did,
     pub destination: Did,
     pub service_binding_ref: String,
     #[serde(default)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub operations: Vec<Operation>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub receipts: Vec<EventBatchReceipt>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub frontier: Option<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FederationTransactionOutcome {
     pub ok: bool,
@@ -52,6 +56,7 @@ pub struct FederationTransactionOutcome {
     pub original_outcome: Option<Box<FederationTransactionOutcome>>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FederationPushOperationsRequestBody {
     pub origin: Did,
@@ -59,9 +64,11 @@ pub struct FederationPushOperationsRequestBody {
     pub realm_id: RealmId,
     pub service_binding_ref: String,
     #[serde(default)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub operations: Vec<Operation>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FederationPushOperationsOutcome {
     #[serde(default)]
@@ -72,11 +79,14 @@ pub struct FederationPushOperationsOutcome {
     pub quarantine: Vec<OperationId>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FederationPullOperationsOutcome {
     #[serde(default)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub operations: Vec<Operation>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub snapshot_bootstrap: Option<SnapshotBootstrap>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,

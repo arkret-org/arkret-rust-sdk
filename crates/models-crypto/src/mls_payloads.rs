@@ -21,6 +21,7 @@ pub const MLS_GOVERNANCE_BINDING_FULL_PROFILE: &str = "ak.profile.mls_governance
 pub const MLS_GOVERNANCE_BINDING_RELAXED_PROFILE: &str = "ak.profile.e2ee_relaxed.v1";
 
 /// Sidecar-specific extension of an MLS governance binding.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SidecarMlsBinding {
@@ -56,6 +57,7 @@ impl SidecarMlsBinding {
 }
 
 /// `event-payload.schema.json#/$defs/mls_governance_binding`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct MlsGovernanceBindingPayload {
     binding_version: u8,
@@ -701,6 +703,7 @@ pub fn verify_mls_governance_binding_extension(
 }
 
 /// `event-payload.schema.json#/$defs/mls_commit_payload`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct MlsCommitPayload {
     mls_group_id: MlsGroupId,
@@ -868,6 +871,7 @@ impl MlsCommitPayload {
 /// requires to be listed in `plaintext_visible_services[]`. Only the fields a
 /// member can independently recompute from the MLS transcript are bound into
 /// the digest; transport-only metadata MUST NOT leak in here.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MediaPlaintextService {
     /// Service DID authorised to decrypt media (`data_classes=media_plaintext`).
@@ -884,6 +888,7 @@ pub struct MediaPlaintextService {
 /// it without trusting client UI. This struct is the canonical input to
 /// [`derive_media_decrypt_metadata_digest`]; it mirrors the policy cell value
 /// that §10.5.1 rules 1–3 already place under `policy_root` coverage.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MediaDecryptPolicyValue {
     /// `ak.realm.policy_components.media_service_decrypts` (§10.5.1 rule 1).

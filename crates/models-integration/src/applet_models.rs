@@ -17,6 +17,7 @@ use crate::artifacts_applet::{
     E2eePolicy, ExternalRef, FieldType, ProtocolInstance, RejectedItem, ScopeGrant,
 };
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletPingOutcome {
     pub ok: bool,
@@ -25,6 +26,7 @@ pub struct AppletPingOutcome {
     pub protocol_version: String,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AppletTransactionOutcome {
     pub ok: bool,
@@ -34,6 +36,7 @@ pub struct AppletTransactionOutcome {
     pub retry_after_ms: Option<u64>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletApprovalRequest {
@@ -44,6 +47,7 @@ pub struct AppletApprovalRequest {
     pub allow_widget: bool,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AppletBotMembership {
@@ -52,6 +56,7 @@ pub enum AppletBotMembership {
     Disabled,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AppletGhostActorMode {
@@ -60,6 +65,7 @@ pub enum AppletGhostActorMode {
     PolicyDeclared,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletActorPolicy {
@@ -69,6 +75,7 @@ pub struct AppletActorPolicy {
     pub ghost_actor_mode: Option<AppletGhostActorMode>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletWidgetPolicy {
@@ -76,6 +83,7 @@ pub struct AppletWidgetPolicy {
     pub allow_widget: Option<bool>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletRejectedItem {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -83,6 +91,7 @@ pub struct AppletRejectedItem {
     pub reason_code: String,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AppletInstallEffectiveStatus {
@@ -91,6 +100,7 @@ pub enum AppletInstallEffectiveStatus {
     Rejected,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletInstallOutcome {
     pub ok: bool,
@@ -112,6 +122,7 @@ pub struct AppletInstallOutcome {
 // for path stability.
 pub use arkret_wire::AppletRevokeMode;
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletRevokeOutcome {
     pub ok: bool,
@@ -121,6 +132,7 @@ pub struct AppletRevokeOutcome {
     pub rejected: Vec<AppletRejectedItem>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AppletActorView {
     pub exists: bool,
@@ -132,6 +144,7 @@ pub struct AppletActorView {
     pub external_ref: Option<ExternalRef>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AppletRealmView {
     pub exists: bool,
@@ -143,6 +156,7 @@ pub struct AppletRealmView {
     pub external_ref: Option<ExternalRef>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletProtocolMetadata {
     pub protocol: String,
@@ -154,6 +168,7 @@ pub struct AppletProtocolMetadata {
     pub instances: Vec<ProtocolInstance>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletInstallPreviewRequestBody {
@@ -162,6 +177,7 @@ pub struct AppletInstallPreviewRequestBody {
     pub approval_request: AppletApprovalRequest,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletInstallRequestBody {

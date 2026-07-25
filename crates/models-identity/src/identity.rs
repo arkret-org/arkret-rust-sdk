@@ -7,6 +7,7 @@ use serde_json::Value;
 use crate::artifacts_device_identity::IdentityReceipt;
 use crate::identity_key_log::DidKeyLogEntry;
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IdentityDescription {
     pub service_id: Did,
@@ -18,6 +19,7 @@ pub struct IdentityDescription {
     pub profiles: Vec<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IdentityResolveRequestBody {
     pub did: Did,
@@ -25,6 +27,7 @@ pub struct IdentityResolveRequestBody {
     pub requested_evidence_kinds: Vec<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IdentityResolveOutcome {
     pub did_document: BTreeMap<String, Value>,
@@ -33,9 +36,14 @@ pub struct IdentityResolveOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
     pub receipts: Vec<IdentityReceipt>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IdentityDocumentView {
     pub did_document: BTreeMap<String, Value>,
@@ -44,9 +52,14 @@ pub struct IdentityDocumentView {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
     pub receipts: Vec<IdentityReceipt>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DidOperationSubmitRequestBody {
@@ -75,6 +88,7 @@ impl DidOperationSubmitRequestBody {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DidOperationSubmitOutcome {
     pub status: String,
@@ -86,20 +100,34 @@ pub struct DidOperationSubmitOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub operation_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
     pub receipts: Vec<IdentityReceipt>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IdentityReceiptListOutcome {
     #[serde(default)]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
     pub receipts: Vec<IdentityReceipt>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub threshold_met: Option<bool>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IdentityLogListOutcome {
     #[serde(default)]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
     pub events: Vec<DidKeyLogEntry>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,

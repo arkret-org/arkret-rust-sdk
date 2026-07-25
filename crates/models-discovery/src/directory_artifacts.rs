@@ -25,6 +25,7 @@ pub type EventRefs = Vec<EventId>;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/freshness_fields`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FreshnessFields {
@@ -46,6 +47,7 @@ pub type Intent = DirectoryIntent;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/invite_consent_handoff_stub`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InviteConsentHandoffStub {
@@ -67,6 +69,7 @@ pub struct InviteConsentHandoffStub {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/object_preview`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ObjectPreview {
@@ -89,6 +92,7 @@ pub struct ObjectPreview {
     pub divergent: Option<bool>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ObjectPreviewId {

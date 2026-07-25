@@ -7,6 +7,7 @@
 use arkret_wire::Did;
 use serde::{Deserialize, Serialize};
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletPingParams {
     #[serde(
@@ -23,6 +24,7 @@ pub struct AppletPingParams {
     )]
     pub traceparent: Option<String>,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletDescribeParams {
     #[serde(
@@ -39,6 +41,7 @@ pub struct AppletDescribeParams {
     )]
     pub traceparent: Option<String>,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletTransactionParams {
     #[serde(rename = "Idempotency-Key")]
@@ -58,6 +61,7 @@ pub struct AppletTransactionParams {
     )]
     pub traceparent: Option<String>,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletActorParams {
     pub actor_id: Did,
@@ -76,6 +80,7 @@ pub struct AppletActorParams {
     )]
     pub traceparent: Option<String>,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletRealmParams {
     pub realm_id_or_alias: String,
@@ -94,6 +99,7 @@ pub struct AppletRealmParams {
     )]
     pub traceparent: Option<String>,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletProtocolParams {
     pub protocol: String,
@@ -112,6 +118,7 @@ pub struct AppletProtocolParams {
     )]
     pub traceparent: Option<String>,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletThirdPartyUsersParams {
     pub protocol: String,
@@ -132,6 +139,7 @@ pub struct AppletThirdPartyUsersParams {
     )]
     pub traceparent: Option<String>,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletThirdPartyLocationsParams {
     pub protocol: String,

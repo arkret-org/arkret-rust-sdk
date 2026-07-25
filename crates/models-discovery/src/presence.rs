@@ -43,6 +43,7 @@ pub const STATUS_MESSAGE_MAX_CODE_POINTS: usize = 256;
 /// other wire value as a schema violation and drop the update
 /// (fail closed) instead of guessing a nearby state; use
 /// [`PresenceStatus::parse_wire`] for that strict path.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum PresenceStatus {
@@ -229,6 +230,7 @@ pub fn validate_status_message(value: &str) -> Result<(), PresenceValidationErro
 /// send side — every device of the principal reads the same account
 /// data and pins its broadcast `state` to `manual_state` while the
 /// preference is active.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PresencePreference {
     /// Pinned manual state: `online`, `idle` or `dnd`. `offline` is

@@ -6,6 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryDescribeParams {
     #[serde(
@@ -22,6 +23,7 @@ pub struct DirectoryDescribeParams {
     )]
     pub traceparent: Option<String>,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectorySearchRealmsParams {
     #[serde(
@@ -38,6 +40,7 @@ pub struct DirectorySearchRealmsParams {
     )]
     pub traceparent: Option<String>,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryResolveRealmParams {
     #[serde(
@@ -54,6 +57,7 @@ pub struct DirectoryResolveRealmParams {
     )]
     pub traceparent: Option<String>,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectorySearchOrganizationsParams {
     #[serde(
@@ -70,6 +74,7 @@ pub struct DirectorySearchOrganizationsParams {
     )]
     pub traceparent: Option<String>,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryResolveOrganizationParams {
     #[serde(
@@ -86,6 +91,7 @@ pub struct DirectoryResolveOrganizationParams {
     )]
     pub traceparent: Option<String>,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectorySearchActorsParams {
     #[serde(
@@ -102,6 +108,7 @@ pub struct DirectorySearchActorsParams {
     )]
     pub traceparent: Option<String>,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectorySearchUsersParams {
     #[serde(
@@ -118,6 +125,7 @@ pub struct DirectorySearchUsersParams {
     )]
     pub traceparent: Option<String>,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryResolveHandleParams {
     #[serde(
@@ -134,6 +142,7 @@ pub struct DirectoryResolveHandleParams {
     )]
     pub traceparent: Option<String>,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PrivateContactDiscoveryParams {
     #[serde(
@@ -150,6 +159,7 @@ pub struct PrivateContactDiscoveryParams {
     )]
     pub traceparent: Option<String>,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryAnnounceParams {
     #[serde(rename = "Idempotency-Key")]
@@ -169,6 +179,7 @@ pub struct DirectoryAnnounceParams {
     )]
     pub traceparent: Option<String>,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryWithdrawParams {
     #[serde(rename = "Idempotency-Key")]

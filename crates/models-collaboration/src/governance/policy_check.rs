@@ -43,6 +43,7 @@ pub fn compute_audit_policy_version_digest(
 // ── PolicyCheck v2 ──────────────────────────────────────────────────────
 
 /// Round 4 — `source` discriminator for [`PolicyCheckRequestBody`].
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PolicyCheckSource {
     pub service_id: Did,
@@ -55,6 +56,7 @@ pub struct PolicyCheckSource {
 /// Round 4 (commit 7446832) — typed `/policy/check` request body.
 ///
 /// Wire-breaking: replaces the pre-round-4 `PolicyCheckRequestBody`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PolicyCheckRequestBody {
     pub request_id: String,
@@ -75,6 +77,7 @@ pub struct PolicyCheckRequestBody {
 ///
 /// MUST include all five fields so the response can be verified against
 /// the request transcript without trusting the policy server.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PolicyCheckBoundTo {
     pub realm_id: RealmId,
@@ -85,6 +88,7 @@ pub struct PolicyCheckBoundTo {
 }
 
 /// Round 4 — signature carrier for [`PolicyCheckOutcome`].
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PolicyCheckSignature {
     /// DID URL verification method, MUST match
@@ -95,6 +99,7 @@ pub struct PolicyCheckSignature {
 
 /// Round 4 (commit 7446832) — `/policy/check` response with full
 /// binding transcript.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PolicyCheckOutcome {
     pub request_id: String,

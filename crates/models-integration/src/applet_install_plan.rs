@@ -8,6 +8,7 @@ use crate::artifacts_applet::{
     WidgetEffect,
 };
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AppletInstallAppletId {
@@ -15,6 +16,7 @@ pub enum AppletInstallAppletId {
     AppletId(AppletId),
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletInstallPlan {

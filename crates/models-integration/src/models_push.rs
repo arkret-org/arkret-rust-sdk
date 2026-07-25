@@ -11,6 +11,7 @@ fn is_false(value: &bool) -> bool {
     !*value
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushRegisterDeviceRequestBody {
@@ -27,6 +28,7 @@ pub struct PushRegisterDeviceRequestBody {
     pub recipient_service_id: Option<Did>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushRegisterDeviceOutcome {
@@ -42,6 +44,7 @@ pub struct PushRegisterDeviceOutcome {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushUnregisterDeviceRequestBody {
@@ -52,18 +55,21 @@ pub struct PushUnregisterDeviceRequestBody {
     pub app_id: Option<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushUnregisterDeviceOutcome {
     pub ok: bool,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OkOutcome {
     pub ok: bool,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushCounts {
@@ -79,6 +85,7 @@ pub struct PushCounts {
 ///
 /// The wire value is either a boolean presence bit or a policy-declared bucket
 /// label. Plain integer absolute counts are deliberately not representable.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
 pub enum PushCountIndicator {
@@ -147,6 +154,7 @@ fn is_valid_push_count_bucket(value: &str) -> bool {
     parse_positive(value)
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushDeviceRoute {
@@ -166,6 +174,7 @@ pub struct PushDeviceRoute {
 pub type PushRouteToken = String;
 
 /// Canonical v1 wire values for the Realm `mention_routing_hint` policy.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MentionRoutingHint {
@@ -259,6 +268,7 @@ pub fn effective_mention_routing_hint<S: AsRef<str>>(
         .unwrap_or_default()
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushRouteTokens {
@@ -272,6 +282,7 @@ pub struct PushRouteTokens {
     pub delivery_binding_frontier_token: Option<PushRouteToken>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PushTimingProfileHint {
@@ -293,6 +304,7 @@ impl PushTimingProfileHint {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushNotificationEnvelope {
@@ -338,6 +350,7 @@ pub struct PushNotificationEnvelope {
     pub membership: Option<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushAuditEnvelopeMetadata {
@@ -346,6 +359,7 @@ pub struct PushAuditEnvelopeMetadata {
     pub late_recovery_original_event_id: Option<EventId>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushNotifyRequestBody {
@@ -358,6 +372,7 @@ pub struct PushNotifyRequestBody {
     pub audit_envelope: Option<PushAuditEnvelopeMetadata>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushNotifyOutcome {
@@ -365,6 +380,7 @@ pub struct PushNotifyOutcome {
     pub rejected: Vec<PushNotifyRejection>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushNotifyRejection {
@@ -721,6 +737,7 @@ mod tests {
 // The `arkret` umbrella re-exports these owner-defined shapes at its root.
 
 /// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 #[allow(clippy::large_enum_variant)]
@@ -735,6 +752,7 @@ pub enum PushOperations {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/blind_notification`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RouteTokens {
@@ -748,6 +766,7 @@ pub struct RouteTokens {
     pub delivery_binding_frontier_token: Option<PushRouteToken>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BlindNotification {
@@ -768,6 +787,7 @@ pub struct BlindNotification {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/counts`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Counts {
@@ -780,6 +800,7 @@ pub struct Counts {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/device_route`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceRoute {
@@ -797,6 +818,7 @@ pub struct DeviceRoute {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/notify_rejection`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NotifyRejection {
@@ -820,6 +842,7 @@ pub type RegistrationId = String;
 /// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/url`.
 pub type Url = String;
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct VisibleNotification {

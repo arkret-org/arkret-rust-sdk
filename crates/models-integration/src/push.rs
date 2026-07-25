@@ -17,6 +17,7 @@ fn list_contains_ignore_ascii_case(haystack: &[String], needle: &str) -> bool {
         .any(|entry| entry.eq_ignore_ascii_case(needle))
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(transparent)]
 pub struct PushPlatform(String);
@@ -54,6 +55,7 @@ impl<'de> Deserialize<'de> for PushPlatform {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PushPriority {
@@ -63,6 +65,7 @@ pub enum PushPriority {
     Urgent,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Pusher {
     pub user_id: Did,
@@ -94,6 +97,7 @@ impl Pusher {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushRule {
     pub rule_id: String,
@@ -141,6 +145,7 @@ impl PushRule {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushCondition {
     pub kind: String,
@@ -154,12 +159,14 @@ pub struct PushCondition {
     pub value: Option<i64>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushRulesConfig {
     #[serde(default)]
     pub rules: Vec<PushRule>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DndSettings {
     #[serde(default)]
@@ -170,6 +177,7 @@ pub struct DndSettings {
     pub exceptions: Vec<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DndSchedule {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -178,6 +186,7 @@ pub struct DndSchedule {
     pub periods: Vec<DndPeriod>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DndPeriod {
     pub start: String,
@@ -202,6 +211,7 @@ fn push_pattern_matches(pattern: &Value, value: &str) -> bool {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PushEventNotification {
     pub event_id: EventId,
@@ -211,6 +221,7 @@ pub struct PushEventNotification {
     pub event_kind: String,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PushPayload {
     pub platform: PushPlatform,
@@ -333,6 +344,7 @@ pub const EXPECTED_SPEC_VERSION: &str = "arkret-spec@2026-05-26";
 /// implementation and clients that probe it before registration / notify
 /// strands. It intentionally lives in the `arkret` umbrella rather than individual
 /// services so bridge producers and consumers cannot drift silently.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushBridgeDescribeOutcome {
     pub contract: String,
@@ -396,6 +408,7 @@ impl PushBridgeDescribeOutcome {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushBridgeDescribeGatewayDescriptor {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -428,6 +441,7 @@ impl PushBridgeDescribeGatewayDescriptor {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushBridgeDescribeNotifyDescriptor {
     pub notify_path: String,
@@ -476,6 +490,7 @@ impl PushBridgeDescribeNotifyDescriptor {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushBridgeDescribePrivacyDescriptor {
     pub default_mode: String,
@@ -486,6 +501,7 @@ pub struct PushBridgeDescribePrivacyDescriptor {
 
 /// Per-app frozen capability matrix entry, surfaced by the gateway via
 /// `bridge/describe.provider_capabilities[]`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProviderCapabilityDescriptor {
     /// Configured app name as known to the gateway registry.
@@ -534,6 +550,7 @@ impl ProviderCapabilityDescriptor {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushBridgeFailureCodeDescriptor {
     pub code: String,
@@ -558,6 +575,7 @@ impl PushBridgeFailureCodeDescriptor {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PushBridgeDescribeExamples {
     #[serde(default)]
@@ -570,6 +588,7 @@ pub struct PushBridgeDescribeExamples {
 
 /// Combined view of a push gateway's high-level integration manifest plus its
 /// active bridge contract.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct IntegrationView {

@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 /// clients can aggregate deployment posture without scraping service-specific
 /// config. Fields are coarse by design and must not contain paths, hosts, token
 /// tails, or other secrets.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct HardeningStatus {
     #[serde(default)]

@@ -9,6 +9,7 @@ use serde_json::Value;
 
 use crate::applet_models::AppletIdentifier;
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AppletBridgeVisibilityScope {
@@ -17,6 +18,7 @@ pub enum AppletBridgeVisibilityScope {
     RealmMembers,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AppletBridgeErrorClass {
@@ -29,9 +31,11 @@ pub enum AppletBridgeErrorClass {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/applet_bridge_error_payload`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletBridgeErrorPayload {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub applet_id: AppletIdentifier,
     pub realm_id: RealmId,
     pub failed_transaction_ref: String,
@@ -49,9 +53,11 @@ pub struct AppletBridgeErrorPayload {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/applet_registration_payload`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletRegistrationPayload {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub applet_id: AppletIdentifier,
     pub service_id: Did,
     pub controller_id: Did,

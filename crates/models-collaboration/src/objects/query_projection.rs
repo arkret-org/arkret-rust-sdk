@@ -328,9 +328,11 @@ pub struct CollectionProjectionView {
     pub stale: Option<bool>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DocumentMorphProjectionOutcome {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub document: DocumentMorphProjection,
     #[serde(default)]
     pub versions: Vec<BTreeMap<String, Value>>,
@@ -341,6 +343,10 @@ pub struct DocumentMorphProjectionOutcome {
     #[serde(default)]
     pub cursor_presence: Vec<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Option<serde_json::Value>))
+    )]
     pub frontier: Option<StateFrontier>,
 }
 

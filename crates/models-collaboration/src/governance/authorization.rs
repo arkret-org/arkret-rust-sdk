@@ -59,9 +59,11 @@ pub struct AuthzCheckOutcome {
     pub obligations: Vec<Value>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GrantList {
     #[serde(default)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub grants: Vec<CapabilityGrant>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_digest: Option<Hash>,
@@ -72,9 +74,11 @@ pub struct GrantList {
     pub evaluated_at: DateTime<Utc>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthzInviteList {
     #[serde(default)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub invites: Vec<Invite>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,

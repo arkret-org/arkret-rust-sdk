@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 /// Account lifecycle status (account-lifecycle.md §3).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AccountStatus {
     Active,
     SoftLoggedOut,

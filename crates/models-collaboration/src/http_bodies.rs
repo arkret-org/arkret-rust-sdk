@@ -131,6 +131,7 @@ fn is_false(value: &bool) -> bool {
     !*value
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EventsSubmitStatus {
@@ -140,11 +141,14 @@ pub enum EventsSubmitStatus {
     HistoricalOnly,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EventsSubmitRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub event: Option<Event>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub events: Vec<Event>,
 }
 
@@ -152,8 +156,10 @@ pub struct EventsSubmitRequestBody {
 /// submitted in a single round trip. The receiver MUST process each
 /// envelope independently; partial-success returns the per-envelope
 /// rejected list.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EventsSubmitBatchRequestBody {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub events: Vec<Event>,
     /// Optional idempotency key for the entire batch.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -163,6 +169,7 @@ pub struct EventsSubmitBatchRequestBody {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome`
 /// `rejected` array items: `{id, reason_code, detail?}`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EventsSubmitRejectedItem {
     pub id: String,
@@ -171,6 +178,7 @@ pub struct EventsSubmitRejectedItem {
     pub detail: Option<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EventsSubmitOutcome {
@@ -200,17 +208,21 @@ pub struct EventsSubmitOutcome {
 /// plus the collaboration `EphemeralEnvelope` batch, so it lives here rather
 /// than with the other applet DTOs in `arkret-models-integration` (which does
 /// not depend on this crate).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AppletTransactionRequestBody {
     pub source_service_id: Did,
     #[serde(default)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub ephemeral: Option<Vec<EphemeralEnvelope>>,
 }
 
 /// Result of `ak.self.events.command.submit_seal` after the receiver has
 /// recomputed the Seal body, coverage and post-state.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EventSealSubmitOutcome {
@@ -220,8 +232,10 @@ pub struct EventSealSubmitOutcome {
     pub post_state_root: Hash,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EventView {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub event: Event,
     /// Spec-loose object: `service-operation-dtos.schema.json` declares
     /// `visibility` without property constraints.
@@ -231,6 +245,7 @@ pub struct EventView {
     pub receipts: Vec<Value>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EventsResolveRequestBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -241,9 +256,11 @@ pub struct EventsResolveRequestBody {
     pub include_payload: Option<bool>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EventsResolveOutcome {
     #[serde(default)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub missing: Vec<String>,
@@ -251,6 +268,7 @@ pub struct EventsResolveOutcome {
     pub unauthorized: Vec<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EphemeralSubmitOutcome {
     pub accepted: bool,
@@ -267,6 +285,7 @@ pub struct EphemeralSubmitOutcome {
     pub server_received_at: Option<DateTime<Utc>>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProjectionSpaceState {
@@ -275,6 +294,7 @@ pub enum ProjectionSpaceState {
     Tombstoned,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProjectionObjectState {
@@ -283,6 +303,7 @@ pub enum ProjectionObjectState {
     Redacted,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionSpaceRow {
     pub space_id: SpaceId,
@@ -319,6 +340,7 @@ pub struct ProjectionSpaceRow {
     pub state_changed_at: Option<DateTime<Utc>>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionSpaceList {
     pub realm_id: RealmId,
@@ -330,6 +352,7 @@ pub struct ProjectionSpaceList {
     pub has_more: bool,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionStrandRow {
     pub strand_id: StrandId,
@@ -392,12 +415,14 @@ pub struct ProjectionStrandRow {
     pub is_default: bool,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionAssignedToRelation {
     pub relation_id: RelationId,
     pub actor_id: Did,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionStrandList {
     pub realm_id: RealmId,
@@ -409,6 +434,7 @@ pub struct ProjectionStrandList {
     pub has_more: bool,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionMorphRow {
     pub morph_id: MorphId,
@@ -442,6 +468,7 @@ pub struct ProjectionMorphRow {
     pub state_changed_at: Option<DateTime<Utc>>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionMorphList {
     pub realm_id: RealmId,
@@ -460,6 +487,7 @@ pub struct ProjectionMorphList {
 /// fail-closed semantics (ignore/drop an unrecognised frame rather than
 /// treating it as an event or a state transition). Deserialisation itself
 /// stays closed-set: an unknown wire value still fails the frame parse.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
@@ -474,6 +502,7 @@ pub enum EventsSubscribeFrameKind {
     Unauthorized,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EventsSubscribeFrame {
     pub kind: EventsSubscribeFrameKind,
@@ -519,6 +548,7 @@ impl EventsSubscribeFrame {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct EventsSubscribeFrameOutcome(pub EventsSubscribeFrame);
@@ -542,6 +572,7 @@ impl StreamTraceFrame for EventsSubscribeFrame {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlobHeadOutcome {
     #[serde(skip_serializing_if = "Option::is_none", rename = "Content-Length")]
@@ -559,6 +590,7 @@ pub struct BlobHeadOutcome {
     pub content_disposition: Option<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct BlobGetOutcome(pub Vec<u8>);
@@ -961,11 +993,13 @@ mod mimi_consent_tests {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EventsRangeCompleteness {
     pub attestation_refs: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub attestations: Vec<Event>,
 }
 
@@ -990,6 +1024,7 @@ pub enum DirectConversationBindingState {
     NonCanonical,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DirectConversationResolveState {
@@ -1000,6 +1035,7 @@ pub enum DirectConversationResolveState {
     NonCanonical,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DirectConversationAuthoringKind {
@@ -1069,6 +1105,7 @@ pub struct ContactListRow {
     pub agents: Vec<ContactAgentProjection>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ContactListQuery {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1157,6 +1194,7 @@ pub struct ContactTombstone {
     pub partial_revoke: Option<bool>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectConversationResolveRequestBody {
     pub peer: Did,
@@ -1168,6 +1206,7 @@ pub struct DirectConversationResolveRequestBody {
     pub peer_claim_request: Option<PeerKeyPackagesClaimRequestBody>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationMaterializationDraft {
@@ -1180,10 +1219,15 @@ pub struct DirectConversationMaterializationDraft {
     pub claimed_keypackage: KeyPackageClaimRecord,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub claim_receipt: Option<PeerKeyPackageClaimReceipt>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub realm_event: Event,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub founding_grant_event: Event,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub peer_member_event: Event,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub main_strand_event: Event,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub binding_event: Event,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
@@ -1283,6 +1327,7 @@ impl DirectConversationMaterializationDraft {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectConversationResolveOutcome {
     pub state: DirectConversationResolveState,
@@ -1345,6 +1390,7 @@ impl DirectConversationResolveOutcome {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AccountOidcCallbackOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1355,15 +1401,20 @@ pub struct AccountOidcCallbackOutcome {
     pub redirect_url: Option<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
+#[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
 pub struct AccountSubscribeRequestBody(pub SyncRequestBody);
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EventsQueryOutcome {
     #[serde(default)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub events: Vec<Event>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub snapshot_bootstrap: Option<SnapshotBootstrap>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
@@ -1481,6 +1532,7 @@ pub struct DevicePairingStageOutcome {
 /// MUST be carried in the body, never in the URL.
 ///
 /// Mirrors `device-pairing.schema.json#/$defs/device_pairing_resolve_request_body`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DevicePairingResolveRequestBody {
@@ -1534,6 +1586,7 @@ pub enum DevicePairingState {
 /// for a sibling to approve.
 ///
 /// Mirrors `device-pairing.schema.json#/$defs/device_pairing_status_request_body`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DevicePairingStatusRequestBody {
@@ -1555,10 +1608,13 @@ pub struct DevicePairingStatusOutcome {
     pub authorized_event_ref: Option<EventId>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
+#[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
 pub struct BlobUploadRequestBody(pub BlobUploadMetadata);
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct GrantListOutcome(pub GrantList);

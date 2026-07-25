@@ -19,6 +19,8 @@ default = []
 # derived records reference (`Hash`, `RealmId`, `PayloadProof`, `DateTime<Utc>`).
 openapi = [
     "dep:salvo-oapi",
+    "arkret-models-crypto/openapi",
+    "arkret-models-identity/openapi",
     "arkret-wire/openapi",
     "arkret-identifiers/openapi",
     "salvo-oapi/chrono",

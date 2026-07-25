@@ -9,6 +9,7 @@ use thiserror::Error;
 
 pub const KEY_TRANSPARENCY_SCHEMA: &str = "ak.schema.key_transparency.v1";
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KeyTransparencyEvidence {
     pub schema: String,
@@ -21,6 +22,7 @@ pub struct KeyTransparencyEvidence {
     pub witness_signatures: Vec<TransparencyWitnessSignature>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransparencyLogHead {
     pub tree_size: u64,
@@ -28,6 +30,7 @@ pub struct TransparencyLogHead {
     pub issued_at: String,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransparencyInclusionProof {
     pub leaf_index: u64,
@@ -35,6 +38,7 @@ pub struct TransparencyInclusionProof {
     pub audit_path: Vec<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransparencyConsistencyProof {
     pub from_tree_size: u64,
@@ -42,6 +46,7 @@ pub struct TransparencyConsistencyProof {
     pub audit_path: Vec<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransparencyWitnessSignature {
     pub witness_did: String,

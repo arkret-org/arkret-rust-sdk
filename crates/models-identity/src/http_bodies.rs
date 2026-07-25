@@ -16,10 +16,12 @@ use crate::identity::{
 
 /// `ak.gate.account.command.logout` request (Principal Server device logout).
 /// Empty body — the session bearer identifies the device session to terminate.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct AccountLogoutRequestBody {}
 
 /// `ak.gate.account.command.logout` outcome.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AccountLogoutOutcome {
     pub ok: bool,
@@ -32,6 +34,7 @@ pub struct AccountLogoutOutcome {
 /// `ak.device.authorize` for this session's own device (device-lifecycle.md
 /// §5.4, key-management.md §5.0.6). Mirrors
 /// `agent-operations.schema.json#/$defs/account_device_enroll_request_body`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AccountDeviceEnrollRequestBody {
     pub device_id: DeviceId,
@@ -91,6 +94,7 @@ where
 /// does not contact the Principal Server; the caller submits `authorized_event`
 /// verbatim to `POST /_arkret/self/events`. Mirrors
 /// `agent-operations.schema.json#/$defs/account_device_enroll_outcome`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AccountDeviceEnrollOutcome {
     pub principal_id: Did,
@@ -99,9 +103,11 @@ pub struct AccountDeviceEnrollOutcome {
     /// `enrollment_authority_binding.authority_did`).
     pub authority_did: Did,
     /// Fully-signed `service_attested` `ak.device.authorize` Event envelope.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub authorized_event: Event,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AccountOidcCallbackRequestBody {
     pub state: String,
@@ -112,21 +118,27 @@ pub struct AccountOidcCallbackRequestBody {
     pub redirect_uri: Option<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct IdentityDescribeOutcome(pub IdentityDescription);
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct IdentityDocumentViewOutcome(pub IdentityDocumentView);
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct IdentityLogResultBody(pub IdentityLogListOutcome);
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct IdentitySubmitDidOperationRequestBody(pub DidOperationSubmitRequestBody);
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct IdentitySubmitDidOperationOutcome(pub DidOperationSubmitOutcome);
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct IdentityReceiptsResultBody(pub IdentityReceiptListOutcome);

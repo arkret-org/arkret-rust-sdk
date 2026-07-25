@@ -26,6 +26,7 @@ pub const EPHEMERAL_ABSOLUTE_HARD_CEILING_MS: u32 = 300_000;
 /// ephemeral channels (sync subscribe live stream, presence/typing fanout,
 /// call signaling channel) and dropped at TTL. Point-to-point to-device
 /// signals (`ak.key.verification.*`) use the device message schema instead.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EphemeralEnvelope {
@@ -147,6 +148,7 @@ impl EphemeralEnvelope {
 /// validates `signal_type` against [`CALL_SIGNAL_TYPES`] (14
 /// values). `seq` is monotonic per `(realm, call, actor, device)` —
 /// see [`validate_signal_seq`].
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CallSignalPayload {
     pub call_id: CallId,

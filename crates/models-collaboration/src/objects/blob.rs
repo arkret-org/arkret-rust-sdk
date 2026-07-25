@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 pub type MediaType = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/blob-operations.schema.json#/$defs/upload_receipt`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SignatureValue {
@@ -22,6 +23,7 @@ pub struct SignatureValue {
     pub sig: String,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct UploadReceipt {
@@ -37,6 +39,7 @@ pub struct UploadReceipt {
     pub signature: SignatureValue,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Blob {
@@ -74,6 +77,7 @@ pub struct Blob {
 /// [`Blob`] wire model, not a second DTO.
 pub type BlobMetadata = Blob;
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BlobVisibility {
@@ -95,6 +99,7 @@ impl BlobVisibility {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlobUploadMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -111,6 +116,7 @@ pub struct BlobUploadMetadata {
     pub purpose: Option<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlobUploadOutcome {
     pub blob_ref: BlobRef,
@@ -123,6 +129,7 @@ pub struct BlobUploadOutcome {
     pub upload_receipt: Option<UploadReceipt>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BlobPresignRequestBody {
@@ -135,6 +142,7 @@ pub struct BlobPresignRequestBody {
     pub purpose: Option<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BlobPresignOutcome {
@@ -152,6 +160,7 @@ pub struct BlobPresignOutcome {
     pub access_scope: BlobPresignAccessScope,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BlobPresignAccessScope {
@@ -160,6 +169,7 @@ pub struct BlobPresignAccessScope {
     pub byte_range: Option<[u64; 2]>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BlobPresignPayload {
@@ -185,6 +195,7 @@ pub struct BlobPresignPayload {
     pub audience_hint: Option<Did>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BlobPresignDetachedJwsProof {
@@ -194,6 +205,7 @@ pub struct BlobPresignDetachedJwsProof {
     pub jws: String,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BlobPresignEnvelope {
@@ -205,6 +217,7 @@ pub struct BlobPresignEnvelope {
 ///
 /// Aggregates the blob upload request/response bodies; migrated from
 /// the `arkret` umbrella (`models::artifacts::blob`).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum BlobOperations {

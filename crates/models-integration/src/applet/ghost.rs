@@ -13,6 +13,7 @@ use crate::artifacts_applet::ExternalRef;
 /// grant for one external user. The bridge supplies the two complete,
 /// caller-signed Events; the Principal Server validates their exact business
 /// binding and commits them as one atomic provisioning unit.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GhostActorProvisionRequestBody {
     /// Always [`GhostActorProvisionRequestBody::SCHEMA`].
@@ -27,7 +28,9 @@ pub struct GhostActorProvisionRequestBody {
     pub display_name: Option<String>,
     pub realm_id: RealmId,
     pub external_ref: ExternalRef,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub accountability_grant_event: Event,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub profile_event: Event,
 }
 
@@ -77,6 +80,7 @@ impl GhostActorProvisionRequestBody {
 /// `authorization_ref` is the active Applet capability grant used by the
 /// provisioning pair; an accountability grant records responsibility and is
 /// never itself treated as authorization for later Ghost Actor actions.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GhostActorProvisionOutcome {
     pub ghost_actor_id: Did,
@@ -88,6 +92,7 @@ pub struct GhostActorProvisionOutcome {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-ghost-operations.schema.json`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AppletGhostOperations {
@@ -97,6 +102,7 @@ pub enum AppletGhostOperations {
 
 /// Applet delegation fields required when an applet or delegated agent signs
 /// on behalf of another actor.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletDelegatedEventAuthorization {
@@ -137,6 +143,7 @@ impl AppletDelegatedEventAuthorization {
 }
 
 /// Typed `profile_fields` payload for an Applet-managed Ghost Actor.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GhostActorProfileFields {

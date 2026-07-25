@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Framework-neutral applet endpoint route declaration.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppletEndpointRoute {
     pub method: String,
@@ -9,6 +10,7 @@ pub struct AppletEndpointRoute {
 }
 
 /// Route set expected from applet service framework adapters.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppletEndpointRouteSet {
     pub routes: Vec<AppletEndpointRoute>,

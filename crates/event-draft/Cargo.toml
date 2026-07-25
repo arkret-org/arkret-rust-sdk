@@ -13,6 +13,16 @@ version.workspace = true
 
 [features]
 default = []
+openapi = [
+    "dep:salvo-oapi",
+    "arkret-identifiers/openapi",
+    "arkret-models-collaboration/openapi",
+    "arkret-models-crypto/openapi",
+    "arkret-models-identity/openapi",
+    "arkret-models-integration/openapi",
+    "arkret-wire/openapi",
+    "salvo-oapi/chrono",
+]
 
 [dependencies]
 arkret-canonical = {workspace = true}
@@ -25,6 +35,7 @@ arkret-wire = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 serde = {workspace = true}
 serde_json = {workspace = true}
+salvo-oapi = {workspace = true,optional = true}
 thiserror = {workspace = true}
 
 [dev-dependencies]
