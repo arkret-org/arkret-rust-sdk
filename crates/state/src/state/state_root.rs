@@ -39,6 +39,17 @@ const NODE_PREFIX: u8 = 0x01;
 pub const EMPTY_STATE_ROOT: &str =
     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
+/// Portable RFC 6962 branch for one non-bottom state cell.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StateInclusionProof {
+    pub leaf_digest: Hash,
+    pub leaf_index: u64,
+    pub leaf_count: u64,
+    /// Sibling hashes ordered from the leaf layer toward the root. Odd
+    /// promoted nodes contribute no sibling entry.
+    pub inclusion_proof: Vec<Hash>,
+}
+
 /// Compute the canonical Merkle root for a cell-state map.
 ///
 /// `cells` is the full list of cells with at least one effect under the
@@ -60,6 +71,111 @@ pub fn compute_state_root(cells: &BTreeMap<CellRef, CellState>) -> Result<Hash, 
     seal_merkle_root_from_leaf_hashes(leaves.into_iter().map(|(_, hash)| hash).collect())
 }
 
+/// Build the portable Merkle branch for `target_cell` in a resolved state map.
+///
+/// The returned `leaf_index` and `leaf_count` are required because sibling
+/// hashes alone cannot encode left/right orientation or odd-tail promotion.
+pub fn state_inclusion_proof(
+    cells: &BTreeMap<CellRef, CellState>,
+    target_cell: &CellRef,
+) -> Result<StateInclusionProof, crate::Error> {
+    let mut leaves: Vec<(String, [u8; 32])> = Vec::with_capacity(cells.len());
+    for (cell, state) in cells {
+        if matches!(state, CellState::Bottom(_)) {
+            continue;
+        }
+        leaves.push((cell.as_str().to_owned(), leaf_hash(cell, state)?));
+    }
+    leaves.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut index = leaves
+        .iter()
+        .position(|(cell, _)| cell == target_cell.as_str())
+        .ok_or_else(|| {
+            crate::Error::Protocol(format!(
+                "state inclusion target {} is absent or bottom",
+                target_cell.as_str()
+            ))
+        })?;
+    let leaf_count = u64::try_from(leaves.len())
+        .map_err(|_| crate::Error::Protocol("state leaf count exceeds u64".to_owned()))?;
+    let leaf_index = u64::try_from(index)
+        .map_err(|_| crate::Error::Protocol("state leaf index exceeds u64".to_owned()))?;
+    let leaf_digest = hash_from_raw(leaves[index].1)?;
+    let mut layer = leaves.into_iter().map(|(_, hash)| hash).collect::<Vec<_>>();
+    let mut branch = Vec::new();
+    while layer.len() > 1 {
+        if index % 2 == 0 {
+            if index + 1 < layer.len() {
+                branch.push(hash_from_raw(layer[index + 1])?);
+            }
+        } else {
+            branch.push(hash_from_raw(layer[index - 1])?);
+        }
+        layer = next_seal_merkle_layer(&layer);
+        index /= 2;
+    }
+    Ok(StateInclusionProof {
+        leaf_digest,
+        leaf_index,
+        leaf_count,
+        inclusion_proof: branch,
+    })
+}
+
+/// Verify a portable state-cell branch against a Seal `state_root`.
+pub fn verify_state_inclusion_proof(
+    leaf_digest: &Hash,
+    leaf_index: u64,
+    leaf_count: u64,
+    inclusion_proof: &[Hash],
+    expected_root: &Hash,
+) -> Result<bool, crate::Error> {
+    if leaf_count == 0 || leaf_index >= leaf_count {
+        return Ok(false);
+    }
+    let mut current = raw_from_hash(leaf_digest)?;
+    let mut index = leaf_index;
+    let mut width = leaf_count;
+    let mut siblings = inclusion_proof.iter();
+    while width > 1 {
+        let has_sibling = if index % 2 == 0 {
+            index + 1 < width
+        } else {
+            true
+        };
+        if has_sibling {
+            let Some(sibling) = siblings.next() else {
+                return Ok(false);
+            };
+            let sibling = raw_from_hash(sibling)?;
+            current = if index % 2 == 0 {
+                node_hash(current, sibling)
+            } else {
+                node_hash(sibling, current)
+            };
+        }
+        index /= 2;
+        width = width.div_ceil(2);
+    }
+    if siblings.next().is_some() {
+        return Ok(false);
+    }
+    Ok(hash_from_raw(current)? == *expected_root)
+}
+
+/// Compute the canonical portable leaf digest for one non-bottom state cell.
+///
+/// Evidence consumers must recompute this value from the disclosed
+/// `(cell_ref, cell_value)` before verifying its Merkle branch. Accepting a
+/// caller-supplied leaf digest without this binding would allow a valid branch
+/// to be paired with unrelated disclosed state.
+pub fn state_value_leaf_digest(
+    cell: &CellRef,
+    value: &serde_json::Value,
+) -> Result<Hash, crate::Error> {
+    hash_from_raw(leaf_hash(cell, &CellState::Value(value.clone()))?)
+}
+
 /// Compute a Seal-family Merkle root from already ordered raw leaf data.
 ///
 /// This is shared by `state_root` and `control_event_set_root`; snapshot
@@ -78,26 +194,44 @@ fn seal_merkle_root_from_leaf_hashes(mut layer: Vec<[u8; 32]>) -> Result<Hash, c
             .map_err(|e| crate::Error::Protocol(format!("invalid empty-state hash: {e}")));
     }
     while layer.len() > 1 {
-        let mut next: Vec<[u8; 32]> = Vec::with_capacity(layer.len().div_ceil(2));
-        let mut i = 0;
-        while i + 1 < layer.len() {
-            // Internal node: H(0x01 || left || right) (spec §6.2.2).
-            next.push(canonical::sha256_bytes_from_slices(&[
-                &[NODE_PREFIX][..],
-                &layer[i][..],
-                &layer[i + 1][..],
-            ]));
-            i += 2;
-        }
-        if i < layer.len() {
-            // Odd tail: promote without duplication.
-            next.push(layer[i]);
-        }
-        layer = next;
+        layer = next_seal_merkle_layer(&layer);
     }
     let root = layer[0];
     Hash::new(format!("sha256:{}", hex::encode(root)))
         .map_err(|e| crate::Error::Protocol(format!("invalid state root: {e}")))
+}
+
+fn next_seal_merkle_layer(layer: &[[u8; 32]]) -> Vec<[u8; 32]> {
+    let mut next = Vec::with_capacity(layer.len().div_ceil(2));
+    let mut index = 0;
+    while index + 1 < layer.len() {
+        next.push(node_hash(layer[index], layer[index + 1]));
+        index += 2;
+    }
+    if index < layer.len() {
+        next.push(layer[index]);
+    }
+    next
+}
+
+fn node_hash(left: [u8; 32], right: [u8; 32]) -> [u8; 32] {
+    canonical::sha256_bytes_from_slices(&[&[NODE_PREFIX][..], &left[..], &right[..]])
+}
+
+fn hash_from_raw(raw: [u8; 32]) -> Result<Hash, crate::Error> {
+    Hash::new(format!("sha256:{}", hex::encode(raw)))
+        .map_err(|error| crate::Error::Protocol(format!("invalid state proof hash: {error}")))
+}
+
+fn raw_from_hash(hash: &Hash) -> Result<[u8; 32], crate::Error> {
+    let encoded = hash
+        .as_str()
+        .strip_prefix("sha256:")
+        .ok_or_else(|| crate::Error::Protocol("state proof hash must use sha256".to_owned()))?;
+    let raw = hex::decode(encoded)
+        .map_err(|error| crate::Error::Protocol(format!("invalid state proof hash: {error}")))?;
+    raw.try_into()
+        .map_err(|_| crate::Error::Protocol("state proof hash must be 32 bytes".to_owned()))
 }
 
 /// Compute the leaf hash for a single cell.
@@ -160,6 +294,21 @@ mod tests {
         .unwrap();
         let leaf_hex: String = leaf.iter().map(|b| format!("{b:02x}")).collect();
         assert_eq!(root.as_str(), format!("sha256:{leaf_hex}"));
+    }
+
+    #[test]
+    fn portable_value_leaf_digest_binds_cell_and_value() {
+        let cell = cell("ak:cell:ak.component.member.state.v1:did.web.alice.example");
+        let value = json!({"accepted_event_id": "ak:event:one"});
+        let digest = state_value_leaf_digest(&cell, &value).unwrap();
+        assert_eq!(
+            digest,
+            hash_from_raw(leaf_hash(&cell, &CellState::Value(value.clone())).unwrap()).unwrap()
+        );
+        assert_ne!(
+            digest,
+            state_value_leaf_digest(&cell, &json!({"accepted_event_id": "ak:event:two"})).unwrap()
+        );
     }
 
     #[test]
@@ -251,6 +400,65 @@ mod tests {
         .unwrap();
         let leaf_a_hex: String = leaf_a.iter().map(|b| format!("{b:02x}")).collect();
         assert_ne!(root.as_str(), format!("sha256:{leaf_a_hex}"));
+    }
+
+    #[test]
+    fn inclusion_proof_covers_every_leaf_and_rejects_tampering() {
+        let mut cells = BTreeMap::new();
+        for (suffix, value) in [
+            ("a", "alpha"),
+            ("b", "beta"),
+            ("c", "gamma"),
+            ("d", "delta"),
+            ("e", "epsilon"),
+        ] {
+            cells.insert(
+                cell(&format!("ak:cell:ak.component.test.state_{suffix}.v1:1")),
+                CellState::Value(json!(value)),
+            );
+        }
+        let root = compute_state_root(&cells).unwrap();
+        for target in cells.keys() {
+            let proof = state_inclusion_proof(&cells, target).unwrap();
+            assert!(
+                verify_state_inclusion_proof(
+                    &proof.leaf_digest,
+                    proof.leaf_index,
+                    proof.leaf_count,
+                    &proof.inclusion_proof,
+                    &root,
+                )
+                .unwrap()
+            );
+
+            let mut wrong_index = proof.clone();
+            wrong_index.leaf_index = (wrong_index.leaf_index + 1) % wrong_index.leaf_count;
+            assert!(
+                !verify_state_inclusion_proof(
+                    &wrong_index.leaf_digest,
+                    wrong_index.leaf_index,
+                    wrong_index.leaf_count,
+                    &wrong_index.inclusion_proof,
+                    &root,
+                )
+                .unwrap()
+            );
+
+            let mut extra_sibling = proof.clone();
+            extra_sibling
+                .inclusion_proof
+                .push(Hash::new(format!("sha256:{}", "9".repeat(64))).unwrap());
+            assert!(
+                !verify_state_inclusion_proof(
+                    &extra_sibling.leaf_digest,
+                    extra_sibling.leaf_index,
+                    extra_sibling.leaf_count,
+                    &extra_sibling.inclusion_proof,
+                    &root,
+                )
+                .unwrap()
+            );
+        }
     }
 
     #[test]

@@ -5,7 +5,10 @@ use arkret_models_collaboration::events_payloads::agent::{
     AgentDeactivatePayload, AgentKeyAuthorizePayload, AgentKeyRevokePayload, AgentPausePayload,
     AgentResumePayload, AgentSidecarExposureAck,
 };
-use arkret_wire::{CellRef, Did, Effect, Event, EventKind, Hlc, LatticeOp, LatticeOpType, RealmId};
+use arkret_wire::{
+    CellRef, Did, Effect, Event, EventId, EventKind, Hlc, LatticeOp, LatticeOpType, RealmId,
+    composite_subject,
+};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -14,6 +17,7 @@ use crate::Result;
 /// Build an unsigned controller-executed `ak.agent.key.authorize` Event draft.
 pub fn build_agent_key_authorize_event(
     payload: &AgentKeyAuthorizePayload,
+    event_id: EventId,
     realm_id: RealmId,
     agent_actor_id: Did,
     controller_id: Did,
@@ -29,15 +33,49 @@ pub fn build_agent_key_authorize_event(
         hlc,
         serde_json::to_value(payload)?,
     )?;
+    event.event_id = event_id;
     event.executed_by = Some(controller_id);
     event.authorization_ref = Some(controller_authorization_ref.into());
+    event.effects = agent_key_authorize_effects(payload, &event.event_id, actor_seq)?;
     Ok(event)
+}
+
+/// Build the canonical observed-remove effects for one Agent key
+/// authorization. Authorization Event ids are the OR-set dot tags, so
+/// replacement can remove the exact accepted dots named by `supersedes`.
+pub fn agent_key_authorize_effects(
+    payload: &AgentKeyAuthorizePayload,
+    event_id: &EventId,
+    actor_seq: u64,
+) -> Result<Vec<Effect>> {
+    let mut effects = Vec::with_capacity(payload.supersedes.len() + 1);
+    for superseded in &payload.supersedes {
+        effects.push(agent_key_effect(
+            &payload.agent_id,
+            &superseded.key_id,
+            LatticeOpType::Remove,
+            superseded.authorized_event_ref.as_str(),
+            None,
+            actor_seq,
+        )?);
+    }
+    effects.push(agent_key_effect(
+        &payload.agent_id,
+        &payload.key_id,
+        LatticeOpType::Add,
+        event_id.as_str(),
+        Some(serde_json::to_value(payload)?),
+        actor_seq,
+    )?);
+    Ok(effects)
 }
 
 /// Build an unsigned controller-executed `ak.agent.key.revoke` Event draft.
 #[allow(clippy::too_many_arguments)]
 pub fn build_agent_key_revoke_event(
     payload: &AgentKeyRevokePayload,
+    authorized_event_refs: &[EventId],
+    event_id: EventId,
     realm_id: RealmId,
     agent_actor_id: Did,
     controller_id: Did,
@@ -53,9 +91,65 @@ pub fn build_agent_key_revoke_event(
         hlc,
         serde_json::to_value(payload)?,
     )?;
+    event.event_id = event_id;
     event.executed_by = Some(controller_id);
     event.authorization_ref = Some(controller_authorization_ref.into());
+    event.effects =
+        agent_key_revoke_effects(payload, authorized_event_refs, &event.event_id, actor_seq)?;
     Ok(event)
+}
+
+/// Build the canonical revocation effects for every authorization dot
+/// observed for a key, followed by a durable transition marker.
+pub fn agent_key_revoke_effects(
+    payload: &AgentKeyRevokePayload,
+    authorized_event_refs: &[EventId],
+    event_id: &EventId,
+    actor_seq: u64,
+) -> Result<Vec<Effect>> {
+    let mut effects = Vec::with_capacity(authorized_event_refs.len() + 1);
+    for authorized_event_ref in authorized_event_refs {
+        effects.push(agent_key_effect(
+            &payload.agent_id,
+            &payload.key_id,
+            LatticeOpType::Remove,
+            authorized_event_ref.as_str(),
+            None,
+            actor_seq,
+        )?);
+    }
+    effects.push(agent_key_effect(
+        &payload.agent_id,
+        &payload.key_id,
+        LatticeOpType::Add,
+        event_id.as_str(),
+        Some(serde_json::to_value(payload)?),
+        actor_seq,
+    )?);
+    Ok(effects)
+}
+
+fn agent_key_effect(
+    agent_id: &Did,
+    key_id: &str,
+    op_type: LatticeOpType,
+    tag: &str,
+    value: Option<Value>,
+    actor_seq: u64,
+) -> Result<Effect> {
+    let subject = composite_subject(&[agent_id.as_str(), key_id])?;
+    Ok(Effect {
+        cell: CellRef::new(format!("ak:cell:ak.component.agent.key.v1:{subject}"))?,
+        op: LatticeOp {
+            op_type,
+            tag: Some(tag.to_owned()),
+            value,
+            from: None,
+            to: None,
+            reason: None,
+            issuer_seq: Some(actor_seq),
+        },
+    })
 }
 
 struct AgentLifecycleEventInput {
@@ -277,6 +371,7 @@ mod tests {
         let controller_id = did("controller");
         let event = build_agent_key_authorize_event(
             &key_authorize_payload(agent_id.clone(), controller_id.clone()),
+            EventId::new("ak:event:01970000-0000-7000-8000-000000000022".to_owned()).unwrap(),
             realm(),
             agent_id.clone(),
             controller_id.clone(),
@@ -290,6 +385,59 @@ mod tests {
         assert_eq!(event.actor_id, agent_id);
         assert_eq!(event.executed_by, Some(controller_id));
         assert_eq!(event.payload["key_id"], "runtime-key-1");
+        assert_eq!(event.effects.len(), 1);
+        assert_eq!(event.effects[0].op.op_type, LatticeOpType::Add);
+        assert_eq!(
+            event.effects[0].op.tag.as_deref(),
+            Some("ak:event:01970000-0000-7000-8000-000000000022")
+        );
+        let expected_subject =
+            composite_subject(&[event.actor_id.as_str(), "runtime-key-1"]).unwrap();
+        assert_eq!(
+            event.effects[0].cell.as_str(),
+            format!("ak:cell:ak.component.agent.key.v1:{expected_subject}")
+        );
+    }
+
+    #[test]
+    fn key_revoke_event_removes_authorization_dot_and_adds_transition_marker() {
+        let agent_id = did("agent");
+        let controller_id = did("controller");
+        let authorized_event_id =
+            EventId::new("ak:event:01970000-0000-7000-8000-000000000022".to_owned()).unwrap();
+        let revoke_event_id =
+            EventId::new("ak:event:01970000-0000-7000-8000-000000000023".to_owned()).unwrap();
+        let event = build_agent_key_revoke_event(
+            &AgentKeyRevokePayload {
+                agent_id: agent_id.clone(),
+                key_id: "runtime-key-1".to_owned(),
+                revoked_by: controller_id.clone(),
+                revoked_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
+                reason: Some("controller_deactivated".to_owned()),
+            },
+            std::slice::from_ref(&authorized_event_id),
+            revoke_event_id.clone(),
+            realm(),
+            agent_id,
+            controller_id,
+            "did:webvh:z6mkfixture:agent.example#managed-controller",
+            8,
+            Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(event.effects.len(), 2);
+        assert_eq!(event.effects[0].op.op_type, LatticeOpType::Remove);
+        assert_eq!(
+            event.effects[0].op.tag.as_deref(),
+            Some(authorized_event_id.as_str())
+        );
+        assert_eq!(event.effects[1].op.op_type, LatticeOpType::Add);
+        assert_eq!(
+            event.effects[1].op.tag.as_deref(),
+            Some(revoke_event_id.as_str())
+        );
+        assert_eq!(event.effects[0].cell, event.effects[1].cell);
     }
 
     #[test]

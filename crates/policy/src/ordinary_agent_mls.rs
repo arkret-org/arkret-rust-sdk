@@ -65,6 +65,85 @@ mod tests {
     use super::*;
     use crate::AuthorLeaf;
 
+    fn fixture() -> (Did, EventId, Vec<u8>, AgentMlsSignerView) {
+        let signer = Did::new("did:webvh:z6mkagent:agent.example").unwrap();
+        let authorization = EventId::new("ak:event:01964137-0000-7000-8000-000000000001").unwrap();
+        let key = vec![7; 32];
+        let view = AgentMlsSignerView {
+            group_state: AuthorGroupStateView {
+                group_id: "group".to_owned(),
+                epoch: 4,
+                group_state_ref: "ak:event:01964137-0000-7000-8000-000000000004".to_owned(),
+                active_leaves: vec![AuthorLeaf {
+                    leaf_index: 1,
+                    credential: AuthorLeafCredential::Basic {
+                        identity: signer.as_str().as_bytes().to_vec(),
+                    },
+                    signature_key: key.clone(),
+                }],
+            },
+            leaf_authorization_refs: vec![(1, authorization.clone())],
+        };
+        (signer, authorization, key, view)
+    }
+
+    fn verify_fixture(
+        view: &AgentMlsSignerView,
+        signer: &Did,
+        authorization: &EventId,
+        key: &[u8],
+    ) -> Result<u32, AgentMlsLeafBindingError> {
+        verify_ordinary_agent_mls_binding(
+            view,
+            &AgentMlsSignerClaim {
+                group_id: "group",
+                epoch: 4,
+                group_state_ref: "ak:event:01964137-0000-7000-8000-000000000004",
+                signer_id: signer,
+                signing_key: key,
+                agent_key_authorize_event_id: authorization,
+            },
+        )
+    }
+
+    #[test]
+    fn ordinary_agent_requires_exact_historical_group_state_leaf_and_lineage() {
+        let (signer, authorization, key, view) = fixture();
+        assert_eq!(verify_fixture(&view, &signer, &authorization, &key), Ok(1));
+
+        let mut missing_leaf = view.clone();
+        missing_leaf.group_state.active_leaves.clear();
+        assert!(verify_fixture(&missing_leaf, &signer, &authorization, &key).is_err());
+
+        let mut wrong_key = view.clone();
+        wrong_key.group_state.active_leaves[0].signature_key = vec![8; 32];
+        assert!(verify_fixture(&wrong_key, &signer, &authorization, &key).is_err());
+
+        let mut wrong_lineage = view.clone();
+        wrong_lineage.leaf_authorization_refs[0].1 =
+            EventId::new("ak:event:01964137-0000-7000-8000-000000000099").unwrap();
+        assert!(verify_fixture(&wrong_lineage, &signer, &authorization, &key).is_err());
+
+        let mut duplicate_lineage = view.clone();
+        duplicate_lineage
+            .leaf_authorization_refs
+            .push((1, authorization.clone()));
+        assert!(verify_fixture(&duplicate_lineage, &signer, &authorization, &key).is_err());
+
+        let mut wrong_group = view.clone();
+        wrong_group.group_state.group_id = "other-group".to_owned();
+        assert!(verify_fixture(&wrong_group, &signer, &authorization, &key).is_err());
+
+        let mut wrong_epoch = view.clone();
+        wrong_epoch.group_state.epoch = 5;
+        assert!(verify_fixture(&wrong_epoch, &signer, &authorization, &key).is_err());
+
+        let mut non_winning_state = view;
+        non_winning_state.group_state.group_state_ref =
+            "ak:event:01964137-0000-7000-8000-000000000005".to_owned();
+        assert!(verify_fixture(&non_winning_state, &signer, &authorization, &key).is_err());
+    }
+
     #[test]
     fn duplicate_agent_leaf_is_rejected() {
         let signer = Did::new("did:webvh:z6mkagent:agent.example").unwrap();

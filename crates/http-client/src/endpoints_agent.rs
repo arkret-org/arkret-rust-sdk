@@ -13,6 +13,9 @@ use arkret_models_collaboration::agent_operations::{
     AgentSidecarEnsureOutcome, AgentSidecarEnsureRequestBody, AgentSidecarList, AgentSidecarView,
     AgentView,
 };
+use arkret_models_collaboration::agent_signer_evidence::{
+    AgentSignerEvidenceQueryOutcome, AgentSignerEvidenceQueryRequest,
+};
 use arkret_models_collaboration::governance::agent_participation::{
     AgentParticipationOutcome, AgentParticipationReplaceRequestBody,
 };
@@ -27,6 +30,7 @@ const AGENT_PAIRING_RUNTIME_KEY_REQUESTS_PATH: &str =
 const AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH: &str =
     "/_arkret/open/agent-pairing/runtime-key-requests/status";
 const AGENTS_PATH: &str = "/_arkret/self/agents";
+const AGENT_SIGNER_EVIDENCE_QUERY_PATH: &str = "/_arkret/self/agent-signer-evidence/query";
 const AGENT_SIDECARS_PATH: &str = "/_arkret/self/agent-sidecars";
 const AGENT_SIDECAR_ENSURE_PATH: &str = "/_arkret/self/agent-sidecars:ensure";
 
@@ -45,6 +49,15 @@ impl Deref for AgentRuntimeApprovalStatusResponse {
 }
 
 impl Client {
+    /// `POST /_arkret/self/agent-signer-evidence/query`
+    /// (`ak.self.agent_signer_evidence.query`).
+    pub async fn agent_signer_evidence_query(
+        &self,
+        request: &AgentSignerEvidenceQueryRequest,
+    ) -> Result<AgentSignerEvidenceQueryOutcome> {
+        self.post(AGENT_SIGNER_EVIDENCE_QUERY_PATH, request).await
+    }
+
     /// `POST /_arkret/gate/account/agent-key-pair`
     /// (`ak.gate.account.command.pair_agent_key`).
     pub async fn agent_key_pair(

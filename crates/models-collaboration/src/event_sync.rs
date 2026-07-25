@@ -14,6 +14,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::agent_signer_evidence::{
+    AGENT_SIGNER_EVIDENCE_BUNDLE_SCHEMA, AgentAuthorizationAdmission, AgentSignerEvidenceBundle,
+};
+
 // ── EventsFrontier 3-way split ──────────────────────────────────────────
 
 /// `/events/frontier` peer-role selector. The account-client and
@@ -482,6 +486,9 @@ pub struct EventsSubmitFederationRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub signer_key_evidence: Vec<FederatedDeviceSigningKeyEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub agent_signer_evidence_bundle: Option<AgentSignerEvidenceBundle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
 }
 
@@ -503,6 +510,50 @@ impl EventsSubmitFederationRequestBody {
                     "federation signer evidence does not match a transported Event proof"
                         .to_owned(),
                 ));
+            }
+        }
+        if let Some(bundle) = &self.agent_signer_evidence_bundle {
+            if bundle.schema.as_str() != AGENT_SIGNER_EVIDENCE_BUNDLE_SCHEMA
+                || bundle.evidence.len() > 256
+            {
+                return Err(Error::Protocol(
+                    "federation agent_signer_evidence_bundle is invalid".to_owned(),
+                ));
+            }
+            for evidence in &bundle.evidence {
+                let binding = &evidence.signing_key_binding;
+                let matches_event = self.events.iter().any(|event| {
+                    if event.applet_id.is_some() {
+                        return false;
+                    }
+                    let signer = event.executed_by.as_ref().unwrap_or(&event.actor_id);
+                    if signer != &binding.agent_id
+                        || !event.proofs.iter().any(|proof| {
+                            proof.verification_method == binding.verification_method.as_str()
+                        })
+                    {
+                        return false;
+                    }
+                    event
+                        .unsigned
+                        .get("agent_authorization_admission")
+                        .cloned()
+                        .and_then(|value| {
+                            serde_json::from_value::<AgentAuthorizationAdmission>(value).ok()
+                        })
+                        .is_some_and(|admission| {
+                            admission.agent_id == binding.agent_id
+                                && admission.verification_method == binding.verification_method
+                                && admission.authorization_event_id
+                                    == binding.agent_key_authorize_event_id
+                        })
+                });
+                if !matches_event {
+                    return Err(Error::Protocol(
+                        "federation Agent signer evidence does not match a transported Event proof and admission receipt"
+                            .to_owned(),
+                    ));
+                }
             }
         }
         Ok(())
@@ -668,6 +719,7 @@ mod tests {
             },
             events: vec![event],
             signer_key_evidence: vec![unrelated],
+            agent_signer_evidence_bundle: None,
             idempotency_key: None,
         };
         assert!(request.validate_signer_key_evidence().is_err());

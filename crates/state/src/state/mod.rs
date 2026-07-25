@@ -26,7 +26,10 @@ pub use seal::{
     control_event_set_root, deterministic_order, effective_seal_view, effective_state_at,
     leaf_union_proof, union_predecessor_covered_events, view_hash,
 };
-pub use state_root::{EMPTY_STATE_ROOT, compute_state_root, leaf_hash};
+pub use state_root::{
+    EMPTY_STATE_ROOT, StateInclusionProof, compute_state_root, leaf_hash, state_inclusion_proof,
+    state_value_leaf_digest, verify_state_inclusion_proof,
+};
 pub use store::memory::{MemoryCellRegistry, MemoryCellStore, MemoryMoveStore, MemorySealStore};
 pub use store::{
     BottomMode, CellLatticeBinding, CellRegistry, CellStore, MoveStore, SealStore,

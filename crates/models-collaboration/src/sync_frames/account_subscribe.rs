@@ -23,6 +23,9 @@ pub struct AccountSubscribeFrame {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notifications: Option<NotificationContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_signer_evidence_bundle:
+        Option<crate::agent_signer_evidence::AgentSignerEvidenceBundle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub partial: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub priority: Option<String>,
@@ -100,6 +103,7 @@ impl AccountSubscribeFrame {
             || self.account_data.is_some()
             || self.presence.is_some()
             || self.notifications.is_some()
+            || self.agent_signer_evidence_bundle.is_some()
             || self.partial.is_some()
             || self.priority.is_some();
         if self.reconnect_after_ms == Some(0) {
@@ -109,6 +113,16 @@ impl AccountSubscribeFrame {
         }
         if let Some(to_device) = &self.to_device {
             to_device.validate()?;
+        }
+        if let Some(bundle) = &self.agent_signer_evidence_bundle {
+            if bundle.schema.as_str()
+                != crate::agent_signer_evidence::AGENT_SIGNER_EVIDENCE_BUNDLE_SCHEMA
+                || bundle.evidence.len() > 256
+            {
+                return Err(Error::Protocol(
+                    "agent_signer_evidence_bundle is invalid".to_owned(),
+                ));
+            }
         }
         let valid = match self.kind {
             AccountSubscribeFrameKind::Delta => {

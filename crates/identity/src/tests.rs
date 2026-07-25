@@ -210,6 +210,33 @@ fn webvh_accepts_valid_signed_log_with_key_rotation() {
 }
 
 #[test]
+fn webvh_document_and_log_bytes_require_the_verified_head_document() {
+    let key1 = SigningKey::from_bytes(&[7u8; 32]);
+    let key2 = SigningKey::from_bytes(&[9u8; 32]);
+    let (did, body) = vector_valid_log(&key1, &key2);
+    let entries: Vec<Value> = body
+        .split(|byte| *byte == b'\n')
+        .filter(|line| !line.is_empty())
+        .map(|line| serde_json::from_slice(line).unwrap())
+        .collect();
+    let document_bytes = serde_json::to_vec(&entries[1]["state"]).unwrap();
+
+    let document = verify_did_webvh_document_and_log_bytes(&did, &document_bytes, &body).unwrap();
+    assert_eq!(document.id, did);
+
+    let mut mismatched_document = entries[1]["state"].clone();
+    mismatched_document["alsoKnownAs"] = json!(["https://attacker.example/"]);
+    assert!(
+        verify_did_webvh_document_and_log_bytes(
+            &did,
+            &serde_json::to_vec(&mismatched_document).unwrap(),
+            &body,
+        )
+        .is_err()
+    );
+}
+
+#[test]
 fn canonical_principal_builders_produce_a_verified_rotation_chain() {
     use arkret_signatures::webvh::{
         PrincipalEnrollmentDelegation, PrincipalInceptionInput, PrincipalRotationInput,

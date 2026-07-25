@@ -287,7 +287,12 @@ impl LatticeKind for AgentKey {
                 field: "key_id",
             },
         )?;
-        Ok(Some(format!("{agent_id}::{key_id}")))
+        arkret_wire::composite_subject(&[agent_id, key_id])
+            .map(Some)
+            .map_err(|error| LatticeKindError::InvalidCompositeSubject {
+                cell_family: "ak.component.agent.key.v1",
+                reason: error.to_string(),
+            })
     }
     fn event_kinds(&self) -> &'static [&'static str] {
         &["ak.agent.key.authorize", "ak.agent.key.revoke"]

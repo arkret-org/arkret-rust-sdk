@@ -641,6 +641,8 @@ pub struct SyncUpdates {
     pub account_data: Vec<Event>,
     /// Notification deltas
     pub notifications: Vec<NotificationDelta>,
+    /// Portable Native Agent signer evidence carried beside Realm deltas.
+    pub agent_signer_evidence: Vec<crate::agent_signer_evidence::AgentSignerEvidence>,
     /// Partial response flag
     pub partial: bool,
 }

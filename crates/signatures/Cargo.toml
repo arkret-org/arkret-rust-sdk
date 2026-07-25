@@ -13,7 +13,7 @@ version.workspace = true
 
 [features]
 default = []
-collaboration = ["dep:arkret-models-collaboration"]
+collaboration = ["dep:arkret-models-collaboration", "dep:arkret-state"]
 keypackages = ["dep:arkret-models-crypto"]
 service-identity = ["dep:arkret-models-identity"]
 webvh = ["dep:arkret-models-discovery", "dep:arkret-models-identity"]
@@ -30,6 +30,7 @@ arkret-canonical = {workspace = true}
 # Optional data crates are enabled only by the behavior that signs their
 # models. The model leaves must not be unified by a composite feature.
 arkret-models-collaboration = {workspace = true,optional = true}
+arkret-state = {workspace = true,optional = true}
 arkret-models-crypto = {workspace = true,optional = true}
 arkret-models-discovery = {workspace = true,optional = true}
 arkret-models-identity = {workspace = true,optional = true}

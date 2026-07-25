@@ -5,7 +5,7 @@
 //! Conformance input version: 2026-07-13;
 //! sha256=73142eb4c31ee94aa5f73d3f46502978935bb1bb7c321414d8fbb37612256d54; profiles=95.
 //! Reducer input version: 2026-07-16;
-//! sha256=2c43b385c2cc61cc98a1611e0800a245cf4898b99e48ec69560c67683c13ff93; active_profiles=5.
+//! sha256=33a24aa902f08f4dfb8d21cb39a98458267c520dcb92ec9204d32a5a1cc1ba5f; active_profiles=5.
 
 pub const PROFILE_IDS: &[&str] = &[
     "ak.profile.accountable_principals.strict_reject.v1",
@@ -113,7 +113,7 @@ pub fn is_profile_id(value: &str) -> bool {
 pub const REDUCER_PROFILE_DIGESTS: &[(&str, &str)] = &[
     (
         "ak.profile.chat_mvp.v1",
-        "sha256:bd888c0c52952c0730be642128a6399623dfbabf87d5ab2228caa96e91005915",
+        "sha256:e248d8149cd1e4c51bba1cc6c876c769f9d9383ad0fb2caa21b35ac80ff4dbd2",
     ),
     (
         "ak.profile.core_event_store.v1",
@@ -129,7 +129,7 @@ pub const REDUCER_PROFILE_DIGESTS: &[(&str, &str)] = &[
     ),
     (
         "ak.profile.principal_server.v1",
-        "sha256:40ddfd868fd098a22ad5b20fd82c69691dc25571a56044ad137da0b891165a01",
+        "sha256:c26b79b3a856fa9ae84dc2230bd46f400831b5ecc5876e4e88a355972f8e54a0",
     ),
 ];
 

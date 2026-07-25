@@ -251,6 +251,24 @@ mod tests {
     }
 
     #[test]
+    fn agent_key_subject_uses_canonical_composite_encoding() {
+        let registry = default_lattice_registry();
+        let kind = registry.lookup("ak.component.agent.key.v1").unwrap();
+        let agent_id = "did:webvh:z6mkfixture:agent.example";
+        let key_id = "did:webvh:z6mkfixture:agent.example#runtime-1";
+        let expected = composite_subject(&[agent_id, key_id]).unwrap();
+        assert_eq!(
+            kind.subject_for_effect(&json!({
+                "agent_id": agent_id,
+                "key_id": key_id,
+            }))
+            .unwrap()
+            .as_deref(),
+            Some(expected.as_str())
+        );
+    }
+
+    #[test]
     fn event_kind_index_resolves_consent_grant_and_revoke() {
         let registry = default_lattice_registry();
         let grant = registry

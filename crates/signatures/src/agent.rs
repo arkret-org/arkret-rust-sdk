@@ -701,6 +701,7 @@ mod tests {
                 disclosure,
                 super::super::agent_evidence::build_agent_signing_key_binding(
                     agent_id.clone(),
+                    NonEmptyString::new(format!("{agent_id}#runtime-key-1")).unwrap(),
                     DidUrl::new(format!("{agent_id}#runtime-key-1")).unwrap(),
                     signing_key.verifying_key().to_bytes(),
                     EventId::new("ak:event:01970000-0000-7000-8000-000000000099").unwrap(),

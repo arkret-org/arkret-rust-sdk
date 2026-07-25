@@ -5,14 +5,18 @@
 //! `agent-signer-evidence.schema.json`, and
 //! `agent-signer-evidence-operations.schema.json`.
 
-use arkret_wire::{Base64UrlString, Did, DidUrl, EventId, Hash, NonEmptyString, RealmId, SealId};
+use arkret_wire::{
+    Base64UrlString, Did, DidUrl, EventId, Hash, NonEmptyString, RealmId, Seal, SealId,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 pub const AGENT_SIGNING_KEY_BINDING_SCHEMA: &str = "ak.schema.agent_signing_key_binding.v1";
 pub const AGENT_SIGNER_EVIDENCE_SCHEMA: &str = "ak.schema.agent_signer_evidence.v1";
 pub const AGENT_SIGNER_EVIDENCE_BUNDLE_SCHEMA: &str = "ak.schema.agent_signer_evidence_bundle.v1";
 pub const AGENT_SIGNING_KEY_BINDING_CONTEXT: &str = "ak.agent-signing-key-binding-v1\n";
+pub const AGENT_EVIDENCE_FRESHNESS_CONTEXT: &str = "ak.agent-evidence-freshness-v1\n";
 pub const AGENT_KEY_COMPONENT: &str = "ak.component.agent.key.v1";
 pub const KEY_TRANSPARENCY_PROFILE: &str = "ak.profile.key_transparency.v1";
 
@@ -40,6 +44,7 @@ pub struct AgentControllerProof {
 pub struct AgentSigningKeyBinding {
     pub schema: NonEmptyString,
     pub agent_id: Did,
+    pub agent_key_id: NonEmptyString,
     pub verification_method: DidUrl,
     pub public_key: AgentSigningPublicKey,
     pub public_key_digest: Hash,
@@ -102,6 +107,23 @@ pub struct AgentAuthorizationEvidence {
     pub transition_event_id: Option<EventId>,
 }
 
+/// Server-stamped transport metadata recording the exact Native Agent
+/// authorization state used when an Event was admitted.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentAuthorizationAdmission {
+    pub agent_id: Did,
+    pub verification_method: DidUrl,
+    pub authorization_event_id: EventId,
+    pub accepted_frontier: NonEmptyString,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
+    pub accepted_at: DateTime<Utc>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -112,8 +134,43 @@ pub struct AgentAuthorizationStateWitness {
     pub accepted_frontier: NonEmptyString,
     pub seal_id: SealId,
     pub state_root: Hash,
+    pub seal: Seal,
+    pub cell_ref: NonEmptyString,
+    pub cell_value: Value,
     pub leaf_digest: Hash,
+    pub leaf_index: u64,
+    pub leaf_count: u64,
     pub inclusion_proof: Vec<Hash>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentAuthorizationTransitionWitness {
+    pub component: NonEmptyString,
+    pub agent_id: Did,
+    pub authorization_event_id: EventId,
+    pub transition_event_id: EventId,
+    pub transition_key_id: NonEmptyString,
+    pub accepted_frontier: NonEmptyString,
+    pub seal_id: SealId,
+    pub state_root: Hash,
+    pub seal: Seal,
+    pub cell_ref: NonEmptyString,
+    pub cell_value: Value,
+    pub leaf_digest: Hash,
+    pub leaf_index: u64,
+    pub leaf_count: u64,
+    pub inclusion_proof: Vec<Hash>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentEvidenceSourceProof {
+    pub kind: NonEmptyString,
+    pub verification_method: DidUrl,
+    pub jws: NonEmptyString,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -132,7 +189,7 @@ pub struct AgentEvidenceFreshnessAttestation {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
     )]
     pub expires_at: DateTime<Utc>,
-    pub http_message_signature: NonEmptyString,
+    pub source_proof: AgentEvidenceSourceProof,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -156,6 +213,9 @@ pub struct AgentSignerEvidence {
     pub signing_key_binding: AgentSigningKeyBinding,
     pub authorization: AgentAuthorizationEvidence,
     pub state_witness: AgentAuthorizationStateWitness,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_witness: Option<AgentAuthorizationTransitionWitness>,
+    pub seal_lineage: Vec<Seal>,
     pub freshness_attestation: AgentEvidenceFreshnessAttestation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transparency: Option<AgentEvidenceTransparency>,

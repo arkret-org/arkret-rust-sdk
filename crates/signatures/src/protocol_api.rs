@@ -1,10 +1,10 @@
 //! Canonical signatures, proof binding and HTTP message signature helpers.
 
-#[cfg(feature = "signer")]
+#[cfg(any(feature = "signer", test))]
 #[path = "signer.rs"]
 pub mod signer;
 
-#[cfg(feature = "signer")]
+#[cfg(any(feature = "signer", test))]
 pub use signer::Ed25519MoveSigner;
 
 // Unified Event Envelope proof builder/verifier pipeline. Available without

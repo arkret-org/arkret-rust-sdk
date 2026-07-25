@@ -229,6 +229,37 @@ pub fn verify_did_webvh_v1_chain_bytes(did: &Did, bytes: &[u8]) -> Result<Verifi
     verify_did_webvh_v1_chain(did, &raw_entries)
 }
 
+/// Verify a fetched current DID document against a complete WebVH log without
+/// imposing a transport or host policy. Callers that already trust a
+/// configured same-origin service can use this after applying their own URL,
+/// SSRF, content-type, and response-size checks. The document id, WebVH SCID,
+/// proofs, hash chain, and exact canonical equality with the verified log head
+/// are still enforced here.
+pub fn verify_did_webvh_document_and_log_bytes(
+    did: &Did,
+    document_bytes: &[u8],
+    log_bytes: &[u8],
+) -> Result<DidDocument> {
+    if document_bytes.len() > DID_WEB_MAX_DOCUMENT_BYTES {
+        return Err(Error::Protocol(
+            "did:webvh document exceeds size limit".to_owned(),
+        ));
+    }
+    if log_bytes.len() > DID_WEB_MAX_DOCUMENT_BYTES * 32 {
+        return Err(Error::Protocol(
+            "did:webvh log exceeds maximum size".to_owned(),
+        ));
+    }
+    let document: DidDocument = serde_json::from_slice(document_bytes)?;
+    if document.id != *did {
+        return Err(Error::Protocol("did:webvh document id mismatch".to_owned()));
+    }
+    document.validate()?;
+    let verified = verify_did_webvh_v1_chain_bytes(did, log_bytes)?;
+    verify_document_matches_webvh_head(&document, &verified.head_state)?;
+    Ok(document)
+}
+
 fn parse_did_webvh_json_lines(bytes: &[u8]) -> Result<Vec<Value>> {
     let mut raw_entries = Vec::new();
     for line in bytes.split(|byte| *byte == b'\n') {
