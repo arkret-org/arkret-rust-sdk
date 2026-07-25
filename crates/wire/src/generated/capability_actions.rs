@@ -3,6 +3,8 @@
 //! Input: registry/capability-action-registry.json; version=2026-07-20;
 //! sha256=94ba6c28f7f8547913237a35bf42c04efe582a3d07662569c9fc58b88b7a0f82 Entries: registered=153
 
+use serde::{Deserialize, Serialize};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
 pub enum CapabilityActionId {
@@ -797,5 +799,25 @@ impl CapabilityActionId {
             "ak.view.update" => Some(Self::ViewUpdate),
             _ => None,
         }
+    }
+}
+
+impl std::fmt::Display for CapabilityActionId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl Serialize for CapabilityActionId {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for CapabilityActionId {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let raw = String::deserialize(deserializer)?;
+        Self::from_wire(&raw)
+            .ok_or_else(|| serde::de::Error::custom(format!("unknown capability action id: {raw}")))
     }
 }

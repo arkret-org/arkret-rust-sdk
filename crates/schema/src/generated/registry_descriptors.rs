@@ -2496,7 +2496,13 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
 ];
 
 pub fn capability_action(value: &str) -> Option<&'static CapabilityActionDescriptor> {
-    CapabilityActionId::from_wire(value).map(|id| &REGISTERED_CAPABILITY_ACTIONS[id as usize])
+    CapabilityActionId::from_wire(value).map(capability_action_descriptor)
+}
+
+pub const fn capability_action_descriptor(
+    id: CapabilityActionId,
+) -> &'static CapabilityActionDescriptor {
+    &REGISTERED_CAPABILITY_ACTIONS[id as usize]
 }
 
 pub fn account_data_pattern(value: &str) -> Option<&'static AccountDataPatternDescriptor> {
