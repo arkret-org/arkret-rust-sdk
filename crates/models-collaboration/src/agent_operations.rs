@@ -13,6 +13,7 @@ use arkret_wire::serde_helpers::{
     serialize_canonical_timestamp, serialize_optional_canonical_timestamp,
 };
 
+use crate::agent_signer_evidence::AgentSigningKeyBinding;
 use crate::events_payloads::agent::{
     AgentKeyAuthorizePayloadRuntimeAttestation, AgentKeyScope, AgentSidecarExposureAck,
 };
@@ -146,6 +147,7 @@ pub struct AgentKeyPairRequestBody {
     pub public_key: PublicKey,
     pub proof_of_possession: NonEmptyJsonObject,
     pub requested_scope_disclosure: AgentRequestedScopeDisclosure,
+    pub signing_key_binding: AgentSigningKeyBinding,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -157,6 +159,7 @@ pub struct AgentKeyPairRequestBody {
 pub struct AgentKeyPairOutcome {
     pub ok: bool,
     pub authorized_event_ref: EventId,
+    pub signing_key_binding: AgentSigningKeyBinding,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -217,6 +220,8 @@ pub struct AgentRuntimeApprovalStatusOutcome {
     pub authorized_verification_method: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_public_key_digest: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorized_signing_key_binding: Option<AgentSigningKeyBinding>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=c94087433bb39bbec380f662fda5dccb2e3ef8654aa10d1d5928ed09505c323f Entries: error_codes=255
+//! sha256=1f540293c7faa0107fd5478729a3d45209cad43c1fd4e91d158024185b7badf1 Entries: error_codes=261
 
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +16,13 @@ pub enum ErrorCode {
     AccountLocked,
     AccountSuspended,
     ActorSeqInvalid,
+    AgentAuthorizationConflicted,
+    AgentAuthorizationInactive,
+    AgentMlsLeafBindingMismatch,
     AgentProvisionFanoutUnavailable,
+    AgentSignerEvidenceMissing,
+    AgentSignerEvidenceStale,
+    AgentSigningKeyMismatch,
     AppletAlreadyRegistered,
     AppletE2eeJoinUnauthorized,
     AppletEffectiveScopeMismatch,
@@ -284,7 +290,13 @@ impl ErrorCode {
         Self::AccountLocked,
         Self::AccountSuspended,
         Self::ActorSeqInvalid,
+        Self::AgentAuthorizationConflicted,
+        Self::AgentAuthorizationInactive,
+        Self::AgentMlsLeafBindingMismatch,
         Self::AgentProvisionFanoutUnavailable,
+        Self::AgentSignerEvidenceMissing,
+        Self::AgentSignerEvidenceStale,
+        Self::AgentSigningKeyMismatch,
         Self::AppletAlreadyRegistered,
         Self::AppletE2eeJoinUnauthorized,
         Self::AppletEffectiveScopeMismatch,
@@ -541,8 +553,14 @@ impl ErrorCode {
     pub const ACCOUNT_LOCKED: &'static str = "account_locked";
     pub const ACCOUNT_SUSPENDED: &'static str = "account_suspended";
     pub const ACTOR_SEQ_INVALID: &'static str = "actor_seq_invalid";
+    pub const AGENT_AUTHORIZATION_CONFLICTED: &'static str = "agent_authorization_conflicted";
+    pub const AGENT_AUTHORIZATION_INACTIVE: &'static str = "agent_authorization_inactive";
+    pub const AGENT_MLS_LEAF_BINDING_MISMATCH: &'static str = "agent_mls_leaf_binding_mismatch";
     pub const AGENT_PROVISION_FANOUT_UNAVAILABLE: &'static str =
         "agent_provision_fanout_unavailable";
+    pub const AGENT_SIGNER_EVIDENCE_MISSING: &'static str = "agent_signer_evidence_missing";
+    pub const AGENT_SIGNER_EVIDENCE_STALE: &'static str = "agent_signer_evidence_stale";
+    pub const AGENT_SIGNING_KEY_MISMATCH: &'static str = "agent_signing_key_mismatch";
     pub const APPLET_ALREADY_REGISTERED: &'static str = "applet_already_registered";
     pub const APPLET_E2EE_JOIN_UNAUTHORIZED: &'static str = "applet_e2ee_join_unauthorized";
     pub const APPLET_EFFECTIVE_SCOPE_MISMATCH: &'static str = "applet_effective_scope_mismatch";
@@ -823,7 +841,13 @@ impl ErrorCode {
             Self::AccountLocked => "account_locked",
             Self::AccountSuspended => "account_suspended",
             Self::ActorSeqInvalid => "actor_seq_invalid",
+            Self::AgentAuthorizationConflicted => "agent_authorization_conflicted",
+            Self::AgentAuthorizationInactive => "agent_authorization_inactive",
+            Self::AgentMlsLeafBindingMismatch => "agent_mls_leaf_binding_mismatch",
             Self::AgentProvisionFanoutUnavailable => "agent_provision_fanout_unavailable",
+            Self::AgentSignerEvidenceMissing => "agent_signer_evidence_missing",
+            Self::AgentSignerEvidenceStale => "agent_signer_evidence_stale",
+            Self::AgentSigningKeyMismatch => "agent_signing_key_mismatch",
             Self::AppletAlreadyRegistered => "applet_already_registered",
             Self::AppletE2eeJoinUnauthorized => "applet_e2ee_join_unauthorized",
             Self::AppletEffectiveScopeMismatch => "applet_effective_scope_mismatch",
@@ -1093,7 +1117,13 @@ impl ErrorCode {
             "account_locked" => Some(Self::AccountLocked),
             "account_suspended" => Some(Self::AccountSuspended),
             "actor_seq_invalid" => Some(Self::ActorSeqInvalid),
+            "agent_authorization_conflicted" => Some(Self::AgentAuthorizationConflicted),
+            "agent_authorization_inactive" => Some(Self::AgentAuthorizationInactive),
+            "agent_mls_leaf_binding_mismatch" => Some(Self::AgentMlsLeafBindingMismatch),
             "agent_provision_fanout_unavailable" => Some(Self::AgentProvisionFanoutUnavailable),
+            "agent_signer_evidence_missing" => Some(Self::AgentSignerEvidenceMissing),
+            "agent_signer_evidence_stale" => Some(Self::AgentSignerEvidenceStale),
+            "agent_signing_key_mismatch" => Some(Self::AgentSigningKeyMismatch),
             "applet_already_registered" => Some(Self::AppletAlreadyRegistered),
             "applet_e2ee_join_unauthorized" => Some(Self::AppletE2eeJoinUnauthorized),
             "applet_effective_scope_mismatch" => Some(Self::AppletEffectiveScopeMismatch),
@@ -1441,11 +1471,53 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "Event submission rejected an actor chain sequence number that is duplicate, skipped without allowed repair evidence, or inconsistent with the actor frontier.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::AgentAuthorizationConflicted,
+        http_status: 409,
+        scope: "both",
+        applies_to: &[],
+        description: "The accepted Agent key component contains conflicting active authorization state at the target frontier. The Event and signer evidence MUST be quarantined.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::AgentAuthorizationInactive,
+        http_status: 422,
+        scope: "both",
+        applies_to: &[],
+        description: "The target Event accepted-at lies outside the Agent key authorization validity interval because the authorization is revoked, superseded, or expired.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::AgentMlsLeafBindingMismatch,
+        http_status: 422,
+        scope: "both",
+        applies_to: &[],
+        description: "An ordinary encrypted Agent Event does not have exactly one historical active BasicCredential leaf whose identity, signature key, and admission authorization lineage match its Agent signer evidence.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::AgentProvisionFanoutUnavailable,
         http_status: 501,
         scope: "endpoint",
         applies_to: &[],
         description: "Agent provisioning fanout is not available on this deployment.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::AgentSignerEvidenceMissing,
+        http_status: 404,
+        scope: "both",
+        applies_to: &[],
+        description: "Portable Native Agent signer evidence is unavailable for the authorized shared context. For callers without that context this response is indistinguishable from an unknown Agent or method. Consumers remain Unresolved and MUST NOT fall back to device directory or an ordinary-Realm MLS leaf.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::AgentSignerEvidenceStale,
+        http_status: 409,
+        scope: "both",
+        applies_to: &[],
+        description: "Agent signer evidence exists but its source freshness observation or state frontier is too old for the target Event admission. Consumers remain Unresolved/Stale and retry without promoting the Event to Verified.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::AgentSigningKeyMismatch,
+        http_status: 422,
+        scope: "both",
+        applies_to: &[],
+        description: "The Agent proof method, disclosed raw key, public-key digest, signing-binding digest, authorization Event, or controller proof do not form one exact binding.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletAlreadyRegistered,

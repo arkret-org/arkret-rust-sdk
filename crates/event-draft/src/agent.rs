@@ -228,6 +228,7 @@ mod tests {
     use arkret_models_collaboration::events_payloads::agent::{
         AgentKeyApprovalEvidence, AgentKeyApprovalEvidenceKind, AgentKeyScope,
     };
+    use arkret_wire::Hash;
     use chrono::TimeZone;
     use serde_json::json;
 
@@ -246,7 +247,8 @@ mod tests {
             agent_id: agent_id.clone(),
             key_id: "runtime-key-1".to_owned(),
             verification_method: format!("{agent_id}#runtime-key-1"),
-            public_key_digest: None,
+            public_key_digest: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
+            signing_key_binding_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
             accountable_principal_id: controller_id.clone(),
             agent_key_scope: AgentKeyScope {
                 actions: vec!["ak.message.create".to_owned()],

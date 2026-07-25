@@ -19,6 +19,8 @@ pub use development_identity::{
 // arkret-models-collaboration.
 #[cfg(feature = "collaboration")]
 pub mod agent;
+#[cfg(feature = "collaboration")]
+pub mod agent_evidence;
 
 #[cfg(feature = "keypackages")]
 pub mod keypackages;

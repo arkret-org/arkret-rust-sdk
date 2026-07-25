@@ -10,6 +10,7 @@
 
 pub mod account_lifecycle;
 pub mod agent_operations;
+pub mod agent_signer_evidence;
 pub mod applet_service;
 pub mod event_query;
 pub mod event_sync;

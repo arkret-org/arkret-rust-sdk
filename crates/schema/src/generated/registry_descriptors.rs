@@ -5,10 +5,10 @@
 //! capability-action-registry.json; version=2026-07-20;
 //! sha256=94ba6c28f7f8547913237a35bf42c04efe582a3d07662569c9fc58b88b7a0f82 Input: registry/
 //! schema-registry.json; version=2026-07-20;
-//! sha256=2e839e7ca74ebdd3aeb7f924cb72327f69489d43b4a92eaeb056faafeb358de4 Input: registry/
+//! sha256=2bf4b268830b3083522c4b4b0d94a7da4740554f6889ebb8a7ef37177a79cee8 Input: registry/
 //! account-data-type-registry.json; version=2026-07-03;
 //! sha256=0808766dfda85cde75ac66a9fb5e1e38b61212ae6f243d5faa980dd12c443785 Entries: id_kinds=50,
-//! special_forms=9, actions=153, schemas=129, account_data_patterns=22
+//! special_forms=9, actions=153, schemas=134, account_data_patterns=22
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -1859,6 +1859,26 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: "ak.schema.agent_sidecar_view_state.v1",
         file: "schemas/agent-sidecar-view-state.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.agent_signer_evidence.v1",
+        file: "schemas/agent-signer-evidence.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.agent_signer_evidence_bundle.v1",
+        file: "schemas/agent-signer-evidence-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.agent_signer_evidence_query_outcome.v1",
+        file: "schemas/agent-signer-evidence-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.agent_signer_evidence_query_request.v1",
+        file: "schemas/agent-signer-evidence-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.agent_signing_key_binding.v1",
+        file: "schemas/agent-signing-key-binding.schema.json",
     },
     SchemaDescriptor {
         schema_id: "ak.schema.applet.v1",

@@ -8,6 +8,7 @@ use arkret_models_collaboration::agent_operations::{
     AgentKeyPairRequestBody, AgentPairingBootstrap, AgentRequestedScopeDisclosure,
     AgentRuntimeApprovalRequestBody,
 };
+use arkret_models_collaboration::agent_signer_evidence::AgentSigningKeyBinding;
 use arkret_models_collaboration::events_payloads::agent::AgentKeyAuthorizePayloadRuntimeAttestation;
 use arkret_models_collaboration::governance::agent_artifacts::PublicKey;
 use arkret_wire::{
@@ -161,6 +162,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
     pub fn build_key_pair_request(
         &self,
         requested_scope_disclosure: AgentRequestedScopeDisclosure,
+        signing_key_binding: AgentSigningKeyBinding,
         authorize_event: Event,
     ) -> Result<RuntimeKeyRequest<AgentKeyPairRequestBody>> {
         requested_scope_disclosure
@@ -199,6 +201,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
                 public_key,
                 proof_of_possession,
                 requested_scope_disclosure,
+                signing_key_binding,
                 runtime_attestation: self.runtime_attestation.clone(),
                 authorize_event,
             },
@@ -460,7 +463,7 @@ pub fn agent_key_pair_proof_request_binding_digest(
 #[cfg(test)]
 mod tests {
     use arkret_models_collaboration::events_payloads::agent::AgentKeyScope;
-    use arkret_wire::{Hlc, Proof, RealmId, RequestId};
+    use arkret_wire::{EventId, Hlc, Proof, RealmId, RequestId};
     use chrono::TimeZone;
     use serde_json::json;
 
@@ -694,7 +697,22 @@ mod tests {
 
         let approval = builder.build_approval_request().unwrap();
         let pairing = builder
-            .build_key_pair_request(disclosure, authorize_event)
+            .build_key_pair_request(
+                disclosure,
+                super::super::agent_evidence::build_agent_signing_key_binding(
+                    agent_id.clone(),
+                    DidUrl::new(format!("{agent_id}#runtime-key-1")).unwrap(),
+                    signing_key.verifying_key().to_bytes(),
+                    EventId::new("ak:event:01970000-0000-7000-8000-000000000099").unwrap(),
+                    issued_at,
+                    None,
+                    controller_id.clone(),
+                    DidUrl::new(format!("{controller_id}#key-1")).unwrap(),
+                    &SigningKey::from_bytes(&[3_u8; 32]),
+                )
+                .unwrap(),
+                authorize_event,
+            )
             .unwrap();
 
         assert_eq!(approval.public_key_digest, pairing.public_key_digest);

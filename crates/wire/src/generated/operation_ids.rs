@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-07-20;
-//! sha256=326c806cebbcd65a1babd1d87cb029c1cba026f566ba209735dff9eef3db28f1 Entries: registered=201
+//! sha256=6e16b11ce4b5575a9466c51202a840bc268aaac0e9609d8b05a4748f77be81e4 Entries: registered=202
 
 use serde::{Deserialize, Serialize};
 
@@ -114,6 +114,7 @@ pub enum ServiceOperationId {
     SelfAgentSidecarCommandEnsure,
     SelfAgentSidecarQueryList,
     SelfAgentSidecarResourceGet,
+    SelfAgentSignerEvidenceQuery,
     SelfAppletCommandInstall,
     SelfAppletCommandRevoke,
     SelfAppletGhostCommandProvision,
@@ -318,6 +319,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.self.agent.sidecar.command.ensure",
     "ak.self.agent.sidecar.query.list",
     "ak.self.agent.sidecar.resource.get",
+    "ak.self.agent_signer_evidence.query",
     "ak.self.applet.command.install",
     "ak.self.applet.command.revoke",
     "ak.self.applet.ghost.command.provision",
@@ -538,6 +540,7 @@ impl ServiceOperationId {
         Self::SelfAgentSidecarCommandEnsure,
         Self::SelfAgentSidecarQueryList,
         Self::SelfAgentSidecarResourceGet,
+        Self::SelfAgentSignerEvidenceQuery,
         Self::SelfAppletCommandInstall,
         Self::SelfAppletCommandRevoke,
         Self::SelfAppletGhostCommandProvision,
@@ -807,6 +810,8 @@ impl ServiceOperationId {
         "ak.self.agent.sidecar.command.ensure";
     pub const SELF_AGENT_SIDECAR_QUERY_LIST: &'static str = "ak.self.agent.sidecar.query.list";
     pub const SELF_AGENT_SIDECAR_RESOURCE_GET: &'static str = "ak.self.agent.sidecar.resource.get";
+    pub const SELF_AGENT_SIGNER_EVIDENCE_QUERY: &'static str =
+        "ak.self.agent_signer_evidence.query";
     pub const SELF_APPLET_COMMAND_INSTALL: &'static str = "ak.self.applet.command.install";
     pub const SELF_APPLET_COMMAND_REVOKE: &'static str = "ak.self.applet.command.revoke";
     pub const SELF_APPLET_GHOST_COMMAND_PROVISION: &'static str =
@@ -1099,6 +1104,7 @@ impl ServiceOperationId {
             Self::SelfAgentSidecarCommandEnsure => "ak.self.agent.sidecar.command.ensure",
             Self::SelfAgentSidecarQueryList => "ak.self.agent.sidecar.query.list",
             Self::SelfAgentSidecarResourceGet => "ak.self.agent.sidecar.resource.get",
+            Self::SelfAgentSignerEvidenceQuery => "ak.self.agent_signer_evidence.query",
             Self::SelfAppletCommandInstall => "ak.self.applet.command.install",
             Self::SelfAppletCommandRevoke => "ak.self.applet.command.revoke",
             Self::SelfAppletGhostCommandProvision => "ak.self.applet.ghost.command.provision",
@@ -1391,6 +1397,7 @@ impl ServiceOperationId {
             "ak.self.agent.sidecar.command.ensure" => Some(Self::SelfAgentSidecarCommandEnsure),
             "ak.self.agent.sidecar.query.list" => Some(Self::SelfAgentSidecarQueryList),
             "ak.self.agent.sidecar.resource.get" => Some(Self::SelfAgentSidecarResourceGet),
+            "ak.self.agent_signer_evidence.query" => Some(Self::SelfAgentSignerEvidenceQuery),
             "ak.self.applet.command.install" => Some(Self::SelfAppletCommandInstall),
             "ak.self.applet.command.revoke" => Some(Self::SelfAppletCommandRevoke),
             "ak.self.applet.ghost.command.provision" => Some(Self::SelfAppletGhostCommandProvision),
@@ -3300,6 +3307,23 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_sidecar_view"),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfAgentSignerEvidenceQuery,
+        http_method: "POST",
+        http_path: "/_arkret/self/agent-signer-evidence/query",
+        grpc: Some("SelfAgentSignerEvidence/Query"),
+        mq: Some("self.agent_signer_evidence.query"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/agent-signer-evidence-operations.schema.json#/$defs/query_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/agent-signer-evidence-operations.schema.json#/$defs/query_outcome",
+        ),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {

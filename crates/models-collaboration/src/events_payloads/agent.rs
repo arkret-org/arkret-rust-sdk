@@ -290,8 +290,8 @@ pub struct AgentKeyAuthorizePayload {
     pub key_id: String,
     /// DID URL for the runtime signing key, including its key fragment.
     pub verification_method: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub public_key_digest: Option<Hash>,
+    pub public_key_digest: Hash,
+    pub signing_key_binding_digest: Hash,
     pub accountable_principal_id: Did,
     pub agent_key_scope: AgentKeyScope,
     pub audience: Vec<String>,

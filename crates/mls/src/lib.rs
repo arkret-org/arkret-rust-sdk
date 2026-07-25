@@ -15,11 +15,12 @@ mod message;
 mod recovery;
 
 pub use arkret_policy::{
-    AuthorGroupStateView, AuthorLeaf, AuthorLeafCredential,
-    MINIMAL_METADATA_MAX_EPOCH_LIFETIME_SECS, MINIMAL_METADATA_REALM_PROFILE,
-    MinimalMetadataAuthorClaim, MinimalMetadataAuthorError, MinimalMetadataAuthorViolation,
-    VerifiedAuthorLeaf, enforce_minimal_metadata_aad, minimal_metadata_epoch_overdue,
-    minimal_metadata_max_epoch_lifetime, verify_minimal_metadata_author,
+    AgentMlsLeafBindingError, AgentMlsSignerClaim, AgentMlsSignerView, AuthorGroupStateView,
+    AuthorLeaf, AuthorLeafCredential, MINIMAL_METADATA_MAX_EPOCH_LIFETIME_SECS,
+    MINIMAL_METADATA_REALM_PROFILE, MinimalMetadataAuthorClaim, MinimalMetadataAuthorError,
+    MinimalMetadataAuthorViolation, VerifiedAuthorLeaf, enforce_minimal_metadata_aad,
+    minimal_metadata_epoch_overdue, minimal_metadata_max_epoch_lifetime,
+    verify_minimal_metadata_author, verify_ordinary_agent_mls_binding,
 };
 pub use error::MlsError;
 // `Result` stays crate-internal because public signatures resolve it to the
