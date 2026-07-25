@@ -5,10 +5,10 @@
 //! capability-action-registry.json; version=2026-07-20;
 //! sha256=94ba6c28f7f8547913237a35bf42c04efe582a3d07662569c9fc58b88b7a0f82 Input: registry/
 //! schema-registry.json; version=2026-07-20;
-//! sha256=c5b3f16462b8ba9be45c6180e3909d1b1c1cad4d52cc7b8ad701c0f8cdc439e9 Input: registry/
+//! sha256=2e839e7ca74ebdd3aeb7f924cb72327f69489d43b4a92eaeb056faafeb358de4 Input: registry/
 //! account-data-type-registry.json; version=2026-07-03;
 //! sha256=0808766dfda85cde75ac66a9fb5e1e38b61212ae6f243d5faa980dd12c443785 Entries: id_kinds=50,
-//! special_forms=9, actions=153, schemas=127, account_data_patterns=22
+//! special_forms=9, actions=153, schemas=129, account_data_patterns=22
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -1975,6 +1975,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: "ak.schema.device_message.v1",
         file: "schemas/device-message.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.device_pairing_bootstrap.v1",
+        file: "schemas/device-pairing.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.device_pairing_operations.v1",
+        file: "schemas/device-pairing.schema.json",
     },
     SchemaDescriptor {
         schema_id: "ak.schema.device_reanchor.v1",

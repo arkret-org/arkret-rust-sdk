@@ -475,6 +475,7 @@ def generate_service_types(artifacts: Path) -> str:
             "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]",
             '#[serde(rename_all = "snake_case")]',
             "#[repr(usize)]",
+            '#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]',
             "pub enum ServiceType {",
         ]
     )

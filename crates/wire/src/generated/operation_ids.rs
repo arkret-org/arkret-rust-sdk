@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-07-20;
-//! sha256=863aa747cdc14e4a0e951021ee751f79599e3ef751def9424fbe55caa9879c79 Entries: registered=198
+//! sha256=326c806cebbcd65a1babd1d87cb029c1cba026f566ba209735dff9eef3db28f1 Entries: registered=201
 
 use serde::{Deserialize, Serialize};
 
@@ -51,6 +51,9 @@ pub enum ServiceOperationId {
     OpenAgentPairingCommandSubmitRuntimeKeyRequest,
     OpenAgentPairingQueryResolve,
     OpenAgentPairingQueryRuntimeKeyRequestStatus,
+    OpenDevicePairingCommandStage,
+    OpenDevicePairingQueryResolve,
+    OpenDevicePairingQueryStatus,
     OpenInviteLocatorQueryResolve,
     OpenMimiCommandNotify,
     OpenMimiCommandProxyDownload,
@@ -252,6 +255,9 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.open.agent_pairing.command.submit_runtime_key_request",
     "ak.open.agent_pairing.query.resolve",
     "ak.open.agent_pairing.query.runtime_key_request_status",
+    "ak.open.device_pairing.command.stage",
+    "ak.open.device_pairing.query.resolve",
+    "ak.open.device_pairing.query.status",
     "ak.open.invite_locator.query.resolve",
     "ak.open.mimi.command.notify",
     "ak.open.mimi.command.proxy_download",
@@ -469,6 +475,9 @@ impl ServiceOperationId {
         Self::OpenAgentPairingCommandSubmitRuntimeKeyRequest,
         Self::OpenAgentPairingQueryResolve,
         Self::OpenAgentPairingQueryRuntimeKeyRequestStatus,
+        Self::OpenDevicePairingCommandStage,
+        Self::OpenDevicePairingQueryResolve,
+        Self::OpenDevicePairingQueryStatus,
         Self::OpenInviteLocatorQueryResolve,
         Self::OpenMimiCommandNotify,
         Self::OpenMimiCommandProxyDownload,
@@ -701,6 +710,12 @@ impl ServiceOperationId {
         "ak.open.agent_pairing.query.resolve";
     pub const OPEN_AGENT_PAIRING_QUERY_RUNTIME_KEY_REQUEST_STATUS: &'static str =
         "ak.open.agent_pairing.query.runtime_key_request_status";
+    pub const OPEN_DEVICE_PAIRING_COMMAND_STAGE: &'static str =
+        "ak.open.device_pairing.command.stage";
+    pub const OPEN_DEVICE_PAIRING_QUERY_RESOLVE: &'static str =
+        "ak.open.device_pairing.query.resolve";
+    pub const OPEN_DEVICE_PAIRING_QUERY_STATUS: &'static str =
+        "ak.open.device_pairing.query.status";
     pub const OPEN_INVITE_LOCATOR_QUERY_RESOLVE: &'static str =
         "ak.open.invite_locator.query.resolve";
     pub const OPEN_MIMI_COMMAND_NOTIFY: &'static str = "ak.open.mimi.command.notify";
@@ -999,6 +1014,9 @@ impl ServiceOperationId {
             Self::OpenAgentPairingQueryRuntimeKeyRequestStatus => {
                 "ak.open.agent_pairing.query.runtime_key_request_status"
             }
+            Self::OpenDevicePairingCommandStage => "ak.open.device_pairing.command.stage",
+            Self::OpenDevicePairingQueryResolve => "ak.open.device_pairing.query.resolve",
+            Self::OpenDevicePairingQueryStatus => "ak.open.device_pairing.query.status",
             Self::OpenInviteLocatorQueryResolve => "ak.open.invite_locator.query.resolve",
             Self::OpenMimiCommandNotify => "ak.open.mimi.command.notify",
             Self::OpenMimiCommandProxyDownload => "ak.open.mimi.command.proxy_download",
@@ -1284,6 +1302,9 @@ impl ServiceOperationId {
             "ak.open.agent_pairing.query.runtime_key_request_status" => {
                 Some(Self::OpenAgentPairingQueryRuntimeKeyRequestStatus)
             }
+            "ak.open.device_pairing.command.stage" => Some(Self::OpenDevicePairingCommandStage),
+            "ak.open.device_pairing.query.resolve" => Some(Self::OpenDevicePairingQueryResolve),
+            "ak.open.device_pairing.query.status" => Some(Self::OpenDevicePairingQueryStatus),
             "ak.open.invite_locator.query.resolve" => Some(Self::OpenInviteLocatorQueryResolve),
             "ak.open.mimi.command.notify" => Some(Self::OpenMimiCommandNotify),
             "ak.open.mimi.command.proxy_download" => Some(Self::OpenMimiCommandProxyDownload),
@@ -2255,6 +2276,59 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some(
             "schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_status_outcome",
+        ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::OpenDevicePairingCommandStage,
+        http_method: "POST",
+        http_path: "/_arkret/open/device-pairing/requests",
+        grpc: Some("OpenDevicePairing/Stage"),
+        mq: Some("open.device_pairing.command.stage"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("none"),
+        retry_safe: Some(false),
+        request_schema_ref: Some(
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_stage_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_stage_outcome",
+        ),
+        uncertain_outcome: Some(
+            "{\"operation_id\":\"ak.open.device_pairing.command.stage\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
+        ),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::OpenDevicePairingQueryResolve,
+        http_method: "POST",
+        http_path: "/_arkret/open/device-pairing/resolve",
+        grpc: Some("OpenDevicePairing/Resolve"),
+        mq: Some("open.device_pairing.query.resolve"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_resolve_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_bootstrap",
+        ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::OpenDevicePairingQueryStatus,
+        http_method: "POST",
+        http_path: "/_arkret/open/device-pairing/requests/status",
+        grpc: Some("OpenDevicePairing/Status"),
+        mq: Some("open.device_pairing.query.status"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_status_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_status_outcome",
         ),
         uncertain_outcome: None,
     },

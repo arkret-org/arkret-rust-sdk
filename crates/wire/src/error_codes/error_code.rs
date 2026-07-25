@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=1f519d7574fc38347a77b278e6c3ada653f5c4f150a3399476d86cd98089ecfb Entries: error_codes=254
+//! sha256=c94087433bb39bbec380f662fda5dccb2e3ef8654aa10d1d5928ed09505c323f Entries: error_codes=255
 
 use serde::{Deserialize, Serialize};
 
@@ -56,6 +56,7 @@ pub enum ErrorCode {
     ConsentRequired,
     ContactRequestExpired,
     ContactRequestNotPending,
+    ControllerSignedEventRequired,
     CredentialExpired,
     CredentialNotFound,
     CrossSigningStateMissing,
@@ -323,6 +324,7 @@ impl ErrorCode {
         Self::ConsentRequired,
         Self::ContactRequestExpired,
         Self::ContactRequestNotPending,
+        Self::ControllerSignedEventRequired,
         Self::CredentialExpired,
         Self::CredentialNotFound,
         Self::CrossSigningStateMissing,
@@ -584,6 +586,7 @@ impl ErrorCode {
     pub const CONSENT_REQUIRED: &'static str = "consent_required";
     pub const CONTACT_REQUEST_EXPIRED: &'static str = "contact_request_expired";
     pub const CONTACT_REQUEST_NOT_PENDING: &'static str = "contact_request_not_pending";
+    pub const CONTROLLER_SIGNED_EVENT_REQUIRED: &'static str = "controller_signed_event_required";
     pub const CREDENTIAL_EXPIRED: &'static str = "credential_expired";
     pub const CREDENTIAL_NOT_FOUND: &'static str = "credential_not_found";
     pub const CROSS_SIGNING_STATE_MISSING: &'static str = "cross_signing_state_missing";
@@ -866,6 +869,7 @@ impl ErrorCode {
             Self::ConsentRequired => "consent_required",
             Self::ContactRequestExpired => "contact_request_expired",
             Self::ContactRequestNotPending => "contact_request_not_pending",
+            Self::ControllerSignedEventRequired => "controller_signed_event_required",
             Self::CredentialExpired => "credential_expired",
             Self::CredentialNotFound => "credential_not_found",
             Self::CrossSigningStateMissing => "cross_signing_state_missing",
@@ -1135,6 +1139,7 @@ impl ErrorCode {
             "consent_required" => Some(Self::ConsentRequired),
             "contact_request_expired" => Some(Self::ContactRequestExpired),
             "contact_request_not_pending" => Some(Self::ContactRequestNotPending),
+            "controller_signed_event_required" => Some(Self::ControllerSignedEventRequired),
             "credential_expired" => Some(Self::CredentialExpired),
             "credential_not_found" => Some(Self::CredentialNotFound),
             "cross_signing_state_missing" => Some(Self::CrossSigningStateMissing),
@@ -1714,6 +1719,13 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "Sub-reason for failed_precondition when ak.self.contact.command.respond attempts to accept or reject a request that has already been accepted, rejected, tombstoned, withdrawn, or otherwise left the pending state.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::ControllerSignedEventRequired,
+        http_status: 400,
+        scope: "endpoint",
+        applies_to: &[],
+        description: "A managed-Agent operation that must preserve controller authorship omitted the required controller-signed durable Event proof. The service MUST NOT synthesize, service-sign, or directly project the missing controller fact. The controller must author and submit the exact closed Event required by the operation. See zh/identity/key-management.md §3.6.1 Lifecycle.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CredentialExpired,

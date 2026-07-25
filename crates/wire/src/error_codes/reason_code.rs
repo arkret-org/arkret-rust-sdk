@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=1f519d7574fc38347a77b278e6c3ada653f5c4f150a3399476d86cd98089ecfb
-//! Entries: reason_codes=420
+//! sha256=c94087433bb39bbec380f662fda5dccb2e3ef8654aa10d1d5928ed09505c323f
+//! Entries: reason_codes=421
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -19,6 +19,7 @@ pub enum ReasonCode {
     AeadNonceDerivationInvalid,
     AeadNonceSenderDomainCollision,
     AgentDeactivated,
+    AgentDeactivationRevocationsIncomplete,
     AgentGrantConstraintMissing,
     AgentGrantExceedsRequestedScope,
     AgentGrantExpiryRequired,
@@ -451,6 +452,8 @@ impl ReasonCode {
     pub const AEAD_NONCE_SENDER_DOMAIN_COLLISION: &'static str =
         "aead_nonce_sender_domain_collision";
     pub const AGENT_DEACTIVATED: &'static str = "agent_deactivated";
+    pub const AGENT_DEACTIVATION_REVOCATIONS_INCOMPLETE: &'static str =
+        "agent_deactivation_revocations_incomplete";
     pub const AGENT_GRANT_CONSTRAINT_MISSING: &'static str = "agent_grant_constraint_missing";
     pub const AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE: &'static str =
         "agent_grant_exceeds_requested_scope";
@@ -960,6 +963,9 @@ impl ReasonCode {
             Self::AeadNonceDerivationInvalid => "aead_nonce_derivation_invalid",
             Self::AeadNonceSenderDomainCollision => "aead_nonce_sender_domain_collision",
             Self::AgentDeactivated => "agent_deactivated",
+            Self::AgentDeactivationRevocationsIncomplete => {
+                "agent_deactivation_revocations_incomplete"
+            }
             Self::AgentGrantConstraintMissing => "agent_grant_constraint_missing",
             Self::AgentGrantExceedsRequestedScope => "agent_grant_exceeds_requested_scope",
             Self::AgentGrantExpiryRequired => "agent_grant_expiry_required",
@@ -1454,6 +1460,9 @@ impl ReasonCode {
             "aead_nonce_derivation_invalid" => Self::AeadNonceDerivationInvalid,
             "aead_nonce_sender_domain_collision" => Self::AeadNonceSenderDomainCollision,
             "agent_deactivated" => Self::AgentDeactivated,
+            "agent_deactivation_revocations_incomplete" => {
+                Self::AgentDeactivationRevocationsIncomplete
+            }
             "agent_grant_constraint_missing" => Self::AgentGrantConstraintMissing,
             "agent_grant_exceeds_requested_scope" => Self::AgentGrantExceedsRequestedScope,
             "agent_grant_expiry_required" => Self::AgentGrantExpiryRequired,
@@ -2009,6 +2018,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "agent_deactivated",
         applies_to: &["auth_decision", "service_call", "event_envelope"],
         description: "A request targeted an agent principal whose current `ak.component.agent.status.v1` cell is `deactivated` (terminal). The endpoint MUST fail closed; no resume path exists, and `ak.agent.key.revoke` / `ak.capability.revoke` fan-out is expected to be complete or in progress. Callers MUST NOT treat this as a transient error. See zh/identity/key-management.md §3.6 §4.11.",
+    },
+    ReasonCodeDescriptor {
+        code: "agent_deactivation_revocations_incomplete",
+        applies_to: &["service_call"],
+        description: "Sub-reason for failed_precondition when ak.self.agent.command.deactivate does not supply revocation Events covering every authoritative active Agent key and unrevoked Agent grant, or when accepted revoke Events have not yet left both authoritative projections empty. The lifecycle Event MUST remain unaccepted and the Agent MUST remain non-terminal; after refreshing the authoritative projection, callers may replay every still-applicable signed Event id and add signed Events for newly observed residual facts. See zh/identity/key-management.md §3.6.1 Lifecycle.",
     },
     ReasonCodeDescriptor {
         code: "agent_grant_constraint_missing",
@@ -3276,7 +3290,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "pairing_expired",
         applies_to: &["auth_decision", "event_envelope"],
-        description: "Agent bootstrap pairing window elapsed before the first runtime key authorization completed, so the agent provisioning status projection reports pairing_expired. Pairing expiry does not create, revoke, or rewrite Realm grants. Never applies to previously keyed agents: an expired runtime replacement re-pairing handle has no side effects. See zh/identity/account-lifecycle.md §9.1 and zh/identity/key-management.md §3.6.1.",
+        description: "Agent bootstrap pairing window elapsed before the first runtime key authorization completed, so the derived agent runtime_state projection reports pairing_expired (the controller lifecycle intent axis is unaffected). Pairing expiry does not create, revoke, or rewrite Realm grants. Never applies to previously keyed agents: an expired runtime replacement re-pairing handle has no side effects and returns runtime_state to ready. See zh/identity/account-lifecycle.md §9.1 and zh/identity/key-management.md §3.6.1.",
     },
     ReasonCodeDescriptor {
         code: "pairing_request_expired",
