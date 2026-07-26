@@ -471,6 +471,7 @@ pub struct FederationServiceBindingRef {
 pub use crate::http_bodies::EventsSubmitBatchRequestBody;
 
 pub const MAX_FEDERATED_EVENT_SIGNER_EVIDENCE: usize = 64;
+pub const MAX_FEDERATED_SEAL_PREREQUISITES: usize = 4096;
 
 /// Round 4 — federation `/events/submit` request. Used when a remote
 /// service forwards events from another principal server. MUST carry
@@ -482,6 +483,14 @@ pub struct EventsSubmitFederationRequestBody {
     pub service_binding_ref: FederationServiceBindingRef,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub events: Vec<Event>,
+    /// Signed Seal ancestry required to verify `events[].seal_ref`.
+    ///
+    /// These are transport prerequisites, not Events and not an alternate
+    /// federation write rail. Receivers independently verify and project each
+    /// Seal only after its covered Control Events are accepted.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub seals: Vec<Seal>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub signer_key_evidence: Vec<FederatedDeviceSigningKeyEvidence>,
@@ -494,6 +503,20 @@ pub struct EventsSubmitFederationRequestBody {
 
 impl EventsSubmitFederationRequestBody {
     pub fn validate_signer_key_evidence(&self) -> Result<()> {
+        if self.seals.len() > MAX_FEDERATED_SEAL_PREREQUISITES {
+            return Err(Error::Protocol(
+                "federation seals exceeds the v1 limit".to_owned(),
+            ));
+        }
+        for seal in &self.seals {
+            seal.validate_id()?;
+            seal.validate_structural()?;
+            if seal.realm_id != self.service_binding_ref.realm_id {
+                return Err(Error::Protocol(
+                    "federation Seal prerequisite belongs to another Realm".to_owned(),
+                ));
+            }
+        }
         if self.signer_key_evidence.len() > MAX_FEDERATED_EVENT_SIGNER_EVIDENCE {
             return Err(Error::Protocol(
                 "federation signer_key_evidence exceeds the v1 limit".to_owned(),
@@ -718,6 +741,7 @@ mod tests {
                 reducer_profile_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
             },
             events: vec![event],
+            seals: Vec::new(),
             signer_key_evidence: vec![unrelated],
             agent_signer_evidence_bundle: None,
             idempotency_key: None,

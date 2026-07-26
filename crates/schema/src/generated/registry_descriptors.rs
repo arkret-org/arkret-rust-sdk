@@ -3,12 +3,12 @@
 //! Input: registry/id-kind-registry.json; version=2026-07-20;
 //! sha256=066fb005a001c5cd95119a17cafa559b6760f2b8a7d8bfb7fc5eb875f0af90d2 Input: registry/
 //! capability-action-registry.json; version=2026-07-20;
-//! sha256=94ba6c28f7f8547913237a35bf42c04efe582a3d07662569c9fc58b88b7a0f82 Input: registry/
+//! sha256=860aad9b041ccca1b720cf816e70a5e45f7991f43da3184aad1e8e48aef7951e Input: registry/
 //! schema-registry.json; version=2026-07-20;
 //! sha256=c0fb947cf0bb4c3451e06f2a538afc205c52f2bcadbd6f193f3f0c8aa73e00c0 Input: registry/
 //! account-data-type-registry.json; version=2026-07-03;
 //! sha256=0808766dfda85cde75ac66a9fb5e1e38b61212ae6f243d5faa980dd12c443785 Entries: id_kinds=50,
-//! special_forms=9, actions=153, schemas=135, account_data_patterns=22
+//! special_forms=9, actions=154, schemas=135, account_data_patterns=22
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -1362,6 +1362,15 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
         target_event_kinds: &["ak.realm.upgrade"],
+        profile: None,
+        event_mapping_kind: "same_name",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::RealmKeyShare,
+        category: "service",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        target_event_kinds: &["ak.realm_key.share"],
         profile: None,
         event_mapping_kind: "same_name",
     },

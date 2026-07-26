@@ -8,7 +8,7 @@
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
-use arkret_wire::{CellId, Event, LatticeOpType};
+use arkret_wire::{CellId, CellRef, Effect, Event, LatticeOp, LatticeOpType};
 use serde_json::Value;
 use thiserror::Error;
 
@@ -399,6 +399,106 @@ pub fn validate_single_target_append_event_contract(
     if effect.op.value.as_ref() != Some(&expected_value) {
         return Err(EventCellContractError::PayloadMismatch { kind });
     }
+    Ok(())
+}
+
+/// Materialize the registry-declared effect for a single-target
+/// `ordered_log` reducer input.
+///
+/// Producers use this before CBA stamping and signing. Keeping the subject and
+/// value projection here ensures clients cannot drift from the same generated
+/// registry contract that receivers validate.
+pub fn materialize_single_target_append_event_contract(
+    event: &mut Event,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<(), EventCellContractError> {
+    let kind = event.kind.as_str().to_owned();
+    let descriptor = event
+        .kind
+        .descriptor()
+        .filter(|descriptor| descriptor.reducer_input)
+        .ok_or_else(|| EventCellContractError::UnregisteredReducerInput(kind.clone()))?;
+    let family = descriptor
+        .cell_family
+        .ok_or_else(|| EventCellContractError::MissingCellContract(kind.clone()))?;
+    if descriptor.lattice != Some("ordered_log") {
+        return Err(EventCellContractError::MissingCellContract(kind.clone()));
+    }
+    let rule = descriptor
+        .value_projection_rule
+        .ok_or_else(|| EventCellContractError::MissingCellContract(kind.clone()))?;
+    let subject = derive_subject(event, descriptor.cell_subject_rule)?;
+    let value = derive_value_projection(event, rule, digest_suite)?;
+    let cell = CellRef::new(format!("ak:cell:{family}:{subject}")).map_err(|error| {
+        EventCellContractError::InvalidCell {
+            kind: kind.clone(),
+            message: error.to_string(),
+        }
+    })?;
+    event.effects = vec![Effect {
+        cell,
+        op: LatticeOp {
+            op_type: LatticeOpType::Append,
+            tag: None,
+            value: Some(value),
+            from: None,
+            to: None,
+            reason: None,
+            issuer_seq: Some(event.actor_seq),
+        },
+    }];
+    Ok(())
+}
+
+/// Materialize the canonical OR-set add for an `ak.capability.grant` Event.
+///
+/// The grant cell subject is registry-derived from `payload.grant_id`; the add
+/// dot is the Event id plus effect index, and the value is the signed canonical
+/// grant snapshot. This makes the grant available in Seal pre-state, which is
+/// the only authority data-plane capability checks may consume.
+pub fn materialize_capability_grant_event_contract(
+    event: &mut Event,
+) -> Result<(), EventCellContractError> {
+    let kind = event.kind.as_str().to_owned();
+    if kind != arkret_wire::EventKind::CAPABILITY_GRANT {
+        return Err(EventCellContractError::MissingCellContract(kind));
+    }
+    let descriptor = event
+        .kind
+        .descriptor()
+        .filter(|descriptor| descriptor.reducer_input)
+        .ok_or_else(|| EventCellContractError::UnregisteredReducerInput(kind.clone()))?;
+    let family = descriptor
+        .cell_family
+        .ok_or_else(|| EventCellContractError::MissingCellContract(kind.clone()))?;
+    if descriptor.lattice != Some("or_set") {
+        return Err(EventCellContractError::MissingCellContract(kind.clone()));
+    }
+    let subject = derive_subject(event, descriptor.cell_subject_rule)?;
+    let value = event
+        .payload
+        .get("grant")
+        .filter(|value| value.is_object())
+        .cloned()
+        .ok_or_else(|| EventCellContractError::PayloadMismatch { kind: kind.clone() })?;
+    let cell = CellRef::new(format!("ak:cell:{family}:{subject}")).map_err(|error| {
+        EventCellContractError::InvalidCell {
+            kind: kind.clone(),
+            message: error.to_string(),
+        }
+    })?;
+    event.effects = vec![Effect {
+        cell,
+        op: LatticeOp {
+            op_type: LatticeOpType::Add,
+            tag: Some(format!("{}:0", event.event_id)),
+            value: Some(value),
+            from: None,
+            to: None,
+            reason: None,
+            issuer_seq: None,
+        },
+    }];
     Ok(())
 }
 
@@ -1057,6 +1157,63 @@ mod tests {
             validate_registered_cell_writes(&wrong_family),
             Err(EventCellContractError::EffectSetMismatch { .. })
         ));
+    }
+
+    #[test]
+    fn materializes_delivery_append_from_registry() {
+        let mut expected = delivery_share_event();
+        expected.effects[0].op.issuer_seq = Some(expected.actor_seq);
+        let mut event = expected.clone();
+        event.effects.clear();
+        materialize_single_target_append_event_contract(
+            &mut event,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
+        assert_eq!(event.effects, expected.effects);
+        validate_single_target_append_event_contract(&event, arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
+    }
+
+    #[test]
+    fn materializes_capability_grant_add_dot() {
+        let grant_id = "ak:grant:019f9000-0000-7000-8000-000000000006";
+        let grant = json!({
+            "grant_id": grant_id,
+            "issuer": "did:webvh:z6mkfixture:alice.example",
+            "subject": "did:webvh:z6mkfixture:alice.example",
+            "actions": ["ak.realm.admin"]
+        });
+        let mut event: Event = serde_json::from_value(json!({
+            "event_id": "ak:event:019f9000-0000-7000-8000-000000000001",
+            "kind": EventKind::CAPABILITY_GRANT,
+            "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002",
+            "actor_id": "did:webvh:z6mkfixture:alice.example",
+            "actor_seq": 3,
+            "created_at": "2026-07-26T00:00:00.000Z",
+            "hlc": "019f90000000-0000-aabbccdd",
+            "prev_refs": [],
+            "effects": [],
+            "payload": {
+                "grant_id": grant_id,
+                "grant": grant
+            },
+            "proofs": []
+        }))
+        .unwrap();
+
+        materialize_capability_grant_event_contract(&mut event).unwrap();
+
+        assert_eq!(event.effects.len(), 1);
+        assert_eq!(
+            event.effects[0].cell.as_str(),
+            format!("ak:cell:ak.component.capability.grant.v1:{grant_id}")
+        );
+        assert_eq!(
+            event.effects[0].op.tag.as_deref(),
+            Some("ak:event:019f9000-0000-7000-8000-000000000001:0")
+        );
+        assert_eq!(event.effects[0].op.value.as_ref(), Some(&grant));
     }
 
     #[test]

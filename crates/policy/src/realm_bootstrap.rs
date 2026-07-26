@@ -10,10 +10,11 @@ use std::collections::BTreeSet;
 use arkret_wire::{Event, EventKind};
 
 /// The only actions carried by an ordinary Realm founding grant.
-pub const REALM_FOUNDING_GRANT_ACTIONS: [&str; 3] = [
+pub const REALM_FOUNDING_GRANT_ACTIONS: [&str; 4] = [
     "ak.realm.admin",
     "ak.capability.grant",
     "ak.capability.revoke",
+    "ak.realm_key.share",
 ];
 
 /// Closed set of initial Realm facets that may follow the founding grant.

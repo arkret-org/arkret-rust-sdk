@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/capability-action-registry.json; version=2026-07-20;
-//! sha256=94ba6c28f7f8547913237a35bf42c04efe582a3d07662569c9fc58b88b7a0f82 Entries: registered=153
+//! sha256=860aad9b041ccca1b720cf816e70a5e45f7991f43da3184aad1e8e48aef7951e Entries: registered=154
 
 use serde::{Deserialize, Serialize};
 
@@ -114,6 +114,7 @@ pub enum CapabilityActionId {
     RealmTombstone,
     RealmUpdate,
     RealmUpgrade,
+    RealmKeyShare,
     ReceiptBroadcast,
     RelationCreate,
     RelationTombstone,
@@ -271,6 +272,7 @@ impl CapabilityActionId {
         Self::RealmTombstone,
         Self::RealmUpdate,
         Self::RealmUpgrade,
+        Self::RealmKeyShare,
         Self::ReceiptBroadcast,
         Self::RelationCreate,
         Self::RelationTombstone,
@@ -427,6 +429,7 @@ impl CapabilityActionId {
     pub const REALM_TOMBSTONE: &'static str = "ak.realm.tombstone";
     pub const REALM_UPDATE: &'static str = "ak.realm.update";
     pub const REALM_UPGRADE: &'static str = "ak.realm.upgrade";
+    pub const REALM_KEY_SHARE: &'static str = "ak.realm_key.share";
     pub const RECEIPT_BROADCAST: &'static str = "ak.receipt.broadcast";
     pub const RELATION_CREATE: &'static str = "ak.relation.create";
     pub const RELATION_TOMBSTONE: &'static str = "ak.relation.tombstone";
@@ -588,6 +591,7 @@ impl CapabilityActionId {
             Self::RealmTombstone => "ak.realm.tombstone",
             Self::RealmUpdate => "ak.realm.update",
             Self::RealmUpgrade => "ak.realm.upgrade",
+            Self::RealmKeyShare => "ak.realm_key.share",
             Self::ReceiptBroadcast => "ak.receipt.broadcast",
             Self::RelationCreate => "ak.relation.create",
             Self::RelationTombstone => "ak.relation.tombstone",
@@ -748,6 +752,7 @@ impl CapabilityActionId {
             "ak.realm.tombstone" => Some(Self::RealmTombstone),
             "ak.realm.update" => Some(Self::RealmUpdate),
             "ak.realm.upgrade" => Some(Self::RealmUpgrade),
+            "ak.realm_key.share" => Some(Self::RealmKeyShare),
             "ak.receipt.broadcast" => Some(Self::ReceiptBroadcast),
             "ak.relation.create" => Some(Self::RelationCreate),
             "ak.relation.tombstone" => Some(Self::RelationTombstone),
