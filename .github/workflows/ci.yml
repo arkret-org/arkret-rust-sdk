@@ -53,8 +53,10 @@ jobs:
   wasm:
     name: wasm32 checks
     runs-on: ubuntu-latest
-    # The client surface supports wasm32; this job is the regression guard for
-    # that contract (previously CI checked no wasm target at all).
+    # The client and MLS surfaces support wasm32. Keep MLS in this job because
+    # it is the workspace path that activates getrandom 0.3's wasm_js backend
+    # through OpenMLS; checking only the client and identifier crates does not
+    # exercise that RNG generation.
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -64,6 +66,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: rustup target add wasm32-unknown-unknown
       - run: cargo check -p arkret --target wasm32-unknown-unknown --no-default-features --features client
+      - run: cargo check -p arkret-mls --target wasm32-unknown-unknown --no-default-features
       - run: cargo check -p arkret-identifiers --target wasm32-unknown-unknown --no-default-features
 
   embedded-snapshot:

@@ -30,13 +30,10 @@ openapi = ["dep:salvo-oapi"]
 [dependencies]
 arkret-canonical = {workspace = true}
 
-# wasm32 randomness: getrandom 0.3 needs the `wasm_js` feature, and the
-# transitive getrandom 0.2 (pulled in via `rand_core` from ed25519-dalek
-# and friends) needs the `js` feature. uuid additionally requires its
-# own `js` feature to wire up the wasm-bindgen RNG path on
-# `wasm32-unknown-unknown`. Declared here so the feature resolver
-# activates the JS-backed RNG backends whenever the workspace is built
-# for `wasm32-unknown-unknown`.
+# wasm32 randomness for this crate: the workspace getrandom 0.4 line needs
+# `wasm_js`, the legacy getrandom 0.2 line needs `js`, and uuid needs its own
+# `js` feature. The OpenMLS-owned getrandom 0.3 line is configured separately
+# by arkret-mls through openmls/js and is covered by the wasm CI job.
 diesel = {workspace = true,features = [
     "postgres_backend",
     "uuid",
