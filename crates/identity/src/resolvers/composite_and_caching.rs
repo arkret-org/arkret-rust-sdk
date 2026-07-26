@@ -176,7 +176,7 @@ pub struct CachedResolution {
 
 impl CachedResolution {
     /// Build a cache entry and compute its canonical document hash.
-    fn new(
+    pub fn new(
         document: DidDocument,
         cached_at: DateTime<Utc>,
         expires_at: DateTime<Utc>,
@@ -193,7 +193,7 @@ impl CachedResolution {
     }
 
     /// Return this entry's freshness relative to `now`.
-    fn freshness_at(&self, now: DateTime<Utc>) -> Freshness {
+    pub fn freshness_at(&self, now: DateTime<Utc>) -> Freshness {
         if now < self.expires_at {
             Freshness::Fresh
         } else {
@@ -212,7 +212,7 @@ fn document_canonical_hash(document: &DidDocument) -> Result<String> {
 }
 
 /// Mutable state for `CachingDidResolver`, protected by a `Mutex`.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct CacheState {
     entries: HashMap<String, CachedResolution>,
     max_entries: usize,
@@ -228,14 +228,6 @@ impl CacheState {
                 None
             }
             None => None,
-        }
-    }
-
-    /// Return a fresh cloned entry without deleting expired entries.
-    fn peek_fresh(&self, key: &str, now: DateTime<Utc>) -> Option<CachedResolution> {
-        match self.entries.get(key) {
-            Some(entry) if now < entry.expires_at => Some(entry.clone()),
-            _ => None,
         }
     }
 
@@ -258,6 +250,168 @@ impl CacheState {
     }
 }
 
+/// Reusable TTL + LRU store for resolved DID documents.
+///
+/// This is the cache owner used by [`CachingDidResolver`]. Client runtimes may
+/// also carry a deep-cloned snapshot through UI state and authority adapters
+/// without reimplementing expiry, eviction, or invalidation semantics.
+#[derive(Debug)]
+pub struct DidResolutionCache {
+    state: std::sync::Mutex<CacheState>,
+}
+
+/// Aggregate read-only cache health for status surfaces.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DidResolutionCacheHealth {
+    pub entries: usize,
+    pub fresh_entries: usize,
+    pub stale_entries: usize,
+}
+
+/// Stable read-only snapshot entry returned by [`DidResolutionCache::snapshot`].
+#[derive(Clone, Debug)]
+pub struct DidResolutionCacheSnapshotEntry {
+    pub did: String,
+    pub resolution: CachedResolution,
+}
+
+impl Clone for DidResolutionCache {
+    fn clone(&self) -> Self {
+        let state = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        Self {
+            state: std::sync::Mutex::new(state),
+        }
+    }
+}
+
+impl DidResolutionCache {
+    pub fn new(max_entries: usize) -> Self {
+        Self {
+            state: std::sync::Mutex::new(CacheState {
+                entries: HashMap::new(),
+                max_entries,
+            }),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .entries
+            .len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Return a fresh document and lazily evict an expired entry.
+    pub fn get(&self, did: &Did, now: DateTime<Utc>) -> Option<DidDocument> {
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get_fresh(did.as_str(), now)
+            .map(|entry| entry.document)
+    }
+
+    /// Insert a document with an explicit TTL.
+    pub fn insert(
+        &self,
+        did: Did,
+        document: DidDocument,
+        now: DateTime<Utc>,
+        ttl: chrono::Duration,
+    ) -> Result<()> {
+        let entry = CachedResolution::new(document, now, now + ttl)?;
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(did.to_string(), entry);
+        Ok(())
+    }
+
+    /// Read an entry without evicting it, including stale entries.
+    pub fn peek(&self, did: &Did) -> Option<CachedResolution> {
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .entries
+            .get(did.as_str())
+            .cloned()
+    }
+
+    /// Return a deterministic read-only snapshot sorted by DID.
+    pub fn snapshot(&self) -> Vec<DidResolutionCacheSnapshotEntry> {
+        let state = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut entries = state
+            .entries
+            .iter()
+            .map(|(did, resolution)| DidResolutionCacheSnapshotEntry {
+                did: did.clone(),
+                resolution: resolution.clone(),
+            })
+            .collect::<Vec<_>>();
+        entries.sort_by(|left, right| left.did.cmp(&right.did));
+        entries
+    }
+
+    pub fn health(&self, now: DateTime<Utc>) -> DidResolutionCacheHealth {
+        let state = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let fresh_entries = state
+            .entries
+            .values()
+            .filter(|entry| matches!(entry.freshness_at(now), Freshness::Fresh))
+            .count();
+        DidResolutionCacheHealth {
+            entries: state.entries.len(),
+            fresh_entries,
+            stale_entries: state.entries.len().saturating_sub(fresh_entries),
+        }
+    }
+
+    pub fn has_fresh_entry(&self, now: DateTime<Utc>) -> bool {
+        self.health(now).fresh_entries > 0
+    }
+
+    pub fn has_only_stale_entries(&self, now: DateTime<Utc>) -> bool {
+        let health = self.health(now);
+        health.entries > 0 && health.fresh_entries == 0
+    }
+
+    pub fn invalidate(&self, did: &Did) {
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .entries
+            .remove(did.as_str());
+    }
+
+    pub fn clear(&self) {
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .entries
+            .clear();
+    }
+}
+
+impl Default for DidResolutionCache {
+    fn default() -> Self {
+        Self::new(128)
+    }
+}
+
 /// TTL + LRU cache wrapper for any [`DidResolver`].
 ///
 /// [`DidResolver::resolve_did`] returns fresh cache hits directly and resolves
@@ -268,7 +422,7 @@ impl CacheState {
 pub struct CachingDidResolver<R: DidResolver> {
     inner: R,
     policy: ResolverPolicy,
-    state: std::sync::Mutex<CacheState>,
+    cache: DidResolutionCache,
 }
 
 impl<R: DidResolver> CachingDidResolver<R> {
@@ -277,10 +431,7 @@ impl<R: DidResolver> CachingDidResolver<R> {
         Self {
             inner,
             policy,
-            state: std::sync::Mutex::new(CacheState {
-                entries: HashMap::new(),
-                max_entries,
-            }),
+            cache: DidResolutionCache::new(max_entries),
         }
     }
 
@@ -296,11 +447,7 @@ impl<R: DidResolver> CachingDidResolver<R> {
 
     /// Current cached entry count, excluding future lazy expiry.
     pub fn len(&self) -> usize {
-        self.state
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .entries
-            .len()
+        self.cache.len()
     }
 
     /// Whether the cache currently has no entries.
@@ -310,28 +457,17 @@ impl<R: DidResolver> CachingDidResolver<R> {
 
     /// Drop the cached entry for a DID.
     pub fn invalidate(&self, did: &Did) {
-        self.state
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .entries
-            .remove(did.as_str());
+        self.cache.invalidate(did);
     }
 
     /// Drop every cached entry.
     pub fn clear(&self) {
-        self.state
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .entries
-            .clear();
+        self.cache.clear();
     }
 
-    /// Compute `expires_at` from `policy.ttl`.
-    fn expires_at(&self, now: DateTime<Utc>) -> DateTime<Utc> {
-        match self.policy.ttl {
-            Some(ttl) => now + ttl,
-            None => now,
-        }
+    /// Return a deep snapshot of the reusable cache owner.
+    pub fn cache_snapshot(&self) -> DidResolutionCache {
+        self.cache.clone()
     }
 
     /// Resolve a DID and return the document together with its [`Freshness`].
@@ -344,15 +480,10 @@ impl<R: DidResolver> CachingDidResolver<R> {
         did: &Did,
         now: DateTime<Utc>,
     ) -> Result<(DidDocument, Freshness)> {
-        let key = did.as_str().to_owned();
-
         // Keep expired entries around so an upstream failure can still fall back
         // to stale data when policy permits it.
-        if let Some(entry) = self
-            .state
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .peek_fresh(&key, now)
+        if let Some(entry) = self.cache.peek(did)
+            && matches!(entry.freshness_at(now), Freshness::Fresh)
         {
             return Ok((entry.document, Freshness::Fresh));
         }
@@ -360,24 +491,18 @@ impl<R: DidResolver> CachingDidResolver<R> {
         // Miss or expired entry: resolve upstream.
         match self.inner.resolve_did(did) {
             Ok(document) => {
-                let expires_at = self.expires_at(now);
-                let entry = CachedResolution::new(document.clone(), now, expires_at)?;
-                self.state
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                    .insert(key, entry);
+                self.cache.insert(
+                    did.clone(),
+                    document.clone(),
+                    now,
+                    self.policy.ttl.unwrap_or_default(),
+                )?;
                 Ok((document, Freshness::Missing))
             }
             Err(err) => {
                 // Stale fallback is available only in AllowCachedOnError mode.
                 if self.policy.fail_mode == ResolverFailMode::AllowCachedOnError {
-                    let stale = self
-                        .state
-                        .lock()
-                        .unwrap_or_else(std::sync::PoisonError::into_inner)
-                        .entries
-                        .get(&key)
-                        .cloned();
+                    let stale = self.cache.peek(did);
                     if let Some(entry) = stale {
                         let freshness = entry.freshness_at(now);
                         return Ok((entry.document, freshness));
@@ -396,31 +521,24 @@ impl<R: DidResolver> DidResolver for CachingDidResolver<R> {
 
     fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
         let now = Utc::now();
-        let key = did.as_str().to_owned();
-
-        if let Some(entry) = self
-            .state
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .get_fresh(&key, now)
-        {
-            return Ok(entry.document);
+        if let Some(document) = self.cache.get(did, now) {
+            return Ok(document);
         }
 
         let document = self.inner.resolve_did(did)?;
-        let expires_at = self.expires_at(now);
-        let entry = CachedResolution::new(document.clone(), now, expires_at)?;
-        self.state
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert(key, entry);
+        self.cache.insert(
+            did.clone(),
+            document.clone(),
+            now,
+            self.policy.ttl.unwrap_or_default(),
+        )?;
         Ok(document)
     }
 }
 
 impl<R: DidResolver + std::fmt::Debug> std::fmt::Debug for CachingDidResolver<R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let entry_count = self.state.lock().map(|s| s.entries.len()).unwrap_or(0);
+        let entry_count = self.cache.len();
         f.debug_struct("CachingDidResolver")
             .field("inner", &self.inner)
             .field("policy", &self.policy)

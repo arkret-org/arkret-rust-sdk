@@ -33,16 +33,6 @@ pub enum ServerRequestBody {
     SyncSnapshotHead {
         realm_id: String,
     },
-    FederationTransaction {
-        txn_id: String,
-        request: FederationTransactionRequestBody,
-    },
-    FederationPushOperations(FederationPushOperationsRequestBody),
-    FederationPullOperations {
-        realm_id: String,
-        after_cursor: Option<String>,
-        limit: Option<u32>,
-    },
     FederationRealmMembers {
         realm_id: String,
         cursor: Option<String>,
@@ -131,9 +121,6 @@ pub enum ServerOutcome {
     AccountCursorRevoke(AccountCursorRevokeOutcome),
     EventsQuery(EventsQueryOutcome),
     SyncSnapshotHead(SnapshotManifest),
-    FederationTransaction(FederationTransactionOutcome),
-    FederationPushOperations(FederationPushOperationsOutcome),
-    FederationPullOperations(FederationPullOperationsOutcome),
     FederationRealmMembers(FederationRealmMemberList),
     FederationVerifyActor(FederationVerifyActorOutcome),
     DirectoryDescribe(ServiceDescribe),

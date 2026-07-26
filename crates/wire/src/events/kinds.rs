@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 pub use crate::generated::EventWireScope;
-pub use crate::generated::event_kinds::{EVENT_KIND_COUNT, EventKind, EventRegistryCategory};
+pub use crate::generated::event_kinds::{
+    CbaEffectPlane, EVENT_KIND_COUNT, EventKind, EventRegistryCategory, cba_cell_family_plane,
+};
 
 /// Object-only schema id; this is not an Event.kind.
 pub const RECEIPT_OBJECT_KINDS: &[&str] = &["ak.event_batch_receipt"];

@@ -60,6 +60,29 @@ pub enum EventWireScope {
     Custom,
 }
 
+/// Closed CBA plane assigned to a registered cell family.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum CbaEffectPlane {
+    Data,
+    Control,
+}
+
+impl CbaEffectPlane {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Data => "data",
+            Self::Control => "control",
+        }
+    }
+}
+
+/// Registry-owned CBA plane for one cell family.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CellFamilyPlaneDescriptor {
+    pub cell_family: &'static str,
+    pub plane: CbaEffectPlane,
+}
+
 /// Complete generated metadata for one active standard event kind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EventKindDescriptor {
@@ -1766,6 +1789,506 @@ pub const REGISTERED_EVENT_KIND_WIRE_VALUES: &[&str] = &[
     "ak.view.create",
     "ak.view.reconcile",
     "ak.view.update",
+];
+
+/// Return the registry-owned CBA plane for a cell family.
+pub fn cba_cell_family_plane(cell_family: &str) -> Option<CbaEffectPlane> {
+    CELL_FAMILY_PLANE_DESCRIPTORS
+        .binary_search_by_key(&cell_family, |descriptor| descriptor.cell_family)
+        .ok()
+        .map(|index| CELL_FAMILY_PLANE_DESCRIPTORS[index].plane)
+}
+
+/// Unique registered cell families and their CBA planes, sorted by family.
+pub const CELL_FAMILY_PLANE_DESCRIPTORS: &[CellFamilyPlaneDescriptor] = &[
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.account.status.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.actor.discovery.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.agent.key.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.agent.selector_claim.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.agent.status.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.applet.bridge_error.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.applet.discovery.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.applet.registration.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.audit.access_log.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.audit.binding.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.audit.release.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.audit.session.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.calendar.rsvp.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.call.recording.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.call.state.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.call.summary.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.capability.delegate.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.capability.derived.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.capability.grant.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.circle.create.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.circle.lifecycle.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.circle.member.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.circle.metadata.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.circle.tombstone.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.consent.grant.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.contact.fact_log.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.container.order.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.container.position.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.cross_signing.publish.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.cross_signing.reset.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.device.authorization.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.device.list_update.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.device.push_route.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.device.reanchor.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.direct_conversation.binding.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.handle.discovery.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.identity.accountability.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.identity.disclosure_policy.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.identity.disclosure_receipt.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.identity.presentation.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.identity.proof_log.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.invite.lifecycle.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.key_backup.active_series.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.member.identity.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.member.state.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.message.reactions.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.message.revision.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.mimi.room_binding.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.mls.failure_log.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.mls.keypackage.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.mls.proposal.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.mls.welcome.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.moderation_state.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.moderation.appeal.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.moderation.franking_proof.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.moderation.report.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.morph.lifecycle.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.morph.schema.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.morph.stage.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.morph.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.notary_fault.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.notary.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.object.redaction.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.organization.discovery.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.organization.moderation_policy.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.pin.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.policy.action_log.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.policy.definition.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.policy.rule.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.profile.create.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.profile.realm_override.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm_key.audit.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm_key.delivery.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.archive.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.asset_privacy_policy.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.create.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.delivery_binding_policy.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.destroy.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.digest_suite.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.disappearing_policy.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.discovery.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.freeze.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.history_sharing_policy.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.history_visibility.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.inheritance_policy.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.join_rule.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.link.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.media_service.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.metadata.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.moderation_policy.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.organization.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.plaintext_visible_services.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.policy_components.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.policy_server.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.policy.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.preview_policy.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.read_receipt_policy.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.schema.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.search_policy.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.set_default_strand.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.tombstone.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.realm.upgrade.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.relation.lifecycle.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.relation.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.schema.definition.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.session.grant.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.sidecar.create.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.sovereign.did_policy.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.space.lifecycle.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.space.metadata.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.space.parent.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.strand.discussion.timeline.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.strand.lifecycle.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.strand.metadata.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.strand.object.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.strand.position.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.strand.stage.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.strand.tracks.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.strand.watch.v1",
+        plane: CbaEffectPlane::Control,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.view.create.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.view.reconcile.v1",
+        plane: CbaEffectPlane::Data,
+    },
+    CellFamilyPlaneDescriptor {
+        cell_family: "ak.component.view.update.v1",
+        plane: CbaEffectPlane::Data,
+    },
 ];
 
 /// Complete metadata rows for active standard event kinds.
@@ -4713,3 +5236,22 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         sealed: false,
     },
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_registered_cell_family_uses_its_generated_plane() {
+        for descriptor in EVENT_KIND_DESCRIPTORS {
+            let Some(cell_family) = descriptor.cell_family else {
+                continue;
+            };
+            assert_eq!(
+                cba_cell_family_plane(cell_family).map(CbaEffectPlane::as_str),
+                descriptor.plane,
+                "cell family {cell_family} drifted from its event descriptor",
+            );
+        }
+    }
+}
