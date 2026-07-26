@@ -444,7 +444,7 @@ mod tests {
             participant_binding: CallMediaParticipantBinding {
                 scheme: arkret_wire::PARTICIPANT_BINDING_SCHEMA.to_owned(),
                 sig: String::new(),
-                issuer_kid: ISSUER_KID.to_owned(),
+                issuer_kid: arkret_wire::DidUrl::new(ISSUER_KID).unwrap(),
                 realm_id: request.realm_id.clone(),
                 call_id: request.call_id.clone(),
                 focus_id: request.focus_id.clone(),
@@ -457,7 +457,7 @@ mod tests {
             expires_at,
             service_signature:
                 arkret_models_collaboration::objects::media::CallMediaServiceSignature {
-                    kid: ISSUER_KID.to_owned(),
+                    kid: arkret_wire::DidUrl::new(ISSUER_KID).unwrap(),
                     sig: String::new(),
                 },
         }

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=fbd9f6c80579f2d10eec545b938c1111990cfd743751a2ba27e85450697ce540
+//! sha256=bf5392291abc1e999257b24d3b132645150de4d2d397dd29c7cfac79c39ed5f2
 //! Entries: reason_codes=421
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2257,12 +2257,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "call_participant_removed",
         applies_to: &["service_call"],
-        description: "A participant whose `(actor_id, device_id)` is listed in `ak.call.state.removed_participants[]` (kicked) or whose actor is under a `ak.call.state` ban attempted to re-establish a media leg or re-issue a join token. Token issuer / SFU MUST refuse; a banned actor MUST NOT rejoin until the ban is lifted. See zh/crypto-media/webrtc-signaling.md §3a.",
+        description: "A participant whose `(actor_id, device_id)` has an effective kick in `ak.component.call.moderation.v1`, or whose actor has an effective ban there, attempted to re-establish a media leg or re-issue a join token. Token issuer / SFU MUST refuse; a banned actor MUST NOT rejoin until the ban is lifted. See zh/crypto-media/webrtc-signaling.md §3a.",
     },
     ReasonCodeDescriptor {
         code: "call_state_terminal",
         applies_to: &["event_envelope"],
-        description: "A `ak.call.state` event attempted to transition `state` out of a terminal value (`ended` / `missed` / `failed` / `cancelled`). Call lifecycle is monotonic; the reducer MUST `failed_precondition`. The recording dimension uses the orthogonal `recording_state` field, not `state`. See zh/crypto-media/call-state.md §4.2.",
+        description: "An `ak.call.state` event attempted to transition `state_transition.from` out of a terminal value (`ended` / `missed` / `failed` / `cancelled`). Call lifecycle is monotonic; the reducer MUST `failed_precondition`. Capture lifecycles use orthogonal per-segment transition cells. See zh/crypto-media/call-state.md §4.2.",
     },
     ReasonCodeDescriptor {
         code: "call_state_transition_invalid",
@@ -3310,7 +3310,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "participant_identity_unrecognised",
         applies_to: &["service_call"],
-        description: "Backend (LiveKit / SFU / etc.) signalled `ParticipantConnected` with a `participant_identity` that has no matching entry in `ak.call.state.participants[]` (or matches an entry whose `participant_binding` fails verification). Client MUST refuse to establish media streams for that participant — this closes the attack where a compromised backend tries to inject unauthorized participants into the conference. See zh/crypto-media/media-service-binding.md §7.",
+        description: "Backend (LiveKit / SFU / etc.) signalled `ParticipantConnected` with a `participant_identity` that has no matching value in the accepted call roster effective OR-Set (or matches a value whose `participant_binding` fails verification). Client MUST refuse to establish media streams for that participant — this closes the attack where a compromised backend tries to inject unauthorized participants into the conference. See zh/crypto-media/media-service-binding.md §7.",
     },
     ReasonCodeDescriptor {
         code: "patch_atomic_conflict",
@@ -3560,12 +3560,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "recording_consent_required",
         applies_to: &["service_call", "event_envelope"],
-        description: "A `ak.call.state` event set `recording_state`/`transcript_state` to a capturing value (`recording` / `transcribing`) without `recording_result.retention.consent_confirmed` / `transcript_result.retention.consent_confirmed` recording the required second client-side capture confirmation. Reducer MUST `failed_precondition`. See zh/crypto-media/call-state.md §5.2.",
+        description: "An `ak.call.recording.start` event attempted to enter recording/transcribing without `payload.result.retention.consent_confirmed=true` and a capture-kind-specific start-event ref equal to the Event `event_id`. Reducer MUST reject before either capture FSM or result cell is written. See zh/crypto-media/call-state.md §5.2.",
     },
     ReasonCodeDescriptor {
         code: "recording_state_transition_invalid",
         applies_to: &["event_envelope"],
-        description: "A `ak.call.state` event requested a `recording_state` or `transcript_state` transition not listed in the per-capture controlled state machine (e.g. transitioning out of a terminal `ready` / `failed`, or `stopped → failed` / `stopped → recording`, or re-entering `recording` in place without a new `ak.call.recording.start`). The reducer MUST `failed_precondition`. The same code covers both the recording and transcript orthogonal dimensions. See zh/crypto-media/call-state.md §4.2.",
+        description: "An `ak.call.state` event requested a `recording_transition` or `transcript_transition` not listed in the per-capture controlled state machine (e.g. transitioning out of terminal `ready` / `failed`, `stopped → failed`, or attempting to enter a capturing state without a new `ak.call.recording.start`). The reducer MUST `failed_precondition`. The same code covers both orthogonal capture dimensions. See zh/crypto-media/call-state.md §4.2.",
     },
     ReasonCodeDescriptor {
         code: "recovery_capability_not_sealed",

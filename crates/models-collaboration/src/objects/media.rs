@@ -1,7 +1,7 @@
 //! ICE configuration and call media token wire shapes.
 
 use arkret_wire::constants::PARTICIPANT_BINDING_SCHEMA;
-use arkret_wire::{CallId, DeviceId, Did, GrantId, Hash, RealmId, XExtensionMap};
+use arkret_wire::{CallId, DeviceId, Did, DidUrl, GrantId, Hash, RealmId, XExtensionMap};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -242,7 +242,7 @@ pub struct CallMediaTokenExchangeRequestBody {
 pub struct CallMediaParticipantBinding {
     pub scheme: String,
     pub sig: String,
-    pub issuer_kid: String,
+    pub issuer_kid: DidUrl,
     pub realm_id: RealmId,
     pub call_id: CallId,
     pub focus_id: String,
@@ -272,7 +272,7 @@ impl CallMediaParticipantBinding {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CallMediaServiceSignature {
-    pub kid: String,
+    pub kid: DidUrl,
     pub sig: String,
 }
 

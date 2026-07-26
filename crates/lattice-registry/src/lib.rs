@@ -65,7 +65,7 @@ mod tests {
         // registry. New spec cell families must be added here before their
         // contracts are consumed by Move/Seal state resolution.
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 76);
+        assert_eq!(registry.len(), 79);
     }
 
     #[test]
@@ -225,7 +225,7 @@ mod tests {
             recording
                 .subject_for_effect(&json!({
                     "call_id": call_id,
-                    "recording_result": {"recording_id": recording_id},
+                    "recording_transition": {"recording_id": recording_id},
                 }))
                 .unwrap()
                 .as_deref(),
@@ -238,11 +238,43 @@ mod tests {
             transcript
                 .subject_for_effect(&json!({
                     "call_id": call_id,
-                    "transcript_result": {"recording_id": recording_id},
+                    "transcript_transition": {"recording_id": recording_id},
                 }))
                 .unwrap()
                 .as_deref(),
             Some(expected_capture_subject.as_str())
+        );
+
+        for family in [
+            "ak.component.call.recording_result.v1",
+            "ak.component.call.transcript_result.v1",
+        ] {
+            assert_eq!(
+                registry.lookup(family).unwrap().lattice(),
+                SdkLatticeKind::CasRegister
+            );
+        }
+        let mute = registry
+            .lookup("ak.component.call.mute_override.v1")
+            .unwrap();
+        assert_eq!(mute.lattice(), SdkLatticeKind::CasRegister);
+        let expected_mute_subject = composite_subject(&[
+            call_id,
+            "did:webvh:z6mkfixture:bob.example",
+            "ak:device:01904100-0000-7000-8000-000000000044",
+        ])
+        .unwrap();
+        assert_eq!(
+            mute.subject_for_effect(&json!({
+                "call_id": call_id,
+                "mute_override": {
+                    "actor_id": "did:webvh:z6mkfixture:bob.example",
+                    "device_id": "ak:device:01904100-0000-7000-8000-000000000044"
+                }
+            }))
+            .unwrap()
+            .as_deref(),
+            Some(expected_mute_subject.as_str())
         );
 
         let sdk_registry = build_sdk_cell_registry();

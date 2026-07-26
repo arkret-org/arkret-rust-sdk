@@ -25,8 +25,9 @@ pub use arkret_wire::{
 pub use error::{Error, Result, SchemaError};
 pub use event_cell_contract::{
     EventCellContractContext, EventCellContractError, materialize_capability_grant_event_contract,
-    materialize_single_target_append_event_contract, validate_registered_cell_writes,
-    validate_single_target_append_event_contract, validate_single_target_set_event_contract,
+    materialize_registered_cell_writes, materialize_single_target_append_event_contract,
+    validate_registered_cell_writes, validate_single_target_append_event_contract,
+    validate_single_target_set_event_contract,
     validate_single_target_set_event_contract_in_context,
 };
 pub use event_validation::{EventSchemaExt, validate_event_for_submit, validate_event_wire_schema};

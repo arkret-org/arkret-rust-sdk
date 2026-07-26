@@ -28,13 +28,41 @@ use crate::{CellRef, Error, Result, canonical};
 
 const CELL_PREFIX: &str = "ak:cell:";
 
+/// Canonical wire subject segment of a cell family declared with
+/// `cell_subject: null` in the contract catalog (`encoding.md` section 4).
+///
+/// These families are located by the Event envelope `realm_id`. The literal
+/// ASCII `null` is used rather than an empty segment because `ak:cell:<family>:`
+/// cannot be told apart from a truncated wire id, and truncated ids must be
+/// rejected. Implementations MUST NOT encode `realm_id`, a Realm role
+/// classification, or any payload-derived value into this segment: the subject
+/// is both the `state_root` leaf preimage content and the leaf sort key, so a
+/// divergent spelling forks `state_root` across implementations.
+pub const NULL_SUBJECT: &str = "null";
+
+/// Build the canonical wire cell id of a `cell_subject: null` family.
+pub fn null_subject_cell(component: &str) -> String {
+    format!("{CELL_PREFIX}{component}:{NULL_SUBJECT}")
+}
+
+/// Canonical genesis-log cell of every `ak.realm.create` (`ordered_log`).
+pub const REALM_CREATE_CELL: &str = "ak:cell:ak.component.realm.create.v1:null";
+/// Canonical per-Realm metadata cell, seeded by `ak.realm.create` and written
+/// by every later `ak.realm.update` (`cas_register`).
+pub const REALM_METADATA_CELL: &str = "ak:cell:ak.component.realm.metadata.v1:null";
+/// Canonical per-Realm notary control cell; its genesis value is an explicit
+/// `ak.realm.create` effect and later values come from `ak.realm.notary`.
+pub const REALM_NOTARY_CELL: &str = "ak:cell:ak.component.notary.v1:null";
+
 /// Parsed cell id with its component family and subject substrings.
 ///
 /// The wire string is held in [`CellRef`]; [`CellId`] is a borrow-style
 /// view over it so we don't allocate copies for hot paths (validate / log /
-/// project). The component must be a complete `ak.component.*.v<n>` family;
-/// the subject may be empty when a cell family has only one global instance
-/// per Space.
+/// project). The component must be a complete `ak.component.*.v<n>` family.
+/// A family with a single instance per Realm does **not** use an empty subject:
+/// its canonical subject segment is the literal ASCII [`NULL_SUBJECT`]
+/// (`encoding.md` section 4), because an empty trailing segment cannot be told
+/// apart from a truncated wire id.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct CellId {
     component: String,
@@ -337,5 +365,24 @@ mod tests {
             cref.as_str(),
             "ak:cell:ak.component.member.state.v1:did.web.alice.example"
         );
+    }
+}
+
+#[cfg(test)]
+mod null_subject_tests {
+    use super::*;
+
+    #[test]
+    fn canonical_null_subject_cells_match_the_builder() {
+        for (constant, family) in [
+            (REALM_CREATE_CELL, "ak.component.realm.create.v1"),
+            (REALM_METADATA_CELL, "ak.component.realm.metadata.v1"),
+            (REALM_NOTARY_CELL, "ak.component.notary.v1"),
+        ] {
+            assert_eq!(constant, null_subject_cell(family));
+            let parsed = CellId::parse(constant).expect("canonical null-subject cell parses");
+            assert_eq!(parsed.component(), family);
+            assert_eq!(parsed.subject(), NULL_SUBJECT);
+        }
     }
 }

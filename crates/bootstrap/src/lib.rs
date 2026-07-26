@@ -41,20 +41,14 @@ use serde_json::Value;
 pub const PRINCIPAL_CONTROL_REALM_PROFILE: &str = "ak.profile.principal_control_realm.v1";
 pub const DID_INCEPTION_REF_ROLE: &str = "did_inception";
 const PRINCIPAL_CONTROL_PURPOSE: &str = "principal_control";
-/// Canonical genesis-log cell for every `ak.realm.create`.
-///
-/// `ak.component.realm.create.v1` declares `cell_subject: null`, so its wire
-/// subject segment is the literal ASCII `null` and the cell is located by the
-/// Event envelope `realm_id` (`conformance/encoding.md` section 4). The Realm
-/// role classification (`principal_control`, `collaboration`, ...) is a prose
-/// term only (`models/realm-and-space.md` section 2.8.3) and MUST NOT appear in
-/// a cell id: doing so both forks the `state_root` leaf set and makes the
-/// per-Realm genesis singleton a deployment-wide shared key.
-pub const REALM_CREATE_CELL: &str = "ak:cell:ak.component.realm.create.v1:null";
-/// Per-Realm metadata cell written by `ak.realm.create` and `ak.realm.update`.
-pub const REALM_METADATA_CELL: &str = "ak:cell:ak.component.realm.metadata.v1:null";
-/// Per-Realm notary control cell; genesis value comes from the create effect.
-pub const REALM_NOTARY_CELL: &str = "ak:cell:ak.component.notary.v1:null";
+// The canonical `cell_subject: null` cell ids live in `arkret_wire::cell`, the
+// lowest crate that owns cell identity, so every consumer (this crate, soland's
+// reducer and its HTTP proof path) spells them once. The Realm role
+// classification (`principal_control`, `collaboration`, ...) is a prose term
+// only (`models/realm-and-space.md` section 2.8.3) and MUST NOT appear in a cell
+// id: doing so both forks the `state_root` leaf set and turns the per-Realm
+// genesis singleton into a deployment-wide shared key.
+pub use arkret_wire::{REALM_CREATE_CELL, REALM_METADATA_CELL, REALM_NOTARY_CELL};
 
 /// Derive the complete canonical four-effect set of an `ak.realm.create`.
 ///

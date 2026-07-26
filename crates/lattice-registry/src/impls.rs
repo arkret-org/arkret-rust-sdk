@@ -508,7 +508,7 @@ per_subject_lattice!(
 
 fn call_capture_subject(
     effect_payload: &Value,
-    result_field: &'static str,
+    transition_field: &'static str,
     cell_family: &'static str,
 ) -> Result<Option<String>, LatticeKindError> {
     let call_id = effect_payload
@@ -522,8 +522,8 @@ fn call_capture_subject(
         .get("recording_id")
         .or_else(|| {
             effect_payload
-                .get(result_field)
-                .and_then(|result| result.get("recording_id"))
+                .get(transition_field)
+                .and_then(|transition| transition.get("recording_id"))
         })
         .and_then(Value::as_str)
         .ok_or(LatticeKindError::MissingSubjectField {
@@ -565,7 +565,7 @@ impl LatticeKind for CallRecording {
         &self,
         effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
-        call_capture_subject(effect_payload, "recording_result", self.cell_family())
+        call_capture_subject(effect_payload, "recording_transition", self.cell_family())
     }
 
     fn event_kinds(&self) -> &'static [&'static str] {
@@ -600,11 +600,147 @@ impl LatticeKind for CallTranscript {
         &self,
         effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
-        call_capture_subject(effect_payload, "transcript_result", self.cell_family())
+        call_capture_subject(effect_payload, "transcript_transition", self.cell_family())
     }
 
     fn event_kinds(&self) -> &'static [&'static str] {
         &["ak.call.recording.start", "ak.call.state"]
+    }
+}
+
+pub struct CallRecordingResult;
+
+impl LatticeKind for CallRecordingResult {
+    fn cell_family(&self) -> &'static str {
+        "ak.component.call.recording_result.v1"
+    }
+
+    fn lattice(&self) -> SdkLatticeKind {
+        SdkLatticeKind::CasRegister
+    }
+
+    fn bottom_policy(&self) -> BottomPolicy {
+        BottomPolicy::Reject
+    }
+
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: self.cell_family(),
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        call_capture_subject(effect_payload, "recording_transition", self.cell_family())
+    }
+
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &["ak.call.recording.start", "ak.call.state"]
+    }
+}
+
+pub struct CallTranscriptResult;
+
+impl LatticeKind for CallTranscriptResult {
+    fn cell_family(&self) -> &'static str {
+        "ak.component.call.transcript_result.v1"
+    }
+
+    fn lattice(&self) -> SdkLatticeKind {
+        SdkLatticeKind::CasRegister
+    }
+
+    fn bottom_policy(&self) -> BottomPolicy {
+        BottomPolicy::Reject
+    }
+
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: self.cell_family(),
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        call_capture_subject(effect_payload, "transcript_transition", self.cell_family())
+    }
+
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &["ak.call.recording.start", "ak.call.state"]
+    }
+}
+
+pub struct CallMuteOverride;
+
+impl LatticeKind for CallMuteOverride {
+    fn cell_family(&self) -> &'static str {
+        "ak.component.call.mute_override.v1"
+    }
+
+    fn lattice(&self) -> SdkLatticeKind {
+        SdkLatticeKind::CasRegister
+    }
+
+    fn bottom_policy(&self) -> BottomPolicy {
+        BottomPolicy::Reject
+    }
+
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: self.cell_family(),
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        let call_id = effect_payload
+            .get("call_id")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: self.cell_family(),
+                field: "call_id",
+            })?;
+        let mute =
+            effect_payload
+                .get("mute_override")
+                .ok_or(LatticeKindError::MissingSubjectField {
+                    cell_family: self.cell_family(),
+                    field: "mute_override",
+                })?;
+        let actor_id = mute.get("actor_id").and_then(Value::as_str).ok_or(
+            LatticeKindError::MissingSubjectField {
+                cell_family: self.cell_family(),
+                field: "mute_override.actor_id",
+            },
+        )?;
+        let device_id = mute.get("device_id").and_then(Value::as_str).ok_or(
+            LatticeKindError::MissingSubjectField {
+                cell_family: self.cell_family(),
+                field: "mute_override.device_id",
+            },
+        )?;
+        arkret_wire::composite_subject(&[call_id, actor_id, device_id])
+            .map(Some)
+            .map_err(|error| LatticeKindError::InvalidCompositeSubject {
+                cell_family: self.cell_family(),
+                reason: error.to_string(),
+            })
+    }
+
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &["ak.call.state"]
     }
 }
 

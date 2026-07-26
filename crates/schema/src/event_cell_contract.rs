@@ -9,17 +9,14 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
-use arkret_wire::{CellId, CellRef, Effect, Event, LatticeOp, LatticeOpType};
-use serde_json::Value;
-use thiserror::Error;
-
 /// Canonical wire subject segment of a cell family declared with
 /// `cell_subject: null` (`conformance/encoding.md` section 4).
 ///
-/// The literal ASCII `null` is used rather than an empty segment because
-/// `ak:cell:<family>:` cannot be told apart from a truncated wire id, and
-/// truncated ids must be rejected.
-pub const NULL_CELL_SUBJECT: &str = "null";
+/// Re-exported so this module and the wire layer cannot drift apart.
+pub use arkret_wire::NULL_SUBJECT as NULL_CELL_SUBJECT;
+use arkret_wire::{CellId, CellRef, Effect, Event, LatticeOp, LatticeOpType};
+use serde_json::Value;
+use thiserror::Error;
 
 /// Envelope context used while validating the registry-declared CBA plane.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -114,7 +111,7 @@ pub fn validate_registered_cell_writes(event: &Event) -> Result<(), EventCellCon
         return Ok(());
     };
 
-    let mut expected = BTreeMap::<String, &str>::new();
+    let mut expected = BTreeMap::<String, &Value>::new();
     for write in writes {
         if !condition_matches(event, write.get("condition"), &kind)? {
             continue;
@@ -131,11 +128,11 @@ pub fn validate_registered_cell_writes(event: &Event) -> Result<(), EventCellCon
             .map_err(|error| effect_set_error(&kind, &error.to_string()))?;
         let subject = derive_subject(event, subject_json.as_deref())?;
         let cell = format!("ak:cell:{family}:{subject}");
-        let lattice = write
+        write
             .get("lattice")
             .and_then(Value::as_str)
             .ok_or_else(|| effect_set_error(&kind, "cell write omits lattice"))?;
-        if expected.insert(cell.clone(), lattice).is_some() {
+        if expected.insert(cell.clone(), write).is_some() {
             return Err(effect_set_error(
                 &kind,
                 &format!("two active targets derive the same cell {cell}"),
@@ -163,10 +160,21 @@ pub fn validate_registered_cell_writes(event: &Event) -> Result<(), EventCellCon
     }
 
     for effect in &event.effects {
-        let lattice = expected
+        let write = expected
             .get(effect.cell.as_str())
             .expect("actual and expected cell sets were compared");
-        let valid_kind = match *lattice {
+        let lattice = write
+            .get("lattice")
+            .and_then(Value::as_str)
+            .expect("registered write lattice was checked above");
+        if let Some(projection) = write.get("effect_projection") {
+            let projected = derive_effect_op(event, projection, &kind)?;
+            if effect.op != projected {
+                return Err(EventCellContractError::PayloadMismatch { kind });
+            }
+            continue;
+        }
+        let valid_kind = match lattice {
             "cas_register" | "mv_register" => effect.op.op_type == LatticeOpType::Set,
             "fsm" => effect.op.op_type == LatticeOpType::Transition,
             "ordered_log" => effect.op.op_type == LatticeOpType::Append,
@@ -180,12 +188,222 @@ pub fn validate_registered_cell_writes(event: &Event) -> Result<(), EventCellCon
         if !valid_kind {
             return Err(EventCellContractError::OperationMismatch {
                 kind: kind.clone(),
-                expected: (*lattice).to_owned(),
+                expected: lattice.to_owned(),
                 actual: format!("{:?}", effect.op.op_type).to_lowercase(),
             });
         }
     }
     Ok(())
+}
+
+/// Materialize every active registry-declared write whose exact operation is
+/// defined by `effect_projection`.
+///
+/// Producers call this before signing. The same closed projection evaluator
+/// is used by receiver-side validation, so target selection and operation
+/// payloads cannot drift into a parallel client contract.
+pub fn materialize_registered_cell_writes(event: &mut Event) -> Result<(), EventCellContractError> {
+    let kind = event.kind.as_str().to_owned();
+    let registry = event_kind_registry()?;
+    let row = registry
+        .get("event_kinds")
+        .and_then(Value::as_array)
+        .and_then(|rows| {
+            rows.iter()
+                .find(|row| row.get("event_kind").and_then(Value::as_str) == Some(kind.as_str()))
+        })
+        .ok_or_else(|| EventCellContractError::UnregisteredReducerInput(kind.clone()))?;
+    let writes = row
+        .get("cell_writes")
+        .and_then(Value::as_array)
+        .ok_or_else(|| EventCellContractError::MissingCellContract(kind.clone()))?;
+
+    let mut effects = Vec::new();
+    let mut seen = BTreeMap::<String, ()>::new();
+    for write in writes {
+        if !condition_matches(event, write.get("condition"), &kind)? {
+            continue;
+        }
+        let family = write
+            .get("cell_family")
+            .and_then(Value::as_str)
+            .ok_or_else(|| effect_set_error(&kind, "cell write omits cell_family"))?;
+        let subject_rule = write.get("cell_subject");
+        let subject_json = subject_rule
+            .filter(|value| !value.is_null())
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|error| effect_set_error(&kind, &error.to_string()))?;
+        let subject = derive_subject(event, subject_json.as_deref())?;
+        let cell = CellRef::new(format!("ak:cell:{family}:{subject}")).map_err(|error| {
+            EventCellContractError::InvalidCell {
+                kind: kind.clone(),
+                message: error.to_string(),
+            }
+        })?;
+        if seen.insert(cell.as_str().to_owned(), ()).is_some() {
+            return Err(effect_set_error(
+                &kind,
+                &format!("two active targets derive the same cell {cell}"),
+            ));
+        }
+        let projection = write
+            .get("effect_projection")
+            .ok_or_else(|| effect_set_error(&kind, "cell write omits effect_projection"))?;
+        effects.push(Effect {
+            cell,
+            op: derive_effect_op(event, projection, &kind)?,
+        });
+    }
+    event.effects = effects;
+    Ok(())
+}
+
+fn derive_effect_op(
+    event: &Event,
+    projection: &Value,
+    kind: &str,
+) -> Result<LatticeOp, EventCellContractError> {
+    let projection_type = projection
+        .get("type")
+        .and_then(Value::as_str)
+        .ok_or_else(|| effect_set_error(kind, "effect_projection omits type"))?;
+    let empty = || LatticeOp {
+        op_type: LatticeOpType::Set,
+        tag: None,
+        value: None,
+        from: None,
+        to: None,
+        reason: None,
+        issuer_seq: None,
+    };
+    match projection_type {
+        "transition" => {
+            let mut op = empty();
+            op.op_type = LatticeOpType::Transition;
+            op.from = Some(effect_source_value(
+                event,
+                projection
+                    .get("from")
+                    .ok_or_else(|| effect_set_error(kind, "transition projection omits from"))?,
+                kind,
+            )?);
+            op.to = Some(effect_source_value(
+                event,
+                projection
+                    .get("to")
+                    .ok_or_else(|| effect_set_error(kind, "transition projection omits to"))?,
+                kind,
+            )?);
+            Ok(op)
+        }
+        "set" => {
+            let mut op = empty();
+            op.value = Some(effect_source_value(
+                event,
+                projection
+                    .get("value")
+                    .ok_or_else(|| effect_set_error(kind, "set projection omits value"))?,
+                kind,
+            )?);
+            Ok(op)
+        }
+        "or_set_delta" => {
+            let selector = projection
+                .get("selector")
+                .and_then(Value::as_str)
+                .ok_or_else(|| effect_set_error(kind, "or_set_delta omits selector"))?;
+            let discriminator = field_value(event, selector)
+                .and_then(Value::as_str)
+                .ok_or_else(|| effect_set_error(kind, "or_set_delta selector is missing"))?;
+            let branch = projection
+                .get("branches")
+                .and_then(Value::as_object)
+                .and_then(|branches| branches.get(discriminator))
+                .ok_or_else(|| {
+                    effect_set_error(
+                        kind,
+                        &format!("or_set_delta selector has no branch for {discriminator}"),
+                    )
+                })?;
+            let branch_op = branch
+                .get("op")
+                .and_then(Value::as_str)
+                .ok_or_else(|| effect_set_error(kind, "or_set_delta branch omits op"))?;
+            let tag = effect_source_value(
+                event,
+                branch
+                    .get("tag")
+                    .ok_or_else(|| effect_set_error(kind, "or_set_delta branch omits tag"))?,
+                kind,
+            )?
+            .as_str()
+            .map(str::to_owned)
+            .ok_or_else(|| effect_set_error(kind, "or_set_delta tag must derive a string"))?;
+            let mut op = empty();
+            op.tag = Some(tag);
+            match branch_op {
+                "add" => {
+                    op.op_type = LatticeOpType::Add;
+                    op.value = Some(effect_source_value(
+                        event,
+                        branch.get("value").ok_or_else(|| {
+                            effect_set_error(kind, "or_set_delta add branch omits value")
+                        })?,
+                        kind,
+                    )?);
+                }
+                "remove" => op.op_type = LatticeOpType::Remove,
+                other => {
+                    return Err(effect_set_error(
+                        kind,
+                        &format!("unknown or_set_delta op {other}"),
+                    ));
+                }
+            }
+            Ok(op)
+        }
+        other => Err(effect_set_error(
+            kind,
+            &format!("unknown effect_projection type {other}"),
+        )),
+    }
+}
+
+fn effect_source_value(
+    event: &Event,
+    source: &Value,
+    kind: &str,
+) -> Result<Value, EventCellContractError> {
+    let source = source
+        .as_object()
+        .ok_or_else(|| effect_set_error(kind, "effect source must be an object"))?;
+    if source.len() != 1 {
+        return Err(effect_set_error(
+            kind,
+            "effect source must contain exactly one member",
+        ));
+    }
+    if let Some(path) = source.get("field").and_then(Value::as_str) {
+        return field_value(event, path)
+            .cloned()
+            .ok_or_else(|| effect_set_error(kind, &format!("effect source {path} is missing")));
+    }
+    if let Some(field) = source.get("envelope_field").and_then(Value::as_str) {
+        let envelope = serde_json::to_value(event)
+            .map_err(|error| effect_set_error(kind, &error.to_string()))?;
+        return envelope
+            .get(field)
+            .cloned()
+            .ok_or_else(|| effect_set_error(kind, &format!("envelope field {field} is missing")));
+    }
+    if let Some(value) = source.get("const") {
+        return Ok(value.clone());
+    }
+    Err(effect_set_error(
+        kind,
+        "effect source must declare field, envelope_field, or const",
+    ))
 }
 
 fn condition_matches(
@@ -1208,6 +1426,10 @@ mod tests {
     #[test]
     fn conditional_call_axis_targets_are_exact() {
         let call_id = "ak:call:019f9000-0000-7000-8000-000000000022";
+        let participant = json!({
+            "actor_id": "did:webvh:z6mkfixture:alice.example",
+            "device_id": "ak:device:019f9000-0000-7000-8000-000000000023"
+        });
         let effects = vec![
             json!({
                 "cell": format!("ak:cell:ak.component.call.state.v1:{call_id}"),
@@ -1219,24 +1441,29 @@ mod tests {
             }),
             json!({
                 "cell": format!("ak:cell:ak.component.call.roster.v1:{call_id}"),
-                "op": {"kind": "add", "tag": "alice-device", "value": {"actor_id": "did:webvh:z6mkfixture:alice.example"}}
+                "op": {
+                    "kind": "add",
+                    "tag": "ak:event:019f9000-0000-7000-8000-000000000021",
+                    "value": participant.clone()
+                }
             }),
         ];
         let event = call_event(
             EventKind::CALL_STATE,
             json!({
                 "call_id": call_id,
-                "state": "active",
-                "mode": "sfu",
-                "session_focus": "fra-1",
-                "participants": [{
-                    "actor_id": "did:webvh:z6mkfixture:alice.example",
-                    "device_id": "ak:device:019f9000-0000-7000-8000-000000000023"
-                }]
+                "state_transition": {"from": "ringing", "to": "active"},
+                "focus": {"mode": "sfu", "session_focus": "fra-1"},
+                "roster_delta": {"op": "join", "participant": participant.clone()}
             }),
             effects,
         );
         validate_registered_cell_writes(&event).unwrap();
+        let mut materialized = event.clone();
+        materialized.effects.clear();
+        materialize_registered_cell_writes(&mut materialized).unwrap();
+        assert_eq!(materialized.effects, event.effects);
+        validate_registered_cell_writes(&materialized).unwrap();
 
         let mut missing_roster = event.clone();
         missing_roster.effects.pop();
@@ -1245,7 +1472,28 @@ mod tests {
             Err(EventCellContractError::EffectSetMismatch { .. })
         ));
 
-        let recording_id = "ak:recording:019f9000-0000-7000-8000-000000000024";
+        let mut wrong_tag = event.clone();
+        wrong_tag.effects[2].op.tag = Some("producer-chosen".to_owned());
+        assert!(matches!(
+            validate_registered_cell_writes(&wrong_tag),
+            Err(EventCellContractError::PayloadMismatch { .. })
+        ));
+
+        let mut wrong_value = event.clone();
+        wrong_value.effects[2].op.value = Some(json!({"actor_id": "tampered"}));
+        assert!(matches!(
+            validate_registered_cell_writes(&wrong_value),
+            Err(EventCellContractError::PayloadMismatch { .. })
+        ));
+
+        let mut wrong_transition = event.clone();
+        wrong_transition.effects[0].op.to = Some(json!("ended"));
+        assert!(matches!(
+            validate_registered_cell_writes(&wrong_transition),
+            Err(EventCellContractError::PayloadMismatch { .. })
+        ));
+
+        let recording_id = "capture-019f9000";
         let recording_subject = arkret_wire::composite_subject(&[call_id, recording_id]).unwrap();
         let mut inactive_recording = event;
         inactive_recording.effects.push(
@@ -1264,33 +1512,60 @@ mod tests {
     #[test]
     fn capture_kind_selects_exactly_one_capture_family() {
         let call_id = "ak:call:019f9000-0000-7000-8000-000000000031";
-        let recording_id = "ak:recording:019f9000-0000-7000-8000-000000000032";
+        let recording_id = "capture-019f9000";
         let subject = arkret_wire::composite_subject(&[call_id, recording_id]).unwrap();
+        let recording_result = json!({
+            "recording_start_event_id": "ak:event:019f9000-0000-7000-8000-000000000021",
+            "retention": {"consent_confirmed": true}
+        });
         let recording = call_event(
             EventKind::CALL_RECORDING_START,
             json!({
                 "call_id": call_id,
                 "recording_id": recording_id,
-                "capture_kind": "recording"
+                "capture_kind": "recording",
+                "result": recording_result.clone()
             }),
-            vec![json!({
-                "cell": format!("ak:cell:ak.component.call.recording.v1:{subject}"),
-                "op": {"kind": "transition", "from": null, "to": "recording"}
-            })],
+            vec![
+                json!({
+                    "cell": format!("ak:cell:ak.component.call.recording.v1:{subject}"),
+                    "op": {"kind": "transition", "from": null, "to": "recording"}
+                }),
+                json!({
+                    "cell": format!("ak:cell:ak.component.call.recording_result.v1:{subject}"),
+                    "op": {"kind": "set", "value": recording_result.clone()}
+                }),
+            ],
         );
         validate_registered_cell_writes(&recording).unwrap();
+        let mut materialized_recording = recording.clone();
+        materialized_recording.effects.clear();
+        materialize_registered_cell_writes(&mut materialized_recording).unwrap();
+        assert_eq!(materialized_recording.effects, recording.effects);
+        validate_registered_cell_writes(&materialized_recording).unwrap();
 
+        let transcript_result = json!({
+            "transcript_start_event_id": "ak:event:019f9000-0000-7000-8000-000000000021",
+            "retention": {"consent_confirmed": true}
+        });
         let transcript = call_event(
             EventKind::CALL_RECORDING_START,
             json!({
                 "call_id": call_id,
                 "recording_id": recording_id,
-                "capture_kind": "transcript"
+                "capture_kind": "transcript",
+                "result": transcript_result.clone()
             }),
-            vec![json!({
-                "cell": format!("ak:cell:ak.component.call.transcript.v1:{subject}"),
-                "op": {"kind": "transition", "from": null, "to": "transcribing"}
-            })],
+            vec![
+                json!({
+                    "cell": format!("ak:cell:ak.component.call.transcript.v1:{subject}"),
+                    "op": {"kind": "transition", "from": null, "to": "transcribing"}
+                }),
+                json!({
+                    "cell": format!("ak:cell:ak.component.call.transcript_result.v1:{subject}"),
+                    "op": {"kind": "set", "value": transcript_result.clone()}
+                }),
+            ],
         );
         validate_registered_cell_writes(&transcript).unwrap();
 

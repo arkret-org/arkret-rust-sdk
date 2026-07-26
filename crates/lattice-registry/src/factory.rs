@@ -43,6 +43,9 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(MlsEpoch);
     registry.register(CallSummary);
     registry.register(CallFocus);
+    registry.register(CallRecordingResult);
+    registry.register(CallTranscriptResult);
+    registry.register(CallMuteOverride);
 
     // Fsm
     registry.register(MemberState);
@@ -140,6 +143,9 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ak.component.mls.epoch.v1",
         "ak.component.call.summary.v1",
         "ak.component.call.focus.v1",
+        "ak.component.call.recording_result.v1",
+        "ak.component.call.transcript_result.v1",
+        "ak.component.call.mute_override.v1",
         // Fsm
         "ak.component.member.state.v1",
         "ak.component.agent.status.v1",
@@ -265,8 +271,11 @@ pub fn build_sdk_cell_registry() -> MemoryCellRegistry {
     );
     sdk_registry.register_fsm(
         "ak.component.call.state.v1",
-        None,
+        Some(json!(null)),
         vec![
+            (json!(null), json!("scheduled")),
+            (json!(null), json!("ringing")),
+            (json!(null), json!("connecting")),
             (json!("scheduled"), json!("ringing")),
             (json!("scheduled"), json!("connecting")),
             (json!("scheduled"), json!("cancelled")),

@@ -29,7 +29,7 @@ pub struct ParticipantBinding {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
     )]
     pub expires_at: DateTime<Utc>,
-    pub issuer_kid: Did,
+    pub issuer_kid: DidUrl,
     pub sig: String,
 }
 
@@ -63,14 +63,21 @@ pub struct CallParticipant {
     pub media: Option<CallParticipantMedia>,
 }
 
-/// Removed participant trace in `ak.call.state.removed_participants[]`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CallParticipantRemovalAction {
+    Kick,
+    Ban,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RemovedCallParticipant {
+pub struct CallParticipantRemoval {
     pub actor_id: Did,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<String>,
-    pub action: String,
+    pub action: CallParticipantRemovalAction,
+    pub removed_by: Did,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
@@ -78,22 +85,74 @@ pub struct RemovedCallParticipant {
     pub removed_at: DateTime<Utc>,
 }
 
-/// Current moderator mute override in `ak.call.state.participant_mute_overrides[]`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "op", rename_all = "snake_case")]
+pub enum CallRosterDelta {
+    Join {
+        participant: CallParticipant,
+    },
+    Leave {
+        observed_tag: EventId,
+        actor_id: Did,
+        device_id: String,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "op", rename_all = "snake_case")]
+pub enum CallModerationDelta {
+    RemoveParticipant {
+        removal: CallParticipantRemoval,
+    },
+    RestoreParticipant {
+        observed_tag: EventId,
+        actor_id: Did,
+        restored_by: Did,
+        #[serde(
+            serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+            deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+        )]
+        restored_at: DateTime<Utc>,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CallMuteOverrideStatus {
+    Active,
+    Cleared,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ParticipantMuteOverride {
+pub struct CallMuteOverride {
+    pub status: CallMuteOverrideStatus,
     pub actor_id: Did,
     pub device_id: String,
-    pub audio_muted: bool,
-    pub video_muted: bool,
-    pub muted_by: Did,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_muted: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video_muted: Option<bool>,
+    pub changed_by: Did,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
     )]
-    pub muted_at: DateTime<Utc>,
+    pub changed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+}
+
+impl CallMuteOverride {
+    pub fn validate(&self) -> Result<()> {
+        let active_fields = self.audio_muted.is_some() && self.video_muted.is_some();
+        if (self.status == CallMuteOverrideStatus::Active) != active_fields {
+            return schema_violation(
+                "active mute override requires audio_muted/video_muted; cleared forbids them",
+            );
+        }
+        Ok(())
+    }
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/call_payload`.
@@ -209,11 +268,42 @@ pub struct RecordingStartPayload {
     pub call_id: CallId,
     pub recording_id: CallRecordingId,
     pub recording_agent: Did,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub capture_kind: Option<RecordingCaptureKind>,
+    pub capture_kind: RecordingCaptureKind,
     pub mode: RecordingMode,
+    pub visible_notice: bool,
+    pub result: RecordingStartResult,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecordingStartResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub visible_notice: Option<bool>,
+    pub recording_start_event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transcript_start_event_id: Option<EventId>,
+    pub retention: CallRecordingRetention,
+}
+
+impl RecordingStartPayload {
+    pub fn validate(&self, event_id: &EventId) -> std::result::Result<(), &'static str> {
+        if !self.visible_notice || self.result.retention.consent_confirmed != Some(true) {
+            return Err(ReasonCode::RECORDING_CONSENT_REQUIRED);
+        }
+        let valid_ref = match self.capture_kind {
+            RecordingCaptureKind::Recording => {
+                self.result.recording_start_event_id.as_ref() == Some(event_id)
+                    && self.result.transcript_start_event_id.is_none()
+            }
+            RecordingCaptureKind::Transcript => {
+                self.result.transcript_start_event_id.as_ref() == Some(event_id)
+                    && self.result.recording_start_event_id.is_none()
+            }
+        };
+        if !valid_ref {
+            return Err(ErrorCode::SCHEMA_VIOLATION);
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -404,8 +494,7 @@ impl CallRecordingArtifact {
     }
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/call_state_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallStatePayloadRecordingResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -432,6 +521,7 @@ impl CallStatePayloadRecordingResult {
     pub fn validate_ready_artifact(
         &self,
         call_id: &CallId,
+        recording_id: &CallRecordingId,
     ) -> std::result::Result<(), &'static str> {
         let Some(artifact) = &self.artifact else {
             return Err(ErrorCode::SCHEMA_VIOLATION);
@@ -446,7 +536,7 @@ impl CallStatePayloadRecordingResult {
             }
             return Err(ErrorCode::SCHEMA_VIOLATION);
         }
-        if &artifact.call_id != call_id {
+        if &artifact.call_id != call_id || &artifact.recording_id != recording_id {
             return Err(ErrorCode::SCHEMA_VIOLATION);
         }
         if self
@@ -494,8 +584,7 @@ impl CallStatePayloadRecordingResult {
     }
 }
 
-/// Counterpart for `call_state_payload.transcript_result`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallStatePayloadTranscriptResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -514,54 +603,147 @@ pub struct CallStatePayloadTranscriptResult {
     pub failure_reason_code: Option<CallCaptureFailureReasonCode>,
 }
 
-impl CallStatePayloadTranscriptResult {
-    fn consent_confirmed(&self) -> bool {
-        self.retention
-            .as_ref()
-            .and_then(|retention| retention.consent_confirmed)
-            .unwrap_or(false)
-    }
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CallLifecycleState {
+    Scheduled,
+    Ringing,
+    Connecting,
+    Active,
+    Ended,
+    Missed,
+    Failed,
+    Cancelled,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CallStatePayload {
-    pub call_id: String,
-    pub state: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mode: Option<String>,
+pub struct CallStateTransition {
+    pub from: Option<CallLifecycleState>,
+    pub to: CallLifecycleState,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CallMode {
+    P2p,
+    Mesh,
+    Sfu,
+    Mcu,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallFocus {
+    pub mode: CallMode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_focus: Option<NonEmptyString>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CallRecordingState {
+    Recording,
+    Stopped,
+    Ready,
+    Failed,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallRecordingTransition {
+    pub recording_id: CallRecordingId,
+    pub from: CallRecordingState,
+    pub to: CallRecordingState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub participants: Option<Vec<CallParticipant>>,
+    pub result: Option<CallStatePayloadRecordingResult>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CallTranscriptState {
+    Transcribing,
+    Stopped,
+    Ready,
+    Failed,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallTranscriptTransition {
+    pub recording_id: CallRecordingId,
+    pub from: CallTranscriptState,
+    pub to: CallTranscriptState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub removed_participants: Option<Vec<RemovedCallParticipant>>,
+    pub result: Option<CallStatePayloadTranscriptResult>,
+}
+
+/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/call_state_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallStatePayload {
+    pub call_id: CallId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub participant_mute_overrides: Option<Vec<ParticipantMuteOverride>>,
+    pub state_transition: Option<CallStateTransition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recording_state: Option<String>,
+    pub focus: Option<CallFocus>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recording_result: Option<CallStatePayloadRecordingResult>,
+    pub recording_transition: Option<CallRecordingTransition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transcript_state: Option<String>,
+    pub transcript_transition: Option<CallTranscriptTransition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transcript_result: Option<CallStatePayloadTranscriptResult>,
+    pub roster_delta: Option<CallRosterDelta>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub moderation_delta: Option<CallModerationDelta>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mute_override: Option<CallMuteOverride>,
 }
 
 impl CallStatePayload {
+    pub fn validate(&self) -> std::result::Result<(), &'static str> {
+        if self.state_transition.is_none()
+            && self.focus.is_none()
+            && self.recording_transition.is_none()
+            && self.transcript_transition.is_none()
+            && self.roster_delta.is_none()
+            && self.moderation_delta.is_none()
+            && self.mute_override.is_none()
+        {
+            return Err(ErrorCode::SCHEMA_VIOLATION);
+        }
+        if let Some(mute_override) = &self.mute_override {
+            mute_override
+                .validate()
+                .map_err(|_| ErrorCode::SCHEMA_VIOLATION)?;
+        }
+        if let Some(CallModerationDelta::RemoveParticipant { removal }) = &self.moderation_delta {
+            let valid_subject = match removal.action {
+                CallParticipantRemovalAction::Kick => removal.device_id.is_some(),
+                CallParticipantRemovalAction::Ban => removal.device_id.is_none(),
+            };
+            if !valid_subject {
+                return Err(ErrorCode::SCHEMA_VIOLATION);
+            }
+        }
+        self.validate_recording_result_artifact()?;
+        self.validate_transcript_result_storage()
+    }
+
     pub fn validate_recording_result_artifact(&self) -> std::result::Result<(), &'static str> {
-        let Some(recording_state) = self.recording_state.as_deref() else {
+        let Some(transition) = &self.recording_transition else {
             return Ok(());
         };
-        let call_id = CallId::new(self.call_id.clone()).map_err(|_| ErrorCode::SCHEMA_VIOLATION)?;
-        match recording_state {
-            "ready" => self
-                .recording_result
+        if transition.to == CallRecordingState::Recording {
+            return Err(ErrorCode::SCHEMA_VIOLATION);
+        }
+        match transition.to {
+            CallRecordingState::Ready => transition
+                .result
                 .as_ref()
                 .ok_or(ErrorCode::SCHEMA_VIOLATION)?
-                .validate_ready_artifact(&call_id),
-            "failed" => {
-                if let Some(result) = &self.recording_result
+                .validate_ready_artifact(&self.call_id, &transition.recording_id),
+            CallRecordingState::Failed => {
+                if let Some(result) = &transition.result
                     && (result.artifact.is_some()
                         || result
                             .failure_message
@@ -577,23 +759,16 @@ impl CallStatePayload {
     }
 
     pub fn validate_transcript_result_storage(&self) -> std::result::Result<(), &'static str> {
-        let Some(transcript_state) = self.transcript_state.as_deref() else {
+        let Some(transition) = &self.transcript_transition else {
             return Ok(());
         };
-        match transcript_state {
-            "transcribing" => {
-                if !self
-                    .transcript_result
-                    .as_ref()
-                    .is_some_and(CallStatePayloadTranscriptResult::consent_confirmed)
-                {
-                    return Err(ReasonCode::RECORDING_CONSENT_REQUIRED);
-                }
-                Ok(())
-            }
-            "stopped" | "ready" | "failed" => {
-                let result = self
-                    .transcript_result
+        if transition.to == CallTranscriptState::Transcribing {
+            return Err(ErrorCode::SCHEMA_VIOLATION);
+        }
+        match transition.to {
+            CallTranscriptState::Ready => {
+                let result = transition
+                    .result
                     .as_ref()
                     .ok_or(ErrorCode::SCHEMA_VIOLATION)?;
                 if result.transcript_start_event_id.is_none() {
@@ -601,7 +776,7 @@ impl CallStatePayload {
                 }
                 Ok(())
             }
-            _ => Err(ErrorCode::SCHEMA_VIOLATION),
+            _ => Ok(()),
         }
     }
 }
@@ -702,23 +877,39 @@ mod tests {
     use super::*;
 
     #[test]
-    fn recording_start_requires_mode_and_valid_recording_id() {
+    fn recording_start_requires_event_bound_consent_result() {
+        let event_id = EventId::new("ak:event:019a7360-0000-7000-8000-000000000003").unwrap();
         let value = json!({
             "call_id": "ak:call:019a7360-0000-7000-8000-000000000001",
             "recording_id": "capture-1",
             "recording_agent": "did:webvh:z6mkfixture:recorder.example",
-            "mode": "audio_video"
+            "capture_kind": "recording",
+            "mode": "audio_video",
+            "visible_notice": true,
+            "result": {
+                "recording_start_event_id": event_id,
+                "retention": {"consent_confirmed": true}
+            }
         });
         let payload: RecordingStartPayload = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(payload.mode, RecordingMode::AudioVideo);
+        payload.validate(&event_id).unwrap();
 
-        let mut missing_mode = value.clone();
-        missing_mode.as_object_mut().unwrap().remove("mode");
-        assert!(serde_json::from_value::<RecordingStartPayload>(missing_mode).is_err());
+        let mut missing_result = value.clone();
+        missing_result.as_object_mut().unwrap().remove("result");
+        assert!(serde_json::from_value::<RecordingStartPayload>(missing_result).is_err());
 
-        let mut invalid_id = value;
+        let mut invalid_id = value.clone();
         invalid_id["recording_id"] = json!("capture id");
         assert!(serde_json::from_value::<RecordingStartPayload>(invalid_id).is_err());
+
+        let mut missing_consent = value;
+        missing_consent["result"]["retention"]["consent_confirmed"] = json!(false);
+        let payload: RecordingStartPayload = serde_json::from_value(missing_consent).unwrap();
+        assert_eq!(
+            payload.validate(&event_id),
+            Err(ReasonCode::RECORDING_CONSENT_REQUIRED)
+        );
     }
 
     #[test]
@@ -742,103 +933,107 @@ mod tests {
     fn call_state_transcript_result_round_trips_and_validates() {
         let value = json!({
             "call_id": "ak:call:019a7360-0000-7000-8000-000000000001",
-            "state": "ended",
-            "transcript_state": "failed",
-            "transcript_result": {
-                "content_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "media_type": "text/vtt",
-                "language": "en-US",
-                "retention_policy_id": "ak:policy:019a7360-0000-7000-8000-000000000005",
-                "retention": {
-                    "consent_confirmed": true
-                },
-                "transcript_start_event_id": "ak:event:019a7360-0000-7000-8000-000000000003",
-                "failure_reason_code": "storage_failed"
+            "transcript_transition": {
+                "recording_id": "capture-1",
+                "from": "transcribing",
+                "to": "failed",
+                "result": {
+                    "content_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "media_type": "text/vtt",
+                    "language": "en-US",
+                    "retention_policy_id": "ak:policy:019a7360-0000-7000-8000-000000000005",
+                    "retention": {
+                        "consent_confirmed": true
+                    },
+                    "transcript_start_event_id": "ak:event:019a7360-0000-7000-8000-000000000003",
+                    "failure_reason_code": "storage_failed"
+                }
             }
         });
         let payload: CallStatePayload = serde_json::from_value(value).unwrap();
 
-        payload.validate_transcript_result_storage().unwrap();
+        payload.validate().unwrap();
         let encoded = serde_json::to_value(payload).unwrap();
-        assert_eq!(encoded["transcript_result"]["media_type"], "text/vtt");
         assert_eq!(
-            encoded["transcript_result"]["transcript_start_event_id"],
-            "ak:event:019a7360-0000-7000-8000-000000000003"
+            encoded["transcript_transition"]["result"]["media_type"],
+            "text/vtt"
         );
         assert_eq!(
-            encoded["transcript_result"]["failure_reason_code"],
-            "storage_failed"
+            encoded["transcript_transition"]["result"]["transcript_start_event_id"],
+            "ak:event:019a7360-0000-7000-8000-000000000003"
         );
     }
 
     #[test]
-    fn call_state_removed_participants_round_trips() {
+    fn call_state_moderation_delta_round_trips() {
         let value = json!({
             "call_id": "ak:call:019a7360-0000-7000-8000-000000000001",
-            "state": "active",
-            "removed_participants": [{
-                "actor_id": "did:webvh:z6mkfixture:bob.example",
-                "action": "ban",
-                "removed_at": "2026-06-22T00:00:00.000Z"
-            }]
+            "moderation_delta": {
+                "op": "remove_participant",
+                "removal": {
+                    "actor_id": "did:webvh:z6mkfixture:bob.example",
+                    "action": "ban",
+                    "removed_by": "did:webvh:z6mkfixture:mod.example",
+                    "removed_at": "2026-06-22T00:00:00.000Z"
+                }
+            }
         });
         let payload: CallStatePayload = serde_json::from_value(value).unwrap();
-
-        assert_eq!(
-            payload
-                .removed_participants
-                .as_ref()
-                .and_then(|removed| removed.first())
-                .map(|removed| removed.action.as_str()),
-            Some("ban")
-        );
+        payload.validate().unwrap();
         let encoded = serde_json::to_value(payload).unwrap();
         assert_eq!(
-            encoded["removed_participants"][0]["actor_id"],
+            encoded["moderation_delta"]["removal"]["actor_id"],
             "did:webvh:z6mkfixture:bob.example"
         );
     }
 
     #[test]
-    fn call_state_participant_mute_overrides_round_trips() {
+    fn call_state_mute_override_enforces_status_shape() {
         let value = json!({
             "call_id": "ak:call:019a7360-0000-7000-8000-000000000001",
-            "state": "active",
-            "participant_mute_overrides": [{
+            "mute_override": {
+                "status": "active",
                 "actor_id": "did:webvh:z6mkfixture:bob.example",
                 "device_id": "ak:device:019a7360-0000-7000-8000-000000000002",
                 "audio_muted": true,
                 "video_muted": false,
-                "muted_by": "did:webvh:z6mkfixture:mod.example",
-                "muted_at": "2026-06-22T00:00:00.000Z",
+                "changed_by": "did:webvh:z6mkfixture:mod.example",
+                "changed_at": "2026-06-22T00:00:00.000Z",
                 "reason": "moderation"
-            }]
+            }
         });
         let payload: CallStatePayload = serde_json::from_value(value).unwrap();
+        payload.validate().unwrap();
 
-        assert_eq!(
-            payload
-                .participant_mute_overrides
-                .as_ref()
-                .and_then(|overrides| overrides.first())
-                .map(|override_row| (override_row.audio_muted, override_row.video_muted)),
-            Some((true, false))
-        );
-        let encoded = serde_json::to_value(payload).unwrap();
-        assert_eq!(
-            encoded["participant_mute_overrides"][0]["device_id"],
-            "ak:device:019a7360-0000-7000-8000-000000000002"
-        );
+        let invalid: CallStatePayload = serde_json::from_value(json!({
+            "call_id": "ak:call:019a7360-0000-7000-8000-000000000001",
+            "mute_override": {
+                "status": "cleared",
+                "actor_id": "did:webvh:z6mkfixture:bob.example",
+                "device_id": "ak:device:019a7360-0000-7000-8000-000000000002",
+                "audio_muted": true,
+                "video_muted": false,
+                "changed_by": "did:webvh:z6mkfixture:mod.example",
+                "changed_at": "2026-06-22T00:00:00.000Z"
+            }
+        }))
+        .unwrap();
+        assert_eq!(invalid.validate(), Err(ErrorCode::SCHEMA_VIOLATION));
     }
 
     #[test]
     fn call_state_transcript_result_rejects_direct_backend_refs() {
         let value = json!({
             "call_id": "ak:call:019a7360-0000-7000-8000-000000000001",
-            "state": "ended",
-            "transcript_state": "ready",
-            "transcript_result": {
-                "transcript_artifact_url": "https://backend.example/transcript.vtt"
+            "transcript_transition": {
+                "recording_id": "capture-1",
+                "from": "transcribing",
+                "to": "ready",
+                "result": {
+                    "transcript_start_event_id": "ak:event:019a7360-0000-7000-8000-000000000003",
+                    "retention": {"consent_confirmed": true},
+                    "transcript_artifact_url": "https://backend.example/transcript.vtt"
+                }
             }
         });
 
@@ -846,17 +1041,17 @@ mod tests {
     }
 
     #[test]
-    fn call_state_transcribing_requires_second_consent() {
+    fn call_state_rejects_capture_reentry_without_start() {
         let value = json!({
             "call_id": "ak:call:019a7360-0000-7000-8000-000000000001",
-            "state": "active",
-            "transcript_state": "transcribing"
+            "transcript_transition": {
+                "recording_id": "capture-1",
+                "from": "stopped",
+                "to": "transcribing"
+            }
         });
         let payload: CallStatePayload = serde_json::from_value(value).unwrap();
 
-        assert_eq!(
-            payload.validate_transcript_result_storage(),
-            Err(ReasonCode::RECORDING_CONSENT_REQUIRED)
-        );
+        assert_eq!(payload.validate(), Err(ErrorCode::SCHEMA_VIOLATION));
     }
 }

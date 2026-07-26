@@ -56,7 +56,10 @@ pub mod wire_strings;
 pub use applet_revoke_mode::AppletRevokeMode;
 pub use arkret_identifiers::*;
 pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
-pub use cell::{CellId, CompositeSubjectComponent, composite_subject, composite_subject_pipe};
+pub use cell::{
+    CellId, CompositeSubjectComponent, NULL_SUBJECT, REALM_CREATE_CELL, REALM_METADATA_CELL,
+    REALM_NOTARY_CELL, composite_subject, composite_subject_pipe, null_subject_cell,
+};
 pub use consent_scope::*;
 pub use constants::*;
 pub use error::{Error, Result, WireError};
