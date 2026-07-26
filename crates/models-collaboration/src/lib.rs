@@ -29,7 +29,7 @@ pub mod seal_transparency;
 pub mod session_grant_bodies;
 pub mod sync_frames;
 
-pub use events_payloads::preview_realm_reaction::{
+pub use events_payloads::{
     RealmOrganizationAuthorization, RealmOrganizationControlScope, RealmOrganizationIssuerRole,
     RealmOrganizationPayload, RealmOrganizationRelationship, RealmOrganizationStatus,
     SignatureMaterial, realm_organization_statement_signing_bytes,

@@ -130,7 +130,7 @@ foreach ($name in $Scenario) {
 }
 
 if ($IncludeIncremental) {
-    $representative = Join-Path $workspace "arkret-rust-sdk\crates\models-collaboration\src\events_payloads\morph_message.rs"
+    $representative = Join-Path $workspace "arkret-rust-sdk\crates\models-collaboration\src\events_payloads\message.rs"
     if (-not (Test-Path -LiteralPath $representative)) {
         throw "representative model file is missing: $representative"
     }

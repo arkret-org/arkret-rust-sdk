@@ -19,7 +19,7 @@ use serde_json::{Value, json};
 use sha2::Sha256;
 use unicode_normalization::UnicodeNormalization;
 
-use crate::events_payloads::morph_message::MessageCreatePayload;
+use crate::events_payloads::MessageCreatePayload;
 
 pub const PROFILE_CALENDAR_EVENT: &str = "ak.profile.calendar_event.v1";
 pub const PROFILE_PERSONAL_PRODUCTIVITY: &str = "ak.profile.personal_productivity.v1";
@@ -2232,7 +2232,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::events_payloads::morph_message::ContentBlock;
+    use crate::events_payloads::ContentBlock;
 
     fn test_realm_id(seed: &str) -> RealmId {
         RealmId::new(format!("ak:realm:01904100-0000-7000-8000-{seed}")).unwrap()

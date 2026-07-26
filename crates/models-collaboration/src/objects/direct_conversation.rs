@@ -13,8 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::events_payloads::device_identity::DirectConversationBoundPayload;
-use crate::events_payloads::preview_realm_reaction::RealmCreatePayload;
-use crate::events_payloads::strand_history_join::StrandCreatePayload;
+use crate::events_payloads::{RealmCreatePayload, StrandCreatePayload};
 use crate::governance::circle::EncryptionFloor;
 use crate::governance::delivery_binding::DeliveryStatus;
 use crate::governance::membership_invite::MembershipPayload;

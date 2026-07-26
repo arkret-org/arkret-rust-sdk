@@ -1,60 +1,178 @@
+//! Message and content-block event payloads.
+
 use std::collections::BTreeMap;
 
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
-use arkret_wire::{Error, Hash, MorphId, Patch, Result, StrandId};
+use arkret_wire::{Error, Result, StrandId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::events_payloads::content_block_poll::{PollBlock, PollResponseBlock};
 use crate::events_payloads::mention::{AudienceMention, Mention};
+use crate::events_payloads::poll::{PollBlock, PollResponseBlock};
+use crate::internal_prelude::*;
 use crate::objects::strand::MessageMetadata;
 
-/// Payload for `ak.morph.update`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/content_kind`.
+pub type ContentKind = String;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MessageTrackName {
+    Discussion,
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_metadata_fields`.
+pub type MessageMetadataFields = BTreeMap<String, Value>;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_redact_payload`.
+#[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct MorphUpdatePayload {
-    pub target_ref: MorphId,
-    pub patch: Patch,
+pub struct MessageRedactPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_state_digest: Option<Hash>,
+    pub message_id: Option<MessageId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_ref: Option<ObjectRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub track_name: Option<MessageTrackName>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preserve: Option<Vec<String>>,
 }
 
-impl MorphUpdatePayload {
-    pub fn for_morph(morph_id: MorphId, patch: Patch) -> Result<Self> {
-        validate_morph_update_patch(&patch)?;
-        Ok(Self {
-            target_ref: morph_id,
-            patch,
-            expected_state_digest: None,
-        })
-    }
-
-    pub fn with_expected_state_digest(mut self, expected_state_digest: Hash) -> Self {
-        self.expected_state_digest = Some(expected_state_digest);
-        self
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        validate_morph_update_patch(&self.patch)
-    }
-
-    pub fn to_value(&self) -> Result<Value> {
-        self.validate()?;
-        serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("morph update payload serialize: {err}")))
-    }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MessageRedactPayloadWire {
+    #[serde(default)]
+    message_id: Option<MessageId>,
+    #[serde(default)]
+    target_ref: Option<ObjectRef>,
+    #[serde(default)]
+    event_id: Option<EventId>,
+    #[serde(default)]
+    target_event_id: Option<EventId>,
+    #[serde(default)]
+    track_name: Option<MessageTrackName>,
+    #[serde(default)]
+    reason: Option<String>,
+    #[serde(default)]
+    preserve: Option<Vec<String>>,
 }
 
-fn validate_morph_update_patch(patch: &Patch) -> Result<()> {
-    patch.validate()?;
-    for (path, _) in patch.iter() {
-        if matches!(path.as_str(), "morph_kind" | "stage" | "stage_changed_at") {
-            return Err(Error::Protocol(
-                "morph update patch targets create-locked or single-sourced field".to_owned(),
+impl<'de> Deserialize<'de> for MessageRedactPayload {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = MessageRedactPayloadWire::deserialize(deserializer)?;
+        if wire.message_id.is_none()
+            && wire.target_ref.is_none()
+            && wire.event_id.is_none()
+            && wire.target_event_id.is_none()
+        {
+            return Err(serde::de::Error::custom(
+                "message_redact_payload requires a target identifier",
             ));
         }
+        Ok(Self {
+            message_id: wire.message_id,
+            target_ref: wire.target_ref,
+            event_id: wire.event_id,
+            target_event_id: wire.target_event_id,
+            track_name: wire.track_name,
+            reason: wire.reason,
+            preserve: wire.preserve,
+        })
     }
-    Ok(())
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_revise_payload`.
+#[derive(Clone, Debug, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct MessageRevisePayload {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message_id: Option<MessageId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_ref: Option<ObjectRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revision_of: Option<MessageId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub track_name: Option<MessageTrackName>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<ContentBlock>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encrypted_content: Option<EncryptedEnvelope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<MessageMetadata>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encrypted_metadata: Option<EncryptedEnvelope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MessageRevisePayloadWire {
+    #[serde(default)]
+    message_id: Option<MessageId>,
+    #[serde(default)]
+    target_ref: Option<ObjectRef>,
+    #[serde(default)]
+    revision_of: Option<MessageId>,
+    #[serde(default)]
+    track_name: Option<MessageTrackName>,
+    #[serde(default)]
+    content: Option<ContentBlock>,
+    #[serde(default)]
+    encrypted_content: Option<EncryptedEnvelope>,
+    #[serde(default)]
+    metadata: Option<MessageMetadata>,
+    #[serde(default)]
+    encrypted_metadata: Option<EncryptedEnvelope>,
+    #[serde(default)]
+    reason: Option<String>,
+}
+
+impl<'de> Deserialize<'de> for MessageRevisePayload {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = MessageRevisePayloadWire::deserialize(deserializer)?;
+        if wire.message_id.is_none() && wire.target_ref.is_none() && wire.revision_of.is_none() {
+            return Err(serde::de::Error::custom(
+                "message_revise_payload requires a target identifier",
+            ));
+        }
+        if wire.content.is_some() == wire.encrypted_content.is_some() {
+            return Err(serde::de::Error::custom(
+                "message_revise_payload requires exactly one content carrier",
+            ));
+        }
+        if wire.metadata.is_some() && wire.encrypted_metadata.is_some() {
+            return Err(serde::de::Error::custom(
+                "message_revise_payload cannot contain both metadata forms",
+            ));
+        }
+        Ok(Self {
+            message_id: wire.message_id,
+            target_ref: wire.target_ref,
+            revision_of: wire.revision_of,
+            track_name: wire.track_name,
+            content: wire.content,
+            encrypted_content: wire.encrypted_content,
+            metadata: wire.metadata,
+            encrypted_metadata: wire.encrypted_metadata,
+            reason: wire.reason,
+        })
+    }
 }
 
 pub const CONTENT_KIND_COMPOSITE: &str = "ak.content.composite";

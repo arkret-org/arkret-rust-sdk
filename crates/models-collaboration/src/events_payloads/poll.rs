@@ -4,7 +4,7 @@
 //! Migrated from the `arkret` umbrella (`models::artifacts::self_ops`); the poll and
 //! poll-response content blocks embed the collaboration-owned
 //! [`ContentBlock`] and are consumed by the message content-block
-//! validators in [`crate::events_payloads::morph_message`].
+//! validators in [`crate::events_payloads::message`].
 
 use std::collections::BTreeMap;
 
@@ -12,7 +12,7 @@ use arkret_wire::MessageId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::events_payloads::morph_message::ContentBlock;
+use crate::events_payloads::message::ContentBlock;
 
 /// Counterpart for `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/poll_answer`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

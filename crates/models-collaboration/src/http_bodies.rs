@@ -1279,7 +1279,7 @@ impl DirectConversationMaterializationDraft {
                 "direct conversation materialization Event draft binding is invalid".into(),
             ));
         }
-        let founding_payload: crate::events_payloads::capability_circle_consent_contact::CapabilityGrantPayload =
+        let founding_payload: crate::events_payloads::CapabilityGrantPayload =
             serde_json::from_value(serde_json::to_value(&self.founding_grant_event.payload)?)
                 .map_err(|error| {
                     Error::Protocol(format!(
@@ -1297,15 +1297,13 @@ impl DirectConversationMaterializationDraft {
                 "direct conversation founding grant must be an unsigned issuer draft".into(),
             ));
         }
-        let strand_grant_payload: crate::events_payloads::capability_circle_consent_contact::CapabilityGrantPayload =
-            serde_json::from_value(serde_json::to_value(
-                &self.main_strand_grant_event.payload,
-            )?)
-            .map_err(|error| {
-                Error::Protocol(format!(
-                    "direct conversation main Strand grant draft payload is invalid: {error}"
-                ))
-            })?;
+        let strand_grant_payload: crate::events_payloads::CapabilityGrantPayload =
+            serde_json::from_value(serde_json::to_value(&self.main_strand_grant_event.payload)?)
+                .map_err(|error| {
+                    Error::Protocol(format!(
+                        "direct conversation main Strand grant draft payload is invalid: {error}"
+                    ))
+                })?;
         let strand_grant = strand_grant_payload.grant.ok_or_else(|| {
             Error::Protocol("direct conversation main Strand grant draft is absent".into())
         })?;

@@ -1,4 +1,4 @@
-use arkret_models_collaboration::events_payloads::morph_message::MessageCreatePayload;
+use arkret_models_collaboration::events_payloads::MessageCreatePayload;
 use arkret_wire::EventKind;
 
 use super::super::*;

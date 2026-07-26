@@ -1,0 +1,31 @@
+//! Capability event payloads.
+
+use crate::internal_prelude::*;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/capability_grant_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CapabilityGrantPayload {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grant: Option<CapabilityGrant>,
+    pub grant_id: GrantId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subject: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actions: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resources: Option<Vec<BTreeMap<String, Value>>>,
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/capability_revoke_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CapabilityRevokePayload {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grant_ref: Option<GrantId>,
+    pub grant_id: GrantId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}

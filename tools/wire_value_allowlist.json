@@ -182,19 +182,25 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/capability_circle_consent_contact.rs::CapabilityGrantPayload.resources",
+      "rust_field": "crates/models-collaboration/src/events_payloads/account_data.rs::AccountDataSetPayload.encrypted_payload",
+      "spec_pointer": "event-payload.schema.json#/$defs/account_data_set_payload/properties/encrypted_payload",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/models-collaboration/src/events_payloads/capability.rs::CapabilityGrantPayload.resources",
       "spec_pointer": "event-payload.schema.json#/$defs/capability_grant_payload/properties/resources",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/capability_circle_consent_contact.rs::CapabilityGrantPayload.subject",
+      "rust_field": "crates/models-collaboration/src/events_payloads/capability.rs::CapabilityGrantPayload.subject",
       "spec_pointer": "event-payload.schema.json#/$defs/capability_grant_payload/properties/subject",
       "classification": "open_json",
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/capability_circle_consent_contact.rs::ConsentGrantPayload.constraints",
+      "rust_field": "crates/models-collaboration/src/events_payloads/consent.rs::ConsentGrantPayload.constraints",
       "spec_pointer": "event-payload.schema.json#/$defs/consent_grant_payload/properties/constraints",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
@@ -206,109 +212,109 @@
       "reason": "The exact Spec field is an open property map."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/moderation_morph_misc.rs::ModerationReportPayload.evidence_package",
+      "rust_field": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationReportPayload.evidence_package",
       "spec_pointer": "event-payload.schema.json#/$defs/moderation_report_payload/properties/evidence_package",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/moderation_morph_misc.rs::ModerationReportPayload.franking_proof",
+      "rust_field": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationReportPayload.franking_proof",
       "spec_pointer": "event-payload.schema.json#/$defs/moderation_report_payload/properties/franking_proof",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/moderation_morph_misc.rs::MorphCreatePayload.initial_relations",
+      "rust_field": "crates/models-collaboration/src/events_payloads/morph.rs::MorphCreatePayload.initial_relations",
       "spec_pointer": "event-payload.schema.json#/$defs/morph_create_payload/properties/initial_relations",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/moderation_morph_misc.rs::MorphSchemaMigratePayload.migration_evidence",
+      "rust_field": "crates/models-collaboration/src/events_payloads/morph.rs::MorphSchemaMigratePayload.migration_evidence",
       "spec_pointer": "event-payload.schema.json#/$defs/morph_schema_migrate_payload/properties/migration_evidence",
       "classification": "open_json",
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/moderation_morph_misc.rs::MorphSchemaMigratePayload.transformation_rules",
+      "rust_field": "crates/models-collaboration/src/events_payloads/morph.rs::MorphSchemaMigratePayload.transformation_rules",
       "spec_pointer": "event-payload.schema.json#/$defs/morph_schema_migrate_payload/properties/transformation_rules",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/moderation_morph_misc.rs::ObjectSnapshot.extra",
+      "rust_field": "crates/models-collaboration/src/events_payloads/object.rs::ObjectSnapshot.extra",
       "spec_pointer": "event-payload.schema.json#/$defs/object_snapshot/additionalProperties",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/moderation_morph_misc.rs::ObjectStageSetPayload.extra",
+      "rust_field": "crates/models-collaboration/src/events_payloads/object.rs::ObjectStageSetPayload.extra",
       "spec_pointer": "event-payload.schema.json#/$defs/object_stage_set_payload/additionalProperties",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/moderation_morph_misc.rs::PatchOperation.value",
+      "rust_field": "crates/models-collaboration/src/events_payloads/patch.rs::PatchOperation.value",
       "spec_pointer": "event-payload.schema.json#/$defs/patch_operation/properties/value",
       "classification": "open_json",
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/morph_message.rs::ContentBlock.extra",
+      "rust_field": "crates/models-collaboration/src/events_payloads/message.rs::ContentBlock.extra",
       "spec_pointer": "message.schema.json#/$defs/content_block",
       "classification": "open_json",
       "reason": "The Spec content block explicitly permits extension properties."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/object_create.rs::ObjectCreatePayload.initial_relations",
+      "rust_field": "crates/models-collaboration/src/events_payloads/object.rs::ObjectCreatePayload.initial_relations",
       "spec_pointer": "event-payload.schema.json#/$defs/object_create_payload/properties/initial_relations",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/preview_realm_reaction.rs::RealmCreatePayload.initial_relations",
+      "rust_field": "crates/models-collaboration/src/events_payloads/realm.rs::RealmCreatePayload.initial_relations",
       "spec_pointer": "event-payload.schema.json#/$defs/realm_create_payload/properties/initial_relations",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/preview_realm_reaction.rs::SpaceCreatePayload.initial_relations",
+      "rust_field": "crates/models-collaboration/src/events_payloads/space.rs::SpaceCreatePayload.initial_relations",
       "spec_pointer": "event-payload.schema.json#/$defs/space_create_payload/properties/initial_relations",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/preview_realm_reaction.rs::StatePayload.value",
+      "rust_field": "crates/models-collaboration/src/events_payloads/state.rs::StatePayload.value",
       "spec_pointer": "event-payload.schema.json#/$defs/state_payload/properties/value",
       "classification": "open_json",
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/preview_realm_reaction.rs::ViewPayload.definition",
+      "rust_field": "crates/models-collaboration/src/events_payloads/view.rs::ViewPayload.definition",
       "spec_pointer": "event-payload.schema.json#/$defs/view_payload/properties/definition",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/strand_history_join.rs::JoinPolicyPayload.extra",
+      "rust_field": "crates/models-collaboration/src/events_payloads/join_policy.rs::JoinPolicyPayload.extra",
       "spec_pointer": "event-payload.schema.json#/$defs/join_policy_payload/additionalProperties",
       "classification": "open_json",
       "reason": "The exact Spec object permits arbitrary additional properties."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/strand_history_join.rs::JoinPolicyPayloadGatesItem.extra",
+      "rust_field": "crates/models-collaboration/src/events_payloads/join_policy.rs::JoinPolicyPayloadGatesItem.extra",
       "spec_pointer": "event-payload.schema.json#/$defs/join_policy_payload/additionalProperties",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/strand_history_join.rs::KeyBackupActiveSeries.extra",
+      "rust_field": "crates/models-collaboration/src/events_payloads/key_backup.rs::KeyBackupActiveSeries.extra",
       "spec_pointer": "event-payload.schema.json#/$defs/key_backup_active_series_payload",
       "classification": "open_json",
       "reason": "The event payload composes the standalone active-series record via allOf without closing the composition boundary, so extension members pass through."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/strand_history_join.rs::StrandCreatePayload.initial_relations",
+      "rust_field": "crates/models-collaboration/src/events_payloads/strand.rs::StrandCreatePayload.initial_relations",
       "spec_pointer": "event-payload.schema.json#/$defs/strand_create_payload/properties/initial_relations",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."

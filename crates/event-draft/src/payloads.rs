@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_models_collaboration::events_payloads::morph_message::ContentBlock;
+use arkret_models_collaboration::events_payloads::ContentBlock;
 use arkret_models_collaboration::governance::agent_participation::AgentParticipationPolicy;
 use arkret_models_collaboration::objects::profiles::{
     StrandTrackConfig, validate_strand_track_name,

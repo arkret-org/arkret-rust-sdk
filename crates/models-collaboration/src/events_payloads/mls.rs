@@ -1,40 +1,13 @@
-//! List-reorder, message-redact/revise, MIMI-room-binding, and MLS payloads.
+//! MLS lifecycle event payloads.
 
-use std::collections::BTreeMap;
 use std::num::NonZeroU64;
 
 use arkret_canonical::serde_helpers::{
     deserialize_canonical_timestamp, serialize_canonical_timestamp,
 };
 use arkret_models_crypto::PeerKeyPackageClaimReceipt;
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::internal_prelude::*;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MessageTrackName {
-    Discussion,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MimiLocalProviderRole {
-    Hub,
-    Follower,
-    Observer,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MimiRoomBindingStatus {
-    Proposed,
-    Accepted,
-    Revoked,
-    Migrating,
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -182,221 +155,6 @@ impl MlsWelcomeCarrier {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/list_reorder_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ListReorderPayloadExpectedPosition {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rank: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub relation_id: Option<RelationId>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ListReorderPayload {
-    pub board_space_id: SpaceId,
-    pub space_id: SpaceId,
-    pub rank: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_position: Option<ListReorderPayloadExpectedPosition>,
-}
-
-// `membership_payload` now has a strong type:
-// `models::operation_payloads::MembershipPayload` (replaces the former
-// `= Value` alias as part of the wire strong-type migration; carries the
-// `MembershipPayloadState` enum and enforces the join/routable conditional
-// required fields).
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_metadata_fields`.
-pub type MessageMetadataFields = BTreeMap<String, Value>;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_redact_payload`.
-#[derive(Clone, Debug, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct MessageRedactPayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub message_id: Option<MessageId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_ref: Option<ObjectRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub track_name: Option<MessageTrackName>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub preserve: Option<Vec<String>>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct MessageRedactPayloadWire {
-    #[serde(default)]
-    message_id: Option<MessageId>,
-    #[serde(default)]
-    target_ref: Option<ObjectRef>,
-    #[serde(default)]
-    event_id: Option<EventId>,
-    #[serde(default)]
-    target_event_id: Option<EventId>,
-    #[serde(default)]
-    track_name: Option<MessageTrackName>,
-    #[serde(default)]
-    reason: Option<String>,
-    #[serde(default)]
-    preserve: Option<Vec<String>>,
-}
-
-impl<'de> Deserialize<'de> for MessageRedactPayload {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let wire = MessageRedactPayloadWire::deserialize(deserializer)?;
-        if wire.message_id.is_none()
-            && wire.target_ref.is_none()
-            && wire.event_id.is_none()
-            && wire.target_event_id.is_none()
-        {
-            return Err(serde::de::Error::custom(
-                "message_redact_payload requires a target identifier",
-            ));
-        }
-        Ok(Self {
-            message_id: wire.message_id,
-            target_ref: wire.target_ref,
-            event_id: wire.event_id,
-            target_event_id: wire.target_event_id,
-            track_name: wire.track_name,
-            reason: wire.reason,
-            preserve: wire.preserve,
-        })
-    }
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_revise_payload`.
-#[derive(Clone, Debug, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct MessageRevisePayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub message_id: Option<MessageId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_ref: Option<ObjectRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revision_of: Option<MessageId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub track_name: Option<MessageTrackName>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content: Option<ContentBlock>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub encrypted_content: Option<EncryptedEnvelope>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub metadata: Option<MessageMetadata>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub encrypted_metadata: Option<EncryptedEnvelope>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct MessageRevisePayloadWire {
-    #[serde(default)]
-    message_id: Option<MessageId>,
-    #[serde(default)]
-    target_ref: Option<ObjectRef>,
-    #[serde(default)]
-    revision_of: Option<MessageId>,
-    #[serde(default)]
-    track_name: Option<MessageTrackName>,
-    #[serde(default)]
-    content: Option<ContentBlock>,
-    #[serde(default)]
-    encrypted_content: Option<EncryptedEnvelope>,
-    #[serde(default)]
-    metadata: Option<MessageMetadata>,
-    #[serde(default)]
-    encrypted_metadata: Option<EncryptedEnvelope>,
-    #[serde(default)]
-    reason: Option<String>,
-}
-
-impl<'de> Deserialize<'de> for MessageRevisePayload {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let wire = MessageRevisePayloadWire::deserialize(deserializer)?;
-        if wire.message_id.is_none() && wire.target_ref.is_none() && wire.revision_of.is_none() {
-            return Err(serde::de::Error::custom(
-                "message_revise_payload requires a target identifier",
-            ));
-        }
-        if wire.content.is_some() == wire.encrypted_content.is_some() {
-            return Err(serde::de::Error::custom(
-                "message_revise_payload requires exactly one content carrier",
-            ));
-        }
-        if wire.metadata.is_some() && wire.encrypted_metadata.is_some() {
-            return Err(serde::de::Error::custom(
-                "message_revise_payload cannot contain both metadata forms",
-            ));
-        }
-        Ok(Self {
-            message_id: wire.message_id,
-            target_ref: wire.target_ref,
-            revision_of: wire.revision_of,
-            track_name: wire.track_name,
-            content: wire.content,
-            encrypted_content: wire.encrypted_content,
-            metadata: wire.metadata,
-            encrypted_metadata: wire.encrypted_metadata,
-            reason: wire.reason,
-        })
-    }
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/mimi_room_binding_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MimiRoomBindingPayloadBindingScope {
-    pub realm_id: RealmId,
-    pub strand_id: StrandId,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MimiRoomBindingPayload {
-    pub profile: MimiInteropProfileId,
-    pub mimi_room_uri: MimiRoomUri,
-    pub binding_scope: MimiRoomBindingPayloadBindingScope,
-    pub hub_provider: Did,
-    pub local_provider_role: MimiLocalProviderRole,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub follower_providers: Option<Vec<Did>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<MlsGroupId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content_profile: Option<ContentProfileId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_root: Option<Hash>,
-    pub status: MimiRoomBindingStatus,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
-    pub created_at: Option<DateTime<Utc>>,
-}
-
-/// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/mls_commit_failed_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -528,7 +286,7 @@ impl<'de> Deserialize<'de> for MlsGenesisPayload {
 
 // `MlsKeyPackageState` moved to `arkret-models-crypto` (mls_records) so the MLS
 // behavior layer can reach it without depending on this crate. Re-exported here
-// to keep the `list_message_mimi_mls::MlsKeyPackageState` path stable.
+// to keep the public `events_payloads::MlsKeyPackageState` path stable.
 pub use arkret_models_crypto::MlsKeyPackageState;
 
 /// Counterpart for

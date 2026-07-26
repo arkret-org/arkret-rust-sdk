@@ -1,21 +1,12 @@
 //! Typed read-only projections over the payload-agnostic wire [`Event`].
 
-use arkret_models_collaboration::events_payloads::capability_circle_consent_contact::{
-    ContainerMoveItemPayload, ContainerRebalancePayload,
-};
 use arkret_models_collaboration::events_payloads::device_identity::DeviceReanchorPayload;
-use arkret_models_collaboration::events_payloads::list_message_mimi_mls::{
-    MessageRedactPayload, MessageRevisePayload,
+use arkret_models_collaboration::events_payloads::{
+    ContainerMoveItemPayload, ContainerRebalancePayload, MessageCreatePayload,
+    MessageRedactPayload, MessageRevisePayload, MorphCreatePayload, MorphUpdatePayload,
+    ReactionPayload, RealmDigestSuiteTransitionPayload, RealmNotaryPayload, StrandCreatePayload,
+    StrandPatchPayload,
 };
-use arkret_models_collaboration::events_payloads::moderation_morph_misc::MorphCreatePayload;
-use arkret_models_collaboration::events_payloads::morph_message::{
-    MessageCreatePayload, MorphUpdatePayload,
-};
-use arkret_models_collaboration::events_payloads::object_create::StrandPatchPayload;
-use arkret_models_collaboration::events_payloads::preview_realm_reaction::{
-    ReactionPayload, RealmDigestSuiteTransitionPayload, RealmNotaryPayload,
-};
-use arkret_models_collaboration::events_payloads::strand_history_join::StrandCreatePayload;
 use arkret_models_collaboration::governance::membership_invite::MembershipPayload;
 use arkret_wire::Event;
 use arkret_wire::events::kinds::EventKind;

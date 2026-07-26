@@ -1,81 +1,60 @@
-//! Moderation, morph, object-snapshot, patch, and plaintext payloads.
+//! Morph event payloads and schema-transition validation.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-use chrono::{DateTime, Utc};
+use arkret_wire::{Error, Hash, MorphId, Patch, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::internal_prelude::*;
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/moderation_decision_lift_payload`.
+/// Payload for `ak.morph.update`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ModerationDecisionLiftPayload {
-    pub target_ref: ObjectRef,
-    pub decision_ref: EventId,
+pub struct MorphUpdatePayload {
+    pub target_ref: MorphId,
+    pub patch: Patch,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason_code: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
-    pub effective_at: Option<DateTime<Utc>>,
+    pub expected_state_digest: Option<Hash>,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/moderation_decision_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ModerationDecisionPayload {
-    pub target_ref: ObjectRef,
-    pub decision: String,
-    pub issuer: Did,
-    pub request_canonical_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub action: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason_code: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_decision_ref: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub modify_decision_ref: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
-    pub effective_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<NullableTimestamp>,
+impl MorphUpdatePayload {
+    pub fn for_morph(morph_id: MorphId, patch: Patch) -> Result<Self> {
+        validate_morph_update_patch(&patch)?;
+        Ok(Self {
+            target_ref: morph_id,
+            patch,
+            expected_state_digest: None,
+        })
+    }
+
+    pub fn with_expected_state_digest(mut self, expected_state_digest: Hash) -> Self {
+        self.expected_state_digest = Some(expected_state_digest);
+        self
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_morph_update_patch(&self.patch)
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        self.validate()?;
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("morph update payload serialize: {err}")))
+    }
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/moderation_report_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ModerationReportPayload {
-    pub realm_id: RealmId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_scope: Option<EffectiveScope>,
-    pub target_ref: ObjectRef,
-    pub report_reason_code: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    pub reporter: Did,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub evidence_refs: Option<Vec<ObjectRef>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub evidence_package: Option<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub franking_proof: Option<BTreeMap<String, Value>>,
+fn validate_morph_update_patch(patch: &Patch) -> Result<()> {
+    patch.validate()?;
+    for (path, _) in patch.iter() {
+        if matches!(path.as_str(), "morph_kind" | "stage" | "stage_changed_at") {
+            return Err(Error::Protocol(
+                "morph update patch targets create-locked or single-sourced field".to_owned(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Counterpart for
@@ -502,55 +481,6 @@ pub struct MorphStageSetPayload {
     pub expected_stage: Option<String>,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/nullable_timestamp`.
-pub type NullableTimestamp = Option<DateTime<Utc>>;
-
-// `object_lifecycle_payload` now has a strong type:
-// `models::operation_payloads::ObjectLifecyclePayload` (generic Strand / Circle /
-// Morph archive·restore·tombstone shape, single-sourced by `target_ref`;
-// `additionalProperties:false`).
-
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/object_snapshot`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ObjectSnapshot {
-    pub id: ObjectRef,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/object_stage_set_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ObjectStageSetPayload {
-    pub stage: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_stage: Option<String>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/patch_operation`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PatchOperation {
-    #[serde(rename = "$op")]
-    pub op: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub value: Option<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub if_match: Option<Hash>,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/patch_path`.
-pub type PatchPath = String;
-
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/patch_value`.
-pub type PatchValue = BTreeMap<String, Value>;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/plaintext_data_class`.
-pub type PlaintextDataClass = String;
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -657,10 +587,3 @@ mod tests {
         );
     }
 }
-
-// `plaintext_visible_services_payload` now has a strong type:
-// `models::operation_payloads::PlaintextVisibleServicesPayload` (`{services:
-// [PlaintextVisibleService]}`, top-level deny_unknown_fields; item required
-// fields strongly typed with `PlaintextDataClassKind` / `PlaintextServiceVisibility`
-// enums, item kept open per spec additionalProperties:true). Resolver routes
-// the kind to `generic_standard_payload` — see the type's doc comment.

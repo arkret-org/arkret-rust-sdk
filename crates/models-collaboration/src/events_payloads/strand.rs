@@ -1,7 +1,67 @@
-use arkret_wire::{Did, Error, RelationId, Result, SpaceId, StrandId};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+//! Strand lifecycle and ordering event payloads.
 
+use crate::internal_prelude::*;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/strand_create_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StrandCreatePayload {
+    pub object: Strand,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub initial_relations: Option<Vec<BTreeMap<String, Value>>>,
+}
+
+// `strand_move_payload` now has a strong type:
+// `models::operation_payloads::StrandMovePayload` (replaces the former
+// `= Value` alias as part of the wire strong-type migration; flat
+// board/target Space ids + rank with an optional `expected_position`
+// CAS guard, `additionalProperties:false`).
+
+// `strand_reorder_payload` now has a strong type:
+// `models::operation_payloads::StrandReorderPayload` (single List-Space
+// re-rank; `additionalProperties:false`).
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/strand_stage_set_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StrandStageSetPayload {
+    pub strand_id: StrandId,
+    pub stage: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_stage: Option<String>,
+}
+
+// `strand_watch_set_payload` now has a strong type:
+// `models::operation_payloads::StrandWatchSetPayload` (carries the
+// `StrandWatchLevel` enum / nullable `level` clear path and the
+// `level_public`/`expected_value` CAS fields; `additionalProperties:false`).
+
+/// Payload for `ak.strand.update`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct StrandPatchPayload {
+    pub target_ref: StrandId,
+    pub patch: Patch,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_state_digest: Option<Hash>,
+}
+
+impl StrandPatchPayload {
+    pub fn for_strand(strand_id: StrandId, patch: Patch) -> Result<Self> {
+        patch.validate()?;
+        Ok(Self {
+            target_ref: strand_id,
+            patch,
+            expected_state_digest: None,
+        })
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("strand patch payload serialize: {err}")))
+    }
+}
 /// Optional CAS guard carried on `ak.strand.move`
 /// (`event-payload.schema.json#/$defs/strand_move_payload` `expected_position`).
 ///

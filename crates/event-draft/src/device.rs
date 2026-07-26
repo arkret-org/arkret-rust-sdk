@@ -97,10 +97,10 @@ pub fn build_device_authorize_event_at(
 #[cfg(test)]
 mod tests {
     use arkret_identifiers::{DeviceId, TypedTrustDomainId};
+    use arkret_models_collaboration::events_payloads::SignatureMaterial;
     use arkret_models_collaboration::events_payloads::device_identity::{
         DeviceCrossSigningBinding, DeviceOrPrincipalRef,
     };
-    use arkret_models_collaboration::events_payloads::preview_realm_reaction::SignatureMaterial;
     use arkret_models_identity::{
         KeyFormat, PublishedKey, SubordinateSignedKey, SubordinateSignedKeyBinding,
     };

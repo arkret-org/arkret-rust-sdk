@@ -1,6 +1,5 @@
 use arkret_canonical::canonical;
-use arkret_models_collaboration::events_payloads::morph_message::*;
-use arkret_models_collaboration::events_payloads::object_create::ObjectCreatePayload;
+use arkret_models_collaboration::events_payloads::{ObjectCreatePayload, *};
 use arkret_models_collaboration::objects::profiles::{Morph, MorphMetadata};
 use arkret_models_collaboration::objects::space::Space;
 use arkret_models_crypto::EncryptedEnvelope;

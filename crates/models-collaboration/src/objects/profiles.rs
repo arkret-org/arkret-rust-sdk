@@ -15,7 +15,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::events_payloads::morph_message::ContentBlock;
+use crate::events_payloads::ContentBlock;
 use crate::objects::strand::ObjectMetadata;
 
 fn now_utc_canonical() -> DateTime<Utc> {

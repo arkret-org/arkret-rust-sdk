@@ -1,4 +1,4 @@
-//! Moderation schema artifact counterparts.
+//! Moderation schema artifact counterparts and event payloads.
 
 use crate::internal_prelude::*;
 
@@ -274,4 +274,72 @@ mod tests {
             .unwrap_err();
         assert!(err.to_string().contains("time anchor"));
     }
+}
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/moderation_decision_lift_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModerationDecisionLiftPayload {
+    pub target_ref: ObjectRef,
+    pub decision_ref: EventId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
+    pub effective_at: Option<DateTime<Utc>>,
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/moderation_decision_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModerationDecisionPayload {
+    pub target_ref: ObjectRef,
+    pub decision: String,
+    pub issuer: Did,
+    pub request_canonical_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_decision_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modify_decision_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
+    pub effective_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<NullableTimestamp>,
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/moderation_report_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModerationReportPayload {
+    pub realm_id: RealmId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_scope: Option<EffectiveScope>,
+    pub target_ref: ObjectRef,
+    pub report_reason_code: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub reporter: Did,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence_refs: Option<Vec<ObjectRef>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence_package: Option<BTreeMap<String, Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub franking_proof: Option<BTreeMap<String, Value>>,
 }

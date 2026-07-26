@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_models_collaboration::events_payloads::object_create::ObjectCreatePayload;
+use arkret_models_collaboration::events_payloads::ObjectCreatePayload;
 use arkret_models_identity::ActorProfile;
 use arkret_models_integration::{AppletDelegatedEventAuthorization, GhostActorProfileFields};
 use arkret_wire::{

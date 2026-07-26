@@ -1,0 +1,23 @@
+//! Read-receipt policy event payloads.
+
+use crate::internal_prelude::*;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/read_receipt_policy_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReadReceiptPolicyPayload {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disclosure: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visibility: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope_overrides_allowed: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receipt_compliance_opt_in:
+        Option<crate::objects::read_receipts::ReadReceiptComplianceOptIn>,
+}
+
+// `realm_archive_payload` now has a strong type:
+// `models::operation_payloads::RealmArchivePayload` (replaces the former
+// `= Value` alias as part of the wire strong-type migration).

@@ -1,13 +1,6 @@
-//! Generic object-create payload envelope and strand patch payload.
-//!
-//! The `ak.strand.create` wire object (`StrandCreateObject`) stays in
-//! the `arkret` umbrella until the strand collaboration-object module migrates.
+//! Generic object creation, snapshots, and stage payloads.
 
-use std::collections::BTreeMap;
-
-use arkret_wire::{Error, Hash, Patch, Result, StrandId};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use crate::internal_prelude::*;
 
 /// Generic create-event payload used by Realm / Space / Strand / Morph creates.
 ///
@@ -41,27 +34,26 @@ impl<T: Serialize> ObjectCreatePayload<T> {
     }
 }
 
-/// Payload for `ak.strand.update`.
+// `object_lifecycle_payload` now has a strong type:
+// `models::operation_payloads::ObjectLifecyclePayload` (generic Strand / Circle /
+// Morph archive·restore·tombstone shape, single-sourced by `target_ref`;
+// `additionalProperties:false`).
+
+/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/object_snapshot`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct StrandPatchPayload {
-    pub target_ref: StrandId,
-    pub patch: Patch,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expected_state_digest: Option<Hash>,
+pub struct ObjectSnapshot {
+    pub id: ObjectRef,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
 }
 
-impl StrandPatchPayload {
-    pub fn for_strand(strand_id: StrandId, patch: Patch) -> Result<Self> {
-        patch.validate()?;
-        Ok(Self {
-            target_ref: strand_id,
-            patch,
-            expected_state_digest: None,
-        })
-    }
-
-    pub fn to_value(&self) -> Result<Value> {
-        serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("strand patch payload serialize: {err}")))
-    }
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/object_stage_set_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ObjectStageSetPayload {
+    pub stage: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_stage: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
 }

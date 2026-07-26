@@ -2,6 +2,20 @@
 
 use crate::internal_prelude::*;
 
+/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json`.
+pub type EventPayload = GenericStandardPayload;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/generic_standard_payload`.
+pub type GenericStandardPayload = BTreeMap<String, Value>;
+
+/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/nullable_timestamp`.
+pub type NullableTimestamp = Option<DateTime<Utc>>;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/plaintext_data_class`.
+pub type PlaintextDataClass = String;
+
 /// Counterpart for `spec/v1/artifacts/schemas/disappearing-messages.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]

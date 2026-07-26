@@ -9,7 +9,7 @@
 
 use std::collections::BTreeSet;
 
-use arkret_models_collaboration::events_payloads::strand_history_join::{
+use arkret_models_collaboration::events_payloads::{
     HistorySharingPolicyPayloadValue, HistorySharingRestrictedRule,
 };
 use arkret_models_collaboration::governance::history_visibility::{
@@ -308,7 +308,7 @@ where
 
 #[cfg(test)]
 mod policy_tests {
-    use arkret_models_collaboration::events_payloads::strand_history_join::HistorySharingPolicyPayloadValueAudit;
+    use arkret_models_collaboration::events_payloads::HistorySharingPolicyPayloadValueAudit;
     use arkret_models_collaboration::governance::history_visibility::HistorySharingPreJoinPolicy;
 
     use super::*;

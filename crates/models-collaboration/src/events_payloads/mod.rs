@@ -1,24 +1,78 @@
-//! Event payload wire shapes for collaboration objects: message /
-//! morph content payloads, strand container operations, generic object
-//! creation envelopes, and mention AST nodes. Builder functions that
-//! need schema validation or event-draft assembly stay in the `arkret` umbrella.
+//! Event payload wire shapes grouped by stable protocol domains.
+//!
+//! Builder functions that need schema validation or event-draft assembly stay
+//! in the `arkret` umbrella.
 
-pub mod account_misc;
+pub mod account;
+pub mod account_data;
+pub mod actor_profile;
 pub mod agent;
 pub mod audit;
 pub mod call;
-pub mod capability_circle_consent_contact;
-pub mod content_block_poll;
+pub mod capability;
+pub mod circle;
+pub mod consent;
+pub mod contact;
+pub mod container;
 pub mod device_identity;
 pub mod ephemeral;
 pub mod event_wire;
-pub mod list_message_mimi_mls;
+pub mod history_sharing;
+pub mod join_policy;
+pub mod key_backup;
+pub mod list;
 pub mod mention;
+pub mod message;
+pub mod mimi;
+pub mod mls;
 pub mod moderation;
-pub mod moderation_morph_misc;
-pub mod morph_message;
-pub mod object_create;
-pub mod preview_realm_reaction;
+pub mod morph;
+pub mod object;
+pub mod patch;
+pub mod poll;
+pub mod preview;
+pub mod profile;
+pub mod reaction;
+pub mod read_receipt;
+pub mod realm;
+pub mod realm_key;
 pub mod redaction;
-pub mod strand_history_join;
-pub mod strand_ops;
+pub mod relation;
+pub mod signature;
+pub mod space;
+pub mod state;
+pub mod strand;
+pub mod view;
+
+pub use account::*;
+pub use account_data::*;
+pub use actor_profile::*;
+pub use capability::*;
+pub use circle::*;
+pub use consent::*;
+pub use contact::*;
+pub use container::*;
+pub use history_sharing::*;
+pub use join_policy::*;
+pub use key_backup::*;
+pub use list::*;
+pub use message::*;
+pub use mimi::*;
+pub use mls::*;
+pub use moderation::*;
+pub use morph::*;
+pub use object::*;
+pub use patch::*;
+pub use poll::*;
+pub use preview::*;
+pub use profile::*;
+pub use reaction::*;
+pub use read_receipt::*;
+pub use realm::*;
+pub use realm_key::*;
+pub use relation::*;
+pub use signature::*;
+pub use space::*;
+pub use state::*;
+pub use strand::*;
+pub use view::*;

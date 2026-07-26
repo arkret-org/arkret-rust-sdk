@@ -10,8 +10,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::list_message_mimi_mls::MlsEpochRange;
-use super::moderation_morph_misc::NullableTimestamp;
+use super::event_wire::NullableTimestamp;
+use super::mls::MlsEpochRange;
 use crate::ObjectRef;
 use crate::governance::audit::AuditAssurance;
 

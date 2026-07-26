@@ -1,6 +1,6 @@
 use arkret_canonical::canonical;
 use arkret_event_draft::{StrandCreateObject, StrandTracksUpdatePayload};
-use arkret_models_collaboration::events_payloads::object_create::ObjectCreatePayload;
+use arkret_models_collaboration::events_payloads::ObjectCreatePayload;
 use arkret_models_collaboration::objects::profiles::StrandTrackConfig;
 use arkret_schema::event_payload_validator_catalog;
 use arkret_wire::{Did, Patch, RealmId, STRAND_SCHEMA, StrandId};

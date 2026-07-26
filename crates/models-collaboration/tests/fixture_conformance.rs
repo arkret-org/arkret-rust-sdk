@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use arkret_canonical::canonical;
-use arkret_models_collaboration::events_payloads::moderation_morph_misc::MorphSchemaMigratePayload;
+use arkret_models_collaboration::events_payloads::MorphSchemaMigratePayload;
 use arkret_models_collaboration::http_bodies::{EventsSubscribeFrame, EventsSubscribeFrameKind};
 use arkret_models_collaboration::sync_frames::account_subscribe::AccountSubscribeFrame;
 use arkret_models_collaboration::sync_frames::stream_trace::{

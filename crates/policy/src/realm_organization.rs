@@ -229,7 +229,7 @@ where
 
 // The organization-statement transcript and
 // `realm_organization_statement_signing_bytes` moved to
-// `arkret-models-collaboration` (events_payloads::preview_realm_reaction),
+// `arkret-models-collaboration` (events_payloads::realm),
 // next to the `RealmOrganizationPayload` family they serialize; they are
 // re-exported through `crate::models::artifacts`.
 

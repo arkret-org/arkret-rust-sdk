@@ -9,7 +9,7 @@
 //! `authorization.proof` `SignatureMaterial::NonEmptyString`.
 
 use arkret_canonical::base64url::base64url_encode;
-use arkret_models_collaboration::events_payloads::preview_realm_reaction::{
+use arkret_models_collaboration::events_payloads::{
     RealmOrganizationPayload, SignatureMaterial, realm_organization_statement_signing_bytes,
 };
 use arkret_wire::NonEmptyString;
@@ -49,7 +49,7 @@ pub fn realm_organization_statement_sign(
 #[cfg(test)]
 mod tests {
     use arkret_canonical::base64url::base64url_decode;
-    use arkret_models_collaboration::events_payloads::preview_realm_reaction::{
+    use arkret_models_collaboration::events_payloads::{
         RealmOrganizationAuthorization, RealmOrganizationControlScope, RealmOrganizationIssuerRole,
         RealmOrganizationRelationship, RealmOrganizationStatus,
     };

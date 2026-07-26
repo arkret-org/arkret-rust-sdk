@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::events_payloads::morph_message::ContentBlock;
+use crate::events_payloads::ContentBlock;
 use crate::governance::agent_participation::AgentParticipationPolicy;
 use crate::objects::profiles::{
     STRAND_TRACK_NAME_DISCUSSION, STRAND_TRACK_NAME_SYNTHESIS, StrandTrackConfig,
