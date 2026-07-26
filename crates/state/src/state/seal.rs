@@ -8,7 +8,8 @@ use thiserror::Error;
 use super::state_root::{compute_state_root, seal_merkle_root_from_leaf_data};
 use super::store::{CellRegistry, CellStore, MoveStore, SealStore};
 use super::verify::verify_move;
-use crate::lattice::{CellState, SealedOp, ordered_log::IssuedOp};
+use crate::lattice::ordered_log::IssuedOp;
+use crate::lattice::{CellState, SealedOp};
 use crate::{CellRef, Hash, Move, MoveId, RealmId, Seal, SealId, canonical};
 
 #[derive(Clone, Debug)]
@@ -319,7 +320,10 @@ fn effective_state_for_covered_events(
             continue;
         }
         let binding = registry.resolve(realm_id, &cell)?;
-        out.insert(cell.clone(), join_cell(binding.lattice.as_ref(), &cell, &ops));
+        out.insert(
+            cell.clone(),
+            join_cell(binding.lattice.as_ref(), &cell, &ops),
+        );
     }
     Ok(out)
 }

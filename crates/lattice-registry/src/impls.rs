@@ -476,6 +476,138 @@ per_subject_lattice!(
     &["ak.call.summary"]
 );
 
+per_subject_lattice!(
+    CallFocus,
+    "ak.component.call.focus.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    "call_id",
+    &["ak.call.state"]
+);
+
+per_subject_lattice!(
+    CallModeration,
+    "ak.component.call.moderation.v1",
+    SdkLatticeKind::OrSet,
+    BottomPolicy::Inert,
+    Criticality::Required,
+    "call_id",
+    &["ak.call.state"]
+);
+
+per_subject_lattice!(
+    CallRoster,
+    "ak.component.call.roster.v1",
+    SdkLatticeKind::OrSet,
+    BottomPolicy::Inert,
+    Criticality::Required,
+    "call_id",
+    &["ak.call.state"]
+);
+
+fn call_capture_subject(
+    effect_payload: &Value,
+    result_field: &'static str,
+    cell_family: &'static str,
+) -> Result<Option<String>, LatticeKindError> {
+    let call_id = effect_payload
+        .get("call_id")
+        .and_then(Value::as_str)
+        .ok_or(LatticeKindError::MissingSubjectField {
+            cell_family,
+            field: "call_id",
+        })?;
+    let recording_id = effect_payload
+        .get("recording_id")
+        .or_else(|| {
+            effect_payload
+                .get(result_field)
+                .and_then(|result| result.get("recording_id"))
+        })
+        .and_then(Value::as_str)
+        .ok_or(LatticeKindError::MissingSubjectField {
+            cell_family,
+            field: "recording_id",
+        })?;
+    arkret_wire::composite_subject(&[call_id, recording_id])
+        .map(Some)
+        .map_err(|error| LatticeKindError::InvalidCompositeSubject {
+            cell_family,
+            reason: error.to_string(),
+        })
+}
+
+pub struct CallRecording;
+
+impl LatticeKind for CallRecording {
+    fn cell_family(&self) -> &'static str {
+        "ak.component.call.recording.v1"
+    }
+
+    fn lattice(&self) -> SdkLatticeKind {
+        SdkLatticeKind::Fsm
+    }
+
+    fn bottom_policy(&self) -> BottomPolicy {
+        BottomPolicy::Reject
+    }
+
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: self.cell_family(),
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        call_capture_subject(effect_payload, "recording_result", self.cell_family())
+    }
+
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &["ak.call.recording.start", "ak.call.state"]
+    }
+}
+
+pub struct CallTranscript;
+
+impl LatticeKind for CallTranscript {
+    fn cell_family(&self) -> &'static str {
+        "ak.component.call.transcript.v1"
+    }
+
+    fn lattice(&self) -> SdkLatticeKind {
+        SdkLatticeKind::Fsm
+    }
+
+    fn bottom_policy(&self) -> BottomPolicy {
+        BottomPolicy::Reject
+    }
+
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: self.cell_family(),
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        call_capture_subject(effect_payload, "transcript_result", self.cell_family())
+    }
+
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &["ak.call.recording.start", "ak.call.state"]
+    }
+}
+
 // ────────────────────────── Fsm families ──────────────────────────
 
 per_subject_lattice!(
@@ -649,9 +781,18 @@ singleton_lattice!(
     CircleCreate,
     "ak.component.circle.create.v1",
     SdkLatticeKind::OrderedLog,
-    BottomPolicy::Expose,
+    BottomPolicy::Inert,
     Criticality::Required,
     &["ak.circle.create"]
+);
+
+singleton_lattice!(
+    SidecarCreate,
+    "ak.component.sidecar.create.v1",
+    SdkLatticeKind::OrderedLog,
+    BottomPolicy::Inert,
+    Criticality::Required,
+    &["ak.sidecar.create"]
 );
 
 // `ak.space.parent` is a CAS register keyed by the child Space ID.
@@ -864,6 +1005,19 @@ singleton_lattice!(
     BottomPolicy::Reject,
     Criticality::Required,
     &["ak.realm.policy"]
+);
+
+// Per-Realm metadata cell. `ak.realm.create` seeds it as its first registered
+// effect and `ak.realm.update` writes every later value, so it MUST exist in
+// the genesis `state_root` leaf set (models/realm-and-space.md section 2.5,
+// authz/event-auth-state-resolution.md section 6.2.1).
+singleton_lattice!(
+    RealmMetadata,
+    "ak.component.realm.metadata.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["ak.realm.create", "ak.realm.update"]
 );
 
 singleton_lattice!(
@@ -1115,13 +1269,13 @@ per_subject_lattice!(
     &["ak.realm.upgrade"]
 );
 
-// ── Realm OrderedLog/Expose families ──
+// ── Realm ordered-log families ──
 
 singleton_lattice!(
     RealmCreate,
     "ak.component.realm.create.v1",
     SdkLatticeKind::OrderedLog,
-    BottomPolicy::Expose,
+    BottomPolicy::Inert,
     Criticality::Required,
     &["ak.realm.create"]
 );

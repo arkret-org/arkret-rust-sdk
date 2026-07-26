@@ -18,9 +18,9 @@ use super::{
     BottomMode, CellLatticeBinding, CellRegistry, CellStore, MoveStore, SealStore,
     SealedMoveRecord, StoreError, StoreResult,
 };
+use crate::lattice::ordered_log::IssuedOp;
 use crate::lattice::{
     CasRegister, CellState, Counter, Fsm, Lattice, LatticeKind, MvRegister, OrSet, OrderedLog,
-    ordered_log::IssuedOp,
 };
 use crate::{CellRef, Hash, Move, MoveId, RealmId, Seal, SealId};
 
@@ -1059,7 +1059,11 @@ mod tests {
             },
         );
         store
-            .append_sealed_effects(&realm(), &seal_id(0xaa), &[(cell_member(), issued(op.clone()))])
+            .append_sealed_effects(
+                &realm(),
+                &seal_id(0xaa),
+                &[(cell_member(), issued(op.clone()))],
+            )
             .unwrap();
 
         let cells = store.list_cells(&realm()).unwrap();

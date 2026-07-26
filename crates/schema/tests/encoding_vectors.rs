@@ -483,6 +483,92 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     );
                 }
             }
+            "canonical_event_tie_break" => {
+                // encoding.md 4.2: one winner rule for both concurrent
+                // candidate sets and logical-slot equivocation candidate sets.
+                // The key is the DECODED digest octets, bytewise greatest, with
+                // the canonical suite id as a second key only when the octets
+                // are identical. Comparing the typed `<suite>:<hex>` wire string
+                // would let the suite name decide before the content does.
+                let comparison = vector
+                    .get("comparison")
+                    .unwrap_or_else(|| panic!("{vector_id}: missing comparison"));
+                for forbidden in comparison["forbidden_keys"]
+                    .as_array()
+                    .unwrap_or_else(|| panic!("{vector_id}: missing forbidden_keys"))
+                {
+                    let key = forbidden.as_str().unwrap();
+                    assert!(
+                        !key.is_empty(),
+                        "{vector_id}: forbidden tie-break key must be named"
+                    );
+                }
+                let cases = vector["cases"]
+                    .as_array()
+                    .unwrap_or_else(|| panic!("{vector_id}: missing cases"));
+                for case in cases {
+                    let case_name = case["name"].as_str().unwrap();
+                    let Some(expected_winner) = case.get("expected_winner").and_then(Value::as_str)
+                    else {
+                        // Non-ordering cases (duplicate idempotence, collision
+                        // fail-closed, proofs-only difference) are executed by
+                        // the ordered-log lattice suite, which owns the slot
+                        // state machine. Here we only assert they are declared.
+                        assert!(
+                            case.get("expected").is_some(),
+                            "{vector_id}/{case_name}: case declares neither expected_winner nor expected"
+                        );
+                        continue;
+                    };
+                    let candidates = case["candidates"].as_array().unwrap();
+                    let mut best: Option<(&str, Vec<u8>, &str)> = None;
+                    for candidate in candidates {
+                        let label = candidate["label"].as_str().unwrap();
+                        let wire = candidate["event_digest"].as_str().unwrap_or_else(|| {
+                            panic!("{vector_id}/{case_name}: ordering case needs event_digest")
+                        });
+                        let (suite, hex_digits) = wire.split_once(':').unwrap_or_else(|| {
+                            panic!("{vector_id}/{case_name}: typed digest must be <suite>:<hex>")
+                        });
+                        let octets = hex::decode(hex_digits).unwrap_or_else(|error| {
+                            panic!("{vector_id}/{case_name}: digest hex decode failed: {error}")
+                        });
+                        let replace = match &best {
+                            None => true,
+                            Some((_, best_octets, best_suite)) => {
+                                (octets.as_slice(), suite) > (best_octets.as_slice(), *best_suite)
+                            }
+                        };
+                        if replace {
+                            best = Some((label, octets, suite));
+                        }
+                    }
+                    let (winner, ..) =
+                        best.unwrap_or_else(|| panic!("{vector_id}/{case_name}: no candidates"));
+                    assert_eq!(
+                        winner, expected_winner,
+                        "{vector_id}/{case_name}: decoded-octet winner drifted"
+                    );
+                    if let Some(wrong) = case
+                        .get("expected_wrong_winner_if_wire_string_compared")
+                        .and_then(Value::as_str)
+                    {
+                        let wire_winner = candidates
+                            .iter()
+                            .max_by_key(|candidate| candidate["event_digest"].as_str().unwrap())
+                            .map(|candidate| candidate["label"].as_str().unwrap())
+                            .unwrap();
+                        assert_eq!(
+                            wire_winner, wrong,
+                            "{vector_id}/{case_name}: the wire-string trap case no longer traps"
+                        );
+                        assert_ne!(
+                            wire_winner, expected_winner,
+                            "{vector_id}/{case_name}: transition case must disagree with the wire-string order"
+                        );
+                    }
+                }
+            }
             other => {
                 panic!("encoding vector {vector_id} has unknown kind {other}; extend this driver")
             }

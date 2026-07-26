@@ -87,33 +87,57 @@ foreach ($k in $arr) {
         Bottom = if ($null -eq $row.bottom) { $null } else { [string]$row.bottom }
         Plane = if ($null -eq $row.plane) { $null } else { [string]$row.plane }
         Sealed = [bool]$row.sealed
+        CellWriteFamilies = @(
+            if ($null -eq $row.cell_writes) { } else {
+                foreach ($write in $row.cell_writes) {
+                    if ($null -ne $write.cell_family) { [string]$write.cell_family }
+                }
+            }
+        )
     }) | Out-Null
 }
 
+# Fold both the single-target shorthand and every cell_writes[] target into the
+# family -> plane index. Multi-target kinds carry plane/sealed on the row, so a
+# kind that outgrows the shorthand MUST NOT silently drop its families here.
 $cellFamilyPlaneByFamily = @{}
 foreach ($entry in $entries) {
-    if ($null -eq $entry.CellFamily) {
+    $families = New-Object System.Collections.Generic.List[string]
+    if ($null -ne $entry.CellFamily) { $families.Add($entry.CellFamily) | Out-Null }
+    foreach ($family in $entry.CellWriteFamilies) {
+        if (-not $families.Contains($family)) { $families.Add($family) | Out-Null }
+    }
+    if ($families.Count -eq 0) {
         continue
     }
     if ($entry.Plane -ne "data" -and $entry.Plane -ne "control") {
-        throw "event kind '$($entry.Kind)' with cell family '$($entry.CellFamily)' must declare plane=data|control"
+        throw "event kind '$($entry.Kind)' with cell families '$($families -join ', ')' must declare plane=data|control"
     }
-    if ($cellFamilyPlaneByFamily.ContainsKey($entry.CellFamily)) {
-        $existingPlane = [string]$cellFamilyPlaneByFamily[$entry.CellFamily]
-        if ($existingPlane -ne $entry.Plane) {
-            throw "cell family '$($entry.CellFamily)' has conflicting planes '$existingPlane' and '$($entry.Plane)'"
+    foreach ($family in $families) {
+        if ($cellFamilyPlaneByFamily.ContainsKey($family)) {
+            $existingPlane = [string]$cellFamilyPlaneByFamily[$family]
+            if ($existingPlane -ne $entry.Plane) {
+                throw "cell family '$family' has conflicting planes '$existingPlane' and '$($entry.Plane)'"
+            }
+        } else {
+            $cellFamilyPlaneByFamily[$family] = $entry.Plane
         }
-    } else {
-        $cellFamilyPlaneByFamily[$entry.CellFamily] = $entry.Plane
     }
 }
-$cellFamilyPlanes = @($cellFamilyPlaneByFamily.GetEnumerator() | ForEach-Object {
+# `cba_cell_family_plane` binary-searches this table, so it MUST be sorted in
+# .NET Ordinal order. `Sort-Object Family` is culture-aware and reorders
+# punctuation (it puts `moderation_state` before `moderation.appeal`), which
+# silently breaks the lookup for the families that land on the wrong side.
+$cellFamilyNames = @($cellFamilyPlaneByFamily.Keys | ForEach-Object { [string]$_ })
+[System.Array]::Sort($cellFamilyNames, [System.StringComparer]::Ordinal)
+$cellFamilyPlanes = @($cellFamilyNames | ForEach-Object {
+    $plane = [string]$cellFamilyPlaneByFamily[$_]
     [PSCustomObject]@{
-        Family = [string]$_.Key
-        Plane = [string]$_.Value
-        PlaneVariant = ConvertTo-SimpleVariant -Value ([string]$_.Value)
+        Family = $_
+        Plane = $plane
+        PlaneVariant = ConvertTo-SimpleVariant -Value $plane
     }
-} | Sort-Object Family)
+})
 
 $categories = @($entries | ForEach-Object { $_.Category } | Select-Object -Unique)
 [System.Array]::Sort($categories, [System.StringComparer]::Ordinal)

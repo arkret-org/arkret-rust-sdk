@@ -14,14 +14,17 @@
 //!
 //! Coverage (mirrors soland `reducer::lattice_kinds`):
 //! - **OrSet** (causal add/remove): consent.grant, capability.grant / delegate / derived,
-//!   session.grant, device.authorized, device.list_update, agent.key, covered_seals (MLS).
+//!   session.grant, device.authorized, device.list_update, agent.key, covered_seals (MLS), call
+//!   moderation, and call roster.
 //! - **CasRegister** (last-writer-wins, conflict→Bottom): realm.policy, realm.read_receipt_policy,
 //!   realm.history_visibility, realm.join_rule, realm.discovery, realm.organization, realm.upgrade,
 //!   strand.position, strand.stage, morph.stage, space.parent, device.push_route, notary (Move/Seal
-//!   authority cell), mls_epoch.
-//! - **Fsm** (legal transitions only): member.state, agent.status, call.state, realm.link.
+//!   authority cell), mls_epoch, call focus, and call summary.
+//! - **Fsm** (legal transitions only): member.state, agent.status, call state, call recording, call
+//!   transcript, and realm.link.
 //! - **OrderedLog** (per-issuer monotonic append): account.status, policy.rule,
-//!   cross_signing.reset, contact.fact_log, direct_conversation.binding.
+//!   cross_signing.reset, contact.fact_log, direct_conversation.binding, circle create, sidecar
+//!   create, and realm create.
 //! - **MvRegister** (concurrent multi-value): profile.create, view.create / update / reconcile,
 //!   mimi.room_binding.
 
@@ -58,12 +61,11 @@ mod tests {
 
     #[test]
     fn default_registry_kind_count_matches_expected_total() {
-        // The registry covers the 66 cell families declared by
-        // event-kind-registry (including `strand.object`, the
-        // `ak.strand.create` cell write) plus the three reducer-local
-        // seal/MLS families (`notary`, `mls.epoch`, `covered_seals`).
+        // Pin the set of families currently implemented by this shared
+        // registry. New spec cell families must be added here before their
+        // contracts are consumed by Move/Seal state resolution.
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 69);
+        assert_eq!(registry.len(), 76);
     }
 
     #[test]
@@ -169,6 +171,106 @@ mod tests {
                 .as_deref(),
             Some("ak:call:01")
         );
+    }
+
+    #[test]
+    fn orthogonal_call_cells_have_canonical_lattices_subjects_and_bottom_modes() {
+        let registry = default_lattice_registry();
+        let call_id = "ak:call:01904100-0000-7000-8000-000000000011";
+        let recording_id = "ak:recording:01904100-0000-7000-8000-000000000022";
+        let expected_capture_subject = composite_subject(&[call_id, recording_id]).unwrap();
+
+        for family in [
+            "ak.component.call.focus.v1",
+            "ak.component.call.moderation.v1",
+            "ak.component.call.roster.v1",
+        ] {
+            let kind = registry.lookup(family).unwrap();
+            assert_eq!(
+                kind.subject_for_effect(&json!({"call_id": call_id}))
+                    .unwrap()
+                    .as_deref(),
+                Some(call_id)
+            );
+        }
+        assert_eq!(
+            registry
+                .lookup("ak.component.call.focus.v1")
+                .unwrap()
+                .lattice(),
+            SdkLatticeKind::CasRegister
+        );
+        for family in [
+            "ak.component.call.moderation.v1",
+            "ak.component.call.roster.v1",
+        ] {
+            let kind = registry.lookup(family).unwrap();
+            assert_eq!(kind.lattice(), SdkLatticeKind::OrSet);
+            assert_eq!(kind.bottom_policy(), BottomPolicy::Inert);
+        }
+
+        let recording = registry.lookup("ak.component.call.recording.v1").unwrap();
+        assert_eq!(recording.lattice(), SdkLatticeKind::Fsm);
+        assert_eq!(
+            recording
+                .subject_for_effect(&json!({
+                    "call_id": call_id,
+                    "recording_id": recording_id,
+                }))
+                .unwrap()
+                .as_deref(),
+            Some(expected_capture_subject.as_str())
+        );
+        assert_eq!(
+            recording
+                .subject_for_effect(&json!({
+                    "call_id": call_id,
+                    "recording_result": {"recording_id": recording_id},
+                }))
+                .unwrap()
+                .as_deref(),
+            Some(expected_capture_subject.as_str())
+        );
+
+        let transcript = registry.lookup("ak.component.call.transcript.v1").unwrap();
+        assert_eq!(transcript.lattice(), SdkLatticeKind::Fsm);
+        assert_eq!(
+            transcript
+                .subject_for_effect(&json!({
+                    "call_id": call_id,
+                    "transcript_result": {"recording_id": recording_id},
+                }))
+                .unwrap()
+                .as_deref(),
+            Some(expected_capture_subject.as_str())
+        );
+
+        let sdk_registry = build_sdk_cell_registry();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000033").unwrap();
+        for family in [
+            "ak.component.call.moderation.v1",
+            "ak.component.call.roster.v1",
+        ] {
+            let cell = CellRef::new(format!("ak:cell:{family}:{call_id}")).unwrap();
+            assert_eq!(
+                sdk_registry.resolve(&realm_id, &cell).unwrap().bottom_mode,
+                BottomMode::Inert
+            );
+        }
+    }
+
+    #[test]
+    fn inert_ordered_create_cells_are_registered_as_inert() {
+        let registry = default_lattice_registry();
+        for family in [
+            "ak.component.circle.create.v1",
+            "ak.component.sidecar.create.v1",
+            "ak.component.realm.create.v1",
+        ] {
+            let kind = registry.lookup(family).unwrap();
+            assert_eq!(kind.lattice(), SdkLatticeKind::OrderedLog);
+            assert_eq!(kind.bottom_policy(), BottomPolicy::Inert);
+        }
     }
 
     #[test]

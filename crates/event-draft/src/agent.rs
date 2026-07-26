@@ -36,7 +36,7 @@ pub fn build_agent_key_authorize_event(
     event.event_id = event_id;
     event.executed_by = Some(controller_id);
     event.authorization_ref = Some(controller_authorization_ref.into());
-    event.effects = agent_key_authorize_effects(payload, &event.event_id, actor_seq)?;
+    event.effects = agent_key_authorize_effects(payload, &event.event_id)?;
     Ok(event)
 }
 
@@ -46,7 +46,6 @@ pub fn build_agent_key_authorize_event(
 pub fn agent_key_authorize_effects(
     payload: &AgentKeyAuthorizePayload,
     event_id: &EventId,
-    actor_seq: u64,
 ) -> Result<Vec<Effect>> {
     let mut effects = Vec::with_capacity(payload.supersedes.len() + 1);
     for superseded in &payload.supersedes {
@@ -56,7 +55,6 @@ pub fn agent_key_authorize_effects(
             LatticeOpType::Remove,
             superseded.authorized_event_ref.as_str(),
             None,
-            actor_seq,
         )?);
     }
     effects.push(agent_key_effect(
@@ -65,7 +63,6 @@ pub fn agent_key_authorize_effects(
         LatticeOpType::Add,
         event_id.as_str(),
         Some(serde_json::to_value(payload)?),
-        actor_seq,
     )?);
     Ok(effects)
 }
@@ -94,8 +91,7 @@ pub fn build_agent_key_revoke_event(
     event.event_id = event_id;
     event.executed_by = Some(controller_id);
     event.authorization_ref = Some(controller_authorization_ref.into());
-    event.effects =
-        agent_key_revoke_effects(payload, authorized_event_refs, &event.event_id, actor_seq)?;
+    event.effects = agent_key_revoke_effects(payload, authorized_event_refs, &event.event_id)?;
     Ok(event)
 }
 
@@ -105,7 +101,6 @@ pub fn agent_key_revoke_effects(
     payload: &AgentKeyRevokePayload,
     authorized_event_refs: &[EventId],
     event_id: &EventId,
-    actor_seq: u64,
 ) -> Result<Vec<Effect>> {
     let mut effects = Vec::with_capacity(authorized_event_refs.len() + 1);
     for authorized_event_ref in authorized_event_refs {
@@ -115,7 +110,6 @@ pub fn agent_key_revoke_effects(
             LatticeOpType::Remove,
             authorized_event_ref.as_str(),
             None,
-            actor_seq,
         )?);
     }
     effects.push(agent_key_effect(
@@ -124,7 +118,6 @@ pub fn agent_key_revoke_effects(
         LatticeOpType::Add,
         event_id.as_str(),
         Some(serde_json::to_value(payload)?),
-        actor_seq,
     )?);
     Ok(effects)
 }
@@ -135,7 +128,6 @@ fn agent_key_effect(
     op_type: LatticeOpType,
     tag: &str,
     value: Option<Value>,
-    actor_seq: u64,
 ) -> Result<Effect> {
     let subject = composite_subject(&[agent_id.as_str(), key_id])?;
     Ok(Effect {
@@ -147,7 +139,9 @@ fn agent_key_effect(
             from: None,
             to: None,
             reason: None,
-            issuer_seq: Some(actor_seq),
+            // `issuer_seq` belongs exclusively to `ordered_log`; this family
+            // is an OR-set whose causal identity is the observed dot in `tag`.
+            issuer_seq: None,
         },
     })
 }
@@ -387,6 +381,7 @@ mod tests {
         assert_eq!(event.payload["key_id"], "runtime-key-1");
         assert_eq!(event.effects.len(), 1);
         assert_eq!(event.effects[0].op.op_type, LatticeOpType::Add);
+        assert_eq!(event.effects[0].op.issuer_seq, None);
         assert_eq!(
             event.effects[0].op.tag.as_deref(),
             Some("ak:event:01970000-0000-7000-8000-000000000022")
@@ -433,6 +428,12 @@ mod tests {
             Some(authorized_event_id.as_str())
         );
         assert_eq!(event.effects[1].op.op_type, LatticeOpType::Add);
+        assert!(
+            event
+                .effects
+                .iter()
+                .all(|effect| effect.op.issuer_seq.is_none())
+        );
         assert_eq!(
             event.effects[1].op.tag.as_deref(),
             Some(revoke_event_id.as_str())

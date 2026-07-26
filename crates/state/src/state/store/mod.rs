@@ -15,7 +15,8 @@ pub mod memory;
 
 use thiserror::Error;
 
-use crate::lattice::{CellState, Lattice, ordered_log::IssuedOp};
+use crate::lattice::ordered_log::IssuedOp;
+use crate::lattice::{CellState, Lattice};
 use crate::{CellRef, Hash, Move, MoveId, RealmId, Seal, SealId};
 
 pub type StoreResult<T> = Result<T, StoreError>;
@@ -205,6 +206,9 @@ impl std::fmt::Debug for CellLatticeBinding {
 pub enum BottomMode {
     Reject,
     Expose,
+    /// The registered lattice cannot produce Bottom. Encountering one is an
+    /// implementation invariant failure and callers must fail closed.
+    Inert,
 }
 
 /// `cell_family` → `Lattice` instance mapping.

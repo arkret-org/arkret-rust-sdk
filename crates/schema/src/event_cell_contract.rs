@@ -1,12 +1,24 @@
 //! Registry-driven validation of reducer-input Event cell contracts.
 //!
 //! The event-kind registry, not a producer-selected `effects[].cell`, is the
-//! authority for a reducer target. This module implements the common v1
-//! single-target `cas_register`/`set` path used by Realm bootstrap facets.
+//! authority for reducer targets. This module implements the common v1
+//! single-target validation paths and the exact conditional multi-target
+//! validation used by invite, call, MLS, and Realm bootstrap contracts.
+
+use std::collections::BTreeMap;
+use std::sync::OnceLock;
 
 use arkret_wire::{CellId, Event, LatticeOpType};
 use serde_json::Value;
 use thiserror::Error;
+
+/// Canonical wire subject segment of a cell family declared with
+/// `cell_subject: null` (`conformance/encoding.md` section 4).
+///
+/// The literal ASCII `null` is used rather than an empty segment because
+/// `ak:cell:<family>:` cannot be told apart from a truncated wire id, and
+/// truncated ids must be rejected.
+pub const NULL_CELL_SUBJECT: &str = "null";
 
 /// Envelope context used while validating the registry-declared CBA plane.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -48,6 +60,8 @@ pub enum EventCellContractError {
     },
     #[error("event kind {kind} effect value does not match its signed payload")]
     PayloadMismatch { kind: String },
+    #[error("event kind {kind} has an invalid registered effect set: {message}")]
+    EffectSetMismatch { kind: String, message: String },
     #[error("event kind {kind} cell subject cannot be derived: {message}")]
     SubjectDerivation { kind: String, message: String },
 }
@@ -59,6 +73,187 @@ impl EventCellContractError {
             Self::PlaneMismatch { .. } => "plane_cross_write",
             _ => "effects_payload_mismatch",
         }
+    }
+}
+
+static EMBEDDED_EVENT_KIND_REGISTRY: OnceLock<Result<Value, String>> = OnceLock::new();
+
+fn event_kind_registry() -> Result<&'static Value, EventCellContractError> {
+    EMBEDDED_EVENT_KIND_REGISTRY
+        .get_or_init(|| {
+            crate::embedded_json_artifact("registry/event-kind-registry.json")
+                .map_err(|error| error.to_string())
+        })
+        .as_ref()
+        .map_err(|message| EventCellContractError::EffectSetMismatch {
+            kind: "<registry>".to_owned(),
+            message: message.clone(),
+        })
+}
+
+/// Validate the exact target set of a registry `cell_writes[]` contract.
+///
+/// This is the common multi-target/conditional path. It derives every active
+/// target from the signed Event, evaluates the closed condition grammar, and
+/// rejects missing, duplicate, inactive or unregistered effects. Domain
+/// reducers remain responsible for value-specific invariants, while the
+/// lattice registry validates the detailed op shape.
+pub fn validate_registered_cell_writes(event: &Event) -> Result<(), EventCellContractError> {
+    let kind = event.kind.as_str().to_owned();
+    let registry = event_kind_registry()?;
+    let row = registry
+        .get("event_kinds")
+        .and_then(Value::as_array)
+        .and_then(|rows| {
+            rows.iter()
+                .find(|row| row.get("event_kind").and_then(Value::as_str) == Some(kind.as_str()))
+        })
+        .ok_or_else(|| EventCellContractError::UnregisteredReducerInput(kind.clone()))?;
+    let Some(writes) = row.get("cell_writes").and_then(Value::as_array) else {
+        return Ok(());
+    };
+
+    let mut expected = BTreeMap::<String, &str>::new();
+    for write in writes {
+        if !condition_matches(event, write.get("condition"), &kind)? {
+            continue;
+        }
+        let family = write
+            .get("cell_family")
+            .and_then(Value::as_str)
+            .ok_or_else(|| effect_set_error(&kind, "cell write omits cell_family"))?;
+        let subject_rule = write.get("cell_subject");
+        let subject_json = subject_rule
+            .filter(|value| !value.is_null())
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|error| effect_set_error(&kind, &error.to_string()))?;
+        let subject = derive_subject(event, subject_json.as_deref())?;
+        let cell = format!("ak:cell:{family}:{subject}");
+        let lattice = write
+            .get("lattice")
+            .and_then(Value::as_str)
+            .ok_or_else(|| effect_set_error(&kind, "cell write omits lattice"))?;
+        if expected.insert(cell.clone(), lattice).is_some() {
+            return Err(effect_set_error(
+                &kind,
+                &format!("two active targets derive the same cell {cell}"),
+            ));
+        }
+    }
+
+    let mut actual = BTreeMap::<String, usize>::new();
+    for effect in &event.effects {
+        *actual.entry(effect.cell.as_str().to_owned()).or_default() += 1;
+    }
+    if actual.values().any(|count| *count != 1) {
+        return Err(effect_set_error(
+            &kind,
+            "an Event may write each registered target only once",
+        ));
+    }
+    let actual_cells = actual.keys().cloned().collect::<Vec<_>>();
+    let expected_cells = expected.keys().cloned().collect::<Vec<_>>();
+    if actual_cells != expected_cells {
+        return Err(effect_set_error(
+            &kind,
+            &format!("expected cells {expected_cells:?}, got {actual_cells:?}"),
+        ));
+    }
+
+    for effect in &event.effects {
+        let lattice = expected
+            .get(effect.cell.as_str())
+            .expect("actual and expected cell sets were compared");
+        let valid_kind = match *lattice {
+            "cas_register" | "mv_register" => effect.op.op_type == LatticeOpType::Set,
+            "fsm" => effect.op.op_type == LatticeOpType::Transition,
+            "ordered_log" => effect.op.op_type == LatticeOpType::Append,
+            "or_set" => matches!(
+                effect.op.op_type,
+                LatticeOpType::Add | LatticeOpType::Remove
+            ),
+            "counter" => matches!(effect.op.op_type, LatticeOpType::Inc | LatticeOpType::Dec),
+            _ => false,
+        };
+        if !valid_kind {
+            return Err(EventCellContractError::OperationMismatch {
+                kind: kind.clone(),
+                expected: (*lattice).to_owned(),
+                actual: format!("{:?}", effect.op.op_type).to_lowercase(),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn condition_matches(
+    event: &Event,
+    condition: Option<&Value>,
+    kind: &str,
+) -> Result<bool, EventCellContractError> {
+    let Some(condition) = condition else {
+        return Ok(true);
+    };
+    let condition_type = condition
+        .get("type")
+        .and_then(Value::as_str)
+        .ok_or_else(|| effect_set_error(kind, "condition omits type"))?;
+    let present = |path: &str| field_value(event, path).is_some_and(|value| !value.is_null());
+    match condition_type {
+        "field_present" => condition
+            .get("field")
+            .and_then(Value::as_str)
+            .map(present)
+            .ok_or_else(|| effect_set_error(kind, "field_present omits field")),
+        "field_absent" => condition
+            .get("field")
+            .and_then(Value::as_str)
+            .map(|path| !present(path))
+            .ok_or_else(|| effect_set_error(kind, "field_absent omits field")),
+        "field_equals" => {
+            let path = condition
+                .get("field")
+                .and_then(Value::as_str)
+                .ok_or_else(|| effect_set_error(kind, "field_equals omits field"))?;
+            let expected = condition
+                .get("const")
+                .ok_or_else(|| effect_set_error(kind, "field_equals omits const"))?;
+            if !matches!(
+                expected,
+                Value::String(_) | Value::Number(_) | Value::Bool(_)
+            ) {
+                return Err(effect_set_error(
+                    kind,
+                    "field_equals const must be a string, number, or boolean",
+                ));
+            }
+            Ok(field_value(event, path) == Some(expected))
+        }
+        "any_field_present" => {
+            let fields = condition
+                .get("fields")
+                .and_then(Value::as_array)
+                .ok_or_else(|| effect_set_error(kind, "any_field_present omits fields"))?;
+            if fields.len() < 2 || fields.iter().any(|field| field.as_str().is_none()) {
+                return Err(effect_set_error(
+                    kind,
+                    "any_field_present requires at least two string fields",
+                ));
+            }
+            Ok(fields.iter().filter_map(Value::as_str).any(present))
+        }
+        other => Err(effect_set_error(
+            kind,
+            &format!("unknown condition type {other}"),
+        )),
+    }
+}
+
+fn effect_set_error(kind: &str, message: &str) -> EventCellContractError {
+    EventCellContractError::EffectSetMismatch {
+        kind: kind.to_owned(),
+        message: message.to_owned(),
     }
 }
 
@@ -221,7 +416,10 @@ fn derive_value_projection(
         }
     })?;
     if rule.get("type").and_then(Value::as_str) != Some("object") {
-        return Err(projection_error(&kind, "value projection type must be object"));
+        return Err(projection_error(
+            &kind,
+            "value projection type must be object",
+        ));
     }
     let members = rule
         .get("members")
@@ -260,7 +458,10 @@ fn derive_value_projection(
             // Absent optional members are omitted, never written as null.
             None if optional => continue,
             None => {
-                return Err(projection_error(&kind, &format!("member {name} is missing")));
+                return Err(projection_error(
+                    &kind,
+                    &format!("member {name} is missing"),
+                ));
             }
             Some(value) => {
                 projected.insert(name.to_owned(), value);
@@ -311,7 +512,10 @@ fn member_digest(
         other => {
             return Err(projection_error(
                 kind,
-                &format!("unsupported digest_of input {}", other.unwrap_or("<missing>")),
+                &format!(
+                    "unsupported digest_of input {}",
+                    other.unwrap_or("<missing>")
+                ),
             ));
         }
     };
@@ -366,7 +570,12 @@ fn derive_subject(
 ) -> Result<String, EventCellContractError> {
     let kind = event.kind.as_str().to_owned();
     let Some(rule_json) = rule_json else {
-        return Ok(event.realm_id.as_str().to_owned());
+        // `cell_subject: null` is a per-Realm singleton located by the Event
+        // envelope `realm_id`. Its canonical wire subject segment is the literal
+        // ASCII string `null` (`conformance/encoding.md` section 4). Encoding the
+        // Realm id here instead would fork the `state_root` leaf set and leaf
+        // order against any implementation that follows the spec.
+        return Ok(NULL_CELL_SUBJECT.to_owned());
     };
     let rule: Value = serde_json::from_str(rule_json).map_err(|error| {
         EventCellContractError::SubjectDerivation {
@@ -405,8 +614,14 @@ fn derive_subject(
                 .and_then(Value::as_array)
                 .ok_or_else(|| subject_error(&kind, "coalesce fields are missing"))?;
             for field in fields {
-                if let Some(value) = field.as_str().and_then(|path| field_value(event, path)) {
+                let Some(path) = field.as_str() else {
+                    continue;
+                };
+                if let Some(value) = field_value(event, path) {
                     return scalar_subject(value).map_err(|message| subject_error(&kind, &message));
+                }
+                if let Some(value) = envelope_field(event, path) {
+                    return Ok(value);
                 }
             }
             Err(subject_error(&kind, "no coalesce field is present"))
@@ -416,9 +631,11 @@ fn derive_subject(
                 .get("field")
                 .and_then(Value::as_str)
                 .ok_or_else(|| subject_error(&kind, "cell subject field is missing"))?;
-            let value = field_value(event, path)
-                .ok_or_else(|| subject_error(&kind, &format!("{path} is missing")))?;
-            scalar_subject(value).map_err(|message| subject_error(&kind, &message))
+            if let Some(value) = field_value(event, path) {
+                return scalar_subject(value).map_err(|message| subject_error(&kind, &message));
+            }
+            envelope_field(event, path)
+                .ok_or_else(|| subject_error(&kind, &format!("{path} is missing")))
         }
     }
 }
@@ -472,7 +689,10 @@ fn select_field_path(
     kind: &str,
 ) -> Result<String, EventCellContractError> {
     if component.get("type").and_then(Value::as_str) != Some("select") {
-        return Err(subject_error(kind, "composite component has an unknown type"));
+        return Err(subject_error(
+            kind,
+            "composite component has an unknown type",
+        ));
     }
     let selector = component
         .get("selector")
@@ -486,7 +706,10 @@ fn select_field_path(
         .and_then(Value::as_str)
         .ok_or_else(|| subject_error(kind, &format!("selector {selector} is missing")))?;
     let branch = branches.get(discriminator).ok_or_else(|| {
-        subject_error(kind, &format!("selector {selector} has no registered branch"))
+        subject_error(
+            kind,
+            &format!("selector {selector} has no registered branch"),
+        )
     })?;
     let selected = branch
         .get("field")
@@ -526,6 +749,26 @@ fn field_value<'a>(event: &'a Event, path: &str) -> Option<&'a Value> {
     Some(current)
 }
 
+/// Resolve a **non-composite** subject path that names an Event Envelope field.
+///
+/// `event-and-patch.md` section 2.4.2 derives a cell subject from "the Event
+/// Envelope and payload", and `ak.invite.accept` relies on that: its
+/// `ak.component.member.state.v1` subject is the envelope `actor_id`, the
+/// invitee who submitted the acceptance. `encoding.md` section 9.5.1 keeps
+/// *composite* components narrower (effect value / payload fields only), so this
+/// resolver is deliberately reachable only from the non-composite paths.
+///
+/// The set is closed: an unlisted bare path stays unresolved and the caller
+/// fails the derivation closed rather than guessing.
+fn envelope_field(event: &Event, path: &str) -> Option<String> {
+    match path {
+        "actor_id" => Some(event.actor_id.as_str().to_owned()),
+        "event_id" => Some(event.event_id.to_string()),
+        "realm_id" => Some(event.realm_id.as_str().to_owned()),
+        _ => None,
+    }
+}
+
 fn scalar_subject(value: &Value) -> Result<String, String> {
     match value {
         Value::String(value) => Ok(value.clone()),
@@ -561,7 +804,7 @@ mod tests {
             "prev_refs": [],
             "preconditions": [],
             "effects": [{
-                "cell": format!("ak:cell:{family}:ak:realm:019f9000-0000-7000-8000-000000000002"),
+                "cell": format!("ak:cell:{family}:null"),
                 "op": {"kind": "set", "value": value}
             }],
             "seal_basis": {
@@ -632,11 +875,13 @@ mod tests {
             arkret_canonical::DigestSuite::Sha256,
         )
         .unwrap();
-        event.effects = vec![serde_json::from_value(json!({
-            "cell": format!("ak:cell:{family}:{subject}"),
-            "op": {"kind": "append", "issuer_seq": 0, "value": value}
-        }))
-        .unwrap()];
+        event.effects = vec![
+            serde_json::from_value(json!({
+                "cell": format!("ak:cell:{family}:{subject}"),
+                "op": {"kind": "append", "issuer_seq": 0, "value": value}
+            }))
+            .unwrap(),
+        ];
         event
     }
 
@@ -647,6 +892,171 @@ mod tests {
             arkret_canonical::DigestSuite::Sha256,
         )
         .unwrap();
+    }
+
+    fn invite_create_event(invitee: Option<&str>) -> Event {
+        let mut payload = json!({
+            "invite_id": "ak:invite:019f9000-0000-7000-8000-000000000010"
+        });
+        if let Some(invitee) = invitee {
+            payload["invitee"] = json!(invitee);
+        }
+        let mut effects = vec![json!({
+            "cell": "ak:cell:ak.component.invite.lifecycle.v1:ak:invite:019f9000-0000-7000-8000-000000000010",
+            "op": {"kind": "transition", "from": null, "to": "pending"}
+        })];
+        if let Some(invitee) = invitee {
+            effects.push(json!({
+                "cell": format!("ak:cell:ak.component.member.state.v1:{invitee}"),
+                "op": {"kind": "transition", "from": "leave", "to": "invite"}
+            }));
+        }
+        serde_json::from_value(json!({
+            "event_id": "ak:event:019f9000-0000-7000-8000-000000000011",
+            "kind": EventKind::INVITE_CREATE,
+            "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002",
+            "actor_id": "did:webvh:z6mkfixture:alice.example",
+            "actor_seq": 4,
+            "created_at": "2026-07-26T00:00:00.000Z",
+            "hlc": "019f90000000-0000-aabbccdd",
+            "prev_refs": [],
+            "effects": effects,
+            "payload": payload,
+            "proofs": []
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn conditional_invite_member_target_is_exact() {
+        let directed = invite_create_event(Some("did:webvh:z6mkfixture:bob.example"));
+        validate_registered_cell_writes(&directed).unwrap();
+
+        let mut missing_member = directed;
+        missing_member.effects.pop();
+        assert!(matches!(
+            validate_registered_cell_writes(&missing_member),
+            Err(EventCellContractError::EffectSetMismatch { .. })
+        ));
+
+        let third_party = invite_create_event(None);
+        validate_registered_cell_writes(&third_party).unwrap();
+    }
+
+    fn call_event(kind: &str, payload: Value, effects: Vec<Value>) -> Event {
+        serde_json::from_value(json!({
+            "event_id": "ak:event:019f9000-0000-7000-8000-000000000021",
+            "kind": kind,
+            "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002",
+            "actor_id": "did:webvh:z6mkfixture:alice.example",
+            "actor_seq": 5,
+            "created_at": "2026-07-26T00:00:00.000Z",
+            "hlc": "019f90000000-0000-aabbccdd",
+            "prev_refs": [],
+            "effects": effects,
+            "payload": payload,
+            "proofs": []
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn conditional_call_axis_targets_are_exact() {
+        let call_id = "ak:call:019f9000-0000-7000-8000-000000000022";
+        let effects = vec![
+            json!({
+                "cell": format!("ak:cell:ak.component.call.state.v1:{call_id}"),
+                "op": {"kind": "transition", "from": "ringing", "to": "active"}
+            }),
+            json!({
+                "cell": format!("ak:cell:ak.component.call.focus.v1:{call_id}"),
+                "op": {"kind": "set", "value": {"mode": "sfu", "session_focus": "fra-1"}}
+            }),
+            json!({
+                "cell": format!("ak:cell:ak.component.call.roster.v1:{call_id}"),
+                "op": {"kind": "add", "tag": "alice-device", "value": {"actor_id": "did:webvh:z6mkfixture:alice.example"}}
+            }),
+        ];
+        let event = call_event(
+            EventKind::CALL_STATE,
+            json!({
+                "call_id": call_id,
+                "state": "active",
+                "mode": "sfu",
+                "session_focus": "fra-1",
+                "participants": [{
+                    "actor_id": "did:webvh:z6mkfixture:alice.example",
+                    "device_id": "ak:device:019f9000-0000-7000-8000-000000000023"
+                }]
+            }),
+            effects,
+        );
+        validate_registered_cell_writes(&event).unwrap();
+
+        let mut missing_roster = event.clone();
+        missing_roster.effects.pop();
+        assert!(matches!(
+            validate_registered_cell_writes(&missing_roster),
+            Err(EventCellContractError::EffectSetMismatch { .. })
+        ));
+
+        let recording_id = "ak:recording:019f9000-0000-7000-8000-000000000024";
+        let recording_subject = arkret_wire::composite_subject(&[call_id, recording_id]).unwrap();
+        let mut inactive_recording = event;
+        inactive_recording.effects.push(
+            serde_json::from_value(json!({
+                "cell": format!("ak:cell:ak.component.call.recording.v1:{recording_subject}"),
+                "op": {"kind": "transition", "from": "recording", "to": "ready"}
+            }))
+            .unwrap(),
+        );
+        assert!(matches!(
+            validate_registered_cell_writes(&inactive_recording),
+            Err(EventCellContractError::EffectSetMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn capture_kind_selects_exactly_one_capture_family() {
+        let call_id = "ak:call:019f9000-0000-7000-8000-000000000031";
+        let recording_id = "ak:recording:019f9000-0000-7000-8000-000000000032";
+        let subject = arkret_wire::composite_subject(&[call_id, recording_id]).unwrap();
+        let recording = call_event(
+            EventKind::CALL_RECORDING_START,
+            json!({
+                "call_id": call_id,
+                "recording_id": recording_id,
+                "capture_kind": "recording"
+            }),
+            vec![json!({
+                "cell": format!("ak:cell:ak.component.call.recording.v1:{subject}"),
+                "op": {"kind": "transition", "from": null, "to": "recording"}
+            })],
+        );
+        validate_registered_cell_writes(&recording).unwrap();
+
+        let transcript = call_event(
+            EventKind::CALL_RECORDING_START,
+            json!({
+                "call_id": call_id,
+                "recording_id": recording_id,
+                "capture_kind": "transcript"
+            }),
+            vec![json!({
+                "cell": format!("ak:cell:ak.component.call.transcript.v1:{subject}"),
+                "op": {"kind": "transition", "from": null, "to": "transcribing"}
+            })],
+        );
+        validate_registered_cell_writes(&transcript).unwrap();
+
+        let mut wrong_family = transcript;
+        wrong_family.effects[0].cell =
+            arkret_wire::CellRef::new(format!("ak:cell:ak.component.call.recording.v1:{subject}"))
+                .unwrap();
+        assert!(matches!(
+            validate_registered_cell_writes(&wrong_family),
+            Err(EventCellContractError::EffectSetMismatch { .. })
+        ));
     }
 
     #[test]
@@ -696,8 +1106,7 @@ mod tests {
         let descriptor = event.kind.descriptor().unwrap();
         let subject = derive_subject(&event, descriptor.cell_subject_rule).unwrap();
         let family = descriptor.cell_family.unwrap();
-        let value =
-            derive_value_projection(
+        let value = derive_value_projection(
             &event,
             descriptor.value_projection_rule.unwrap(),
             arkret_canonical::DigestSuite::Sha256,
@@ -708,11 +1117,13 @@ mod tests {
             json!("ak:circle:019f9000-0000-7000-8000-000000000007"),
             "circle branch must project the circle id"
         );
-        event.effects = vec![serde_json::from_value(json!({
-            "cell": format!("ak:cell:{family}:{subject}"),
-            "op": {"kind": "append", "issuer_seq": 0, "value": value}
-        }))
-        .unwrap()];
+        event.effects = vec![
+            serde_json::from_value(json!({
+                "cell": format!("ak:cell:{family}:{subject}"),
+                "op": {"kind": "append", "issuer_seq": 0, "value": value}
+            }))
+            .unwrap(),
+        ];
         validate_single_target_append_event_contract(&event, arkret_canonical::DigestSuite::Sha256)
             .unwrap();
 
@@ -726,10 +1137,9 @@ mod tests {
     #[test]
     fn delivery_subject_rejects_cross_carried_branch_field() {
         let mut event = delivery_share_event();
-        event.payload.insert(
-            "recovery_recipient_id".to_owned(),
-            json!("rr-1"),
-        );
+        event
+            .payload
+            .insert("recovery_recipient_id".to_owned(), json!("rr-1"));
         let rule = event.kind.descriptor().unwrap().cell_subject_rule;
         let error = derive_subject(&event, rule).unwrap_err();
         assert!(
@@ -763,7 +1173,10 @@ mod tests {
             .unwrap()
             .insert("delivery_outcome".to_owned(), json!("withheld"));
         assert!(matches!(
-            validate_single_target_append_event_contract(&event, arkret_canonical::DigestSuite::Sha256),
+            validate_single_target_append_event_contract(
+                &event,
+                arkret_canonical::DigestSuite::Sha256
+            ),
             Err(EventCellContractError::PayloadMismatch { .. })
         ));
     }
@@ -785,22 +1198,17 @@ mod tests {
         let baseline = derive_value_projection(&base, rule, suite).unwrap();
 
         let mutations: [(&str, fn(&mut Event)); 4] = [
-            (
-                "expires_at",
-                |event: &mut Event| {
-                    event
-                        .payload
-                        .insert("expires_at".to_owned(), json!("2026-08-01T00:00:00.000Z"));
-                },
-            ),
-            (
-                "aad_digest",
-                |event: &mut Event| {
-                    event
-                        .payload
-                        .insert("aad_digest".to_owned(), json!(format!("sha256:{}", "cc".repeat(32))));
-                },
-            ),
+            ("expires_at", |event: &mut Event| {
+                event
+                    .payload
+                    .insert("expires_at".to_owned(), json!("2026-08-01T00:00:00.000Z"));
+            }),
+            ("aad_digest", |event: &mut Event| {
+                event.payload.insert(
+                    "aad_digest".to_owned(),
+                    json!(format!("sha256:{}", "cc".repeat(32))),
+                );
+            }),
             (
                 "key_scope.membership_frontier_digest",
                 |event: &mut Event| {
@@ -816,12 +1224,11 @@ mod tests {
                         );
                 },
             ),
-            (
-                "ciphertext",
-                |event: &mut Event| {
-                    event.payload.insert("ciphertext".to_owned(), json!("b3RoZXI"));
-                },
-            ),
+            ("ciphertext", |event: &mut Event| {
+                event
+                    .payload
+                    .insert("ciphertext".to_owned(), json!("b3RoZXI"));
+            }),
         ];
         for (label, mutate) in mutations {
             let mut mutated = base.clone();
@@ -844,8 +1251,12 @@ mod tests {
             .payload
             .insert("ciphertext".to_owned(), json!("b3RoZXI"));
         let rule = second.kind.descriptor().unwrap().value_projection_rule;
-        let second_value = derive_value_projection(&second, rule.unwrap(), arkret_canonical::DigestSuite::Sha256)
-            .unwrap();
+        let second_value = derive_value_projection(
+            &second,
+            rule.unwrap(),
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
         assert_ne!(first.effects[0].op.value.as_ref().unwrap(), &second_value);
 
         // The commitment is over the complete canonical signed payload.
@@ -894,10 +1305,17 @@ mod tests {
     #[test]
     fn delivery_append_omits_absent_optional_members() {
         let mut event = delivery_share_event();
-        event.payload.get_mut("key_scope").unwrap().as_object_mut().unwrap().remove("to_epoch");
+        event
+            .payload
+            .get_mut("key_scope")
+            .unwrap()
+            .as_object_mut()
+            .unwrap()
+            .remove("to_epoch");
         let rule = event.kind.descriptor().unwrap().value_projection_rule;
-        let value = derive_value_projection(&event, rule.unwrap(), arkret_canonical::DigestSuite::Sha256)
-            .unwrap();
+        let value =
+            derive_value_projection(&event, rule.unwrap(), arkret_canonical::DigestSuite::Sha256)
+                .unwrap();
         let object = value.as_object().unwrap();
         assert!(object.contains_key("from_epoch"));
         assert!(
@@ -914,9 +1332,12 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            validate_single_target_append_event_contract(&event, arkret_canonical::DigestSuite::Sha256)
-                .unwrap_err()
-                .reason_code(),
+            validate_single_target_append_event_contract(
+                &event,
+                arkret_canonical::DigestSuite::Sha256
+            )
+            .unwrap_err()
+            .reason_code(),
             "effects_payload_mismatch"
         );
     }
@@ -940,17 +1361,13 @@ mod tests {
             json!({"value": "listed"}),
             json!("listed"),
         );
-        event.effects[0].cell = arkret_wire::CellRef::new(
-            "ak:cell:ak.component.realm.join_rule.v1:ak:realm:019f9000-0000-7000-8000-000000000002",
-        )
-        .unwrap();
+        event.effects[0].cell =
+            arkret_wire::CellRef::new("ak:cell:ak.component.realm.join_rule.v1:null").unwrap();
         let error = validate_single_target_set_event_contract(&event).unwrap_err();
         assert_eq!(error.reason_code(), "effects_payload_mismatch");
 
-        event.effects[0].cell = arkret_wire::CellRef::new(
-            "ak:cell:ak.component.realm.discovery.v1:ak:realm:019f9000-0000-7000-8000-000000000002",
-        )
-        .unwrap();
+        event.effects[0].cell =
+            arkret_wire::CellRef::new("ak:cell:ak.component.realm.discovery.v1:null").unwrap();
         event.effects[0].op.value = Some(json!("secret"));
         assert!(matches!(
             validate_single_target_set_event_contract(&event),

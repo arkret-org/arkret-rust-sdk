@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/proof-context-registry.json; version=2026-07-24;
-//! sha256=b62682537b1d3c95fd31b77cdb80eecd30907d16306273b691a5b40001439a97 Input: registry/
+//! sha256=d71a8870ee8bd1c29fdb831d7f4783c1a4ad4e533a3f023add06ea9a6298f3a1 Input: registry/
 //! exporter-label-registry.json; version=2026-06-10;
 //! sha256=7d67b5d14ab81711347af19f9f1759d9ee35dd1f15d96c92ed02fd6b27847d76 Input: registry/
 //! digest-suite-registry.json; version=2026-06-10;
@@ -14,7 +14,7 @@
 //! sha256=a480b2b689250123d2cc22e004bc376cb8080d9f6bf1500886271ff30b5a6ad6 Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
 //! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
-//! Entries: proof_contexts=27, exporter_labels=8, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=28, exporter_labels=8, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -44,6 +44,7 @@ pub enum ProofContextId {
     PrincipalLocatorProofV1,
     RangeCompletenessAttestationProofV1,
     RealmJoinCandidateProofV1,
+    RealmKeyShareSenderProofV1,
     ReceiptProofV1,
     ServiceRegistrationReceiptProofV1,
     SnapshotProofV1,
@@ -75,6 +76,7 @@ impl ProofContextId {
         Self::PrincipalLocatorProofV1,
         Self::RangeCompletenessAttestationProofV1,
         Self::RealmJoinCandidateProofV1,
+        Self::RealmKeyShareSenderProofV1,
         Self::ReceiptProofV1,
         Self::ServiceRegistrationReceiptProofV1,
         Self::SnapshotProofV1,
@@ -112,6 +114,7 @@ impl ProofContextId {
     pub const RANGE_COMPLETENESS_ATTESTATION_PROOF_V1: &'static str =
         "ak.range-completeness-attestation-proof-v1";
     pub const REALM_JOIN_CANDIDATE_PROOF_V1: &'static str = "ak.realm-join-candidate-proof-v1";
+    pub const REALM_KEY_SHARE_SENDER_PROOF_V1: &'static str = "ak.realm-key-share-sender-proof-v1";
     pub const RECEIPT_PROOF_V1: &'static str = "ak.receipt-proof-v1";
     pub const SERVICE_REGISTRATION_RECEIPT_PROOF_V1: &'static str =
         "ak.service-registration-receipt-proof-v1";
@@ -155,6 +158,7 @@ impl ProofContextId {
                 "ak.range-completeness-attestation-proof-v1"
             }
             Self::RealmJoinCandidateProofV1 => "ak.realm-join-candidate-proof-v1",
+            Self::RealmKeyShareSenderProofV1 => "ak.realm-key-share-sender-proof-v1",
             Self::ReceiptProofV1 => "ak.receipt-proof-v1",
             Self::ServiceRegistrationReceiptProofV1 => "ak.service-registration-receipt-proof-v1",
             Self::SnapshotProofV1 => "ak.snapshot-proof-v1",
@@ -199,6 +203,7 @@ impl ProofContextId {
                 Some(Self::RangeCompletenessAttestationProofV1)
             }
             "ak.realm-join-candidate-proof-v1" => Some(Self::RealmJoinCandidateProofV1),
+            "ak.realm-key-share-sender-proof-v1" => Some(Self::RealmKeyShareSenderProofV1),
             "ak.receipt-proof-v1" => Some(Self::ReceiptProofV1),
             "ak.service-registration-receipt-proof-v1" => {
                 Some(Self::ServiceRegistrationReceiptProofV1)
@@ -660,6 +665,27 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/realm-join-candidate.schema.json",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::RealmKeyShareSenderProofV1,
+        context: "ak.realm-key-share-sender-proof-v1",
+        object_family: "realm_key_share_sender_transcript",
+        binding_fields: &[
+            "share_class",
+            "sender_device_id",
+            "source_authorization_ref",
+            "recipient_principal_id",
+            "recipient_device_id?",
+            "recipient_verification_method?",
+            "recovery_recipient_id?",
+            "key_scope",
+            "ciphertext?",
+            "encrypted_key_ref?",
+            "aad_digest?",
+            "expires_at?",
+            "created_at",
+        ],
+        schema_ref: "schemas/event-payload.schema.json#/$defs/realm_key_share_payload",
     },
     ProofContextDescriptor {
         id: ProofContextId::ReceiptProofV1,

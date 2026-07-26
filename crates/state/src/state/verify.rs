@@ -136,7 +136,7 @@ where
             let binding = registry
                 .resolve(&m.realm_id, &pre.cell)
                 .map_err(|e| MoveReject::Registry(e.to_string()))?;
-            if binding.bottom_mode == BottomMode::Reject {
+            if binding.bottom_mode != BottomMode::Expose {
                 return Err(MoveReject::FailedBottom {
                     cell: pre.cell.as_str().to_owned(),
                     kind: b.kind,
@@ -708,6 +708,46 @@ mod tests {
         };
         let m = build_move(vec![pre], vec![eff]);
         let err = verify_move(&m, &pre_state, &MemoryCellRegistry::new(), ok_jws).unwrap_err();
+        assert!(matches!(err, MoveReject::FailedBottom { .. }));
+    }
+
+    #[test]
+    fn bottom_inert_cell_fails_closed_when_used_as_a_precondition() {
+        let bottom = crate::Bottom::new(BottomKind::Conflict, vec![cell_member()]);
+        let mut pre_state = BTreeMap::new();
+        pre_state.insert(cell_member(), CellState::Bottom(bottom));
+
+        let pre = Precondition {
+            cell: cell_member(),
+            predicate: Predicate {
+                op: PredicateOp::HeadEq,
+                value: Some(json!("anything")),
+                values: None,
+                predicate_id: None,
+            },
+        };
+        let eff = Effect {
+            cell: cell_member(),
+            op: LatticeOp {
+                op_type: LatticeOpType::Transition,
+                tag: None,
+                value: None,
+                from: Some(json!("invited")),
+                to: Some(json!("join")),
+                reason: None,
+                issuer_seq: None,
+            },
+        };
+        let m = build_move(vec![pre], vec![eff]);
+        let mut registry = MemoryCellRegistry::new();
+        registry.register_fsm(
+            "ak.component.member.state.v1",
+            Some(json!("invited")),
+            vec![(json!("invited"), json!("join"))],
+            BottomMode::Inert,
+        );
+
+        let err = verify_move(&m, &pre_state, &registry, ok_jws).unwrap_err();
         assert!(matches!(err, MoveReject::FailedBottom { .. }));
     }
 

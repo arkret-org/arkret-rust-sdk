@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=1f540293c7faa0107fd5478729a3d45209cad43c1fd4e91d158024185b7badf1
+//! sha256=fbd9f6c80579f2d10eec545b938c1111990cfd743751a2ba27e85450697ce540
 //! Entries: reason_codes=421
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2666,7 +2666,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "durability_recovery_recipient_unverified",
         applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition when an RRK durability seal cannot resolve a durability_policy.recovery_recipients[].verification_method to a verification method designated by an active ArkretRealmHistoryRecoveryKey service entry published by the named principal_id. The sealer MUST fail closed and MUST NOT fall back to any other key. See zh/crypto-media/encryption-and-audit.md §2.10.8 and zh/identity/identity-did.md §8.3.",
+        description: "Sub-reason for failed_precondition on an unverifiable RRK durability recovery recipient, on either side. Sealer side: the sealer cannot resolve a durability_policy.recovery_recipients[].verification_method to a verification method designated by an active ArkretRealmHistoryRecoveryKey service entry published by the named principal_id; it MUST fail closed and MUST NOT fall back to any other key. Receiver side: replaying a historical RRK ak.realm_key.share, either the accepted-at point-in-time DID resolution does not yield that verification method as active, or the payload triple (recovery_recipient_id, recipient_principal_id, recipient_verification_method) has no unique field-for-field match in the durability_policy.recovery_recipients[] effective on the CBA/policy basis pinned by the Event seal_ref. Receivers MUST NOT substitute the receive-time DID document or the receive-time policy. See zh/crypto-media/encryption-and-audit.md §2.10.8 and zh/identity/identity-did.md §8.3.",
     },
     ReasonCodeDescriptor {
         code: "durability_scheme_incompatible",
@@ -3035,7 +3035,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "late_recovery_share_not_authorized",
         applies_to: &["audit_decision"],
-        description: "A key backup / archive node / peer share refused to deliver late key material because, on re-running the T₀ membership + policy check before sending, the current share policy no longer permits delivery to the requesting device (distinct from late_recovery_rejected_membership, which is the receiver-side T₀ non-membership case). See zh/crypto-media/encryption-and-audit.md §2.3.5.",
+        description: "A key share or withheld decision is not covered by a verifiable source authorization. Covers three fail-closed cases. (a) A key backup / archive node / peer refused to deliver late key material because, on re-running the T₀ membership + policy check before sending, the current share policy no longer permits delivery to the requesting device (distinct from late_recovery_rejected_membership, which is the receiver-side T₀ non-membership case). (b) An ak.realm_key.share whose source_authorization_ref is missing or does not cover (source principal/device, recipient principal/device, key_scope, share_class) at the Event CBA basis; this includes an RRK-holder re-share whose source principal is not the active RecoveryRecipient, whose signer is not a real accepted undertaken device of that principal, or whose reference does not satisfy the effective history-sharing policy for the recovery_service key source. (c) An ak.realm_key.withheld whose required source_authorization_ref is missing or does not cover the refusal decision; an unauthorized withheld MUST NOT be projected as a terminal state. See zh/crypto-media/encryption-and-audit.md §2.3.5 / §2.10.8 and zh/crypto-media/device-lifecycle.md §13.",
     },
     ReasonCodeDescriptor {
         code: "legal_hold_active",

@@ -47,7 +47,8 @@ pub fn build_cross_signing_publish_event_at(
             from: None,
             to: None,
             reason: None,
-            issuer_seq: Some(actor_seq),
+            // CAS registers have no ordered-log issuer slot.
+            issuer_seq: None,
         },
     }];
     Ok(event)
@@ -86,7 +87,8 @@ pub fn build_device_authorize_event_at(
             from: None,
             to: None,
             reason: None,
-            issuer_seq: Some(actor_seq),
+            // OR-set identity is carried by `tag`, not `issuer_seq`.
+            issuer_seq: None,
         },
     }];
     Ok(event)
@@ -163,6 +165,7 @@ mod tests {
         .unwrap();
         assert_eq!(publish_event.effects.len(), 1);
         assert_eq!(publish_event.effects[0].op.op_type, LatticeOpType::Set);
+        assert_eq!(publish_event.effects[0].op.issuer_seq, None);
         assert!(
             publish_event.effects[0]
                 .cell
@@ -211,6 +214,7 @@ mod tests {
         .unwrap();
         assert_eq!(authorize_event.effects.len(), 1);
         assert_eq!(authorize_event.effects[0].op.op_type, LatticeOpType::Add);
+        assert_eq!(authorize_event.effects[0].op.issuer_seq, None);
         assert_eq!(
             authorize_event.effects[0].op.tag.as_deref(),
             Some(device_id.as_str())

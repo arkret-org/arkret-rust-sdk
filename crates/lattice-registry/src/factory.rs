@@ -28,6 +28,8 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(AgentKey);
     registry.register(CoveredSeals);
     registry.register(KeyBackupActiveSeries);
+    registry.register(CallModeration);
+    registry.register(CallRoster);
 
     // CasRegister
     registry.register(CircleTombstone);
@@ -40,6 +42,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(NotaryCell);
     registry.register(MlsEpoch);
     registry.register(CallSummary);
+    registry.register(CallFocus);
 
     // Fsm
     registry.register(MemberState);
@@ -47,11 +50,14 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(AuditBinding);
     registry.register(AuditSession);
     registry.register(CallState);
+    registry.register(CallRecording);
+    registry.register(CallTranscript);
     registry.register(RealmLink);
 
     // OrderedLog
     registry.register(AuditRelease);
     registry.register(CircleCreate);
+    registry.register(SidecarCreate);
     registry.register(SpaceParent);
     registry.register(AccountStatus);
     registry.register(PolicyRule);
@@ -68,6 +74,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(MimiRoomBinding);
 
     registry.register(RealmPolicy);
+    registry.register(RealmMetadata);
     registry.register(RealmReadReceiptPolicy);
     registry.register(RealmHistoryVisibility);
     registry.register(RealmJoinRule);
@@ -119,6 +126,8 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ak.component.agent.key.v1",
         "ak.component.covered_seals.v1",
         "ak.component.key_backup.active_series.v1",
+        "ak.component.call.moderation.v1",
+        "ak.component.call.roster.v1",
         // CasRegister
         "ak.component.circle.tombstone.v1",
         "ak.component.circle.member.v1",
@@ -130,16 +139,20 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ak.component.notary.v1",
         "ak.component.mls.epoch.v1",
         "ak.component.call.summary.v1",
+        "ak.component.call.focus.v1",
         // Fsm
         "ak.component.member.state.v1",
         "ak.component.agent.status.v1",
         "ak.component.audit.binding.v1",
         "ak.component.audit.session.v1",
         "ak.component.call.state.v1",
+        "ak.component.call.recording.v1",
+        "ak.component.call.transcript.v1",
         "ak.component.realm.link.v1",
         // OrderedLog
         "ak.component.audit.release.v1",
         "ak.component.circle.create.v1",
+        "ak.component.sidecar.create.v1",
         "ak.component.space.parent.v1",
         "ak.component.account.status.v1",
         "ak.component.policy.rule.v1",
@@ -179,6 +192,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ak.component.realm.inheritance_policy.v1",
         "ak.component.realm.upgrade.v1",
         "ak.component.realm.create.v1",
+        "ak.component.realm.metadata.v1",
         "ak.component.strand.object.v1",
         "ak.component.strand.metadata.v1",
         "ak.component.strand.tracks.v1",
@@ -268,6 +282,30 @@ pub fn build_sdk_cell_registry() -> MemoryCellRegistry {
             (json!("connecting"), json!("ended")),
             (json!("active"), json!("ended")),
             (json!("active"), json!("failed")),
+        ],
+        BottomMode::Reject,
+    );
+    sdk_registry.register_fsm(
+        "ak.component.call.recording.v1",
+        Some(json!(null)),
+        vec![
+            (json!(null), json!("recording")),
+            (json!("recording"), json!("stopped")),
+            (json!("recording"), json!("ready")),
+            (json!("recording"), json!("failed")),
+            (json!("stopped"), json!("ready")),
+        ],
+        BottomMode::Reject,
+    );
+    sdk_registry.register_fsm(
+        "ak.component.call.transcript.v1",
+        Some(json!(null)),
+        vec![
+            (json!(null), json!("transcribing")),
+            (json!("transcribing"), json!("stopped")),
+            (json!("transcribing"), json!("ready")),
+            (json!("transcribing"), json!("failed")),
+            (json!("stopped"), json!("ready")),
         ],
         BottomMode::Reject,
     );

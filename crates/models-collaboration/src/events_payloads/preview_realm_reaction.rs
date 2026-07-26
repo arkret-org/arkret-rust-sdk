@@ -685,9 +685,7 @@ struct RealmKeySharePayloadWire {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
     )]
     expires_at: Option<DateTime<Utc>>,
-    #[serde(
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     created_at: DateTime<Utc>,
 }
 
@@ -1250,11 +1248,9 @@ mod realm_key_share_tests {
     fn member(extra: Value) -> Value {
         let mut value = wire("member_device", extra);
         let object = value.as_object_mut().unwrap();
-        object
-            .entry("recipient_device_id")
-            .or_insert_with(|| Value::String(
-                "ak:device:019f9000-0000-7000-8000-000000000003".to_owned(),
-            ));
+        object.entry("recipient_device_id").or_insert_with(|| {
+            Value::String("ak:device:019f9000-0000-7000-8000-000000000003".to_owned())
+        });
         object
             .entry("ciphertext")
             .or_insert_with(|| Value::String("Y2lwaGVy".to_owned()));
@@ -1331,7 +1327,10 @@ mod realm_key_share_tests {
             "aad_digest",
             "expires_at",
         ] {
-            assert!(!object.contains_key(absent), "{absent} must be omitted, not null");
+            assert!(
+                !object.contains_key(absent),
+                "{absent} must be omitted, not null"
+            );
         }
         assert!(object.contains_key("ciphertext"));
         assert!(object.contains_key("created_at"));
@@ -1340,8 +1339,10 @@ mod realm_key_share_tests {
     #[test]
     fn transcript_covers_expires_at_when_present() {
         let without = parse(member(serde_json::json!({}))).unwrap();
-        let with = parse(member(serde_json::json!({"expires_at": "2026-07-27T00:00:00.000Z"})))
-            .unwrap();
+        let with = parse(member(
+            serde_json::json!({"expires_at": "2026-07-27T00:00:00.000Z"}),
+        ))
+        .unwrap();
         assert_ne!(
             without.sender_signing_input().unwrap(),
             with.sender_signing_input().unwrap(),

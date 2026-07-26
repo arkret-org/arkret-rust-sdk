@@ -41,10 +41,13 @@ pub struct ComponentDescriptor {
 /// - `Expose`: callers are expected to render the multi-value set directly (e.g. UI shows "two
 ///   concurrent edits, please reconcile" rather than blocking). Suitable for advisory cells (Strand
 ///   titles, user profile fields).
+/// - `Inert`: the lattice's join cannot produce Bottom. If a stored Bottom is nevertheless
+///   observed, it represents an implementation invariant failure and is handled fail-closed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BottomPolicy {
     Reject,
     Expose,
+    Inert,
 }
 
 impl BottomPolicy {
@@ -52,6 +55,7 @@ impl BottomPolicy {
         match self {
             Self::Reject => "reject",
             Self::Expose => "expose",
+            Self::Inert => "inert",
         }
     }
 
@@ -62,6 +66,7 @@ impl BottomPolicy {
         match self {
             Self::Reject => BottomMode::Reject,
             Self::Expose => BottomMode::Expose,
+            Self::Inert => BottomMode::Inert,
         }
     }
 }

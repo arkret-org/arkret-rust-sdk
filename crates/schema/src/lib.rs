@@ -24,7 +24,7 @@ pub use arkret_wire::{
 };
 pub use error::{Error, Result, SchemaError};
 pub use event_cell_contract::{
-    EventCellContractContext, EventCellContractError,
+    EventCellContractContext, EventCellContractError, validate_registered_cell_writes,
     validate_single_target_append_event_contract, validate_single_target_set_event_contract,
     validate_single_target_set_event_contract_in_context,
 };

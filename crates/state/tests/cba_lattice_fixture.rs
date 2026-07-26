@@ -757,7 +757,14 @@ fn dual_plane_vector_inventory_is_pinned() {
         assert!(
             vector_id.starts_with("ak.vector.cba_lattice.")
                 || vector_id == "ak.vector.actor_chain.realm_scope.v1"
-                || vector_id == "ak.vector.seal.same_batch_bottom_reject_serialization.v1",
+                || vector_id == "ak.vector.seal.same_batch_bottom_reject_serialization.v1"
+                // Genesis state_root closure: ak.realm.create carries all four
+                // registered effects explicitly, and every cell_subject: null
+                // family uses the literal `null` wire segment. Both land in the
+                // CBA lattice fixture because they are state_root leaf-set
+                // invariants, not per-domain reducer behaviour.
+                || vector_id == "ak.vector.event_kind.realm_create_effects_closure.v1"
+                || vector_id == "ak.vector.event_kind.null_cell_subject_wire_form.v1",
             "unexpected vector id {vector_id}"
         );
         // Expectations are carried either as a top-level `expected*` block or
