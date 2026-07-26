@@ -104,7 +104,6 @@ pub use arkret_keystore::{
     MacOsKeychainKeyStore, WindowsCredentialKeyStore, durable_platform_keystore,
     platform_default_keystore_with_kind,
 };
-pub use arkret_models as models;
 pub use arkret_models_collaboration::account_lifecycle::*;
 pub use arkret_models_collaboration::agent_operations::*;
 pub use arkret_models_collaboration::agent_signer_evidence::*;

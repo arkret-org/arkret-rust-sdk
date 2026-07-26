@@ -13,7 +13,6 @@ members = [
     "crates/keystore",
     "crates/lattice-registry",
     "crates/mls",
-    "crates/models",
     "crates/models-collaboration",
     "crates/models-crypto",
     "crates/models-discovery",
@@ -43,7 +42,6 @@ default-members = [
     "crates/keystore",
     "crates/lattice-registry",
     "crates/mls",
-    "crates/models",
     "crates/models-collaboration",
     "crates/models-crypto",
     "crates/models-discovery",
@@ -86,7 +84,6 @@ arkret-models-collaboration = {version = "0.3.0",path = "crates/models-collabora
 arkret-models-crypto = {version = "0.3.0",path = "crates/models-crypto",default-features = false}
 arkret-models-discovery = {version = "0.3.0",path = "crates/models-discovery",default-features = false}
 arkret-models-integration = {version = "0.3.0",path = "crates/models-integration",default-features = false}
-arkret-models = {version = "0.3.0",path = "crates/models",default-features = false}
 arkret-crypto = {version = "0.3.0",path = "crates/crypto",default-features = false}
 arkret-event-draft = {version = "0.3.0",path = "crates/event-draft",default-features = false}
 arkret-hlc = {version = "0.3.0",path = "crates/hlc",default-features = false}

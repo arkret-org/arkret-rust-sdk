@@ -108,7 +108,6 @@ dependencies = [
  "arkret-keystore",
  "arkret-lattice-registry",
  "arkret-mls",
- "arkret-models",
  "arkret-models-collaboration",
  "arkret-models-crypto",
  "arkret-models-discovery",
@@ -366,17 +365,6 @@ dependencies = [
  "uuid",
  "x25519-dalek",
  "zeroize",
-]
-
-[[package]]
-name = "arkret-models"
-version = "0.3.0"
-dependencies = [
- "arkret-models-collaboration",
- "arkret-models-crypto",
- "arkret-models-discovery",
- "arkret-models-identity",
- "arkret-models-integration",
 ]
 
 [[package]]

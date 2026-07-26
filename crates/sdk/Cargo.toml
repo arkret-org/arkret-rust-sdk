@@ -57,7 +57,6 @@ arkret-models-collaboration = {workspace = true}
 arkret-models-discovery = {workspace = true}
 arkret-models-identity = {workspace = true}
 arkret-models-integration = {workspace = true}
-arkret-models = {workspace = true}
 arkret-http-client = {workspace = true,optional = true}
 arkret-identity = {workspace = true}
 arkret-keystore = {workspace = true}
