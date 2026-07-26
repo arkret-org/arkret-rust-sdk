@@ -135,6 +135,203 @@ pub fn validate_single_target_set_event_contract_in_context(
     Ok(())
 }
 
+/// Validate a registry-declared, single-target `ordered_log` append Event.
+///
+/// Closes the delivery-family contract: the cell is re-derived from the
+/// registry (never trusted from `effects[].cell`), the op must be an `append`
+/// carrying `issuer_seq`, and `op.value` must equal the registry-declared
+/// projection recomputed from the signed payload.
+pub fn validate_single_target_append_event_contract(
+    event: &Event,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<(), EventCellContractError> {
+    let kind = event.kind.as_str().to_owned();
+    let descriptor = event
+        .kind
+        .descriptor()
+        .filter(|descriptor| descriptor.reducer_input)
+        .ok_or_else(|| EventCellContractError::UnregisteredReducerInput(kind.clone()))?;
+    let family = descriptor
+        .cell_family
+        .ok_or_else(|| EventCellContractError::MissingCellContract(kind.clone()))?;
+    if descriptor.lattice != Some("ordered_log") {
+        return Err(EventCellContractError::MissingCellContract(kind));
+    }
+
+    validate_plane(event, descriptor.plane, EventCellContractContext::Standard)?;
+
+    if event.effects.len() != 1 {
+        return Err(EventCellContractError::EffectCount {
+            kind,
+            actual: event.effects.len(),
+        });
+    }
+    let effect = &event.effects[0];
+    let cell =
+        CellId::from_ref(&effect.cell).map_err(|error| EventCellContractError::InvalidCell {
+            kind: kind.clone(),
+            message: error.to_string(),
+        })?;
+    let expected_subject = derive_subject(event, descriptor.cell_subject_rule)?;
+    if cell.component() != family || cell.subject() != expected_subject {
+        return Err(EventCellContractError::CellMismatch {
+            kind: kind.clone(),
+            expected: format!("ak:cell:{family}:{expected_subject}"),
+            actual: effect.cell.as_str().to_owned(),
+        });
+    }
+    if effect.op.op_type != LatticeOpType::Append
+        || effect.op.issuer_seq.is_none()
+        || effect.op.tag.is_some()
+        || effect.op.from.is_some()
+        || effect.op.to.is_some()
+        || effect.op.reason.is_some()
+    {
+        return Err(EventCellContractError::OperationMismatch {
+            kind: kind.clone(),
+            expected: "append".to_owned(),
+            actual: format!("{:?}", effect.op.op_type).to_lowercase(),
+        });
+    }
+
+    // A kind whose registry row declares no projection has no machine-checkable
+    // append value yet; accepting an arbitrary producer-chosen value here would
+    // be exactly the parallel protocol the contract exists to prevent.
+    let rule_json = descriptor
+        .value_projection_rule
+        .ok_or_else(|| EventCellContractError::MissingCellContract(kind.clone()))?;
+    let expected_value = derive_value_projection(event, rule_json, digest_suite)?;
+    if effect.op.value.as_ref() != Some(&expected_value) {
+        return Err(EventCellContractError::PayloadMismatch { kind });
+    }
+    Ok(())
+}
+
+/// Recompute a registry-declared `op.value` projection from the signed payload.
+fn derive_value_projection(
+    event: &Event,
+    rule_json: &str,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<Value, EventCellContractError> {
+    let kind = event.kind.as_str().to_owned();
+    let rule: Value = serde_json::from_str(rule_json).map_err(|error| {
+        EventCellContractError::SubjectDerivation {
+            kind: kind.clone(),
+            message: error.to_string(),
+        }
+    })?;
+    if rule.get("type").and_then(Value::as_str) != Some("object") {
+        return Err(projection_error(&kind, "value projection type must be object"));
+    }
+    let members = rule
+        .get("members")
+        .and_then(Value::as_array)
+        .ok_or_else(|| projection_error(&kind, "value projection members are missing"))?;
+
+    let mut projected = serde_json::Map::new();
+    for member in members {
+        let name = member
+            .get("name")
+            .and_then(Value::as_str)
+            .ok_or_else(|| projection_error(&kind, "value projection member is unnamed"))?;
+        let optional = member
+            .get("optional")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+
+        if let Some(literal) = member.get("literal") {
+            projected.insert(name.to_owned(), literal.clone());
+            continue;
+        }
+        let resolved = if let Some(path) = member.get("field").and_then(Value::as_str) {
+            field_value(event, path).cloned()
+        } else if let Some(component) = member.get("select") {
+            let path = select_field_path(event, component, &kind)?;
+            field_value(event, &path).cloned()
+        } else if let Some(digest_of) = member.get("digest_of") {
+            member_digest(event, digest_of, &kind, digest_suite)?
+        } else {
+            return Err(projection_error(
+                &kind,
+                &format!("member {name} declares no source"),
+            ));
+        };
+        match resolved {
+            // Absent optional members are omitted, never written as null.
+            None if optional => continue,
+            None => {
+                return Err(projection_error(&kind, &format!("member {name} is missing")));
+            }
+            Some(value) => {
+                projected.insert(name.to_owned(), value);
+            }
+        }
+    }
+    Ok(Value::Object(projected))
+}
+
+/// Compute a `digest_of` member over its declared input encoding.
+fn member_digest(
+    event: &Event,
+    digest_of: &Value,
+    kind: &str,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<Option<Value>, EventCellContractError> {
+    // The whole-payload input has no field path: it commits to every signed
+    // byte, so a projection cannot silently lose a semantically relevant field
+    // as the payload evolves (device-lifecycle.md 13.0.1).
+    if digest_of.get("input").and_then(Value::as_str) == Some("event_payload_canonical_bytes") {
+        let payload = Value::Object(event.payload.clone().into_iter().collect());
+        let bytes = arkret_canonical::canonical_json_bytes(&payload)
+            .map_err(|error| projection_error(kind, &error.to_string()))?;
+        return Ok(Some(Value::String(arkret_canonical::digest(
+            digest_suite,
+            &bytes,
+        ))));
+    }
+    let path = digest_of
+        .get("field")
+        .and_then(Value::as_str)
+        .ok_or_else(|| projection_error(kind, "digest_of field is missing"))?;
+    let Some(source) = field_value(event, path) else {
+        return Ok(None);
+    };
+    let bytes = match digest_of.get("input").and_then(Value::as_str) {
+        // Digesting the base64url text instead of the decoded ciphertext is
+        // explicitly forbidden by `conformance/encoding.md` §10.
+        Some("base64url_decoded_bytes") => {
+            let encoded = source
+                .as_str()
+                .ok_or_else(|| projection_error(kind, &format!("{path} must be a string")))?;
+            arkret_canonical::base64url_decode(encoded)
+                .map_err(|error| projection_error(kind, &error.to_string()))?
+        }
+        Some("canonical_json_bytes") => arkret_canonical::canonical_json_bytes(source)
+            .map_err(|error| projection_error(kind, &error.to_string()))?,
+        other => {
+            return Err(projection_error(
+                kind,
+                &format!("unsupported digest_of input {}", other.unwrap_or("<missing>")),
+            ));
+        }
+    };
+    // device-lifecycle.md 13.0.1: the wire form follows the Realm's active
+    // `digest_algorithm`. Hard-coding SHA-256 would make a blake3 Realm's
+    // `op.value` — and therefore its state root — diverge from any conformant
+    // implementation.
+    Ok(Some(Value::String(arkret_canonical::digest(
+        digest_suite,
+        &bytes,
+    ))))
+}
+
+fn projection_error(kind: &str, message: &str) -> EventCellContractError {
+    EventCellContractError::SubjectDerivation {
+        kind: kind.to_owned(),
+        message: message.to_owned(),
+    }
+}
+
 fn validate_plane(
     event: &Event,
     plane: Option<&str>,
@@ -180,11 +377,11 @@ fn derive_subject(
     let rule_type = rule.get("type").and_then(Value::as_str).unwrap_or_default();
     match rule_type {
         "composite" => {
-            let fields = rule
+            let components = rule
                 .get("components")
                 .and_then(Value::as_array)
                 .ok_or_else(|| subject_error(&kind, "composite components are missing"))?;
-            derive_composite(event, fields, &kind)
+            derive_composite(event, components, &kind)
         }
         "tuple" => {
             let components = rule
@@ -228,23 +425,91 @@ fn derive_subject(
 
 fn derive_composite(
     event: &Event,
-    fields: &[Value],
+    components: &[Value],
     kind: &str,
 ) -> Result<String, EventCellContractError> {
-    let parts = fields
+    let parts = components
         .iter()
-        .map(|field| {
-            let path = field
-                .as_str()
-                .ok_or_else(|| subject_error(kind, "composite field must be a string"))?;
-            let value = field_value(event, path)
-                .ok_or_else(|| subject_error(kind, &format!("{path} is missing")))?;
-            scalar_subject(value).map_err(|message| subject_error(kind, &message))
-        })
+        .map(|component| component_scalar(event, component, kind))
         .collect::<Result<Vec<_>, _>>()?;
     let refs = parts.iter().map(String::as_str).collect::<Vec<_>>();
     arkret_wire::cell::composite_subject(&refs)
         .map_err(|error| subject_error(kind, &error.to_string()))
+}
+
+/// Resolve one composite component: either a plain field path or a
+/// discriminated `select` (`conformance/encoding.md` §9.5.1).
+fn component_scalar(
+    event: &Event,
+    component: &Value,
+    kind: &str,
+) -> Result<String, EventCellContractError> {
+    if let Some(path) = component.as_str() {
+        let value = field_value(event, path)
+            .ok_or_else(|| subject_error(kind, &format!("{path} is missing")))?;
+        return scalar_subject(value).map_err(|message| subject_error(kind, &message));
+    }
+    let path = select_field_path(event, component, kind)?;
+    let value = field_value(event, &path)
+        .ok_or_else(|| subject_error(kind, &format!("{path} is missing")))?;
+    scalar_subject(value).map_err(|message| subject_error(kind, &message))
+}
+
+/// Evaluate a `select` component and return the selected field path.
+///
+/// The discriminator is read as the schema-validated raw string and matched
+/// byte-for-byte against the closed branch map: no case folding, Unicode
+/// normalisation or alias resolution.
+///
+/// Branch exclusivity comes only from the selected branch's declared
+/// `forbidden_fields`. Treating "an unselected branch's field is present" as
+/// ambiguity would be wrong in general: branches legitimately share fields —
+/// an `effective_scope` with `kind="circle"` is required by schema to carry
+/// `realm_id` as well, which is exactly the `realm` branch's value field.
+fn select_field_path(
+    event: &Event,
+    component: &Value,
+    kind: &str,
+) -> Result<String, EventCellContractError> {
+    if component.get("type").and_then(Value::as_str) != Some("select") {
+        return Err(subject_error(kind, "composite component has an unknown type"));
+    }
+    let selector = component
+        .get("selector")
+        .and_then(Value::as_str)
+        .ok_or_else(|| subject_error(kind, "select component is missing selector"))?;
+    let branches = component
+        .get("branches")
+        .and_then(Value::as_object)
+        .ok_or_else(|| subject_error(kind, "select component is missing branches"))?;
+    let discriminator = field_value(event, selector)
+        .and_then(Value::as_str)
+        .ok_or_else(|| subject_error(kind, &format!("selector {selector} is missing")))?;
+    let branch = branches.get(discriminator).ok_or_else(|| {
+        subject_error(kind, &format!("selector {selector} has no registered branch"))
+    })?;
+    let selected = branch
+        .get("field")
+        .and_then(Value::as_str)
+        .ok_or_else(|| subject_error(kind, "selected branch declares no field"))?;
+    // Only the fields this branch explicitly forbids make the payload
+    // ambiguous. The registry mirrors the wire schema's exclusivity here so
+    // derivation still fails closed off the schema-validated path.
+    for forbidden in branch
+        .get("forbidden_fields")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+    {
+        if field_value(event, forbidden).is_some() {
+            return Err(subject_error(
+                kind,
+                &format!("forbidden field {forbidden} is present for branch {discriminator}"),
+            ));
+        }
+    }
+    Ok(selected.to_owned())
 }
 
 fn field_value<'a>(event: &'a Event, path: &str) -> Option<&'a Value> {
@@ -308,6 +573,352 @@ mod tests {
             "proofs": []
         }))
         .unwrap()
+    }
+
+    /// A member-device realm key share whose effect is built exactly as the
+    /// registry declares it.
+    fn delivery_share_event() -> Event {
+        let payload = json!({
+            "share_class": "member_device",
+            "recipient_principal_id": "did:webvh:z6mkfixture:bob.example",
+            "recipient_device_id": "ak:device:019f9000-0000-7000-8000-000000000003",
+            "sender_device_id": "ak:device:019f9000-0000-7000-8000-000000000004",
+            "source_authorization_ref": "ak:event:019f9000-0000-7000-8000-000000000005",
+            "sender_device_signature": {
+                "kid": "did:webvh:z6mkfixture:alice.example#ak:device:019f9000-0000-7000-8000-000000000004",
+                "alg": "EdDSA",
+                "sig": "AAAA"
+            },
+            "key_scope": {
+                "effective_scope": {
+                    "kind": "realm",
+                    "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002"
+                },
+                "policy_digest": format!("sha256:{}", "aa".repeat(32)),
+                "from_epoch": 1,
+                "to_epoch": 3
+            },
+            "ciphertext": "Y2lwaGVy",
+            "created_at": "2026-07-26T00:00:00.000Z"
+        });
+        let mut event: Event = serde_json::from_value(json!({
+            "event_id": "ak:event:019f9000-0000-7000-8000-000000000001",
+            "kind": EventKind::REALM_KEY_SHARE,
+            "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002",
+            "actor_id": "did:webvh:z6mkfixture:alice.example",
+            "actor_seq": 7,
+            "created_at": "2026-07-26T00:00:00.000Z",
+            "hlc": "019f90000000-0000-aabbccdd",
+            "prev_refs": [],
+            "effects": [],
+            "seal_ref": "ak:seal:sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "auth_context": {
+                "did": "did:webvh:z6mkfixture:alice.example",
+                "key_id": "ak:device:019f9000-0000-7000-8000-000000000004",
+                "key_epoch": 1,
+                "capability_refs": []
+            },
+            "payload": payload,
+            "proofs": []
+        }))
+        .unwrap();
+
+        let descriptor = event.kind.descriptor().unwrap();
+        let subject = derive_subject(&event, descriptor.cell_subject_rule).unwrap();
+        let family = descriptor.cell_family.unwrap();
+        let value = derive_value_projection(
+            &event,
+            descriptor.value_projection_rule.unwrap(),
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
+        event.effects = vec![serde_json::from_value(json!({
+            "cell": format!("ak:cell:{family}:{subject}"),
+            "op": {"kind": "append", "issuer_seq": 0, "value": value}
+        }))
+        .unwrap()];
+        event
+    }
+
+    #[test]
+    fn validates_delivery_append_from_registry() {
+        validate_single_target_append_event_contract(
+            &delivery_share_event(),
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn delivery_subject_selects_the_share_class_branch() {
+        let event = delivery_share_event();
+        let rule = event.kind.descriptor().unwrap().cell_subject_rule;
+        let member_subject = derive_subject(&event, rule).unwrap();
+
+        // The RRK branch derives from a different target field, so the same
+        // recipient and scope MUST NOT collapse onto one delivery cell.
+        let mut rrk = event.clone();
+        rrk.payload.remove("recipient_device_id");
+        rrk.payload
+            .insert("share_class".to_owned(), json!("realm_recovery_key"));
+        rrk.payload.insert(
+            "recipient_verification_method".to_owned(),
+            json!("did:webvh:z6mkfixture:acme.example#realm-history-recovery-1"),
+        );
+        rrk.payload.insert(
+            "recovery_recipient_id".to_owned(),
+            // Deliberately spelled like a device id: without `share_class` in
+            // the components an RRK share could target a member device's cell.
+            json!("ak:device:019f9000-0000-7000-8000-000000000003"),
+        );
+        let rrk_subject = derive_subject(&rrk, rule).unwrap();
+        assert_ne!(member_subject, rrk_subject);
+    }
+
+    #[test]
+    fn delivery_supports_circle_scope_which_also_carries_realm_id() {
+        // `effective_scope.kind="circle"` is required by schema to carry
+        // `realm_id` too — the `realm` branch's value field. A blanket
+        // "unselected branch field present => ambiguous" rule would reject
+        // every legitimate Circle key share.
+        let mut event = delivery_share_event();
+        event.payload.insert(
+            "key_scope".to_owned(),
+            json!({
+                "effective_scope": {
+                    "kind": "circle",
+                    "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002",
+                    "circle_id": "ak:circle:019f9000-0000-7000-8000-000000000007"
+                },
+                "policy_digest": format!("sha256:{}", "aa".repeat(32))
+            }),
+        );
+        let descriptor = event.kind.descriptor().unwrap();
+        let subject = derive_subject(&event, descriptor.cell_subject_rule).unwrap();
+        let family = descriptor.cell_family.unwrap();
+        let value =
+            derive_value_projection(
+            &event,
+            descriptor.value_projection_rule.unwrap(),
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
+        assert_eq!(
+            value["effective_scope_id"],
+            json!("ak:circle:019f9000-0000-7000-8000-000000000007"),
+            "circle branch must project the circle id"
+        );
+        event.effects = vec![serde_json::from_value(json!({
+            "cell": format!("ak:cell:{family}:{subject}"),
+            "op": {"kind": "append", "issuer_seq": 0, "value": value}
+        }))
+        .unwrap()];
+        validate_single_target_append_event_contract(&event, arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
+
+        // And a Realm-scoped share must still land on a different cell.
+        assert_ne!(
+            subject,
+            derive_subject(&delivery_share_event(), descriptor.cell_subject_rule).unwrap()
+        );
+    }
+
+    #[test]
+    fn delivery_subject_rejects_cross_carried_branch_field() {
+        let mut event = delivery_share_event();
+        event.payload.insert(
+            "recovery_recipient_id".to_owned(),
+            json!("rr-1"),
+        );
+        let rule = event.kind.descriptor().unwrap().cell_subject_rule;
+        let error = derive_subject(&event, rule).unwrap_err();
+        assert!(
+            format!("{error}").contains("forbidden field payload.recovery_recipient_id"),
+            "got {error}"
+        );
+    }
+
+    #[test]
+    fn delivery_subject_rejects_unknown_discriminator() {
+        let mut event = delivery_share_event();
+        event
+            .payload
+            .insert("share_class".to_owned(), json!("member-device"));
+        let rule = event.kind.descriptor().unwrap().cell_subject_rule;
+        let error = derive_subject(&event, rule).unwrap_err();
+        assert!(
+            format!("{error}").contains("no registered branch"),
+            "byte-for-byte branch match only; got {error}"
+        );
+    }
+
+    #[test]
+    fn delivery_append_rejects_producer_chosen_value() {
+        let mut event = delivery_share_event();
+        let Some(value) = event.effects[0].op.value.as_mut() else {
+            panic!("append must carry a value");
+        };
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("delivery_outcome".to_owned(), json!("withheld"));
+        assert!(matches!(
+            validate_single_target_append_event_contract(&event, arkret_canonical::DigestSuite::Sha256),
+            Err(EventCellContractError::PayloadMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn delivery_append_commits_to_every_signed_field() {
+        // Regression: a projection that only committed to the ciphertext let
+        // semantically different deliveries collapse into one idempotent
+        // duplicate. Each of these differs only in a field that is signed and
+        // changes delivery meaning.
+        let base = delivery_share_event();
+        let rule = base
+            .kind
+            .descriptor()
+            .unwrap()
+            .value_projection_rule
+            .unwrap();
+        let suite = arkret_canonical::DigestSuite::Sha256;
+        let baseline = derive_value_projection(&base, rule, suite).unwrap();
+
+        let mutations: [(&str, fn(&mut Event)); 4] = [
+            (
+                "expires_at",
+                |event: &mut Event| {
+                    event
+                        .payload
+                        .insert("expires_at".to_owned(), json!("2026-08-01T00:00:00.000Z"));
+                },
+            ),
+            (
+                "aad_digest",
+                |event: &mut Event| {
+                    event
+                        .payload
+                        .insert("aad_digest".to_owned(), json!(format!("sha256:{}", "cc".repeat(32))));
+                },
+            ),
+            (
+                "key_scope.membership_frontier_digest",
+                |event: &mut Event| {
+                    event
+                        .payload
+                        .get_mut("key_scope")
+                        .unwrap()
+                        .as_object_mut()
+                        .unwrap()
+                        .insert(
+                            "membership_frontier_digest".to_owned(),
+                            json!(format!("sha256:{}", "dd".repeat(32))),
+                        );
+                },
+            ),
+            (
+                "ciphertext",
+                |event: &mut Event| {
+                    event.payload.insert("ciphertext".to_owned(), json!("b3RoZXI"));
+                },
+            ),
+        ];
+        for (label, mutate) in mutations {
+            let mut mutated = base.clone();
+            mutate(&mut mutated);
+            let value = derive_value_projection(&mutated, rule, suite).unwrap();
+            assert_ne!(
+                baseline, value,
+                "{label} is signed and changes delivery meaning; it must change op.value"
+            );
+        }
+    }
+
+    #[test]
+    fn delivery_append_commits_to_the_material_digest() {
+        // Two different sealed materials to the same recipient and scope must
+        // not project to the same entry, or §9.3.1 would dedupe one away.
+        let first = delivery_share_event();
+        let mut second = first.clone();
+        second
+            .payload
+            .insert("ciphertext".to_owned(), json!("b3RoZXI"));
+        let rule = second.kind.descriptor().unwrap().value_projection_rule;
+        let second_value = derive_value_projection(&second, rule.unwrap(), arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
+        assert_ne!(first.effects[0].op.value.as_ref().unwrap(), &second_value);
+
+        // The commitment is over the complete canonical signed payload.
+        let payload = Value::Object(first.payload.clone().into_iter().collect());
+        let expected = arkret_canonical::sha256_digest(
+            arkret_canonical::canonical_json_bytes(&payload).unwrap(),
+        );
+        assert_eq!(
+            first.effects[0].op.value.as_ref().unwrap()["payload_digest"],
+            json!(expected)
+        );
+    }
+
+    #[test]
+    fn delivery_material_digest_follows_the_realm_digest_suite() {
+        // A blake3 Realm must project a blake3 material digest; hard-coding
+        // SHA-256 would diverge from every conformant implementation's state.
+        let event = delivery_share_event();
+        let rule = event
+            .kind
+            .descriptor()
+            .unwrap()
+            .value_projection_rule
+            .unwrap();
+        let blake3 =
+            derive_value_projection(&event, rule, arkret_canonical::DigestSuite::Blake3).unwrap();
+        let payload = Value::Object(event.payload.clone().into_iter().collect());
+        assert_eq!(
+            blake3["payload_digest"],
+            json!(arkret_canonical::digest(
+                arkret_canonical::DigestSuite::Blake3,
+                arkret_canonical::canonical_json_bytes(&payload).unwrap()
+            ))
+        );
+        // And the sha256 projection (used to build `event`) must be rejected
+        // when the Realm is on blake3.
+        assert!(matches!(
+            validate_single_target_append_event_contract(
+                &event,
+                arkret_canonical::DigestSuite::Blake3
+            ),
+            Err(EventCellContractError::PayloadMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn delivery_append_omits_absent_optional_members() {
+        let mut event = delivery_share_event();
+        event.payload.get_mut("key_scope").unwrap().as_object_mut().unwrap().remove("to_epoch");
+        let rule = event.kind.descriptor().unwrap().value_projection_rule;
+        let value = derive_value_projection(&event, rule.unwrap(), arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
+        let object = value.as_object().unwrap();
+        assert!(object.contains_key("from_epoch"));
+        assert!(
+            !object.contains_key("to_epoch"),
+            "absent optional members are omitted, never written as null"
+        );
+    }
+
+    #[test]
+    fn delivery_append_rejects_producer_chosen_cell() {
+        let mut event = delivery_share_event();
+        event.effects[0].cell = arkret_wire::CellRef::new(
+            "ak:cell:ak.component.realm_key.delivery.v1:not-the-derived-subject",
+        )
+        .unwrap();
+        assert_eq!(
+            validate_single_target_append_event_contract(&event, arkret_canonical::DigestSuite::Sha256)
+                .unwrap_err()
+                .reason_code(),
+            "effects_payload_mismatch"
+        );
     }
 
     #[test]

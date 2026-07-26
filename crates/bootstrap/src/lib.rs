@@ -19,7 +19,10 @@ use arkret_models_identity::artifacts_device_identity::{
 use arkret_models_identity::claim_presentation::AgentSelectorClaim;
 use arkret_models_identity::did_document::principal_control_realm_id;
 use arkret_models_identity::handle::{HandleBindingState, HandleVisibility};
-use arkret_state::{CellRegistry, CellState, SealedOp, compute_state_root, control_event_set_root};
+use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
+use arkret_state::{
+    CellRegistry, CellState, LatticeKind, SealedOp, compute_state_root, control_event_set_root,
+};
 use arkret_wire::{
     AGENT_SELECTOR_CLAIM_SCHEMA, CellRef, Did, Discoverability, Effect, EncryptionProfile, Error,
     Event, EventId, EventKind, EventRef, EventRequirements, Hash, HistoryVisibility, Hlc, JoinRule,
@@ -410,7 +413,9 @@ pub struct ManagedAgentPcrControlMaterial {
     pub covered_event_digests: Vec<MoveId>,
     pub state_root: Hash,
     pub joined: BTreeMap<CellRef, CellState>,
-    pub event_ops: Vec<(CellRef, SealedOp)>,
+    /// Sealed effects with their issuer attached, ready for a store that
+    /// must keep ordered-log slots keyed by the real actor.
+    pub event_ops: Vec<(CellRef, IssuedOp)>,
 }
 
 /// Materialize the canonical control state of a managed Agent PCR.
@@ -504,6 +509,16 @@ pub fn materialize_managed_agent_pcr_control(
                 "managed Agent PCR Event material contains duplicate digests".to_owned(),
             ));
         }
+        // One Event may claim an ordered-log slot at most once: two effects on
+        // the same `(cell, issuer_seq)` would share this Event's digest, so the
+        // §4.2 tie-break could not disambiguate them and it is not a collision
+        // between two Events either. Reject before anything reaches a lattice.
+        if let Err(conflict) = ensure_unique_ordered_log_slots(&event.effects) {
+            return Err(Error::Protocol(format!(
+                "managed Agent PCR Event claims ordered-log slot {}#{} twice",
+                conflict.cell, conflict.issuer_seq
+            )));
+        }
         let ops = if std::ptr::eq(event, create) {
             managed_agent_pcr_create_ops(create, &move_id, object, notary.clone())?
         } else {
@@ -523,18 +538,48 @@ pub fn materialize_managed_agent_pcr_control(
                 .entry(cell.clone())
                 .or_default()
                 .push(op.clone());
-            event_ops.push((cell, op));
+            event_ops.push((
+                cell,
+                IssuedOp {
+                    issuer: create.actor_id.clone(),
+                    op,
+                },
+            ));
         }
     }
 
     let registry = arkret_lattice_registry::build_sdk_cell_registry();
     let mut joined = BTreeMap::new();
-    for (cell, mut ops) in ops_by_cell {
-        ops.sort_by(|left, right| right.move_id.as_str().cmp(left.move_id.as_str()));
+    for (cell, ops) in ops_by_cell {
+        // No pre-sort: every lattice join is commutative, and ordering by the
+        // typed `move_id` string would imply a tie-break `encoding.md` §4.2
+        // forbids (the suite prefix would outrank the digest content).
         let binding = registry.resolve(&create.realm_id, &cell).map_err(|error| {
             Error::Protocol(format!("managed Agent PCR cell registry: {error}"))
         })?;
-        let state = binding.lattice.join(&cell, &ops);
+        // 9.3.1 keys the log by the envelope `actor_id`; every included Event
+        // is required to carry `create.actor_id`, so the issuer is known.
+        let issued: Vec<IssuedOp> = ops
+            .into_iter()
+            .map(|op| IssuedOp {
+                issuer: create.actor_id.clone(),
+                op,
+            })
+            .collect();
+        if binding.lattice.kind() == LatticeKind::OrderedLog {
+            let report = OrderedLog.join_with_issuer_report(&issued);
+            if !report.fail_closed.is_empty() {
+                return Err(Error::Protocol(format!(
+                    "managed Agent PCR cell {cell} ordered-log slot failed closed"
+                )));
+            }
+            if !report.equivocations.is_empty() {
+                return Err(Error::Protocol(format!(
+                    "managed Agent PCR cell {cell} contains issuer equivocation"
+                )));
+            }
+        }
+        let state = arkret_state::join_cell(binding.lattice.as_ref(), &cell, &issued);
         if matches!(state, CellState::Bottom(_)) {
             return Err(Error::Protocol(format!(
                 "managed Agent PCR cell {cell} resolved to Bottom"
@@ -790,7 +835,11 @@ fn self_principal_bootstrap_state_root(
                 from: None,
                 to: None,
                 reason: None,
-                issuer_seq: Some(create.actor_seq),
+                // 9.3.1: the ordered-log sequence is scoped to
+                // `(effect.cell, actor_id)` and starts at 0. The global
+                // `actor_seq` is a different counter and MUST NOT stand in for
+                // it; the Realm-create anchor is always this cell's seq 0.
+                issuer_seq: Some(0),
             },
         )],
     );
@@ -827,12 +876,20 @@ fn self_principal_bootstrap_state_root(
 
     let registry = arkret_lattice_registry::build_sdk_cell_registry();
     let mut joined = BTreeMap::new();
-    for (cell, mut ops) in ops_by_cell {
-        ops.sort_by(|left, right| right.move_id.as_str().cmp(left.move_id.as_str()));
+    for (cell, ops) in ops_by_cell {
+        // No pre-sort: joins are commutative, and ordering by the typed
+        // `move_id` string would imply a tie-break `encoding.md` 4.2 forbids.
         let binding = registry
             .resolve(&create.realm_id, &cell)
             .map_err(|error| Error::Protocol(format!("bootstrap cell registry: {error}")))?;
-        let state = binding.lattice.join(&cell, &ops);
+        let issued: Vec<IssuedOp> = ops
+            .into_iter()
+            .map(|op| IssuedOp {
+                issuer: create.actor_id.clone(),
+                op,
+            })
+            .collect();
+        let state = arkret_state::join_cell(binding.lattice.as_ref(), &cell, &issued);
         if matches!(state, CellState::Bottom(_)) {
             return Err(Error::Protocol(format!(
                 "bootstrap cell {cell} resolved to Bottom"

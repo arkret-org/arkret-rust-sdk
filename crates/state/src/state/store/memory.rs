@@ -20,7 +20,7 @@ use super::{
 };
 use crate::lattice::{
     CasRegister, CellState, Counter, Fsm, Lattice, LatticeKind, MvRegister, OrSet, OrderedLog,
-    SealedOp,
+    ordered_log::IssuedOp,
 };
 use crate::{CellRef, Hash, Move, MoveId, RealmId, Seal, SealId};
 
@@ -358,11 +358,11 @@ pub struct MemoryCellStore {
 #[derive(Default)]
 struct MemoryCellStoreInner {
     /// (realm, cell) -> ordered SealedOp list
-    cell_log: BTreeMap<(String, String), Vec<SealedOp>>,
+    cell_log: BTreeMap<(String, String), Vec<IssuedOp>>,
     /// (realm, cell, view_hash) -> CellState
     cache: BTreeMap<(String, String, String), CellState>,
     /// seal → ops it appended (used for rollback)
-    seal_ops: BTreeMap<String, Vec<(String, SealedOp)>>, // (realm, cell), op
+    seal_ops: BTreeMap<String, Vec<(String, IssuedOp)>>, // (realm, cell), op
 }
 
 impl CellStore for MemoryCellStore {
@@ -386,7 +386,7 @@ impl CellStore for MemoryCellStore {
         &self,
         realm_id: &RealmId,
         cell: &CellRef,
-    ) -> StoreResult<Vec<SealedOp>> {
+    ) -> StoreResult<Vec<IssuedOp>> {
         let inner = self
             .inner
             .lock()
@@ -444,13 +444,13 @@ impl CellStore for MemoryCellStore {
         &self,
         realm_id: &RealmId,
         seal: &SealId,
-        new_ops: &[(CellRef, SealedOp)],
+        new_ops: &[(CellRef, IssuedOp)],
     ) -> StoreResult<()> {
         let mut inner = self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let mut applied: Vec<(String, SealedOp)> = Vec::with_capacity(new_ops.len());
+        let mut applied: Vec<(String, IssuedOp)> = Vec::with_capacity(new_ops.len());
         for (cell, op) in new_ops {
             let key = (realm_id.as_str().to_owned(), cell.as_str().to_owned());
             inner
@@ -726,6 +726,15 @@ impl CellRegistry for MemoryCellRegistry {
 
 #[cfg(test)]
 mod tests {
+    use crate::lattice::SealedOp;
+
+    fn issued(op: SealedOp) -> IssuedOp {
+        IssuedOp {
+            issuer: crate::Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
+            op,
+        }
+    }
+
     use std::sync::{Arc, Barrier};
 
     use chrono::{TimeZone, Utc};
@@ -1050,14 +1059,14 @@ mod tests {
             },
         );
         store
-            .append_sealed_effects(&realm(), &seal_id(0xaa), &[(cell_member(), op.clone())])
+            .append_sealed_effects(&realm(), &seal_id(0xaa), &[(cell_member(), issued(op.clone()))])
             .unwrap();
 
         let cells = store.list_cells(&realm()).unwrap();
         assert_eq!(cells.len(), 1);
         let ops = store.sealed_ops_for_cell(&realm(), &cell_member()).unwrap();
         assert_eq!(ops.len(), 1);
-        assert_eq!(ops[0], op);
+        assert_eq!(ops[0].op, op);
     }
 
     #[test]
@@ -1077,7 +1086,7 @@ mod tests {
         );
         let seal = seal_id(0xaa);
         store
-            .append_sealed_effects(&realm(), &seal, &[(cell_member(), op)])
+            .append_sealed_effects(&realm(), &seal, &[(cell_member(), issued(op))])
             .unwrap();
         store.rollback_seal(&realm(), &seal).unwrap();
         assert!(
@@ -1119,7 +1128,7 @@ mod tests {
             },
         );
         store
-            .append_sealed_effects(&realm(), &seal_id(0xab), &[(cell_member(), op)])
+            .append_sealed_effects(&realm(), &seal_id(0xab), &[(cell_member(), issued(op))])
             .unwrap();
         assert!(
             store

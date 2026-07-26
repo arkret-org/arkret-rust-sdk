@@ -15,7 +15,7 @@ pub mod memory;
 
 use thiserror::Error;
 
-use crate::lattice::{CellState, Lattice, SealedOp};
+use crate::lattice::{CellState, Lattice, ordered_log::IssuedOp};
 use crate::{CellRef, Hash, Move, MoveId, RealmId, Seal, SealId};
 
 pub type StoreResult<T> = Result<T, StoreError>;
@@ -146,8 +146,14 @@ pub trait CellStore: Send + Sync {
     fn list_cells(&self, realm_id: &RealmId) -> StoreResult<Vec<CellRef>>;
 
     /// All sealed ops applying to this cell, in deterministic order.
+    ///
+    /// The issuer travels with the op because `ordered_log` keys its slots by
+    /// `(cell, actor_id, issuer_seq)` (`event-auth-state-resolution.md` 9.3.1).
+    /// A store that dropped it would force every join back onto a synthetic
+    /// issuer, merging distinct actors into one sub-chain and writing that
+    /// synthetic DID into the `state_root` leaf.
     fn sealed_ops_for_cell(&self, realm_id: &RealmId, cell: &CellRef)
-    -> StoreResult<Vec<SealedOp>>;
+    -> StoreResult<Vec<IssuedOp>>;
 
     /// Cached effective state. `None` means the runtime must recompute.
     fn cached_state(
@@ -171,7 +177,7 @@ pub trait CellStore: Send + Sync {
         &self,
         realm_id: &RealmId,
         seal: &SealId,
-        new_ops: &[(CellRef, SealedOp)],
+        new_ops: &[(CellRef, IssuedOp)],
     ) -> StoreResult<()>;
 
     /// Roll back a previously-`append_sealed_effects` call when the

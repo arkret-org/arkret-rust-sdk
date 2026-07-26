@@ -24,7 +24,7 @@ pub use compaction::{CompactionPolicy, PruneCandidate, PruneEligibility};
 pub use seal::{
     EffectiveSealView, SealEffect, SealLeafUnionProof, SealReject, apply_seal,
     control_event_set_root, deterministic_order, effective_seal_view, effective_state_at,
-    leaf_union_proof, union_predecessor_covered_events, view_hash,
+    join_cell, leaf_union_proof, union_predecessor_covered_events, view_hash,
 };
 pub use state_root::{
     EMPTY_STATE_ROOT, StateInclusionProof, compute_state_root, leaf_hash, state_inclusion_proof,

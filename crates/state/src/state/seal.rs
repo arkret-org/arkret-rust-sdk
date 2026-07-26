@@ -8,7 +8,7 @@ use thiserror::Error;
 use super::state_root::{compute_state_root, seal_merkle_root_from_leaf_data};
 use super::store::{CellRegistry, CellStore, MoveStore, SealStore};
 use super::verify::verify_move;
-use crate::lattice::{CellState, SealedOp};
+use crate::lattice::{CellState, SealedOp, ordered_log::IssuedOp};
 use crate::{CellRef, Hash, Move, MoveId, RealmId, Seal, SealId, canonical};
 
 #[derive(Clone, Debug)]
@@ -126,12 +126,17 @@ where
         }
     }
 
-    let mut new_ops: Vec<(CellRef, SealedOp)> = Vec::new();
+    let mut new_ops: Vec<(CellRef, IssuedOp)> = Vec::new();
     for m in &accepted {
         for effect in &m.effects {
+            // The issuer travels with the op so ordered-log slots stay keyed by
+            // the real actor rather than a synthetic one (9.3.1).
             new_ops.push((
                 effect.cell.clone(),
-                SealedOp::new(m.id.clone(), effect.op.clone()),
+                IssuedOp {
+                    issuer: m.issuer.clone(),
+                    op: SealedOp::new(m.id.clone(), effect.op.clone()),
+                },
             ));
         }
     }
@@ -305,17 +310,16 @@ fn effective_state_for_covered_events(
 ) -> Result<BTreeMap<CellRef, CellState>, SealReject> {
     let mut out = BTreeMap::new();
     for cell in cells.list_cells(realm_id)? {
-        let ops: Vec<SealedOp> = cells
+        let ops: Vec<IssuedOp> = cells
             .sealed_ops_for_cell(realm_id, &cell)?
             .into_iter()
-            .filter(|op| covered.contains(&op.move_id))
+            .filter(|issued| covered.contains(&issued.op.move_id))
             .collect();
         if ops.is_empty() {
             continue;
         }
         let binding = registry.resolve(realm_id, &cell)?;
-        let state = binding.lattice.join(&cell, &ops);
-        out.insert(cell, state);
+        out.insert(cell.clone(), join_cell(binding.lattice.as_ref(), &cell, &ops));
     }
     Ok(out)
 }
@@ -402,6 +406,15 @@ pub fn view_hash(leaves: &[SealId]) -> Result<Hash, crate::Error> {
 
 #[cfg(test)]
 mod tests {
+    /// Attach a fixed issuer to a sealed op. These fixtures exercise
+    /// non-ordered-log lattices, where the issuer is carried but unused.
+    fn issued(op: SealedOp) -> IssuedOp {
+        IssuedOp {
+            issuer: Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
+            op,
+        }
+    }
+
     use chrono::{TimeZone, Utc};
     use serde_json::json;
 
@@ -549,7 +562,7 @@ mod tests {
                 &seal_a.id,
                 &[(
                     cell.clone(),
-                    SealedOp::new(move_a, add_op("a", "visible-at-a")),
+                    issued(SealedOp::new(move_a, add_op("a", "visible-at-a"))),
                 )],
             )
             .unwrap();
@@ -559,7 +572,7 @@ mod tests {
                 &seal_b.id,
                 &[(
                     cell.clone(),
-                    SealedOp::new(move_b, add_op("b", "visible-at-b")),
+                    issued(SealedOp::new(move_b, add_op("b", "visible-at-b"))),
                 )],
             )
             .unwrap();
@@ -692,11 +705,11 @@ mod tests {
                 &[
                     (
                         cell.clone(),
-                        SealedOp::new(join_id, transition("invited", "join")),
+                        issued(SealedOp::new(join_id, transition("invited", "join"))),
                     ),
                     (
                         cell.clone(),
-                        SealedOp::new(ban_id, transition("join", "ban")),
+                        issued(SealedOp::new(ban_id, transition("join", "ban"))),
                     ),
                 ],
             )
@@ -713,4 +726,22 @@ mod tests {
         .unwrap();
         assert_eq!(state.get(&cell), Some(&CellState::Value(json!("ban"))));
     }
+}
+
+/// Join one cell's ops, routing `ordered_log` to its issuer-aware entry point.
+///
+/// `event-auth-state-resolution.md` §9.3.1 scopes ordered-log sequences to
+/// `(effect.cell, actor_id)`, so this lattice cannot be joined through the
+/// issuer-free [`Lattice::join`]: that path has no way to separate sub-chains
+/// and would stamp a synthetic issuer into the `state_root` leaf.
+pub fn join_cell(
+    lattice: &dyn crate::lattice::Lattice,
+    cell: &CellRef,
+    ops: &[IssuedOp],
+) -> CellState {
+    if lattice.kind() == crate::lattice::LatticeKind::OrderedLog {
+        return crate::lattice::OrderedLog.join_with_issuers(cell, ops);
+    }
+    let sealed: Vec<SealedOp> = ops.iter().map(|issued| issued.op.clone()).collect();
+    lattice.join(cell, &sealed)
 }

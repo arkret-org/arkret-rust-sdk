@@ -213,12 +213,12 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
                 issued(
                     "did:webvh:z6mkfixture:alice.example",
                     "a2",
-                    op_append(json!("second"), 2),
+                    op_append(json!("second"), 1),
                 ),
                 issued(
                     "did:webvh:z6mkfixture:alice.example",
                     "a1",
-                    op_append(json!("first"), 1),
+                    op_append(json!("first"), 0),
                 ),
             ];
             let resolved = value_of(OrderedLog.join_with_issuers(&cref, &ops));
@@ -227,35 +227,203 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
             let second_pos = text.find("second").expect("log must contain second entry");
             assert!(
                 first_pos < second_pos,
-                "per-issuer seq order must linearize 1 before 2: {text}"
+                "per-issuer seq order must linearize 0 before 1: {text}"
             );
         }
-        ("ordered_log", "same_issuer_seq_dedupes_deterministically") => {
-            // Duplicates carry entry_id so the tie-break is deterministic
-            // regardless of arrival order (min present entry_id wins).
+        ("ordered_log", "issuer_prefix_starts_at_seq_zero") => {
+            // Only seq 3 arrived. The prefix is anchored at 0, so nothing
+            // materializes and the gap is reported against seq 0 — starting at
+            // the lowest seq actually seen would publish an entry whose own
+            // predecessors are still missing.
+            let ops = vec![issued(
+                "did:webvh:z6mkfixture:alice.example",
+                "a3",
+                op_append(json!("late"), 3),
+            )];
+            let report = OrderedLog.join_with_issuer_report(&ops);
+            assert!(
+                report.entries.is_empty(),
+                "contiguous prefix must not start at seq 3"
+            );
+            assert_eq!(report.pending_gaps.len(), 1);
+            assert_eq!(report.pending_gaps[0].missing_seq, 0);
+            assert_eq!(report.pending_gaps[0].pending_seq, 3);
+        }
+        ("ordered_log", "byte_identical_effect_op_is_idempotent") => {
             let ops = vec![
-                issued(
-                    "did:webvh:z6mkfixture:alice.example",
-                    "b2",
-                    op_append(json!({"entry_id": "entry-b"}), 1),
-                ),
                 issued(
                     "did:webvh:z6mkfixture:alice.example",
                     "a1",
-                    op_append(json!({"entry_id": "entry-a"}), 1),
+                    op_append(json!("same"), 0),
+                ),
+                issued(
+                    "did:webvh:z6mkfixture:alice.example",
+                    "a2",
+                    op_append(json!("same"), 0),
                 ),
             ];
-            let forward = value_of(OrderedLog.join_with_issuers(&cref, &ops));
+            let report = OrderedLog.join_with_issuer_report(&ops);
+            assert_eq!(report.entries.len(), 1, "byte-identical op must dedupe");
+            assert!(
+                report.equivocations.is_empty(),
+                "an idempotent reappend is not equivocation"
+            );
+            assert!(report.fail_closed.is_empty());
+        }
+        ("ordered_log", "same_issuer_seq_equivocation_uses_max_event_digest") => {
+            // Same slot, different canonical `effect.op`: the greater
+            // event_digest wins. `entry_id` inside op.value must not decide it,
+            // so the loser here carries the lexicographically smaller id.
+            let ops = vec![
+                issued(
+                    "did:webvh:z6mkfixture:alice.example",
+                    "a1",
+                    op_append(json!({"entry_id": "entry-a"}), 0),
+                ),
+                issued(
+                    "did:webvh:z6mkfixture:alice.example",
+                    "b2",
+                    op_append(json!({"entry_id": "entry-b"}), 0),
+                ),
+            ];
+            let report = OrderedLog.join_with_issuer_report(&ops);
+            assert_eq!(report.entries.len(), 1);
+            let text = serde_json::to_string(&report.entries).unwrap();
+            assert!(
+                text.contains("entry-b") && !text.contains("entry-a"),
+                "greatest event_digest must win, not the smallest entry_id: {text}"
+            );
+        }
+        ("ordered_log", "equivocation_winner_is_independent_of_causal_edges") => {
+            // The lattice sees no causal edges, so the observable requirement is
+            // that no input permutation can change the winner.
+            let ops = vec![
+                issued(
+                    "did:webvh:z6mkfixture:alice.example",
+                    "a1",
+                    op_append(json!("left"), 0),
+                ),
+                issued(
+                    "did:webvh:z6mkfixture:alice.example",
+                    "b2",
+                    op_append(json!("right"), 0),
+                ),
+            ];
+            let forward = OrderedLog.join_with_issuer_report(&ops);
             let mut reversed_ops = ops;
             reversed_ops.reverse();
-            let reversed = value_of(OrderedLog.join_with_issuers(&cref, &reversed_ops));
+            let reversed = OrderedLog.join_with_issuer_report(&reversed_ops);
             assert_eq!(
-                forward, reversed,
-                "duplicate (issuer, seq) must dedupe deterministically"
+                forward.entries, reversed.entries,
+                "arrival order must not change the slot winner"
             );
+            assert_eq!(forward.equivocations, reversed.equivocations);
+        }
+        ("ordered_log", "equivocation_loser_remains_in_canonical_log") => {
+            let ops = vec![
+                issued(
+                    "did:webvh:z6mkfixture:alice.example",
+                    "a1",
+                    op_append(json!("loser"), 0),
+                ),
+                issued(
+                    "did:webvh:z6mkfixture:alice.example",
+                    "b2",
+                    op_append(json!("winner"), 0),
+                ),
+            ];
+            let report = OrderedLog.join_with_issuer_report(&ops);
+            assert_eq!(report.equivocations.len(), 1, "losers must stay auditable");
+            assert_eq!(report.equivocations[0].issuer_seq, 0);
+            assert_eq!(report.equivocations[0].loser_event_digests.len(), 1);
+            assert_ne!(
+                report.equivocations[0].winner_event_digest,
+                report.equivocations[0].loser_event_digests[0]
+            );
+        }
+        ("ordered_log", "max_event_digest_compares_decoded_octets_across_suites") => {
+            // As UTF-8 wire strings "sha256:00.." sorts above "blake3:ff..",
+            // but the decoded octets order the other way. §4.2 compares octets,
+            // so the blake3 candidate must win.
+            let alice = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
+            let ops = vec![
+                IssuedOp {
+                    issuer: alice.clone(),
+                    op: SealedOp::new(
+                        MoveId::new(format!("blake3:{}", "ff".repeat(32))).unwrap(),
+                        op_append(json!("greatest-octets"), 0),
+                    ),
+                },
+                IssuedOp {
+                    issuer: alice,
+                    op: SealedOp::new(
+                        MoveId::new(format!("sha256:{}", "00".repeat(32))).unwrap(),
+                        op_append(json!("greatest-wire-string"), 0),
+                    ),
+                },
+            ];
+            let report = OrderedLog.join_with_issuer_report(&ops);
+            assert_eq!(report.entries.len(), 1);
+            let text = serde_json::to_string(&report.entries).unwrap();
+            assert!(
+                text.contains("greatest-octets"),
+                "winner must follow decoded octets, not the typed wire string: {text}"
+            );
+        }
+        ("ordered_log", "distinct_digest_preimage_same_event_digest_fails_closed") => {
+            // `effect.op` is part of the digest preimage, so two different ops
+            // under one typed digest are a collision.
+            let alice = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
+            let colliding = move_id("cc");
+            let ops = vec![
+                IssuedOp {
+                    issuer: alice.clone(),
+                    op: SealedOp::new(colliding.clone(), op_append(json!("one"), 0)),
+                },
+                IssuedOp {
+                    issuer: alice,
+                    op: SealedOp::new(colliding, op_append(json!("other"), 0)),
+                },
+            ];
+            let report = OrderedLog.join_with_issuer_report(&ops);
+            assert!(
+                report.entries.is_empty(),
+                "a colliding slot must not materialize an entry"
+            );
+            assert_eq!(report.fail_closed.len(), 1);
+            assert_eq!(report.fail_closed[0].reason, "digest_collision");
+        }
+        ("ordered_log", "proofs_or_reducer_stamp_difference_is_not_a_digest_collision") => {
+            // `proofs`, `unsigned` and reducer stamps are excluded from the
+            // digest preimage, so two such variants reach the lattice as the
+            // same digest over the same canonical op — a duplicate, never a
+            // collision.
+            let alice = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
+            let shared = move_id("dd");
+            let ops = vec![
+                IssuedOp {
+                    issuer: alice.clone(),
+                    op: SealedOp::new(shared.clone(), op_append(json!("same"), 0)),
+                },
+                IssuedOp {
+                    issuer: alice,
+                    op: SealedOp::new(shared, op_append(json!("same"), 0)),
+                },
+            ];
+            let report = OrderedLog.join_with_issuer_report(&ops);
+            assert!(
+                report.fail_closed.is_empty(),
+                "identical digest preimage must not be reported as a collision"
+            );
+            assert_eq!(report.entries.len(), 1);
         }
         ("ordered_log", "gap_after_contiguous_prefix_is_pending_diagnostic") => {
             let ops = vec![
+                issued(
+                    "did:webvh:z6mkfixture:alice.example",
+                    "a0",
+                    op_append(json!("zero"), 0),
+                ),
                 issued(
                     "did:webvh:z6mkfixture:alice.example",
                     "a1",
@@ -271,7 +439,7 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
             assert_eq!(
                 report.pending_gaps.len(),
                 1,
-                "seq gap (1 then 3) must be reported as pending"
+                "seq gap (0,1 then 3) must be reported as pending"
             );
             assert_eq!(report.pending_gaps[0].missing_seq, 2);
             assert_eq!(report.pending_gaps[0].reason, "dependency_missing");
@@ -281,7 +449,7 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
                 issued(
                     "did:webvh:z6mkfixture:alice.example",
                     "a1",
-                    op_append(json!("one"), 1),
+                    op_append(json!("one"), 0),
                 ),
                 issued(
                     "did:webvh:z6mkfixture:alice.example",
@@ -305,17 +473,17 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
                 issued(
                     "did:webvh:z6mkfixture:alice.example",
                     "a1",
-                    op_append(json!("one"), 1),
+                    op_append(json!("one"), 0),
                 ),
                 issued(
                     "did:webvh:z6mkfixture:alice.example",
                     "a2",
-                    op_append(json!("two"), 2),
+                    op_append(json!("two"), 1),
                 ),
                 issued(
                     "did:webvh:z6mkfixture:alice.example",
                     "a3",
-                    op_append(json!("three"), 3),
+                    op_append(json!("three"), 2),
                 ),
             ];
             let mut shuffled = complete.clone();
@@ -324,26 +492,6 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
                 value_of(OrderedLog.join_with_issuers(&cref, &complete)),
                 value_of(OrderedLog.join_with_issuers(&cref, &shuffled)),
                 "backfilled recompute must be arrival-order independent"
-            );
-        }
-        ("ordered_log", "duplicate_same_issuer_seq_uses_min_entry_id") => {
-            let ops = vec![
-                issued(
-                    "did:webvh:z6mkfixture:alice.example",
-                    "b2",
-                    op_append(json!({"entry_id": "entry-b"}), 1),
-                ),
-                issued(
-                    "did:webvh:z6mkfixture:alice.example",
-                    "a1",
-                    op_append(json!({"entry_id": "entry-a"}), 1),
-                ),
-            ];
-            let resolved = value_of(OrderedLog.join_with_issuers(&cref, &ops));
-            let text = serde_json::to_string(&resolved).unwrap();
-            assert!(
-                text.contains("entry-a") && !text.contains("entry-b"),
-                "duplicate (issuer, seq) must keep the min entry_id: {text}"
             );
         }
         ("fsm", "duplicate_same_transition_idempotent") => {

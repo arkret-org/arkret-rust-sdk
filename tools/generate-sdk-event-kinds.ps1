@@ -82,6 +82,7 @@ foreach ($k in $arr) {
         PayloadSchemaRef = if ($null -eq $row.payload_schema_ref) { $null } else { [string]$row.payload_schema_ref }
         CellFamily = if ($null -eq $row.cell_family) { $null } else { [string]$row.cell_family }
         CellSubjectRule = if ($null -eq $row.cell_subject) { $null } else { ($row.cell_subject | ConvertTo-Json -Compress -Depth 20) }
+        ValueProjectionRule = if ($null -eq $row.value_projection) { $null } else { ($row.value_projection | ConvertTo-Json -Compress -Depth 20) }
         Lattice = if ($null -eq $row.lattice) { $null } else { [string]$row.lattice }
         Bottom = if ($null -eq $row.bottom) { $null } else { [string]$row.bottom }
         Plane = if ($null -eq $row.plane) { $null } else { [string]$row.plane }
@@ -139,6 +140,9 @@ foreach ($category in $categories) {
 & $add "    pub cell_family: Option<&'static str>,"
 & $add "    /// JSON cell-subject rule; ``None`` means the envelope ``realm_id``."
 & $add "    pub cell_subject_rule: Option<&'static str>,"
+& $add "    /// JSON ``op.value`` projection rule for ordered_log appends; ``None`` means"
+& $add "    /// the kind declares no registry-driven append value."
+& $add "    pub value_projection_rule: Option<&'static str>,"
 & $add "    pub lattice: Option<&'static str>,"
 & $add "    pub bottom: Option<&'static str>,"
 & $add "    pub plane: Option<&'static str>,"
@@ -342,6 +346,7 @@ foreach ($e in $entries) {
     $payloadSchemaRef = if ($null -eq $e.PayloadSchemaRef) { "None" } else { "Some(`"$($e.PayloadSchemaRef)`")" }
     $cellFamily = if ($null -eq $e.CellFamily) { "None" } else { "Some(`"$($e.CellFamily)`")" }
     $cellSubjectRule = if ($null -eq $e.CellSubjectRule) { "None" } else { "Some(r#`"$($e.CellSubjectRule)`"#)" }
+    $valueProjectionRule = if ($null -eq $e.ValueProjectionRule) { "None" } else { "Some(r#`"$($e.ValueProjectionRule)`"#)" }
     $lattice = if ($null -eq $e.Lattice) { "None" } else { "Some(`"$($e.Lattice)`")" }
     $bottom = if ($null -eq $e.Bottom) { "None" } else { "Some(`"$($e.Bottom)`")" }
     $plane = if ($null -eq $e.Plane) { "None" } else { "Some(`"$($e.Plane)`")" }
@@ -355,6 +360,7 @@ foreach ($e in $entries) {
     & $add "        payload_schema_ref: $payloadSchemaRef,"
     & $add "        cell_family: $cellFamily,"
     & $add "        cell_subject_rule: $cellSubjectRule,"
+    & $add "        value_projection_rule: $valueProjectionRule,"
     & $add "        lattice: $lattice,"
     & $add "        bottom: $bottom,"
     & $add "        plane: $plane,"
