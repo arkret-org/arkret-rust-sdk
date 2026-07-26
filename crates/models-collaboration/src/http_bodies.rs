@@ -1043,7 +1043,7 @@ pub enum DirectConversationAuthoringKind {
     DirectConversationMaterialization,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DirectConversationSummary {
     pub realm_id: RealmId,
@@ -1053,7 +1053,7 @@ pub struct DirectConversationSummary {
     pub state: DirectConversationBindingState,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactAgentProjection {
     pub agent_id: Did,
@@ -1068,7 +1068,7 @@ pub struct ContactAgentProjection {
     pub direct_conversation: Option<DirectConversationSummary>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactListRow {
     pub peer: Did,
