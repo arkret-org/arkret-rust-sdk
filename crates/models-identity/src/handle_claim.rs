@@ -304,7 +304,7 @@ mod tests {
         let value = serde_json::to_value(&claim).unwrap();
         assert_eq!(value["claim_kind"], "handle_binding");
         assert!(value.get("class").is_none());
-        assert!(value.get("claim_kind").is_none());
+        assert!(value.get("claim_type").is_none());
         assert!(value.get("issued_at").is_none());
         assert!(value["created_at"].is_string());
         assert_eq!(

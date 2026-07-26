@@ -49,6 +49,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
 
     // Fsm
     registry.register(MemberState);
+    registry.register(InviteLifecycle);
     registry.register(AgentStatus);
     registry.register(AuditBinding);
     registry.register(AuditSession);
@@ -148,6 +149,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ak.component.call.mute_override.v1",
         // Fsm
         "ak.component.member.state.v1",
+        "ak.component.invite.lifecycle.v1",
         "ak.component.agent.status.v1",
         "ak.component.audit.binding.v1",
         "ak.component.audit.session.v1",
@@ -256,6 +258,36 @@ pub fn build_sdk_cell_registry() -> MemoryCellRegistry {
             (json!("ban"), json!("leave")),
             (json!("ban"), json!("invite")),
         ],
+        BottomMode::Reject,
+    );
+    let invite_terminal_states = [
+        "expired",
+        "revoked",
+        "revoked_by_capability_loss",
+        "revoked_by_inviter_left",
+        "invalidated_by_rate_limit",
+    ];
+    let mut invite_transitions = vec![
+        (json!(null), json!("pending")),
+        (json!("pending"), json!("accepted")),
+        (json!("pending"), json!("rejected")),
+        (json!("pending"), json!("claimed")),
+        (json!("pending"), json!("send_failed")),
+        (json!("claimed"), json!("accepted")),
+        (json!("claimed"), json!("rejected")),
+        (json!("send_failed"), json!("pending")),
+    ];
+    for from in ["pending", "claimed", "send_failed"] {
+        invite_transitions.extend(
+            invite_terminal_states
+                .iter()
+                .map(|to| (json!(from), json!(to))),
+        );
+    }
+    sdk_registry.register_fsm(
+        "ak.component.invite.lifecycle.v1",
+        Some(json!(null)),
+        invite_transitions,
         BottomMode::Reject,
     );
     sdk_registry.register_fsm(

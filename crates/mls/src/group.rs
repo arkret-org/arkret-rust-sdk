@@ -1540,7 +1540,7 @@ mod content_scheme_anchor_tests {
         let prefix = derive_aead_sender_nonce_prefix(&[0x24u8; 32], &context, 24).unwrap();
         assert_eq!(
             hex(&prefix),
-            "0fc040d005169d79fec51dcd48188a9e",
+            "714372a22c94fec0491147a14ce42ae2",
             "exporter label/context nonce-prefix derivation drifted"
         );
 
@@ -1552,7 +1552,7 @@ mod content_scheme_anchor_tests {
         let aad = content_aead_aad(REALM, &nonce, aad_bytes).unwrap();
         assert_eq!(
             std::str::from_utf8(&aad).unwrap(),
-            "{\"aad\":\"YW5jaG9yLWFhZA\",\"key_ref\":{\"algorithm\":\"mls_exporter_aead_v1\",\"realm_id\":\"ak:realm:01904100-0000-7000-8000-000000000042\"},\"nonce\":\"D8BA0AUWnXn-xR3NSBiKngAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\"}",
+            "{\"aad\":\"YW5jaG9yLWFhZA\",\"key_ref\":{\"algorithm\":\"mls_exporter_aead_v1\",\"realm_id\":\"ak:realm:01904100-0000-7000-8000-000000000042\"},\"nonce\":\"cUNyoiyU_sBJEUehTOQq4gAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\"}",
             "canonical content AAD drifted"
         );
 
@@ -1570,7 +1570,7 @@ mod content_scheme_anchor_tests {
             .unwrap();
         assert_eq!(
             hex(&ciphertext),
-            "6adccf12da17af55e9cda3a5cea7201fd92ca1dab391198f7a906769fe7a6f0a9b3b43b113b80db52347750c8c6dea",
+            "5632b8a810a20f0858791fdffc9e2cab4f895dbb64324321a52267ff0a499f57d41c1053d0af799378c226dc3c2eae",
             "exporter-aead ciphertext drifted"
         );
 

@@ -756,6 +756,60 @@ per_subject_lattice!(
     &["ak.member.state"]
 );
 
+pub struct InviteLifecycle;
+impl LatticeKind for InviteLifecycle {
+    fn cell_family(&self) -> &'static str {
+        "ak.component.invite.lifecycle.v1"
+    }
+
+    fn lattice(&self) -> SdkLatticeKind {
+        SdkLatticeKind::Fsm
+    }
+
+    fn bottom_policy(&self) -> BottomPolicy {
+        BottomPolicy::Reject
+    }
+
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: "ak.component.invite.lifecycle.v1",
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        effect_payload
+            .get("invite_id")
+            .and_then(Value::as_str)
+            .or_else(|| {
+                effect_payload
+                    .get("invite")
+                    .and_then(|invite| invite.get("id"))
+                    .and_then(Value::as_str)
+            })
+            .map(|subject| Some(subject.to_owned()))
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: "ak.component.invite.lifecycle.v1",
+                field: "invite_id or invite.id",
+            })
+    }
+
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &[
+            "ak.invite.create",
+            "ak.invite.cancel",
+            "ak.invite.accept",
+            "ak.invite.third_party",
+            "ak.invite.claim",
+            "ak.invite.revoke",
+        ]
+    }
+}
+
 per_subject_lattice!(
     AgentStatus,
     "ak.component.agent.status.v1",

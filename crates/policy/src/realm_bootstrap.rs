@@ -303,7 +303,8 @@ mod tests {
     #[test]
     fn accepts_closed_founding_grant_and_history_sharing_followup() {
         let events = vec![create(), founding(ACTOR), history_sharing_followup()];
-        assert!(validate_realm_bootstrap_unit(&events).is_ok());
+        let result = validate_realm_bootstrap_unit(&events);
+        assert!(result.is_ok(), "unexpected bootstrap rejection: {result:?}");
     }
 
     #[test]

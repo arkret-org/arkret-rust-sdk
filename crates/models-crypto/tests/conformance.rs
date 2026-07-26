@@ -61,7 +61,7 @@ fn mls_payload_digest_regression_anchor() {
 
     assert_eq!(
         digest.as_str(),
-        "sha256:3bef5270548d5b2c14e46ac1c9a801376d243ca6d71b914ec1d3283268a981fa"
+        "sha256:ef078c8adf8433d7b3df36c58966acacbd53f8294d5223e9621d79b176644764"
     );
 }
 

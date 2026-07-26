@@ -20,8 +20,8 @@
 //!   realm.history_visibility, realm.join_rule, realm.discovery, realm.organization, realm.upgrade,
 //!   strand.position, strand.stage, morph.stage, space.parent, device.push_route, notary (Move/Seal
 //!   authority cell), mls_epoch, call focus, and call summary.
-//! - **Fsm** (legal transitions only): member.state, agent.status, call state, call recording, call
-//!   transcript, and realm.link.
+//! - **Fsm** (legal transitions only): member.state, invite.lifecycle, agent.status, call state,
+//!   call recording, call transcript, and realm.link.
 //! - **OrderedLog** (per-issuer monotonic append): account.status, policy.rule,
 //!   cross_signing.reset, contact.fact_log, direct_conversation.binding, circle create, sidecar
 //!   create, and realm create.
@@ -65,7 +65,7 @@ mod tests {
         // registry. New spec cell families must be added here before their
         // contracts are consumed by Move/Seal state resolution.
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 79);
+        assert_eq!(registry.len(), 80);
     }
 
     #[test]
@@ -147,6 +147,60 @@ mod tests {
         assert_eq!(
             binding.lattice.join(&cell, &[invite]),
             CellState::Value(json!("invite"))
+        );
+    }
+
+    #[test]
+    fn invite_lifecycle_fsm_uses_null_to_pending_then_accepted() {
+        let registry = default_lattice_registry();
+        let kind = registry
+            .lookup("ak.component.invite.lifecycle.v1")
+            .expect("invite lifecycle must be registered");
+        assert_eq!(kind.lattice(), SdkLatticeKind::Fsm);
+        assert_eq!(
+            kind.subject_for_effect(&json!({
+                "invite": {"id": "ak:invite:01904100-0000-7000-8000-000000000012"}
+            }))
+            .unwrap()
+            .as_deref(),
+            Some("ak:invite:01904100-0000-7000-8000-000000000012")
+        );
+
+        let sdk_registry = build_sdk_cell_registry();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011").unwrap();
+        let cell = CellRef::new(
+            "ak:cell:ak.component.invite.lifecycle.v1:ak:invite:01904100-0000-7000-8000-000000000012"
+                .to_owned(),
+        )
+        .unwrap();
+        let binding = sdk_registry.resolve(&realm_id, &cell).unwrap();
+        let pending = SealedOp::new(
+            MoveId::new(format!("sha256:{}", "12".repeat(32))).unwrap(),
+            LatticeOp {
+                op_type: LatticeOpType::Transition,
+                tag: None,
+                value: None,
+                from: Some(json!(null)),
+                to: Some(json!("pending")),
+                reason: None,
+                issuer_seq: None,
+            },
+        );
+        let accepted = SealedOp::new(
+            MoveId::new(format!("sha256:{}", "13".repeat(32))).unwrap(),
+            LatticeOp {
+                op_type: LatticeOpType::Transition,
+                tag: None,
+                value: None,
+                from: Some(json!("pending")),
+                to: Some(json!("accepted")),
+                reason: None,
+                issuer_seq: None,
+            },
+        );
+        assert_eq!(
+            binding.lattice.join(&cell, &[pending, accepted]),
+            CellState::Value(json!("accepted"))
         );
     }
 

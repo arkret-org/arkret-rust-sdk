@@ -231,7 +231,7 @@ mod tests {
                 "cursor": "ak:cursor:add",
                 "notifications": {"items": [{
                     "id": notification_id,
-                    "type": "agent",
+                    "notification_kind": "agent",
                     "action": "add",
                     "data": approval
                 }]}
@@ -243,7 +243,7 @@ mod tests {
                 "cursor": "ak:cursor:remove",
                 "notifications": {"items": [{
                     "id": notification_id,
-                    "type": "agent",
+                    "notification_kind": "agent",
                     "action": "remove",
                     "data": {"kind": "agent_runtime_approval", "reason": "approved"}
                 }]}

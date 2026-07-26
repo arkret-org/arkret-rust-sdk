@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=5b5bbf5b1ee00676cb27cbcd92a166be2d47c42d291d61148d9e45f29111bd93
-//! Entries: reason_codes=421
+//! sha256=c2b36dba10bcc51aade732537fddcdc1916bd70ae4cf8babe40441978392e941
+//! Entries: reason_codes=422
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -164,6 +164,7 @@ pub enum ReasonCode {
     ExpiredInviteToken,
     ExternalRateLimited,
     FederationAuthorityMismatch,
+    FederationDependenciesPending,
     FederationTrustDomainMismatch,
     FocusMismatch,
     FocusUnavailableForClient,
@@ -644,6 +645,7 @@ impl ReasonCode {
     pub const EXPIRED_INVITE_TOKEN: &'static str = "expired_invite_token";
     pub const EXTERNAL_RATE_LIMITED: &'static str = "external_rate_limited";
     pub const FEDERATION_AUTHORITY_MISMATCH: &'static str = "federation_authority_mismatch";
+    pub const FEDERATION_DEPENDENCIES_PENDING: &'static str = "federation_dependencies_pending";
     pub const FEDERATION_TRUST_DOMAIN_MISMATCH: &'static str = "federation_trust_domain_mismatch";
     pub const FOCUS_MISMATCH: &'static str = "focus_mismatch";
     pub const FOCUS_UNAVAILABLE_FOR_CLIENT: &'static str = "focus_unavailable_for_client";
@@ -1146,6 +1148,7 @@ impl ReasonCode {
             Self::ExpiredInviteToken => "expired_invite_token",
             Self::ExternalRateLimited => "external_rate_limited",
             Self::FederationAuthorityMismatch => "federation_authority_mismatch",
+            Self::FederationDependenciesPending => "federation_dependencies_pending",
             Self::FederationTrustDomainMismatch => "federation_trust_domain_mismatch",
             Self::FocusMismatch => "focus_mismatch",
             Self::FocusUnavailableForClient => "focus_unavailable_for_client",
@@ -1643,6 +1646,7 @@ impl ReasonCode {
             "expired_invite_token" => Self::ExpiredInviteToken,
             "external_rate_limited" => Self::ExternalRateLimited,
             "federation_authority_mismatch" => Self::FederationAuthorityMismatch,
+            "federation_dependencies_pending" => Self::FederationDependenciesPending,
             "federation_trust_domain_mismatch" => Self::FederationTrustDomainMismatch,
             "focus_mismatch" => Self::FocusMismatch,
             "focus_unavailable_for_client" => Self::FocusUnavailableForClient,
@@ -2747,6 +2751,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "federation_authority_mismatch",
         applies_to: &["federation_transaction", "service_call"],
         description: "HTTP Message Signature @authority / target URI host does not match the resolved service endpoint for Destination-Service-ID, or the Destination-Service-ID is not authorized by Realm policy for the requested federation operation. Receiver MUST reject before processing events.",
+    },
+    ReasonCodeDescriptor {
+        code: "federation_dependencies_pending",
+        applies_to: &["batch_item", "federation_transaction"],
+        description: "The individual federation Event cannot yet be verified because a required Event or signed Seal closure element is absent. This is retryable after bounded dependency backfill; it is not a permanent authorization denial. Independent complete items in an ordinary batch remain eligible for acceptance. Dual-registered as a reason_code and a top-level service code (see codes[]).",
     },
     ReasonCodeDescriptor {
         code: "federation_trust_domain_mismatch",

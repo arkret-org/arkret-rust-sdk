@@ -442,6 +442,11 @@ pub fn build_self_principal_bootstrap_seal<S: MoveSigner + ?Sized>(
     let state_root = self_principal_bootstrap_state_root(create, authorize)?;
     let control_root = control_event_set_root(&covered)
         .map_err(|error| Error::Protocol(format!("bootstrap Seal coverage root: {error}")))?;
+    let completeness_root = arkret_state::control_event_completeness_root(
+        &[create.clone(), authorize.clone()],
+        &covered,
+    )
+    .map_err(|error| Error::Protocol(format!("bootstrap Seal completeness root: {error}")))?;
     let sealed_at = Utc::now();
     let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
     let mut seal = Seal {
@@ -451,7 +456,7 @@ pub fn build_self_principal_bootstrap_seal<S: MoveSigner + ?Sized>(
         delta: delta.clone(),
         control_event_set_root: control_root.clone(),
         state_root,
-        completeness_root: control_root,
+        completeness_root,
         notary_seq: 0,
         data_view_root: None,
         data_event_set_root: None,
@@ -740,6 +745,10 @@ pub fn build_managed_agent_pcr_event_seal<S: MoveSigner + ?Sized>(
     }
     let control_root = control_event_set_root(&target)
         .map_err(|error| Error::Protocol(format!("managed Agent PCR control root: {error}")))?;
+    let completeness_root = arkret_state::control_event_completeness_root(events, &target)
+        .map_err(|error| {
+            Error::Protocol(format!("managed Agent PCR completeness root: {error}"))
+        })?;
     let sealed_at = Utc::now();
     let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
     let mut seal = Seal {
@@ -749,7 +758,7 @@ pub fn build_managed_agent_pcr_event_seal<S: MoveSigner + ?Sized>(
         delta,
         control_event_set_root: control_root.clone(),
         state_root: material.state_root,
-        completeness_root: control_root,
+        completeness_root,
         notary_seq,
         data_view_root: None,
         data_event_set_root: None,
@@ -1273,7 +1282,14 @@ mod tests {
         assert_eq!(seal.notary_seq, 0);
         assert_eq!(seal.delta.len(), 2);
         assert_eq!(seal.covered_event_digests, seal.delta);
-        assert_eq!(seal.control_event_set_root, seal.completeness_root);
+        assert_eq!(
+            seal.completeness_root,
+            arkret_state::control_event_completeness_root(
+                &[create, authorize],
+                &seal.delta.iter().cloned().collect(),
+            )
+            .unwrap()
+        );
         assert_eq!(seal.derive_id().unwrap(), seal.id);
         let NotarySig::Single(signature) = seal.notary_signature else {
             panic!("bootstrap Seal must use one device signature")

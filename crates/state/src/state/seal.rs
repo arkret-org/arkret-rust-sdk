@@ -292,6 +292,77 @@ pub fn control_event_set_root(covered: &BTreeSet<MoveId>) -> Result<Hash, SealRe
         .map_err(|e| SealReject::Store(format!("control_event_set_root: {e}")))
 }
 
+#[derive(serde::Serialize)]
+struct CompletenessLeaf<'a> {
+    actor_id: &'a arkret_wire::Did,
+    from_seq: u64,
+    to_seq: u64,
+    event_digests: Vec<&'a MoveId>,
+}
+
+/// Compute the Seal `completeness_root` from the listed Control Events.
+///
+/// The caller supplies the exact cumulative covered set. Every covered digest
+/// must resolve to exactly one Event; extra Events are ignored.
+pub fn control_event_completeness_root(
+    events: &[arkret_wire::Event],
+    covered: &BTreeSet<MoveId>,
+) -> Result<Hash, SealReject> {
+    let mut by_actor = BTreeMap::<arkret_wire::Did, Vec<(u64, MoveId)>>::new();
+    let mut resolved = BTreeSet::new();
+    for event in events {
+        let digest = MoveId::new(event.event_digest().map_err(|error| {
+            SealReject::Structural(format!("Control Event digest failed: {error}"))
+        })?)
+        .map_err(|error| {
+            SealReject::Structural(format!("Control Event digest is invalid: {error}"))
+        })?;
+        if !covered.contains(&digest) {
+            continue;
+        }
+        if !resolved.insert(digest.clone()) {
+            return Err(SealReject::Structural(
+                "duplicate listed Control Event digest".to_owned(),
+            ));
+        }
+        by_actor
+            .entry(event.actor_id.clone())
+            .or_default()
+            .push((event.actor_seq, digest));
+    }
+    if &resolved != covered {
+        return Err(SealReject::Structural(
+            "Seal coverage contains an unresolved Control Event digest".to_owned(),
+        ));
+    }
+
+    let mut leaf_data = Vec::with_capacity(by_actor.len());
+    for (actor_id, mut actor_events) in by_actor {
+        actor_events.sort_by(|left, right| left.cmp(right));
+        let from_seq = actor_events
+            .first()
+            .map(|(sequence, _)| *sequence)
+            .expect("actor group is non-empty");
+        let to_seq = actor_events
+            .last()
+            .map(|(sequence, _)| *sequence)
+            .expect("actor group is non-empty");
+        let leaf = CompletenessLeaf {
+            actor_id: &actor_id,
+            from_seq,
+            to_seq,
+            event_digests: actor_events.iter().map(|(_, digest)| digest).collect(),
+        };
+        leaf_data.push(
+            arkret_canonical::canonical_json_bytes(&leaf).map_err(|error| {
+                SealReject::Structural(format!("completeness leaf encoding failed: {error}"))
+            })?,
+        );
+    }
+    seal_merkle_root_from_leaf_data(&leaf_data)
+        .map_err(|error| SealReject::Store(format!("completeness_root: {error}")))
+}
+
 pub fn effective_state_at(
     leaves: &[SealId],
     realm_id: &RealmId,
@@ -427,7 +498,7 @@ mod tests {
     use crate::state::store::memory::{MemoryCellRegistry, MemoryCellStore, MemorySealStore};
     use crate::state::store::{CellStore, SealStore};
     use crate::{
-        Did, Hlc, LatticeOp, LatticeOpType, MoveSignature, NotarySig, SealBasis, SealKind,
+        Did, Event, Hlc, LatticeOp, LatticeOpType, MoveSignature, NotarySig, SealBasis, SealKind,
         SemanticRef,
     };
 
@@ -528,6 +599,53 @@ mod tests {
             control_event_set_root(&two).unwrap().as_str(),
             format!("sha256:{}", hex::encode(expected_root))
         );
+    }
+
+    fn completeness_event(event_id: &str, actor_id: &str, actor_seq: u64) -> Event {
+        serde_json::from_value(json!({
+            "event_id": event_id,
+            "kind": "ak.capability.grant",
+            "realm_id": realm(),
+            "actor_id": actor_id,
+            "actor_seq": actor_seq,
+            "created_at": "2026-07-26T00:00:00.000Z",
+            "prev_refs": [],
+            "payload": {},
+            "proofs": [{
+                "kind": "detached_jws",
+                "alg": "EdDSA",
+                "verification_method": format!("{actor_id}#device-1"),
+                "event_digest": format!("sha256:{}", "a".repeat(64)),
+                "created_at": "2026-07-26T00:00:00.000Z",
+                "jws": "a..b"
+            }]
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn completeness_root_is_actor_sequence_enveloped_and_requires_exact_coverage() {
+        let alice = completeness_event(
+            "ak:event:019f0000-0000-7000-8000-000000000001",
+            "did:web:alice.example",
+            7,
+        );
+        let bob = completeness_event(
+            "ak:event:019f0000-0000-7000-8000-000000000002",
+            "did:web:bob.example",
+            3,
+        );
+        let covered = [&alice, &bob]
+            .into_iter()
+            .map(|event| MoveId::new(event.event_digest().unwrap()).unwrap())
+            .collect::<BTreeSet<_>>();
+        let forward =
+            control_event_completeness_root(&[alice.clone(), bob.clone()], &covered).unwrap();
+        let reverse =
+            control_event_completeness_root(&[bob.clone(), alice.clone()], &covered).unwrap();
+        assert_eq!(forward, reverse);
+        assert_ne!(forward, control_event_set_root(&covered).unwrap());
+        assert!(control_event_completeness_root(&[alice], &covered).is_err());
     }
 
     fn move_for_order(byte: u8, refs: Vec<SemanticRef>) -> Move {

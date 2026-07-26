@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=5b5bbf5b1ee00676cb27cbcd92a166be2d47c42d291d61148d9e45f29111bd93 Entries: error_codes=261
+//! sha256=c2b36dba10bcc51aade732537fddcdc1916bd70ae4cf8babe40441978392e941 Entries: error_codes=262
 
 use serde::{Deserialize, Serialize};
 
@@ -110,6 +110,7 @@ pub enum ErrorCode {
     FailedPlane,
     FailedPrecondition,
     FederationActorOriginRejected,
+    FederationDependenciesPending,
     FederationInteropTrackOnly,
     FederationOriginDenied,
     FederationPrivateReadRailLocalOnly,
@@ -384,6 +385,7 @@ impl ErrorCode {
         Self::FailedPlane,
         Self::FailedPrecondition,
         Self::FederationActorOriginRejected,
+        Self::FederationDependenciesPending,
         Self::FederationInteropTrackOnly,
         Self::FederationOriginDenied,
         Self::FederationPrivateReadRailLocalOnly,
@@ -656,6 +658,7 @@ impl ErrorCode {
     pub const FAILED_PLANE: &'static str = "failed_plane";
     pub const FAILED_PRECONDITION: &'static str = "failed_precondition";
     pub const FEDERATION_ACTOR_ORIGIN_REJECTED: &'static str = "federation_actor_origin_rejected";
+    pub const FEDERATION_DEPENDENCIES_PENDING: &'static str = "federation_dependencies_pending";
     pub const FEDERATION_INTEROP_TRACK_ONLY: &'static str = "federation_interop_track_only";
     pub const FEDERATION_ORIGIN_DENIED: &'static str = "federation_origin_denied";
     pub const FEDERATION_PRIVATE_READ_RAIL_LOCAL_ONLY: &'static str =
@@ -943,6 +946,7 @@ impl ErrorCode {
             Self::FailedPlane => "failed_plane",
             Self::FailedPrecondition => "failed_precondition",
             Self::FederationActorOriginRejected => "federation_actor_origin_rejected",
+            Self::FederationDependenciesPending => "federation_dependencies_pending",
             Self::FederationInteropTrackOnly => "federation_interop_track_only",
             Self::FederationOriginDenied => "federation_origin_denied",
             Self::FederationPrivateReadRailLocalOnly => "federation_private_read_rail_local_only",
@@ -1223,6 +1227,7 @@ impl ErrorCode {
             "failed_plane" => Some(Self::FailedPlane),
             "failed_precondition" => Some(Self::FailedPrecondition),
             "federation_actor_origin_rejected" => Some(Self::FederationActorOriginRejected),
+            "federation_dependencies_pending" => Some(Self::FederationDependenciesPending),
             "federation_interop_track_only" => Some(Self::FederationInteropTrackOnly),
             "federation_origin_denied" => Some(Self::FederationOriginDenied),
             "federation_private_read_rail_local_only" => {
@@ -2127,6 +2132,13 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "service_call",
         applies_to: &[],
         description: "The federated actor origin was rejected by inbound policy.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::FederationDependenciesPending,
+        http_status: 503,
+        scope: "both",
+        applies_to: &[],
+        description: "A federation transaction lacks an Event, Seal, Seal predecessor, or Seal-covered Control Event required for verification. At top level this code is reserved for a registered atomic unit such as Realm founding and guarantees that no member of the unit was persisted. Ordinary federation batches report the dual-registered per-item reason in an HTTP 200 partial outcome instead.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FederationInteropTrackOnly,

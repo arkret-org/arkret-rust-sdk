@@ -3,12 +3,12 @@
 //! The `arkret` umbrella re-exports these owner-defined shapes at its root.
 //! Generated reducer-profile digests are owned by `arkret-policy`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    Did, Error, Event, EventId, FederatedDeviceSigningKeyEvidence, Hash, Hlc, RealmId, Result,
-    Seal, SealBasis, SealId,
+    Did, Error, Event, EventId, FederatedDeviceSigningKeyEvidence, Hash, Hlc, MoveId, RealmId,
+    Result, Seal, SealBasis, SealId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -472,6 +472,7 @@ pub use crate::http_bodies::EventsSubmitBatchRequestBody;
 
 pub const MAX_FEDERATED_EVENT_SIGNER_EVIDENCE: usize = 64;
 pub const MAX_FEDERATED_SEAL_PREREQUISITES: usize = 4096;
+pub const MAX_FEDERATED_EVENTS: usize = 500;
 
 /// Round 4 — federation `/events/submit` request. Used when a remote
 /// service forwards events from another principal server. MUST carry
@@ -479,11 +480,13 @@ pub const MAX_FEDERATED_SEAL_PREREQUISITES: usize = 4096;
 /// origin reducer state.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EventsSubmitFederationRequestBody {
     pub service_binding_ref: FederationServiceBindingRef,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub events: Vec<Event>,
-    /// Signed Seal ancestry required to verify `events[].seal_ref`.
+    /// Signed Seal ancestry required to verify DataEvent `seal_ref` and
+    /// Control Event `seal_basis.leaves`.
     ///
     /// These are transport prerequisites, not Events and not an alternate
     /// federation write rail. Receivers independently verify and project each
@@ -497,18 +500,68 @@ pub struct EventsSubmitFederationRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub agent_signer_evidence_bundle: Option<AgentSignerEvidenceBundle>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub idempotency_key: Option<String>,
 }
 
 impl EventsSubmitFederationRequestBody {
-    pub fn validate_signer_key_evidence(&self) -> Result<()> {
+    /// Validate the request-level federation transport contract.
+    ///
+    /// This is intentionally independent of receiver-local persistence. A
+    /// receiver must additionally establish that every omitted predecessor is
+    /// already accepted locally before it projects a transported Seal.
+    pub fn validate_federation_transport(&self) -> Result<()> {
+        if self.events.is_empty() || self.events.len() > MAX_FEDERATED_EVENTS {
+            return Err(Error::Protocol(
+                "federation events must contain between 1 and 500 items".to_owned(),
+            ));
+        }
+        let mut saw_data_event = false;
+        for event in &self.events {
+            if event.realm_id != self.service_binding_ref.realm_id {
+                return Err(Error::Protocol(
+                    "federation Event belongs to another Realm".to_owned(),
+                ));
+            }
+            match event
+                .kind
+                .descriptor()
+                .and_then(|descriptor| descriptor.plane)
+            {
+                Some("control") => {
+                    if saw_data_event {
+                        return Err(Error::Protocol(
+                            "federation Control Events must precede DataEvents".to_owned(),
+                        ));
+                    }
+                }
+                Some("data") => saw_data_event = true,
+                _ => {
+                    return Err(Error::Protocol(
+                        "federation Event kind has no registered CBA plane".to_owned(),
+                    ));
+                }
+            }
+        }
+
         if self.seals.len() > MAX_FEDERATED_SEAL_PREREQUISITES {
             return Err(Error::Protocol(
                 "federation seals exceeds the v1 limit".to_owned(),
             ));
         }
+        let mut seal_ids = BTreeSet::new();
+        let mut previous_order: Option<(u64, &str)> = None;
         for seal in &self.seals {
+            let order = (seal.notary_seq, seal.id.as_str());
+            if previous_order.is_some_and(|previous| previous >= order) {
+                return Err(Error::Protocol(
+                    "federation seals must be strictly sorted by (notary_seq, id)".to_owned(),
+                ));
+            }
+            previous_order = Some(order);
+            if !seal_ids.insert(seal.id.clone()) {
+                return Err(Error::Protocol(
+                    "federation seals contains a duplicate Seal id".to_owned(),
+                ));
+            }
             seal.validate_id()?;
             seal.validate_structural()?;
             if seal.realm_id != self.service_binding_ref.realm_id {
@@ -517,6 +570,143 @@ impl EventsSubmitFederationRequestBody {
                 ));
             }
         }
+
+        // Reject disclosure that is not reachable from a transported
+        // DataEvent seal_ref or Control Event seal_basis leaf. Receiver-local
+        // predecessors may be omitted.
+        let transported_by_id = self
+            .seals
+            .iter()
+            .map(|seal| (seal.id.clone(), seal))
+            .collect::<BTreeMap<_, _>>();
+        let mut pending = Vec::new();
+        for event in &self.events {
+            if let Some(seal_ref) = &event.seal_ref
+                && transported_by_id.contains_key(seal_ref)
+            {
+                pending.push(seal_ref.clone());
+            }
+            if let Some(seal_basis) = &event.seal_basis {
+                pending.extend(
+                    seal_basis
+                        .leaves
+                        .iter()
+                        .filter(|seal_id| transported_by_id.contains_key(*seal_id))
+                        .cloned(),
+                );
+            }
+        }
+        let mut reachable = BTreeSet::new();
+        while let Some(seal_id) = pending.pop() {
+            if !reachable.insert(seal_id.clone()) {
+                continue;
+            }
+            if let Some(seal) = transported_by_id.get(&seal_id) {
+                pending.extend(
+                    seal.predecessor_refs
+                        .iter()
+                        .filter(|predecessor| transported_by_id.contains_key(*predecessor))
+                        .cloned(),
+                );
+            }
+        }
+        if reachable.len() != self.seals.len() {
+            return Err(Error::Protocol(
+                "federation seals contains material unrelated to transported Events".to_owned(),
+            ));
+        }
+
+        // Build the in-request Event/Seal prerequisite graph and require it to
+        // be acyclic. External dependencies are deliberately absent: the
+        // receiver resolves those from accepted local state. A cycle wholly
+        // represented by this request can never be repaired by retry and is a
+        // permanent schema violation, including cycles longer than the direct
+        // Event -> Seal -> same Event case.
+        let event_nodes_by_digest = self
+            .events
+            .iter()
+            .map(|event| {
+                let digest = event.event_digest()?;
+                let move_id = MoveId::new(digest).map_err(|error| {
+                    Error::Protocol(format!(
+                        "federation Event digest is not a canonical Move id: {error}"
+                    ))
+                })?;
+                Ok((move_id, format!("event:{}", event.event_id)))
+            })
+            .collect::<Result<BTreeMap<_, _>>>()?;
+        let mut dependencies = BTreeMap::<String, BTreeSet<String>>::new();
+        for event in &self.events {
+            let node = format!("event:{}", event.event_id);
+            let event_dependencies = dependencies.entry(node).or_default();
+            if let Some(seal_ref) = &event.seal_ref
+                && transported_by_id.contains_key(seal_ref)
+            {
+                event_dependencies.insert(format!("seal:{seal_ref}"));
+            }
+            if let Some(seal_basis) = &event.seal_basis {
+                event_dependencies.extend(
+                    seal_basis
+                        .leaves
+                        .iter()
+                        .filter(|seal_id| transported_by_id.contains_key(*seal_id))
+                        .map(|seal_id| format!("seal:{seal_id}")),
+                );
+            }
+        }
+        for seal in &self.seals {
+            let node = format!("seal:{}", seal.id);
+            let seal_dependencies = dependencies.entry(node).or_default();
+            seal_dependencies.extend(
+                seal.predecessor_refs
+                    .iter()
+                    .filter(|seal_id| transported_by_id.contains_key(*seal_id))
+                    .map(|seal_id| format!("seal:{seal_id}")),
+            );
+            seal_dependencies.extend(
+                seal.delta
+                    .iter()
+                    .chain(&seal.covered_event_digests)
+                    .filter_map(|digest| event_nodes_by_digest.get(digest).cloned()),
+            );
+        }
+        let mut remaining_dependencies = dependencies
+            .iter()
+            .map(|(node, required)| (node.clone(), required.len()))
+            .collect::<BTreeMap<_, _>>();
+        let mut dependents = BTreeMap::<String, Vec<String>>::new();
+        for (node, required) in &dependencies {
+            for dependency in required {
+                dependents
+                    .entry(dependency.clone())
+                    .or_default()
+                    .push(node.clone());
+            }
+        }
+        let mut ready = remaining_dependencies
+            .iter()
+            .filter(|(_, count)| **count == 0)
+            .map(|(node, _)| node.clone())
+            .collect::<Vec<_>>();
+        let mut resolved = 0usize;
+        while let Some(node) = ready.pop() {
+            resolved += 1;
+            for dependent in dependents.get(&node).into_iter().flatten() {
+                let count = remaining_dependencies
+                    .get_mut(dependent)
+                    .expect("every dependent is a graph node");
+                *count -= 1;
+                if *count == 0 {
+                    ready.push(dependent.clone());
+                }
+            }
+        }
+        if resolved != dependencies.len() {
+            return Err(Error::Protocol(
+                "federation Event/Seal prerequisite graph contains a cycle".to_owned(),
+            ));
+        }
+
         if self.signer_key_evidence.len() > MAX_FEDERATED_EVENT_SIGNER_EVIDENCE {
             return Err(Error::Protocol(
                 "federation signer_key_evidence exceeds the v1 limit".to_owned(),
@@ -581,6 +771,12 @@ impl EventsSubmitFederationRequestBody {
         }
         Ok(())
     }
+
+    /// Backward-compatible entry point retained for callers compiled against
+    /// the earlier evidence-only name.
+    pub fn validate_signer_key_evidence(&self) -> Result<()> {
+        self.validate_federation_transport()
+    }
 }
 
 // `SnapshotBootstrap` migrated to `sync_frames::snapshot`. It reaches the
@@ -589,7 +785,7 @@ impl EventsSubmitFederationRequestBody {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{DeviceId, DidKey};
+    use arkret_wire::{DeviceId, DidKey, MoveId, MoveSignature, NotarySig, SealKind};
     use serde_json::json;
 
     use super::*;
@@ -744,8 +940,117 @@ mod tests {
             seals: Vec::new(),
             signer_key_evidence: vec![unrelated],
             agent_signer_evidence_bundle: None,
-            idempotency_key: None,
         };
         assert!(request.validate_signer_key_evidence().is_err());
+    }
+
+    fn federation_request(events: Vec<Event>) -> EventsSubmitFederationRequestBody {
+        let realm_id = events[0].realm_id.clone();
+        EventsSubmitFederationRequestBody {
+            service_binding_ref: FederationServiceBindingRef {
+                realm_id,
+                realm_policy_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
+                membership_frontier: Vec::new(),
+                delivery_binding_frontier: Vec::new(),
+                destination_service_kind: "principal_server".to_owned(),
+                reducer_profile_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
+            },
+            events,
+            seals: Vec::new(),
+            signer_key_evidence: Vec::new(),
+            agent_signer_evidence_bundle: None,
+        }
+    }
+
+    fn federation_prerequisite_seal() -> Seal {
+        let hash =
+            |byte: char| Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap();
+        let mut seal = Seal {
+            id: SealId::new(format!("ak:seal:sha256:{}", "0".repeat(64))).unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            predecessor_refs: Vec::new(),
+            delta: vec![MoveId::new(format!("sha256:{}", "1".repeat(64))).unwrap()],
+            control_event_set_root: hash('2'),
+            state_root: hash('3'),
+            completeness_root: hash('4'),
+            notary_seq: 0,
+            data_view_root: None,
+            data_event_set_root: None,
+            availability_root: None,
+            coverage_scope: None,
+            covered_event_digests: Vec::new(),
+            previous_state_root: None,
+            previous_digest_algorithm: None,
+            notary_signature: NotarySig::Single(MoveSignature {
+                alg: "EdDSA".to_owned(),
+                verification_method: "did:web:notary.example#key-1".to_owned(),
+                payload_digest: hash('5'),
+                created_at: "2026-07-21T08:00:00Z".parse().unwrap(),
+                jws: "AAAA.BBBB.CCCC".to_owned(),
+            }),
+            sealed_at: "2026-07-21T08:00:00Z".parse().unwrap(),
+            hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
+            kind: SealKind::Normal,
+        };
+        seal.id = seal.derive_id().unwrap();
+        seal
+    }
+
+    #[test]
+    fn federation_transport_is_single_realm_and_control_first() {
+        let data = event_with_device_proof();
+        let mut other_realm = data.clone();
+        other_realm.realm_id =
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000099").unwrap();
+        assert!(
+            federation_request(vec![data.clone(), other_realm])
+                .validate_federation_transport()
+                .is_err()
+        );
+
+        let mut control = data.clone();
+        control.kind = "ak.capability.grant".into();
+        assert!(
+            federation_request(vec![data, control])
+                .validate_federation_transport()
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn federation_transport_enforces_event_limit_and_header_only_idempotency() {
+        let event = event_with_device_proof();
+        let mut empty = federation_request(vec![event.clone()]);
+        empty.events.clear();
+        assert!(empty.validate_federation_transport().is_err());
+        assert!(
+            federation_request(vec![event.clone(); MAX_FEDERATED_EVENTS + 1])
+                .validate_federation_transport()
+                .is_err()
+        );
+
+        let request = federation_request(vec![event]);
+        let value = serde_json::to_value(&request).unwrap();
+        assert!(value.get("idempotency_key").is_none());
+        let mut value = value;
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("idempotency_key".to_owned(), json!("header-only"));
+        assert!(serde_json::from_value::<EventsSubmitFederationRequestBody>(value).is_err());
+    }
+
+    #[test]
+    fn federation_transport_seal_closure_is_rooted_at_control_basis_leaves() {
+        let seal = federation_prerequisite_seal();
+        let mut control = event_with_device_proof();
+        control.kind = "ak.capability.grant".into();
+        control.seal_basis = Some(seal.seal_basis());
+
+        let mut request = federation_request(vec![control]);
+        request.seals = vec![seal];
+        request
+            .validate_federation_transport()
+            .expect("a Control Event may transport its non-local Seal basis");
     }
 }
