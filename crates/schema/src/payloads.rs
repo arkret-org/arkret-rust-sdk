@@ -504,6 +504,33 @@ mod tests {
     use super::*;
 
     #[test]
+    fn rsvp_payload_allows_nullable_occurrence_but_not_null_event_ref() {
+        let catalog = event_payload_validator_catalog().unwrap();
+        catalog
+            .validate_payload(
+                "ak.rsvp.set",
+                &json!({
+                    "event_ref": "ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9182",
+                    "occurrence": null,
+                    "status": "accepted"
+                }),
+            )
+            .unwrap();
+        assert!(
+            catalog
+                .validate_payload(
+                    "ak.rsvp.set",
+                    &json!({
+                        "event_ref": null,
+                        "occurrence": null,
+                        "status": "accepted"
+                    }),
+                )
+                .is_err()
+        );
+    }
+
+    #[test]
     fn catalog_validates_known_payload_fields() {
         let catalog = event_payload_validator_catalog().unwrap();
         catalog

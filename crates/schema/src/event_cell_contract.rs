@@ -5,6 +5,7 @@
 //! single-target validation paths and the exact conditional multi-target
 //! validation used by invite, call, MLS, and Realm bootstrap contracts.
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
@@ -747,29 +748,28 @@ fn derive_composite(
 ) -> Result<String, EventCellContractError> {
     let parts = components
         .iter()
-        .map(|component| component_scalar(event, component, kind))
+        .map(|component| component_value(event, component, kind))
         .collect::<Result<Vec<_>, _>>()?;
-    let refs = parts.iter().map(String::as_str).collect::<Vec<_>>();
-    arkret_wire::cell::composite_subject(&refs)
+    arkret_wire::cell::composite_subject(&parts)
         .map_err(|error| subject_error(kind, &error.to_string()))
 }
 
 /// Resolve one composite component: either a plain field path or a
 /// discriminated `select` (`conformance/encoding.md` §9.5.1).
-fn component_scalar(
+fn component_value(
     event: &Event,
     component: &Value,
     kind: &str,
-) -> Result<String, EventCellContractError> {
+) -> Result<Value, EventCellContractError> {
     if let Some(path) = component.as_str() {
-        let value = field_value(event, path)
+        let value = subject_field_value(event, path)
             .ok_or_else(|| subject_error(kind, &format!("{path} is missing")))?;
-        return scalar_subject(value).map_err(|message| subject_error(kind, &message));
+        return composite_scalar(value.as_ref()).map_err(|message| subject_error(kind, &message));
     }
     let path = select_field_path(event, component, kind)?;
-    let value = field_value(event, &path)
+    let value = subject_field_value(event, &path)
         .ok_or_else(|| subject_error(kind, &format!("{path} is missing")))?;
-    scalar_subject(value).map_err(|message| subject_error(kind, &message))
+    composite_scalar(value.as_ref()).map_err(|message| subject_error(kind, &message))
 }
 
 /// Evaluate a `select` component and return the selected field path.
@@ -802,9 +802,12 @@ fn select_field_path(
         .get("branches")
         .and_then(Value::as_object)
         .ok_or_else(|| subject_error(kind, "select component is missing branches"))?;
-    let discriminator = field_value(event, selector)
-        .and_then(Value::as_str)
+    let discriminator_value = subject_field_value(event, selector)
         .ok_or_else(|| subject_error(kind, &format!("selector {selector} is missing")))?;
+    let discriminator = discriminator_value
+        .as_ref()
+        .as_str()
+        .ok_or_else(|| subject_error(kind, &format!("selector {selector} is not a string")))?;
     let branch = branches.get(discriminator).ok_or_else(|| {
         subject_error(
             kind,
@@ -825,7 +828,7 @@ fn select_field_path(
         .flatten()
         .filter_map(Value::as_str)
     {
-        if field_value(event, forbidden).is_some() {
+        if subject_field_value(event, forbidden).is_some() {
             return Err(subject_error(
                 kind,
                 &format!("forbidden field {forbidden} is present for branch {discriminator}"),
@@ -836,10 +839,7 @@ fn select_field_path(
 }
 
 fn field_value<'a>(event: &'a Event, path: &str) -> Option<&'a Value> {
-    if path == "payload" {
-        return None;
-    }
-    let path = path.strip_prefix("payload.").unwrap_or(path);
+    let path = path.strip_prefix("payload.")?;
     let mut segments = path.split('.');
     let first = segments.next()?;
     let mut current = event.payload.get(first)?;
@@ -849,23 +849,35 @@ fn field_value<'a>(event: &'a Event, path: &str) -> Option<&'a Value> {
     Some(current)
 }
 
-/// Resolve a **non-composite** subject path that names an Event Envelope field.
+/// Resolve a subject path that names a registered Event Envelope field.
 ///
 /// `event-and-patch.md` section 2.4.2 derives a cell subject from "the Event
 /// Envelope and payload", and `ak.invite.accept` relies on that: its
 /// `ak.component.member.state.v1` subject is the envelope `actor_id`, the
-/// invitee who submitted the acceptance. `encoding.md` section 9.5.1 keeps
-/// *composite* components narrower (effect value / payload fields only), so this
-/// resolver is deliberately reachable only from the non-composite paths.
-///
-/// The set is closed: an unlisted bare path stays unresolved and the caller
-/// fails the derivation closed rather than guessing.
+/// invitee who submitted the acceptance. The namespace and set are closed: v1
+/// accepts only the explicit `envelope.actor_id` source and never guesses from
+/// a bare name or payload-first fallback.
 fn envelope_field(event: &Event, path: &str) -> Option<String> {
     match path {
-        "actor_id" => Some(event.actor_id.as_str().to_owned()),
-        "event_id" => Some(event.event_id.to_string()),
-        "realm_id" => Some(event.realm_id.as_str().to_owned()),
+        "envelope.actor_id" => Some(event.actor_id.as_str().to_owned()),
         _ => None,
+    }
+}
+
+fn subject_field_value<'a>(event: &'a Event, path: &str) -> Option<Cow<'a, Value>> {
+    field_value(event, path)
+        .map(Cow::Borrowed)
+        .or_else(|| envelope_field(event, path).map(|value| Cow::Owned(Value::String(value))))
+}
+
+fn composite_scalar(value: &Value) -> Result<Value, String> {
+    match value {
+        Value::String(_) | Value::Bool(_) | Value::Null => Ok(value.clone()),
+        Value::Number(number) if number.is_i64() || number.is_u64() => Ok(value.clone()),
+        _ => Err(
+            "composite subject component must be a JSON string, integer, boolean, or null"
+                .to_owned(),
+        ),
     }
 }
 
@@ -891,6 +903,108 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    fn rsvp_event(occurrence: Value) -> Event {
+        serde_json::from_value(json!({
+            "event_id": "ak:event:019f9e50-d787-74e0-8731-c9ad5eaa9181",
+            "kind": EventKind::RSVP_SET,
+            "realm_id": "ak:realm:019f9e50-d787-74e0-8731-c9ad5eaa9180",
+            "actor_id": "did:webvh:z6mkfixture:alice.example",
+            "actor_seq": 7,
+            "created_at": "2026-07-26T01:00:00.000Z",
+            "hlc": "019f9e500000-0000-aabbccdd",
+            "prev_refs": [],
+            "effects": [],
+            "payload": {
+                "event_ref": "ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9182",
+                "occurrence": occurrence,
+                "status": "accepted"
+            },
+            "proofs": []
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn rsvp_composite_preserves_null_and_explicit_envelope_actor() {
+        let mut event = rsvp_event(Value::Null);
+        let descriptor = event.kind.descriptor().unwrap();
+        assert_eq!(
+            derive_subject(&event, descriptor.cell_subject_rule).unwrap(),
+            "3iBI9bjQLklvfcVhQeaxLajMskSVG4oZ5IMpU62GvRc"
+        );
+        event.effects = vec![
+            serde_json::from_value(json!({
+                "cell": "ak:cell:ak.component.calendar.rsvp.v1:3iBI9bjQLklvfcVhQeaxLajMskSVG4oZ5IMpU62GvRc",
+                "op": {"kind": "set", "value": "accepted"}
+            }))
+            .unwrap(),
+        ];
+        validate_registered_cell_writes(&event).unwrap();
+
+        let instance = rsvp_event(json!("2026-07-26T09:00:00[Asia/Shanghai]"));
+        assert_eq!(
+            derive_subject(&instance, descriptor.cell_subject_rule).unwrap(),
+            "tc2S5LQybi5y3tI-hoyB6HoBWFepT_tDfFcmHJk_jd0"
+        );
+    }
+
+    #[test]
+    fn rsvp_composite_rejects_missing_invalid_and_unregistered_components() {
+        let mut missing = rsvp_event(Value::Null);
+        missing.payload.remove("occurrence");
+        let rule = missing.kind.descriptor().unwrap().cell_subject_rule;
+        assert!(matches!(
+            derive_subject(&missing, rule),
+            Err(EventCellContractError::SubjectDerivation { .. })
+        ));
+
+        for invalid in [
+            json!({"not": "scalar"}),
+            json!(["not", "scalar"]),
+            json!(1.5),
+        ] {
+            let event = rsvp_event(invalid);
+            assert!(matches!(
+                derive_subject(&event, rule),
+                Err(EventCellContractError::SubjectDerivation { .. })
+            ));
+        }
+
+        let event = rsvp_event(Value::Null);
+        assert!(matches!(
+            component_value(&event, &json!("envelope.event_id"), EventKind::RSVP_SET),
+            Err(EventCellContractError::SubjectDerivation { .. })
+        ));
+        assert!(matches!(
+            component_value(&event, &json!("actor_id"), EventKind::RSVP_SET),
+            Err(EventCellContractError::SubjectDerivation { .. })
+        ));
+
+        let mut shadow = rsvp_event(Value::Null);
+        shadow.payload.insert(
+            "actor_id".to_owned(),
+            json!("did:webvh:z6mkfixture:mallory.example"),
+        );
+        assert_eq!(
+            derive_subject(&shadow, rule).unwrap(),
+            "3iBI9bjQLklvfcVhQeaxLajMskSVG4oZ5IMpU62GvRc"
+        );
+
+        let envelope_select = json!({
+            "type": "select",
+            "selector": "envelope.actor_id",
+            "branches": {
+                "did:webvh:z6mkfixture:alice.example": {
+                    "field": "envelope.actor_id"
+                }
+            }
+        });
+        assert_eq!(
+            component_value(&event, &envelope_select, EventKind::RSVP_SET).unwrap(),
+            json!("did:webvh:z6mkfixture:alice.example")
+        );
+    }
 
     fn realm_facet(kind: &str, family: &str, payload: Value, value: Value) -> Event {
         serde_json::from_value(json!({
@@ -1043,6 +1157,37 @@ mod tests {
         validate_registered_cell_writes(&third_party).unwrap();
     }
 
+    #[test]
+    fn invite_accept_member_target_uses_explicit_envelope_actor() {
+        let event: Event = serde_json::from_value(json!({
+            "event_id": "ak:event:019f9000-0000-7000-8000-000000000012",
+            "kind": EventKind::INVITE_ACCEPT,
+            "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002",
+            "actor_id": "did:webvh:z6mkfixture:bob.example",
+            "actor_seq": 1,
+            "created_at": "2026-07-26T00:00:00.000Z",
+            "hlc": "019f90000000-0000-aabbccdd",
+            "prev_refs": [],
+            "effects": [
+                {
+                    "cell": "ak:cell:ak.component.invite.lifecycle.v1:ak:invite:019f9000-0000-7000-8000-000000000010",
+                    "op": {"kind": "transition", "from": "pending", "to": "accepted"}
+                },
+                {
+                    "cell": "ak:cell:ak.component.member.state.v1:did:webvh:z6mkfixture:bob.example",
+                    "op": {"kind": "transition", "from": "invite", "to": "join"}
+                }
+            ],
+            "payload": {
+                "invite_id": "ak:invite:019f9000-0000-7000-8000-000000000010"
+            },
+            "proofs": []
+        }))
+        .unwrap();
+
+        validate_registered_cell_writes(&event).unwrap();
+    }
+
     fn call_event(kind: &str, payload: Value, effects: Vec<Value>) -> Event {
         serde_json::from_value(json!({
             "event_id": "ak:event:019f9000-0000-7000-8000-000000000021",
@@ -1151,8 +1296,7 @@ mod tests {
 
         let mut wrong_family = transcript;
         wrong_family.effects[0].cell =
-            arkret_wire::CellRef::new(format!("ak:cell:ak.component.call.recording.v1:{subject}"))
-                .unwrap();
+            CellRef::new(format!("ak:cell:ak.component.call.recording.v1:{subject}")).unwrap();
         assert!(matches!(
             validate_registered_cell_writes(&wrong_family),
             Err(EventCellContractError::EffectSetMismatch { .. })
@@ -1484,10 +1628,9 @@ mod tests {
     #[test]
     fn delivery_append_rejects_producer_chosen_cell() {
         let mut event = delivery_share_event();
-        event.effects[0].cell = arkret_wire::CellRef::new(
-            "ak:cell:ak.component.realm_key.delivery.v1:not-the-derived-subject",
-        )
-        .unwrap();
+        event.effects[0].cell =
+            CellRef::new("ak:cell:ak.component.realm_key.delivery.v1:not-the-derived-subject")
+                .unwrap();
         assert_eq!(
             validate_single_target_append_event_contract(
                 &event,
@@ -1519,12 +1662,12 @@ mod tests {
             json!("listed"),
         );
         event.effects[0].cell =
-            arkret_wire::CellRef::new("ak:cell:ak.component.realm.join_rule.v1:null").unwrap();
+            CellRef::new("ak:cell:ak.component.realm.join_rule.v1:null").unwrap();
         let error = validate_single_target_set_event_contract(&event).unwrap_err();
         assert_eq!(error.reason_code(), "effects_payload_mismatch");
 
         event.effects[0].cell =
-            arkret_wire::CellRef::new("ak:cell:ak.component.realm.discovery.v1:null").unwrap();
+            CellRef::new("ak:cell:ak.component.realm.discovery.v1:null").unwrap();
         event.effects[0].op.value = Some(json!("secret"));
         assert!(matches!(
             validate_single_target_set_event_contract(&event),

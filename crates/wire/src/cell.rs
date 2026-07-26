@@ -19,8 +19,8 @@
 //!
 //! - [`CellId::parse`] — strict parser for `ak:cell:<component>:<subject>`.
 //! - [`CellId::component`] / [`CellId::subject`] — accessors.
-//! - [`composite_subject`] — produce the canonical composite subject hash for a fixed-order list of
-//!   string parts (the wire-canonical form).
+//! - [`composite_subject`] — produce the canonical composite subject hash for a fixed-order typed
+//!   JSON scalar array (the wire-canonical form).
 //! - [`composite_subject_pipe`] — produce the diagnostic `a|b|c` form (informational only; never
 //!   wire-canonical).
 
@@ -106,11 +106,58 @@ impl CellId {
 
 /// Canonical composite cell subject: `base64url_nopad(sha256(canonical_json([...])))`.
 ///
+/// Component conversion accepted by [`composite_subject`].
+///
+/// String slices keep existing typed-ID and DID callers allocation-light;
+/// [`serde_json::Value`] supports the complete v1 scalar set, including JSON
+/// null for series-level RSVP subjects.
+pub trait CompositeSubjectComponent {
+    fn to_json_scalar(&self) -> serde_json::Value;
+}
+
+impl CompositeSubjectComponent for &str {
+    fn to_json_scalar(&self) -> serde_json::Value {
+        serde_json::Value::String((*self).to_owned())
+    }
+}
+
+impl CompositeSubjectComponent for String {
+    fn to_json_scalar(&self) -> serde_json::Value {
+        serde_json::Value::String(self.clone())
+    }
+}
+
+impl CompositeSubjectComponent for serde_json::Value {
+    fn to_json_scalar(&self) -> serde_json::Value {
+        self.clone()
+    }
+}
+
 /// `parts` MUST be in the fixed order declared by the cell family's
-/// `cell_subject` descriptor (spec encoding.md §9.5). Reorder negative
-/// vectors MUST diverge from this form.
-pub fn composite_subject(parts: &[&str]) -> Result<String> {
-    let bytes = canonical::canonical_json_bytes(&parts)?;
+/// `cell_subject` descriptor (spec encoding.md §9.5). Values retain their JSON
+/// types; only string, integer, boolean, and null components are valid. Reorder
+/// negative vectors MUST diverge from this form.
+pub fn composite_subject<T: CompositeSubjectComponent>(parts: &[T]) -> Result<String> {
+    let components = parts
+        .iter()
+        .map(CompositeSubjectComponent::to_json_scalar)
+        .collect::<Vec<_>>();
+    for component in &components {
+        let valid = match component {
+            serde_json::Value::String(_) | serde_json::Value::Bool(_) | serde_json::Value::Null => {
+                true
+            }
+            serde_json::Value::Number(number) => number.is_i64() || number.is_u64(),
+            serde_json::Value::Array(_) | serde_json::Value::Object(_) => false,
+        };
+        if !valid {
+            return Err(Error::Protocol(
+                "composite subject components must be JSON string, integer, boolean, or null"
+                    .to_owned(),
+            ));
+        }
+    }
+    let bytes = canonical::canonical_json_bytes(&components)?;
     Ok(canonical::sha256_base64url(&bytes))
 }
 
@@ -214,6 +261,53 @@ mod tests {
             canonical, reordered,
             "reorder must diverge from canonical hash"
         );
+    }
+
+    #[test]
+    fn composite_subject_preserves_typed_json_null() {
+        let components = vec![
+            serde_json::json!("ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9182"),
+            serde_json::Value::Null,
+            serde_json::json!("did:webvh:z6mkfixture:alice.example"),
+        ];
+        assert_eq!(
+            composite_subject(&components).unwrap(),
+            "3iBI9bjQLklvfcVhQeaxLajMskSVG4oZ5IMpU62GvRc"
+        );
+    }
+
+    #[test]
+    fn composite_subject_preserves_integer_and_boolean_types() {
+        let typed = vec![serde_json::json!(7), serde_json::json!(true)];
+        let stringified = vec![serde_json::json!("7"), serde_json::json!("true")];
+        assert_eq!(
+            composite_subject(&typed).unwrap(),
+            "ppr_xXNqzOg5Ocq2g7TqCXruLOXDcEJsm5RtEGE8wjw"
+        );
+        assert_eq!(
+            composite_subject(&stringified).unwrap(),
+            "DPiXtvkJYb-EJwwcCNiu2_bf7BY50wfh38zRmgSx9So"
+        );
+        assert_ne!(
+            composite_subject(&typed).unwrap(),
+            composite_subject(&stringified).unwrap()
+        );
+    }
+
+    #[test]
+    fn composite_subject_rejects_non_scalar_and_fractional_components() {
+        for component in [
+            serde_json::json!({"not": "scalar"}),
+            serde_json::json!(["not", "scalar"]),
+            serde_json::json!(1.5),
+        ] {
+            let error = composite_subject(&[component]).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("JSON string, integer, boolean, or null")
+            );
+        }
     }
 
     #[test]

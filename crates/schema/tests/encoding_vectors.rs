@@ -1,6 +1,7 @@
 use arkret_identifiers::Hlc;
 use arkret_models_crypto::MlsGovernanceBindingPayload;
 use arkret_schema::embedded_json_artifact;
+use arkret_wire::EventKind;
 use arkret_wire::cursor::Cursor;
 use serde_json::{Value, json};
 
@@ -567,6 +568,115 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                             "{vector_id}/{case_name}: transition case must disagree with the wire-string order"
                         );
                     }
+                }
+            }
+            "typed_composite_subject" => {
+                let source = &vector["source_descriptor"];
+                let event_kind = source["event_kind"].as_str().unwrap();
+                let descriptor = EventKind::try_new(event_kind)
+                    .and_then(|kind| kind.descriptor())
+                    .unwrap_or_else(|| panic!("{vector_id}: source event kind is not registered"));
+                assert_eq!(
+                    descriptor.cell_family,
+                    source["cell_family"].as_str(),
+                    "{vector_id}: source cell family drifted"
+                );
+                let registered_rule: Value = serde_json::from_str(
+                    descriptor
+                        .cell_subject_rule
+                        .unwrap_or_else(|| panic!("{vector_id}: source subject rule is missing")),
+                )
+                .unwrap();
+                assert_eq!(
+                    registered_rule["type"], "composite",
+                    "{vector_id}: registered subject is not composite"
+                );
+                assert_eq!(
+                    registered_rule["components"], source["components"],
+                    "{vector_id}: fixture sources drifted from the generated descriptor"
+                );
+
+                let cases = vector["positive_cases"]
+                    .as_array()
+                    .unwrap_or_else(|| panic!("{vector_id}: missing positive_cases"));
+                let mut subjects = std::collections::BTreeMap::new();
+                for case in cases {
+                    let name = case["name"].as_str().unwrap();
+                    let components = case["components_array"].as_array().unwrap();
+                    let bytes = arkret_canonical::canonical_json_bytes(components).unwrap_or_else(
+                        |error| panic!("{vector_id}/{name}: canonicalize failed: {error}"),
+                    );
+                    if let Some(expected) = case
+                        .get("expected_canonical_bytes_utf8")
+                        .and_then(Value::as_str)
+                    {
+                        assert_eq!(
+                            std::str::from_utf8(&bytes).unwrap(),
+                            expected,
+                            "{vector_id}/{name}: canonical bytes drifted"
+                        );
+                    }
+                    let subject = arkret_wire::composite_subject(components)
+                        .unwrap_or_else(|error| panic!("{vector_id}/{name}: {error}"));
+                    assert_eq!(
+                        subject,
+                        case["expected_subject"].as_str().unwrap(),
+                        "{vector_id}/{name}: composite subject drifted"
+                    );
+                    assert!(
+                        subjects.insert(name, subject).is_none(),
+                        "{vector_id}: duplicate positive case {name}"
+                    );
+                }
+                for case in cases {
+                    if let Some(other) = case.get("must_differ_from").and_then(Value::as_str) {
+                        assert_ne!(
+                            subjects[case["name"].as_str().unwrap()],
+                            subjects[other],
+                            "{vector_id}: reordered components must diverge"
+                        );
+                    }
+                }
+                for case in vector["negative_cases"].as_array().unwrap() {
+                    let name = case["name"].as_str().unwrap();
+                    if let Some(component) = case.get("component") {
+                        assert!(
+                            arkret_wire::composite_subject(std::slice::from_ref(component))
+                                .is_err(),
+                            "{vector_id}/{}: invalid component was accepted",
+                            name
+                        );
+                        assert_eq!(case["expected_error"], "schema_violation");
+                    } else if let Some(source) = case.get("source").and_then(Value::as_str) {
+                        assert!(
+                            !source.starts_with("payload.") && source != "envelope.actor_id",
+                            "{vector_id}/{name}: source negative is actually registered"
+                        );
+                        assert_eq!(case["expected_error"], "schema_violation");
+                    } else if case.get("expected_component").is_some() {
+                        assert_eq!(
+                            case["expected_component"], case["envelope_actor_id"],
+                            "{vector_id}/{name}: envelope actor was not selected"
+                        );
+                        assert_ne!(
+                            case["expected_component"], case["payload_actor_id"],
+                            "{vector_id}/{name}: payload actor shadowed the envelope"
+                        );
+                    } else {
+                        assert_eq!(
+                            case["expected_error"], "schema_violation",
+                            "{vector_id}/{name}: semantic negative has no schema_violation"
+                        );
+                    }
+                }
+                for case in vector["mv_register_cases"].as_array().unwrap() {
+                    assert!(
+                        case["expected_heads"]
+                            .as_array()
+                            .is_some_and(|heads| !heads.is_empty()),
+                        "{vector_id}/{}: convergence case omits heads",
+                        case["name"].as_str().unwrap()
+                    );
                 }
             }
             other => {
