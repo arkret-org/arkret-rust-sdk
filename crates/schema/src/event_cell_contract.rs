@@ -308,6 +308,31 @@ fn derive_effect_op(
             )?);
             Ok(op)
         }
+        "append" => {
+            let mut op = empty();
+            op.op_type = LatticeOpType::Append;
+            op.value = Some(effect_source_value(
+                event,
+                projection
+                    .get("value")
+                    .ok_or_else(|| effect_set_error(kind, "append projection omits value"))?,
+                kind,
+            )?);
+            op.issuer_seq = Some(
+                effect_source_value(
+                    event,
+                    projection.get("issuer_seq").ok_or_else(|| {
+                        effect_set_error(kind, "append projection omits issuer_seq")
+                    })?,
+                    kind,
+                )?
+                .as_u64()
+                .ok_or_else(|| {
+                    effect_set_error(kind, "append issuer_seq must derive an unsigned integer")
+                })?,
+            );
+            Ok(op)
+        }
         "or_set_delta" => {
             let selector = projection
                 .get("selector")
@@ -365,7 +390,7 @@ fn derive_effect_op(
         }
         other => Err(effect_set_error(
             kind,
-            &format!("unknown effect_projection type {other}"),
+            &format!("unknown effect_projection kind {other}"),
         )),
     }
 }
@@ -1596,6 +1621,13 @@ mod tests {
         let directed = invite_create_event(Some("did:webvh:z6mkfixture:bob.example"));
         validate_registered_cell_writes(&directed).unwrap();
 
+        let mut wrong_transition = directed.clone();
+        wrong_transition.effects[1].op.from = Some(json!("invite"));
+        assert!(matches!(
+            validate_registered_cell_writes(&wrong_transition),
+            Err(EventCellContractError::PayloadMismatch { .. })
+        ));
+
         let mut missing_member = directed;
         missing_member.effects.pop();
         assert!(matches!(
@@ -1636,6 +1668,128 @@ mod tests {
         .unwrap();
 
         validate_registered_cell_writes(&event).unwrap();
+
+        let mut bypass = event;
+        bypass.effects[1].op.from = Some(json!("leave"));
+        assert!(matches!(
+            validate_registered_cell_writes(&bypass),
+            Err(EventCellContractError::PayloadMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn invite_terminal_member_transition_is_exact() {
+        for kind in [EventKind::INVITE_CANCEL, EventKind::INVITE_REVOKE] {
+            let mut event: Event = serde_json::from_value(json!({
+                "event_id": "ak:event:019f9000-0000-7000-8000-000000000013",
+                "kind": kind,
+                "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002",
+                "actor_id": "did:webvh:z6mkfixture:alice.example",
+                "actor_seq": 5,
+                "created_at": "2026-07-26T00:00:00.000Z",
+                "hlc": "019f90000000-0000-aabbccdd",
+                "prev_refs": [],
+                "effects": [
+                    {
+                        "cell": "ak:cell:ak.component.invite.lifecycle.v1:ak:invite:019f9000-0000-7000-8000-000000000010",
+                        "op": {"kind": "transition", "from": "pending", "to": "revoked"}
+                    },
+                    {
+                        "cell": "ak:cell:ak.component.member.state.v1:did:webvh:z6mkfixture:bob.example",
+                        "op": {"kind": "transition", "from": "invite", "to": "leave"}
+                    }
+                ],
+                "payload": {
+                    "invite_id": "ak:invite:019f9000-0000-7000-8000-000000000010",
+                    "invitee": "did:webvh:z6mkfixture:bob.example"
+                },
+                "proofs": []
+            }))
+            .unwrap();
+
+            validate_registered_cell_writes(&event).unwrap();
+            event.effects[1].op.to = Some(json!("join"));
+            assert!(matches!(
+                validate_registered_cell_writes(&event),
+                Err(EventCellContractError::PayloadMismatch { .. })
+            ));
+        }
+    }
+
+    #[test]
+    fn realm_create_ordered_log_projection_is_exact() {
+        let mut event: Event = serde_json::from_value(json!({
+            "event_id": "ak:event:019f9000-0000-7000-8000-000000000021",
+            "kind": EventKind::REALM_CREATE,
+            "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000021",
+            "actor_id": "did:webvh:z6mkfixture:alice.example",
+            "actor_seq": 7,
+            "created_at": "2026-07-26T00:00:00.000Z",
+            "hlc": "019f90000000-0000-aabbccdd",
+            "prev_refs": [],
+            "effects": [
+                {
+                    "cell": "ak:cell:ak.component.realm.metadata.v1:null",
+                    "op": {
+                        "kind": "set",
+                        "value": {
+                            "id": "ak:realm:019f9000-0000-7000-8000-000000000021",
+                            "created_by": "did:webvh:z6mkfixture:alice.example",
+                            "notary": {
+                                "type": "single_did",
+                                "did": "did:webvh:z6mkfixture:alice.example"
+                            }
+                        }
+                    }
+                },
+                {
+                    "cell": "ak:cell:ak.component.member.state.v1:did:webvh:z6mkfixture:alice.example",
+                    "op": {"kind": "transition", "from": "leave", "to": "join"}
+                },
+                {
+                    "cell": "ak:cell:ak.component.realm.create.v1:null",
+                    "op": {
+                        "kind": "append",
+                        "value": "ak:realm:019f9000-0000-7000-8000-000000000021",
+                        "issuer_seq": 0
+                    }
+                },
+                {
+                    "cell": "ak:cell:ak.component.notary.v1:null",
+                    "op": {
+                        "kind": "set",
+                        "value": {
+                            "type": "single_did",
+                            "did": "did:webvh:z6mkfixture:alice.example"
+                        }
+                    }
+                }
+            ],
+            "payload": {
+                "object": {
+                    "id": "ak:realm:019f9000-0000-7000-8000-000000000021",
+                    "created_by": "did:webvh:z6mkfixture:alice.example",
+                    "notary": {
+                        "type": "single_did",
+                        "did": "did:webvh:z6mkfixture:alice.example"
+                    }
+                }
+            },
+            "proofs": []
+        }))
+        .unwrap();
+
+        validate_registered_cell_writes(&event).unwrap();
+        let create_log = event
+            .effects
+            .iter_mut()
+            .find(|effect| effect.cell.as_str() == arkret_wire::REALM_CREATE_CELL)
+            .unwrap();
+        create_log.op.issuer_seq = Some(7);
+        assert!(matches!(
+            validate_registered_cell_writes(&event),
+            Err(EventCellContractError::PayloadMismatch { .. })
+        ));
     }
 
     fn call_event(kind: &str, payload: Value, effects: Vec<Value>) -> Event {

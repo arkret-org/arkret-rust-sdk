@@ -37,17 +37,20 @@ pub enum HistoryKeyShareDefault {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum HistorySharingPreJoinPolicy {
+    #[serde(rename = "deny")]
     Deny,
+    #[serde(rename = "visibility_condition_allowed")]
     AllowIfVisibilityAllows,
+    #[serde(rename = "rule_only")]
     RuleOnly,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum HistorySharingPostRemovalRecoveryPolicy {
+    #[serde(rename = "deny")]
     Deny,
+    #[serde(rename = "t0_visibility_with_current_policy_allowed")]
     AllowT0VisibleWithCurrentPolicy,
 }
 
@@ -615,5 +618,20 @@ mod tests {
         let value = serde_json::json!("not_a_reason");
         let result = serde_json::from_value::<RealmKeyWithheldReasonCode>(value);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn history_sharing_policy_enums_match_registered_wire_values() {
+        assert_eq!(
+            serde_json::to_value(HistorySharingPreJoinPolicy::AllowIfVisibilityAllows).unwrap(),
+            serde_json::json!("visibility_condition_allowed")
+        );
+        assert_eq!(
+            serde_json::to_value(
+                HistorySharingPostRemovalRecoveryPolicy::AllowT0VisibleWithCurrentPolicy
+            )
+            .unwrap(),
+            serde_json::json!("t0_visibility_with_current_policy_allowed")
+        );
     }
 }

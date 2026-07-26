@@ -293,9 +293,7 @@ mod tests {
             json!({"value": value}),
         );
         event.effects = serde_json::from_value(json!([{
-            "cell": format!(
-                "ak:cell:ak.component.realm.history_sharing_policy.v1:{REALM}"
-            ),
+            "cell": "ak:cell:ak.component.realm.history_sharing_policy.v1:null",
             "op": {"kind": "set", "value": value}
         }]))
         .unwrap();
