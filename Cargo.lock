@@ -121,12 +121,8 @@ dependencies = [
  "arkret-signatures",
  "arkret-state",
  "arkret-wire",
- "chrono",
- "reqwest",
  "serde_json",
  "thiserror",
- "tokio",
- "tracing",
  "url",
 ]
 

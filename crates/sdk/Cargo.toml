@@ -18,7 +18,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
-client = ["dep:arkret-http-client", "dep:reqwest", "dep:tokio", "dep:url"]
+client = ["dep:arkret-http-client", "dep:url"]
 signer = ["arkret-signatures/signer"]
 server = ["dep:arkret-server"]
 mls = ["dep:arkret-mls"]
@@ -27,8 +27,8 @@ mls = ["dep:arkret-mls"]
 # without this feature. PQ-hybrid TLS (X25519MLKEM768) is a MUST for all
 # profiles per arkret-spec transport-bindings section 5 — see the
 # arkret-http-client crate docs for the recommended provider configuration.
-tls-rustls = ["client", "arkret-http-client/tls-rustls", "reqwest/rustls"]
-tracing = ["dep:tracing", "arkret-http-client?/tracing"]
+tls-rustls = ["client", "arkret-http-client/tls-rustls"]
+tracing = ["arkret-http-client?/tracing"]
 # Round 23 (2026-05-09): expose the platform KeyStore feature gates so apps
 # embedding the umbrella `arkret` crate can opt into OS-native key storage
 # without a direct arkret-keystore dependency.
@@ -45,7 +45,6 @@ keystore-encrypted-file = ["arkret-keystore/keystore-encrypted-file"]
 arkret-auth = {workspace = true}
 arkret-bootstrap = {workspace = true}
 arkret-canonical = {workspace = true}
-chrono = {workspace = true,features = ["serde"]}
 arkret-crypto = {workspace = true,features = ["account-data", "aead", "identity-root"]}
 arkret-event-draft = {workspace = true}
 arkret-hlc = {workspace = true}
@@ -77,21 +76,9 @@ arkret-signatures = {workspace = true,features = [
 ]}
 arkret-state = {workspace = true}
 arkret-wire = {workspace = true}
-reqwest = {workspace = true,features = ["json", "gzip", "http2"],optional = true}
 serde_json = {workspace = true}
 thiserror = {workspace = true}
-tokio = {workspace = true,features = ["rt", "macros"],optional = true}
-tracing = {workspace = true,optional = true}
 url = {workspace = true,features = ["serde"],optional = true}
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-# rt-multi-thread is required for tokio::task::block_in_place, which the
-# sync HttpDidResolver facade uses to block safely on multi-thread runtimes.
-# Native-only: the wasm32 build neither compiles http_did_resolver nor
-# supports the multi-thread scheduler.
-tokio = {workspace = true,features = ["rt-multi-thread"],optional = true}
-
-[dev-dependencies]
-tokio = {workspace = true,features = ["macros", "rt", "rt-multi-thread"]}
 
 [lints]
 workspace = true
