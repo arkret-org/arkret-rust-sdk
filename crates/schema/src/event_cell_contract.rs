@@ -1332,6 +1332,143 @@ mod tests {
         );
     }
 
+    fn subject_event(kind: &str, payload: Value) -> Event {
+        serde_json::from_value(json!({
+            "event_id": "ak:event:019f9e50-d787-74e0-8731-c9ad5eaa9181",
+            "kind": kind,
+            "realm_id": "ak:realm:019f9e50-d787-74e0-8731-c9ad5eaa9180",
+            "actor_id": "did:webvh:z6mkfixture:alice.example",
+            "actor_seq": 7,
+            "created_at": "2026-07-26T01:00:00.000Z",
+            "hlc": "019f9e500000-0000-aabbccdd",
+            "prev_refs": [],
+            "effects": [],
+            "payload": payload,
+            "proofs": []
+        }))
+        .unwrap()
+    }
+
+    fn registered_subject(kind: &str, payload: Value) -> String {
+        let event = subject_event(kind, payload);
+        derive_subject(&event, event.kind.descriptor().unwrap().cell_subject_rule).unwrap()
+    }
+
+    #[test]
+    fn repaired_payload_paths_derive_every_registered_cell_subject() {
+        for (kind, payload, expected) in [
+            (
+                "ak.organization.discovery",
+                json!({"organization_did": "did:webvh:z6mkfixture:org.example"}),
+                "did:webvh:z6mkfixture:org.example",
+            ),
+            (
+                "ak.actor.discovery",
+                json!({"resource_id": "did:webvh:z6mkfixture:actor.example"}),
+                "did:webvh:z6mkfixture:actor.example",
+            ),
+            (
+                "ak.applet.discovery",
+                json!({"resource_id": "ak:applet:019f9e50-d787-74e0-8731-c9ad5eaa9182"}),
+                "ak:applet:019f9e50-d787-74e0-8731-c9ad5eaa9182",
+            ),
+            (
+                "ak.handle.discovery",
+                json!({"resource_id": "@alice:example.org"}),
+                "@alice:example.org",
+            ),
+            (
+                "ak.did.proof",
+                json!({"did": "did:webvh:z6mkfixture:alice.example"}),
+                "did:webvh:z6mkfixture:alice.example",
+            ),
+            (
+                "ak.identity.disclosure_policy",
+                json!({"policy_id": "ak:policy:019f9e50-d787-74e0-8731-c9ad5eaa9182"}),
+                "ak:policy:019f9e50-d787-74e0-8731-c9ad5eaa9182",
+            ),
+            (
+                "ak.identity.disclosure_receipt",
+                json!({"holder_did": "did:webvh:z6mkfixture:holder.example"}),
+                "did:webvh:z6mkfixture:holder.example",
+            ),
+            (
+                "ak.identity.presentation_request",
+                json!({"request_id": "ak:request:019f9e50-d787-74e0-8731-c9ad5eaa9182"}),
+                "ak:request:019f9e50-d787-74e0-8731-c9ad5eaa9182",
+            ),
+            (
+                "ak.identity.presentation_response",
+                json!({"request_id": "ak:request:019f9e50-d787-74e0-8731-c9ad5eaa9182"}),
+                "ak:request:019f9e50-d787-74e0-8731-c9ad5eaa9182",
+            ),
+            (
+                "ak.schema.define",
+                json!({"schema_id": "ak.schema.fixture.v1"}),
+                "ak.schema.fixture.v1",
+            ),
+            (
+                "ak.schema.update",
+                json!({"schema_id": "ak.schema.fixture.v1"}),
+                "ak.schema.fixture.v1",
+            ),
+            (
+                "ak.policy.set",
+                json!({"policy_id": "ak:policy:019f9e50-d787-74e0-8731-c9ad5eaa9182"}),
+                "ak:policy:019f9e50-d787-74e0-8731-c9ad5eaa9182",
+            ),
+            (
+                "ak.policy.action",
+                json!({"action_id": "ak:action:019f9e50-d787-74e0-8731-c9ad5eaa9182"}),
+                "ak:action:019f9e50-d787-74e0-8731-c9ad5eaa9182",
+            ),
+            (
+                "ak.sovereign.did_policy",
+                json!({"trust_domain": "ak:trust_domain:fixture.example"}),
+                "ak:trust_domain:fixture.example",
+            ),
+        ] {
+            assert_eq!(registered_subject(kind, payload), expected);
+        }
+
+        assert_eq!(
+            registered_subject(
+                "ak.organization.moderation_policy",
+                json!({"organization_id": "ak:organization:019f9e50-d787-74e0-8731-c9ad5eaa9182"})
+            ),
+            "ak:organization:019f9e50-d787-74e0-8731-c9ad5eaa9182"
+        );
+        assert_eq!(
+            registered_subject(
+                "ak.relation.create",
+                json!({
+                    "relation_id": "ak:relation:019f9e50-d787-74e0-8731-c9ad5eaa9182",
+                    "kind": "references",
+                    "from_ref": "ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9183",
+                    "to_ref": "ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9184"
+                })
+            ),
+            "ak:relation:019f9e50-d787-74e0-8731-c9ad5eaa9182"
+        );
+        assert_eq!(
+            registered_subject(
+                "ak.relation.create",
+                json!({"relation": {"id": "ak:relation:019f9e50-d787-74e0-8731-c9ad5eaa9182"}})
+            ),
+            "ak:relation:019f9e50-d787-74e0-8731-c9ad5eaa9182"
+        );
+        assert_eq!(
+            registered_subject(
+                "ak.profile.realm_override",
+                json!({
+                    "target_realm_id": "ak:realm:019f9e50-d787-74e0-8731-c9ad5eaa9180",
+                    "target_ref": "ak:actor_profile:019f9e50-d787-74e0-8731-c9ad5eaa9182"
+                })
+            ),
+            "S1MZHDKMf5kd80P1RGS85BD2prCffX7a3tNNg_Axy-4"
+        );
+    }
+
     fn accountability_event(scope: Value, status: &str) -> Event {
         serde_json::from_value(json!({
             "event_id": "ak:event:019f9e50-d787-74e0-8731-c9ad5eaa9190",

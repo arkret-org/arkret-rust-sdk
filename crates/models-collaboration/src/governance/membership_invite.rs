@@ -11,6 +11,19 @@ use crate::ObjectRef;
 use crate::governance::delivery_binding::{DeliveryStatus, MemberDeliveryBinding};
 use crate::governance::invite_addressing::InviteDeliveryTarget;
 
+/// Evaluate a third-party invite claim against the only canonical admission
+/// time available before acceptance: the signed claim Event's `created_at`.
+///
+/// Receiver-local wall clocks are deliberately absent. A claim at the exact
+/// expiry boundary is expired (`invite.expires_at <= claim.created_at`), and a
+/// rejected claim must not be used to mutate the invite cell.
+pub fn invite_claim_within_canonical_expiry(
+    claim_created_at: chrono::DateTime<chrono::Utc>,
+    invite_expires_at: chrono::DateTime<chrono::Utc>,
+) -> bool {
+    claim_created_at < invite_expires_at
+}
+
 /// Canonical membership state for `ak.member.state` payloads
 /// (`event-payload.schema.json#/$defs/membership_state`).
 ///
@@ -700,11 +713,13 @@ pub fn invite_subject_proof_transcript_digest(
 /// (`#/$defs/relation_create_payload`).
 ///
 /// The spec `anyOf` allows either an embedded `{relation: <object_snapshot>}`
-/// or the flat `{kind, from_ref, to_ref}` triple; this strong type models the
+/// or the flat `{relation_id, kind, from_ref, to_ref}` form; this strong type models the
 /// flat form (the only shape inkson constructs).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RelationCreatePayload {
+    /// Stable relation identifier required by the flat branch.
+    pub relation_id: String,
     /// Registered `relation_kind` (e.g. `ak.relation.parent_of`).
     pub kind: String,
     /// Source endpoint `object_ref` (canonical typed id / did / digest).
@@ -718,11 +733,13 @@ pub struct RelationCreatePayload {
 
 impl RelationCreatePayload {
     pub fn new(
+        relation_id: impl Into<String>,
         kind: impl Into<String>,
         from_ref: impl Into<ObjectRef>,
         to_ref: impl Into<ObjectRef>,
     ) -> Self {
         Self {
+            relation_id: relation_id.into(),
             kind: kind.into(),
             from_ref: from_ref.into(),
             to_ref: to_ref.into(),
@@ -744,6 +761,22 @@ impl RelationCreatePayload {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn claim_expiry_uses_signed_event_time_and_excludes_the_boundary() {
+        let expiry = chrono::DateTime::parse_from_rfc3339("2026-07-26T00:05:00.000Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        assert!(invite_claim_within_canonical_expiry(
+            expiry - chrono::Duration::milliseconds(1),
+            expiry
+        ));
+        assert!(!invite_claim_within_canonical_expiry(expiry, expiry));
+        assert!(!invite_claim_within_canonical_expiry(
+            expiry + chrono::Duration::milliseconds(1),
+            expiry
+        ));
+    }
 
     const SUBJECT: &str = "did:web:bob.example";
     const INVITE: &str = "ak:invite:0196419b-0000-7000-8000-000000000101";

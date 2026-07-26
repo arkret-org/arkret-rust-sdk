@@ -1493,13 +1493,93 @@ pub struct ContactRequestRequestBody {
     pub introduction_evidence: Option<ContactIntroductionEvidence>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+pub struct DevicePairingNonce(Base64UrlString);
+
+impl DevicePairingNonce {
+    pub fn new(value: impl Into<String>) -> Result<Self> {
+        let value = value.into();
+        if !(22..=86).contains(&value.len()) {
+            return Err(Error::Protocol(
+                "device pairing nonce must contain 22..=86 base64url characters".to_owned(),
+            ));
+        }
+        Ok(Self(
+            Base64UrlString::new(value).map_err(|error| Error::Protocol(error.to_owned()))?,
+        ))
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl TryFrom<String> for DevicePairingNonce {
+    type Error = Error;
+
+    fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<DevicePairingNonce> for String {
+    fn from(value: DevicePairingNonce) -> Self {
+        value.0.as_str().to_owned()
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum DevicePairingChallengeTranscriptKind {
+    #[serde(rename = "ak.device-pairing.challenge.v1")]
+    ServerMediated,
+    #[serde(rename = "ak.device-pairing.challenge.to_device.v1")]
+    ToDevice,
+}
+
+impl DevicePairingChallengeTranscriptKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ServerMediated => "ak.device-pairing.challenge.v1",
+            Self::ToDevice => "ak.device-pairing.challenge.to_device.v1",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DevicePairingChallengeProof {
+    pub transcript: DevicePairingChallengeTranscriptKind,
+    pub verification_method: DeviceId,
+    pub alg: NonEmptyString,
+    pub transcript_digest: Hash,
+    pub signature: Base64UrlString,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DevicePairingToDeviceChallengeTranscript {
+    pub transaction_id: NonEmptyString,
+    pub request_canonical_digest: Hash,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
+    pub expires_at: DateTime<Utc>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDevicePairRequestBody {
     pub pairing_code: DevicePairingCode,
     pub new_device_pubkey: PublicKey,
-    pub challenge_signature: Base64UrlString,
+    pub challenge_proof: DevicePairingChallengeProof,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1512,6 +1592,8 @@ pub struct AccountDevicePairRequestBody {
     /// never staged server-side.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_pairing_request_id: Option<DevicePairingRequestId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub challenge_transcript: Option<DevicePairingToDeviceChallengeTranscript>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1547,7 +1629,7 @@ pub struct AccountDevicePairOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DevicePairingStageRequestBody {
     pub new_device_pubkey: PublicKey,
-    pub challenge_signature: Base64UrlString,
+    pub client_nonce: DevicePairingNonce,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1564,6 +1646,8 @@ pub struct DevicePairingStageRequestBody {
 pub struct DevicePairingStageOutcome {
     pub device_pairing_request_id: DevicePairingRequestId,
     pub pairing_code: DevicePairingCode,
+    pub gate_audience: String,
+    pub server_nonce: DevicePairingNonce,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
@@ -1598,7 +1682,9 @@ pub struct DevicePairingBootstrap {
     pub device_pairing_request_id: DevicePairingRequestId,
     pub pairing_code: DevicePairingCode,
     pub new_device_pubkey: PublicKey,
-    pub challenge_signature: Base64UrlString,
+    pub client_nonce: DevicePairingNonce,
+    pub gate_audience: String,
+    pub server_nonce: DevicePairingNonce,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

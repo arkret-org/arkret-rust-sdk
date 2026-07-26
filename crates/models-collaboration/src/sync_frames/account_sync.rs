@@ -279,8 +279,23 @@ pub struct Timeline {
     pub prev_cursor: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preview_only: Option<bool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ordered_log_conflicts: Vec<OrderedLogConflictDiagnostic>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OrderedLogConflictDiagnostic {
+    pub cell: String,
+    pub issuer: Did,
+    pub issuer_seq: u64,
+    pub reason: String,
+    pub winner_event_id: EventId,
+    pub winner_event_digest: String,
+    pub loser_event_ids: Vec<EventId>,
+    pub loser_event_digests: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

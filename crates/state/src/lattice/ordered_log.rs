@@ -23,6 +23,7 @@
 //! receives the joined ops post-verify. [`SealedOp::move_id`] carries the
 //! enclosing Event's canonical `event_digest`, which is what §4.2 compares.
 
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Value, json};
@@ -143,7 +144,11 @@ impl DigestKey {
     /// order, so the caller fails the slot closed instead of silently dropping
     /// a candidate an attacker could then make disappear.
     fn parse(move_id: &MoveId) -> Option<Self> {
-        let (suite, hex_digits) = move_id.as_str().split_once(':')?;
+        Self::parse_str(move_id.as_str())
+    }
+
+    fn parse_str(value: &str) -> Option<Self> {
+        let (suite, hex_digits) = value.split_once(':')?;
         if suite.is_empty() {
             return None;
         }
@@ -156,6 +161,15 @@ impl DigestKey {
             suite: suite.to_owned(),
         })
     }
+}
+
+/// Compare canonical typed digests using the protocol-wide ordered-log
+/// tie-break order: decoded digest octets first, canonical suite id second.
+///
+/// `None` means at least one value is not a valid typed digest; callers must
+/// fail closed instead of falling back to lexical wire-string ordering.
+pub fn compare_canonical_digests(left: &str, right: &str) -> Option<Ordering> {
+    Some(DigestKey::parse_str(left)?.cmp(&DigestKey::parse_str(right)?))
 }
 
 /// One append competing for a single `(issuer, issuer_seq)` slot.

@@ -42,6 +42,7 @@ use models::*;
 fn relation_create_payload_strong_type_passes_spec_validator() {
     let catalog = event_payload_validator_catalog().unwrap();
     let payload = RelationCreatePayload::new(
+        "ak:relation:01904100-0000-7000-8000-000000000001",
         "ak.relation.parent_of",
         "ak:strand:01904100-0000-7000-8000-111111111111",
         "ak:strand:01904100-0000-7000-8000-222222222222",

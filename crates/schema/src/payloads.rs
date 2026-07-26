@@ -350,9 +350,34 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         // `ak.applet.registration` resolves through the `exact` candidate above
         // (`applet_registration_payload`, defined directly in the spec
         // event-payload schema) — it MUST NOT fall back to the generic shape.
-        // Only `ak.applet.discovery` (no dedicated def) uses the generic body.
-        ["applet", "discovery"] => {
-            candidates.push("generic_standard_payload".to_owned());
+        ["actor" | "applet" | "handle", "discovery"] => {
+            candidates.push("resource_discovery_state_payload".to_owned());
+        }
+        ["organization", "discovery"] => {
+            candidates.push("organization_discovery_state_payload".to_owned());
+        }
+        ["organization", "moderation_policy"] => {
+            candidates.push("organization_moderation_policy_state_payload".to_owned());
+        }
+        ["did", "proof"] => candidates.push("did_proof_state_payload".to_owned()),
+        ["identity", "disclosure_policy"] => {
+            candidates.push("identity_disclosure_policy_state_payload".to_owned());
+        }
+        ["identity", "disclosure_receipt"] => {
+            candidates.push("identity_disclosure_receipt_state_payload".to_owned());
+        }
+        ["identity", "presentation_request"] => {
+            candidates.push("identity_presentation_request_state_payload".to_owned());
+        }
+        ["identity", "presentation_response"] => {
+            candidates.push("identity_presentation_response_state_payload".to_owned());
+        }
+        ["schema", "define"] => candidates.push("schema_define_state_payload".to_owned()),
+        ["schema", "update"] => candidates.push("schema_update_state_payload".to_owned()),
+        ["policy", "set"] => candidates.push("policy_set_state_payload".to_owned()),
+        ["policy", "action"] => candidates.push("policy_action_state_payload".to_owned()),
+        ["sovereign", "did_policy"] => {
+            candidates.push("sovereign_did_policy_state_payload".to_owned());
         }
         ["capability", "grant" | "delegate" | "derived"] => {
             candidates.push("capability_grant_payload".to_owned());
@@ -673,8 +698,8 @@ mod tests {
     /// the manual [`payload_def_candidates`] table intentionally resolves to the
     /// loose `generic_standard_payload` shape — either through the explicit
     /// [`generic_standard_payload_fallback_allowed`] allow-list or a family arm
-    /// that pushes the `generic_standard_payload` candidate directly (e.g.
-    /// `ak.applet.discovery`, `ak.strand.tracks.update`).
+    /// that pushes the `generic_standard_payload` candidate directly (for
+    /// example `ak.strand.tracks.update`).
     ///
     /// Every entry is a deliberate "no dedicated event-payload def" decision. A
     /// *new* active standard kind that silently inherits this loose shape must be
@@ -683,14 +708,12 @@ mod tests {
     /// forces — so the hand-maintained match table cannot quietly drift a new
     /// kind onto an under-specified payload surface.
     const KINDS_USING_GENERIC_STANDARD_PAYLOAD: &[&str] = &[
-        "ak.applet.discovery",
         "ak.attestation.range_completeness",
         "ak.audit.erasure_receipt",
         "ak.circle.archive",
         "ak.circle.restore",
         "ak.circle.tombstone",
         "ak.circle.update",
-        "ak.did.proof",
         "ak.key.verification.accept",
         "ak.key.verification.cancel",
         "ak.key.verification.done",
@@ -735,22 +758,7 @@ mod tests {
     /// `["strand", "track", ...]` state arm). Same fail-closed contract as the
     /// generic list: a new family member that silently inherits `state_payload`
     /// must be registered here explicitly.
-    const KINDS_USING_STATE_PAYLOAD: &[&str] = &[
-        "ak.actor.discovery",
-        "ak.handle.discovery",
-        "ak.identity.disclosure_policy",
-        "ak.identity.disclosure_receipt",
-        "ak.identity.presentation_request",
-        "ak.identity.presentation_response",
-        "ak.organization.discovery",
-        "ak.organization.moderation_policy",
-        "ak.policy.action",
-        "ak.policy.rule",
-        "ak.policy.set",
-        "ak.schema.define",
-        "ak.schema.update",
-        "ak.sovereign.did_policy",
-    ];
+    const KINDS_USING_STATE_PAYLOAD: &[&str] = &["ak.policy.rule"];
 
     /// F-04 residual closed: beyond [`catalog_covers_every_active_standard_kind`]
     /// (which fails closed when a kind resolves to *no* validator), this test
@@ -860,10 +868,11 @@ mod tests {
                 .is_err(),
             "legacy short-form applet registration payload must be rejected"
         );
-        // `ak.applet.discovery` retains the generic body (no dedicated def).
+        // Discovery state uses the dedicated closed state payload shared by
+        // resource-discovery kinds.
         assert_eq!(
             catalog.rules["ak.applet.discovery"].payload_schema_id,
-            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/generic_standard_payload")
+            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/resource_discovery_state_payload")
         );
     }
 

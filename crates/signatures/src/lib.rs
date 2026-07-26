@@ -21,6 +21,8 @@ pub use development_identity::{
 pub mod agent;
 #[cfg(feature = "collaboration")]
 pub mod agent_evidence;
+#[cfg(feature = "collaboration")]
+pub mod device_pairing;
 
 #[cfg(feature = "keypackages")]
 pub mod keypackages;

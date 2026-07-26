@@ -521,7 +521,6 @@ pub struct InviteDeliveryOutcome {
 pub enum DisclosedOutcome {
     Delivered,
     Blocked,
-    Quarantined,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -746,12 +745,20 @@ mod tests {
     fn invite_delivery_outcome_serializes_disclosed_outcome() {
         let outcome = InviteDeliveryOutcome {
             status: InviteDeliveryOutcomeStatus::Accepted,
-            disclosed_outcome: Some(DisclosedOutcome::Quarantined),
+            disclosed_outcome: Some(DisclosedOutcome::Delivered),
             received_at: None,
             retry_after_ms: None,
         };
         let value = serde_json::to_value(outcome).expect("serialize outcome");
-        assert_eq!(value["disclosed_outcome"], "quarantined");
+        assert_eq!(value["disclosed_outcome"], "delivered");
+        assert!(
+            serde_json::from_value::<InviteDeliveryOutcome>(serde_json::json!({
+                "status": "deferred",
+                "disclosed_outcome": "quarantined"
+            }))
+            .is_err(),
+            "holder-private quarantine state must not be representable on the wire"
+        );
     }
 
     #[test]
