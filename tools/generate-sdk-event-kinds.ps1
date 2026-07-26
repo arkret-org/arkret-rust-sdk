@@ -89,6 +89,31 @@ foreach ($k in $arr) {
     }) | Out-Null
 }
 
+$cellFamilyPlaneByFamily = @{}
+foreach ($entry in $entries) {
+    if ($null -eq $entry.CellFamily) {
+        continue
+    }
+    if ($entry.Plane -ne "data" -and $entry.Plane -ne "control") {
+        throw "event kind '$($entry.Kind)' with cell family '$($entry.CellFamily)' must declare plane=data|control"
+    }
+    if ($cellFamilyPlaneByFamily.ContainsKey($entry.CellFamily)) {
+        $existingPlane = [string]$cellFamilyPlaneByFamily[$entry.CellFamily]
+        if ($existingPlane -ne $entry.Plane) {
+            throw "cell family '$($entry.CellFamily)' has conflicting planes '$existingPlane' and '$($entry.Plane)'"
+        }
+    } else {
+        $cellFamilyPlaneByFamily[$entry.CellFamily] = $entry.Plane
+    }
+}
+$cellFamilyPlanes = @($cellFamilyPlaneByFamily.GetEnumerator() | ForEach-Object {
+    [PSCustomObject]@{
+        Family = [string]$_.Key
+        Plane = [string]$_.Value
+        PlaneVariant = ConvertTo-SimpleVariant -Value ([string]$_.Value)
+    }
+} | Sort-Object Family)
+
 $categories = @($entries | ForEach-Object { $_.Category } | Select-Object -Unique)
 [System.Array]::Sort($categories, [System.StringComparer]::Ordinal)
 
@@ -125,6 +150,29 @@ foreach ($category in $categories) {
 & $add "    ActorPrivateEvent,"
 & $add "    EphemeralEvent,"
 & $add "    Custom,"
+& $add "}"
+& $add ""
+& $add "/// Closed CBA plane assigned to a registered cell family."
+& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]"
+& $add "pub enum CbaEffectPlane {"
+& $add "    Data,"
+& $add "    Control,"
+& $add "}"
+& $add ""
+& $add "impl CbaEffectPlane {"
+& $add "    pub const fn as_str(self) -> &'static str {"
+& $add "        match self {"
+& $add '            Self::Data => "data",'
+& $add '            Self::Control => "control",'
+& $add "        }"
+& $add "    }"
+& $add "}"
+& $add ""
+& $add "/// Registry-owned CBA plane for one cell family."
+& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq)]"
+& $add "pub struct CellFamilyPlaneDescriptor {"
+& $add "    pub cell_family: &'static str,"
+& $add "    pub plane: CbaEffectPlane,"
 & $add "}"
 & $add ""
 & $add "/// Complete generated metadata for one active standard event kind."
@@ -334,6 +382,24 @@ foreach ($e in $entries) {
 }
 & $add "];"
 & $add ""
+& $add "/// Return the registry-owned CBA plane for a cell family."
+& $add "pub fn cba_cell_family_plane(cell_family: &str) -> Option<CbaEffectPlane> {"
+& $add "    CELL_FAMILY_PLANE_DESCRIPTORS"
+& $add "        .binary_search_by_key(&cell_family, |descriptor| descriptor.cell_family)"
+& $add "        .ok()"
+& $add "        .map(|index| CELL_FAMILY_PLANE_DESCRIPTORS[index].plane)"
+& $add "}"
+& $add ""
+& $add "/// Unique registered cell families and their CBA planes, sorted by family."
+& $add "pub const CELL_FAMILY_PLANE_DESCRIPTORS: &[CellFamilyPlaneDescriptor] = &["
+foreach ($entry in $cellFamilyPlanes) {
+    & $add "    CellFamilyPlaneDescriptor {"
+    & $add "        cell_family: `"$($entry.Family)`","
+    & $add "        plane: CbaEffectPlane::$($entry.PlaneVariant),"
+    & $add "    },"
+}
+& $add "];"
+& $add ""
 & $add "/// Complete metadata rows for active standard event kinds."
 & $add "pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &["
 foreach ($e in $entries) {
@@ -362,6 +428,25 @@ foreach ($e in $entries) {
     & $add "    },"
 }
 & $add "];"
+& $add ""
+& $add "#[cfg(test)]"
+& $add "mod tests {"
+& $add "    use super::*;"
+& $add ""
+& $add "    #[test]"
+& $add "    fn every_registered_cell_family_uses_its_generated_plane() {"
+& $add "        for descriptor in EVENT_KIND_DESCRIPTORS {"
+& $add "            let Some(cell_family) = descriptor.cell_family else {"
+& $add "                continue;"
+& $add "            };"
+& $add "            assert_eq!("
+& $add "                cba_cell_family_plane(cell_family).map(CbaEffectPlane::as_str),"
+& $add "                descriptor.plane,"
+& $add '                "cell family {cell_family} drifted from its event descriptor",'
+& $add "            );"
+& $add "        }"
+& $add "    }"
+& $add "}"
 
 Set-Content -LiteralPath $OutputPath -Value ($lines -join [Environment]::NewLine) -NoNewline
 & rustfmt +nightly --edition 2024 $OutputPath
