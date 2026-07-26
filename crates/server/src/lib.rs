@@ -5,11 +5,6 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_event_draft::{
-    FederationPullOperationsOutcome, FederationPushOperationsOutcome,
-    FederationPushOperationsRequestBody, FederationTransactionOutcome,
-    FederationTransactionRequestBody,
-};
 use arkret_models_collaboration::federation::wire_dtos::{
     FederationRealmMemberList, FederationVerifyActorOutcome, FederationVerifyActorRequestBody,
 };

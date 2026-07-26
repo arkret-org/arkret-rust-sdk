@@ -16,8 +16,6 @@ mod agent;
 mod applet;
 mod device;
 mod event_payload;
-pub mod federation;
-pub mod federation_transaction;
 mod ghost_profile;
 mod operation;
 pub mod operations;
@@ -34,11 +32,6 @@ pub use agent::{
 pub use applet::AppletBridgeErrorBuilder;
 pub use device::{build_cross_signing_publish_event_at, build_device_authorize_event_at};
 pub use event_payload::{EventPayloadExt, MessageEventPayload};
-pub use federation_transaction::{
-    FederationPullOperationsOutcome, FederationPushOperationsOutcome,
-    FederationPushOperationsRequestBody, FederationTransactionOutcome,
-    FederationTransactionRequestBody,
-};
 pub use ghost_profile::GhostActorProfileRequest;
 pub use operation::{
     CausalRef, MlsEnvelopeOperationExt, MlsWelcomeTargetExt, Operation, OperationEnvelope,
