@@ -40,6 +40,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(StrandWatch);
     registry.register(CrossSigningPublish);
     registry.register(NotaryCell);
+    registry.register(IdentityAccountability);
     registry.register(MlsEpoch);
     registry.register(CallSummary);
     registry.register(CallFocus);
@@ -72,6 +73,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
 
     // MvRegister
     registry.register(ProfileCreate);
+    registry.register(AgentSelectorClaim);
     registry.register(ViewCreate);
     registry.register(ViewUpdate);
     registry.register(ViewReconcile);
@@ -141,6 +143,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ak.component.strand.watch.v1",
         "ak.component.cross_signing.publish.v1",
         "ak.component.notary.v1",
+        "ak.component.identity.accountability.v1",
         "ak.component.mls.epoch.v1",
         "ak.component.call.summary.v1",
         "ak.component.call.focus.v1",
@@ -170,6 +173,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ak.component.direct_conversation.binding.v1",
         // MvRegister
         "ak.component.profile.create.v1",
+        "ak.component.agent.selector_claim.v1",
         "ak.component.view.create.v1",
         "ak.component.view.update.v1",
         "ak.component.view.reconcile.v1",

@@ -458,6 +458,52 @@ singleton_lattice!(
     Criticality::Required
 );
 
+pub struct IdentityAccountability;
+impl LatticeKind for IdentityAccountability {
+    fn cell_family(&self) -> &'static str {
+        "ak.component.identity.accountability.v1"
+    }
+
+    fn lattice(&self) -> SdkLatticeKind {
+        SdkLatticeKind::CasRegister
+    }
+
+    fn bottom_policy(&self) -> BottomPolicy {
+        BottomPolicy::Reject
+    }
+
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: "ak.component.identity.accountability.v1",
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        let payload = serde_json::from_value::<
+            arkret_models_collaboration::governance::accountability::AccountabilityGrantPayload,
+        >(effect_payload.clone())
+        .map_err(|error| LatticeKindError::InvalidCompositeSubject {
+            cell_family: self.cell_family(),
+            reason: error.to_string(),
+        })?;
+        payload.cell_subject().map(Some).map_err(|error| {
+            LatticeKindError::InvalidCompositeSubject {
+                cell_family: self.cell_family(),
+                reason: error.to_string(),
+            }
+        })
+    }
+
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &["ak.identity.accountability_grant"]
+    }
+}
+
 singleton_lattice!(
     MlsEpoch,
     "ak.component.mls.epoch.v1",
@@ -1143,6 +1189,59 @@ per_subject_lattice!(
     "actor_id",
     &["ak.profile.create", "ak.profile.update"]
 );
+
+pub struct AgentSelectorClaim;
+impl LatticeKind for AgentSelectorClaim {
+    fn cell_family(&self) -> &'static str {
+        "ak.component.agent.selector_claim.v1"
+    }
+
+    fn lattice(&self) -> SdkLatticeKind {
+        SdkLatticeKind::MvRegister
+    }
+
+    fn bottom_policy(&self) -> BottomPolicy {
+        BottomPolicy::Expose
+    }
+
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: "ak.component.agent.selector_claim.v1",
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        let controller_subject = effect_payload
+            .get("controller_subject")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: self.cell_family(),
+                field: "controller_subject",
+            })?;
+        let agent_slug = effect_payload
+            .get("agent_slug")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: self.cell_family(),
+                field: "agent_slug",
+            })?;
+        arkret_wire::composite_subject(&[controller_subject, agent_slug])
+            .map(Some)
+            .map_err(|error| LatticeKindError::InvalidCompositeSubject {
+                cell_family: self.cell_family(),
+                reason: error.to_string(),
+            })
+    }
+
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &["ak.agent.selector_claim"]
+    }
+}
 
 per_subject_lattice!(
     ViewCreate,

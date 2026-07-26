@@ -19,14 +19,14 @@
 //! - **CasRegister** (last-writer-wins, conflict→Bottom): realm.policy, realm.read_receipt_policy,
 //!   realm.history_visibility, realm.join_rule, realm.discovery, realm.organization, realm.upgrade,
 //!   strand.position, strand.stage, morph.stage, space.parent, device.push_route, notary (Move/Seal
-//!   authority cell), mls_epoch, call focus, and call summary.
+//!   authority cell), identity accountability, mls_epoch, call focus, and call summary.
 //! - **Fsm** (legal transitions only): member.state, invite.lifecycle, agent.status, call state,
 //!   call recording, call transcript, and realm.link.
 //! - **OrderedLog** (per-issuer monotonic append): account.status, policy.rule,
 //!   cross_signing.reset, contact.fact_log, direct_conversation.binding, circle create, sidecar
 //!   create, and realm create.
-//! - **MvRegister** (concurrent multi-value): profile.create, view.create / update / reconcile,
-//!   mimi.room_binding.
+//! - **MvRegister** (concurrent multi-value): profile.create, agent.selector_claim, view.create /
+//!   update / reconcile, mimi.room_binding.
 
 mod factory;
 mod impls;
@@ -65,7 +65,7 @@ mod tests {
         // registry. New spec cell families must be added here before their
         // contracts are consumed by Move/Seal state resolution.
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 80);
+        assert_eq!(registry.len(), 82);
     }
 
     #[test]
@@ -202,6 +202,45 @@ mod tests {
             binding.lattice.join(&cell, &[pending, accepted]),
             CellState::Value(json!("accepted"))
         );
+    }
+
+    #[test]
+    fn agent_provision_control_families_are_registered() {
+        let registry = default_lattice_registry();
+        let accountability = registry
+            .lookup("ak.component.identity.accountability.v1")
+            .expect("identity accountability must be registered");
+        assert_eq!(accountability.lattice(), SdkLatticeKind::CasRegister);
+        assert_eq!(accountability.bottom_policy(), BottomPolicy::Reject);
+
+        let selector = registry
+            .lookup("ak.component.agent.selector_claim.v1")
+            .expect("agent selector claim must be registered");
+        assert_eq!(selector.lattice(), SdkLatticeKind::MvRegister);
+        assert_eq!(selector.bottom_policy(), BottomPolicy::Expose);
+        let subject = selector
+            .subject_for_effect(&json!({
+                "controller_subject": "did:web:alice.example",
+                "agent_slug": "research"
+            }))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            subject,
+            composite_subject(&["did:web:alice.example", "research"]).unwrap()
+        );
+
+        let sdk_registry = build_sdk_cell_registry();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011").unwrap();
+        for family in [
+            "ak.component.identity.accountability.v1",
+            "ak.component.agent.selector_claim.v1",
+        ] {
+            let cell = CellRef::new(format!("ak:cell:{family}:fixture")).unwrap();
+            sdk_registry
+                .resolve(&realm_id, &cell)
+                .unwrap_or_else(|error| panic!("{family} missing from SDK registry: {error}"));
+        }
     }
 
     #[test]
