@@ -24,6 +24,8 @@
 //! - [`composite_subject_pipe`] — produce the diagnostic `a|b|c` form (informational only; never
 //!   wire-canonical).
 
+use std::collections::BTreeSet;
+
 use crate::{CellRef, Error, Result, canonical};
 
 const CELL_PREFIX: &str = "ak:cell:";
@@ -189,6 +191,35 @@ pub fn composite_subject<T: CompositeSubjectComponent>(parts: &[T]) -> Result<St
     Ok(canonical::sha256_base64url(&bytes))
 }
 
+/// Canonical domain-separated digest for a closed, non-empty JSON string set.
+///
+/// This transformation happens before a value is passed to
+/// [`composite_subject`]; arrays remain forbidden as ordinary composite
+/// components.
+pub fn string_set_digest_component(values: &[String], context: &str) -> Result<String> {
+    if context.is_empty() || !context.is_ascii() {
+        return Err(Error::Protocol(
+            "string-set digest context must be non-empty ASCII".to_owned(),
+        ));
+    }
+    if values.is_empty() {
+        return Err(Error::Protocol(
+            "string-set digest input must not be empty".to_owned(),
+        ));
+    }
+    if values.iter().collect::<BTreeSet<_>>().len() != values.len() {
+        return Err(Error::Protocol(
+            "string-set digest input must contain unique values".to_owned(),
+        ));
+    }
+    let mut canonical_values = values.to_vec();
+    canonical_values.sort_by(|left, right| left.as_bytes().cmp(right.as_bytes()));
+    let mut preimage = context.as_bytes().to_vec();
+    preimage.push(b'\n');
+    preimage.extend(canonical::canonical_json_bytes(&canonical_values)?);
+    Ok(canonical::sha256_base64url(preimage))
+}
+
 /// Pipe-joined diagnostic form (`a|b|c`, with `|` and `%` percent-encoded).
 ///
 /// **Never wire-canonical.** Used only for human-readable logs / error
@@ -336,6 +367,28 @@ mod tests {
                     .contains("JSON string, integer, boolean, or null")
             );
         }
+    }
+
+    #[test]
+    fn string_set_digest_is_order_independent_and_rejects_invalid_sets() {
+        let left = vec!["employment".to_owned(), "agent_operator".to_owned()];
+        let right = vec!["agent_operator".to_owned(), "employment".to_owned()];
+        assert_eq!(
+            string_set_digest_component(&left, "ak.accountability-scope-set-v1").unwrap(),
+            "GuBGA6Mm1pfBN0XAk4CD0zuPPBxC5HzVNM-AIdFZRnc"
+        );
+        assert_eq!(
+            string_set_digest_component(&left, "ak.accountability-scope-set-v1").unwrap(),
+            string_set_digest_component(&right, "ak.accountability-scope-set-v1").unwrap()
+        );
+        assert!(string_set_digest_component(&[], "ak.accountability-scope-set-v1").is_err());
+        assert!(
+            string_set_digest_component(
+                &["employment".to_owned(), "employment".to_owned()],
+                "ak.accountability-scope-set-v1"
+            )
+            .is_err()
+        );
     }
 
     #[test]

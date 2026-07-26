@@ -128,8 +128,8 @@ pub use arkret_models_collaboration::events_payloads::strand_ops::*;
 pub use arkret_models_collaboration::federation;
 pub use arkret_models_collaboration::federation::wire_dtos::*;
 pub use arkret_models_collaboration::governance::accountability::{
-    ACCOUNTABILITY_GRANT_SCHEMA, AccountabilityGrantPayload, AccountabilityGrantStatus,
-    AccountabilityScope, AccountabilityScopeKind,
+    ACCOUNTABILITY_GRANT_SCHEMA, ACCOUNTABILITY_SCOPE_SET_CONTEXT, AccountabilityGrantPayload,
+    AccountabilityGrantStatus, AccountabilityScope, AccountabilityScopeKind,
 };
 pub use arkret_models_collaboration::governance::agent_artifacts::*;
 pub use arkret_models_collaboration::governance::agent_participation::*;

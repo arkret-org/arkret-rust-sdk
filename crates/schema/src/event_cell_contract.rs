@@ -984,10 +984,88 @@ fn component_value(
             .ok_or_else(|| subject_error(kind, &format!("{path} is missing")))?;
         return composite_scalar(value.as_ref()).map_err(|message| subject_error(kind, &message));
     }
+    if component.get("kind").and_then(Value::as_str) == Some("string_set_digest") {
+        return string_set_digest_component_value(event, component, kind);
+    }
     let path = select_field_path(event, component, kind)?;
     let value = subject_field_value(event, &path)
         .ok_or_else(|| subject_error(kind, &format!("{path} is missing")))?;
     composite_scalar(value.as_ref()).map_err(|message| subject_error(kind, &message))
+}
+
+fn string_set_digest_component_value(
+    event: &Event,
+    component: &Value,
+    kind: &str,
+) -> Result<Value, EventCellContractError> {
+    let object = component
+        .as_object()
+        .ok_or_else(|| subject_error(kind, "string_set_digest component must be an object"))?;
+    if object.len() != 3
+        || !object.contains_key("kind")
+        || !object.contains_key("field")
+        || !object.contains_key("context")
+    {
+        return Err(subject_error(
+            kind,
+            "string_set_digest component must contain only kind, field, and context",
+        ));
+    }
+    let path = object
+        .get("field")
+        .and_then(Value::as_str)
+        .filter(|path| path.starts_with("payload."))
+        .ok_or_else(|| {
+            subject_error(
+                kind,
+                "string_set_digest component field must be an explicit payload path",
+            )
+        })?;
+    let context = object
+        .get("context")
+        .and_then(Value::as_str)
+        .ok_or_else(|| subject_error(kind, "string_set_digest component context is missing"))?;
+    if kind == "ak.identity.accountability_grant" && context != "ak.accountability-scope-set-v1" {
+        return Err(subject_error(
+            kind,
+            "accountability_scope string-set digest context is invalid",
+        ));
+    }
+    let value = subject_field_value(event, path)
+        .ok_or_else(|| subject_error(kind, &format!("{path} is missing")))?;
+    let values = match value.as_ref() {
+        Value::String(value) => vec![value.clone()],
+        Value::Array(values) => values
+            .iter()
+            .map(|value| {
+                value.as_str().map(str::to_owned).ok_or_else(|| {
+                    subject_error(kind, "string_set_digest array elements must be strings")
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?,
+        _ => {
+            return Err(subject_error(
+                kind,
+                "string_set_digest source must be a string or string array",
+            ));
+        }
+    };
+    if kind == "ak.identity.accountability_grant"
+        && values.iter().any(|value| {
+            !matches!(
+                value.as_str(),
+                "employment" | "contracted_service" | "agent_operator"
+            )
+        })
+    {
+        return Err(subject_error(
+            kind,
+            "accountability_scope contains an unregistered value",
+        ));
+    }
+    arkret_wire::string_set_digest_component(&values, context)
+        .map(Value::String)
+        .map_err(|error| subject_error(kind, &error.to_string()))
 }
 
 /// Evaluate a `select` component and return the selected field path.
@@ -1133,6 +1211,11 @@ mod tests {
             "hlc": "019f9e500000-0000-aabbccdd",
             "prev_refs": [],
             "effects": [],
+            "seal_basis": {
+                "leaves": ["ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+                "control_event_set_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "state_root": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            },
             "payload": {
                 "event_ref": "ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9182",
                 "occurrence": occurrence,
@@ -1222,6 +1305,155 @@ mod tests {
             component_value(&event, &envelope_select, EventKind::RSVP_SET).unwrap(),
             json!("did:webvh:z6mkfixture:alice.example")
         );
+    }
+
+    fn accountability_event(scope: Value, status: &str) -> Event {
+        serde_json::from_value(json!({
+            "event_id": "ak:event:019f9e50-d787-74e0-8731-c9ad5eaa9190",
+            "kind": EventKind::IDENTITY_ACCOUNTABILITY_GRANT,
+            "realm_id": "ak:realm:019f9e50-d787-74e0-8731-c9ad5eaa9180",
+            "actor_id": "did:web:issuer.example",
+            "actor_seq": 7,
+            "created_at": "2026-07-26T01:00:00.000Z",
+            "hlc": "019f9e500000-0000-aabbccdd",
+            "prev_refs": [],
+            "effects": [],
+            "payload": {
+                "issuer": "did:web:issuer.example",
+                "subject": "did:web:subject.example",
+                "accountability_scope": scope,
+                "grant_status": status
+            },
+            "proofs": []
+        }))
+        .unwrap()
+    }
+
+    fn accountability_subject(
+        scope: Value,
+        status: &str,
+    ) -> Result<String, EventCellContractError> {
+        let event = accountability_event(scope, status);
+        derive_subject(&event, event.kind.descriptor().unwrap().cell_subject_rule)
+    }
+
+    #[test]
+    fn accountability_string_set_subject_matches_kats_and_exact_set_semantics() {
+        assert_eq!(
+            accountability_subject(json!("employment"), "active").unwrap(),
+            "0oP6kgegqj97KeJlIQS1HqrKqOlrC05vv5FbjOt26UI"
+        );
+        assert_eq!(
+            accountability_subject(json!(["employment"]), "active").unwrap(),
+            "0oP6kgegqj97KeJlIQS1HqrKqOlrC05vv5FbjOt26UI"
+        );
+        assert_eq!(
+            accountability_subject(json!(["employment", "agent_operator"]), "active").unwrap(),
+            "mpsZQ7e16PpEpIx5EzhcWbP75zwSFLxWVUhUci1Q_JQ"
+        );
+        assert_eq!(
+            accountability_subject(json!(["agent_operator", "employment"]), "revoked").unwrap(),
+            "mpsZQ7e16PpEpIx5EzhcWbP75zwSFLxWVUhUci1Q_JQ"
+        );
+        assert_eq!(
+            accountability_subject(
+                json!(["employment", "contracted_service", "agent_operator"]),
+                "active"
+            )
+            .unwrap(),
+            "_45SQjX2ZreUoyarM5jKLRPu718MCunon-ruoXbTRBw"
+        );
+        assert_ne!(
+            accountability_subject(json!("employment"), "active").unwrap(),
+            accountability_subject(json!("agent_operator"), "active").unwrap()
+        );
+
+        let baseline = accountability_subject(json!("employment"), "active").unwrap();
+        let mut different_issuer = accountability_event(json!("employment"), "active");
+        different_issuer
+            .payload
+            .insert("issuer".to_owned(), json!("did:web:other-issuer.example"));
+        assert_ne!(
+            derive_subject(
+                &different_issuer,
+                different_issuer
+                    .kind
+                    .descriptor()
+                    .unwrap()
+                    .cell_subject_rule
+            )
+            .unwrap(),
+            baseline
+        );
+        let mut different_subject = accountability_event(json!("employment"), "active");
+        different_subject
+            .payload
+            .insert("subject".to_owned(), json!("did:web:other-subject.example"));
+        assert_ne!(
+            derive_subject(
+                &different_subject,
+                different_subject
+                    .kind
+                    .descriptor()
+                    .unwrap()
+                    .cell_subject_rule
+            )
+            .unwrap(),
+            baseline
+        );
+    }
+
+    #[test]
+    fn accountability_string_set_subject_fails_closed() {
+        for invalid in [
+            json!([]),
+            json!(["employment", "employment"]),
+            json!("administrator"),
+            json!([1]),
+            Value::Null,
+            json!({"scope": "employment"}),
+            json!([["employment"]]),
+            json!("[\"employment\"]"),
+        ] {
+            assert!(matches!(
+                accountability_subject(invalid, "active"),
+                Err(EventCellContractError::SubjectDerivation { .. })
+            ));
+        }
+
+        let event = accountability_event(json!("employment"), "active");
+        let descriptor = json!({
+            "kind": "string_set_digest",
+            "field": "payload.accountability_scope",
+            "context": "ak.accountability-scope-set-v1-wrong"
+        });
+        assert!(matches!(
+            component_value(
+                &event,
+                &descriptor,
+                EventKind::IDENTITY_ACCOUNTABILITY_GRANT
+            ),
+            Err(EventCellContractError::SubjectDerivation { .. })
+        ));
+
+        let mut event = accountability_event(json!("employment"), "active");
+        let value = serde_json::to_value(&event.payload).unwrap();
+        event.effects = vec![
+            serde_json::from_value(json!({
+                "cell": format!(
+                    "ak:cell:ak.component.identity.accountability.v1:{}",
+                    accountability_subject(json!("employment"), "active").unwrap()
+                ),
+                "op": {"kind": "set", "value": value}
+            }))
+            .unwrap(),
+        ];
+        validate_registered_cell_writes(&event).unwrap();
+        event.effects[0].cell = CellRef::new(
+            "ak:cell:ak.component.identity.accountability.v1:q76kFdC2LNwLBlUed_ICSOysggmqrOXJbAtWHO49Woc",
+        )
+        .unwrap();
+        assert!(validate_registered_cell_writes(&event).is_err());
     }
 
     fn realm_facet(kind: &str, family: &str, payload: Value, value: Value) -> Event {

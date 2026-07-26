@@ -572,6 +572,132 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     }
                 }
             }
+            "string_set_digest_composite_subject" => {
+                let source = &vector["source_descriptor"];
+                let event_kind = source["event_kind"].as_str().unwrap();
+                let descriptor = EventKind::try_new(event_kind)
+                    .and_then(|kind| kind.descriptor())
+                    .unwrap_or_else(|| panic!("{vector_id}: source event kind is not registered"));
+                assert_eq!(
+                    descriptor.cell_family,
+                    source["cell_family"].as_str(),
+                    "{vector_id}: source cell family drifted"
+                );
+                let registered_rule: Value =
+                    serde_json::from_str(descriptor.cell_subject_rule.unwrap()).unwrap();
+                assert_eq!(
+                    registered_rule["components"], source["components"],
+                    "{vector_id}: fixture sources drifted from the generated descriptor"
+                );
+
+                let set_descriptor = &source["components"][2];
+                assert_eq!(set_descriptor["kind"], "string_set_digest");
+                assert_eq!(set_descriptor["field"], "payload.accountability_scope");
+                let context = set_descriptor["context"].as_str().unwrap();
+                let issuer = vector["issuer"].as_str().unwrap();
+                let subject = vector["subject"].as_str().unwrap();
+                let allowed = ["agent_operator", "contracted_service", "employment"];
+                let mut subjects = std::collections::BTreeMap::new();
+
+                for case in vector["positive_cases"].as_array().unwrap() {
+                    let name = case["name"].as_str().unwrap();
+                    let values = match &case["input"] {
+                        Value::String(value) => vec![value.clone()],
+                        Value::Array(values) => values
+                            .iter()
+                            .map(|value| value.as_str().unwrap().to_owned())
+                            .collect(),
+                        _ => panic!("{vector_id}/{name}: positive scope has invalid shape"),
+                    };
+                    assert!(
+                        values.iter().all(|value| allowed.contains(&value.as_str())),
+                        "{vector_id}/{name}: positive scope is outside the closed vocabulary"
+                    );
+                    let component = arkret_wire::string_set_digest_component(&values, context)
+                        .unwrap_or_else(|error| panic!("{vector_id}/{name}: {error}"));
+                    assert_eq!(
+                        component,
+                        case["scope_set_component"].as_str().unwrap(),
+                        "{vector_id}/{name}: scope-set component drifted"
+                    );
+                    let cell_subject = arkret_wire::composite_subject(&[
+                        Value::String(issuer.to_owned()),
+                        Value::String(subject.to_owned()),
+                        Value::String(component),
+                    ])
+                    .unwrap();
+                    assert_eq!(
+                        cell_subject,
+                        case["cell_subject"].as_str().unwrap(),
+                        "{vector_id}/{name}: outer composite subject drifted"
+                    );
+                    subjects.insert(name, cell_subject);
+                }
+                for case in vector["positive_cases"].as_array().unwrap() {
+                    if let Some(equivalent) = case.get("equivalent_to").and_then(Value::as_str) {
+                        assert_eq!(
+                            subjects[case["name"].as_str().unwrap()],
+                            subjects[equivalent],
+                            "{vector_id}: equivalent set encodings diverged"
+                        );
+                    }
+                }
+
+                for case in vector["negative_cases"].as_array().unwrap() {
+                    let name = case["name"].as_str().unwrap();
+                    match name {
+                        "old_direct_scalar_subject" => assert!(
+                            !subjects
+                                .values()
+                                .any(|subject| subject == case["cell_subject"].as_str().unwrap()),
+                            "{vector_id}: legacy direct-scalar subject remains valid"
+                        ),
+                        "wrong_context" => {
+                            let wrong = arkret_wire::string_set_digest_component(
+                                &["employment".to_owned()],
+                                case["context"].as_str().unwrap(),
+                            )
+                            .unwrap();
+                            assert_ne!(
+                                wrong,
+                                vector["positive_cases"][0]["scope_set_component"]
+                                    .as_str()
+                                    .unwrap(),
+                                "{vector_id}: context separation failed"
+                            );
+                        }
+                        _ => {
+                            let values = match &case["input"] {
+                                Value::String(value) if allowed.contains(&value.as_str()) => {
+                                    Some(vec![value.clone()])
+                                }
+                                Value::Array(values)
+                                    if values.iter().all(Value::is_string)
+                                        && values.iter().all(|value| {
+                                            allowed.contains(&value.as_str().unwrap())
+                                        }) =>
+                                {
+                                    Some(
+                                        values
+                                            .iter()
+                                            .map(|value| value.as_str().unwrap().to_owned())
+                                            .collect::<Vec<_>>(),
+                                    )
+                                }
+                                _ => None,
+                            };
+                            assert!(
+                                values.is_none_or(|values| {
+                                    arkret_wire::string_set_digest_component(&values, context)
+                                        .is_err()
+                                }),
+                                "{vector_id}/{name}: invalid scope was accepted"
+                            );
+                            assert_eq!(case["expected_error"], "schema_violation");
+                        }
+                    }
+                }
+            }
             "typed_composite_subject" => {
                 let source = &vector["source_descriptor"];
                 let event_kind = source["event_kind"].as_str().unwrap();

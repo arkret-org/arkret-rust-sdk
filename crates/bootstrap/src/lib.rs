@@ -162,6 +162,25 @@ fn provision_set_effect(cell_family: &str, subject_parts: &[&str], value: Value)
     })
 }
 
+fn provision_set_effect_for_subject(
+    cell_family: &str,
+    subject: &str,
+    value: Value,
+) -> Result<Effect> {
+    Ok(Effect {
+        cell: CellRef::new(format!("ak:cell:{cell_family}:{subject}"))?,
+        op: LatticeOp {
+            op_type: LatticeOpType::Set,
+            tag: None,
+            value: Some(value),
+            from: None,
+            to: None,
+            reason: None,
+            issuer_seq: None,
+        },
+    })
+}
+
 /// Build the closed controller-owned managed-agent provisioning Event pair.
 pub fn build_agent_provision_event_drafts<S: MoveSigner + ?Sized>(
     controller_id: &Did,
@@ -226,9 +245,9 @@ pub fn build_agent_provision_event_drafts<S: MoveSigner + ?Sized>(
         accountability_value.clone(),
         created_at,
     )?;
-    accountability_grant.effects = vec![provision_set_effect(
+    accountability_grant.effects = vec![provision_set_effect_for_subject(
         "ak.component.identity.accountability.v1",
-        &[controller_id.as_str(), agent_id.as_str(), "agent_operator"],
+        &accountability_payload.cell_subject()?,
         accountability_value,
     )?];
     accountability_grant.requirements.schema_profile_refs =

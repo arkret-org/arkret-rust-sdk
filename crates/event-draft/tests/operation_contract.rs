@@ -22,7 +22,8 @@ fn operation_serializes_protocol_field_names() {
 
     let value = serde_json::to_value(operation).unwrap();
 
-    assert_eq!(value["type"], "operation");
+    assert_eq!(value["record_kind"], "operation");
+    assert!(value.get("type").is_none());
     assert_eq!(value["operation_kind"], "create");
     assert_eq!(
         value["object_id"],

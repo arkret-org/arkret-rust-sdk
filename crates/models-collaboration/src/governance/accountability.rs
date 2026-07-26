@@ -3,12 +3,16 @@
 use std::collections::BTreeSet;
 
 use arkret_models_identity::actor_profile::ActorProfile;
-use arkret_wire::{Did, Hash, PayloadProof, ProofContextId, Result, WireError, canonical};
+use arkret_wire::{
+    Did, Hash, PayloadProof, ProofContextId, Result, WireError, canonical, composite_subject,
+    string_set_digest_component,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const ACCOUNTABILITY_GRANT_SCHEMA: &str = "ak.schema.accountability_grant.v1";
+pub const ACCOUNTABILITY_SCOPE_SET_CONTEXT: &str = "ak.accountability-scope-set-v1";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -25,7 +29,17 @@ pub enum AccountabilityScopeKind {
     AgentOperator,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+impl AccountabilityScopeKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Employment => "employment",
+            Self::ContractedService => "contracted_service",
+            Self::AgentOperator => "agent_operator",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AccountabilityScope {
     Single(AccountabilityScopeKind),
@@ -33,6 +47,16 @@ pub enum AccountabilityScope {
 }
 
 impl AccountabilityScope {
+    fn canonical_kinds_unchecked(&self) -> Vec<AccountabilityScopeKind> {
+        let mut scopes = match self {
+            Self::Single(scope) => vec![*scope],
+            Self::Multiple(scopes) => scopes.clone(),
+        };
+        scopes.sort_by(|left, right| left.as_str().as_bytes().cmp(right.as_str().as_bytes()));
+        scopes.dedup();
+        scopes
+    }
+
     pub fn validate(&self) -> Result<()> {
         let Self::Multiple(scopes) = self else {
             return Ok(());
@@ -49,7 +73,37 @@ impl AccountabilityScope {
         }
         Ok(())
     }
+
+    pub fn canonical_set(&self) -> Result<Vec<AccountabilityScopeKind>> {
+        self.validate()?;
+        Ok(self.canonical_kinds_unchecked())
+    }
+
+    pub fn canonicalized_for_authoring(&self) -> Result<Self> {
+        let scopes = self.canonical_set()?;
+        Ok(match scopes.as_slice() {
+            [scope] => Self::Single(*scope),
+            _ => Self::Multiple(scopes),
+        })
+    }
+
+    pub fn scope_set_component(&self) -> Result<String> {
+        let values = self
+            .canonical_set()?
+            .into_iter()
+            .map(|scope| scope.as_str().to_owned())
+            .collect::<Vec<_>>();
+        string_set_digest_component(&values, ACCOUNTABILITY_SCOPE_SET_CONTEXT)
+    }
 }
+
+impl PartialEq for AccountabilityScope {
+    fn eq(&self, other: &Self) -> bool {
+        self.canonical_kinds_unchecked() == other.canonical_kinds_unchecked()
+    }
+}
+
+impl Eq for AccountabilityScope {}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -86,7 +140,9 @@ impl AccountabilityGrantPayload {
             schema: ACCOUNTABILITY_GRANT_SCHEMA.to_owned(),
             issuer,
             subject,
-            accountability_scope,
+            accountability_scope: accountability_scope
+                .canonicalized_for_authoring()
+                .unwrap_or(accountability_scope),
             not_before,
             expires_at,
             grant_status: AccountabilityGrantStatus::Active,
@@ -107,6 +163,15 @@ impl AccountabilityGrantPayload {
         let mut input = b"ak.accountability-grant-v1\n".to_vec();
         input.extend(self.canonical_payload_without_proof()?);
         Ok(Hash::new(canonical::sha256_digest(&input))?)
+    }
+
+    pub fn cell_subject(&self) -> Result<String> {
+        let scope_component = self.accountability_scope.scope_set_component()?;
+        composite_subject(&[
+            self.issuer.as_str(),
+            self.subject.as_str(),
+            scope_component.as_str(),
+        ])
     }
 
     pub fn canonical_proof_binding_bytes(&self) -> Result<Vec<u8>> {
@@ -215,5 +280,47 @@ mod tests {
             .validate()
             .is_err()
         );
+    }
+
+    #[test]
+    fn accountability_scope_kats_and_domain_equality_are_canonical() {
+        let singleton = AccountabilityScope::Single(AccountabilityScopeKind::Employment);
+        let singleton_array =
+            AccountabilityScope::Multiple(vec![AccountabilityScopeKind::Employment]);
+        assert_eq!(singleton, singleton_array);
+        assert_eq!(
+            singleton.scope_set_component().unwrap(),
+            "igkaAexYhN9e_4LvIFv7fkT5zisbmP8cTz82ES2TlIQ"
+        );
+
+        let reordered = AccountabilityScope::Multiple(vec![
+            AccountabilityScopeKind::Employment,
+            AccountabilityScopeKind::AgentOperator,
+        ]);
+        let canonical = AccountabilityScope::Multiple(vec![
+            AccountabilityScopeKind::AgentOperator,
+            AccountabilityScopeKind::Employment,
+        ]);
+        assert_eq!(reordered, canonical);
+        assert_eq!(
+            reordered.scope_set_component().unwrap(),
+            "GuBGA6Mm1pfBN0XAk4CD0zuPPBxC5HzVNM-AIdFZRnc"
+        );
+
+        let all = AccountabilityScope::Multiple(vec![
+            AccountabilityScopeKind::Employment,
+            AccountabilityScopeKind::ContractedService,
+            AccountabilityScopeKind::AgentOperator,
+        ]);
+        assert_eq!(
+            all.scope_set_component().unwrap(),
+            "Adhn2J3Ht1drmR7yf03sMl6AQIUxyDM4wzqSvlGOLDo"
+        );
+
+        let duplicated = AccountabilityScope::Multiple(vec![
+            AccountabilityScopeKind::Employment,
+            AccountabilityScopeKind::Employment,
+        ]);
+        assert!(duplicated.canonicalized_for_authoring().is_err());
     }
 }

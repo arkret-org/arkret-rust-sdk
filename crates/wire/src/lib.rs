@@ -59,6 +59,7 @@ pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
 pub use cell::{
     CellId, CompositeSubjectComponent, NULL_SUBJECT, REALM_CREATE_CELL, REALM_METADATA_CELL,
     REALM_NOTARY_CELL, composite_subject, composite_subject_pipe, null_subject_cell,
+    string_set_digest_component,
 };
 pub use consent_scope::*;
 pub use constants::*;
