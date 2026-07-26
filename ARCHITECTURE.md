@@ -105,9 +105,8 @@ store before they are exposed publicly.
 ```text
 HTTP client / federation / push
     -> sync protocol responses
-    -> sync_client::SyncResponseProcessor
-    -> base::BaseClient state
-    -> high-level managers (Realm, Timeline, Presence, Receipts, Notifications)
+    -> garth::sync_client::SyncResponseProcessor
+    -> garth::ArkretClient / ProjectionMount
     -> application event handlers
 ```
 

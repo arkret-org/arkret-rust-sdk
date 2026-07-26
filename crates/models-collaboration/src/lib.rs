@@ -19,7 +19,6 @@ pub mod federation;
 pub mod governance;
 pub mod governance_payloads;
 pub mod http_bodies;
-pub mod http_params;
 mod internal_prelude;
 pub mod object_lifecycle;
 pub mod object_patch;

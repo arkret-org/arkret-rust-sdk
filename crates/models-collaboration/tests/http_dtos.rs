@@ -2,14 +2,11 @@ use arkret_models_collaboration::http_bodies::{
     EventsQueryOutcome, EventsSubscribeFrame, EventsSubscribeFrameKind, MimiRoomUpdateRequestBody,
     MimiSubmitMessageRequestBody,
 };
-use arkret_models_collaboration::http_params::{EventsQueryOrder, EventsQueryParams};
 use arkret_models_collaboration::objects::mimi::{
     MimiCiphertext, MimiOpaquePayload, MimiRoomUpdate,
 };
 use arkret_models_collaboration::session_grant_bodies::SessionLoginOutcome;
-use arkret_wire::{
-    Base64UrlString, Cursor, DeviceId, Did, Hash, MlsGroupId, NonEmptyString, RealmId,
-};
+use arkret_wire::{Base64UrlString, DeviceId, Did, Hash, MlsGroupId, NonEmptyString};
 use serde_json::json;
 
 fn did(name: &str) -> Did {
@@ -164,42 +161,6 @@ fn events_query_outcome_serializes_has_more_even_when_false() {
     assert_eq!(value["events"], json!([]));
     assert_eq!(value["has_more"], json!(false));
     assert!(value.get("next_cursor").is_none());
-}
-
-#[test]
-fn events_query_params_helpers_use_wire_types() {
-    let params = EventsQueryParams {
-        realms: vec![RealmId::new("ak:realm:01904100-0000-7000-8000-f949e0272316").unwrap()],
-        actors: vec![did("alice")],
-        before: Some(Cursor::new("ak:cursor:older").unwrap()),
-        after: Some(Cursor::new("ak:cursor:newer").unwrap()),
-        order: Some(EventsQueryOrder::Descending),
-        limit: Some(50),
-        x_arkret_request_id: None,
-        traceparent: None,
-    };
-
-    params.validate_non_empty().unwrap();
-    let pairs = params.to_query_pairs();
-    assert!(
-        pairs.iter().any(|(key, value)| *key == "realms"
-            && value == "ak:realm:01904100-0000-7000-8000-f949e0272316")
-    );
-    assert!(
-        pairs
-            .iter()
-            .any(|(key, value)| *key == "actors" && value == "did:webvh:z6mkfixture:alice.example")
-    );
-    assert!(
-        pairs
-            .iter()
-            .any(|(key, value)| *key == "order" && value == "descending")
-    );
-    assert!(
-        pairs
-            .iter()
-            .any(|(key, value)| *key == "limit" && value == "50")
-    );
 }
 
 #[test]

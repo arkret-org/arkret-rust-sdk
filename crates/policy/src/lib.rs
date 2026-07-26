@@ -5,7 +5,6 @@ use arkret_wire::*;
 pub mod authz;
 pub mod generated;
 pub mod history_visibility;
-pub mod http_params;
 pub mod minimal_metadata_author;
 pub mod minimal_metadata_security;
 pub mod ordinary_agent_mls;
@@ -20,7 +19,6 @@ pub mod models {
 }
 
 pub use authz::*;
-pub use http_params::*;
 pub use minimal_metadata_author::*;
 pub use minimal_metadata_security::*;
 pub use ordinary_agent_mls::*;

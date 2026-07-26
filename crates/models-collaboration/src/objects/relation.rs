@@ -62,6 +62,7 @@ pub struct Relation {
 /// Resolvers MUST refuse a `ak.relation.create` event whose
 /// `(from, relation_kind, to)` tuple would violate the declared
 /// cardinality of its profile.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RelationCardinality {
@@ -70,18 +71,121 @@ pub enum RelationCardinality {
     /// One `from` may map to many `to` values; each `to` MUST have at
     /// most one `from`.
     OneToMany,
+    /// One `to` may receive many `from` values; each `from` MUST have at
+    /// most one `to`.
+    ManyToOne,
     /// Unrestricted: many-to-many.
     ManyToMany,
 }
 
-/// Per-Space `relation_profile` row that constrains a `relation_kind`.
+impl RelationCardinality {
+    /// Parse one of the four closed cardinality values used by
+    /// `relation-kind-registry.json`.
+    pub fn from_registry_value(value: &str) -> Option<Self> {
+        match value {
+            "one_to_one" => Some(Self::OneToOne),
+            "one_to_many" => Some(Self::OneToMany),
+            "many_to_one" => Some(Self::ManyToOne),
+            "many_to_many" => Some(Self::ManyToMany),
+            _ => None,
+        }
+    }
+}
+
+/// Scope used to calculate Relation cardinality and deduplication keys.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RelationScope {
+    #[default]
+    Realm,
+    Space,
+    Board,
+    Global,
+}
+
+/// Conflict handling for mutually unreachable Relation candidates.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RelationConflictPolicy {
+    Reject,
+    ClosePrevious,
+    #[default]
+    DeterministicWinner,
+    RequireReview,
+}
+
+fn relation_scope_is_default(value: &RelationScope) -> bool {
+    *value == RelationScope::Realm
+}
+
+fn relation_conflict_policy_is_default(value: &RelationConflictPolicy) -> bool {
+    *value == RelationConflictPolicy::DeterministicWinner
+}
+
+fn bool_is_false(value: &bool) -> bool {
+    !*value
+}
+
+/// Realm `relation_profiles` row that constrains a `relation_kind`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RelationProfile {
     pub relation_kind: String,
-    pub cardinality: RelationCardinality,
-    /// Optional schema-id for the profile body.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub schema: Option<String>,
+    pub from_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to_type: Option<String>,
+    #[serde(default, skip_serializing_if = "relation_scope_is_default")]
+    pub relation_scope: RelationScope,
+    pub cardinality: RelationCardinality,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dedupe_key: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_to_per_from: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_from_per_to: Option<u64>,
+    #[serde(default, skip_serializing_if = "bool_is_false")]
+    pub multi_edge: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rank_field: Option<String>,
+    #[serde(default, skip_serializing_if = "relation_conflict_policy_is_default")]
+    pub on_conflict: RelationConflictPolicy,
+}
+
+impl RelationProfile {
+    /// Validate the normative `cardinality` / `max_*` consistency matrix.
+    pub fn validate_cardinality_consistency(&self) -> std::result::Result<(), ReasonCode> {
+        validate_relation_profile_cardinality_consistency(self)
+    }
+}
+
+/// Validate a RelationProfile before registration or update.
+///
+/// Every failure maps directly to the normative
+/// `relation_profile_cardinality_conflict` reason code.
+pub fn validate_relation_profile_cardinality_consistency(
+    profile: &RelationProfile,
+) -> std::result::Result<(), ReasonCode> {
+    let max_to_per_from = profile.max_to_per_from;
+    let max_from_per_to = profile.max_from_per_to;
+    let has_zero_bound = max_to_per_from == Some(0) || max_from_per_to == Some(0);
+    let contradicts_cardinality = match profile.cardinality {
+        RelationCardinality::OneToOne => {
+            max_to_per_from.is_some_and(|value| value > 1)
+                || max_from_per_to.is_some_and(|value| value > 1)
+        }
+        RelationCardinality::OneToMany => max_from_per_to.is_some_and(|value| value > 1),
+        RelationCardinality::ManyToOne => max_to_per_from.is_some_and(|value| value > 1),
+        RelationCardinality::ManyToMany => false,
+    };
+
+    if has_zero_bound || contradicts_cardinality {
+        Err(ReasonCode::RelationProfileCardinalityConflict)
+    } else {
+        Ok(())
+    }
 }
 
 /// Convenience: `(from, relation_kind, to)` triple identifying a
@@ -157,7 +261,12 @@ where
 /// - `OneToOne` — a Space MAY contain at most one edge per `from` and per `to` for the given
 ///   `relation_kind`.
 /// - `OneToMany` — many `to` per `from` are fine, but each `to` MUST have at most one `from`.
+/// - `ManyToOne` — many `from` per `to` are fine, but each `from` MUST have at most one `to`.
 /// - `ManyToMany` — always permitted.
+///
+/// Explicit `max_to_per_from` and `max_from_per_to` bounds further tighten
+/// these base rules. Callers must resolve `relation_scope` before selecting
+/// the `existing` slice.
 pub fn enforce_relation_cardinality(
     profile: &RelationProfile,
     candidate: RelationEdgeRef<'_>,
@@ -166,34 +275,48 @@ pub fn enforce_relation_cardinality(
     if candidate.relation_kind != profile.relation_kind {
         return Ok(());
     }
-    match profile.cardinality {
-        RelationCardinality::ManyToMany => Ok(()),
-        RelationCardinality::OneToMany => {
-            if existing.iter().any(|edge| {
-                edge.relation_kind == candidate.relation_kind && edge.to == candidate.to
-            }) {
-                Err(Error::Protocol(format!(
-                    "relation_cardinality_violation: '{}' is one_to_many but '{}' already has an inbound '{}' edge",
-                    candidate.relation_kind, candidate.to, candidate.relation_kind
-                )))
-            } else {
-                Ok(())
-            }
-        }
-        RelationCardinality::OneToOne => {
-            if existing.iter().any(|edge| {
-                edge.relation_kind == candidate.relation_kind
-                    && (edge.from == candidate.from || edge.to == candidate.to)
-            }) {
-                Err(Error::Protocol(format!(
-                    "relation_cardinality_violation: '{}' is one_to_one but a conflicting edge already exists",
-                    candidate.relation_kind
-                )))
-            } else {
-                Ok(())
-            }
-        }
+    if let Err(reason) = profile.validate_cardinality_consistency() {
+        return Err(Error::Protocol(reason.as_str().to_owned()));
     }
+
+    let cardinality_max_to_per_from = match profile.cardinality {
+        RelationCardinality::OneToOne | RelationCardinality::ManyToOne => Some(1),
+        RelationCardinality::OneToMany | RelationCardinality::ManyToMany => None,
+    };
+    let cardinality_max_from_per_to = match profile.cardinality {
+        RelationCardinality::OneToOne | RelationCardinality::OneToMany => Some(1),
+        RelationCardinality::ManyToOne | RelationCardinality::ManyToMany => None,
+    };
+    let max_to_per_from = profile.max_to_per_from.or(cardinality_max_to_per_from);
+    let max_from_per_to = profile.max_from_per_to.or(cardinality_max_from_per_to);
+
+    if max_to_per_from.is_some_and(|limit| {
+        existing
+            .iter()
+            .filter(|edge| {
+                edge.relation_kind == candidate.relation_kind && edge.from == candidate.from
+            })
+            .count() as u64
+            >= limit
+    }) {
+        return Err(Error::Protocol(format!(
+            "relation_cardinality_violation: '{}' reached max_to_per_from for '{}'",
+            candidate.relation_kind, candidate.from
+        )));
+    }
+    if max_from_per_to.is_some_and(|limit| {
+        existing
+            .iter()
+            .filter(|edge| edge.relation_kind == candidate.relation_kind && edge.to == candidate.to)
+            .count() as u64
+            >= limit
+    }) {
+        return Err(Error::Protocol(format!(
+            "relation_cardinality_violation: '{}' reached max_from_per_to for '{}'",
+            candidate.relation_kind, candidate.to
+        )));
+    }
+    Ok(())
 }
 
 impl Relation {
@@ -211,6 +334,211 @@ impl Relation {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn profile(cardinality: RelationCardinality) -> RelationProfile {
+        RelationProfile {
+            relation_kind: "assigned_to".to_owned(),
+            from_type: None,
+            to_type: None,
+            relation_scope: RelationScope::Realm,
+            cardinality,
+            dedupe_key: Vec::new(),
+            max_to_per_from: None,
+            max_from_per_to: None,
+            multi_edge: false,
+            rank_field: None,
+            on_conflict: RelationConflictPolicy::DeterministicWinner,
+        }
+    }
+
+    #[test]
+    fn relation_profile_wire_shape_matches_spec_and_defaults() {
+        let minimal: RelationProfile = serde_json::from_value(serde_json::json!({
+            "relation_kind": "assigned_to",
+            "cardinality": "many_to_many"
+        }))
+        .unwrap();
+        assert_eq!(minimal.relation_scope, RelationScope::Realm);
+        assert_eq!(
+            minimal.on_conflict,
+            RelationConflictPolicy::DeterministicWinner
+        );
+        assert!(!minimal.multi_edge);
+        assert_eq!(
+            serde_json::to_value(&minimal).unwrap(),
+            serde_json::json!({
+                "relation_kind": "assigned_to",
+                "cardinality": "many_to_many"
+            })
+        );
+
+        let complete = RelationProfile {
+            relation_kind: "assigned_to".to_owned(),
+            from_type: Some("strand".to_owned()),
+            to_type: Some("did".to_owned()),
+            relation_scope: RelationScope::Board,
+            cardinality: RelationCardinality::ManyToOne,
+            dedupe_key: vec!["board_space_id".to_owned(), "from_ref".to_owned()],
+            max_to_per_from: Some(1),
+            max_from_per_to: Some(8),
+            multi_edge: true,
+            rank_field: Some("rank".to_owned()),
+            on_conflict: RelationConflictPolicy::RequireReview,
+        };
+        let value = serde_json::to_value(&complete).unwrap();
+        assert_eq!(value["relation_scope"], "board");
+        assert_eq!(value["cardinality"], "many_to_one");
+        assert_eq!(value["on_conflict"], "require_review");
+        assert_eq!(
+            serde_json::from_value::<RelationProfile>(value).unwrap(),
+            complete
+        );
+    }
+
+    #[test]
+    fn relation_profile_wire_shape_passes_embedded_realm_schema() {
+        let registry = arkret_schema::schema_registry_from_embedded_spec_artifacts().unwrap();
+        let value = serde_json::json!({
+            "relation_kind": "assigned_to",
+            "from_type": "strand",
+            "to_type": "did",
+            "relation_scope": "realm",
+            "cardinality": "many_to_one",
+            "dedupe_key": ["realm_id", "from_ref"],
+            "max_to_per_from": 1,
+            "max_from_per_to": 8,
+            "multi_edge": false,
+            "rank_field": "rank",
+            "on_conflict": "reject"
+        });
+        registry
+            .validate_value(
+                "ak.schema.realm.v1#/properties/relation_profiles/items",
+                &value,
+            )
+            .unwrap();
+
+        let mut zero_bound = value;
+        zero_bound["max_to_per_from"] = serde_json::json!(0);
+        assert!(
+            registry
+                .validate_value(
+                    "ak.schema.realm.v1#/properties/relation_profiles/items",
+                    &zero_bound,
+                )
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn relation_profile_cardinality_consistency_matches_normative_matrix() {
+        for cardinality in [
+            RelationCardinality::OneToOne,
+            RelationCardinality::OneToMany,
+            RelationCardinality::ManyToOne,
+            RelationCardinality::ManyToMany,
+        ] {
+            assert!(
+                profile(cardinality)
+                    .validate_cardinality_consistency()
+                    .is_ok()
+            );
+        }
+
+        let mut one_to_one = profile(RelationCardinality::OneToOne);
+        one_to_one.max_to_per_from = Some(2);
+        assert_eq!(
+            one_to_one.validate_cardinality_consistency(),
+            Err(ReasonCode::RelationProfileCardinalityConflict)
+        );
+
+        let mut one_to_many = profile(RelationCardinality::OneToMany);
+        one_to_many.max_to_per_from = Some(7);
+        assert!(one_to_many.validate_cardinality_consistency().is_ok());
+        one_to_many.max_from_per_to = Some(2);
+        assert_eq!(
+            one_to_many.validate_cardinality_consistency(),
+            Err(ReasonCode::RelationProfileCardinalityConflict)
+        );
+
+        let mut many_to_one = profile(RelationCardinality::ManyToOne);
+        many_to_one.max_from_per_to = Some(7);
+        assert!(many_to_one.validate_cardinality_consistency().is_ok());
+        many_to_one.max_to_per_from = Some(2);
+        assert_eq!(
+            many_to_one.validate_cardinality_consistency(),
+            Err(ReasonCode::RelationProfileCardinalityConflict)
+        );
+
+        let mut many_to_many = profile(RelationCardinality::ManyToMany);
+        many_to_many.max_to_per_from = Some(0);
+        assert_eq!(
+            many_to_many.validate_cardinality_consistency(),
+            Err(ReasonCode::RelationProfileCardinalityConflict)
+        );
+        assert_eq!(
+            ReasonCode::RelationProfileCardinalityConflict.as_str(),
+            ReasonCode::RELATION_PROFILE_CARDINALITY_CONFLICT
+        );
+    }
+
+    #[test]
+    fn relation_cardinality_enforces_many_to_one_and_explicit_limits() {
+        let existing = [RelationEdgeRef {
+            from: "ak:strand:a",
+            relation_kind: "assigned_to",
+            to: "did:example:alice",
+        }];
+        let same_source = RelationEdgeRef {
+            from: "ak:strand:a",
+            relation_kind: "assigned_to",
+            to: "did:example:bob",
+        };
+        let different_source = RelationEdgeRef {
+            from: "ak:strand:b",
+            relation_kind: "assigned_to",
+            to: "did:example:alice",
+        };
+
+        let many_to_one = profile(RelationCardinality::ManyToOne);
+        assert!(
+            enforce_relation_cardinality(&many_to_one, same_source.clone(), &existing).is_err()
+        );
+        assert!(
+            enforce_relation_cardinality(&many_to_one, different_source.clone(), &existing).is_ok()
+        );
+
+        let mut limited_many_to_many = profile(RelationCardinality::ManyToMany);
+        limited_many_to_many.max_from_per_to = Some(1);
+        assert!(
+            enforce_relation_cardinality(&limited_many_to_many, different_source, &existing)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn relation_cardinality_parses_registry_defaults_without_guessing_special_classes() {
+        assert_eq!(
+            RelationCardinality::from_registry_value(
+                standard_relation_kind_metadata("belongs_to")
+                    .unwrap()
+                    .default_cardinality
+            ),
+            Some(RelationCardinality::ManyToOne)
+        );
+        assert_eq!(
+            RelationCardinality::from_registry_value(
+                standard_relation_kind_metadata("contains")
+                    .unwrap()
+                    .default_cardinality
+            ),
+            None
+        );
+        assert_eq!(
+            RelationCardinality::from_registry_value("one_active_edge_per_pair"),
+            None
+        );
+    }
 
     #[test]
     fn relation_direct_write_helper_rejects_derived_edges() {

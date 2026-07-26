@@ -8,6 +8,27 @@ use arkret_wire::{Cursor, Did, RealmId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// Ordering for event query scans.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EventsQueryOrder {
+    #[default]
+    Default,
+    Ascending,
+    Descending,
+}
+
+impl EventsQueryOrder {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Default => "default",
+            Self::Ascending => "ascending",
+            Self::Descending => "descending",
+        }
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -26,4 +47,20 @@ pub struct EventsQueryPostRequestBody {
     pub limit: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub filters: Option<BTreeMap<String, Value>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::EventsQueryOrder;
+
+    #[test]
+    fn query_order_uses_protocol_wire_values() {
+        assert_eq!(EventsQueryOrder::Default.as_str(), "default");
+        assert_eq!(EventsQueryOrder::Ascending.as_str(), "ascending");
+        assert_eq!(EventsQueryOrder::Descending.as_str(), "descending");
+        assert_eq!(
+            serde_json::to_string(&EventsQueryOrder::Descending).unwrap(),
+            "\"descending\""
+        );
+    }
 }
