@@ -1,7 +1,7 @@
 //! Account-status and actor-profile payloads, plus the top-level EventPayload alias.
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de};
 
 use crate::internal_prelude::*;
 
@@ -38,4 +38,233 @@ pub struct AccountStatusPayload {
 #[serde(deny_unknown_fields)]
 pub struct ActorProfileCreatePayload {
     pub object: ActorProfile,
+}
+
+/// Presence-aware account-data body.
+///
+/// The schema permits any JSON value, including explicit `null`, so a plain
+/// `Option<Value>` cannot distinguish a present null from an absent field.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum AccountDataBody {
+    #[default]
+    Absent,
+    Value(Value),
+}
+
+impl AccountDataBody {
+    pub fn is_absent(&self) -> bool {
+        matches!(self, Self::Absent)
+    }
+
+    pub fn as_value(&self) -> Option<&Value> {
+        match self {
+            Self::Absent => None,
+            Self::Value(value) => Some(value),
+        }
+    }
+}
+
+impl From<Value> for AccountDataBody {
+    fn from(value: Value) -> Self {
+        Self::Value(value)
+    }
+}
+
+impl Serialize for AccountDataBody {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Self::Absent => serializer.serialize_none(),
+            Self::Value(value) => value.serialize(serializer),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for AccountDataBody {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Value::deserialize(deserializer).map(Self::Value)
+    }
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/account_data_set_payload`.
+///
+/// This is the canonical Event payload for `ak.account_data.set`. The
+/// self-service HTTP `account_data_replace_request_body` is a separate
+/// transport DTO.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct AccountDataSetPayload {
+    pub key: NonEmptyString,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<Did>,
+    /// Caller-supplied opaque value. Unlike the encrypted branch, this may be
+    /// any JSON value, including a scalar, array, or null.
+    #[serde(default, skip_serializing_if = "AccountDataBody::is_absent")]
+    pub body: AccountDataBody,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encrypted_payload: Option<BTreeMap<String, Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body_digest: Option<Hash>,
+    /// `true` selects the schema's tombstone branch. `false` is never emitted
+    /// and is rejected on deserialization.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub tombstone: bool,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp"
+    )]
+    pub updated_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_state_digest: Option<Hash>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AccountDataSetPayloadWire {
+    key: NonEmptyString,
+    #[serde(default)]
+    owner: Option<Did>,
+    #[serde(default)]
+    body: AccountDataBody,
+    #[serde(default)]
+    encrypted_payload: Option<BTreeMap<String, Value>>,
+    #[serde(default)]
+    body_digest: Option<Hash>,
+    #[serde(default)]
+    tombstone: Option<bool>,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
+    updated_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    expected_state_digest: Option<Hash>,
+}
+
+impl<'de> Deserialize<'de> for AccountDataSetPayload {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = AccountDataSetPayloadWire::deserialize(deserializer)?;
+        if wire.tombstone == Some(false) {
+            return Err(de::Error::custom(
+                "account_data_set_payload.tombstone must be true when present",
+            ));
+        }
+        let payload = Self {
+            key: wire.key,
+            owner: wire.owner,
+            body: wire.body,
+            encrypted_payload: wire.encrypted_payload,
+            body_digest: wire.body_digest,
+            tombstone: wire.tombstone.unwrap_or(false),
+            updated_at: wire.updated_at,
+            expected_state_digest: wire.expected_state_digest,
+        };
+        payload.validate().map_err(de::Error::custom)?;
+        Ok(payload)
+    }
+}
+
+impl AccountDataSetPayload {
+    /// Enforce the schema's `body | encrypted_payload | tombstone=true`
+    /// any-of requirement for values constructed directly in Rust.
+    pub fn validate(&self) -> Result<()> {
+        if self.body.is_absent() && self.encrypted_payload.is_none() && !self.tombstone {
+            return Err(Error::Protocol(
+                "account_data_set_payload requires body, encrypted_payload, or tombstone=true"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn account_data_set_payload_matches_current_spec_shape() {
+        let payload: AccountDataSetPayload = serde_json::from_value(json!({
+            "key": "ak.preference.theme",
+            "body": "dark"
+        }))
+        .unwrap();
+        assert_eq!(payload.body.as_value(), Some(&json!("dark")));
+        assert!(payload.owner.is_none());
+        assert!(payload.updated_at.is_none());
+
+        let value = serde_json::to_value(&payload).unwrap();
+        let catalog =
+            arkret_schema::event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        catalog
+            .validate_payload(EventKind::ACCOUNT_DATA_SET, &value)
+            .unwrap();
+    }
+
+    #[test]
+    fn account_data_set_payload_accepts_encrypted_and_tombstone_branches() {
+        for value in [
+            json!({
+                "key": "ak.private.index",
+                "encrypted_payload": {"ciphertext": "opaque"}
+            }),
+            json!({
+                "key": "ak.preference.theme",
+                "tombstone": true
+            }),
+        ] {
+            let payload: AccountDataSetPayload = serde_json::from_value(value).unwrap();
+            payload.validate().unwrap();
+        }
+    }
+
+    #[test]
+    fn account_data_set_payload_preserves_explicit_null_body() {
+        let payload: AccountDataSetPayload = serde_json::from_value(json!({
+            "key": "ak.preference.optional",
+            "body": null
+        }))
+        .unwrap();
+        assert_eq!(payload.body.as_value(), Some(&Value::Null));
+        assert_eq!(
+            serde_json::to_value(payload).unwrap(),
+            json!({"key": "ak.preference.optional", "body": null})
+        );
+    }
+
+    #[test]
+    fn account_data_set_payload_rejects_invalid_union_and_false_tombstone() {
+        assert!(
+            serde_json::from_value::<AccountDataSetPayload>(json!({
+                "key": "ak.preference.theme"
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<AccountDataSetPayload>(json!({
+                "key": "ak.preference.theme",
+                "tombstone": false
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<AccountDataSetPayload>(json!({
+                "key": "ak.preference.theme",
+                "body": {},
+                "legacy_field": true
+            }))
+            .is_err()
+        );
+    }
 }
