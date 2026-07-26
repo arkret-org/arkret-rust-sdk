@@ -108,7 +108,7 @@ pub fn build_snapshot_chunks_with_nonaccepted(
         let mut candidate = pending.clone();
         candidate.push(item.clone());
         let candidate_payload = SnapshotChunkPayload {
-            chunk_type: SNAPSHOT_CHUNK_TYPE.to_owned(),
+            chunk_kind: SNAPSHOT_CHUNK_TYPE.to_owned(),
             snapshot_ref: snapshot_ref.clone(),
             index: chunks.len() as u32,
             reducer_profile: reducer_profile.to_owned(),
@@ -132,7 +132,7 @@ pub fn build_snapshot_chunks_with_nonaccepted(
         let candidate_bytes = snapshot_chunk_payload_bytes(&candidate_payload)?;
         if !pending.is_empty() && candidate_bytes.len() > target_chunk_bytes {
             let payload = SnapshotChunkPayload {
-                chunk_type: SNAPSHOT_CHUNK_TYPE.to_owned(),
+                chunk_kind: SNAPSHOT_CHUNK_TYPE.to_owned(),
                 snapshot_ref: snapshot_ref.clone(),
                 index: chunks.len() as u32,
                 reducer_profile: reducer_profile.to_owned(),
@@ -162,7 +162,7 @@ pub fn build_snapshot_chunks_with_nonaccepted(
 
     if !pending.is_empty() || chunks.is_empty() {
         let payload = SnapshotChunkPayload {
-            chunk_type: SNAPSHOT_CHUNK_TYPE.to_owned(),
+            chunk_kind: SNAPSHOT_CHUNK_TYPE.to_owned(),
             snapshot_ref: snapshot_ref.clone(),
             index: chunks.len() as u32,
             reducer_profile: reducer_profile.to_owned(),
@@ -339,12 +339,12 @@ pub fn verify_snapshot_manifest(
             )
         })?;
         verify_snapshot_chunk_bytes(descriptor, &bytes)?;
-        if payload.chunk_type != SNAPSHOT_CHUNK_TYPE {
+        if payload.chunk_kind != SNAPSHOT_CHUNK_TYPE {
             return Err(SnapshotValidationError::new(
                 SnapshotValidationCode::DigestMismatch,
                 format!(
                     "snapshot chunk {index} has invalid type '{}'",
-                    payload.chunk_type
+                    payload.chunk_kind
                 ),
             ));
         }

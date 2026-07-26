@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/service-type-registry.json; version=2026-07-15;
-//! sha256=67cd0bf6f1071d1f7398bec7f01295d325e6e23c4bfc3dba0dc9ea074d0f4cc7 Entries: active=22
+//! Input: registry/service-kind-registry.json; version=2026-07-15;
+//! sha256=28830554bb03f303d5d3c7e9717cc0cf831e4d2cf22c18e412837ceaa0c2d055 Entries: active=22
 
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 #[repr(usize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum ServiceType {
+pub enum ServiceKind {
     AgentRuntime,
     AppletService,
     ArchiveNode,
@@ -35,13 +35,13 @@ pub enum ServiceType {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ServiceTypeDescriptor {
-    pub service_type: ServiceType,
+pub struct ServiceKindDescriptor {
+    pub service_kind: ServiceKind,
     pub valid_in: &'static [&'static str],
     pub description: &'static str,
 }
 
-impl ServiceType {
+impl ServiceKind {
     pub const ALL: &'static [Self] = &[
         Self::AgentRuntime,
         Self::AppletService,
@@ -94,8 +94,8 @@ impl ServiceType {
         }
     }
 
-    pub fn descriptor(self) -> &'static ServiceTypeDescriptor {
-        &SERVICE_TYPE_DESCRIPTORS[self as usize]
+    pub fn descriptor(self) -> &'static ServiceKindDescriptor {
+        &SERVICE_KIND_DESCRIPTORS[self as usize]
     }
 
     pub fn valid_in(self, context: &str) -> bool {
@@ -103,74 +103,74 @@ impl ServiceType {
     }
 }
 
-pub const SERVICE_TYPE_DESCRIPTORS: &[ServiceTypeDescriptor] = &[
-    ServiceTypeDescriptor {
-        service_type: ServiceType::AgentRuntime,
+pub const SERVICE_KIND_DESCRIPTORS: &[ServiceKindDescriptor] = &[
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::AgentRuntime,
         valid_in: &["service_describe"],
         description: "Agent execution runtime.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::AppletService,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::AppletService,
         valid_in: &["service_describe"],
         description: "Applet / third-party bridge edge surface.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::ArchiveNode,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::ArchiveNode,
         valid_in: &["service_describe", "realm_sync_endpoint"],
         description: "Long-term archive storage and retrieval surface.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::AuthServer,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::AuthServer,
         valid_in: &["service_describe", "service_registration_key"],
         description: "OIDC / token issuance and account lifecycle. Hosts no DID documents of its own; obtains its service DID from an external Service Identity Provider.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::AuthzService,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::AuthzService,
         valid_in: &["service_describe"],
         description: "Authorization evaluation surface.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::BlobNode,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::BlobNode,
         valid_in: &["service_describe"],
         description: "Blob storage surface.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::DeviceKeyService,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::DeviceKeyService,
         valid_in: &["service_describe"],
         description: "Device signing-key directory surface.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::DirectoryService,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::DirectoryService,
         valid_in: &["service_describe"],
         description: "Discovery ingest/query with anti-enumeration and takedown audit.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::IdentityRegistry,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::IdentityRegistry,
         valid_in: &["service_describe", "service_registration_key"],
         description: "Standalone did:webvh registry: DID documents, key logs, receipts, watcher/mirror. Self-hosts its own service DID through its local store.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::KeyRecoveryService,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::KeyRecoveryService,
         valid_in: &["service_describe", "realm_sync_endpoint"],
         description: "Cryptographic key backup and recovery surface.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::MediaService,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::MediaService,
         valid_in: &["service_describe"],
         description: "Media upload / transform / delivery surface.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::MimiProviderFacade,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::MimiProviderFacade,
         valid_in: &["mimi_provider_directory"],
         description: "MIMI interop provider facade. Deliberately NOT valid_in service_describe: it names a facade role inside the MIMI provider-directory descriptor, not a standalone Arkret service describing itself.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::ModerationService,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::ModerationService,
         valid_in: &["service_describe"],
         description: "Moderation surface.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::Notary,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::Notary,
         valid_in: &[
             "service_describe",
             "realm_sync_endpoint",
@@ -178,13 +178,13 @@ pub const SERVICE_TYPE_DESCRIPTORS: &[ServiceTypeDescriptor] = &[
         ],
         description: "Seal and state-attestation notary surface.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::PolicyServer,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::PolicyServer,
         valid_in: &["service_describe"],
         description: "Policy distribution and evaluation surface.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::PrincipalServer,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::PrincipalServer,
         valid_in: &[
             "service_describe",
             "realm_sync_endpoint",
@@ -193,28 +193,28 @@ pub const SERVICE_TYPE_DESCRIPTORS: &[ServiceTypeDescriptor] = &[
         ],
         description: "Account-owning home server: event ingestion, sync, authz projections, key backup, federation. Also acts as an embedded did:webvh host for the identities it serves, which is why it is valid_in service_registration_key both as a subject and as a Service Identity Provider.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::PushGateway,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::PushGateway,
         valid_in: &["service_describe"],
         description: "Push provider dispatch gateway.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::RecoveryService,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::RecoveryService,
         valid_in: &["service_describe", "realm_sync_endpoint"],
         description: "Account recovery orchestration surface.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::SearchService,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::SearchService,
         valid_in: &["service_describe", "realm_sync_endpoint"],
         description: "Search indexing and query surface.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::SfuService,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::SfuService,
         valid_in: &["service_describe"],
         description: "Selective forwarding unit for calls.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::SyncNode,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::SyncNode,
         valid_in: &[
             "service_describe",
             "realm_sync_endpoint",
@@ -222,8 +222,8 @@ pub const SERVICE_TYPE_DESCRIPTORS: &[ServiceTypeDescriptor] = &[
         ],
         description: "Event sync surface without account authority.",
     },
-    ServiceTypeDescriptor {
-        service_type: ServiceType::TurnService,
+    ServiceKindDescriptor {
+        service_kind: ServiceKind::TurnService,
         valid_in: &["service_describe"],
         description: "TURN / ICE relay surface.",
     },

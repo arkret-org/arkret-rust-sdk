@@ -216,7 +216,7 @@ pub struct SemanticRefProof {
     pub leaf_digest: Hash,
     pub audit_path: Vec<Hash>,
     pub leaf_index: u64,
-    pub tree_size: u64,
+    pub leaf_count: u64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

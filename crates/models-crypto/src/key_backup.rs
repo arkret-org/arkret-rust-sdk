@@ -25,35 +25,35 @@ fn is_false(value: &bool) -> bool {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum BackupClass {
+pub enum BackupKind {
     DidRecovery,
     SecretStorage,
     MlsHistory,
 }
 
-impl BackupClass {
+impl BackupKind {
     /// Canonical snake_case wire token used by `ak.schema.key_backup.v1`.
     pub const fn as_str(self) -> &'static str {
         match self {
-            BackupClass::DidRecovery => "did_recovery",
-            BackupClass::SecretStorage => "secret_storage",
-            BackupClass::MlsHistory => "mls_history",
+            BackupKind::DidRecovery => "did_recovery",
+            BackupKind::SecretStorage => "secret_storage",
+            BackupKind::MlsHistory => "mls_history",
         }
     }
 
     /// HKDF info string per key-management.md §7.2.
     pub fn hkdf_info(self, subdomain: &str) -> String {
         let class = match self {
-            BackupClass::DidRecovery => "did_recovery",
-            BackupClass::SecretStorage => "secret_storage",
-            BackupClass::MlsHistory => "mls_history",
+            BackupKind::DidRecovery => "did_recovery",
+            BackupKind::SecretStorage => "secret_storage",
+            BackupKind::MlsHistory => "mls_history",
         };
         format!("arkret-key-backup/{class}/{subdomain}/v1")
     }
 }
 
-/// Parse a `ak.schema.key_backup.v1` backup_class wire token.
-impl TryFrom<&str> for BackupClass {
+/// Parse a `ak.schema.key_backup.v1` backup_kind wire token.
+impl TryFrom<&str> for BackupKind {
     type Error = String;
 
     fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
@@ -61,7 +61,7 @@ impl TryFrom<&str> for BackupClass {
             "did_recovery" => Ok(Self::DidRecovery),
             "secret_storage" => Ok(Self::SecretStorage),
             "mls_history" => Ok(Self::MlsHistory),
-            other => Err(format!("unsupported backup_class {other}")),
+            other => Err(format!("unsupported backup_kind {other}")),
         }
     }
 }
@@ -78,7 +78,7 @@ pub struct KeyBackupsListQuery {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub series_id: Option<BackupSeriesId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub backup_class: Option<BackupClass>,
+    pub backup_kind: Option<BackupKind>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<Cursor>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -178,7 +178,7 @@ pub struct KeyBackupSummary {
     pub actor_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
-    pub backup_class: BackupClass,
+    pub backup_kind: BackupKind,
     pub backup_version: String,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
@@ -229,7 +229,7 @@ pub struct KeyBackup {
     pub actor_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
-    pub backup_class: BackupClass,
+    pub backup_kind: BackupKind,
     #[serde(default, skip_serializing_if = "is_false")]
     pub mixed_secret_storage: bool,
     pub backup_version: String,
@@ -295,7 +295,7 @@ pub struct KeyBackup {
     )]
     pub frontier_ref: Option<KeyBackupFrontierRef>,
     /// Recovery policy tuple under which this envelope was produced. Required
-    /// for `backup_class=did_recovery`; optional signed hint for other classes.
+    /// for `backup_kind=did_recovery`; optional signed hint for other classes.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recovery_policy_ref: Option<RecoveryPolicyRef>,
     #[serde(default, flatten)]
@@ -304,7 +304,7 @@ pub struct KeyBackup {
 
 impl KeyBackup {
     pub fn is_first_did_recovery_backup(&self) -> bool {
-        self.backup_class == BackupClass::DidRecovery && self.series_seq == 0
+        self.backup_kind == BackupKind::DidRecovery && self.series_seq == 0
     }
 
     pub fn satisfies_first_did_recovery_backup_gate(&self) -> bool {
@@ -328,7 +328,7 @@ impl KeyBackup {
             backup_id: self.backup_id.clone(),
             actor_id: self.actor_id.clone(),
             device_id: self.device_id.clone(),
-            backup_class: self.backup_class,
+            backup_kind: self.backup_kind,
             backup_version: self.backup_version.clone(),
             created_at: self.created_at,
             updated_at: self.updated_at,
@@ -646,7 +646,7 @@ pub struct KeyBackupDomainSeparationAad {
     /// transcript keeps a fixed field set and sealer/opener reconstruct it
     /// byte-identically (key-management.md §7.2).
     pub device_id: Option<String>,
-    pub backup_class: BackupClass,
+    pub backup_kind: BackupKind,
     pub backup_version: String,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
@@ -654,7 +654,7 @@ pub struct KeyBackupDomainSeparationAad {
     )]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub item_types: Vec<String>,
+    pub item_kinds: Vec<String>,
     /// Canonical sorted set of every managed Agent PCR binding represented by
     /// the public content metadata and the encrypted plaintext keybag.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -858,7 +858,7 @@ pub struct KeyBackupAead {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct KeyBackupContentItem {
-    pub item_type: String,
+    pub item_kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1641,7 +1641,7 @@ pub struct RecoveryProofSummary {
     pub proof_digest: Hash,
     /// Required for `device_quorum` and `threshold_recovery`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub quorum_size: Option<u32>,
+    pub quorum_participant_count: Option<u32>,
     /// Participating share ids when `kind = threshold_recovery`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub share_ids: Option<Vec<String>>,
@@ -1653,7 +1653,7 @@ pub struct RecoveryProofSummary {
 pub struct RecoveryBackupClassUnlocked {
     /// `recovery-receipt.schema.json` backup-class discriminator; reuses the
     /// canonical §7.1 controlled vocabulary rather than a duplicate enum.
-    pub backup_class: BackupClass,
+    pub backup_kind: BackupKind,
     pub backup_id: BackupId,
     pub series_id: BackupSeriesId,
     pub ciphertext_digest: Hash,

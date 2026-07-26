@@ -190,16 +190,16 @@ pub fn base64url_token(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
 }
 
-/// `type/subtype` content-type token with restricted byte alphabet. Shared
+/// `type/constraint_subkind` content-type token with restricted byte alphabet. Shared
 /// wire-token validator (reused by `arkret-sdk`).
 pub fn content_type_token(value: &str) -> bool {
-    let Some((ty, subtype)) = value.split_once('/') else {
+    let Some((ty, constraint_subkind)) = value.split_once('/') else {
         return false;
     };
     !ty.is_empty()
-        && !subtype.is_empty()
+        && !constraint_subkind.is_empty()
         && ty.bytes().all(content_type_byte)
-        && subtype.bytes().all(content_type_byte)
+        && constraint_subkind.bytes().all(content_type_byte)
 }
 
 /// Admissible byte inside a [`content_type_token`] segment. Shared wire-token
@@ -244,7 +244,7 @@ impl KeyRefObject {
 
     /// Build an MLS-EXPORTER-AEAD typed `key_ref` (§2.10) from a group id and
     /// epoch. The `algorithm` token `MLS-EXPORTER-AEAD` is bound by the
-    /// `encrypted-envelope.schema.json` if/then to `scheme=mls-exporter-aead-v1`.
+    /// `encrypted-envelope.schema.json` if/then to `scheme=mls_exporter_aead_v1`.
     pub fn mls_exporter_aead(group_id: impl Into<String>, epoch: u64) -> Self {
         Self {
             algorithm: "MLS-EXPORTER-AEAD".to_owned(),
@@ -271,10 +271,10 @@ impl EncryptedPayload {
 
     /// §2.3.3 content payload digest, parameterized by `scheme`. The digest binds
     /// the `scheme` token into the metadata (`encryption` field) so a payload
-    /// authored under `mls-exporter-aead-v1` (§2.10) and one under `mls-rfc9420`
+    /// authored under `mls_exporter_aead_v1` (§2.10) and one under `mls_rfc9420`
     /// never collide, and the receiver's verification is scheme-bound.
     /// `ciphertext_bytes` are the raw decoded ciphertext bytes (for
-    /// `mls-exporter-aead-v1` that is the `nonce || AEAD_ct` blob).
+    /// `mls_exporter_aead_v1` that is the `nonce || AEAD_ct` blob).
     pub fn payload_digest_for_scheme(
         scheme: EncryptedPayloadScheme,
         epoch: u64,

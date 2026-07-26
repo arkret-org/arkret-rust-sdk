@@ -3,10 +3,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::base64url::base64url_encode;
 use arkret_wire::constants::{
-    ACCOUNT_DATA_TYPE_CONTACTS_ACTOR, ACCOUNT_DATA_TYPE_CONTACTS_REALM, ACCOUNT_DATA_TYPE_DRAFT,
-    ACCOUNT_DATA_TYPE_FILE_TRANSFER, ACCOUNT_DATA_TYPE_REMINDER, ACCOUNT_DATA_TYPE_SAVED,
-    ACCOUNT_DATA_TYPE_SCHEDULED_SEND, ACCOUNT_DATA_TYPE_SEARCH_INDEX_MANIFEST,
-    ACCOUNT_DATA_TYPE_SNOOZE, FILE_TRANSFER_SCHEMA,
+    ACCOUNT_DATA_KEY_CONTACTS_ACTOR, ACCOUNT_DATA_KEY_CONTACTS_REALM, ACCOUNT_DATA_KEY_DRAFT,
+    ACCOUNT_DATA_KEY_FILE_TRANSFER, ACCOUNT_DATA_KEY_REMINDER, ACCOUNT_DATA_KEY_SAVED,
+    ACCOUNT_DATA_KEY_SCHEDULED_SEND, ACCOUNT_DATA_KEY_SEARCH_INDEX_MANIFEST,
+    ACCOUNT_DATA_KEY_SNOOZE, FILE_TRANSFER_SCHEMA,
 };
 use arkret_wire::{
     BlobId, CallId, CircleId, DeviceId, Did, EffectiveScope, Error, Hash, Hlc, MessageId, RealmId,
@@ -571,7 +571,7 @@ pub struct DisappearingPolicy {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_grace_ms: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub allow_plaintext_realms: Option<bool>,
+    pub plaintext_realms_allowed: Option<bool>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1325,12 +1325,12 @@ impl ContactRemark {
 }
 
 pub fn contact_remark_account_data_key(actor_did: &Did) -> String {
-    format!("{ACCOUNT_DATA_TYPE_CONTACTS_ACTOR}.{actor_did}")
+    format!("{ACCOUNT_DATA_KEY_CONTACTS_ACTOR}.{actor_did}")
 }
 
 pub fn parse_contact_remark_account_data_key(key: &str) -> Result<Did> {
     let raw = key
-        .strip_prefix(&format!("{ACCOUNT_DATA_TYPE_CONTACTS_ACTOR}."))
+        .strip_prefix(&format!("{ACCOUNT_DATA_KEY_CONTACTS_ACTOR}."))
         .ok_or_else(|| Error::Protocol("invalid contact remark account-data key".to_owned()))?;
     Ok(Did::new(raw.to_owned())?)
 }
@@ -1524,7 +1524,7 @@ impl RealmRemark {
 }
 
 pub fn realm_remark_account_data_key(realm_id: &RealmId) -> String {
-    format!("{ACCOUNT_DATA_TYPE_CONTACTS_REALM}.{realm_id}")
+    format!("{ACCOUNT_DATA_KEY_CONTACTS_REALM}.{realm_id}")
 }
 
 pub fn realm_id_from_realm_remark_account_data_key(key: &str) -> Option<RealmId> {
@@ -1635,16 +1635,16 @@ pub fn scheduled_send_message_payload_digest(
 
 pub fn reminder_account_data_key(id: &str) -> Result<String> {
     validate_key_segment("reminder id", id)?;
-    Ok(format!("{ACCOUNT_DATA_TYPE_REMINDER}:{id}"))
+    Ok(format!("{ACCOUNT_DATA_KEY_REMINDER}:{id}"))
 }
 
 pub fn scheduled_send_account_data_key(planned_message_id: &MessageId) -> String {
-    format!("{ACCOUNT_DATA_TYPE_SCHEDULED_SEND}:{planned_message_id}")
+    format!("{ACCOUNT_DATA_KEY_SCHEDULED_SEND}:{planned_message_id}")
 }
 
 pub fn snooze_account_data_key(namespace_key: &[u8], target_ref: &str) -> Result<String> {
     Ok(format!(
-        "{ACCOUNT_DATA_TYPE_SNOOZE}:{}",
+        "{ACCOUNT_DATA_KEY_SNOOZE}:{}",
         target_key(namespace_key, target_ref)?
     ))
 }
@@ -1657,7 +1657,7 @@ pub fn saved_account_data_key(
     let collection_key = collection_key(namespace_key, collection_title)?;
     let target_key = saved_target_key(namespace_key, &collection_key, target_ref)?;
     Ok(format!(
-        "{ACCOUNT_DATA_TYPE_SAVED}:{collection_key}:{target_key}"
+        "{ACCOUNT_DATA_KEY_SAVED}:{collection_key}:{target_key}"
     ))
 }
 
@@ -1673,7 +1673,7 @@ pub fn draft_account_data_key(
         DraftKind::StrandField => "strand_field",
     };
     Ok(format!(
-        "{ACCOUNT_DATA_TYPE_DRAFT}:{kind}:{}:{draft_slot}",
+        "{ACCOUNT_DATA_KEY_DRAFT}:{kind}:{}:{draft_slot}",
         target_key(namespace_key, target_ref)?
     ))
 }
@@ -1683,7 +1683,7 @@ pub fn search_index_manifest_account_data_key(
     realm_id: &RealmId,
 ) -> Result<String> {
     Ok(format!(
-        "{ACCOUNT_DATA_TYPE_SEARCH_INDEX_MANIFEST}:{}",
+        "{ACCOUNT_DATA_KEY_SEARCH_INDEX_MANIFEST}:{}",
         realm_key(namespace_key, realm_id.as_str())?
     ))
 }
@@ -1780,7 +1780,7 @@ where
 pub fn file_transfer_account_data_key(namespace_key: &[u8], transfer_id: &str) -> Result<String> {
     validate_file_transfer_id(transfer_id)?;
     Ok(format!(
-        "{ACCOUNT_DATA_TYPE_FILE_TRANSFER}:{}",
+        "{ACCOUNT_DATA_KEY_FILE_TRANSFER}:{}",
         base64url_encode(hmac_sha256(namespace_key, transfer_id.as_bytes()))
     ))
 }
@@ -2017,7 +2017,7 @@ fn validate_file_transfer_blob_digest_binding(blob_ref: &str, content_digest: &s
 fn validate_media_type(value: &str) -> Result<()> {
     let Some((top, sub)) = value.split_once('/') else {
         return Err(Error::Protocol(
-            "file-transfer media_type must be type/subtype".to_owned(),
+            "file-transfer media_type must be type/constraint_subkind".to_owned(),
         ));
     };
     let valid_part = |part: &str| {

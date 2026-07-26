@@ -111,7 +111,7 @@ pub enum KeyBackupError {
     #[error("key backup canonicalization failure: {0}")]
     Canonical(String),
     /// Caller-supplied input violated an envelope invariant (e.g. wrong
-    /// `backup_class`, malformed `backup_version`, empty `frontier_ref`).
+    /// `backup_kind`, malformed `backup_version`, empty `frontier_ref`).
     #[error("key backup invalid input: {0}")]
     InvalidInput(String),
 }

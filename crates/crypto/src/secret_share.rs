@@ -365,7 +365,7 @@ mod tests {
         assert_eq!(parsed, content);
 
         let mut bad = content;
-        bad.scheme = "mls-rfc9420".to_owned();
+        bad.scheme = "mls_rfc9420".to_owned();
         assert!(bad.validate().is_err());
     }
 

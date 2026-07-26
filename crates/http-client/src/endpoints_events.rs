@@ -14,8 +14,8 @@ use arkret_models_collaboration::objects::query_projection::{
 };
 use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceValidator;
 use arkret_models_crypto::{
-    MaterializedMlsGovernanceProofBundle, MlsGovernanceProofBundle, MlsGovernanceProofRequest,
-    assemble_mls_governance_proof_chunks,
+    MaterializedMlsGovernanceProofBundle, MlsGovernanceProofBundle,
+    MlsGovernanceProofRequestBodyBody, assemble_mls_governance_proof_chunks,
 };
 use arkret_models_discovery::ServiceDescribe;
 use arkret_state::SnapshotManifest;
@@ -374,7 +374,7 @@ impl Client {
     /// governance binding.
     pub async fn mls_governance_proof(
         &self,
-        request: &MlsGovernanceProofRequest,
+        request: &MlsGovernanceProofRequestBodyBody,
     ) -> Result<MlsGovernanceProofBundle> {
         request.validate()?;
         self.post("/_arkret/self/events/mls-governance-proof", request)
@@ -384,7 +384,7 @@ impl Client {
     /// Fetch and authenticate every chunk of one logical MLS governance proof.
     pub async fn mls_governance_proof_complete(
         &self,
-        request: &MlsGovernanceProofRequest,
+        request: &MlsGovernanceProofRequestBodyBody,
     ) -> Result<MaterializedMlsGovernanceProofBundle> {
         let mut first_request = request.clone();
         first_request.chunk_index = 0;

@@ -137,7 +137,7 @@ pub enum AuditPurpose {
 
     InternalPolicyAudit,
 }
-/// `ak.schema.attestation_evidence.v1` structured evidence carrier.
+/// `ak.schema.audit_release_attestation.v1` structured evidence carrier.
 ///
 /// Used at Audit Agent join time and by the reducer when validating the
 /// current audit release-session model (`ak.audit.applet_binding` + audit
@@ -146,8 +146,8 @@ pub enum AuditPurpose {
 /// model — see `crates/wire/src/generated/event_kinds.rs` and
 /// zh/crypto-media/audited-e2ee.md §2 (attested_hardware binding).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AttestationEvidence {
-    pub evidence_id: String,
+pub struct AuditReleaseAttestation {
+    pub attestation_id: String,
 
     pub realm_id: RealmId,
 
@@ -184,6 +184,6 @@ pub struct AttestationEvidence {
     pub proofs: Vec<Proof>,
 }
 
-impl AttestationEvidence {
-    pub const SCHEMA: &'static str = "ak.schema.attestation_evidence.v1";
+impl AuditReleaseAttestation {
+    pub const SCHEMA: &'static str = "ak.schema.audit_release_attestation.v1";
 }

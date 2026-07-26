@@ -14,7 +14,7 @@ use crate::ObjectRef;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ReferenceProjectionStatus {
+pub enum ReferenceProjectionState {
     Accessible,
     LazyLink,
     Locked,
@@ -64,10 +64,9 @@ pub enum ProjectionObjectKind {
 #[serde(deny_unknown_fields)]
 pub struct ProjectionObject {
     pub id: String,
-    #[serde(rename = "type")]
-    pub object_type: ProjectionObjectKind,
+    pub object_kind: ProjectionObjectKind,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub morph_type: Option<String>,
+    pub morph_kind: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub facets: Vec<Facet>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -78,7 +77,7 @@ pub struct ProjectionObject {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ProjectionItemRender {
+pub enum ProjectionRowRender {
     Card,
     Row,
     Tile,
@@ -89,10 +88,10 @@ pub enum ProjectionItemRender {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ProjectionItem {
+pub struct ProjectionRow {
     pub object: ProjectionObject,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub render: Option<ProjectionItemRender>,
+    pub render: Option<ProjectionRowRender>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub display: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -290,7 +289,7 @@ pub struct CollectionProjectionGroupView {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<CollectionGroupSource>,
     #[serde(default)]
-    pub items: Vec<ProjectionItem>,
+    pub items: Vec<ProjectionRow>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<Cursor>,
     pub limited: bool,
@@ -319,7 +318,7 @@ pub struct CollectionProjectionView {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub groups: Vec<CollectionProjectionGroupView>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub items: Vec<ProjectionItem>,
+    pub items: Vec<ProjectionRow>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<Cursor>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -354,7 +353,7 @@ pub struct DocumentMorphProjectionOutcome {
 pub struct DocumentMorphProjection {
     pub morph_id: MorphId,
     pub realm_id: RealmId,
-    pub morph_type: String,
+    pub morph_kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     pub state: String,

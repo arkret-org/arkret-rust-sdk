@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use crate::governance::handle_claim::HandleClaim;
 use crate::governance::member_delivery_binding_candidate::MemberDeliveryBindingCandidate;
 
-pub const INVITE_RECIPIENT_SERVICE_TYPE_PRINCIPAL_SERVER: &str = "principal_server";
+pub const INVITE_RECIPIENT_SERVICE_KIND_PRINCIPAL_SERVER: &str = "principal_server";
 pub const INVITE_LOCATOR_RESOLVE_PATH: &str = "_arkret/open/invite-locators/resolve";
 pub const INVITE_LOCATOR_ISSUE_PATH: &str = "_arkret/self/invite-locators";
 pub const INVITE_LOCATOR_ROTATE_PATH: &str = "_arkret/self/invite-locators/rotate";
@@ -224,7 +224,7 @@ pub struct InviteAddress {
     pub subject_id: Did,
     pub recipient_service_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub recipient_service_type: Option<String>,
+    pub recipient_service_kind: Option<String>,
 }
 
 impl InviteAddress {
@@ -232,16 +232,16 @@ impl InviteAddress {
         Self {
             subject_id,
             recipient_service_id,
-            recipient_service_type: None,
+            recipient_service_kind: None,
         }
     }
 
     pub fn validate(&self) -> Result<()> {
-        if let Some(service_type) = &self.recipient_service_type
-            && service_type != INVITE_RECIPIENT_SERVICE_TYPE_PRINCIPAL_SERVER
+        if let Some(service_kind) = &self.recipient_service_kind
+            && service_kind != INVITE_RECIPIENT_SERVICE_KIND_PRINCIPAL_SERVER
         {
             return Err(Error::Protocol(
-                "invite_address.recipient_service_type MUST be principal_server".to_owned(),
+                "invite_address.recipient_service_kind MUST be principal_server".to_owned(),
             ));
         }
         Ok(())
@@ -253,30 +253,30 @@ impl InviteAddress {
 pub struct InviteDeliveryTarget {
     pub recipient_service_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub recipient_service_type: Option<String>,
+    pub recipient_service_kind: Option<String>,
 }
 
 impl InviteDeliveryTarget {
     pub fn principal_server(recipient_service_id: Did) -> Self {
         Self {
             recipient_service_id,
-            recipient_service_type: None,
+            recipient_service_kind: None,
         }
     }
 
     pub fn from_invite_address(address: &InviteAddress) -> Self {
         Self {
             recipient_service_id: address.recipient_service_id.clone(),
-            recipient_service_type: address.recipient_service_type.clone(),
+            recipient_service_kind: address.recipient_service_kind.clone(),
         }
     }
 
     pub fn validate(&self) -> Result<()> {
-        if let Some(service_type) = &self.recipient_service_type
-            && service_type != INVITE_RECIPIENT_SERVICE_TYPE_PRINCIPAL_SERVER
+        if let Some(service_kind) = &self.recipient_service_kind
+            && service_kind != INVITE_RECIPIENT_SERVICE_KIND_PRINCIPAL_SERVER
         {
             return Err(Error::Protocol(
-                "invite_delivery_target.recipient_service_type MUST be principal_server".to_owned(),
+                "invite_delivery_target.recipient_service_kind MUST be principal_server".to_owned(),
             ));
         }
         Ok(())
@@ -291,7 +291,7 @@ pub struct PrincipalLocator {
     pub subject_id: Did,
     pub recipient_service_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub recipient_service_type: Option<String>,
+    pub recipient_service_kind: Option<String>,
     #[serde(
         serialize_with = "serialize_canonical_timestamp",
         deserialize_with = "deserialize_canonical_timestamp"
@@ -315,14 +315,14 @@ impl PrincipalLocator {
         InviteAddress {
             subject_id: self.subject_id.clone(),
             recipient_service_id: self.recipient_service_id.clone(),
-            recipient_service_type: self.recipient_service_type.clone(),
+            recipient_service_kind: self.recipient_service_kind.clone(),
         }
     }
 
     pub fn invite_delivery_target(&self) -> InviteDeliveryTarget {
         InviteDeliveryTarget {
             recipient_service_id: self.recipient_service_id.clone(),
-            recipient_service_type: self.recipient_service_type.clone(),
+            recipient_service_kind: self.recipient_service_kind.clone(),
         }
     }
 
@@ -332,11 +332,11 @@ impl PrincipalLocator {
                 "principal_locator.schema mismatch".to_owned(),
             ));
         }
-        if let Some(service_type) = &self.recipient_service_type
-            && service_type != INVITE_RECIPIENT_SERVICE_TYPE_PRINCIPAL_SERVER
+        if let Some(service_kind) = &self.recipient_service_kind
+            && service_kind != INVITE_RECIPIENT_SERVICE_KIND_PRINCIPAL_SERVER
         {
             return Err(Error::Protocol(
-                "principal_locator.recipient_service_type MUST be principal_server".to_owned(),
+                "principal_locator.recipient_service_kind MUST be principal_server".to_owned(),
             ));
         }
         if self.expires_at <= self.issued_at {
@@ -449,7 +449,7 @@ impl IntroductionEvidence {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct InviteDeliveryRequest {
+pub struct InviteDeliveryRequestBodyBody {
     pub schema: String,
     pub invite_event: Event,
     pub invite_address: InviteAddress,
@@ -457,7 +457,7 @@ pub struct InviteDeliveryRequest {
     pub idempotency_key: String,
 }
 
-impl InviteDeliveryRequest {
+impl InviteDeliveryRequestBodyBody {
     pub fn new(
         invite_event: Event,
         invite_address: InviteAddress,
@@ -530,7 +530,7 @@ pub enum DisclosedOutcome {
 pub struct InviteReceivePolicy {
     pub schema: String,
     pub subject_id: Did,
-    pub allowed_introduction_kinds: Vec<String>,
+    pub holder_allowed_introduction_kinds: Vec<String>,
     pub explicit_address_behavior: InviteReceiveAction,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub handle_claim_behavior: Option<InviteReceiveAction>,
@@ -538,7 +538,7 @@ pub struct InviteReceivePolicy {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_handle_domains: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub blocked_handle_domains: Vec<String>,
+    pub denied_handle_domains: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trusted_handle_issuers: Vec<Did>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -548,9 +548,9 @@ pub struct InviteReceivePolicy {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trusted_principal_services: Vec<Did>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub blocked_principal_services: Vec<Did>,
+    pub denied_principal_services: Vec<Did>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub blocked_subjects: Vec<Did>,
+    pub denied_subjects: Vec<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disclosure: Option<DisclosurePolicy>,
 }
@@ -681,7 +681,7 @@ mod tests {
             schema: PRINCIPAL_LOCATOR_SCHEMA.to_owned(),
             subject_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             recipient_service_id: Did::new("did:webvh:z6mkfixture:ps.bob.example").unwrap(),
-            recipient_service_type: None,
+            recipient_service_kind: None,
             issued_at,
             expires_at,
             locator_ref_digest: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
@@ -759,26 +759,26 @@ mod tests {
         let policy = InviteReceivePolicy {
             schema: INVITE_RECEIVE_POLICY_SCHEMA.to_owned(),
             subject_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            allowed_introduction_kinds: vec!["consent_grant".to_owned()],
+            holder_allowed_introduction_kinds: vec!["consent_grant".to_owned()],
             explicit_address_behavior: InviteReceiveAction::Quarantine,
             handle_claim_behavior: None,
             unknown_invites: UnknownInviteAction::Drop,
             allowed_handle_domains: Vec::new(),
-            blocked_handle_domains: Vec::new(),
+            denied_handle_domains: Vec::new(),
             trusted_handle_issuers: Vec::new(),
             trusted_directory_services: Vec::new(),
             trusted_realm_ids: Vec::new(),
             trusted_principal_services: Vec::new(),
-            blocked_principal_services: Vec::new(),
-            blocked_subjects: Vec::new(),
+            denied_principal_services: Vec::new(),
+            denied_subjects: Vec::new(),
             disclosure: None,
         };
         let value = serde_json::to_value(&policy).expect("serialize policy");
-        assert!(value.get("blocked_subjects").is_none());
+        assert!(value.get("denied_subjects").is_none());
         assert!(value.get("disclosure").is_none());
 
         let policy = InviteReceivePolicy {
-            blocked_subjects: vec![Did::new("did:webvh:z6mkfixture:mallory.example").unwrap()],
+            denied_subjects: vec![Did::new("did:webvh:z6mkfixture:mallory.example").unwrap()],
             disclosure: Some(DisclosurePolicy {
                 high_trust: Some(DisclosureLevel::Outcome),
                 discovery_trust: Some(DisclosureLevel::Opaque),
@@ -839,8 +839,8 @@ mod tests {
         let constraints = ReceivePolicyConstraints {
             policy_version: Some("default".to_owned()),
             applies_to: Some(vec![ReceivePolicySurface::InviteDelivery]),
-            permitted_introduction_kinds: Some(Vec::new()),
-            forbidden_introduction_kinds: vec!["explicit_address".to_owned()],
+            deployment_allowed_introduction_kinds: Some(Vec::new()),
+            deployment_denied_introduction_kinds: vec!["explicit_address".to_owned()],
             handle_claim_max_behavior: Some(InviteReceiveAction::Quarantine),
             explicit_address_max_behavior: None,
             unknown_invites_max_behavior: Some(UnknownInviteAction::Drop),
@@ -848,12 +848,15 @@ mod tests {
             trusted_handle_issuers: None,
             trusted_directory_services: None,
             trusted_principal_services: None,
-            blocked_principal_services: None,
+            denied_principal_services: None,
             accepted_subject_did_methods: Some(Vec::new()),
         };
         let value = serde_json::to_value(&constraints).expect("serialize constraints");
         assert_eq!(value["applies_to"], serde_json::json!(["invite_delivery"]));
-        assert_eq!(value["permitted_introduction_kinds"], serde_json::json!([]));
+        assert_eq!(
+            value["deployment_allowed_introduction_kinds"],
+            serde_json::json!([])
+        );
         assert!(value.get("allowed_handle_domains").is_none());
         assert_eq!(value["accepted_subject_did_methods"], serde_json::json!([]));
         assert!(serde_json::from_value::<ReceivePolicyConstraints>(value).is_ok());

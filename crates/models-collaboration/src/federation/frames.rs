@@ -30,7 +30,7 @@ pub struct WellKnownArkretServer {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ServiceEndpointDescriptor {
-    pub service_type: String,
+    pub service_kind: String,
     pub service_endpoint: String,
     #[serde(default)]
     pub operations: Vec<String>,

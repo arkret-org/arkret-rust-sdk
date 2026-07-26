@@ -216,7 +216,7 @@ pub struct JoinPolicyDirectoryHint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_review_time: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub requires_human_review: Option<bool>,
+    pub human_review_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub challenge_kinds_displayed: Option<Vec<JoinPolicyDirectoryChallengeKind>>,
 }
@@ -428,7 +428,7 @@ impl<'de> Deserialize<'de> for KeyBackupActiveSeriesFrontierRef {
 pub struct KeyBackupActiveSeries {
     pub schema: String,
     pub actor_id: Did,
-    pub backup_class: BackupClass,
+    pub backup_kind: BackupKind,
     pub active_series_id: BackupSeriesId,
     pub series_pointer_version: u64,
     pub previous_series_ids: Vec<BackupSeriesId>,
@@ -446,7 +446,7 @@ pub struct KeyBackupActiveSeries {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeyBackupActiveSeriesHead {
     pub actor_id: Did,
-    pub backup_class: BackupClass,
+    pub backup_kind: BackupKind,
     pub active_series_id: BackupSeriesId,
     pub series_pointer_version: u64,
     pub previous_series_ids: Vec<BackupSeriesId>,
@@ -484,7 +484,7 @@ pub fn validate_key_backup_active_series_transition(
     const REQUIRED_SIGNED_FIELDS: &[&str] = &[
         "schema",
         "actor_id",
-        "backup_class",
+        "backup_kind",
         "active_series_id",
         "series_pointer_version",
         "previous_series_ids",
@@ -555,7 +555,7 @@ pub fn validate_key_backup_active_series_transition(
             Err(KeyBackupActiveSeriesTransitionError::PointerVersionGap)
         };
     };
-    if current.actor_id != record.actor_id || current.backup_class != record.backup_class {
+    if current.actor_id != record.actor_id || current.backup_kind != record.backup_kind {
         return Err(KeyBackupActiveSeriesTransitionError::ActorOrClassMismatch);
     }
     if record.series_pointer_version == current.series_pointer_version {
@@ -582,7 +582,7 @@ pub fn key_backup_active_series_head(
         .map_err(|_| KeyBackupActiveSeriesTransitionError::SchemaMismatch)?;
     Ok(KeyBackupActiveSeriesHead {
         actor_id: record.actor_id.clone(),
-        backup_class: record.backup_class,
+        backup_kind: record.backup_kind,
         active_series_id: record.active_series_id.clone(),
         series_pointer_version: record.series_pointer_version,
         previous_series_ids: record.previous_series_ids.clone(),
@@ -616,7 +616,7 @@ mod key_backup_active_series_tests {
         serde_json::from_value(json!({
             "schema": "ak.schema.key_backup_active_series.v1",
             "actor_id": "did:web:alice.example",
-            "backup_class": "mls_history",
+            "backup_kind": "mls_history",
             "active_series_id": "ak:backup_series:01964137-0000-7000-8000-000000000001",
             "series_pointer_version": version,
             "previous_series_ids": [],
@@ -631,7 +631,7 @@ mod key_backup_active_series_tests {
                 "signature_algorithm": "Ed25519",
                 "signature": "c2lnbmF0dXJl",
                 "signed_fields": [
-                    "schema", "actor_id", "backup_class", "active_series_id",
+                    "schema", "actor_id", "backup_kind", "active_series_id",
                     "series_pointer_version", "previous_series_ids", "frontier_ref", "issued_at"
                 ],
                 "ssk_generation": 2

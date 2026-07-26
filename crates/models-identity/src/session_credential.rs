@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub const SIGNED_SESSION_GRANT_TYPE: &str = "ak.session.grant";
+pub const SIGNED_SESSION_GRANT_KIND: &str = "ak.session.grant";
 
 /// Proof kind presented with an `ak.session.grant` request.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -25,7 +25,6 @@ pub enum SessionGrantProofKind {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SignedSessionGrantClaims {
-    #[serde(rename = "type")]
     pub kind: String,
     pub grant_id: GrantId,
     pub subject: Did,
@@ -58,9 +57,9 @@ pub struct SessionGrantCnf {
 
 impl SignedSessionGrantClaims {
     pub fn validate(&self) -> Result<()> {
-        if self.kind != SIGNED_SESSION_GRANT_TYPE {
+        if self.kind != SIGNED_SESSION_GRANT_KIND {
             return Err(Error::Protocol(format!(
-                "session grant type must be {SIGNED_SESSION_GRANT_TYPE}"
+                "session grant kind must be {SIGNED_SESSION_GRANT_KIND}"
             )));
         }
         if self.audience.trim().is_empty() {
@@ -98,7 +97,7 @@ mod tests {
 
     fn claims() -> SignedSessionGrantClaims {
         SignedSessionGrantClaims {
-            kind: SIGNED_SESSION_GRANT_TYPE.to_owned(),
+            kind: SIGNED_SESSION_GRANT_KIND.to_owned(),
             grant_id: GrantId::new("ak:grant:01964198-0000-7000-8000-000000000000").unwrap(),
             subject: Did::new("did:web:alice.example").unwrap(),
             audience: "https://app.example.com".to_owned(),

@@ -60,7 +60,7 @@ pub struct MorphCustomerRiskFields {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MorphCustomerRisk {
-    pub morph_type: String,
+    pub morph_kind: String,
     pub fields: MorphCustomerRiskFields,
 }
 

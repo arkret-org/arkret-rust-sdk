@@ -30,7 +30,7 @@
 //! * `interop` — explicit cross-role bridge surfaces (mimi_interop, matrix_compat,
 //!   push_gateway.matrix_passthrough, encoding / hash interop, conformance vector packs).
 //!
-//! A [`ServiceType`] declares which roles it can legitimately claim; profiles
+//! A [`ServiceKind`] declares which roles it can legitimately claim; profiles
 //! whose role is not in that allow-set are rejected. `interop` profiles are
 //! always allowed because their purpose is bridging across roles (a
 //! `push_gateway` claiming `mimi_interop` is exactly the case the spec
@@ -40,9 +40,9 @@
 //!
 //! ```rust
 //! use arkret_policy::{ProfileClaim, ProfileClaimKind, ProfileValidator};
-//! use arkret_wire::ServiceType;
+//! use arkret_wire::ServiceKind;
 //!
-//! let validator = ProfileValidator::new(ServiceType::PushGateway);
+//! let validator = ProfileValidator::new(ServiceKind::PushGateway);
 //! let claims = [
 //!     ProfileClaim::new(
 //!         "ak.profile.push_gateway.v1",
@@ -60,7 +60,7 @@
 
 use std::fmt;
 
-use crate::ServiceType;
+use crate::ServiceKind;
 use crate::generated::profiles::{ProfileRole, profile_role};
 
 /// Provenance for a [`ProfileClaim`].
@@ -152,7 +152,7 @@ pub enum ProfileClaimError {
     RoleMismatch {
         profile_id: String,
         declared_role: ProfileRole,
-        service_type: ServiceType,
+        service_kind: ServiceKind,
         permitted_roles: Vec<ProfileRole>,
     },
     /// `Experimental` claim on an id the spec does not declare. Not fatal in
@@ -171,15 +171,15 @@ impl fmt::Display for ProfileClaimError {
             Self::RoleMismatch {
                 profile_id,
                 declared_role,
-                service_type,
+                service_kind,
                 permitted_roles,
             } => {
                 let permitted: Vec<&str> =
                     permitted_roles.iter().map(|role| role.as_str()).collect();
                 write!(
                     f,
-                    "service_type {} cannot claim {profile_id} (role={}); permitted roles: {}",
-                    service_type.as_str(),
+                    "service_kind {} cannot claim {profile_id} (role={}); permitted roles: {}",
+                    service_kind.as_str(),
                     declared_role.as_str(),
                     permitted.join(", ")
                 )
@@ -196,15 +196,15 @@ impl fmt::Display for ProfileClaimError {
 
 impl std::error::Error for ProfileClaimError {}
 
-/// Validator bound to a single [`ServiceType`].
+/// Validator bound to a single [`ServiceKind`].
 ///
-/// Role allow-set is derived from `ServiceType` once, then reused for every
+/// Role allow-set is derived from `ServiceKind` once, then reused for every
 /// claim. `interop` is added to every allow-set because the spec defines that
 /// role specifically as the cross-role bridge namespace (matrix_compat,
 /// push_gateway.matrix_passthrough, encoding / hash interop vectors).
 #[derive(Clone, Debug)]
 pub struct ProfileValidator {
-    service_type: ServiceType,
+    service_kind: ServiceKind,
     permitted_roles: Vec<ProfileRole>,
     /// If true, `Experimental` claims for ids not in the spec are surfaced as
     /// `ExperimentalUnknownProfile` errors rather than silently accepted.
@@ -214,13 +214,13 @@ pub struct ProfileValidator {
 }
 
 impl ProfileValidator {
-    /// Build a validator for `service_type`. The permitted-roles allow-set is
+    /// Build a validator for `service_kind`. The permitted-roles allow-set is
     /// fixed by the spec and not configurable here — see [`Self::permitted_roles`]
     /// for the resolution rule.
-    pub fn new(service_type: ServiceType) -> Self {
-        let permitted_roles = Self::permitted_roles(service_type);
+    pub fn new(service_kind: ServiceKind) -> Self {
+        let permitted_roles = Self::permitted_roles(service_kind);
         Self {
-            service_type,
+            service_kind,
             permitted_roles,
             surface_experimental_unknown: true,
         }
@@ -233,8 +233,8 @@ impl ProfileValidator {
         self
     }
 
-    pub fn service_type(&self) -> &ServiceType {
-        &self.service_type
+    pub fn service_kind(&self) -> &ServiceKind {
+        &self.service_kind
     }
 
     pub fn permitted_role_set(&self) -> &[ProfileRole] {
@@ -244,43 +244,43 @@ impl ProfileValidator {
     /// Spec-derived allow-set:
     ///
     /// * `Interop` is always included (bridge profiles).
-    /// * Each `ServiceType` exposes its own canonical role plus the `Admin` role, because
+    /// * Each `ServiceKind` exposes its own canonical role plus the `Admin` role, because
     ///   deployment / hardening posture profiles are service-agnostic.
     /// * Client-shaped service types (none today — clients consume the SDK directly rather than
-    ///   registering as a `ServiceType`) would surface `Client` here. The SDK exposes
+    ///   registering as a `ServiceKind`) would surface `Client` here. The SDK exposes
     ///   [`Self::for_client`] for that path.
-    pub fn permitted_roles(service_type: ServiceType) -> Vec<ProfileRole> {
-        let mut roles = match service_type {
-            ServiceType::PrincipalServer
-            | ServiceType::SyncNode
-            | ServiceType::AuthServer
-            | ServiceType::AppletService
-            | ServiceType::AgentRuntime
-            | ServiceType::ModerationService
-            | ServiceType::Notary
-            | ServiceType::RecoveryService => {
+    pub fn permitted_roles(service_kind: ServiceKind) -> Vec<ProfileRole> {
+        let mut roles = match service_kind {
+            ServiceKind::PrincipalServer
+            | ServiceKind::SyncNode
+            | ServiceKind::AuthServer
+            | ServiceKind::AppletService
+            | ServiceKind::AgentRuntime
+            | ServiceKind::ModerationService
+            | ServiceKind::Notary
+            | ServiceKind::RecoveryService => {
                 vec![ProfileRole::Server]
             }
-            ServiceType::DirectoryService
-            | ServiceType::SearchService
-            | ServiceType::ArchiveNode => {
+            ServiceKind::DirectoryService
+            | ServiceKind::SearchService
+            | ServiceKind::ArchiveNode => {
                 vec![ProfileRole::Directory]
             }
-            ServiceType::IdentityRegistry => {
+            ServiceKind::IdentityRegistry => {
                 vec![ProfileRole::Directory, ProfileRole::Server]
             }
-            ServiceType::PushGateway
-            | ServiceType::BlobNode
-            | ServiceType::MediaService
-            | ServiceType::SfuService
-            | ServiceType::TurnService => {
+            ServiceKind::PushGateway
+            | ServiceKind::BlobNode
+            | ServiceKind::MediaService
+            | ServiceKind::SfuService
+            | ServiceKind::TurnService => {
                 vec![ProfileRole::Gateway]
             }
-            ServiceType::MimiProviderFacade => vec![ProfileRole::Interop],
-            ServiceType::DeviceKeyService
-            | ServiceType::AuthzService
-            | ServiceType::PolicyServer
-            | ServiceType::KeyRecoveryService => {
+            ServiceKind::MimiProviderFacade => vec![ProfileRole::Interop],
+            ServiceKind::DeviceKeyService
+            | ServiceKind::AuthzService
+            | ServiceKind::PolicyServer
+            | ServiceKind::KeyRecoveryService => {
                 vec![ProfileRole::Server, ProfileRole::Directory]
             }
         };
@@ -292,11 +292,11 @@ impl ProfileValidator {
     }
 
     /// Allow-set for an SDK consumer running in client role (inkson, sample
-    /// front-ends, capability manifests). Not bound to a `ServiceType` because
+    /// front-ends, capability manifests). Not bound to a `ServiceKind` because
     /// clients consume the protocol surface rather than publishing one.
     pub fn for_client() -> Self {
         Self {
-            service_type: ServiceType::PrincipalServer, // sentinel: never used
+            service_kind: ServiceKind::PrincipalServer, // sentinel: never used
             permitted_roles: vec![
                 ProfileRole::Client,
                 ProfileRole::Admin,
@@ -335,11 +335,11 @@ impl ProfileValidator {
                     Err(ProfileClaimError::RoleMismatch {
                         profile_id: claim.profile_id.clone(),
                         declared_role: role,
-                        // The sentinel service_type for the client validator
+                        // The sentinel service_kind for the client validator
                         // is never the actual surface so we replay it as-is
                         // — callers reading the error compare against
-                        // `service_type.as_str()` for diagnostics only.
-                        service_type: self.service_type,
+                        // `service_kind.as_str()` for diagnostics only.
+                        service_kind: self.service_kind,
                         permitted_roles: self.permitted_roles.clone(),
                     })
                 }
@@ -401,7 +401,7 @@ mod tests {
 
     #[test]
     fn push_gateway_can_claim_interop_bridge_profile() {
-        let validator = ProfileValidator::new(ServiceType::PushGateway);
+        let validator = ProfileValidator::new(ServiceKind::PushGateway);
         validator
             .validate(&[
                 ProfileClaim::conformance_verified("ak.profile.push_gateway.v1"),
@@ -413,7 +413,7 @@ mod tests {
 
     #[test]
     fn directory_service_rejects_server_profile() {
-        let validator = ProfileValidator::new(ServiceType::DirectoryService);
+        let validator = ProfileValidator::new(ServiceKind::DirectoryService);
         let errors = validator
             .validate(&[ProfileClaim::self_claimed("ak.profile.principal_server.v1")])
             .expect_err("directory service must not claim server profile");
@@ -467,22 +467,22 @@ mod tests {
     #[test]
     fn permitted_roles_always_include_interop_and_admin() {
         for service in [
-            ServiceType::PrincipalServer,
-            ServiceType::DirectoryService,
-            ServiceType::PushGateway,
-            ServiceType::BlobNode,
-            ServiceType::IdentityRegistry,
-            ServiceType::AuthServer,
-            ServiceType::AuthzService,
-            ServiceType::PolicyServer,
-            ServiceType::DeviceKeyService,
-            ServiceType::AppletService,
-            ServiceType::AgentRuntime,
-            ServiceType::MediaService,
-            ServiceType::SfuService,
-            ServiceType::TurnService,
-            ServiceType::ModerationService,
-            ServiceType::SyncNode,
+            ServiceKind::PrincipalServer,
+            ServiceKind::DirectoryService,
+            ServiceKind::PushGateway,
+            ServiceKind::BlobNode,
+            ServiceKind::IdentityRegistry,
+            ServiceKind::AuthServer,
+            ServiceKind::AuthzService,
+            ServiceKind::PolicyServer,
+            ServiceKind::DeviceKeyService,
+            ServiceKind::AppletService,
+            ServiceKind::AgentRuntime,
+            ServiceKind::MediaService,
+            ServiceKind::SfuService,
+            ServiceKind::TurnService,
+            ServiceKind::ModerationService,
+            ServiceKind::SyncNode,
         ] {
             let roles = ProfileValidator::permitted_roles(service);
             assert!(roles.contains(&ProfileRole::Interop));

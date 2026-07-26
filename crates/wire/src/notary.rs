@@ -12,7 +12,7 @@
 //! - **Mixed** — primary notary + `recovery_members` who can step in only when primary is paused /
 //!   fails the staleness window.
 //!
-//! Wire shape uses internal tagging on `type` so consumers can decode
+//! Wire shape uses internal tagging on `kind` so consumers can decode
 //! without ambiguity.
 
 use serde::{Deserialize, Serialize};
@@ -38,13 +38,13 @@ pub enum ForensicAttribution {
 /// Current value of the notary cell.
 ///
 /// The wire shape is the authoritative `realm.schema.json` `notary` object
-/// (internal tag `type`). For `single_did`, the org-diversity recovery fields
+/// (internal tag `kind`). For `single_did`, the org-diversity recovery fields
 /// (`recovery_members` / `controller_organization` /
 /// `recovery_controller_organizations`) are present only when the deployment
 /// can derive a controlling organization; personal / orgless Realms omit them
 /// (decisions/0003 §7).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum NotaryValue {
     SingleDid {
         did: Did,
@@ -79,7 +79,7 @@ pub enum NotaryValue {
 impl NotaryValue {
     /// Build an orgless `single_did` notary (personal / dev Realm). No
     /// controlling organization, no recovery path — matches the relaxed
-    /// `realm.schema.json` single_did genesis shape `{type, did}`.
+    /// `realm.schema.json` single_did genesis shape `{kind, did}`.
     pub fn single_did(did: Did) -> Self {
         NotaryValue::SingleDid {
             did,
@@ -268,13 +268,13 @@ mod tests {
 
     #[test]
     fn single_did_validates() {
-        // Orgless personal Realm: `{type, did}` only.
+        // Orgless personal Realm: `{kind, did}` only.
         let v = NotaryValue::single_did(did("did:webvh:z6mkfixture:soland.example"));
         v.validate().unwrap();
         let s = serde_json::to_string(&v).unwrap();
         assert_eq!(
             s,
-            r#"{"type":"single_did","did":"did:webvh:z6mkfixture:soland.example"}"#
+            r#"{"kind":"single_did","did":"did:webvh:z6mkfixture:soland.example"}"#
         );
     }
 
@@ -419,10 +419,10 @@ mod tests {
     }
 
     #[test]
-    fn serializes_with_type_discriminator() {
+    fn serializes_with_kind_discriminator() {
         let v = NotaryValue::single_did(did("did:webvh:z6mkfixture:a.example"));
         let s = serde_json::to_string(&v).unwrap();
-        assert!(s.contains("\"type\":\"single_did\""), "got {s}");
+        assert!(s.contains("\"kind\":\"single_did\""), "got {s}");
 
         let v = NotaryValue::Threshold {
             threshold: 2,
@@ -434,7 +434,7 @@ mod tests {
             forensic_attribution: ForensicAttribution::QuorumIntersection,
         };
         let s = serde_json::to_string(&v).unwrap();
-        assert!(s.contains("\"type\":\"threshold\""), "got {s}");
+        assert!(s.contains("\"kind\":\"threshold\""), "got {s}");
         assert!(s.contains("\"threshold\":2"), "got {s}");
         assert!(
             s.contains("\"forensic_attribution\":\"quorum_intersection\""),
@@ -444,9 +444,9 @@ mod tests {
     }
 
     #[test]
-    fn deserializes_from_type_tagged_json() {
+    fn deserializes_from_kind_tagged_json() {
         let raw = json!({
-            "type": "mixed",
+            "kind": "mixed",
             "did": "did:webvh:z6mkfixture:soland.example",
             "recovery_members": ["did:webvh:z6mkfixture:backup.example"]
         });
@@ -464,9 +464,9 @@ mod tests {
     }
 
     #[test]
-    fn unknown_type_rejected() {
-        let raw = json!({"type": "future_unknown"});
+    fn unknown_kind_rejected() {
+        let raw = json!({"kind": "future_unknown"});
         let r: std::result::Result<NotaryValue, _> = serde_json::from_value(raw);
-        assert!(r.is_err(), "unknown notary type must fail closed");
+        assert!(r.is_err(), "unknown notary kind must fail closed");
     }
 }

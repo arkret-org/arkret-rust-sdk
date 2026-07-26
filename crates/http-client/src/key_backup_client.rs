@@ -80,7 +80,7 @@ mod tests {
                 arkret_wire::DeviceId::new("ak:device:01964137-0000-7000-8000-000000000000")
                     .unwrap(),
             ),
-            backup_class: arkret_models_crypto::BackupClass::SecretStorage,
+            backup_kind: arkret_models_crypto::BackupKind::SecretStorage,
             mixed_secret_storage: false,
             backup_version: "kb_1".to_owned(),
             created_at,
@@ -123,10 +123,10 @@ mod tests {
                     schema: "ak.schema.key_backup.v1".to_owned(),
                     actor_id: arkret_wire::Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
                     device_id: Some("ak:device:01964137-0000-7000-8000-000000000000".to_owned()),
-                    backup_class: arkret_models_crypto::BackupClass::SecretStorage,
+                    backup_kind: arkret_models_crypto::BackupKind::SecretStorage,
                     backup_version: "kb_1".to_owned(),
                     created_at,
-                    item_types: vec!["recovery_secret".to_owned()],
+                    item_kinds: vec!["recovery_secret".to_owned()],
                     managed_principal_bindings: Vec::new(),
                     recipient_method: Some(
                         arkret_models_crypto::KeyBackupRecipientMethod::PassphraseKdf,
@@ -137,7 +137,7 @@ mod tests {
                 extra: Default::default(),
             },
             contents: vec![arkret_models_crypto::KeyBackupContentItem {
-                item_type: "recovery_secret".to_owned(),
+                item_kind: "recovery_secret".to_owned(),
                 realm_id: None,
                 managed_principal_binding: None,
                 mls_group_id: None,
@@ -168,7 +168,7 @@ mod tests {
                 signed_fields: [
                     "backup_id",
                     "actor_id",
-                    "backup_class",
+                    "backup_kind",
                     "backup_version",
                     "series_id",
                     "series_seq",
@@ -200,7 +200,7 @@ mod tests {
         let record = backup_record();
         let json = serde_json::to_value(&record).unwrap();
         assert_eq!(json["backup_id"], record.backup_id.as_str());
-        assert_eq!(json["backup_class"], "secret_storage");
+        assert_eq!(json["backup_kind"], "secret_storage");
         let back: KeyBackup = serde_json::from_value(json).unwrap();
         assert_eq!(back.backup_id, record.backup_id);
         assert_eq!(back.backup_version, "kb_1");

@@ -54,7 +54,7 @@ fn morph_event(seq: u64, morph_id: &str, title: &str) -> Event {
                 "schema": crate::MORPH_SCHEMA,
                 "realm_id": realm_id().as_str(),
                 "schema_refs": [crate::MORPH_SCHEMA],
-                "morph_type": "task",
+                "morph_kind": "task",
                 "metadata": {"title": title},
                 "stage": "draft",
                 "created_by": actor_id().as_str(),

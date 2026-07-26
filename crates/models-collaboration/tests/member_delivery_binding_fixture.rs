@@ -12,7 +12,7 @@
 //!   resolution (`delivery_binding_stale` / `delivery_binding_handed_over` responses, fail-closed
 //!   after leave).
 //! * The policy-evaluation half of `policy_mismatch.v1` — evaluating
-//!   `delivery_binding_policy.allow_binding_sources` / `allowed_recipient_services` against a
+//!   `delivery_binding_policy.allowed_binding_sources` / `allowed_recipient_services` against a
 //!   landing `ak.member.state` needs the Realm policy reducer; the SDK asserts the binding is
 //!   structurally valid (the rejection is policy-level, not schema-level) plus the promised reason
 //!   code registration.

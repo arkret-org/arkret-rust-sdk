@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-07-20;
-//! sha256=40a3f908663e13f71ab9df5624103911f7f1de54cc28b2cb294857934a382aa9 Entries: registered=202
+//! sha256=477aadb7801ae84db0653453848e4d90f9004973f7d9558f52e4569bf9e96365 Entries: registered=202
 
 use serde::{Deserialize, Serialize};
 
@@ -3037,7 +3037,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountDataResourceDelete,
         http_method: "DELETE",
-        http_path: "/_arkret/self/account_data/{data_type}",
+        http_path: "/_arkret/self/account_data/{account_data_key}",
         grpc: Some("SelfAccountData/Delete"),
         mq: Some("self.account_data.resource.delete"),
         success_shape_kind: "typed_response",
@@ -3052,7 +3052,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountDataResourceGet,
         http_method: "GET",
-        http_path: "/_arkret/self/account_data/{data_type}",
+        http_path: "/_arkret/self/account_data/{account_data_key}",
         grpc: Some("SelfAccountData/Get"),
         mq: Some("self.account_data.resource.get"),
         success_shape_kind: "typed_response",
@@ -3067,7 +3067,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountDataResourceReplace,
         http_method: "PUT",
-        http_path: "/_arkret/self/account_data/{data_type}",
+        http_path: "/_arkret/self/account_data/{account_data_key}",
         grpc: Some("SelfAccountData/Replace"),
         mq: Some("self.account_data.resource.replace"),
         success_shape_kind: "typed_response",

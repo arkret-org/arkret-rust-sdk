@@ -278,7 +278,7 @@ pub struct PeerKeyPackagesClaimUnsignedRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pair_key: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allow_last_resort: Option<bool>,
+    pub last_resort_allowed: Option<bool>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -327,7 +327,7 @@ pub struct PeerKeyPackagesClaimRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pair_key: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allow_last_resort: Option<bool>,
+    pub last_resort_allowed: Option<bool>,
     pub requester_authorization: PeerKeyPackageRequesterAuthorization,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(
@@ -354,7 +354,7 @@ impl PeerKeyPackagesClaimRequestBody {
             timeout_ms: self.timeout_ms,
             strand_id: self.strand_id.clone(),
             pair_key: self.pair_key.clone(),
-            allow_last_resort: self.allow_last_resort,
+            last_resort_allowed: self.last_resort_allowed,
         }
     }
 
@@ -601,7 +601,7 @@ fn validate_peer_claim_fields(
     if request.claim_purpose == PeerKeyPackageClaimPurpose::DirectConversation
         && (request.strand_id.is_none()
             || request.pair_key.is_none()
-            || request.allow_last_resort == Some(true))
+            || request.last_resort_allowed == Some(true))
     {
         return Err(PeerKeyPackageClaimShapeError::InvalidDirectConversationFields);
     }
@@ -865,7 +865,7 @@ mod tests {
             "expires_at": "2026-07-21T00:05:00.000Z",
             "strand_id": "ak:strand:0196419b-0000-7000-8000-000000000011",
             "pair_key": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
-            "allow_last_resort": false,
+            "last_resort_allowed": false,
             "requester_authorization": {
                 "verification_method": "did:webvh:z6mkfixture:alice.example#ssk-7",
                 "ssk_generation": 7,
@@ -886,7 +886,7 @@ mod tests {
         assert_eq!(request.validate_shape(), Ok(()));
 
         let mut invalid = request;
-        invalid.allow_last_resort = Some(true);
+        invalid.last_resort_allowed = Some(true);
         assert_eq!(
             invalid.validate_shape(),
             Err(PeerKeyPackageClaimShapeError::InvalidDirectConversationFields)

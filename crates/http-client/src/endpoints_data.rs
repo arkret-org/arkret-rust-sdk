@@ -517,20 +517,20 @@ impl Client {
     }
 
     /// List existing key backups for the authorized actor. Honors the
-    /// `series_id` / `backup_class` / `cursor` / `limit` filters from
+    /// `series_id` / `backup_kind` / `cursor` / `limit` filters from
     /// [`KeyBackupsListQuery`] (key-management.md §7.5).
     pub async fn list_key_backups(&self, query: &KeyBackupsListQuery) -> Result<KeysBackupsList> {
         let mut builder = self.request(Method::GET, "/_arkret/self/keys/backups")?;
         if let Some(ref series_id) = query.series_id {
             builder = builder.query(&[("series_id", series_id.as_str())]);
         }
-        if let Some(class) = query.backup_class {
+        if let Some(class) = query.backup_kind {
             let class_str = match class {
-                arkret_models_crypto::key_backup::BackupClass::DidRecovery => "did_recovery",
-                arkret_models_crypto::key_backup::BackupClass::SecretStorage => "secret_storage",
-                arkret_models_crypto::key_backup::BackupClass::MlsHistory => "mls_history",
+                arkret_models_crypto::key_backup::BackupKind::DidRecovery => "did_recovery",
+                arkret_models_crypto::key_backup::BackupKind::SecretStorage => "secret_storage",
+                arkret_models_crypto::key_backup::BackupKind::MlsHistory => "mls_history",
             };
-            builder = builder.query(&[("backup_class", class_str)]);
+            builder = builder.query(&[("backup_kind", class_str)]);
         }
         if let Some(ref cursor) = query.cursor {
             builder = builder.query(&[("cursor", cursor.as_str())]);
@@ -547,7 +547,7 @@ impl Client {
         let response: KeysBackupsList = self
             .list_key_backups(&KeyBackupsListQuery {
                 series_id: None,
-                backup_class: None,
+                backup_kind: None,
                 cursor: None,
                 limit: None,
             })
@@ -641,7 +641,7 @@ mod tests {
     fn resumable_upload_base_url_requires_feature_and_operation() {
         let mut description: ServiceDescribe = serde_json::from_value(json!({
             "protocol_version": "1.0",
-            "service_type": "principal_server",
+            "service_kind": "principal_server",
             "service_id": "did:web:server.local",
             "trust_domain": "ak:trust_domain:server.local",
             "supported_profiles": [],

@@ -26,7 +26,7 @@ pub struct IceConfig {
     /// `< ttl_seconds` per §4.1).
     pub refresh_lead_seconds: u32,
     /// `true` when the caller MUST relay through TURN (no host/srflx).
-    pub force_turn: bool,
+    pub turn_required: bool,
     /// The media-service DID that signed the config (from `signature.kid`).
     pub issuer_did: Did,
 }
@@ -193,7 +193,7 @@ pub fn verify_ice_config_outcome(
         ice_servers: outcome.ice_servers.clone(),
         ttl_seconds: outcome.ttl_seconds,
         refresh_lead_seconds: outcome.refresh_lead_seconds,
-        force_turn: outcome.force_turn,
+        turn_required: outcome.turn_required,
         issuer_did: Did::new(issuer_did)?,
     })
 }
@@ -275,7 +275,7 @@ mod tests {
             issued_at_bucket: "2026-05-27T12:25:00.000Z".parse().unwrap(),
             bucket_seconds: 300,
             expires_at: None,
-            force_turn: false,
+            turn_required: false,
             constraints: None,
             next_retry_at: None,
             signature: MediaIceConfigSignature {
@@ -299,7 +299,7 @@ mod tests {
         assert_eq!(config.ttl_seconds, 300);
         assert_eq!(config.stun_servers().count(), 1);
         assert_eq!(config.turn_servers().count(), 1);
-        assert!(!config.force_turn);
+        assert!(!config.turn_required);
     }
 
     #[test]

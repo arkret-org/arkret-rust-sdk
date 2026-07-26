@@ -73,8 +73,7 @@ pub enum NotificationData {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct NotificationDelta {
     pub id: NotificationId,
-    #[serde(rename = "type")]
-    pub notification_type: NotificationType,
+    pub notification_kind: NotificationKind,
     pub action: NotificationDeltaAction,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub data: Option<NotificationData>,
@@ -84,8 +83,7 @@ pub struct NotificationDelta {
 #[serde(deny_unknown_fields)]
 struct NotificationDeltaWire {
     id: NotificationId,
-    #[serde(rename = "type")]
-    notification_type: NotificationType,
+    notification_kind: NotificationKind,
     action: NotificationDeltaAction,
     #[serde(default)]
     data: Option<NotificationData>,
@@ -97,7 +95,7 @@ impl<'de> Deserialize<'de> for NotificationDelta {
         D: serde::Deserializer<'de>,
     {
         let wire = NotificationDeltaWire::deserialize(deserializer)?;
-        if wire.notification_type != NotificationType::Agent {
+        if wire.notification_kind != NotificationKind::Agent {
             return Err(serde::de::Error::custom(
                 "account notification delta type must be agent",
             ));
@@ -124,7 +122,7 @@ impl<'de> Deserialize<'de> for NotificationDelta {
         }
         Ok(Self {
             id: wire.id,
-            notification_type: wire.notification_type,
+            notification_kind: wire.notification_kind,
             action: wire.action,
             data: wire.data,
         })

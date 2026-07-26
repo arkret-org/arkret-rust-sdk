@@ -229,12 +229,12 @@ fn install_plan_digest_excludes_itself_and_scope_round_trips() {
         capability_constraints: vec![],
         namespace_conflicts: vec![],
         e2ee_effect: E2eeEffect {
-            requires_mls_join: false,
+            mls_join_required: false,
             plaintext_access: "none".to_owned(),
             authorization_refs: None,
         },
         widget_effect: WidgetEffect {
-            allow_widget: false,
+            widget_allowed: false,
             policy_event_ref: None,
         },
         warnings: vec![],

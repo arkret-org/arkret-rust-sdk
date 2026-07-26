@@ -134,9 +134,9 @@ fn bool_is_false(value: &bool) -> bool {
 pub struct RelationProfile {
     pub relation_kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub from_type: Option<String>,
+    pub from_kind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub to_type: Option<String>,
+    pub to_kind: Option<String>,
     #[serde(default, skip_serializing_if = "relation_scope_is_default")]
     pub relation_scope: RelationScope,
     pub cardinality: RelationCardinality,
@@ -338,8 +338,8 @@ mod tests {
     fn profile(cardinality: RelationCardinality) -> RelationProfile {
         RelationProfile {
             relation_kind: "assigned_to".to_owned(),
-            from_type: None,
-            to_type: None,
+            from_kind: None,
+            to_kind: None,
             relation_scope: RelationScope::Realm,
             cardinality,
             dedupe_key: Vec::new(),
@@ -374,8 +374,8 @@ mod tests {
 
         let complete = RelationProfile {
             relation_kind: "assigned_to".to_owned(),
-            from_type: Some("strand".to_owned()),
-            to_type: Some("did".to_owned()),
+            from_kind: Some("strand".to_owned()),
+            to_kind: Some("did".to_owned()),
             relation_scope: RelationScope::Board,
             cardinality: RelationCardinality::ManyToOne,
             dedupe_key: vec!["board_space_id".to_owned(), "from_ref".to_owned()],
@@ -400,8 +400,8 @@ mod tests {
         let registry = arkret_schema::schema_registry_from_embedded_spec_artifacts().unwrap();
         let value = serde_json::json!({
             "relation_kind": "assigned_to",
-            "from_type": "strand",
-            "to_type": "did",
+            "from_kind": "strand",
+            "to_kind": "did",
             "relation_scope": "realm",
             "cardinality": "many_to_one",
             "dedupe_key": ["realm_id", "from_ref"],

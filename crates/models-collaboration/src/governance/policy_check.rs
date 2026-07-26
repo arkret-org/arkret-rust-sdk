@@ -47,7 +47,7 @@ pub fn compute_audit_policy_version_digest(
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PolicyCheckSource {
     pub service_id: Did,
-    pub service_type: String,
+    pub service_kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_ip_digest: Option<Hash>,
     pub signed_transport: bool,

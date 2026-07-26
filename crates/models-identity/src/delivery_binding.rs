@@ -18,8 +18,8 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct MemberDeliveryBinding {
     pub recipient_service_id: Did,
-    #[serde(default = "default_recipient_service_type")]
-    pub recipient_service_type: RecipientServiceType,
+    #[serde(default = "default_recipient_service_kind")]
+    pub recipient_service_kind: RecipientServiceKind,
     #[serde(default = "default_binding_scope")]
     pub binding_scope: BindingScope,
     pub binding_source: BindingSource,
@@ -48,8 +48,8 @@ pub struct MemberDeliveryBinding {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-fn default_recipient_service_type() -> RecipientServiceType {
-    RecipientServiceType::PrincipalServer
+fn default_recipient_service_kind() -> RecipientServiceKind {
+    RecipientServiceKind::PrincipalServer
 }
 
 fn default_binding_scope() -> BindingScope {
@@ -58,7 +58,7 @@ fn default_binding_scope() -> BindingScope {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum RecipientServiceType {
+pub enum RecipientServiceKind {
     PrincipalServer,
 }
 
@@ -202,7 +202,7 @@ mod tests {
     fn binding_requires_modes() {
         let mut b = MemberDeliveryBinding {
             recipient_service_id: fake_did("rs"),
-            recipient_service_type: RecipientServiceType::PrincipalServer,
+            recipient_service_kind: RecipientServiceKind::PrincipalServer,
             binding_scope: BindingScope::Realm,
             binding_source: BindingSource::Explicit,
             delivery_modes: BTreeSet::new(),
@@ -223,7 +223,7 @@ mod tests {
     fn binding_source_explicit_requires_acceptance_ref() {
         let b = MemberDeliveryBinding {
             recipient_service_id: fake_did("rs"),
-            recipient_service_type: RecipientServiceType::PrincipalServer,
+            recipient_service_kind: RecipientServiceKind::PrincipalServer,
             binding_scope: BindingScope::Realm,
             binding_source: BindingSource::Explicit,
             delivery_modes: [DeliveryMode::Events].into_iter().collect(),
@@ -273,7 +273,7 @@ mod tests {
     fn member_delivery_binding_rejects_space_binding_scope() {
         let payload = serde_json::json!({
             "recipient_service_id": "did:webvh:z6mkfixture:rs.example",
-            "recipient_service_type": "principal_server",
+            "recipient_service_kind": "principal_server",
             "binding_scope": "space",
             "binding_source": "explicit",
             "delivery_modes": ["events"],
@@ -294,7 +294,7 @@ mod tests {
     fn binding_source_did_document_default_requires_hash() {
         let b = MemberDeliveryBinding {
             recipient_service_id: fake_did("rs"),
-            recipient_service_type: RecipientServiceType::PrincipalServer,
+            recipient_service_kind: RecipientServiceKind::PrincipalServer,
             binding_scope: BindingScope::Realm,
             binding_source: BindingSource::DidDocumentDefault,
             delivery_modes: [DeliveryMode::Events].into_iter().collect(),

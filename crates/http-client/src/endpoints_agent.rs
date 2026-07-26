@@ -14,7 +14,7 @@ use arkret_models_collaboration::agent_operations::{
     AgentView,
 };
 use arkret_models_collaboration::agent_signer_evidence::{
-    AgentSignerEvidenceQueryOutcome, AgentSignerEvidenceQueryRequest,
+    AgentSignerEvidenceQueryOutcome, AgentSignerEvidenceQueryRequestBodyBody,
 };
 use arkret_models_collaboration::governance::agent_participation::{
     AgentParticipationOutcome, AgentParticipationReplaceRequestBody,
@@ -53,7 +53,7 @@ impl Client {
     /// (`ak.self.agent_signer_evidence.query`).
     pub async fn agent_signer_evidence_query(
         &self,
-        request: &AgentSignerEvidenceQueryRequest,
+        request: &AgentSignerEvidenceQueryRequestBodyBody,
     ) -> Result<AgentSignerEvidenceQueryOutcome> {
         self.post(AGENT_SIGNER_EVIDENCE_QUERY_PATH, request).await
     }

@@ -324,7 +324,7 @@ pub enum RelationState {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum PolicyType {
+pub enum PolicyKind {
     Access,
     Encryption,
     Retention,
@@ -401,7 +401,7 @@ pub enum InviteState {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum NotificationType {
+pub enum NotificationKind {
     Message,
     Mention,
     Reply,
@@ -718,7 +718,7 @@ pub enum AccountState {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum OperationType {
+pub enum OperationKind {
     Create,
     Update,
     Delete,
@@ -775,28 +775,28 @@ pub enum RelationDirection {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 // Deliberate exception to the crate-wide `snake_case` enum convention: the
 // `encrypted-envelope.schema.json` `scheme` const is the kebab-case token
-// `mls-rfc9420` (distinct from the `encryption_profile` enum value
+// `mls_rfc9420` (distinct from the `encryption_profile` enum value
 // `mls_rfc9420`). The exception is made explicit per-variant rather than via
 // `rename_all = "kebab-case"` so a future `snake_case` variant added by habit
 // doesn't silently produce a wire-incompatible token.
 #[serde(rename_all = "snake_case")]
 pub enum EncryptedPayloadScheme {
-    #[serde(rename = "mls-rfc9420")]
+    #[serde(rename = "mls_rfc9420")]
     MlsRfc9420,
     // §2.10 history-shareable content scheme: content is encrypted under a
     // retainable / re-sealable per-epoch `history_secret` (MLS exporter) instead
     // of the forward-secret message ratchet, so a late joiner granted the
     // epoch's `history_secret` via `ak.realm_key.share` can decrypt pre-join
     // content. Trades per-message forward secrecy for per-epoch (§2.10.5).
-    #[serde(rename = "mls-exporter-aead-v1")]
+    #[serde(rename = "mls_exporter_aead_v1")]
     MlsExporterAeadV1,
 }
 
 impl EncryptedPayloadScheme {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::MlsRfc9420 => "mls-rfc9420",
-            Self::MlsExporterAeadV1 => "mls-exporter-aead-v1",
+            Self::MlsRfc9420 => "mls_rfc9420",
+            Self::MlsExporterAeadV1 => "mls_exporter_aead_v1",
         }
     }
 }

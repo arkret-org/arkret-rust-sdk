@@ -247,12 +247,12 @@ impl JoinApplicationReceipt {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct JoinApplicationSubmitRequest {
+pub struct JoinApplicationSubmitRequestBodyBody {
     pub receipt: JoinApplicationReceipt,
     pub private_body: JoinApplicationPrivateBody,
 }
 
-impl JoinApplicationSubmitRequest {
+impl JoinApplicationSubmitRequestBodyBody {
     pub fn validate(&self) -> Result<()> {
         self.receipt.validate()?;
         self.private_body.validate()?;
@@ -444,7 +444,7 @@ impl JoinApplicationReviewReceipt {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct JoinApplicationReviewRequest {
+pub struct JoinApplicationReviewRequestBodyBody {
     pub receipt: JoinApplicationReviewReceipt,
 }
 
@@ -566,7 +566,7 @@ impl JoinApplicationCancelReceipt {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct JoinApplicationCancelRequest {
+pub struct JoinApplicationCancelRequestBodyBody {
     pub receipt: JoinApplicationCancelReceipt,
 }
 
@@ -778,7 +778,7 @@ mod tests {
             submitted_at: created_at,
         };
         let digest = unsigned.canonical_digest().unwrap();
-        let request = JoinApplicationSubmitRequest {
+        let request = JoinApplicationSubmitRequestBodyBody {
             receipt: JoinApplicationReceipt::new(unsigned, proof(digest, &actor, created_at))
                 .unwrap(),
             private_body: body,

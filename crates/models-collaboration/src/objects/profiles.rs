@@ -207,13 +207,13 @@ pub struct Morph {
     /// Round C47 (spec e10b6ad): authoritative schema set for Morph fields and
     /// transition validation. Reducers MUST validate Morph fields against
     /// exactly these refs (set-equal compare on `ak.morph.schema_migrate`);
-    /// `morph_type` / `facets` are not a replacement.
+    /// `morph_kind` / `facets` are not a replacement.
     #[serde(
         serialize_with = "serialize_non_empty_schema_refs",
         deserialize_with = "deserialize_non_empty_schema_refs"
     )]
     pub schema_refs: Vec<String>,
-    pub morph_type: String,
+    pub morph_kind: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub facets: BTreeMap<String, BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -270,7 +270,7 @@ impl Morph {
     pub fn new(
         id: MorphId,
         realm_id: RealmId,
-        morph_type: impl Into<String>,
+        morph_kind: impl Into<String>,
         created_by: Did,
     ) -> Self {
         Self {
@@ -279,7 +279,7 @@ impl Morph {
             realm_id,
             scope_circle_id: None,
             schema_refs: vec![MORPH_SCHEMA.to_owned()],
-            morph_type: morph_type.into(),
+            morph_kind: morph_kind.into(),
             facets: BTreeMap::new(),
             metadata: None,
             encrypted_metadata: None,
@@ -316,19 +316,19 @@ impl Morph {
             .and_then(|metadata| metadata.summary.as_deref())
     }
 
-    /// Validate that `morph_type` does not use the reserved `ak.` prefix
-    /// for unregistered types (morph.md §3 / data-structures.md §7).
-    pub fn validate_morph_type(&self, registered_ak_types: &[&str]) -> Result<()> {
-        if self.morph_type.starts_with("ak.")
-            && !registered_ak_types.contains(&self.morph_type.as_str())
+    /// Validate that `morph_kind` does not use the reserved `ak.` prefix
+    /// for unregistered kinds (morph.md §3 / data-structures.md §7).
+    pub fn validate_morph_kind(&self, registered_ak_kinds: &[&str]) -> Result<()> {
+        if self.morph_kind.starts_with("ak.")
+            && !registered_ak_kinds.contains(&self.morph_kind.as_str())
         {
             return Err(Error::Protocol(format!(
-                "morph_type '{}' uses reserved ak. prefix without registration",
-                self.morph_type
+                "morph_kind '{}' uses reserved ak. prefix without registration",
+                self.morph_kind
             )));
         }
-        if self.morph_type.trim().is_empty() {
-            return Err(Error::Protocol("morph_type must not be empty".to_owned()));
+        if self.morph_kind.trim().is_empty() {
+            return Err(Error::Protocol("morph_kind must not be empty".to_owned()));
         }
         Ok(())
     }

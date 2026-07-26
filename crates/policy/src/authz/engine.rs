@@ -652,11 +652,11 @@ impl AuthzEngine {
                 }
                 EngineDecision::Allow
             }
-            Constraint::TypeRestriction {
-                allowed_object_types,
-                denied_object_types,
-                allowed_morph_types,
-                denied_morph_types,
+            Constraint::KindRestriction {
+                allowed_object_kinds,
+                denied_object_kinds,
+                allowed_morph_kinds,
+                denied_morph_kinds,
                 allowed_facets,
                 denied_facets,
                 scope_limitation,
@@ -682,11 +682,11 @@ impl AuthzEngine {
                         };
                     }
                 }
-                let (object_type, morph_type) = match &ctx.resource {
+                let (object_kind, morph_kind) = match &ctx.resource {
                     Resource::Strand { .. } => (Some("strand"), None),
                     Resource::Message { .. } => (Some("message"), None),
-                    Resource::Morph { morph_type, .. } => {
-                        (Some("morph"), Some(morph_type.as_str()))
+                    Resource::Morph { morph_kind, .. } => {
+                        (Some("morph"), Some(morph_kind.as_str()))
                     }
                     Resource::Relation { .. } => (Some("relation"), None),
                     Resource::View { .. } => (Some("view"), None),
@@ -695,36 +695,36 @@ impl AuthzEngine {
                     _ => (None, None),
                 };
 
-                if let Some(object_type) = object_type {
-                    if let Some(deny_list) = denied_object_types
-                        && deny_list.iter().any(|item| item == object_type)
+                if let Some(object_kind) = object_kind {
+                    if let Some(deny_list) = denied_object_kinds
+                        && deny_list.iter().any(|item| item == object_kind)
                     {
                         return EngineDecision::Deny {
-                            reason: format!("object type denied: {}", object_type),
+                            reason: format!("object type denied: {}", object_kind),
                         };
                     }
-                    if let Some(allow_list) = allowed_object_types
-                        && !allow_list.iter().any(|item| item == object_type)
+                    if let Some(allow_list) = allowed_object_kinds
+                        && !allow_list.iter().any(|item| item == object_kind)
                     {
                         return EngineDecision::Deny {
-                            reason: format!("object type not allowed: {}", object_type),
+                            reason: format!("object type not allowed: {}", object_kind),
                         };
                     }
                 }
 
-                if let Some(morph_type) = morph_type {
-                    if let Some(deny_list) = denied_morph_types
-                        && deny_list.iter().any(|item| item == morph_type)
+                if let Some(morph_kind) = morph_kind {
+                    if let Some(deny_list) = denied_morph_kinds
+                        && deny_list.iter().any(|item| item == morph_kind)
                     {
                         return EngineDecision::Deny {
-                            reason: format!("morph type denied: {}", morph_type),
+                            reason: format!("morph type denied: {}", morph_kind),
                         };
                     }
-                    if let Some(allow_list) = allowed_morph_types
-                        && !allow_list.iter().any(|item| item == morph_type)
+                    if let Some(allow_list) = allowed_morph_kinds
+                        && !allow_list.iter().any(|item| item == morph_kind)
                     {
                         return EngineDecision::Deny {
-                            reason: format!("morph type not allowed: {}", morph_type),
+                            reason: format!("morph type not allowed: {}", morph_kind),
                         };
                     }
                 }
@@ -829,19 +829,19 @@ impl AuthzEngine {
                 }
             }
             Constraint::ClaimBased {
-                requires_claims,
+                required_claims,
                 trusted_issuers,
                 claim_refresh_required,
                 claim_max_age,
             } => {
-                if requires_claims.is_empty() {
+                if required_claims.is_empty() {
                     return EngineDecision::Allow;
                 }
                 if trusted_issuers.is_empty() {
                     return EngineDecision::RequireReview {
                         reason: format!(
                             "claims required ({}) but no trusted issuers specified",
-                            requires_claims
+                            required_claims
                                 .iter()
                                 .map(|c| c.claim_kind.as_str())
                                 .collect::<Vec<_>>()
@@ -849,7 +849,7 @@ impl AuthzEngine {
                         ),
                     };
                 }
-                for requirement in requires_claims {
+                for requirement in required_claims {
                     let satisfied = ctx.verified_claims.iter().any(|claim| {
                         let claim_id_active = claim
                             .claim_id
@@ -1008,7 +1008,7 @@ impl AuthzEngine {
                 applies_to_actions,
                 message_edit_window,
                 message_redact_window,
-                allow_redact_after_window,
+                redact_after_window_allowed,
             } => {
                 let action_match = applies_to_actions.is_empty()
                     || applies_to_actions.iter().any(|a| a == &ctx.action);
@@ -1022,10 +1022,10 @@ impl AuthzEngine {
                 // constraint-schema.md §14.2.
                 //
                 // Redact: `message_redact_window` is authoritative when
-                // declared (and `allow_redact_after_window` no longer changes
+                // declared (and `redact_after_window_allowed` no longer changes
                 // the redact verdict). When no redact window is declared,
                 // redact shares the edit window unless
-                // `allow_redact_after_window` lifts that coupling — omitting a
+                // `redact_after_window_allowed` lifts that coupling — omitting a
                 // redact window then means unbounded recall.
                 //
                 // Revise: governed solely by `message_edit_window`. Omitting it
@@ -1044,8 +1044,8 @@ impl AuthzEngine {
                     }
                     // No explicit redact window: redact is coupled to the edit
                     // window unless the grant opts out via
-                    // `allow_redact_after_window`.
-                    if *allow_redact_after_window {
+                    // `redact_after_window_allowed`.
+                    if *redact_after_window_allowed {
                         return EngineDecision::Allow;
                     }
                     if let Some(window) = message_edit_window.as_ref()
@@ -1366,7 +1366,7 @@ impl AuthzEngine {
                         applies_to_actions,
                         message_edit_window,
                         message_redact_window,
-                        allow_redact_after_window,
+                        redact_after_window_allowed,
                     } => {
                         let action_match = applies_to_actions.is_empty()
                             || applies_to_actions
@@ -1385,7 +1385,7 @@ impl AuthzEngine {
                                     ctx.now,
                                     Self::constraint_duration_after(origin, window),
                                 );
-                            } else if !allow_redact_after_window
+                            } else if !redact_after_window_allowed
                                 && let Some(window) = message_edit_window.as_ref()
                             {
                                 update_earliest_future(
@@ -1466,7 +1466,7 @@ pub fn apply_policy_response(
 /// Check if a grant requires approval through the proposal strand.
 ///
 /// Operates on the spec wire form: an approval requirement is a constraint
-/// with `constraint_type = "claim_based"`, `subtype = "approval"` and
+/// with `constraint_kind = "claim_based"`, `constraint_subkind = "approval"` and
 /// `approval_required = true` (grant-constraint.schema.json).
 pub fn grant_requires_approval(
     grant: &arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
@@ -1481,8 +1481,8 @@ pub fn grant_requires_approval(
 fn is_approval_required_constraint(
     constraint: &arkret_models_collaboration::governance::grant_constraint::GrantConstraint,
 ) -> bool {
-    constraint.constraint_type == arkret_models_collaboration::governance::grant_constraint::GrantConstraintType::ClaimBased
-        && constraint.subtype == Some(arkret_models_collaboration::governance::grant_constraint::GrantConstraintSubtype::Approval)
+    constraint.constraint_kind == arkret_models_collaboration::governance::grant_constraint::GrantConstraintKind::ClaimBased
+        && constraint.constraint_subkind == Some(arkret_models_collaboration::governance::grant_constraint::GrantConstraintSubkind::Approval)
         && constraint.approval_required.unwrap_or(false)
 }
 
@@ -1640,7 +1640,7 @@ mod engine_wire_tests {
     fn spec_temporal_constraint_denies_after_expiry() {
         let mut engine = AuthzEngine::new();
         let grant = wire_grant(vec![constraint(json!({
-            "constraint_type": "temporal",
+            "constraint_kind": "temporal",
             "effect": "allow",
             "expires_at": "2026-01-01T00:00:00.000Z",
         }))]);
@@ -1668,7 +1668,7 @@ mod engine_wire_tests {
     fn unknown_constraint_family_fails_closed_at_decode() {
         let mut artifact = serde_json::to_value(wire_grant(Vec::new())).unwrap();
         artifact["constraints"] = json!([{
-            "constraint_type": "telepathy",
+            "constraint_kind": "telepathy",
             "effect": "allow",
         }]);
         assert!(
@@ -1683,8 +1683,8 @@ mod engine_wire_tests {
     fn external_constraints_are_not_fast_path_cached() {
         let mut engine = AuthzEngine::new();
         let grant = wire_grant(vec![constraint(json!({
-            "constraint_type": "quota",
-            "subtype": "rate",
+            "constraint_kind": "quota",
+            "constraint_subkind": "rate",
             "effect": "allow",
             "evaluation_class": "external",
             "max_operations": 10,
@@ -1705,8 +1705,8 @@ mod engine_wire_tests {
     fn realm_state_constraints_are_not_fast_path_cached() {
         let mut engine = AuthzEngine::new();
         let grant = wire_grant(vec![constraint(json!({
-            "constraint_type": "confidentiality",
-            "subtype": "visibility",
+            "constraint_kind": "confidentiality",
+            "constraint_subkind": "visibility",
             "effect": "allow",
             "evaluation_class": "realm_state",
             "allowed_history_visibility_values": ["joined"],
@@ -1725,8 +1725,8 @@ mod engine_wire_tests {
     fn evaluation_class_mismatch_rejects_without_fast_path_cache() {
         let mut engine = AuthzEngine::new();
         let grant = wire_grant(vec![constraint(json!({
-            "constraint_type": "quota",
-            "subtype": "rate",
+            "constraint_kind": "quota",
+            "constraint_subkind": "rate",
             "effect": "allow",
             "evaluation_class": "stateless",
             "max_operations": 10,
@@ -1750,8 +1750,8 @@ mod engine_wire_tests {
     fn approval_required_grant_is_held_until_approved() {
         let mut engine = AuthzEngine::new();
         let grant = wire_grant(vec![constraint(json!({
-            "constraint_type": "claim_based",
-            "subtype": "approval",
+            "constraint_kind": "claim_based",
+            "constraint_subkind": "approval",
             "effect": "require_review",
             "approval_required": true,
             "approval_actor_ids": ["did:webvh:z6mkfixture:carol.example"],

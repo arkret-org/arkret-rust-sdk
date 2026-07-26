@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-07-20;
-//! sha256=18e49e38097dc8ad329f93ddea3b68006e3be348af32cff99a5e54313a369ecc Input: registry/
+//! sha256=d819c17d998ca95455441dbce72fc060dc64f4c382af1aa07d95568cfd8a4714 Input: registry/
 //! capability-action-registry.json; version=2026-07-20;
-//! sha256=860aad9b041ccca1b720cf816e70a5e45f7991f43da3184aad1e8e48aef7951e Input: registry/
+//! sha256=dcba96da280fe85a2b71fa708ce1264670807e3ee0018f6d38a6df700f2ec01b Input: registry/
 //! schema-registry.json; version=2026-07-20;
-//! sha256=c0fb947cf0bb4c3451e06f2a538afc205c52f2bcadbd6f193f3f0c8aa73e00c0 Input: registry/
-//! account-data-type-registry.json; version=2026-07-03;
-//! sha256=0808766dfda85cde75ac66a9fb5e1e38b61212ae6f243d5faa980dd12c443785 Entries: id_kinds=50,
-//! special_forms=9, actions=154, schemas=135, account_data_patterns=22
+//! sha256=653fd877d344c4bf0f2c7f2fb6da626be2a4725e22ea6ddabe98271b70893812 Input: registry/
+//! account-data-key-registry.json; version=2026-07-03;
+//! sha256=f0f567769bfb523fc2d62dadce5fdd8ebade4de62daa6d36b60c8a321ef6ca56 Entries: id_kinds=50,
+//! special_forms=9, actions=154, schemas=136, account_data_patterns=22
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -925,7 +925,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         action: CapabilityActionId::MorphCreate,
         category: "morph",
         risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &["allowed_morph_types"],
+        required_constraints: &["allowed_morph_kinds"],
         target_event_kinds: &["ak.morph.create"],
         profile: None,
         event_mapping_kind: "same_name",
@@ -1922,8 +1922,8 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/applet-widget-declaration.schema.json",
     },
     SchemaDescriptor {
-        schema_id: "ak.schema.attestation_evidence.v1",
-        file: "schemas/attestation-evidence.schema.json",
+        schema_id: "ak.schema.audit_release_attestation.v1",
+        file: "schemas/audit-release-attestation.schema.json",
     },
     SchemaDescriptor {
         schema_id: "ak.schema.audit_ryw_receipt.v1",
@@ -2200,6 +2200,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: "ak.schema.notification.v1",
         file: "schemas/notification.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.object_addressing.v1",
+        file: "schemas/object-addressing.schema.json",
     },
     SchemaDescriptor {
         schema_id: "ak.schema.patch.v1",

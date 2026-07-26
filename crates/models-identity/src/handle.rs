@@ -225,7 +225,7 @@ pub enum HandleBindingState {
 
 /// Protocol kind of handle claim (`claim_kind` in the wire schema).
 ///
-/// R3.5 wire-breaking: the draft-era `claim_type` / `class` discriminators
+/// R3.5 wire-breaking: the draft-era `claim_kind` / `class` discriminators
 /// are forbidden. The draft-era `service_handle` value is removed.
 /// Service-readable names / resource labels need their own service /
 /// resource schema; organization-assigned user / principal handles use

@@ -3,7 +3,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-pub use arkret_wire::OperationType;
+pub use arkret_wire::OperationKind;
 use arkret_wire::constants::SUPPORTED_OPERATION_IDS;
 use arkret_wire::events::kinds::EventKind;
 use arkret_wire::{OperationId, ServiceOperationId};
@@ -588,7 +588,7 @@ pub fn conformance_vectors() -> Vec<EventDraftKindConformanceVector> {
 }
 
 pub mod protocol {
-    pub use arkret_wire::OperationType;
+    pub use arkret_wire::OperationKind;
 
     pub use crate::{
         EventDraftKindConformanceVector, EventDraftKindRegistry, EventDraftKindSpec,

@@ -31,8 +31,8 @@ use crate::{MlsError as Error, Result};
 
 const ARKRET_OPENMLS_STATE_SNAPSHOT: &str = "arkret-openmls-provider-state-v1";
 
-/// `mls-exporter-aead-v1` content scheme id (spec encryption-and-audit §10.1).
-pub const MLS_EXPORTER_AEAD_CONTENT_SCHEME: &str = "mls-exporter-aead-v1";
+/// `mls_exporter_aead_v1` content scheme id (spec encryption-and-audit §10.1).
+pub const MLS_EXPORTER_AEAD_CONTENT_SCHEME: &str = "mls_exporter_aead_v1";
 /// AAD / nonce-context `purpose` for the exporter-aead content scheme.
 pub const MLS_EXPORTER_AEAD_CONTENT_PURPOSE: &str = "mls_exporter_aead_content";
 /// MLS exporter label for the per-epoch history secret.
@@ -48,7 +48,7 @@ pub struct ArkretMlsGroup {
     pub(super) identity: ArkretMlsIdentity,
     pub(super) group: MlsGroup,
     /// Per-epoch MLS exporter `history_secret[N]` retained for the
-    /// `mls-exporter-aead-v1` content scheme. OpenMLS only evaluates
+    /// `mls_exporter_aead_v1` content scheme. OpenMLS only evaluates
     /// `export_secret` against the *current* epoch, so a `history_secret`
     /// must be derived (via [`Self::derive_and_retain_history_secret`]) at
     /// the time the group is at epoch `N` and kept here so it can later be
@@ -57,7 +57,7 @@ pub struct ArkretMlsGroup {
     /// Values are [`Zeroizing`] so every retained secret is wiped from memory
     /// when the entry (or the whole group) is dropped.
     pub(super) history_secrets: BTreeMap<u64, Zeroizing<Vec<u8>>>,
-    /// Monotonic per-device AEAD nonce counter for the `mls-exporter-aead-v1`
+    /// Monotonic per-device AEAD nonce counter for the `mls_exporter_aead_v1`
     /// content scheme (`encoding §10.1`: `device_nonce_counter_be64`).
     /// In-memory only; never reused within an epoch because the counter only
     /// ever advances.
@@ -115,7 +115,7 @@ struct OpenMlsStateSnapshot {
     storage_entries: BTreeMap<String, String>,
     /// Retained per-epoch `history_secret[N]` (decimal epoch → base64url
     /// secret bytes). Defaults to empty for snapshots written before the
-    /// `mls-exporter-aead-v1` content scheme existed.
+    /// `mls_exporter_aead_v1` content scheme existed.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     history_secrets: BTreeMap<String, String>,
     /// Persisted monotonic content AEAD nonce counter so a reloaded group
@@ -288,7 +288,7 @@ impl ArkretMlsGroup {
             .map_err(mls_error)
     }
 
-    // ── `mls-exporter-aead-v1` history-shareable content scheme ──────────────
+    // ── `mls_exporter_aead_v1` history-shareable content scheme ──────────────
     //
     // The content key for epoch `N` is derived purely from the MLS exporter at
     // that epoch:
@@ -316,7 +316,7 @@ impl ArkretMlsGroup {
         Ok(secret)
     }
 
-    /// Encrypt `plaintext` for the current epoch under the `mls-exporter-aead-v1`
+    /// Encrypt `plaintext` for the current epoch under the `mls_exporter_aead_v1`
     /// content scheme, returning `nonce || ciphertext` (the 24-byte XChaCha
     /// nonce prepended so the receiver decrypt path is self-describing).
     ///
@@ -1098,7 +1098,7 @@ impl ArkretMlsGroup {
         })
     }
 
-    /// Encrypt `plaintext` under the §2.10 `mls-exporter-aead-v1` content scheme
+    /// Encrypt `plaintext` under the §2.10 `mls_exporter_aead_v1` content scheme
     /// and return the full [`EncryptedPayload`] (scheme / key_ref / digest set),
     /// so a late joiner granted the epoch's `history_secret` can decrypt it.
     ///
@@ -1274,7 +1274,7 @@ impl ArkretMlsGroup {
 /// [`ArkretMlsGroup::decrypt_content_exporter_aead`]. A device that holds a
 /// granted `history_secret` but has **no** local MLS group snapshot for the
 /// Realm (e.g. a member granted history before processing its own Welcome) can
-/// decrypt `mls-exporter-aead-v1` content with this. `nonce_and_ct` is
+/// decrypt `mls_exporter_aead_v1` content with this. `nonce_and_ct` is
 /// `nonce || ciphertext`; `aad_bytes` MUST be byte-identical to encrypt time.
 pub fn decrypt_content_exporter_aead_standalone(
     history_secret: &[u8],
@@ -1509,7 +1509,7 @@ mod content_scheme_anchor_tests {
 
     const REALM: &str = "ak:realm:01904100-0000-7000-8000-000000000042";
 
-    /// Pins the byte-exact `mls-exporter-aead-v1` content-scheme chain from a
+    /// Pins the byte-exact `mls_exporter_aead_v1` content-scheme chain from a
     /// fixed history_secret — RFC 9420 ExpandWithLabel content key, exporter
     /// nonce-prefix derivation (`arkret-aead-sender-nonce-prefix-v1` label +
     /// canonical context bytes), canonical AAD construction, and the AEAD
@@ -1552,7 +1552,7 @@ mod content_scheme_anchor_tests {
         let aad = content_aead_aad(REALM, &nonce, aad_bytes).unwrap();
         assert_eq!(
             std::str::from_utf8(&aad).unwrap(),
-            "{\"aad\":\"YW5jaG9yLWFhZA\",\"key_ref\":{\"algorithm\":\"mls-exporter-aead-v1\",\"realm_id\":\"ak:realm:01904100-0000-7000-8000-000000000042\"},\"nonce\":\"D8BA0AUWnXn-xR3NSBiKngAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\"}",
+            "{\"aad\":\"YW5jaG9yLWFhZA\",\"key_ref\":{\"algorithm\":\"mls_exporter_aead_v1\",\"realm_id\":\"ak:realm:01904100-0000-7000-8000-000000000042\"},\"nonce\":\"D8BA0AUWnXn-xR3NSBiKngAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\"}",
             "canonical content AAD drifted"
         );
 

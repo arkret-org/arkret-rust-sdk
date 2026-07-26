@@ -16,7 +16,7 @@ use arkret_models_identity::service_identity::{
     CanonicalServiceUrl, ServiceDidDocument, ServiceRegistrationKey, ServiceRegistrationReceipt,
     ServiceWebvhInceptionOperation, service_registration_key_digest,
 };
-use arkret_wire::{Did, ServiceType};
+use arkret_wire::{Did, ServiceKind};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -286,7 +286,7 @@ impl ServiceIdentityState {
 #[serde(deny_unknown_fields)]
 pub struct ResolvedService {
     pub service_id: Did,
-    pub service_type: ServiceType,
+    pub service_kind: ServiceKind,
     pub endpoint: CanonicalServiceUrl,
     pub supported_operations: Vec<String>,
     #[serde(
@@ -307,12 +307,12 @@ impl ResolvedService {
         if self
             .supported_operations
             .iter()
-            .any(|operation| !self.service_type.permits_operation(operation))
+            .any(|operation| !self.service_kind.permits_operation(operation))
         {
             return Err(IdentityError::Protocol(format!(
                 "resolved {} advertises an operation forbidden for {}",
                 self.service_id,
-                self.service_type.as_str()
+                self.service_kind.as_str()
             )));
         }
         Ok(())
@@ -468,7 +468,7 @@ mod tests {
         ServiceRegistrationReceipt, ServiceWebvhDataIntegrityProof, ServiceWebvhInceptionOperation,
         ServiceWebvhInceptionParameters,
     };
-    use arkret_wire::{Did, ServiceType};
+    use arkret_wire::{Did, ServiceKind};
     use chrono::{DateTime, Utc};
 
     use super::{
@@ -479,7 +479,7 @@ mod tests {
 
     fn registration_key() -> ServiceRegistrationKey {
         ServiceRegistrationKey::new(
-            ServiceType::AuthServer,
+            ServiceKind::AuthServer,
             CanonicalServiceUrl::new("https://auth.example/").unwrap(),
         )
         .unwrap()
@@ -514,7 +514,7 @@ mod tests {
                 service: vec![ServiceDidEndpoint {
                     id: format!("{did}#service"),
                     endpoint_type: "ArkretService".to_owned(),
-                    service_type: ServiceType::AuthServer,
+                    service_kind: ServiceKind::AuthServer,
                     service_endpoint: CanonicalServiceUrl::new("https://auth.example/").unwrap(),
                 }],
             },
@@ -599,16 +599,16 @@ mod tests {
     }
 
     #[test]
-    fn registration_key_rejects_non_identity_service_type() {
+    fn registration_key_rejects_non_identity_service_kind() {
         assert!(
             ServiceRegistrationKey::new(
-                ServiceType::MediaService,
+                ServiceKind::MediaService,
                 CanonicalServiceUrl::new("https://media.example/").unwrap()
             )
             .is_err()
         );
         let json = serde_json::json!({
-            "service_type": "media_service",
+            "service_kind": "media_service",
             "public_base": "https://media.example/"
         });
         assert!(serde_json::from_value::<ServiceRegistrationKey>(json).is_err());
@@ -620,7 +620,7 @@ mod tests {
         operation.state.service.push(ServiceDidEndpoint {
             id: format!("{}#notary", operation.state.id),
             endpoint_type: "ArkretService".to_owned(),
-            service_type: ServiceType::Notary,
+            service_kind: ServiceKind::Notary,
             service_endpoint: CanonicalServiceUrl::new("https://notary.example/").unwrap(),
         });
         assert!(operation.validate_for(&registration_key()).is_err());
@@ -711,7 +711,7 @@ mod tests {
         let state = ServiceIdentityState::RegistrationKeyDrift {
             stored_key: identity.registration_key.clone(),
             computed_key: ServiceRegistrationKey::new(
-                ServiceType::AuthServer,
+                ServiceKind::AuthServer,
                 CanonicalServiceUrl::new("https://new-auth.example/").unwrap(),
             )
             .unwrap(),

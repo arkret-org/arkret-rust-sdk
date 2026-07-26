@@ -178,7 +178,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         did: Did::new("did:webvh:z6mkfixture:sync.example").unwrap(),
         endpoint: "https://sync.example/_arkret".to_owned(),
         role: "primary".to_owned(),
-        service_type: "principal_server".to_owned(),
+        service_kind: "principal_server".to_owned(),
         plaintext_visible: false,
         visibility_scope: Some("members".to_owned()),
         policy_id: realm.preview_policy_id.clone(),
@@ -278,7 +278,7 @@ fn realm_anchor_fields_include_required_notary() {
     assert!(!obj.contains_key("preview_policy_id"));
     assert!(!obj.contains_key("sync_endpoints"));
     assert_eq!(obj.get("notary_profile"), Some(&json!("single_did")));
-    assert_eq!(json["notary"]["type"], "single_did");
+    assert_eq!(json["notary"]["kind"], "single_did");
     assert_eq!(json["notary"]["did"], "did:webvh:z6mkfixture:alice.example");
     assert!(!obj.contains_key("revocation_freshness_window_ms"));
     assert_eq!(obj.get("digest_algorithm"), Some(&json!("sha256")));
@@ -293,7 +293,7 @@ fn realm_anchor_fields_include_required_notary() {
 }
 
 #[test]
-fn realm_notary_profile_must_match_notary_type() {
+fn realm_notary_profile_must_match_notary_kind() {
     let realm = Realm::new(
         RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000005").unwrap(),
         "Mismatched Notary",
@@ -304,7 +304,7 @@ fn realm_notary_profile_must_match_notary_type() {
     );
 
     let err = realm.validate_kind_invariants().unwrap_err();
-    assert!(format!("{err}").contains("notary_profile must match notary.type"));
+    assert!(format!("{err}").contains("notary_profile must match notary.kind"));
 }
 
 #[test]
@@ -503,7 +503,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
         did: Did::new("did:webvh:z6mkfixture:sync.example").unwrap(),
         endpoint: "https://sync.example/_arkret".to_owned(),
         role: "primary".to_owned(),
-        service_type: "principal_server".to_owned(),
+        service_kind: "principal_server".to_owned(),
         plaintext_visible: false,
         visibility_scope: None,
         policy_id: None,

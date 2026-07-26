@@ -61,7 +61,7 @@ pub struct MediaIceConfigOutcome {
     )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "is_false")]
-    pub force_turn: bool,
+    pub turn_required: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub constraints: Option<MediaIceConstraints>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -149,11 +149,11 @@ impl MediaIceServer {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MediaIceConstraints {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub allow_udp: Option<bool>,
+    pub udp_allowed: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub allow_tcp: Option<bool>,
+    pub tcp_allowed: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub allow_ipv6: Option<bool>,
+    pub ipv6_allowed: Option<bool>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -280,8 +280,7 @@ pub struct CallMediaServiceSignature {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CallMediaTokenExchangeOutcome {
     pub focus_id: String,
-    #[serde(rename = "type")]
-    pub backend_type: String,
+    pub backend_kind: String,
     pub connect_url: String,
     pub backend_token: String,
     pub participant_identity: String,

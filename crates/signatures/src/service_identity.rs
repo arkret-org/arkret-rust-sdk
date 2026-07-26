@@ -86,7 +86,7 @@ mod tests {
     use arkret_models_identity::service_identity::{
         CanonicalServiceUrl, ServiceDidVerificationMethod, ServiceRegistrationKey,
     };
-    use arkret_wire::{Did, ServiceType};
+    use arkret_wire::{Did, ServiceKind};
 
     use super::*;
 
@@ -96,7 +96,7 @@ mod tests {
         let mut receipt = ServiceRegistrationReceipt {
             receipt_id: format!("ak:service_registration_receipt:{}", "a".repeat(64)),
             registration_key: ServiceRegistrationKey::new(
-                ServiceType::AuthServer,
+                ServiceKind::AuthServer,
                 CanonicalServiceUrl::new("https://auth.example/").unwrap(),
             )
             .unwrap(),

@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::primitives::{Proof, proof_kind};
 use arkret_wire::{
-    CALL_SIGNAL_TYPES, CallId, DeviceId, Did, Error, ErrorCode, RealmId, Result, canonical,
+    CALL_SIGNAL_KINDS, CallId, DeviceId, Did, Error, ErrorCode, RealmId, Result, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -144,17 +144,17 @@ impl EphemeralEnvelope {
 
 /// Typed `ak.call.signal` envelope payload.
 ///
-/// The wire requires the three fields `call_id` + `signal_type` + `seq` and
-/// validates `signal_type` against [`CALL_SIGNAL_TYPES`] (14
+/// The wire requires the three fields `call_id` + `signal_kind` + `seq` and
+/// validates `signal_kind` against [`CALL_SIGNAL_KINDS`] (14
 /// values). `seq` is monotonic per `(realm, call, actor, device)` —
 /// see [`validate_signal_seq`].
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CallSignalPayload {
     pub call_id: CallId,
-    pub signal_type: String,
+    pub signal_kind: String,
     pub seq: u64,
-    /// Per-signal_type extra fields nested under `data` so the
+    /// Per-signal_kind extra fields nested under `data` so the
     /// envelope shape stays predictable (sdp, ice, mute_state, etc.).
     /// The SDK does not parse this — the client renderer does.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -162,18 +162,18 @@ pub struct CallSignalPayload {
 }
 
 impl CallSignalPayload {
-    /// Returns `true` when `signal_type` is in the canonical 14-value enum.
-    pub fn signal_type_is_canonical(&self) -> bool {
-        CALL_SIGNAL_TYPES.contains(&self.signal_type.as_str())
+    /// Returns `true` when `signal_kind` is in the canonical 14-value enum.
+    pub fn signal_kind_is_canonical(&self) -> bool {
+        CALL_SIGNAL_KINDS.contains(&self.signal_kind.as_str())
     }
 
-    /// Reject envelopes whose `signal_type` is not in the canonical set.
-    pub fn validate_signal_type(&self) -> Result<()> {
-        if !self.signal_type_is_canonical() {
+    /// Reject envelopes whose `signal_kind` is not in the canonical set.
+    pub fn validate_signal_kind(&self) -> Result<()> {
+        if !self.signal_kind_is_canonical() {
             return Err(Error::Protocol(format!(
-                "ak.call.signal payload.signal_type {:?} not in canonical 14-value enum \
+                "ak.call.signal payload.signal_kind {:?} not in canonical 14-value enum \
                  ({})",
-                self.signal_type,
+                self.signal_kind,
                 ErrorCode::SCHEMA_VIOLATION
             )));
         }
@@ -249,7 +249,7 @@ impl CallSignalState {
 }
 
 /// Verify that an `ak.call.signal` [`EphemeralEnvelope`] carries a device
-/// binding and a payload with a canonical `signal_type`.
+/// binding and a payload with a canonical `signal_kind`.
 pub fn validate_call_signal_envelope(env: &EphemeralEnvelope) -> Result<CallSignalPayload> {
     if env.kind != "ak.call.signal" {
         return Err(Error::Protocol(format!(
@@ -262,10 +262,10 @@ pub fn validate_call_signal_envelope(env: &EphemeralEnvelope) -> Result<CallSign
     ))
     .map_err(|e| {
         Error::Protocol(format!(
-            "ak.call.signal payload must carry {{call_id, signal_type, seq}}: {e} ({})",
+            "ak.call.signal payload must carry {{call_id, signal_kind, seq}}: {e} ({})",
             ErrorCode::SCHEMA_VIOLATION
         ))
     })?;
-    payload.validate_signal_type()?;
+    payload.validate_signal_kind()?;
     Ok(payload)
 }

@@ -11,27 +11,27 @@ use serde_json::Value;
 /// The fields are private so callers cannot construct a value with a different
 /// reason code or an empty approval request id.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct AgentHumanApprovalErrorDetails {
+pub struct AgentHumanApprovalProblem {
     reason_code: &'static str,
     approval_request_id: String,
 }
 
-impl AgentHumanApprovalErrorDetails {
+impl AgentHumanApprovalProblem {
     pub fn new(
         approval_request_id: impl Into<String>,
-    ) -> StdResult<Self, AgentHumanApprovalErrorDetailsError> {
+    ) -> StdResult<Self, AgentHumanApprovalProblemError> {
         let approval_request_id = approval_request_id.into();
         if approval_request_id.trim().is_empty() {
-            return Err(AgentHumanApprovalErrorDetailsError::EmptyApprovalRequestId);
+            return Err(AgentHumanApprovalProblemError::EmptyApprovalRequestId);
         }
         if approval_request_id.len() > 128 {
-            return Err(AgentHumanApprovalErrorDetailsError::ApprovalRequestIdTooLong);
+            return Err(AgentHumanApprovalProblemError::ApprovalRequestIdTooLong);
         }
         if !approval_request_id
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b':' | b'-'))
         {
-            return Err(AgentHumanApprovalErrorDetailsError::InvalidApprovalRequestId);
+            return Err(AgentHumanApprovalProblemError::InvalidApprovalRequestId);
         }
         Ok(Self {
             reason_code: crate::ReasonCode::HUMAN_APPROVAL_REQUIRED,
@@ -61,7 +61,7 @@ impl AgentHumanApprovalErrorDetails {
     }
 }
 
-impl<'de> Deserialize<'de> for AgentHumanApprovalErrorDetails {
+impl<'de> Deserialize<'de> for AgentHumanApprovalProblem {
     fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -85,7 +85,7 @@ impl<'de> Deserialize<'de> for AgentHumanApprovalErrorDetails {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum AgentHumanApprovalErrorDetailsError {
+pub enum AgentHumanApprovalProblemError {
     #[error("approval_request_id must be non-empty")]
     EmptyApprovalRequestId,
     #[error("approval_request_id must be at most 128 ASCII characters")]
@@ -119,7 +119,7 @@ impl ErrorDetail {
     /// defined by the protocol.
     pub fn claim_required_human_approval(
         message: impl Into<String>,
-        details: AgentHumanApprovalErrorDetails,
+        details: AgentHumanApprovalProblem,
     ) -> Self {
         Self {
             code: crate::error_codes::ErrorCode::CLAIM_REQUIRED.to_owned(),
@@ -134,15 +134,14 @@ impl ErrorDetail {
     /// their open details map.
     pub fn agent_human_approval_details(
         &self,
-    ) -> StdResult<Option<AgentHumanApprovalErrorDetails>, AgentHumanApprovalErrorDetailsError>
-    {
+    ) -> StdResult<Option<AgentHumanApprovalProblem>, AgentHumanApprovalProblemError> {
         if self.code != crate::error_codes::ErrorCode::CLAIM_REQUIRED {
             return Ok(None);
         }
         let value = Value::Object(self.details.clone().into_iter().collect());
         serde_json::from_value(value)
             .map(Some)
-            .map_err(AgentHumanApprovalErrorDetailsError::from)
+            .map_err(AgentHumanApprovalProblemError::from)
     }
 }
 
@@ -191,7 +190,7 @@ impl ErrorEnvelope {
 
     pub fn claim_required_human_approval(
         message: impl Into<String>,
-        details: AgentHumanApprovalErrorDetails,
+        details: AgentHumanApprovalProblem,
     ) -> Self {
         Self {
             ok: false,
@@ -228,8 +227,7 @@ impl ErrorEnvelope {
 
     pub fn agent_human_approval_details(
         &self,
-    ) -> StdResult<Option<AgentHumanApprovalErrorDetails>, AgentHumanApprovalErrorDetailsError>
-    {
+    ) -> StdResult<Option<AgentHumanApprovalProblem>, AgentHumanApprovalProblemError> {
         self.error.agent_human_approval_details()
     }
 }
@@ -248,7 +246,7 @@ mod tests {
 
     #[test]
     fn human_approval_details_are_closed_and_round_trip_through_envelope() {
-        let details = AgentHumanApprovalErrorDetails::new("approval-opaque-01").unwrap();
+        let details = AgentHumanApprovalProblem::new("approval-opaque-01").unwrap();
         let envelope = ErrorEnvelope::claim_required_human_approval(
             "controller approval required",
             details.clone(),
@@ -299,7 +297,7 @@ mod tests {
                 "captcha": "not-allowed",
             }),
         ] {
-            assert!(serde_json::from_value::<AgentHumanApprovalErrorDetails>(invalid).is_err());
+            assert!(serde_json::from_value::<AgentHumanApprovalProblem>(invalid).is_err());
         }
     }
 

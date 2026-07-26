@@ -23,7 +23,7 @@ pub struct SyncEndpoint {
     pub did: Did,
     pub endpoint: String,
     pub role: String,
-    pub service_type: String,
+    pub service_kind: String,
     pub plaintext_visible: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visibility_scope: Option<String>,
@@ -77,9 +77,9 @@ pub struct Realm {
     pub default_join_rule: JoinRule,
     pub history_visibility: HistoryVisibility,
     pub encryption_profile: EncryptionProfile,
-    /// Content AEAD scheme selector. `Some("mls-exporter-aead-v1")` opts the
+    /// Content AEAD scheme selector. `Some("mls_exporter_aead_v1")` opts the
     /// Realm into exporter-derived history-shareable content encryption;
-    /// `None` keeps the legacy per-epoch `mls-rfc9420` PrivateMessage path.
+    /// `None` keeps the legacy per-epoch `mls_rfc9420` PrivateMessage path.
     /// Additive — absent in existing genesis payloads.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_scheme: Option<String>,
@@ -95,7 +95,7 @@ pub struct Realm {
     /// after all member devices are lost or all members leave. Confidentiality-
     /// axis durability, orthogonal to `notary` / `notary.recovery_*` (finality
     /// axis). Only effective (`mode != none`) when
-    /// `content_scheme == "mls-exporter-aead-v1"`. Reducer-derived (written via
+    /// `content_scheme == "mls_exporter_aead_v1"`. Reducer-derived (written via
     /// `ak.realm.policy_components`); a value at create time is a hint only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub durability_policy: Option<DurabilityPolicy>,
@@ -132,7 +132,7 @@ pub struct Realm {
     /// Lattice declarations per cell_family used in this Realm. Reducer-
     /// derived; this field exists so clients can render bottom diagnostics
     /// before observing any Move. Empty means "use the cell registry
-    /// defaults from contract-catalog".
+    /// defaults from contract-registry".
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cell_lattices: Vec<CellLatticeDeclaration>,
     /// Co-write policy (data-structures.md §4 — Move/Seal/Lattice). How
@@ -393,7 +393,7 @@ impl Realm {
                 | (NotaryProfile::Mixed, NotaryValue::Mixed { .. })
         ) {
             return Err(Error::Protocol(
-                "Realm notary_profile must match notary.type".to_owned(),
+                "Realm notary_profile must match notary.kind".to_owned(),
             ));
         }
         Ok(())

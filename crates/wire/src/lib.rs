@@ -48,7 +48,7 @@ pub mod receive_policy;
 pub mod resource_selector;
 pub mod seal;
 pub mod self_contact_paths;
-pub mod service_type;
+pub mod service_kind;
 pub mod signer;
 pub mod string_profiles;
 pub mod wire_strings;
@@ -72,8 +72,8 @@ pub use generated::{
     AlgorithmSuiteDescriptor, CapabilityActionId, DIGEST_SUITES, EVENT_KIND_COUNT, EXPORTER_LABELS,
     EventKind, ExporterLabelDescriptor, ExporterLabelId, HPKE_SUITES, MLS_CIPHERSUITES,
     MLS_EXTENSIONS, MlsExtensionDescriptor, PROOF_CONTEXTS, ProofContextDescriptor, ProofContextId,
-    RELATION_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS, SERVICE_TYPE_DESCRIPTORS,
-    SIGNATURE_ALGORITHMS, ServiceOperationDescriptor, ServiceOperationId, ServiceTypeDescriptor,
+    RELATION_KIND_DESCRIPTORS, SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS,
+    SIGNATURE_ALGORITHMS, ServiceKindDescriptor, ServiceOperationDescriptor, ServiceOperationId,
 };
 pub use http_signature::HttpMessageSignature;
 pub use move_event::{
@@ -97,7 +97,7 @@ pub use seal::{
     ThresholdSignature, compute_seal_id, seal_canonical_bytes,
 };
 pub use self_contact_paths::*;
-pub use service_type::{EvaluationClass, ServiceType};
+pub use service_kind::{EvaluationClass, ServiceKind};
 pub use signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};
 pub use string_profiles::*;
 pub use wire_strings::*;

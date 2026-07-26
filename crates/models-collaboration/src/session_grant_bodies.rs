@@ -234,14 +234,13 @@ pub struct SessionGrantIntrospectionProof {
     pub proof_jwt: String,
 }
 
-pub const SESSION_GRANT_INTROSPECTION_PROOF_CLAIMS_TYPE: &str =
+pub const SESSION_GRANT_INTROSPECTION_PROOF_CLAIMS_KIND: &str =
     "ak.session_grant.introspection_proof.v1";
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionGrantIntrospectionProofClaims {
-    #[serde(rename = "type")]
     pub kind: String,
     pub grant_id: String,
     pub grant_jwt_hash: String,

@@ -264,10 +264,10 @@ fn derive_effect_op(
     projection: &Value,
     kind: &str,
 ) -> Result<LatticeOp, EventCellContractError> {
-    let projection_type = projection
-        .get("type")
+    let projection_kind = projection
+        .get("kind")
         .and_then(Value::as_str)
-        .ok_or_else(|| effect_set_error(kind, "effect_projection omits type"))?;
+        .ok_or_else(|| effect_set_error(kind, "effect_projection omits kind"))?;
     let empty = || LatticeOp {
         op_type: LatticeOpType::Set,
         tag: None,
@@ -277,7 +277,7 @@ fn derive_effect_op(
         reason: None,
         issuer_seq: None,
     };
-    match projection_type {
+    match projection_kind {
         "transition" => {
             let mut op = empty();
             op.op_type = LatticeOpType::Transition;
@@ -414,12 +414,12 @@ fn condition_matches(
     let Some(condition) = condition else {
         return Ok(true);
     };
-    let condition_type = condition
-        .get("type")
+    let condition_kind = condition
+        .get("kind")
         .and_then(Value::as_str)
-        .ok_or_else(|| effect_set_error(kind, "condition omits type"))?;
+        .ok_or_else(|| effect_set_error(kind, "condition omits kind"))?;
     let present = |path: &str| field_value(event, path).is_some_and(|value| !value.is_null());
-    match condition_type {
+    match condition_kind {
         "field_present" => condition
             .get("field")
             .and_then(Value::as_str)
@@ -464,7 +464,7 @@ fn condition_matches(
         }
         other => Err(effect_set_error(
             kind,
-            &format!("unknown condition type {other}"),
+            &format!("unknown condition kind {other}"),
         )),
     }
 }
@@ -734,10 +734,10 @@ fn derive_value_projection(
             message: error.to_string(),
         }
     })?;
-    if rule.get("type").and_then(Value::as_str) != Some("object") {
+    if rule.get("kind").and_then(Value::as_str) != Some("object") {
         return Err(projection_error(
             &kind,
-            "value projection type must be object",
+            "value projection kind must be object",
         ));
     }
     let members = rule
@@ -902,8 +902,8 @@ fn derive_subject(
             message: error.to_string(),
         }
     })?;
-    let rule_type = rule.get("type").and_then(Value::as_str).unwrap_or_default();
-    match rule_type {
+    let rule_kind = rule.get("kind").and_then(Value::as_str).unwrap_or_default();
+    match rule_kind {
         "composite" => {
             let components = rule
                 .get("components")
@@ -1006,10 +1006,10 @@ fn select_field_path(
     component: &Value,
     kind: &str,
 ) -> Result<String, EventCellContractError> {
-    if component.get("type").and_then(Value::as_str) != Some("select") {
+    if component.get("kind").and_then(Value::as_str) != Some("select") {
         return Err(subject_error(
             kind,
-            "composite component has an unknown type",
+            "composite component has an unknown kind",
         ));
     }
     let selector = component
@@ -1210,7 +1210,7 @@ mod tests {
         );
 
         let envelope_select = json!({
-            "type": "select",
+            "kind": "select",
             "selector": "envelope.actor_id",
             "branches": {
                 "did:webvh:z6mkfixture:alice.example": {
@@ -1254,7 +1254,7 @@ mod tests {
     /// registry declares it.
     fn delivery_share_event() -> Event {
         let payload = json!({
-            "share_class": "member_device",
+            "share_kind": "member_device",
             "recipient_principal_id": "did:webvh:z6mkfixture:bob.example",
             "recipient_device_id": "ak:device:019f9000-0000-7000-8000-000000000003",
             "sender_device_id": "ak:device:019f9000-0000-7000-8000-000000000004",
@@ -1636,7 +1636,7 @@ mod tests {
     }
 
     #[test]
-    fn delivery_subject_selects_the_share_class_branch() {
+    fn delivery_subject_selects_the_share_kind_branch() {
         let event = delivery_share_event();
         let rule = event.kind.descriptor().unwrap().cell_subject_rule;
         let member_subject = derive_subject(&event, rule).unwrap();
@@ -1646,14 +1646,14 @@ mod tests {
         let mut rrk = event.clone();
         rrk.payload.remove("recipient_device_id");
         rrk.payload
-            .insert("share_class".to_owned(), json!("realm_recovery_key"));
+            .insert("share_kind".to_owned(), json!("realm_recovery_key"));
         rrk.payload.insert(
             "recipient_verification_method".to_owned(),
             json!("did:webvh:z6mkfixture:acme.example#realm-history-recovery-1"),
         );
         rrk.payload.insert(
             "recovery_recipient_id".to_owned(),
-            // Deliberately spelled like a device id: without `share_class` in
+            // Deliberately spelled like a device id: without `share_kind` in
             // the components an RRK share could target a member device's cell.
             json!("ak:device:019f9000-0000-7000-8000-000000000003"),
         );
@@ -1729,7 +1729,7 @@ mod tests {
         let mut event = delivery_share_event();
         event
             .payload
-            .insert("share_class".to_owned(), json!("member-device"));
+            .insert("share_kind".to_owned(), json!("member-device"));
         let rule = event.kind.descriptor().unwrap().cell_subject_rule;
         let error = derive_subject(&event, rule).unwrap_err();
         assert!(

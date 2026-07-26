@@ -8,12 +8,12 @@ const RESOURCE_SELECTOR_KNOWN_FIELDS: &[&str] = &[
     "realm_id",
     "space_id",
     "circle_id",
-    "object_type",
+    "object_kind",
     "object_ref",
     "strand_id",
     "message_id",
     "morph_id",
-    "morph_type",
+    "morph_kind",
     "relation_kind",
     "relation_id",
     "view_id",
@@ -71,7 +71,7 @@ pub enum ResourceSelector {
     /// Generic object selector.
     Object {
         realm_id: String,
-        object_type: Option<String>,
+        object_kind: Option<String>,
         object_ref: Option<String>,
         match_scope: ProtocolResourceSelectorScope,
     },
@@ -107,12 +107,12 @@ pub enum ResourceSelector {
     },
     /// Read marker selector
     ReadCursor { realm_id: String },
-    /// Morph selector — `morph_type` is the canonical filter per
+    /// Morph selector — `morph_kind` is the canonical filter per
     /// `resource-selector-grammar.md` §6 (matches by exact type name).
     Morph {
         realm_id: String,
         morph_id: Option<String>,
-        morph_type: Option<String>,
+        morph_kind: Option<String>,
         match_scope: ProtocolResourceSelectorScope,
     },
     /// Notification selector (per-actor private). `actor_id` may be `*`.
@@ -211,7 +211,7 @@ impl ResourceSelector {
             (
                 Self::Object {
                     realm_id,
-                    object_type,
+                    object_kind,
                     object_ref,
                     ..
                 },
@@ -221,25 +221,25 @@ impl ResourceSelector {
                 },
             ) => {
                 let realm_match = realm_id == target_realm || realm_id == "*";
-                let type_match = object_type.as_ref().is_none_or(|t| t == "strand");
+                let type_match = object_kind.as_ref().is_none_or(|t| t == "strand");
                 let ref_match = object_ref.as_ref().is_none_or(|id| id == target_id);
                 realm_match && type_match && ref_match
             }
             (
                 Self::Object {
                     realm_id,
-                    object_type,
+                    object_kind,
                     object_ref,
                     ..
                 },
                 Resource::Morph {
                     realm_id: target_realm,
                     morph_id: target_id,
-                    morph_type: target_type,
+                    morph_kind: target_type,
                 },
             ) => {
                 let realm_match = realm_id == target_realm || realm_id == "*";
-                let type_match = object_type.as_ref().is_none_or(|t| t == target_type);
+                let type_match = object_kind.as_ref().is_none_or(|t| t == target_type);
                 let ref_match = object_ref.as_ref().is_none_or(|id| id == target_id);
                 realm_match && type_match && ref_match
             }
@@ -353,18 +353,18 @@ impl ResourceSelector {
                 Self::Morph {
                     realm_id,
                     morph_id,
-                    morph_type,
+                    morph_kind,
                     ..
                 },
                 Resource::Morph {
                     realm_id: target_realm,
                     morph_id: target_id,
-                    morph_type: target_type,
+                    morph_kind: target_type,
                 },
             ) => {
                 let realm_match = realm_id == target_realm || realm_id == "*";
                 let id_match = morph_id.as_ref().is_none_or(|id| id == target_id);
-                let type_match = morph_type.as_ref().is_none_or(|t| t == target_type);
+                let type_match = morph_kind.as_ref().is_none_or(|t| t == target_type);
                 realm_match && id_match && type_match
             }
             (Self::Morph { .. }, _) => false,
@@ -536,12 +536,12 @@ impl ResourceSelector {
             "morph" => Ok(Self::Morph {
                 realm_id: realm_or_wildcard(),
                 morph_id: field("morph_id"),
-                morph_type: field("morph_type"),
+                morph_kind: field("morph_kind"),
                 match_scope,
             }),
             "object" => Ok(Self::Object {
                 realm_id: realm_or_wildcard(),
-                object_type: field("object_type"),
+                object_kind: field("object_kind"),
                 object_ref: field("object_ref"),
                 match_scope,
             }),
@@ -557,10 +557,10 @@ impl ResourceSelector {
             }),
             // The spec selector schema has no dedicated event-kind field;
             // mirror `ProtocolResourceSelector::from_engine`, which rides the
-            // event kind in `object_type`.
+            // event kind in `object_kind`.
             "event" => Ok(Self::Event {
                 realm_id: realm_or_wildcard(),
-                event_kind: field("object_type"),
+                event_kind: field("object_kind"),
                 event_id: field("event_id"),
             }),
             "actor" => {
@@ -686,7 +686,7 @@ impl ResourceSelector {
             Self::Morph {
                 realm_id,
                 morph_id,
-                morph_type,
+                morph_kind,
                 match_scope,
             } => {
                 put("kind", "morph");
@@ -694,7 +694,7 @@ impl ResourceSelector {
                     put("realm_id", realm_id);
                 }
                 put_opt(&mut object, "morph_id", morph_id);
-                put_opt(&mut object, "morph_type", morph_type);
+                put_opt(&mut object, "morph_kind", morph_kind);
                 if *match_scope != ProtocolResourceSelectorScope::Exact {
                     object.insert(
                         "match_scope".to_owned(),
@@ -704,7 +704,7 @@ impl ResourceSelector {
             }
             Self::Object {
                 realm_id,
-                object_type,
+                object_kind,
                 object_ref,
                 match_scope,
             } => {
@@ -712,7 +712,7 @@ impl ResourceSelector {
                 if realm_id != "*" {
                     put("realm_id", realm_id);
                 }
-                put_opt(&mut object, "object_type", object_type);
+                put_opt(&mut object, "object_kind", object_kind);
                 put_opt(&mut object, "object_ref", object_ref);
                 if *match_scope != ProtocolResourceSelectorScope::Exact {
                     object.insert(
@@ -747,7 +747,7 @@ impl ResourceSelector {
                 if realm_id != "*" {
                     put("realm_id", realm_id);
                 }
-                put_opt(&mut object, "object_type", event_kind);
+                put_opt(&mut object, "object_kind", event_kind);
                 put_opt(&mut object, "event_id", event_id);
             }
             Self::Actor { actor_id } => {
@@ -846,7 +846,7 @@ impl ResourceSelector {
             }
             "object" => {
                 let (realm_id, tail) = split_realm_tail(remainder, selector)?;
-                let (object_type, object_ref) = match tail {
+                let (object_kind, object_ref) = match tail {
                     None => (None, None),
                     Some(tail) if tail == "*" => (None, None),
                     Some(tail) if tail.starts_with("ak:") || tail.starts_with("did:") => {
@@ -856,7 +856,7 @@ impl ResourceSelector {
                 };
                 Ok(Self::Object {
                     realm_id,
-                    object_type,
+                    object_kind,
                     object_ref,
                     match_scope: ProtocolResourceSelectorScope::Exact,
                 })
@@ -982,7 +982,7 @@ pub struct ProtocolResourceSelector {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub circle_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub object_type: Option<String>,
+    pub object_kind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub object_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -992,7 +992,7 @@ pub struct ProtocolResourceSelector {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub morph_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub morph_type: Option<String>,
+    pub morph_kind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub relation_kind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1046,13 +1046,13 @@ impl ProtocolResourceSelector {
             }
             ResourceSelector::Object {
                 realm_id,
-                object_type,
+                object_kind,
                 object_ref,
                 match_scope,
             } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Object);
                 out.realm_id = Some(realm_id.clone());
-                out.object_type = object_type.clone();
+                out.object_kind = object_kind.clone();
                 out.object_ref = object_ref.clone();
                 out.match_scope = Some(*match_scope);
                 out
@@ -1116,13 +1116,13 @@ impl ProtocolResourceSelector {
             ResourceSelector::Morph {
                 realm_id,
                 morph_id,
-                morph_type,
+                morph_kind,
                 match_scope,
             } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Morph);
                 out.realm_id = Some(realm_id.clone());
                 out.morph_id = morph_id.clone();
-                out.morph_type = morph_type.clone();
+                out.morph_kind = morph_kind.clone();
                 out.match_scope = Some(*match_scope);
                 out
             }
@@ -1150,7 +1150,7 @@ impl ProtocolResourceSelector {
             } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Event);
                 out.realm_id = Some(realm_id.clone());
-                out.object_type = event_kind.clone();
+                out.object_kind = event_kind.clone();
                 out.event_id = event_id.clone();
                 out
             }
@@ -1180,12 +1180,12 @@ impl ProtocolResourceSelector {
             realm_id: None,
             space_id: None,
             circle_id: None,
-            object_type: None,
+            object_kind: None,
             object_ref: None,
             strand_id: None,
             message_id: None,
             morph_id: None,
-            morph_type: None,
+            morph_kind: None,
             relation_kind: None,
             relation_id: None,
             view_id: None,
@@ -1208,12 +1208,12 @@ impl ProtocolResourceSelector {
                 space_id: None,
                 circle_id: None,
                 event_id: Some("ak:event:01904100-0000-7000-8000-51495aba0a08".to_owned()),
-                object_type: None,
+                object_kind: None,
                 object_ref: None,
                 strand_id: None,
                 message_id: None,
                 morph_id: None,
-                morph_type: None,
+                morph_kind: None,
                 relation_kind: None,
                 relation_id: None,
                 view_id: None,
@@ -1230,12 +1230,12 @@ impl ProtocolResourceSelector {
                 space_id: None,
                 circle_id: None,
                 actor_id: Some("did:webvh:z6mkfixture:alice.example".to_owned()),
-                object_type: None,
+                object_kind: None,
                 object_ref: None,
                 strand_id: None,
                 message_id: None,
                 morph_id: None,
-                morph_type: None,
+                morph_kind: None,
                 relation_kind: None,
                 relation_id: None,
                 view_id: None,
@@ -1252,12 +1252,12 @@ impl ProtocolResourceSelector {
                 space_id: None,
                 circle_id: None,
                 actor_id: Some("did:webvh:z6mkfixture:alice.example".to_owned()),
-                object_type: Some("device_verification".to_owned()),
+                object_kind: Some("device_verification".to_owned()),
                 object_ref: Some("ak:notify:01JS0NT000000000000000000".to_owned()),
                 strand_id: Some("ak:strand:01904100-0000-7000-8000-a1fffe3a8cc9".to_owned()),
                 message_id: None,
                 morph_id: None,
-                morph_type: None,
+                morph_kind: None,
                 relation_kind: None,
                 relation_id: None,
                 view_id: None,
@@ -1274,12 +1274,12 @@ impl ProtocolResourceSelector {
                 space_id: None,
                 circle_id: None,
                 blob_ref: Some("ak:blob:sha256:0123456789abcdef".to_owned()),
-                object_type: Some("encrypted_backup".to_owned()),
+                object_kind: Some("encrypted_backup".to_owned()),
                 object_ref: Some("backup-scaffold-current-device".to_owned()),
                 strand_id: None,
                 message_id: None,
                 morph_id: None,
-                morph_type: None,
+                morph_kind: None,
                 relation_kind: None,
                 relation_id: None,
                 view_id: None,
@@ -1438,9 +1438,9 @@ fn selector_uses_governance_wildcard(object: &serde_json::Map<String, Value>) ->
                 || selector_field_missing_or_wildcard(object, "realm_id")
         }
         Some("object") => {
-            let object_type = object.get("object_type").and_then(Value::as_str);
+            let object_kind = object.get("object_kind").and_then(Value::as_str);
             let object_ref = object.get("object_ref").and_then(Value::as_str);
-            let governance_type = matches!(object_type, Some("policy" | "schema"));
+            let governance_type = matches!(object_kind, Some("policy" | "schema"));
             let governance_ref = object_ref.is_some_and(|value| {
                 value.starts_with("ak:policy:") || value.starts_with("ak:schema:")
             });
@@ -1515,14 +1515,14 @@ mod spec_selector_tests {
         let spec = json!({
             "kind": "object",
             "realm_id": "ak:realm:01904100-0000-7000-8000-65c7feb295d7",
-            "object_type": "strand"
+            "object_kind": "strand"
         });
         let selector = ResourceSelector::from_spec_value(&spec).unwrap();
         assert_eq!(
             selector,
             ResourceSelector::Object {
                 realm_id: "ak:realm:01904100-0000-7000-8000-65c7feb295d7".to_owned(),
-                object_type: Some("strand".to_owned()),
+                object_kind: Some("strand".to_owned()),
                 object_ref: None,
                 match_scope: ProtocolResourceSelectorScope::Exact,
             }

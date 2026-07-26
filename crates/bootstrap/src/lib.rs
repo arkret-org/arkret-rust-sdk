@@ -1208,7 +1208,7 @@ mod tests {
             .unwrap(),
             audit_path: Vec::new(),
             leaf_index: 0,
-            tree_size: 1,
+            leaf_count: 1,
         });
         assert!(build_self_principal_pcr_create(indirect).is_err());
     }
@@ -1279,7 +1279,7 @@ mod tests {
                     "id": realm_id,
                     "created_by": agent,
                     "fields": {"purpose": "principal_control"},
-                    "notary": {"type": "single_did", "did": agent},
+                    "notary": {"kind": "single_did", "did": agent},
                 }
             }),
         )

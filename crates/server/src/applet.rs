@@ -287,7 +287,7 @@ mod tests {
             let mut description = ServiceDescribe::development(
                 Did::new("did:webvh:QmSvc:svc.example").unwrap(),
                 TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-                arkret_wire::ServiceType::AppletService,
+                arkret_wire::ServiceKind::AppletService,
             );
             description.supported_profiles = vec!["ak.profile.applet.v1".to_owned()];
             description.supported_operations = vec!["ak.edge.applet.query.describe".to_owned()];
@@ -335,7 +335,7 @@ mod tests {
                 protocol: "ak.unknown".to_owned(),
                 display_name: "Unknown".to_owned(),
                 icon_blob_ref: None,
-                field_types: Default::default(),
+                field_definitions: Default::default(),
                 instances: Vec::new(),
             })
         }

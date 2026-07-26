@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::key_backup::{
-    BackupClass, KeyBackupSignatureAlgorithm, KeysBackupsDeleteOutcome,
+    BackupKind, KeyBackupSignatureAlgorithm, KeysBackupsDeleteOutcome,
     KeysBackupsDeleteRequestBody, KeysBackupsList, KeysBackupsReplaceOutcome,
     ManagedPrincipalBinding, RecoveryProofKind,
 };
@@ -27,7 +27,7 @@ use crate::keys::{
 pub struct KeyBackupPlaintext {
     pub schema: String,
     pub backup_id: BackupId,
-    pub backup_class: BackupClass,
+    pub backup_kind: BackupKind,
     pub series_id: BackupSeriesId,
     pub series_seq: u64,
     pub items: Vec<PlaintextItem>,
@@ -35,15 +35,15 @@ pub struct KeyBackupPlaintext {
     pub extra: XExtensionMap,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json#/$defs/item_type`.
-pub type ItemType = String;
+/// Counterpart for `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json#/$defs/item_kind`.
+pub type ItemKind = String;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json#/$defs/plaintext_item`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PlaintextItem {
-    pub item_type: ItemType,
+    pub item_kind: ItemKind,
     pub secret_id: String,
     pub secret_b64u: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -84,7 +84,7 @@ pub struct KeyBackupUnlockProof {
     pub principal_id: Did,
     pub requesting_device_id: DeviceId,
     pub backup_id: BackupId,
-    pub backup_class: BackupClass,
+    pub backup_kind: BackupKind,
     pub series_id: BackupSeriesId,
     pub ciphertext_digest: Hash,
     pub proof_kind: ProofKind,
@@ -239,7 +239,7 @@ pub struct BackupMetadata {
     pub actor_id: Did,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<String>,
-    pub backup_class: BackupClass,
+    pub backup_kind: BackupKind,
     pub backup_version: String,
     pub series_id: BackupSeriesId,
     pub series_seq: u64,
@@ -402,7 +402,7 @@ impl RecoveryModelGenerationRef {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(try_from = "GenericRecoveryTranscriptWire")]
 pub struct GenericRecoveryTranscript {
-    pub r#type: String,
+    pub schema: String,
     pub kind: RecoveryProofKind,
     pub principal_id: Did,
     pub requesting_device_id: DeviceId,
@@ -430,7 +430,7 @@ pub struct GenericRecoveryTranscript {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct GenericRecoveryTranscriptWire {
-    r#type: String,
+    schema: String,
     kind: RecoveryProofKind,
     principal_id: Did,
     requesting_device_id: DeviceId,
@@ -453,7 +453,7 @@ impl TryFrom<GenericRecoveryTranscriptWire> for GenericRecoveryTranscript {
 
     fn try_from(wire: GenericRecoveryTranscriptWire) -> std::result::Result<Self, Self::Error> {
         let transcript = Self {
-            r#type: wire.r#type,
+            schema: wire.schema,
             kind: wire.kind,
             principal_id: wire.principal_id,
             requesting_device_id: wire.requesting_device_id,
@@ -475,9 +475,9 @@ impl TryFrom<GenericRecoveryTranscriptWire> for GenericRecoveryTranscript {
 
 impl GenericRecoveryTranscript {
     pub fn validate(&self) -> Result<()> {
-        if self.r#type != "ak.identity.recovery_proof.v1" || self.policy_version < 1 {
+        if self.schema != "ak.identity.recovery_proof.v1" || self.policy_version < 1 {
             return Err(Error::Protocol(
-                "generic recovery transcript has an invalid type or policy_version".to_owned(),
+                "generic recovery transcript has an invalid schema or policy_version".to_owned(),
             ));
         }
         self.model_generation_ref.validate_for(self.identity_model)
@@ -490,7 +490,7 @@ impl GenericRecoveryTranscript {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(try_from = "PrincipalSigningTranscriptWire")]
 pub struct PrincipalSigningTranscript {
-    pub r#type: String,
+    pub schema: String,
     pub kind: RecoveryProofKind,
     pub principal_id: Did,
     pub requesting_device_id: DeviceId,
@@ -517,7 +517,7 @@ pub struct PrincipalSigningTranscript {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PrincipalSigningTranscriptWire {
-    r#type: String,
+    schema: String,
     kind: RecoveryProofKind,
     principal_id: Did,
     requesting_device_id: DeviceId,
@@ -539,7 +539,7 @@ impl TryFrom<PrincipalSigningTranscriptWire> for PrincipalSigningTranscript {
 
     fn try_from(wire: PrincipalSigningTranscriptWire) -> std::result::Result<Self, Self::Error> {
         let transcript = Self {
-            r#type: wire.r#type,
+            schema: wire.schema,
             kind: wire.kind,
             principal_id: wire.principal_id,
             requesting_device_id: wire.requesting_device_id,
@@ -560,7 +560,7 @@ impl TryFrom<PrincipalSigningTranscriptWire> for PrincipalSigningTranscript {
 
 impl PrincipalSigningTranscript {
     pub fn validate(&self) -> Result<()> {
-        if self.r#type != "ak.identity.recovery_proof.v1"
+        if self.schema != "ak.identity.recovery_proof.v1"
             || self.kind != RecoveryProofKind::PrincipalSigning
             || self.policy_version < 1
         {

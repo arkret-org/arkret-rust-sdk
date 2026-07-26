@@ -1,16 +1,16 @@
 use serde::{Deserialize, Serialize};
 
-pub use crate::generated::service_types::{
-    SERVICE_TYPE_DESCRIPTORS, ServiceType, ServiceTypeDescriptor,
+pub use crate::generated::service_kinds::{
+    SERVICE_KIND_DESCRIPTORS, ServiceKind, ServiceKindDescriptor,
 };
 
-impl std::fmt::Display for ServiceType {
+impl std::fmt::Display for ServiceKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
 
-impl ServiceType {
+impl ServiceKind {
     /// Product policy projection for operations this deployed role may advertise.
     ///
     /// This is intentionally separate from registry context metadata.

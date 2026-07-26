@@ -240,7 +240,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::governance::delivery_binding::{DeliveryMode, RecipientServiceType};
+    use crate::governance::delivery_binding::{DeliveryMode, RecipientServiceKind};
 
     fn fake_did(label: &str) -> Did {
         Did::new(format!("did:webvh:z6mkfixture:{label}.example")).unwrap()
@@ -252,7 +252,7 @@ mod tests {
         modes.insert(DeliveryMode::Sync);
         DeliveryBindingHint {
             recipient_service_id: rs.clone(),
-            recipient_service_type: RecipientServiceType::PrincipalServer,
+            recipient_service_kind: RecipientServiceKind::PrincipalServer,
             binding_source: HandleHintBindingSource::OrganizationPolicy,
             delivery_modes: modes,
             service_acceptance_ref: Some(

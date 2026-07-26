@@ -73,7 +73,7 @@ class DenySite:
     file: str
     line: int
     kind: str
-    type_name: str
+    value_kind: str
     spec_pointer: str | None
     cfg_gated: bool
     flatten_extra: bool
@@ -116,7 +116,7 @@ def scan_file(path: Path, source_root: Path) -> list[DenySite]:
         if decl is None:
             continue
         kind = decl.group(1)
-        type_name = decl.group(2)
+        value_kind = decl.group(2)
         decl_start = decl.start()
         _, block_text = preceding_attr_block(masked, decl_start)
         # Only associate this deny with the decl if the deny lies within the
@@ -157,7 +157,7 @@ def scan_file(path: Path, source_root: Path) -> list[DenySite]:
                 file=relative,
                 line=line,
                 kind=kind,
-                type_name=type_name,
+                value_kind=value_kind,
                 spec_pointer=pointer,
                 cfg_gated=cfg_gated,
                 flatten_extra=flatten_extra,
@@ -174,7 +174,7 @@ def scan_sites(source_root: Path) -> list[DenySite]:
 
 
 def name_inferred_node(resolver: SchemaResolver, site: DenySite) -> tuple[str | None, Any, Path | None]:
-    name = resolver.rust_name_to_schema_name(site.type_name)
+    name = resolver.rust_name_to_schema_name(site.value_kind)
     candidates = resolver.build_def_index().get(name, [])
     unique = list(dict.fromkeys((p, frag) for p, frag, _ in candidates))
     if len(unique) == 1:
@@ -269,7 +269,7 @@ def load_allowlist(path: Path) -> dict[str, dict[str, Any]]:
 def report(sites: list[DenySite], resolver: SchemaResolver, allowlist: dict[str, dict[str, Any]]) -> dict[str, Any]:
     entries = []
     for site in sites:
-        key = f"{site.file}::{site.type_name}"
+        key = f"{site.file}::{site.value_kind}"
         pointer, node, owner_path = resolve_owner_node(resolver, site)
         openness = object_openness(resolver, node, owner_path) if node is not None else "unresolved"
         if openness == "closed":
@@ -288,7 +288,7 @@ def report(sites: list[DenySite], resolver: SchemaResolver, allowlist: dict[str,
                 "file": site.file,
                 "line": site.line,
                 "kind": site.kind,
-                "type_name": site.type_name,
+                "value_kind": site.value_kind,
                 "spec_pointer": pointer or site.spec_pointer,
                 "schema_openness": openness,
                 "classification": classification,

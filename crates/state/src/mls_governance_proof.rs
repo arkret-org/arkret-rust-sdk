@@ -651,8 +651,8 @@ mod tests {
         )
     }
 
-    fn proof_request(fixture: &Fixture) -> MlsGovernanceProofRequest {
-        MlsGovernanceProofRequest {
+    fn proof_request(fixture: &Fixture) -> MlsGovernanceProofRequestBodyBody {
+        MlsGovernanceProofRequestBodyBody {
             realm_id: fixture.bundle.realm_id.clone(),
             effective_scope: fixture.bundle.effective_scope.clone(),
             mls_group_id: "YXJrcmV0LW1scy1maXh0dXJl".to_owned(),
@@ -823,7 +823,7 @@ mod tests {
 
     #[test]
     fn proof_request_rejects_epoch_skip() {
-        let request = MlsGovernanceProofRequest {
+        let request = MlsGovernanceProofRequestBodyBody {
             realm_id: realm(),
             effective_scope: EffectiveScope::Realm { realm_id: realm() },
             mls_group_id: "YXJrcmV0LW1scy1maXh0dXJl".to_owned(),
@@ -841,7 +841,7 @@ mod tests {
 
     #[test]
     fn proof_request_accepts_genesis_epoch() {
-        let request = MlsGovernanceProofRequest {
+        let request = MlsGovernanceProofRequestBodyBody {
             realm_id: realm(),
             effective_scope: EffectiveScope::Realm { realm_id: realm() },
             mls_group_id: "YXJrcmV0LW1scy1maXh0dXJl".to_owned(),

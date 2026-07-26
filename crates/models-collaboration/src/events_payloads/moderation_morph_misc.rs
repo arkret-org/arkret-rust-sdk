@@ -205,11 +205,11 @@ fn apply_transformation_rule(
             fields.insert(to.to_owned(), value);
         }
         "ak.transform.type_widen.v1" => {
-            require_exact_rule_fields(rule, rule_id, &["rule", "field", "from_type", "to_type"])?;
+            require_exact_rule_fields(rule, rule_id, &["rule", "field", "from_kind", "to_kind"])?;
             let field = required_rule_string(rule, "field", rule_id)?;
-            let from_type = required_rule_string(rule, "from_type", rule_id)?;
-            let to_type = required_rule_string(rule, "to_type", rule_id)?;
-            if from_type != "integer" || to_type != "number" {
+            let from_kind = required_rule_string(rule, "from_kind", rule_id)?;
+            let to_kind = required_rule_string(rule, "to_kind", rule_id)?;
+            if from_kind != "integer" || to_kind != "number" {
                 return Err(MorphSchemaTransformationError::InvalidRuleFields(
                     rule_id.to_owned(),
                 ));
@@ -272,8 +272,7 @@ pub type MorphSchemaFieldSet = BTreeMap<String, MorphSchemaFieldDescriptor>;
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MorphSchemaFieldDescriptor {
-    #[serde(rename = "type")]
-    pub type_name: String,
+    pub value_kind: String,
     #[serde(default)]
     pub required: bool,
     #[serde(default)]
@@ -406,7 +405,7 @@ fn validate_field_is_not_tightened(
     from_field: &MorphSchemaFieldDescriptor,
     to_field: &MorphSchemaFieldDescriptor,
 ) -> std::result::Result<(), MorphSchemaAdditiveViolation> {
-    if from_field.type_name != to_field.type_name {
+    if from_field.value_kind != to_field.value_kind {
         return Err(MorphSchemaAdditiveViolation::FieldTypeChanged(
             field_name.to_owned(),
         ));
@@ -556,9 +555,9 @@ pub type PlaintextDataClass = String;
 mod tests {
     use super::*;
 
-    fn field(type_name: &str) -> MorphSchemaFieldDescriptor {
+    fn field(value_kind: &str) -> MorphSchemaFieldDescriptor {
         MorphSchemaFieldDescriptor {
-            type_name: type_name.to_owned(),
+            value_kind: value_kind.to_owned(),
             ..Default::default()
         }
     }

@@ -120,7 +120,7 @@ Headline additions:
   `expected_previous_generation`; `compute_audit_policy_version_digest`
   takes 4 args (`realm_id, trust_domain, audit_disclosure,
   audit_assurance`).
-- **`ak.call.signal` (Round 4 wire revision)**: 13-value `signal_type`
+- **`ak.call.signal` (Round 4 wire revision)**: 13-value `signal_kind`
   enum, required `proof`, monotonic `seq` validator.
 - **`Realm` / `ServiceDescribe` / `AuditRywReceipt`** gain required
   `trust_domain`; the revised `ServiceDescribe` carries 17 required fields.

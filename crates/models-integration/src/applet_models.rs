@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::applet::AppletPackage;
 use crate::artifacts_applet::{
-    E2eePolicy, ExternalRef, FieldType, ProtocolInstance, RejectedItem, ScopeGrant,
+    E2eePolicy, ExternalRef, FieldDefinition, ProtocolInstance, RejectedItem, ScopeGrant,
 };
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -41,10 +41,10 @@ pub struct AppletTransactionOutcome {
 #[serde(deny_unknown_fields)]
 pub struct AppletApprovalRequest {
     pub approve_actions: Vec<String>,
-    pub allow_ghost_actors: bool,
-    pub allow_delegated_native_actors: bool,
-    pub allow_e2ee_join: bool,
-    pub allow_widget: bool,
+    pub ghost_actors_allowed: bool,
+    pub delegated_native_actors_allowed: bool,
+    pub e2ee_join_allowed: bool,
+    pub widget_allowed: bool,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -80,7 +80,7 @@ pub struct AppletActorPolicy {
 #[serde(deny_unknown_fields)]
 pub struct AppletWidgetPolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allow_widget: Option<bool>,
+    pub widget_allowed: Option<bool>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -163,7 +163,7 @@ pub struct AppletProtocolMetadata {
     pub display_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon_blob_ref: Option<BlobRef>,
-    pub field_types: BTreeMap<String, FieldType>,
+    pub field_definitions: BTreeMap<String, FieldDefinition>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub instances: Vec<ProtocolInstance>,
 }

@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/proof-context-registry.json; version=2026-07-24;
-//! sha256=d71a8870ee8bd1c29fdb831d7f4783c1a4ad4e533a3f023add06ea9a6298f3a1 Input: registry/
+//! sha256=43f8b6483f41248933491bb95addba017534974a73aa10c886ac000e23287e43 Input: registry/
 //! exporter-label-registry.json; version=2026-06-10;
-//! sha256=7d67b5d14ab81711347af19f9f1759d9ee35dd1f15d96c92ed02fd6b27847d76 Input: registry/
+//! sha256=899604056f85a86c29627783c29f7607c9e12776768cb147392e11b42e2ec46c Input: registry/
 //! digest-suite-registry.json; version=2026-06-10;
-//! sha256=6522a9f899872e285762d46634a8f13a2d9f69437d04287a404cccde42327344 Input: registry/
+//! sha256=a2ec09df95e7115ea2feba454b121cb9095f21e42313422ac6d9b9c9cd5f7573 Input: registry/
 //! signature-alg-registry.json; version=2026-07-13;
 //! sha256=5ccd1caf0e223f267b782a5d8bd61310597031f76f71cc49d60eea261b73061f Input: registry/
 //! hpke-suite-registry.json; version=2026-07-13;
@@ -13,7 +13,7 @@
 //! mls-ciphersuite-registry.json; version=2026-07-13;
 //! sha256=a480b2b689250123d2cc22e004bc376cb8080d9f6bf1500886271ff30b5a6ad6 Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
-//! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
+//! sha256=0fbcc85e00b58715c360aa0ed37acf11d858fd6b1a7d0ceb9b0c82bda99f1614
 //! Entries: proof_contexts=28, exporter_labels=8, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 
@@ -25,7 +25,7 @@ pub enum ProofContextId {
     AgentRequestedScopeDisclosureProofV1,
     AgentSelectorClaimProofV1,
     AppletPackageProofV1,
-    AttestationEvidenceProofV1,
+    AuditReleaseAttestationProofV1,
     AuditRywReceiptProofV1,
     CapabilityGrantProofV1,
     DidContinuityProofV1,
@@ -57,7 +57,7 @@ impl ProofContextId {
         Self::AgentRequestedScopeDisclosureProofV1,
         Self::AgentSelectorClaimProofV1,
         Self::AppletPackageProofV1,
-        Self::AttestationEvidenceProofV1,
+        Self::AuditReleaseAttestationProofV1,
         Self::AuditRywReceiptProofV1,
         Self::CapabilityGrantProofV1,
         Self::DidContinuityProofV1,
@@ -89,7 +89,8 @@ impl ProofContextId {
         "ak.agent-requested-scope-disclosure-proof-v1";
     pub const AGENT_SELECTOR_CLAIM_PROOF_V1: &'static str = "ak.agent-selector-claim-proof-v1";
     pub const APPLET_PACKAGE_PROOF_V1: &'static str = "ak.applet-package-proof-v1";
-    pub const ATTESTATION_EVIDENCE_PROOF_V1: &'static str = "ak.attestation-evidence-proof-v1";
+    pub const AUDIT_RELEASE_ATTESTATION_PROOF_V1: &'static str =
+        "ak.audit-release-attestation-proof-v1";
     pub const AUDIT_RYW_RECEIPT_PROOF_V1: &'static str = "ak.audit-ryw-receipt-proof-v1";
     pub const CAPABILITY_GRANT_PROOF_V1: &'static str = "ak.capability-grant-proof-v1";
     pub const DID_CONTINUITY_PROOF_V1: &'static str = "ak.did-continuity-proof-v1";
@@ -131,7 +132,7 @@ impl ProofContextId {
             }
             Self::AgentSelectorClaimProofV1 => "ak.agent-selector-claim-proof-v1",
             Self::AppletPackageProofV1 => "ak.applet-package-proof-v1",
-            Self::AttestationEvidenceProofV1 => "ak.attestation-evidence-proof-v1",
+            Self::AuditReleaseAttestationProofV1 => "ak.audit-release-attestation-proof-v1",
             Self::AuditRywReceiptProofV1 => "ak.audit-ryw-receipt-proof-v1",
             Self::CapabilityGrantProofV1 => "ak.capability-grant-proof-v1",
             Self::DidContinuityProofV1 => "ak.did-continuity-proof-v1",
@@ -176,7 +177,7 @@ impl ProofContextId {
             }
             "ak.agent-selector-claim-proof-v1" => Some(Self::AgentSelectorClaimProofV1),
             "ak.applet-package-proof-v1" => Some(Self::AppletPackageProofV1),
-            "ak.attestation-evidence-proof-v1" => Some(Self::AttestationEvidenceProofV1),
+            "ak.audit-release-attestation-proof-v1" => Some(Self::AuditReleaseAttestationProofV1),
             "ak.audit-ryw-receipt-proof-v1" => Some(Self::AuditRywReceiptProofV1),
             "ak.capability-grant-proof-v1" => Some(Self::CapabilityGrantProofV1),
             "ak.did-continuity-proof-v1" => Some(Self::DidContinuityProofV1),
@@ -291,7 +292,7 @@ pub struct ExporterLabelDescriptor {
     pub label: &'static str,
     pub primitive: Option<&'static str>,
     pub context_fields: &'static [&'static str],
-    pub output_length: &'static str,
+    pub output_bytes: &'static str,
     pub empty_context_forbidden: bool,
     pub forbid_reuse_with: &'static [&'static str],
 }
@@ -388,8 +389,8 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/applet-package.schema.json",
     },
     ProofContextDescriptor {
-        id: ProofContextId::AttestationEvidenceProofV1,
-        context: "ak.attestation-evidence-proof-v1",
+        id: ProofContextId::AuditReleaseAttestationProofV1,
+        context: "ak.audit-release-attestation-proof-v1",
         object_family: "attestation_evidence",
         binding_fields: &[
             "payload_digest",
@@ -400,7 +401,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "domain?",
             "audience?",
         ],
-        schema_ref: "schemas/attestation-evidence.schema.json",
+        schema_ref: "schemas/audit-release-attestation.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::AuditRywReceiptProofV1,
@@ -671,7 +672,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         context: "ak.realm-key-share-sender-proof-v1",
         object_family: "realm_key_share_sender_transcript",
         binding_fields: &[
-            "share_class",
+            "share_kind",
             "sender_device_id",
             "source_authorization_ref",
             "recipient_principal_id",
@@ -739,7 +740,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         label: "ak.content-v1",
         primitive: Some("ExpandWithLabel"),
         context_fields: &[],
-        output_length: "AEAD.Nk for the active MLS ciphersuite",
+        output_bytes: "AEAD.Nk for the active MLS ciphersuite",
         empty_context_forbidden: false,
         forbid_reuse_with: &[
             "ak.history-v1",
@@ -753,7 +754,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         label: "ak.history-v1",
         primitive: Some("MLS-Exporter"),
         context_fields: &["realm_id"],
-        output_length: "KDF.Nh for the active MLS ciphersuite",
+        output_bytes: "KDF.Nh for the active MLS ciphersuite",
         empty_context_forbidden: true,
         forbid_reuse_with: &[
             "ak.content-v1",
@@ -774,7 +775,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
             "participant_identity",
             "device_id",
         ],
-        output_length: "32",
+        output_bytes: "32",
         empty_context_forbidden: true,
         forbid_reuse_with: &["ak.rtc-recording-key/v1", "ak.rtc-transcript-key/v1"],
     },
@@ -790,7 +791,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
             "media_service_id",
             "recording_start_event_id",
         ],
-        output_length: "32",
+        output_bytes: "32",
         empty_context_forbidden: true,
         forbid_reuse_with: &["ak.rtc-frame-key/v1", "ak.rtc-transcript-key/v1"],
     },
@@ -806,7 +807,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
             "media_service_id",
             "transcript_start_event_id",
         ],
-        output_length: "32",
+        output_bytes: "32",
         empty_context_forbidden: true,
         forbid_reuse_with: &["ak.rtc-frame-key/v1", "ak.rtc-recording-key/v1"],
     },
@@ -815,7 +816,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         label: "arkret-aead-sender-nonce-prefix-v1",
         primitive: Some("MLS-Exporter"),
         context_fields: &["key_ref", "epoch", "device_id", "purpose", "aead_profile"],
-        output_length: "N_AEAD - 8 (16 for XChaCha20-Poly1305, 4 for AES-GCM)",
+        output_bytes: "N_AEAD - 8 (16 for XChaCha20-Poly1305, 4 for AES-GCM)",
         empty_context_forbidden: true,
         forbid_reuse_with: &[],
     },
@@ -824,7 +825,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         label: "arkret-mention-routing-v1",
         primitive: Some("MLS-Exporter"),
         context_fields: &["realm_id"],
-        output_length: "32",
+        output_bytes: "32",
         empty_context_forbidden: true,
         forbid_reuse_with: &["arkret-reaction-routing-v1"],
     },
@@ -833,7 +834,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         label: "arkret-reaction-routing-v1",
         primitive: Some("MLS-Exporter"),
         context_fields: &["realm_id"],
-        output_length: "32",
+        output_bytes: "32",
         empty_context_forbidden: true,
         forbid_reuse_with: &["arkret-mention-routing-v1"],
     },

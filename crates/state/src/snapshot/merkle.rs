@@ -45,7 +45,7 @@ impl SnapshotMerkleTree {
     }
 
     /// Number of leaf chunks.
-    pub fn tree_size(&self) -> usize {
+    pub fn leaf_count(&self) -> usize {
         self.leaves.len()
     }
 
@@ -60,9 +60,9 @@ impl SnapshotMerkleTree {
     /// RFC 6962-style audit path: siblings from leaf up to root,
     /// bottom-up. Promoted nodes (last node of an odd-sized level)
     /// contribute no sibling, so path lengths vary per leaf. Returns
-    /// `None` when `leaf_index >= tree_size`.
+    /// `None` when `leaf_index >= leaf_count`.
     pub fn audit_path(&self, leaf_index: usize) -> Option<Vec<Hash>> {
-        if leaf_index >= self.tree_size() {
+        if leaf_index >= self.leaf_count() {
             return None;
         }
         let mut path = Vec::new();
@@ -85,31 +85,31 @@ impl SnapshotMerkleTree {
 
     /// Verify that `leaf` at `leaf_index` reconstructs to `root` given
     /// `audit_path`. Stateless — receivers can call this without
-    /// rebuilding the tree. `tree_size` drives the layer walk, so a
+    /// rebuilding the tree. `leaf_count` drives the layer walk, so a
     /// proof is only accepted when `audit_path` has exactly the length
-    /// the claimed `(leaf_index, tree_size)` pair implies.
+    /// the claimed `(leaf_index, leaf_count)` pair implies.
     pub fn verify(
         root: &Hash,
         leaf: &Hash,
         leaf_index: usize,
         audit_path: &[Hash],
-        tree_size: usize,
+        leaf_count: usize,
     ) -> bool {
-        if tree_size == 0 || leaf_index >= tree_size {
+        if leaf_count == 0 || leaf_index >= leaf_count {
             return false;
         }
         let Some(mut current) = parse_sha256(leaf) else {
             return false;
         };
         let mut idx = leaf_index;
-        let mut layer_size = tree_size;
+        let mut layer_size = leaf_count;
         let mut siblings = audit_path.iter();
         while layer_size > 1 {
             if idx == layer_size - 1 && layer_size % 2 == 1 {
                 // Promoted node: consumes no sibling at this level.
             } else {
                 let Some(sibling) = siblings.next() else {
-                    return false; // path too short for the claimed tree_size
+                    return false; // path too short for the claimed leaf_count
                 };
                 let Some(sib_bytes) = parse_sha256(sibling) else {
                     return false;
@@ -127,7 +127,7 @@ impl SnapshotMerkleTree {
             layer_size = layer_size.div_ceil(2);
         }
         if siblings.next().is_some() {
-            return false; // path longer than the claimed tree_size implies
+            return false; // path longer than the claimed leaf_count implies
         }
         let Some(root_bytes) = parse_sha256(root) else {
             return false;

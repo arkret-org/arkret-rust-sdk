@@ -49,7 +49,7 @@ const PLAINTEXT_VISIBLE_SERVICES_CELL: &str = "ak.component.realm.plaintext_visi
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MlsGovernanceProofRequest {
+pub struct MlsGovernanceProofRequestBodyBody {
     pub realm_id: RealmId,
     pub effective_scope: EffectiveScope,
     pub mls_group_id: String,
@@ -63,7 +63,7 @@ pub struct MlsGovernanceProofRequest {
     pub expected_bundle_digest: Option<Hash>,
 }
 
-impl MlsGovernanceProofRequest {
+impl MlsGovernanceProofRequestBodyBody {
     pub fn validate(&self) -> Result<()> {
         if self.effective_scope.realm_id() != &self.realm_id {
             return schema("proof request Realm and effective_scope mismatch");
@@ -422,7 +422,7 @@ impl MlsGovernanceProofBundle {
 /// Servers may select the requested entry after this function has committed
 /// the complete sequence.
 pub fn build_mls_governance_proof_chunks(
-    request: &MlsGovernanceProofRequest,
+    request: &MlsGovernanceProofRequestBodyBody,
     materialized: &MaterializedMlsGovernanceProofBundle,
 ) -> Result<Vec<MlsGovernanceProofBundle>> {
     request.validate()?;
@@ -488,7 +488,7 @@ pub fn build_mls_governance_proof_chunks(
         .iter()
         .map(MlsGovernanceProofChunk::recompute_digest)
         .collect::<Result<Vec<_>>>()?;
-    let chunks_root = merkle_root_hash(&chunk_digests)?;
+    let chunks_root = merkle_tree_root(&chunk_digests)?;
     for (index, chunk) in chunks.iter_mut().enumerate() {
         let proof = merkle_proof(&chunk_digests, index)?;
         chunk.set_commitment(chunk_digests[index].clone(), proof);
@@ -552,7 +552,7 @@ pub fn build_mls_governance_proof_chunks(
 /// Authenticate and assemble a complete chunk sequence. No materialized proof
 /// is returned until every index and every collection range is present.
 pub fn assemble_mls_governance_proof_chunks(
-    request: &MlsGovernanceProofRequest,
+    request: &MlsGovernanceProofRequestBodyBody,
     responses: &[MlsGovernanceProofBundle],
 ) -> Result<MaterializedMlsGovernanceProofBundle> {
     if responses.is_empty() {
@@ -605,7 +605,7 @@ pub fn assemble_mls_governance_proof_chunks(
         .iter()
         .map(|response| response.chunk.chunk_digest().clone())
         .collect::<Vec<_>>();
-    if merkle_root_hash(&digests)? != first.chunk_manifest.chunks_root {
+    if merkle_tree_root(&digests)? != first.chunk_manifest.chunks_root {
         return state_mismatch("MLS governance proof chunks_root mismatch");
     }
     for (index, response) in ordered.iter().enumerate() {
@@ -861,7 +861,7 @@ fn merkle_root_raw(digests: &[Hash]) -> Result<[u8; 32]> {
     }
 }
 
-fn merkle_root_hash(digests: &[Hash]) -> Result<Hash> {
+fn merkle_tree_root(digests: &[Hash]) -> Result<Hash> {
     Hash::new(format!("sha256:{}", hex::encode(merkle_root_raw(digests)?))).map_err(Into::into)
 }
 
@@ -948,7 +948,7 @@ fn materialized_total_item_bytes(bundle: &MaterializedMlsGovernanceProofBundle) 
 }
 
 fn validate_materialized_identity(
-    request: &MlsGovernanceProofRequest,
+    request: &MlsGovernanceProofRequestBodyBody,
     bundle: &MaterializedMlsGovernanceProofBundle,
 ) -> Result<()> {
     if bundle.bundle_version != MLS_GOVERNANCE_PROOF_BUNDLE_VERSION

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use arkret_wire::{
-    DeviceId, Did, EventId, Hlc, NotificationPriority, NotificationState, NotificationType,
+    DeviceId, Did, EventId, Hlc, NotificationKind, NotificationPriority, NotificationState,
     ReadCursorId, ReadCursorScope, ReadReceiptScope, RealmId, Result, StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
@@ -79,7 +79,7 @@ pub struct ReadCursorList {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReadReceipt {
-    pub receipt_type: String,
+    pub receipt_kind: String,
     pub schema: String,
     pub realm_id: RealmId,
     pub actor_id: Did,
@@ -264,7 +264,7 @@ pub struct Notification {
     pub source_event_id: EventId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_ref: Option<String>,
-    pub notification_type: NotificationType,
+    pub notification_kind: NotificationKind,
     pub priority: NotificationPriority,
     pub state: NotificationState,
     #[serde(skip_serializing_if = "Option::is_none")]

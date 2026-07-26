@@ -1409,8 +1409,8 @@ mod tests {
         evidence.transparency = Some(AgentEvidenceTransparency {
             profile: NonEmptyString::new(KEY_TRANSPARENCY_PROFILE.to_owned()).unwrap(),
             log_id: NonEmptyString::new("agent-key-log".to_owned()).unwrap(),
-            tree_size: 1,
-            root_hash: hash('4'),
+            leaf_count: 1,
+            tree_root: hash('4'),
             inclusion_proof: vec![],
             consistency_proof: vec![],
             witness_signatures: vec![NonEmptyString::new("witness-signature".to_owned()).unwrap()],

@@ -16,14 +16,14 @@
 //!
 //! ```no_run
 //! use arkret_crypto::backup::{build_key_backup_envelope, derive_vault_kek};
-//! use arkret_models_crypto::key_backup::BackupClass;
+//! use arkret_models_crypto::key_backup::BackupKind;
 //!
 //! let kek = derive_vault_kek(b"correct horse battery staple")?;
 //! let envelope = build_key_backup_envelope(
 //!     "ak:backup:01964137-0000-7000-8000-000000000000".parse()?,
 //!     "did:webvh:alice.example".parse()?,
 //!     None,
-//!     BackupClass::SecretStorage,
+//!     BackupKind::SecretStorage,
 //!     "kb_1",
 //!     "recovery_vault",
 //!     &kek,
@@ -39,7 +39,7 @@ use arkret_canonical::canonical::{
     canonical_json_bytes, canonical_sha256, format_timestamp_canonical, sha256_digest, sha256_hex,
 };
 use arkret_models_crypto::key_backup::{
-    BackupClass, KeyBackup, KeyBackupAead, KeyBackupAeadName, KeyBackupContentItem,
+    BackupKind, KeyBackup, KeyBackupAead, KeyBackupAeadName, KeyBackupContentItem,
     KeyBackupDomainSeparation, KeyBackupDomainSeparationAad, KeyBackupEncryption,
     KeyBackupFrontierGeneration, KeyBackupFrontierRef, KeyBackupKdf, KeyBackupKdfName,
     KeyBackupKdfParams, KeyBackupRecipientMethod,
@@ -310,25 +310,25 @@ pub struct VaultBinding {
 }
 
 impl VaultBinding {
-    /// The wire token for this envelope's `backup_class` (the snake_case
+    /// The wire token for this envelope's `backup_kind` (the snake_case
     /// value used in the AAD / nonce transcript and the envelope itself).
     fn backup_class_wire(&self) -> &'static str {
-        match self.aead_aad.backup_class {
-            BackupClass::DidRecovery => "did_recovery",
-            BackupClass::SecretStorage => "secret_storage",
-            BackupClass::MlsHistory => "mls_history",
+        match self.aead_aad.backup_kind {
+            BackupKind::DidRecovery => "did_recovery",
+            BackupKind::SecretStorage => "secret_storage",
+            BackupKind::MlsHistory => "mls_history",
         }
     }
 
     /// HKDF subkey derived from the root unlock key with a
-    /// domain-separated `info`. Per §7.1 each `backup_class` derives in
+    /// domain-separated `info`. Per §7.1 each `backup_kind` derives in
     /// its own domain so compromising one domain cannot unlock another.
     /// Public so conformance KAT runners can pin the intermediate bytes
     /// (`key-backup-hardening-fixture.json` passphrase_kdf_kat case).
     pub fn subkey(&self, root: &[u8; VAULT_KDF_OUTPUT_LEN], subdomain: &str) -> [u8; 32] {
         derive_subkey(
             root,
-            self.aead_aad.backup_class.hkdf_info(subdomain).as_bytes(),
+            self.aead_aad.backup_kind.hkdf_info(subdomain).as_bytes(),
         )
     }
 
@@ -345,7 +345,7 @@ impl VaultBinding {
             "backup_id": self.backup_id.as_str(),
             "actor_id": self.aead_aad.actor_id.as_str(),
             "device_id": self.aead_aad.device_id.as_deref(),
-            "backup_class": self.backup_class_wire(),
+            "backup_kind": self.backup_class_wire(),
             "backup_version": self.aead_aad.backup_version.as_str(),
             "created_at": format_timestamp_canonical(self.aead_aad.created_at),
             "aead": "xchacha20_poly1305",
@@ -532,7 +532,7 @@ pub fn decrypt_key_backup_envelope(
     let domain = &envelope.domain_separation;
     let aad = &domain.aead_aad;
     if domain.subdomain.trim().is_empty()
-        || domain.hkdf_info != envelope.backup_class.hkdf_info(&domain.subdomain)
+        || domain.hkdf_info != envelope.backup_kind.hkdf_info(&domain.subdomain)
     {
         return Err(KeyBackupError::InvalidInput(
             "key backup domain separation mismatch".to_owned(),
@@ -542,23 +542,23 @@ pub fn decrypt_key_backup_envelope(
         .device_id
         .as_ref()
         .map(|device_id| device_id.as_str());
-    let item_types = envelope
+    let item_kinds = envelope
         .contents
         .iter()
-        .map(|item| item.item_type.as_str())
+        .map(|item| item.item_kind.as_str())
         .collect::<Vec<_>>();
     if aad.schema != VAULT_SCHEMA_ID
         || aad.actor_id != envelope.actor_id
         || aad.device_id.as_deref() != device_id
-        || aad.backup_class != envelope.backup_class
+        || aad.backup_kind != envelope.backup_kind
         || aad.backup_version != envelope.backup_version
         || aad.created_at != envelope.created_at
         || aad
-            .item_types
+            .item_kinds
             .iter()
             .map(String::as_str)
             .collect::<Vec<_>>()
-            != item_types
+            != item_kinds
         || aad.recipient_method != Some(envelope.encryption.recipient_method)
         || aad.recipient_key_ref != envelope.encryption.recipient_key_ref
     {
@@ -598,7 +598,7 @@ pub fn decrypt_key_backup_envelope(
     let kek = derive_vault_kek_with_salt(passphrase, &salt_array)?;
     let expected_commitment = format!(
         "sha256:{}",
-        sha256_hex(commitment_digest(&kek.key, envelope.backup_class))
+        sha256_hex(commitment_digest(&kek.key, envelope.backup_kind))
     );
     if envelope.encryption.key_commitment.as_deref() != Some(expected_commitment.as_str()) {
         return Err(KeyBackupError::InvalidInput(
@@ -700,7 +700,7 @@ pub fn estimate_passphrase_strength(passphrase: &str) -> u8 {
 /// Build a typed `ak.schema.key_backup.v1` envelope, encrypting
 /// `plaintext` against the envelope's own identity binding.
 ///
-/// `contents` is `(item_type, optional secret_id)`. The AEAD key, nonce
+/// `contents` is `(item_kind, optional secret_id)`. The AEAD key, nonce
 /// and key commitment are all HKDF-derived from the root unlock key with
 /// domain-separated `info` strings, the AEAD AAD binds the envelope
 /// identity, and the nonce is deterministically derived with a fresh
@@ -710,14 +710,14 @@ pub fn build_key_backup_envelope(
     backup_id: BackupId,
     actor_id: Did,
     device_id: Option<DeviceId>,
-    backup_class: BackupClass,
+    backup_kind: BackupKind,
     backup_version: &str,
     subdomain: &str,
     kek: &VaultKek,
     plaintext: &[u8],
     contents: &[(&str, Option<&str>)],
 ) -> Result<KeyBackup> {
-    if backup_class == BackupClass::MlsHistory {
+    if backup_kind == BackupKind::MlsHistory {
         return Err(KeyBackupError::InvalidInput(
             "mls_history backups must use secret_storage_key or recovery_public_key envelopes"
                 .to_owned(),
@@ -743,12 +743,12 @@ pub fn build_key_backup_envelope(
         device_id: device_id
             .as_ref()
             .map(|device_id| device_id.as_str().to_owned()),
-        backup_class,
+        backup_kind,
         backup_version: backup_version.to_owned(),
         created_at,
-        item_types: contents
+        item_kinds: contents
             .iter()
-            .map(|(item_type, _)| (*item_type).to_owned())
+            .map(|(item_kind, _)| (*item_kind).to_owned())
             .collect(),
         managed_principal_bindings: Vec::new(),
         recipient_method: Some(KeyBackupRecipientMethod::PassphraseKdf),
@@ -797,7 +797,7 @@ pub fn build_key_backup_envelope(
         aead,
         key_commitment: Some(format!(
             "sha256:{}",
-            sha256_hex(commitment_digest(&kek.key, backup_class))
+            sha256_hex(commitment_digest(&kek.key, backup_kind))
         )),
         // Symmetric passphrase_kdf path: the HPKE-suite selector applies only to
         // recipient_method=recovery_public_key, so it is omitted here.
@@ -805,15 +805,15 @@ pub fn build_key_backup_envelope(
         extra: Default::default(),
     };
     let domain_separation = KeyBackupDomainSeparation {
-        hkdf_info: backup_class.hkdf_info(subdomain),
+        hkdf_info: backup_kind.hkdf_info(subdomain),
         subdomain: subdomain.to_owned(),
         aead_aad,
         extra: Default::default(),
     };
     let contents: Vec<KeyBackupContentItem> = contents
         .iter()
-        .map(|(item_type, secret_id)| KeyBackupContentItem {
-            item_type: (*item_type).to_owned(),
+        .map(|(item_kind, secret_id)| KeyBackupContentItem {
+            item_kind: (*item_kind).to_owned(),
             realm_id: None,
             managed_principal_binding: None,
             mls_group_id: None,
@@ -838,7 +838,7 @@ pub fn build_key_backup_envelope(
         backup_id,
         actor_id,
         device_id,
-        backup_class,
+        backup_kind,
         mixed_secret_storage: false,
         backup_version: backup_version.to_owned(),
         created_at,
@@ -899,7 +899,7 @@ pub fn build_key_backup_successor_envelope(
         backup_id,
         predecessor.actor_id.clone(),
         predecessor.device_id.clone(),
-        predecessor.backup_class,
+        predecessor.backup_kind,
         backup_version,
         &predecessor.domain_separation.subdomain,
         kek,
@@ -942,11 +942,11 @@ fn key_backup_supersedes_digest(predecessor: &KeyBackup) -> Result<String> {
 
 /// Key commitment used by the AEAD envelope (spec §7.2):
 /// `SHA256(HKDF(root, info))`. The `info` is domain-separated per
-/// `backup_class` so commitments cannot be reused across domains (§7.1: a
+/// `backup_kind` so commitments cannot be reused across domains (§7.1: a
 /// derived key, commitment key or wrap key for one domain must not be used
 /// directly in another domain). Public for conformance KAT verification.
-pub fn commitment_digest(root: &[u8; VAULT_KDF_OUTPUT_LEN], backup_class: BackupClass) -> Vec<u8> {
-    let mut commitment_key = derive_subkey(root, backup_class.hkdf_info("commitment").as_bytes());
+pub fn commitment_digest(root: &[u8; VAULT_KDF_OUTPUT_LEN], backup_kind: BackupKind) -> Vec<u8> {
+    let mut commitment_key = derive_subkey(root, backup_kind.hkdf_info("commitment").as_bytes());
     let digest = arkret_canonical::canonical::sha256_bytes(commitment_key).to_vec();
     commitment_key.zeroize();
     digest
@@ -987,13 +987,13 @@ pub fn key_backup_commitment(derived_key: &[u8]) -> String {
 ///
 /// Returns 32 bytes of a domain-isolated subkey suitable for AEAD or
 /// further key wrapping. Derives via HKDF-SHA256 over `derived_key`
-/// using `info = backup_class.hkdf_info(subdomain)`.
+/// using `info = backup_kind.hkdf_info(subdomain)`.
 pub fn key_backup_subdomain_key(
     derived_key: &[u8],
-    backup_class: BackupClass,
+    backup_kind: BackupKind,
     subdomain: &str,
 ) -> [u8; 32] {
-    let info = backup_class.hkdf_info(subdomain);
+    let info = backup_kind.hkdf_info(subdomain);
     hkdf_sha256_32(derived_key, info.as_bytes())
 }
 
@@ -1001,23 +1001,23 @@ pub fn key_backup_subdomain_key(
 /// envelope to its origin per `key-management.md` §7.1.
 ///
 /// Returns canonical-JSON bytes covering:
-/// `actor_id`, `device_id`, `backup_class`, `backup_version`,
-/// `item_type`, `schema_id`, and `created_at`.
+/// `actor_id`, `device_id`, `backup_kind`, `backup_version`,
+/// `item_kind`, `schema_id`, and `created_at`.
 pub fn key_backup_aad(
     actor_id: &Did,
     device_id: Option<&DeviceId>,
-    backup_class: BackupClass,
+    backup_kind: BackupKind,
     backup_version: &str,
-    item_type: &str,
+    item_kind: &str,
     schema_id: &str,
     created_at: DateTime<Utc>,
 ) -> crate::Result<Vec<u8>> {
     let aad = json!({
         "actor_id": actor_id.as_str(),
         "device_id": device_id.map(|d| d.as_str()),
-        "backup_class": backup_class.as_str(),
+        "backup_kind": backup_kind.as_str(),
         "backup_version": backup_version,
-        "item_type": item_type,
+        "item_kind": item_kind,
         "schema_id": schema_id,
         "created_at": format_timestamp_canonical(created_at),
     });
@@ -1046,7 +1046,7 @@ mod tests {
         assert_ne!(a.key, b.key);
     }
 
-    fn test_binding(class: BackupClass, item: &str) -> VaultBinding {
+    fn test_binding(class: BackupKind, item: &str) -> VaultBinding {
         VaultBinding {
             backup_id: "ak:backup:01964137-0000-7000-8000-000000000000"
                 .parse()
@@ -1056,10 +1056,10 @@ mod tests {
                 schema: VAULT_SCHEMA_ID.to_owned(),
                 actor_id: "did:webvh:alice.example".parse().unwrap(),
                 device_id: None,
-                backup_class: class,
+                backup_kind: class,
                 backup_version: "kb_1".to_owned(),
                 created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
-                item_types: vec![item.to_owned()],
+                item_kinds: vec![item.to_owned()],
                 managed_principal_bindings: vec![],
                 recipient_method: None,
                 recipient_key_ref: None,
@@ -1072,7 +1072,7 @@ mod tests {
     fn encrypt_decrypt_round_trip() {
         let kek = derive_vault_kek_with_salt(b"open sesame", &[7u8; VAULT_SALT_LEN]).unwrap();
         let plaintext = br#"{"device_sk":"opaque"}"#;
-        let binding = test_binding(BackupClass::SecretStorage, "recovery_secret");
+        let binding = test_binding(BackupKind::SecretStorage, "recovery_secret");
         let ct = encrypt_vault(&kek, &binding, plaintext).unwrap();
         let recovered = decrypt_vault(
             b"open sesame",
@@ -1089,7 +1089,7 @@ mod tests {
     #[test]
     fn decrypt_rejects_wrong_passphrase() {
         let kek = derive_vault_kek_with_salt(b"first", &[3u8; VAULT_SALT_LEN]).unwrap();
-        let binding = test_binding(BackupClass::SecretStorage, "recovery_secret");
+        let binding = test_binding(BackupKind::SecretStorage, "recovery_secret");
         let ct = encrypt_vault(&kek, &binding, b"payload").unwrap();
         let err = decrypt_vault(
             b"second",
@@ -1106,11 +1106,11 @@ mod tests {
     #[test]
     fn decrypt_rejects_tampered_binding() {
         // §7.1: AAD binds the envelope identity, so changing the
-        // backup_class (cross-domain replay) MUST fail AEAD.
+        // backup_kind (cross-domain replay) MUST fail AEAD.
         let kek = derive_vault_kek_with_salt(b"pp", &[9u8; VAULT_SALT_LEN]).unwrap();
-        let mut binding = test_binding(BackupClass::SecretStorage, "recovery_secret");
+        let mut binding = test_binding(BackupKind::SecretStorage, "recovery_secret");
         let ct = encrypt_vault(&kek, &binding, b"secret").unwrap();
-        binding.aead_aad.backup_class = BackupClass::DidRecovery;
+        binding.aead_aad.backup_kind = BackupKind::DidRecovery;
         let err = decrypt_vault(
             b"pp",
             &binding,
@@ -1127,7 +1127,7 @@ mod tests {
     fn decrypt_rejects_nonce_mismatch() {
         // §7.2: receiver recomputes the nonce and rejects a mismatch.
         let kek = derive_vault_kek_with_salt(b"pp", &[4u8; VAULT_SALT_LEN]).unwrap();
-        let binding = test_binding(BackupClass::SecretStorage, "recovery_secret");
+        let binding = test_binding(BackupKind::SecretStorage, "recovery_secret");
         let ct = encrypt_vault(&kek, &binding, b"secret").unwrap();
         let bad_nonce = base64url_encode([0u8; VAULT_NONCE_LEN]);
         let err = decrypt_vault(
@@ -1145,7 +1145,7 @@ mod tests {
     #[test]
     fn nonce_is_deterministic_for_fixed_transcript() {
         let kek = derive_vault_kek_with_salt(b"pp", &[1u8; VAULT_SALT_LEN]).unwrap();
-        let binding = test_binding(BackupClass::SecretStorage, "recovery_secret");
+        let binding = test_binding(BackupKind::SecretStorage, "recovery_secret");
         let salt_b64 = base64url_encode([2u8; VAULT_NONCE_SALT_LEN]);
         let a = binding.derive_nonce(&kek.key, &salt_b64).unwrap();
         let b = binding.derive_nonce(&kek.key, &salt_b64).unwrap();
@@ -1155,8 +1155,8 @@ mod tests {
     #[test]
     fn aead_subkey_differs_from_root_and_across_domains() {
         let kek = derive_vault_kek_with_salt(b"pp", &[1u8; VAULT_SALT_LEN]).unwrap();
-        let ss = test_binding(BackupClass::SecretStorage, "x").subkey(&kek.key, "aead");
-        let dr = test_binding(BackupClass::DidRecovery, "x").subkey(&kek.key, "aead");
+        let ss = test_binding(BackupKind::SecretStorage, "x").subkey(&kek.key, "aead");
+        let dr = test_binding(BackupKind::DidRecovery, "x").subkey(&kek.key, "aead");
         assert_ne!(ss, kek.key, "aead key must not reuse bare argon2 output");
         assert_ne!(ss, dr, "domains must derive distinct aead keys");
     }
@@ -1164,8 +1164,8 @@ mod tests {
     #[test]
     fn commitment_is_domain_isolated() {
         let kek = derive_vault_kek_with_salt(b"pp", &[1u8; VAULT_SALT_LEN]).unwrap();
-        let ss = commitment_digest(&kek.key, BackupClass::SecretStorage);
-        let dr = commitment_digest(&kek.key, BackupClass::DidRecovery);
+        let ss = commitment_digest(&kek.key, BackupKind::SecretStorage);
+        let dr = commitment_digest(&kek.key, BackupKind::DidRecovery);
         assert_ne!(ss, dr, "commitment must differ across backup classes");
     }
 
@@ -1225,7 +1225,7 @@ mod tests {
                 .unwrap(),
             "did:webvh:alice.example".parse().unwrap(),
             None,
-            BackupClass::SecretStorage,
+            BackupKind::SecretStorage,
             "kb_1",
             "recovery_vault",
             &kek,
@@ -1233,7 +1233,7 @@ mod tests {
             &[("recovery_secret", Some("vault_payload"))],
         )
         .unwrap();
-        assert_eq!(envelope.backup_class, BackupClass::SecretStorage);
+        assert_eq!(envelope.backup_kind, BackupKind::SecretStorage);
         assert_eq!(
             envelope.encryption.aead.name,
             KeyBackupAeadName::Xchacha20Poly1305
@@ -1252,7 +1252,7 @@ mod tests {
         assert_eq!(kdf.params.parallelism, Some(u64::from(VAULT_ARGON2_P)));
         assert!(envelope.encryption.key_commitment.is_some());
         assert_eq!(envelope.contents.len(), 1);
-        assert_eq!(envelope.contents[0].item_type, "recovery_secret");
+        assert_eq!(envelope.contents[0].item_kind, "recovery_secret");
     }
 
     #[test]
@@ -1267,7 +1267,7 @@ mod tests {
                 .unwrap(),
             "did:webvh:bob.example".parse().unwrap(),
             None,
-            BackupClass::SecretStorage,
+            BackupKind::SecretStorage,
             "kb_1",
             "account_keys",
             &kek,
@@ -1295,7 +1295,7 @@ mod tests {
 
     #[test]
     fn secret_storage_encryption_round_trips_and_binds_digest() {
-        let binding = test_binding(BackupClass::MlsHistory, "mls_group_state");
+        let binding = test_binding(BackupKind::MlsHistory, "mls_group_state");
         let key =
             derive_secret_storage_key(b"account secret", "mls_group_secrets_backup_key").unwrap();
         let sealed = encrypt_with_secret_storage_key(&key, &binding, b"snapshot").unwrap();
@@ -1329,7 +1329,7 @@ mod tests {
                 .unwrap(),
             "did:webvh:alice.example".parse().unwrap(),
             None,
-            BackupClass::SecretStorage,
+            BackupKind::SecretStorage,
             "kb_1",
             "recovery_vault",
             &kek,
@@ -1380,7 +1380,7 @@ mod tests {
                 .unwrap(),
             "did:webvh:alice.example".parse().unwrap(),
             None,
-            BackupClass::SecretStorage,
+            BackupKind::SecretStorage,
             "1",
             "recovery_vault",
             &kek,
@@ -1400,7 +1400,7 @@ mod tests {
                 .unwrap(),
             "did:webvh:alice.example".parse().unwrap(),
             None,
-            BackupClass::MlsHistory,
+            BackupKind::MlsHistory,
             "kb_1",
             "mls_snapshot",
             &kek,
@@ -1428,7 +1428,7 @@ mod tests {
                 .unwrap(),
             "did:webvh:alice.example".parse().unwrap(),
             None,
-            BackupClass::SecretStorage,
+            BackupKind::SecretStorage,
             DEFAULT_BACKUP_VERSION,
             "account_keys",
             &kek,

@@ -39,10 +39,10 @@ pub enum CapabilitySubject {
 /// Grant constraint family discriminator from `grant-constraint.schema.json`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum GrantConstraintType {
+pub enum GrantConstraintKind {
     Temporal,
     FieldAccess,
-    TypeRestriction,
+    KindRestriction,
     ScopeLimitation,
     DelegationControl,
     Quota,
@@ -63,7 +63,7 @@ pub enum GrantConstraintEffect {
 /// Optional specialization discriminator inside a grant constraint family.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum GrantConstraintSubtype {
+pub enum GrantConstraintSubkind {
     Claim,
     Approval,
     Accountability,
@@ -178,7 +178,7 @@ pub enum GrantApprovalThreshold {
 /// Conditional claim requirement in a grant constraint.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GrantConstraintClaimRequirement {
-    pub claim_type: String,
+    pub claim_kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub issuer: Option<Did>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -287,12 +287,12 @@ fn grant_constraint_extension_key_is_valid(value: &str) -> bool {
 pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub constraint_id: Option<String>,
-    pub constraint_type: GrantConstraintType,
+    pub constraint_kind: GrantConstraintKind,
     pub effect: GrantConstraintEffect,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evaluation_class: Option<EvaluationClass>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subtype: Option<GrantConstraintSubtype>,
+    pub constraint_subkind: Option<GrantConstraintSubkind>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub applies_to_actions: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -322,7 +322,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message_redact_window: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allow_redact_after_window: Option<bool>,
+    pub redact_after_window_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub condition: Option<GrantConstraintCondition>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -338,13 +338,13 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sensitive_handling: Option<GrantConstraintSensitiveHandling>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub allowed_object_types: Vec<String>,
+    pub allowed_object_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub denied_object_types: Vec<String>,
+    pub denied_object_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub allowed_morph_types: Vec<String>,
+    pub allowed_morph_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub denied_morph_types: Vec<String>,
+    pub denied_morph_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_space_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -390,7 +390,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blob_presign_scope: Option<BlobPresignScope>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub allowed_data_classes: Vec<String>,
+    pub allowed_data_labels: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_endpoints: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -402,9 +402,9 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delegation_scope: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allow_scope_expansion: Option<bool>,
+    pub scope_expansion_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub require_parent_reference: Option<bool>,
+    pub parent_reference_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blob_max_bytes: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -424,7 +424,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_resources: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub resource_type: Option<String>,
+    pub resource_kind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -438,7 +438,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auto_reject_on_timeout: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proposal_morph_type: Option<String>,
+    pub proposal_morph_kind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_threshold: Option<GrantApprovalThreshold>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -450,7 +450,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub controller_approval_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub requires_claims: Vec<GrantConstraintClaimRequirement>,
+    pub required_claims: Vec<GrantConstraintClaimRequirement>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trusted_claim_issuers: Vec<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -460,21 +460,21 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_history_visibility_values: Vec<HistoryVisibility>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub deny_redacted_history: Option<bool>,
+    pub redacted_history_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encryption_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_encryption_level: Option<EncryptionProfile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allow_plaintext_fallback: Option<bool>,
+    pub plaintext_fallback_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub require_audit_trail: Option<bool>,
+    pub audit_trail_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_rotation_period: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_key_age: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub require_key_backup: Option<bool>,
+    pub key_backup_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub approved_key_issuers: Vec<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -484,13 +484,13 @@ pub struct GrantConstraint {
 }
 
 impl GrantConstraint {
-    pub fn new(constraint_type: GrantConstraintType, effect: GrantConstraintEffect) -> Self {
+    pub fn new(constraint_kind: GrantConstraintKind, effect: GrantConstraintEffect) -> Self {
         Self {
             constraint_id: None,
-            constraint_type,
+            constraint_kind,
             effect,
             evaluation_class: None,
-            subtype: None,
+            constraint_subkind: None,
             applies_to_actions: Vec::new(),
             not_before: None,
             expires_at: None,
@@ -501,7 +501,7 @@ impl GrantConstraint {
             expires_after: None,
             message_edit_window: None,
             message_redact_window: None,
-            allow_redact_after_window: None,
+            redact_after_window_allowed: None,
             condition: None,
             allowed_write_fields: Vec::new(),
             denied_write_fields: Vec::new(),
@@ -509,10 +509,10 @@ impl GrantConstraint {
             denied_read_fields: Vec::new(),
             sensitive_fields: Vec::new(),
             sensitive_handling: None,
-            allowed_object_types: Vec::new(),
-            denied_object_types: Vec::new(),
-            allowed_morph_types: Vec::new(),
-            denied_morph_types: Vec::new(),
+            allowed_object_kinds: Vec::new(),
+            denied_object_kinds: Vec::new(),
+            allowed_morph_kinds: Vec::new(),
+            denied_morph_kinds: Vec::new(),
             allowed_space_kinds: Vec::new(),
             denied_space_kinds: Vec::new(),
             allowed_facets: Vec::new(),
@@ -535,14 +535,14 @@ impl GrantConstraint {
             allowed_tracks: Vec::new(),
             denied_tracks: Vec::new(),
             blob_presign_scope: None,
-            allowed_data_classes: Vec::new(),
+            allowed_data_labels: Vec::new(),
             allowed_endpoints: Vec::new(),
             max_delegation_depth: None,
             delegation_path: Vec::new(),
             prohibit_subdelegation: None,
             delegation_scope: None,
-            allow_scope_expansion: None,
-            require_parent_reference: None,
+            scope_expansion_allowed: None,
+            parent_reference_required: None,
             blob_max_bytes: None,
             blob_presign_max_ttl_seconds: None,
             max_total_blob_bytes: None,
@@ -552,32 +552,32 @@ impl GrantConstraint {
             burst: None,
             constraint_scope: None,
             max_resources: None,
-            resource_type: None,
+            resource_kind: None,
             approval_required: None,
             approval_mode: None,
             approval_actor_ids: Vec::new(),
             approval_relation: None,
             timeout: None,
             auto_reject_on_timeout: None,
-            proposal_morph_type: None,
+            proposal_morph_kind: None,
             approval_threshold: None,
             approvers: Vec::new(),
             accountability_required: None,
             guardian_approval_required: None,
             controller_approval_required: None,
-            requires_claims: Vec::new(),
+            required_claims: Vec::new(),
             trusted_claim_issuers: Vec::new(),
             claim_refresh_required: None,
             claim_max_age: None,
             allowed_history_visibility_values: Vec::new(),
-            deny_redacted_history: None,
+            redacted_history_allowed: None,
             encryption_required: None,
             min_encryption_level: None,
-            allow_plaintext_fallback: None,
-            require_audit_trail: None,
+            plaintext_fallback_allowed: None,
+            audit_trail_required: None,
             key_rotation_period: None,
             max_key_age: None,
-            require_key_backup: None,
+            key_backup_required: None,
             approved_key_issuers: Vec::new(),
             depends_on_moderation_state: None,
             extensions: XExtensionMap::default(),
@@ -586,7 +586,7 @@ impl GrantConstraint {
 
     pub fn delegation_control(max_delegation_depth: u64, prohibit_subdelegation: bool) -> Self {
         let mut constraint = Self::new(
-            GrantConstraintType::DelegationControl,
+            GrantConstraintKind::DelegationControl,
             GrantConstraintEffect::Allow,
         );
         constraint.max_delegation_depth = Some(max_delegation_depth);
@@ -597,12 +597,12 @@ impl GrantConstraint {
     /// Schema-aligned scaffold examples for approval, claim, and container-move constraints.
     pub fn scaffold_examples() -> Vec<Self> {
         let mut approval = Self::new(
-            GrantConstraintType::ClaimBased,
+            GrantConstraintKind::ClaimBased,
             GrantConstraintEffect::RequireReview,
         );
-        approval.subtype = Some(GrantConstraintSubtype::Approval);
+        approval.constraint_subkind = Some(GrantConstraintSubkind::Approval);
         approval.denied_write_fields = vec!["assignee".to_owned(), "status".to_owned()];
-        approval.allowed_object_types = vec!["strand".to_owned()];
+        approval.allowed_object_kinds = vec!["strand".to_owned()];
         approval.allowed_view_ids = vec!["ak:view:01904100-0000-7000-8000-b74ef68eeddf".to_owned()];
         approval.allowed_relation_kinds = vec!["responsible".to_owned()];
         approval.wip_limit_override = Some(false);
@@ -618,16 +618,16 @@ impl GrantConstraint {
         approval.approval_relation = Some(GrantApprovalRelation::Controller);
 
         let mut claim = Self::new(
-            GrantConstraintType::ClaimBased,
+            GrantConstraintKind::ClaimBased,
             GrantConstraintEffect::Allow,
         );
-        claim.subtype = Some(GrantConstraintSubtype::Claim);
-        claim.allowed_object_types = vec!["key_backup".to_owned()];
+        claim.constraint_subkind = Some(GrantConstraintSubkind::Claim);
+        claim.allowed_object_kinds = vec!["key_backup".to_owned()];
         claim.allowed_facets = vec![Facet::Reviewable];
         claim.max_delegation_depth = Some(0);
         claim.approval_required = Some(false);
-        claim.requires_claims = vec![GrantConstraintClaimRequirement {
-            claim_type: "recovery_operator".to_owned(),
+        claim.required_claims = vec![GrantConstraintClaimRequirement {
+            claim_kind: "recovery_operator".to_owned(),
             issuer: Some(
                 Did::new("did:webvh:z6mkfixture:coauth.example").expect("scaffold DID is valid"),
             ),
@@ -643,10 +643,10 @@ impl GrantConstraint {
         }];
 
         let mut container_move = Self::new(
-            GrantConstraintType::ScopeLimitation,
+            GrantConstraintKind::ScopeLimitation,
             GrantConstraintEffect::Deny,
         );
-        container_move.allowed_object_types = vec!["strand".to_owned()];
+        container_move.allowed_object_kinds = vec!["strand".to_owned()];
         container_move.allowed_from_container_refs = vec!["ak:list:triage".to_owned()];
         container_move.allowed_to_container_refs = vec!["ak:list:ready".to_owned()];
         container_move.wip_limit_override = Some(false);

@@ -19,7 +19,7 @@ pub struct PeerContactAddress {
     pub subject_id: Did,
     pub recipient_service_id: Did,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recipient_service_type: Option<String>,
+    pub recipient_service_kind: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -149,11 +149,11 @@ impl PeerContactDeliveryRequest {
                 "peer_contact_delivery_request.schema mismatch".to_owned(),
             ));
         }
-        if let Some(recipient_service_type) = self.contact_address.recipient_service_type.as_deref()
-            && recipient_service_type != "principal_server"
+        if let Some(recipient_service_kind) = self.contact_address.recipient_service_kind.as_deref()
+            && recipient_service_kind != "principal_server"
         {
             return Err(Error::Protocol(
-                "peer_contact_delivery_request.contact_address.recipient_service_type must be principal_server"
+                "peer_contact_delivery_request.contact_address.recipient_service_kind must be principal_server"
                     .to_owned(),
             ));
         }
@@ -226,7 +226,7 @@ mod tests {
             PeerContactAddress {
                 subject_id: did("did:webvh:z6mkfixture:bob.example"),
                 recipient_service_id: did("did:webvh:z6mkfixture:bob.example"),
-                recipient_service_type: None,
+                recipient_service_kind: None,
             },
             PeerContactFactKind::Requested,
             None,

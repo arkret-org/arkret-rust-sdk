@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DeviceId, Did, Error, OperationId, PROTOCOL_VERSION, RealmId, Result, ServiceType,
+    DeviceId, Did, Error, OperationId, PROTOCOL_VERSION, RealmId, Result, ServiceKind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -16,17 +16,17 @@ use crate::service_description::ServiceDescribe;
 
 /// DID-document `service[].type` value designating a device enrollment
 /// authority (the entity allowed to sign `service_attested` `ak.device.authorize`
-/// for this principal). PascalCase per DID-core service-type convention,
+/// for this principal). PascalCase per DID-core service-kind convention,
 /// mirroring `ArkretPrincipalServer`. See `zh/identity/identity-did.md` and
 /// `zh/crypto-media/device-lifecycle.md` §5.4. This is distinct from the
-/// snake_case [`ServiceType`] used by `ServiceEndpointBinding`.
+/// snake_case [`ServiceKind`] used by `ServiceEndpointBinding`.
 pub const DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY: &str = "ArkretDeviceEnrollmentAuthority";
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ServiceEndpointBinding {
     pub service_id: Did,
-    pub service_type: ServiceType,
+    pub service_kind: ServiceKind,
     pub endpoint: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub operations: Vec<String>,
@@ -68,12 +68,12 @@ impl ServiceIdAllowlist {
                 description.service_id
             ))
         })?;
-        if description.service_type != binding.service_type {
+        if description.service_kind != binding.service_kind {
             return Err(Error::Protocol(format!(
                 "service DID {} is allowlisted as {}, not {}",
                 description.service_id,
-                binding.service_type.as_str(),
-                description.service_type
+                binding.service_kind.as_str(),
+                description.service_kind
             )));
         }
         for operation in &binding.operations {
@@ -178,7 +178,7 @@ pub struct ApiConventionMetadata {
 
 #[derive(Clone, Debug, Default)]
 pub struct ServiceRequirements {
-    service_type: Option<ServiceType>,
+    service_kind: Option<ServiceKind>,
     profiles: Vec<String>,
     reducer_profiles: Vec<String>,
     schema_profiles: Vec<String>,
@@ -190,8 +190,8 @@ impl ServiceRequirements {
         Self::default()
     }
 
-    pub fn service_type(mut self, service_type: ServiceType) -> Self {
-        self.service_type = Some(service_type);
+    pub fn service_kind(mut self, service_kind: ServiceKind) -> Self {
+        self.service_kind = Some(service_kind);
         self
     }
 
@@ -223,21 +223,21 @@ impl ServiceRequirements {
             )));
         }
 
-        if let Some(service_type) = &self.service_type {
-            if description.service_type != *service_type {
+        if let Some(service_kind) = &self.service_kind {
+            if description.service_kind != *service_kind {
                 return Err(Error::Protocol(format!(
-                    "service_type {} does not match expected {}",
-                    description.service_type, service_type
+                    "service_kind {} does not match expected {}",
+                    description.service_kind, service_kind
                 )));
             }
-            // Cross-check the service-type capability matrix (T3-10):
+            // Cross-check the service-kind capability matrix (T3-10):
             // refuse a description that advertises operations forbidden
-            // for its declared `service_type`.
+            // for its declared `service_kind`.
             for op in &description.supported_operations {
-                if !service_type.permits_operation(op) {
+                if !service_kind.permits_operation(op) {
                     return Err(Error::Protocol(format!(
-                        "service_type {} must not advertise operation {op}",
-                        service_type
+                        "service_kind {} must not advertise operation {op}",
+                        service_kind
                     )));
                 }
             }
@@ -311,7 +311,7 @@ mod tests {
         let description = ServiceDescribe {
             service_id: Did::new("did:webvh:z6mkfixture:svc.example").unwrap(),
             trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-            service_type: ServiceType::DirectoryService,
+            service_kind: ServiceKind::DirectoryService,
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![PROFILE_DIRECTORY_SERVICE.to_owned()],
             profile_bindings: Default::default(),
@@ -332,7 +332,7 @@ mod tests {
             rate_limit_policy: Some(RateLimitPolicy::unspecified()),
             rate_limit_policy_id: None,
             egress_network_policy: Some(EgressNetworkPolicy::deny_private_defaults()),
-            resource_types: vec![
+            resource_kinds: vec![
                 DirectoryResourceKind::Realm,
                 DirectoryResourceKind::Organization,
                 DirectoryResourceKind::Actor,
@@ -367,7 +367,7 @@ mod tests {
         };
 
         ServiceRequirements::new()
-            .service_type(ServiceType::DirectoryService)
+            .service_kind(ServiceKind::DirectoryService)
             .profile(PROFILE_DIRECTORY_SERVICE)
             .reducer_profile("ak.reducer.v1")
             .schema_profile("ak.schema.core.v1")
@@ -381,14 +381,14 @@ mod tests {
         let service_id = Did::new("did:webvh:z6mkfixture:svc.example").unwrap();
         let allowlist = ServiceIdAllowlist::new().allow(ServiceEndpointBinding {
             service_id: service_id.clone(),
-            service_type: ServiceType::DirectoryService,
+            service_kind: ServiceKind::DirectoryService,
             endpoint: "https://svc.example/_arkret/find/directory".to_owned(),
             operations: vec!["ak.find.directory.query.search_realms".to_owned()],
         });
         let description = ServiceDescribe {
             service_id,
             trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-            service_type: ServiceType::DirectoryService,
+            service_kind: ServiceKind::DirectoryService,
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![PROFILE_DIRECTORY_SERVICE.to_owned()],
             profile_bindings: Default::default(),
@@ -409,7 +409,7 @@ mod tests {
             rate_limit_policy: Some(RateLimitPolicy::unspecified()),
             rate_limit_policy_id: None,
             egress_network_policy: Some(EgressNetworkPolicy::deny_private_defaults()),
-            resource_types: vec![
+            resource_kinds: vec![
                 DirectoryResourceKind::Realm,
                 DirectoryResourceKind::Organization,
                 DirectoryResourceKind::Actor,
@@ -448,15 +448,15 @@ mod tests {
 
     #[test]
     fn push_gateway_permits_current_edge_push_operations() {
-        let service_type = ServiceType::PushGateway;
+        let service_kind = ServiceKind::PushGateway;
         // The three `ak.edge.push.*` operations registered in
         // `operation-registry.json` MUST all be advertisable by a push gateway.
-        assert!(service_type.permits_operation("ak.edge.push.command.register_device"));
-        assert!(service_type.permits_operation("ak.edge.push.command.unregister_device"));
-        assert!(service_type.permits_operation("ak.edge.push.command.notify"));
+        assert!(service_kind.permits_operation("ak.edge.push.command.register_device"));
+        assert!(service_kind.permits_operation("ak.edge.push.command.unregister_device"));
+        assert!(service_kind.permits_operation("ak.edge.push.command.notify"));
         // Operations outside the `ak.edge.push.` surface (e.g. applet or
         // self-API operations) MUST NOT be advertisable by a push gateway.
-        assert!(!service_type.permits_operation("ak.edge.applet.command.invoke"));
-        assert!(!service_type.permits_operation("ak.self.events.query.sync"));
+        assert!(!service_kind.permits_operation("ak.edge.applet.command.invoke"));
+        assert!(!service_kind.permits_operation("ak.self.events.query.sync"));
     }
 }

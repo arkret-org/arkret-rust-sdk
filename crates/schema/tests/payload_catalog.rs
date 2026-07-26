@@ -174,7 +174,7 @@ fn patch_event_family_maps_to_canonical_payloads() {
 }
 
 #[test]
-fn morph_update_rejects_create_locked_morph_type() {
+fn morph_update_rejects_create_locked_morph_kind() {
     let Some(catalog) = live_payload_catalog() else {
         return;
     };
@@ -194,11 +194,11 @@ fn morph_update_rejects_create_locked_morph_type() {
                 "ak.morph.update",
                 &json!({
                     "target_ref": "ak:morph:0196419b-0000-7000-8000-000000000001",
-                    "patch": { "morph_type": { "$op": "set", "value": "task" } }
+                    "patch": { "morph_kind": { "$op": "set", "value": "task" } }
                 }),
             )
             .is_err(),
-        "ak.morph.update must reject create-locked morph_type changes"
+        "ak.morph.update must reject create-locked morph_kind changes"
     );
     assert!(
         catalog
@@ -224,7 +224,7 @@ fn invite_create_payload_shape_is_enforced() {
         "invitee": "did:webvh:z6mkfixture:bob.example",
         "invite_delivery_target": {
             "recipient_service_id": "did:webvh:z6mkfixture:server.example",
-            "recipient_service_type": "principal_server"
+            "recipient_service_kind": "principal_server"
         },
         "introduction_evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
         "expires_at": "2026-06-14T10:00:00.000Z",

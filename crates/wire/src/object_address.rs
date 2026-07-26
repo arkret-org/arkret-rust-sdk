@@ -28,7 +28,7 @@
 //!
 //! ## Token target binding (security-critical)
 //! An `invite` token's signed payload MUST carry a [`TargetDescriptor`]. Its
-//! digest [`target_digest`] covers ONLY the identity tuple + `link_type` and
+//! digest [`target_digest`] covers ONLY the identity tuple + `address_link_kind` and
 //! NEVER `action` / `tok` / `lt`. Consequence: refreshing UI hints
 //! does not invalidate the token, but switching to a different
 //! Strand/Message necessarily changes the digest, so a token cannot be replayed
@@ -47,30 +47,30 @@ pub const WEB_ARKRET_SCHEME: &str = "web+arkret:";
 /// only policy-limited pre-join preview authority.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum LinkType {
+pub enum AddressLinkKind {
     Reference,
     Invite,
     Preview,
 }
 
-impl LinkType {
+impl AddressLinkKind {
     /// Parse an `lt=` query value. Omitted/unknown values collapse to the
-    /// strictest [`LinkType::Reference`] (fail-closed, never escalate).
+    /// strictest [`AddressLinkKind::Reference`] (fail-closed, never escalate).
     pub fn from_query(value: Option<&str>) -> Self {
         match value {
-            Some("invite") => LinkType::Invite,
-            Some("preview") => LinkType::Preview,
+            Some("invite") => AddressLinkKind::Invite,
+            Some("preview") => AddressLinkKind::Preview,
             // "reference", omitted, or anything else collapses to the
             // strictest reference.
-            _ => LinkType::Reference,
+            _ => AddressLinkKind::Reference,
         }
     }
 
     fn as_str(self) -> &'static str {
         match self {
-            LinkType::Reference => "reference",
-            LinkType::Invite => "invite",
-            LinkType::Preview => "preview",
+            AddressLinkKind::Reference => "reference",
+            AddressLinkKind::Invite => "invite",
+            AddressLinkKind::Preview => "preview",
         }
     }
 }
@@ -145,9 +145,9 @@ pub struct ParsedAddress {
     /// Bare message uuid; `Some` only for message targets.
     pub message: Option<String>,
     pub action: AddressAction,
-    pub link_type: LinkType,
-    /// Opaque invite / preview token; present iff `link_type == Invite` or
-    /// `link_type == Preview`.
+    pub address_link_kind: AddressLinkKind,
+    /// Opaque invite / preview token; present iff `address_link_kind == Invite` or
+    /// `address_link_kind == Preview`.
     pub token: Option<String>,
 }
 
@@ -329,7 +329,7 @@ fn percent_decode(value: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-fn parse_query(query: &str) -> (AddressAction, LinkType, Option<String>) {
+fn parse_query(query: &str) -> (AddressAction, AddressLinkKind, Option<String>) {
     let mut action_raw: Option<String> = None;
     let mut lt_raw: Option<String> = None;
     let mut tok: Option<String> = None;
@@ -351,15 +351,18 @@ fn parse_query(query: &str) -> (AddressAction, LinkType, Option<String>) {
     }
 
     let action = AddressAction::from_query(action_raw.as_deref());
-    let link_type = LinkType::from_query(lt_raw.as_deref());
+    let address_link_kind = AddressLinkKind::from_query(lt_raw.as_deref());
     // `tok` is meaningful iff `lt=invite|preview`; drop a stray token on a
     // reference link so it can never be mistaken for authorization.
-    let tok = if matches!(link_type, LinkType::Invite | LinkType::Preview) {
+    let tok = if matches!(
+        address_link_kind,
+        AddressLinkKind::Invite | AddressLinkKind::Preview
+    ) {
         tok
     } else {
         None
     };
-    (action, link_type, tok)
+    (action, address_link_kind, tok)
 }
 
 /// Parse a shareable object address from EITHER the `web+arkret:` URI form or
@@ -371,14 +374,14 @@ fn parse_query(query: &str) -> (AddressAction, LinkType, Option<String>) {
 pub fn parse_address(input: &str) -> Result<ParsedAddress> {
     let (path, query) = strip_shell(input)?;
     let (realm, strand, message) = parse_path(&path)?;
-    let (action, link_type, token) = parse_query(&query);
+    let (action, address_link_kind, token) = parse_query(&query);
 
     Ok(ParsedAddress {
         realm,
         strand,
         message,
         action,
-        link_type,
+        address_link_kind,
         token,
     })
 }
@@ -431,8 +434,11 @@ fn build_query(parsed: &ParsedAddress) -> String {
     if parsed.action != AddressAction::View {
         parts.push(format!("action={}", parsed.action.as_str()));
     }
-    if matches!(parsed.link_type, LinkType::Invite | LinkType::Preview) {
-        parts.push(format!("lt={}", parsed.link_type.as_str()));
+    if matches!(
+        parsed.address_link_kind,
+        AddressLinkKind::Invite | AddressLinkKind::Preview
+    ) {
+        parts.push(format!("lt={}", parsed.address_link_kind.as_str()));
         if let Some(token) = &parsed.token {
             parts.push(format!("tok={token}"));
         }
@@ -456,7 +462,7 @@ fn typed_id(prefix: &str, bare: &str) -> String {
 
 /// The canonical signed-payload target descriptor bound into an `invite` token.
 ///
-/// Field presence is exact: `realm_id` + `link_type` always present; `strand_id`
+/// Field presence is exact: `realm_id` + `address_link_kind` always present; `strand_id`
 /// only for strand/message targets; `message_id` only for message targets. Absent
 /// hierarchy fields are OMITTED ENTIRELY (never serialized as `null`) so the
 /// canonical-JSON digest does not drift. VALUES are typed canonical ids
@@ -468,7 +474,7 @@ pub struct TargetDescriptor {
     pub strand_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message_id: Option<String>,
-    pub link_type: LinkType,
+    pub address_link_kind: AddressLinkKind,
 }
 
 impl TargetDescriptor {
@@ -494,7 +500,7 @@ impl TargetDescriptor {
                 .message
                 .as_deref()
                 .map(|m| typed_id("ak:message:", m)),
-            link_type: parsed.link_type,
+            address_link_kind: parsed.address_link_kind,
         }
     }
 
@@ -509,7 +515,7 @@ impl TargetDescriptor {
 /// `target_digest = "sha256:" + hex(sha256(JCS(target_descriptor)))`, computed
 /// via the shared canonicalizer [`crate::canonical::canonical_sha256`].
 ///
-/// The digest covers ONLY the identity tuple + `link_type`. It MUST NOT include
+/// The digest covers ONLY the identity tuple + `address_link_kind`. It MUST NOT include
 /// `via` / `action` / `tok` / `lt` or any query hint — those live outside the
 /// descriptor entirely, so refreshing routing hints or changing the UI action
 /// does NOT invalidate a token, while switching Strand/Message DOES.
@@ -517,7 +523,7 @@ pub fn target_digest(descriptor: &TargetDescriptor) -> Result<String> {
     Ok(canonical::canonical_sha256(descriptor)?)
 }
 
-/// Recompute the digest of `address` (under `effective_link_type`) and compare
+/// Recompute the digest of `address` (under `effective_address_link_kind`) and compare
 /// it byte-for-byte against the digest of the token's signed descriptor.
 ///
 /// This is the scope-confusion defence: a token minted for object A will fail
@@ -532,12 +538,12 @@ pub fn target_digest(descriptor: &TargetDescriptor) -> Result<String> {
 pub fn verify_token_target(
     token_descriptor: &TargetDescriptor,
     address: &ParsedAddress,
-    effective_link_type: LinkType,
+    effective_address_link_kind: AddressLinkKind,
 ) -> bool {
     let mut expected = TargetDescriptor::from_parsed(address);
-    // The token binds a specific link_type; compare under the effective one
+    // The token binds a specific address_link_kind; compare under the effective one
     // rather than whatever the (untrusted) address query claimed.
-    expected.link_type = effective_link_type;
+    expected.address_link_kind = effective_address_link_kind;
 
     // If the address still carries an alias realm, we cannot honestly compare
     // identity — fail closed.
@@ -567,7 +573,7 @@ mod tests {
             strand: None,
             message: None,
             action: AddressAction::View,
-            link_type: LinkType::Reference,
+            address_link_kind: AddressLinkKind::Reference,
             token: None,
         }
     }
@@ -577,7 +583,7 @@ mod tests {
         let parsed = parse_address(&format!("web+arkret:realm/{R}")).unwrap();
         assert_eq!(parsed.realm, RealmRef::RealmId(R.to_owned()));
         assert!(parsed.is_realm());
-        assert_eq!(parsed.link_type, LinkType::Reference);
+        assert_eq!(parsed.address_link_kind, AddressLinkKind::Reference);
         assert_eq!(parsed.action, AddressAction::View);
     }
 
@@ -649,14 +655,14 @@ mod tests {
             strand: Some(F.to_owned()),
             message: None,
             action: AddressAction::View,
-            link_type: LinkType::Invite,
+            address_link_kind: AddressLinkKind::Invite,
             token: Some("opaque-tok-123".to_owned()),
         };
         let built = build_address(&parsed);
         assert!(built.contains("lt=invite"));
         assert!(built.contains("tok=opaque-tok-123"));
         let reparsed = parse_address(&built).unwrap();
-        assert_eq!(reparsed.link_type, LinkType::Invite);
+        assert_eq!(reparsed.address_link_kind, AddressLinkKind::Invite);
         assert_eq!(reparsed.token.as_deref(), Some("opaque-tok-123"));
     }
 
@@ -698,15 +704,15 @@ mod tests {
     }
 
     #[test]
-    fn preview_link_type_round_trips_token() {
+    fn preview_address_link_kind_round_trips_token() {
         let parsed = parse_address(&format!("web+arkret:realm/{R}/strand/{F}?lt=preview")).unwrap();
-        assert_eq!(parsed.link_type, LinkType::Preview);
+        assert_eq!(parsed.address_link_kind, AddressLinkKind::Preview);
         assert_eq!(parsed.token, None);
         let parsed2 = parse_address(&format!(
             "web+arkret:realm/{R}/strand/{F}?lt=preview&tok=xyz"
         ))
         .unwrap();
-        assert_eq!(parsed2.link_type, LinkType::Preview);
+        assert_eq!(parsed2.address_link_kind, AddressLinkKind::Preview);
         assert_eq!(parsed2.token.as_deref(), Some("xyz"));
     }
 
@@ -758,10 +764,14 @@ mod tests {
             parse_address(&format!("web+arkret:realm/{R}/strand/{F}?lt=invite&tok=t")).unwrap();
         let token_desc = {
             let mut d = TargetDescriptor::from_parsed(&addr_a);
-            d.link_type = LinkType::Invite;
+            d.address_link_kind = AddressLinkKind::Invite;
             d
         };
-        assert!(verify_token_target(&token_desc, &addr_a, LinkType::Invite));
+        assert!(verify_token_target(
+            &token_desc,
+            &addr_a,
+            AddressLinkKind::Invite
+        ));
     }
 
     #[test]
@@ -771,14 +781,14 @@ mod tests {
             parse_address(&format!("web+arkret:realm/{R}/strand/{F}?lt=invite&tok=t")).unwrap();
         let token_desc = {
             let mut d = TargetDescriptor::from_parsed(&addr_a);
-            d.link_type = LinkType::Invite;
+            d.address_link_kind = AddressLinkKind::Invite;
             d
         };
         // Replayed onto a different object B (different strand).
         let addr_b =
             parse_address(&format!("web+arkret:realm/{R}/strand/{F2}?lt=invite&tok=t")).unwrap();
         assert!(
-            !verify_token_target(&token_desc, &addr_b, LinkType::Invite),
+            !verify_token_target(&token_desc, &addr_b, AddressLinkKind::Invite),
             "A-object token must not validate against a B address"
         );
     }
@@ -791,14 +801,14 @@ mod tests {
         .unwrap();
         let token_desc = {
             let mut d = TargetDescriptor::from_parsed(&alias_addr);
-            d.link_type = LinkType::Invite;
+            d.address_link_kind = AddressLinkKind::Invite;
             d
         };
         // Without an injected canonical realm_id, comparison MUST fail closed.
         assert!(!verify_token_target(
             &token_desc,
             &alias_addr,
-            LinkType::Invite
+            AddressLinkKind::Invite
         ));
     }
 }

@@ -225,7 +225,7 @@ fn merkle_out_of_order_rejected() {
 fn merkle_single_leaf_root_equals_leaf() {
     let cs = chunks(1);
     let tree = SnapshotMerkleTree::build(&cs).unwrap();
-    assert_eq!(tree.tree_size(), 1);
+    assert_eq!(tree.leaf_count(), 1);
     assert_eq!(tree.root(), &cs[0].digest);
     // Audit path is empty for single-leaf trees.
     assert_eq!(tree.audit_path(0).unwrap().len(), 0);
@@ -251,7 +251,7 @@ fn merkle_audit_path_verifies_each_leaf() {
         for (i, chunk) in cs.iter().enumerate() {
             let path = tree.audit_path(i).unwrap();
             assert!(
-                SnapshotMerkleTree::verify(&root, &chunk.digest, i, &path, tree.tree_size()),
+                SnapshotMerkleTree::verify(&root, &chunk.digest, i, &path, tree.leaf_count()),
                 "audit_path verification failed for n={n} leaf={i}"
             );
         }
@@ -269,7 +269,7 @@ fn merkle_audit_path_rejects_wrong_leaf() {
         &cs[1].digest,
         0,
         &path,
-        tree.tree_size()
+        tree.leaf_count()
     ));
 }
 
@@ -297,7 +297,7 @@ fn merkle_duplicate_tail_leaf_changes_root() {
 }
 
 #[test]
-fn merkle_verify_rejects_mismatched_tree_size() {
+fn merkle_verify_rejects_mismatched_leaf_count() {
     let cs = chunks(3);
     let tree = SnapshotMerkleTree::build(&cs).unwrap();
     let path = tree.audit_path(2).unwrap();
@@ -308,7 +308,7 @@ fn merkle_verify_rejects_mismatched_tree_size() {
         &path,
         3
     ));
-    // The same proof under a different claimed tree_size MUST fail.
+    // The same proof under a different claimed leaf_count MUST fail.
     assert!(!SnapshotMerkleTree::verify(
         tree.root(),
         &cs[2].digest,

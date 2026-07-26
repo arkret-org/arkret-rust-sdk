@@ -10,7 +10,7 @@ use serde_json::json;
 
 fn encrypted_envelope() -> EncryptedEnvelope {
     serde_json::from_value(json!({
-        "scheme": "mls-rfc9420",
+        "scheme": "mls_rfc9420",
         "version": "1.0",
         "group_id": "AA",
         "epoch": 1,

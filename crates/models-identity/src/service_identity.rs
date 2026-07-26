@@ -10,7 +10,7 @@
 use std::fmt;
 
 use arkret_canonical::canonical;
-use arkret_wire::{Did, Error, Result, ServiceType};
+use arkret_wire::{Did, Error, Result, ServiceKind};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::{Digest, Sha256};
@@ -154,29 +154,29 @@ impl<'de> Deserialize<'de> for CanonicalServiceUrl {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceRegistrationKey {
-    service_type: ServiceType,
+    service_kind: ServiceKind,
     public_base: CanonicalServiceUrl,
 }
 
 impl ServiceRegistrationKey {
-    pub fn new(service_type: ServiceType, public_base: CanonicalServiceUrl) -> Result<Self> {
+    pub fn new(service_kind: ServiceKind, public_base: CanonicalServiceUrl) -> Result<Self> {
         if !matches!(
-            service_type,
-            ServiceType::PrincipalServer | ServiceType::AuthServer | ServiceType::IdentityRegistry
+            service_kind,
+            ServiceKind::PrincipalServer | ServiceKind::AuthServer | ServiceKind::IdentityRegistry
         ) {
             return Err(Error::Protocol(format!(
-                "service_type {} is not valid in a service registration key",
-                service_type.as_str()
+                "service_kind {} is not valid in a service registration key",
+                service_kind.as_str()
             )));
         }
         Ok(Self {
-            service_type,
+            service_kind,
             public_base,
         })
     }
 
-    pub fn service_type(&self) -> &ServiceType {
-        &self.service_type
+    pub fn service_kind(&self) -> &ServiceKind {
+        &self.service_kind
     }
 
     pub fn public_base(&self) -> &CanonicalServiceUrl {
@@ -187,7 +187,7 @@ impl ServiceRegistrationKey {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ServiceRegistrationKeyWire {
-    service_type: ServiceType,
+    service_kind: ServiceKind,
     public_base: CanonicalServiceUrl,
 }
 
@@ -197,7 +197,7 @@ impl<'de> Deserialize<'de> for ServiceRegistrationKey {
         D: Deserializer<'de>,
     {
         let wire = ServiceRegistrationKeyWire::deserialize(deserializer)?;
-        Self::new(wire.service_type, wire.public_base).map_err(serde::de::Error::custom)
+        Self::new(wire.service_kind, wire.public_base).map_err(serde::de::Error::custom)
     }
 }
 
@@ -219,7 +219,7 @@ pub struct ServiceDidEndpoint {
     pub id: String,
     #[serde(rename = "type")]
     pub endpoint_type: String,
-    pub service_type: ServiceType,
+    pub service_kind: ServiceKind,
     pub service_endpoint: CanonicalServiceUrl,
 }
 
@@ -295,10 +295,10 @@ impl ServiceDidDocument {
             if endpoint.endpoint_type != "ArkretService"
                 || !endpoint.id.starts_with(&format!("{}#", self.id))
                 || !matches!(
-                    endpoint.service_type,
-                    ServiceType::PrincipalServer
-                        | ServiceType::AuthServer
-                        | ServiceType::IdentityRegistry
+                    endpoint.service_kind,
+                    ServiceKind::PrincipalServer
+                        | ServiceKind::AuthServer
+                        | ServiceKind::IdentityRegistry
                 )
             {
                 return Err(Error::Protocol(
@@ -312,13 +312,13 @@ impl ServiceDidDocument {
             .iter()
             .filter(|entry| {
                 entry.endpoint_type == "ArkretService"
-                    && entry.service_type == *key.service_type()
+                    && entry.service_kind == *key.service_kind()
                     && entry.service_endpoint == *key.public_base()
             })
             .count();
         if bindings != 1 {
             return Err(Error::Protocol(
-                "signed inception must contain exactly one ArkretService endpoint matching service_type and public_base"
+                "signed inception must contain exactly one ArkretService endpoint matching service_kind and public_base"
                     .to_owned(),
             ));
         }
@@ -571,7 +571,7 @@ impl ServiceRegistrationReceipt {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceRegistrationEnsureRequestBody {
-    pub service_type: ServiceType,
+    pub service_kind: ServiceKind,
     pub public_base: CanonicalServiceUrl,
     pub inception_operation: ServiceWebvhInceptionOperation,
     pub idempotency_key: String,
@@ -591,7 +591,7 @@ impl ServiceRegistrationEnsureRequestBody {
         }
         let idempotency_key = service_registration_idempotency_key(&key)?;
         Ok(Self {
-            service_type: key.service_type,
+            service_kind: key.service_kind,
             public_base: key.public_base,
             inception_operation,
             idempotency_key,
@@ -600,7 +600,7 @@ impl ServiceRegistrationEnsureRequestBody {
     }
 
     pub fn registration_key(&self) -> Result<ServiceRegistrationKey> {
-        ServiceRegistrationKey::new(self.service_type, self.public_base.clone())
+        ServiceRegistrationKey::new(self.service_kind, self.public_base.clone())
     }
 
     pub fn validate(&self) -> Result<()> {
@@ -682,7 +682,7 @@ pub fn service_registration_idempotency_key(key: &ServiceRegistrationKey) -> Res
 /// server's own long-standing `service` slot is retained; every other role is
 /// namespaced by the canonical registration-key digest.
 pub fn service_registration_local_id(key: &ServiceRegistrationKey) -> Result<String> {
-    if key.service_type() == &ServiceType::PrincipalServer {
+    if key.service_kind() == &ServiceKind::PrincipalServer {
         return Ok("service".to_owned());
     }
     Ok(format!(

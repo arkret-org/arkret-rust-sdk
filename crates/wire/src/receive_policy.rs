@@ -34,9 +34,9 @@ pub struct ReceivePolicyConstraints {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applies_to: Option<Vec<ReceivePolicySurface>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub permitted_introduction_kinds: Option<Vec<String>>,
+    pub deployment_allowed_introduction_kinds: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub forbidden_introduction_kinds: Vec<String>,
+    pub deployment_denied_introduction_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub handle_claim_max_behavior: Option<InviteReceiveAction>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -52,7 +52,7 @@ pub struct ReceivePolicyConstraints {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trusted_principal_services: Option<Vec<Did>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub blocked_principal_services: Option<Vec<Did>>,
+    pub denied_principal_services: Option<Vec<Did>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accepted_subject_did_methods: Option<Vec<String>>,
 }

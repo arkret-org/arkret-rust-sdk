@@ -75,9 +75,9 @@ pub struct QueryConsistency {
 pub struct ViewQuery {
     pub realm_ids: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub object_types: Vec<String>,
+    pub object_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub morph_types: Vec<String>,
+    pub morph_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub facets: Vec<Facet>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -188,7 +188,7 @@ impl View {
 #[serde(deny_unknown_fields)]
 pub struct CollectionConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub item_object_types: Vec<String>,
+    pub item_object_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub item_facets: Vec<Facet>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -261,9 +261,9 @@ pub struct CollectionGrouping {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct GraphViewConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub node_object_types: Vec<String>,
+    pub node_object_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub node_morph_types: Vec<String>,
+    pub node_morph_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub node_facets: Vec<Facet>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

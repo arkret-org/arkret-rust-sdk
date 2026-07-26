@@ -13,7 +13,7 @@
 //! `schema_violation` semantics: the grant MUST be rejected, never
 //! best-effort evaluated. The early-draft top-level `delegable` boolean is
 //! removed per spec; delegation control is expressed exclusively via a
-//! `constraint_type = "delegation_control"` constraint with
+//! `constraint_kind = "delegation_control"` constraint with
 //! `max_delegation_depth` (no constraint ⇒ not delegable).
 
 use arkret_models_collaboration::governance::grant_constraint::CapabilitySubject;
@@ -265,7 +265,7 @@ pub fn reject_unknown_critical_constraints(value: &Value, supported: &[&str]) ->
         if !critical {
             continue;
         }
-        let constraint_type = constraint
+        let constraint_kind = constraint
             .get("type")
             .and_then(Value::as_str)
             .map(ToOwned::to_owned)
@@ -285,10 +285,10 @@ pub fn reject_unknown_critical_constraints(value: &Value, supported: &[&str]) ->
             .ok_or_else(|| Error::Protocol("critical constraint is missing a type".to_owned()))?;
         if !supported
             .iter()
-            .any(|supported| *supported == constraint_type)
+            .any(|supported| *supported == constraint_kind)
         {
             return Err(Error::Protocol(format!(
-                "unknown critical constraint: {constraint_type}"
+                "unknown critical constraint: {constraint_kind}"
             )));
         }
     }
@@ -443,20 +443,20 @@ fn resource_is_narrowed(child: &ResourceSelector, parent: &ResourceSelector) -> 
         (
             ResourceSelector::Object {
                 realm_id,
-                object_type,
+                object_kind,
                 object_ref,
                 match_scope,
             },
             ResourceSelector::Object {
                 realm_id: parent_realm,
-                object_type: parent_type,
+                object_kind: parent_type,
                 object_ref: parent_id,
                 match_scope: parent_scope,
             },
         ) => {
             realm_narrowed(realm_id, parent_realm)
                 && scope_narrowed(*match_scope, *parent_scope)
-                && option_narrowed(object_type.as_ref(), parent_type.as_ref())
+                && option_narrowed(object_kind.as_ref(), parent_type.as_ref())
                 && option_narrowed(object_ref.as_ref(), parent_id.as_ref())
         }
         (
@@ -609,7 +609,7 @@ pub fn capability_grant_from_resolved_event(
 /// multiple engine entries (e.g. `field_access` carrying both allowed and
 /// denied lists).
 ///
-/// Fail-closed contract: families / subtypes / restriction fields this
+/// Fail-closed contract: families / subkinds / restriction fields this
 /// evaluator cannot enforce return `Err` — silently dropping a restriction
 /// would widen the grant. A declared `evaluation_class` must match the
 /// canonical class derived by this evaluator; pure metadata
@@ -630,9 +630,9 @@ pub(crate) fn constraint_entries_from_spec(
     let bool_field =
         |name: &str| -> bool { object.get(name).and_then(Value::as_bool).unwrap_or(false) };
     let u64_field = |name: &str| -> Option<u64> { object.get(name).and_then(Value::as_u64) };
-    let constraint_type = str_field("constraint_type")
-        .ok_or_else(|| Error::Protocol("grant constraint requires constraint_type".to_owned()))?;
-    let subtype = str_field("subtype");
+    let constraint_kind = str_field("constraint_kind")
+        .ok_or_else(|| Error::Protocol("grant constraint requires constraint_kind".to_owned()))?;
+    let constraint_subkind = str_field("constraint_subkind");
     let constraint_id = str_field("constraint_id");
     let declared_evaluation_class = str_field("evaluation_class")
         .map(|value| parse_evaluation_class(&value))
@@ -641,7 +641,7 @@ pub(crate) fn constraint_entries_from_spec(
         for field in fields {
             if object.contains_key(*field) {
                 return Err(Error::Protocol(format!(
-                    "unsupported {constraint_type} constraint field '{field}' \
+                    "unsupported {constraint_kind} constraint field '{field}' \
                      (cannot be enforced by this evaluator; failing closed)"
                 )));
             }
@@ -650,8 +650,8 @@ pub(crate) fn constraint_entries_from_spec(
     };
 
     let mut constraints: Vec<Constraint> = Vec::new();
-    match constraint_type.as_str() {
-        "temporal" => match subtype.as_deref() {
+    match constraint_kind.as_str() {
+        "temporal" => match constraint_subkind.as_deref() {
             None | Some("window") => {
                 constraints.push(Constraint::Temporal {
                     not_before: datetime_field(object, "not_before")?,
@@ -671,12 +671,12 @@ pub(crate) fn constraint_entries_from_spec(
                     applies_to_actions: string_list(object, "applies_to_actions"),
                     message_edit_window: duration_field(object, "message_edit_window")?,
                     message_redact_window: duration_field(object, "message_redact_window")?,
-                    allow_redact_after_window: bool_field("allow_redact_after_window"),
+                    redact_after_window_allowed: bool_field("redact_after_window_allowed"),
                 });
             }
             Some(other) => {
                 return Err(Error::Protocol(format!(
-                    "unsupported temporal constraint subtype '{other}'"
+                    "unsupported temporal constraint constraint_subkind '{other}'"
                 )));
             }
         },
@@ -722,13 +722,13 @@ pub(crate) fn constraint_entries_from_spec(
                 });
             }
         }
-        "type_restriction" => {
+        "kind_restriction" => {
             reject_unsupported_fields(&["allowed_space_kinds", "denied_space_kinds"])?;
-            constraints.push(Constraint::TypeRestriction {
-                allowed_object_types: optional_string_list(object, "allowed_object_types"),
-                denied_object_types: optional_string_list(object, "denied_object_types"),
-                allowed_morph_types: optional_string_list(object, "allowed_morph_types"),
-                denied_morph_types: optional_string_list(object, "denied_morph_types"),
+            constraints.push(Constraint::KindRestriction {
+                allowed_object_kinds: optional_string_list(object, "allowed_object_kinds"),
+                denied_object_kinds: optional_string_list(object, "denied_object_kinds"),
+                allowed_morph_kinds: optional_string_list(object, "allowed_morph_kinds"),
+                denied_morph_kinds: optional_string_list(object, "denied_morph_kinds"),
                 allowed_facets: facet_list(object, "allowed_facets")?,
                 denied_facets: facet_list(object, "denied_facets")?,
                 scope_limitation: None,
@@ -738,7 +738,7 @@ pub(crate) fn constraint_entries_from_spec(
             reject_unsupported_fields(&[
                 "allowed_space_ids",
                 "denied_space_ids",
-                "allowed_data_classes",
+                "allowed_data_labels",
                 "allowed_endpoints",
                 "blob_presign_scope",
             ])?;
@@ -817,7 +817,7 @@ pub(crate) fn constraint_entries_from_spec(
                 prohibit_subdelegation: bool_field("prohibit_subdelegation"),
             });
         }
-        "quota" => match subtype.as_deref() {
+        "quota" => match constraint_subkind.as_deref() {
             Some("rate") => {
                 constraints.push(Constraint::RateLimiting {
                     max_operations: u64_field("max_operations").ok_or_else(|| {
@@ -841,7 +841,7 @@ pub(crate) fn constraint_entries_from_spec(
                     blob_max_bytes: u64_field("blob_max_bytes"),
                     max_total_blob_bytes: u64_field("max_total_blob_bytes"),
                     max_resources: u64_field("max_resources"),
-                    resource_type: str_field("resource_type"),
+                    resource_kind: str_field("resource_kind"),
                     period: duration_field(object, "period")?,
                     scope: rate_limit_scope(
                         str_field("constraint_scope").as_deref(),
@@ -852,22 +852,22 @@ pub(crate) fn constraint_entries_from_spec(
             }
             other => {
                 return Err(Error::Protocol(format!(
-                    "quota constraint requires subtype 'rate' or 'resource', got {other:?}"
+                    "quota constraint requires constraint_subkind 'rate' or 'resource', got {other:?}"
                 )));
             }
         },
-        "claim_based" => match subtype.as_deref() {
+        "claim_based" => match constraint_subkind.as_deref() {
             Some("claim") => {
                 let mut trusted_issuers = did_list(object, "trusted_claim_issuers")?;
-                let mut requires_claims = Vec::new();
+                let mut required_claims = Vec::new();
                 for item in object
-                    .get("requires_claims")
+                    .get("required_claims")
                     .and_then(Value::as_array)
                     .into_iter()
                     .flatten()
                 {
                     let item_object = item.as_object().ok_or_else(|| {
-                        Error::Protocol("requires_claims entries must be objects".to_owned())
+                        Error::Protocol("required_claims entries must be objects".to_owned())
                     })?;
                     if item_object
                         .get("value_constraints")
@@ -875,16 +875,16 @@ pub(crate) fn constraint_entries_from_spec(
                         .is_some_and(|map| !map.is_empty())
                     {
                         return Err(Error::Protocol(
-                            "unsupported requires_claims field 'value_constraints' \
+                            "unsupported required_claims field 'value_constraints' \
                              (cannot be enforced by this evaluator; failing closed)"
                                 .to_owned(),
                         ));
                     }
                     let claim_kind = item_object
-                        .get("claim_type")
+                        .get("claim_kind")
                         .and_then(Value::as_str)
                         .ok_or_else(|| {
-                            Error::Protocol("requires_claims entry needs claim_type".to_owned())
+                            Error::Protocol("required_claims entry needs claim_kind".to_owned())
                         })?
                         .to_owned();
                     let issuer = item_object
@@ -909,7 +909,7 @@ pub(crate) fn constraint_entries_from_spec(
                             trusted_issuers.push(trusted);
                         }
                     }
-                    requires_claims.push(ClaimRequirement {
+                    required_claims.push(ClaimRequirement {
                         claim_kind,
                         issuer,
                         organization: item_object
@@ -934,7 +934,7 @@ pub(crate) fn constraint_entries_from_spec(
                     });
                 }
                 constraints.push(Constraint::ClaimBased {
-                    requires_claims,
+                    required_claims,
                     trusted_issuers,
                     claim_refresh_required: bool_field("claim_refresh_required"),
                     claim_max_age: duration_field(object, "claim_max_age")?,
@@ -967,11 +967,11 @@ pub(crate) fn constraint_entries_from_spec(
             }
             other => {
                 return Err(Error::Protocol(format!(
-                    "unsupported claim_based constraint subtype {other:?}"
+                    "unsupported claim_based constraint constraint_subkind {other:?}"
                 )));
             }
         },
-        "confidentiality" => match subtype.as_deref() {
+        "confidentiality" => match constraint_subkind.as_deref() {
             Some("encryption") => {
                 constraints.push(Constraint::EncryptionRequirement {
                     encryption_required: bool_field("encryption_required"),
@@ -985,12 +985,12 @@ pub(crate) fn constraint_entries_from_spec(
                         "allowed_history_visibility_values",
                     ),
                     denied_history_visibility_values: Vec::new(),
-                    deny_redacted_history: bool_field("deny_redacted_history"),
+                    redacted_history_allowed: bool_field("redacted_history_allowed"),
                 });
             }
             other => {
                 return Err(Error::Protocol(format!(
-                    "confidentiality constraint requires subtype 'encryption' or \
+                    "confidentiality constraint requires constraint_subkind 'encryption' or \
                      'visibility', got {other:?}"
                 )));
             }
@@ -1012,8 +1012,8 @@ pub(crate) fn constraint_entries_from_spec(
         .collect();
 
     validate_declared_evaluation_class(
-        &constraint_type,
-        subtype.as_deref(),
+        &constraint_kind,
+        constraint_subkind.as_deref(),
         declared_evaluation_class,
         &entries,
     )?;
@@ -1034,8 +1034,8 @@ fn parse_evaluation_class(value: &str) -> Result<crate::EvaluationClass> {
 }
 
 fn validate_declared_evaluation_class(
-    constraint_type: &str,
-    subtype: Option<&str>,
+    constraint_kind: &str,
+    constraint_subkind: Option<&str>,
     declared: Option<crate::EvaluationClass>,
     entries: &[ConstraintEntry],
 ) -> Result<()> {
@@ -1048,9 +1048,9 @@ fn validate_declared_evaluation_class(
     if declared != canonical {
         return Err(Error::Protocol(format!(
             "evaluation_class mismatch for {}{}: declared {}, canonical {}",
-            constraint_type,
-            subtype
-                .map(|subtype| format!(".{subtype}"))
+            constraint_kind,
+            constraint_subkind
+                .map(|constraint_subkind| format!(".{constraint_subkind}"))
                 .unwrap_or_default(),
             evaluation_class_name(declared),
             evaluation_class_name(canonical)
@@ -1340,7 +1340,7 @@ impl CapabilityGrantBuilder {
         prohibit_subdelegation: bool,
     ) -> Self {
         self.grant.constraints.retain(|constraint| {
-            constraint.constraint_type != arkret_models_collaboration::governance::grant_constraint::GrantConstraintType::DelegationControl
+            constraint.constraint_kind != arkret_models_collaboration::governance::grant_constraint::GrantConstraintKind::DelegationControl
         });
         self.grant
             .constraints
@@ -1602,15 +1602,15 @@ mod capability_grant_builder_tests {
             .unwrap();
         let constraints = event.payload["grant"]["constraints"].as_array().unwrap();
         assert_eq!(constraints.len(), 1);
-        assert_eq!(constraints[0]["constraint_type"], "delegation_control");
+        assert_eq!(constraints[0]["constraint_kind"], "delegation_control");
         assert_eq!(constraints[0]["max_delegation_depth"], 2);
     }
 
     #[test]
-    fn capability_grant_deserialization_rejects_unknown_constraint_type() {
+    fn capability_grant_deserialization_rejects_unknown_constraint_kind() {
         let mut artifact = serde_json::to_value(base_grant()).unwrap();
         artifact["constraints"] = json!([{
-                "constraint_type": "telepathy",
+                "constraint_kind": "telepathy",
                 "effect": "allow",
         }]);
         let err = serde_json::from_value::<
@@ -1720,7 +1720,7 @@ mod capability_grant_builder_tests {
     #[test]
     fn spec_constraints_project_to_engine_entries() {
         let entries = constraint_entries_from_spec(&json!({
-            "constraint_type": "temporal",
+            "constraint_kind": "temporal",
             "effect": "allow",
             "expires_at": "2026-04-30T00:00:00.000Z",
         }))
@@ -1735,7 +1735,7 @@ mod capability_grant_builder_tests {
         ));
 
         let entries = constraint_entries_from_spec(&json!({
-            "constraint_type": "field_access",
+            "constraint_kind": "field_access",
             "effect": "allow",
             "allowed_write_fields": ["metadata.title", "content"],
         }))
@@ -1747,10 +1747,10 @@ mod capability_grant_builder_tests {
                 if fields.len() == 2
         ));
 
-        // claim_based requires a subtype (schema allOf gate).
+        // claim_based requires a constraint_subkind (schema allOf gate).
         assert!(
             constraint_entries_from_spec(&json!({
-                "constraint_type": "claim_based",
+                "constraint_kind": "claim_based",
                 "effect": "allow",
             }))
             .is_err()
@@ -1760,8 +1760,8 @@ mod capability_grant_builder_tests {
     #[test]
     fn quota_constraint_scope_is_closed_and_required_for_cumulative_quotas() {
         let entries = constraint_entries_from_spec(&json!({
-            "constraint_type": "quota",
-            "subtype": "rate",
+            "constraint_kind": "quota",
+            "constraint_subkind": "rate",
             "effect": "allow",
             "max_operations": 5,
             "period": "PT1H",
@@ -1777,8 +1777,8 @@ mod capability_grant_builder_tests {
         ));
 
         let entries = constraint_entries_from_spec(&json!({
-            "constraint_type": "quota",
-            "subtype": "resource",
+            "constraint_kind": "quota",
+            "constraint_subkind": "resource",
             "effect": "allow",
             "max_resources": 10,
             "constraint_scope": "per_realm",
@@ -1794,8 +1794,8 @@ mod capability_grant_builder_tests {
 
         assert!(
             constraint_entries_from_spec(&json!({
-                "constraint_type": "quota",
-                "subtype": "rate",
+                "constraint_kind": "quota",
+                "constraint_subkind": "rate",
                 "effect": "allow",
                 "max_operations": 5,
                 "period": "PT1H",
@@ -1805,8 +1805,8 @@ mod capability_grant_builder_tests {
 
         assert!(
             constraint_entries_from_spec(&json!({
-                "constraint_type": "quota",
-                "subtype": "resource",
+                "constraint_kind": "quota",
+                "constraint_subkind": "resource",
                 "effect": "allow",
                 "max_total_blob_bytes": 1024,
             }))
@@ -1815,8 +1815,8 @@ mod capability_grant_builder_tests {
 
         assert!(
             constraint_entries_from_spec(&json!({
-                "constraint_type": "quota",
-                "subtype": "rate",
+                "constraint_kind": "quota",
+                "constraint_subkind": "rate",
                 "effect": "allow",
                 "max_operations": 5,
                 "period": "PT1H",
@@ -1829,8 +1829,8 @@ mod capability_grant_builder_tests {
     #[test]
     fn declared_evaluation_class_must_match_canonical_projection() {
         let err = constraint_entries_from_spec(&json!({
-            "constraint_type": "quota",
-            "subtype": "rate",
+            "constraint_kind": "quota",
+            "constraint_subkind": "rate",
             "effect": "allow",
             "evaluation_class": "stateless",
             "max_operations": 5,
@@ -1841,8 +1841,8 @@ mod capability_grant_builder_tests {
         assert!(format!("{err}").contains("evaluation_class mismatch"));
 
         let entries = constraint_entries_from_spec(&json!({
-            "constraint_type": "quota",
-            "subtype": "rate",
+            "constraint_kind": "quota",
+            "constraint_subkind": "rate",
             "effect": "allow",
             "evaluation_class": "external",
             "max_operations": 5,

@@ -651,7 +651,7 @@ pub const SUPPORTED_SCHEMA_IDS: &[&str] = &[
     // appeal payloads, structured attestation evidence.
     "ak.schema.ephemeral_envelope.v1",
     "ak.schema.moderation_appeal.v1",
-    "ak.schema.attestation_evidence.v1",
+    "ak.schema.audit_release_attestation.v1",
     // AKP-0007 (spec b7d35be) — Circle primitive schema.
     "ak.schema.circle.v1",
     // Key-backup hardening (B-C, spec head 37ce729) — recovery policy and
@@ -1074,12 +1074,12 @@ fn profile_required_constraint_kinds(value: &Value, profile_id: &str) -> Result<
     let mut out = optional_string_array(value, "required_constraint_kinds", profile_id)?;
     out.extend(optional_string_array(
         value,
-        "required_constraint_types",
+        "required_constraint_kinds",
         profile_id,
     )?);
     out.extend(optional_string_array(
         value,
-        "required_constraint_subtypes",
+        "required_constraint_subkinds",
         profile_id,
     )?);
     out.sort();

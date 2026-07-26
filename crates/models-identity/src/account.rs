@@ -165,8 +165,8 @@ pub struct AccountDataReplaceRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AccountDataEntry {
-    pub data_type: String,
+pub struct AccountDataRow {
+    pub account_data_key: String,
     pub content: Value,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
@@ -180,7 +180,7 @@ pub struct AccountDataEntry {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataList {
     #[serde(default)]
-    pub entries: Vec<AccountDataEntry>,
+    pub entries: Vec<AccountDataRow>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -188,7 +188,7 @@ pub struct AccountDataList {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataDeleteOutcome {
     pub ok: bool,
-    pub data_type: String,
+    pub account_data_key: String,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

@@ -451,7 +451,9 @@ impl CallRecordingArtifact {
             );
         }
         if self.media_type.trim().is_empty() || !self.media_type.contains('/') {
-            return schema_violation("recording artifact media_type must be type/subtype");
+            return schema_violation(
+                "recording artifact media_type must be type/constraint_subkind",
+            );
         }
         if self.encryption.exporter_label != EXPORTER_LABEL_RTC_RECORDING_KEY {
             return recording_artifact_pipeline_bypassed(format!(

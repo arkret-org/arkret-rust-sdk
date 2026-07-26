@@ -290,8 +290,7 @@ pub struct SnapshotMaterializedItem {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SnapshotChunkPayload {
-    #[serde(rename = "type")]
-    pub chunk_type: String,
+    pub chunk_kind: String,
     pub snapshot_ref: SnapshotId,
     pub index: u32,
     pub reducer_profile: String,

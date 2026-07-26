@@ -98,7 +98,7 @@ pub struct ServiceDescribe {
     /// register a peer whose `trust_domain` disagrees with the
     /// expected deployment scope.
     pub trust_domain: TypedTrustDomainId,
-    pub service_type: ServiceType,
+    pub service_kind: ServiceKind,
     pub protocol_version: String,
     /// Profiles the service
     /// declares conformance to. Empty array is valid; missing is not.
@@ -174,9 +174,9 @@ pub struct ServiceDescribe {
     pub egress_network_policy: Option<EgressNetworkPolicy>,
     /// Directory-service overlay: resource classes indexed by
     /// `ak.find.directory.query.describe`. Required when
-    /// `service_type == "directory_service"`.
+    /// `service_kind == "directory_service"`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub resource_types: Vec<DirectoryResourceKind>,
+    pub resource_kinds: Vec<DirectoryResourceKind>,
     /// Directory-service overlay: discovery profiles and extension
     /// profile ids advertised by the directory surface.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -257,12 +257,12 @@ impl ServiceDescribe {
     pub fn development(
         service_id: Did,
         trust_domain: TypedTrustDomainId,
-        service_type: ServiceType,
+        service_kind: ServiceKind,
     ) -> Self {
         Self {
             service_id,
             trust_domain,
-            service_type,
+            service_kind,
             protocol_version: PROTOCOL_VERSION.to_owned(),
             supported_profiles: Vec::new(),
             profile_bindings: BTreeMap::new(),
@@ -283,7 +283,7 @@ impl ServiceDescribe {
             rate_limit_policy: Some(RateLimitPolicy::unspecified()),
             rate_limit_policy_id: None,
             egress_network_policy: None,
-            resource_types: Vec::new(),
+            resource_kinds: Vec::new(),
             discovery_profiles: Vec::new(),
             restricted_query_proof: None,
             ingest_modes: Vec::new(),
@@ -310,10 +310,10 @@ impl ServiceDescribe {
     /// - `verified_profiles` MUST be empty when `development_mode = true`.
     /// - the describe `anyOf` requires `rate_limit_policy` or `rate_limit_policy_id`.
     pub fn validate(&self) -> Result<()> {
-        if !self.service_type.valid_in("service_describe") {
+        if !self.service_kind.valid_in("service_describe") {
             return Err(Error::Protocol(format!(
-                "ServiceDescribe: service_type={} is not valid in service_describe ({})",
-                self.service_type.as_str(),
+                "ServiceDescribe: service_kind={} is not valid in service_describe ({})",
+                self.service_kind.as_str(),
                 ErrorCode::SCHEMA_VIOLATION
             )));
         }
@@ -410,19 +410,19 @@ impl ServiceDescribe {
                 ErrorCode::SCHEMA_VIOLATION
             )));
         }
-        if self.service_type == ServiceType::DirectoryService {
+        if self.service_kind == ServiceKind::DirectoryService {
             if !self
                 .supported_profiles
                 .iter()
                 .any(|profile| profile == "ak.profile.directory_service.v1")
             {
                 return Err(Error::Protocol(format!(
-                    "ServiceDescribe: service_type=directory_service requires \
+                    "ServiceDescribe: service_kind=directory_service requires \
                      supported_profiles to include ak.profile.directory_service.v1 ({})",
                     ErrorCode::SCHEMA_VIOLATION
                 )));
             }
-            if self.resource_types.is_empty()
+            if self.resource_kinds.is_empty()
                 || self.discovery_profiles.is_empty()
                 || self.ingest_modes.is_empty()
                 || self.accept_policy_kind.is_none()
@@ -434,7 +434,7 @@ impl ServiceDescribe {
                 || self.rate_limits.is_none()
             {
                 return Err(Error::Protocol(format!(
-                    "ServiceDescribe: service_type=directory_service requires the directory \
+                    "ServiceDescribe: service_kind=directory_service requires the directory \
                      describe overlay fields ({})",
                     ErrorCode::SCHEMA_VIOLATION
                 )));
@@ -497,7 +497,7 @@ mod tests {
         ServiceDescribe {
             service_id: Did::new("did:webvh:z6mkfixture:directory.example").unwrap(),
             trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-            service_type: ServiceType::DirectoryService,
+            service_kind: ServiceKind::DirectoryService,
             protocol_version: PROTOCOL_VERSION.to_owned(),
             supported_profiles: vec![PROFILE_DIRECTORY_SERVICE.to_owned()],
             profile_bindings: BTreeMap::new(),
@@ -518,7 +518,7 @@ mod tests {
             rate_limit_policy: Some(RateLimitPolicy::unspecified()),
             rate_limit_policy_id: None,
             egress_network_policy: None,
-            resource_types: vec![
+            resource_kinds: vec![
                 DirectoryResourceKind::Realm,
                 DirectoryResourceKind::Organization,
                 DirectoryResourceKind::Actor,
@@ -562,7 +562,7 @@ mod tests {
         let mut description = ServiceDescribe::development(
             Did::new("did:webvh:z6mkfixture:service.example").unwrap(),
             TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-            ServiceType::PrincipalServer,
+            ServiceKind::PrincipalServer,
         );
         description.supported_profiles.push(PROFILE.to_owned());
         assert!(description.validate().is_err());
@@ -611,7 +611,7 @@ mod tests {
     #[test]
     fn directory_service_requires_overlay_fields() {
         let mut description = directory_description();
-        description.resource_types.clear();
+        description.resource_kinds.clear();
 
         let error = description.validate().unwrap_err().to_string();
         assert!(error.contains("directory describe overlay"));

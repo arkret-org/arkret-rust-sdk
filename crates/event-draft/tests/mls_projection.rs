@@ -63,7 +63,7 @@ fn commit_envelope_projects_to_mls_commit_operation() {
         )
         .unwrap();
 
-    assert_eq!(op.object_type, "mls_commit");
+    assert_eq!(op.object_kind, "mls_commit");
     let object_id = op.object_id.unwrap();
     assert!(object_id.contains("Zml4dHVyZS1yZWFsbQ"));
     assert_eq!(object_id, "Zml4dHVyZS1yZWFsbQ:7");
@@ -79,7 +79,7 @@ fn proposal_envelope_projects_to_mls_proposal_operation() {
         )
         .unwrap();
 
-    assert_eq!(op.object_type, "mls_proposal");
+    assert_eq!(op.object_kind, "mls_proposal");
     assert_eq!(op.payload["proposal_type"], "add");
 }
 

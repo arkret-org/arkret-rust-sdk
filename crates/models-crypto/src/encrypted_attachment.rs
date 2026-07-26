@@ -120,7 +120,7 @@ pub struct StreamEncryptedAttachment {
     pub size_bytes: u64,
     pub media_type: String,
     pub nonce_prefix: Base64UrlString,
-    pub segment_size: u64,
+    pub segment_bytes: u64,
     pub segment_count: u64,
 }
 

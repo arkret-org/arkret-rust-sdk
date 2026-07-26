@@ -25,8 +25,8 @@ pub struct KeyTransparencyEvidence {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransparencyLogHead {
-    pub tree_size: u64,
-    pub root_hash: String,
+    pub leaf_count: u64,
+    pub tree_root: String,
     pub issued_at: String,
 }
 
@@ -34,15 +34,15 @@ pub struct TransparencyLogHead {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransparencyInclusionProof {
     pub leaf_index: u64,
-    pub tree_size: u64,
+    pub leaf_count: u64,
     pub audit_path: Vec<String>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransparencyConsistencyProof {
-    pub from_tree_size: u64,
-    pub to_tree_size: u64,
+    pub from_leaf_count: u64,
+    pub to_leaf_count: u64,
     pub audit_path: Vec<String>,
 }
 
@@ -71,13 +71,13 @@ impl KeyTransparencyEvidence {
         if self.schema != KEY_TRANSPARENCY_SCHEMA {
             return Err(KeyTransparencyError::SchemaMismatch);
         }
-        if self.inclusion_proof.tree_size != self.log_head.tree_size
-            || self.consistency_proof.to_tree_size != self.log_head.tree_size
-            || self.consistency_proof.from_tree_size > self.consistency_proof.to_tree_size
+        if self.inclusion_proof.leaf_count != self.log_head.leaf_count
+            || self.consistency_proof.to_leaf_count != self.log_head.leaf_count
+            || self.consistency_proof.from_leaf_count > self.consistency_proof.to_leaf_count
         {
             return Err(KeyTransparencyError::TreeSizeMismatch);
         }
-        if self.inclusion_proof.leaf_index >= self.inclusion_proof.tree_size {
+        if self.inclusion_proof.leaf_index >= self.inclusion_proof.leaf_count {
             return Err(KeyTransparencyError::LeafOutsideTree);
         }
         let witnesses = self

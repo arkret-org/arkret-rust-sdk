@@ -127,7 +127,7 @@ pub struct RealmPreview {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum RealmJoinCandidateServiceType {
+pub enum RealmJoinCandidateServiceKind {
     PrincipalServer,
     SyncNode,
     Notary,
@@ -182,7 +182,7 @@ pub enum RealmJoinCandidateSource {
 pub struct RealmJoinCandidate {
     pub realm_id: RealmId,
     pub service_id: Did,
-    pub service_type: RealmJoinCandidateServiceType,
+    pub service_kind: RealmJoinCandidateServiceKind,
     pub role: RealmJoinCandidateRole,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub endpoint: Option<String>,

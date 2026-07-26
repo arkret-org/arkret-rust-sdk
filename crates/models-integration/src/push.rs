@@ -363,7 +363,7 @@ pub struct PushBridgeDescribeOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub provider_capabilities: Vec<ProviderCapabilityDescriptor>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub failure_codes: Vec<PushBridgeFailureCodeDescriptor>,
+    pub failure_reason_codes: Vec<PushBridgeFailureCodeDescriptor>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub todos: Vec<String>,
 }
@@ -804,14 +804,14 @@ mod tests {
             serde_json::from_value(json).expect("decode response");
         assert!(response.provider_capabilities_version.is_none());
         assert!(response.provider_capabilities.is_empty());
-        assert!(response.failure_codes.is_empty());
+        assert!(response.failure_reason_codes.is_empty());
         assert!(response.provider_capability("anything").is_none());
 
         let reserialized = serde_json::to_value(&response).expect("re-serialize");
         let obj = reserialized.as_object().expect("object");
         assert!(!obj.contains_key("provider_capabilities_version"));
         assert!(!obj.contains_key("provider_capabilities"));
-        assert!(!obj.contains_key("failure_codes"));
+        assert!(!obj.contains_key("failure_reason_codes"));
     }
 
     #[test]

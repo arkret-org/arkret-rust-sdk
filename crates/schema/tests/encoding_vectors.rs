@@ -132,9 +132,11 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     // reject_malformed_json: prose input classes; execute one
                     // representative raw input per declared class.
                     let classes = vector
-                        .get("rejected_input_classes")
+                        .get("rejected_input_categories")
                         .and_then(Value::as_array)
-                        .unwrap_or_else(|| panic!("{vector_id}: missing rejected_input_classes"));
+                        .unwrap_or_else(|| {
+                            panic!("{vector_id}: missing rejected_input_categories")
+                        });
                     assert!(!classes.is_empty());
                     let representatives: [&[u8]; 5] = [
                         b"{\"a\":\"\xff\"}",  // malformed UTF-8
@@ -588,7 +590,7 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                 )
                 .unwrap();
                 assert_eq!(
-                    registered_rule["type"], "composite",
+                    registered_rule["kind"], "composite",
                     "{vector_id}: registered subject is not composite"
                 );
                 assert_eq!(

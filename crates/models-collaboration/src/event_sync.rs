@@ -300,12 +300,12 @@ pub struct ActorAggregateFrontierView {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct EventsActorCasConflictDetails {
+pub struct EventsActorCasConflictProblem {
     pub accepted: bool,
     pub current_frontier: RealmActorFrontierView,
 }
 
-impl EventsActorCasConflictDetails {
+impl EventsActorCasConflictProblem {
     pub fn validate(&self) -> Result<()> {
         if self.accepted {
             return Err(Error::Protocol(
@@ -460,7 +460,7 @@ pub struct FederationServiceBindingRef {
     pub realm_policy_digest: Hash,
     pub membership_frontier: Vec<EventId>,
     pub delivery_binding_frontier: Vec<EventId>,
-    pub destination_service_type: String,
+    pub destination_service_kind: String,
     pub reducer_profile_digest: Hash,
 }
 
@@ -737,7 +737,7 @@ mod tests {
                 realm_policy_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
                 membership_frontier: vec![event.event_id.clone()],
                 delivery_binding_frontier: vec![event.event_id.clone()],
-                destination_service_type: "principal_server".to_owned(),
+                destination_service_kind: "principal_server".to_owned(),
                 reducer_profile_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
             },
             events: vec![event],

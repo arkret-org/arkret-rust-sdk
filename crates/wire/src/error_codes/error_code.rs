@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=bf5392291abc1e999257b24d3b132645150de4d2d397dd29c7cfac79c39ed5f2 Entries: error_codes=261
+//! sha256=5b5bbf5b1ee00676cb27cbcd92a166be2d47c42d291d61148d9e45f29111bd93 Entries: error_codes=261
 
 use serde::{Deserialize, Serialize};
 
@@ -152,8 +152,8 @@ pub enum ErrorCode {
     MlsGovernanceAnchorUnreachable,
     MlsGovernanceProofBoundsExceeded,
     MlsKeypackageClaimRequestExpired,
+    MorphKindImmutable,
     MorphProfileWidensSchemaRef,
-    MorphTypeImmutable,
     NotFound,
     NotImplemented,
     NotMember,
@@ -426,8 +426,8 @@ impl ErrorCode {
         Self::MlsGovernanceAnchorUnreachable,
         Self::MlsGovernanceProofBoundsExceeded,
         Self::MlsKeypackageClaimRequestExpired,
+        Self::MorphKindImmutable,
         Self::MorphProfileWidensSchemaRef,
-        Self::MorphTypeImmutable,
         Self::NotFound,
         Self::NotImplemented,
         Self::NotMember,
@@ -701,8 +701,8 @@ impl ErrorCode {
         "mls_governance_proof_bounds_exceeded";
     pub const MLS_KEYPACKAGE_CLAIM_REQUEST_EXPIRED: &'static str =
         "mls_keypackage_claim_request_expired";
+    pub const MORPH_KIND_IMMUTABLE: &'static str = "morph_kind_immutable";
     pub const MORPH_PROFILE_WIDENS_SCHEMA_REF: &'static str = "morph_profile_widens_schema_ref";
-    pub const MORPH_TYPE_IMMUTABLE: &'static str = "morph_type_immutable";
     pub const NOT_FOUND: &'static str = "not_found";
     pub const NOT_IMPLEMENTED: &'static str = "not_implemented";
     pub const NOT_MEMBER: &'static str = "not_member";
@@ -985,8 +985,8 @@ impl ErrorCode {
             Self::MlsGovernanceAnchorUnreachable => "mls_governance_anchor_unreachable",
             Self::MlsGovernanceProofBoundsExceeded => "mls_governance_proof_bounds_exceeded",
             Self::MlsKeypackageClaimRequestExpired => "mls_keypackage_claim_request_expired",
+            Self::MorphKindImmutable => "morph_kind_immutable",
             Self::MorphProfileWidensSchemaRef => "morph_profile_widens_schema_ref",
-            Self::MorphTypeImmutable => "morph_type_immutable",
             Self::NotFound => "not_found",
             Self::NotImplemented => "not_implemented",
             Self::NotMember => "not_member",
@@ -1267,8 +1267,8 @@ impl ErrorCode {
             "mls_governance_anchor_unreachable" => Some(Self::MlsGovernanceAnchorUnreachable),
             "mls_governance_proof_bounds_exceeded" => Some(Self::MlsGovernanceProofBoundsExceeded),
             "mls_keypackage_claim_request_expired" => Some(Self::MlsKeypackageClaimRequestExpired),
+            "morph_kind_immutable" => Some(Self::MorphKindImmutable),
             "morph_profile_widens_schema_ref" => Some(Self::MorphProfileWidensSchemaRef),
-            "morph_type_immutable" => Some(Self::MorphTypeImmutable),
             "not_found" => Some(Self::NotFound),
             "not_implemented" => Some(Self::NotImplemented),
             "not_member" => Some(Self::NotMember),
@@ -2423,18 +2423,18 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The MLS KeyPackage claim request has expired.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::MorphKindImmutable,
+        http_status: 422,
+        scope: "both",
+        applies_to: &[],
+        description: "A Morph update attempted to change an immutable morph_kind after creation.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::MorphProfileWidensSchemaRef,
         http_status: 422,
         scope: "both",
         applies_to: &[],
         description: "Morph profile attempted to widen or replace schema_ref in a way that violates create-locked morph type rules.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::MorphTypeImmutable,
-        http_status: 422,
-        scope: "both",
-        applies_to: &[],
-        description: "A Morph update attempted to change an immutable morph_type after creation.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::NotFound,
@@ -2903,7 +2903,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 422,
         scope: "both",
         applies_to: &[],
-        description: "Resource selector or constraint exceeds parser hard limits defined in resource-selector-grammar.md §3.3 (string length, resources[] length, token count, nesting depth, single-field length, requires_claims item count, constraint nesting). Dual-registered as a service code and a reason_code (see reason_codes[]) so it can be emitted as a top-level error and audit / abuse-detection can separate suspected parser-DoS attempts from ordinary format errors. See zh/authz/resource-selector-grammar.md §5.",
+        description: "Resource selector or constraint exceeds parser hard limits defined in resource-selector-grammar.md §3.3 (string length, resources[] length, token count, nesting depth, single-field length, required_claims item count, constraint nesting). Dual-registered as a service code and a reason_code (see reason_codes[]) so it can be emitted as a top-level error and audit / abuse-detection can separate suspected parser-DoS attempts from ordinary format errors. See zh/authz/resource-selector-grammar.md §5.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ServiceIdentityConflict,

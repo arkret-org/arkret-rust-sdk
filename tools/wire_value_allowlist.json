@@ -321,13 +321,13 @@
     },
     {
       "rust_field": "crates/models-collaboration/src/governance/grant_constraint.rs::GrantConstraintClaimRequirement.extra",
-      "spec_pointer": "grant-constraint.schema.json#/properties/requires_claims/items",
+      "spec_pointer": "grant-constraint.schema.json#/properties/required_claims/items",
       "classification": "open_json",
       "reason": "The Spec claim requirement item explicitly permits extension properties."
     },
     {
       "rust_field": "crates/models-collaboration/src/governance/grant_constraint.rs::GrantConstraintClaimRequirement.value_constraints",
-      "spec_pointer": "grant-constraint.schema.json#/properties/requires_claims/items/properties/value_constraints",
+      "spec_pointer": "grant-constraint.schema.json#/properties/required_claims/items/properties/value_constraints",
       "classification": "open_json",
       "reason": "Claim value constraints are intentionally schema-defined open JSON."
     },
@@ -625,13 +625,13 @@
       "reason": "Document version projection entries are open objects in the Spec."
     },
     {
-      "rust_field": "crates/models-collaboration/src/objects/query_projection.rs::ProjectionItem.display",
+      "rust_field": "crates/models-collaboration/src/objects/query_projection.rs::ProjectionRow.display",
       "spec_pointer": "view.schema.json#/$defs/projection_item/properties/display",
       "classification": "open_json",
       "reason": "Projection display metadata is an explicitly open property map."
     },
     {
-      "rust_field": "crates/models-collaboration/src/objects/query_projection.rs::ProjectionItem.state",
+      "rust_field": "crates/models-collaboration/src/objects/query_projection.rs::ProjectionRow.state",
       "spec_pointer": "view.schema.json#/$defs/projection_item/properties/state",
       "classification": "open_json",
       "reason": "Projection state metadata is an explicitly open property map."
@@ -958,7 +958,7 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-identity/src/account.rs::AccountDataEntry.content",
+      "rust_field": "crates/models-identity/src/account.rs::AccountDataRow.content",
       "spec_pointer": "account-data-operations.schema.json#/$defs/account_data_entry/properties/content",
       "classification": "open_json",
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."

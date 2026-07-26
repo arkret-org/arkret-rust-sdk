@@ -4,7 +4,7 @@ use arkret_wire::{HistoryVisibility, ReasonCode};
 use serde::{Deserialize, Serialize};
 
 pub fn content_scheme_is_history_capable(content_scheme: Option<&str>) -> bool {
-    matches!(content_scheme.map(str::trim), Some("mls-exporter-aead-v1"))
+    matches!(content_scheme.map(str::trim), Some("mls_exporter_aead_v1"))
 }
 
 pub fn validate_history_visibility_content_scheme(
@@ -540,14 +540,14 @@ mod tests {
         assert_eq!(
             validate_history_visibility_content_scheme(
                 HistoryVisibility::Shared,
-                Some("mls-rfc9420")
+                Some("mls_rfc9420")
             ),
             Err(ReasonCode::HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME)
         );
         assert!(
             validate_history_visibility_content_scheme(
                 HistoryVisibility::Shared,
-                Some("mls-exporter-aead-v1")
+                Some("mls_exporter_aead_v1")
             )
             .is_ok()
         );
@@ -558,14 +558,14 @@ mod tests {
         assert!(
             validate_history_visibility_content_scheme(
                 HistoryVisibility::Joined,
-                Some("mls-rfc9420")
+                Some("mls_rfc9420")
             )
             .is_ok()
         );
         assert!(
             validate_history_visibility_content_scheme(
                 HistoryVisibility::Joined,
-                Some("mls-exporter-aead-v1")
+                Some("mls_exporter_aead_v1")
             )
             .is_ok()
         );

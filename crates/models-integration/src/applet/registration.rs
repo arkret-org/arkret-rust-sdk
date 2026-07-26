@@ -136,7 +136,7 @@ impl AppletWireNamespaces {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum WebhookAuthType {
+pub enum WebhookAuthKind {
     HttpMessageSignature,
 }
 
@@ -168,8 +168,7 @@ impl WebhookSignatureAlg {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WebhookAuth {
-    #[serde(rename = "type")]
-    pub r#type: WebhookAuthType,
+    pub kind: WebhookAuthKind,
     pub key_ref: String,
     pub accepted_algs: Vec<WebhookSignatureAlg>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -184,7 +183,7 @@ impl WebhookAuth {
         accepted_algs: Vec<WebhookSignatureAlg>,
     ) -> Self {
         Self {
-            r#type: WebhookAuthType::HttpMessageSignature,
+            kind: WebhookAuthKind::HttpMessageSignature,
             key_ref: key_ref.into(),
             accepted_algs,
             signature_header: None,

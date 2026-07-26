@@ -198,8 +198,8 @@ pub struct AgentEvidenceFreshnessAttestation {
 pub struct AgentEvidenceTransparency {
     pub profile: NonEmptyString,
     pub log_id: NonEmptyString,
-    pub tree_size: u64,
-    pub root_hash: Hash,
+    pub leaf_count: u64,
+    pub tree_root: Hash,
     pub inclusion_proof: Vec<Hash>,
     pub consistency_proof: Vec<Hash>,
     pub witness_signatures: Vec<NonEmptyString>,
@@ -236,7 +236,7 @@ pub struct AgentSignerEvidenceQuerySelector {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct AgentSignerEvidenceQueryRequest {
+pub struct AgentSignerEvidenceQueryRequestBodyBody {
     pub realm_id: RealmId,
     pub queries: Vec<AgentSignerEvidenceQuerySelector>,
 }

@@ -272,7 +272,7 @@ mod account_subscribe_frame_tests {
 
     #[test]
     fn account_subscribe_delta_accepts_closed_agent_notification_items() {
-        let line = r#"{"cursor":"ak:cursor:account-2","kind":"delta","notifications":{"items":[{"action":"add","data":{"agent_id":"did:webvh:z6mkfixture:agent.example","approval_request_id":"agent_runtime_approval:01964137-0000-7000-8000-000000000002","expires_at":"2026-07-13T10:15:00.000Z","kind":"agent_runtime_approval","requested_at":"2026-07-13T10:00:00.000Z"},"id":"ak:notification:01964137-0000-7000-8000-000000000002","type":"agent"}]}}"#;
+        let line = r#"{"cursor":"ak:cursor:account-2","kind":"delta","notifications":{"items":[{"action":"add","data":{"agent_id":"did:webvh:z6mkfixture:agent.example","approval_request_id":"agent_runtime_approval:01964137-0000-7000-8000-000000000002","expires_at":"2026-07-13T10:15:00.000Z","kind":"agent_runtime_approval","requested_at":"2026-07-13T10:00:00.000Z"},"id":"ak:notification:01964137-0000-7000-8000-000000000002","notification_kind":"agent"}]}}"#;
         let frame = AccountSubscribeFrame::from_ndjson_line(line)
             .unwrap()
             .unwrap();
@@ -285,7 +285,7 @@ mod account_subscribe_frame_tests {
             r#"{"cursor":"ak:cursor:account-3","kind":"delta","notifications":{"events":[]}}"#;
         assert!(AccountSubscribeFrame::from_ndjson_line(old_container).is_err());
 
-        let missing_data = r#"{"cursor":"ak:cursor:account-4","kind":"delta","notifications":{"items":[{"id":"ak:notification:01964137-0000-7000-8000-000000000003","type":"agent","action":"add"}]}}"#;
+        let missing_data = r#"{"cursor":"ak:cursor:account-4","kind":"delta","notifications":{"items":[{"id":"ak:notification:01964137-0000-7000-8000-000000000003","notification_kind":"agent","action":"add"}]}}"#;
         assert!(AccountSubscribeFrame::from_ndjson_line(missing_data).is_err());
     }
 

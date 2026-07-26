@@ -347,10 +347,10 @@ pub use arkret_wire::wire_strings::*;
 pub use arkret_wire::{
     CapabilityActionId, DIGEST_SUITES, EXPORTER_LABELS, EvaluationClass, ExporterLabelId,
     HPKE_SUITES, MLS_CIPHERSUITES, MLS_EXTENSIONS, PROOF_CONTEXTS, ProofContextId,
-    QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS,
-    SERVICE_TYPE_DESCRIPTORS, SIGNATURE_ALGORITHMS, ServiceOperationDescriptor, ServiceOperationId,
-    ServiceType, WireError, XExtensionMap, contains_query_auth_material, error_codes as error,
-    is_query_auth_parameter,
+    QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS, SERVICE_KIND_DESCRIPTORS,
+    SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, ServiceKind, ServiceOperationDescriptor,
+    ServiceOperationId, WireError, XExtensionMap, contains_query_auth_material,
+    error_codes as error, is_query_auth_parameter,
 };
 pub use sdk_error::{Error, Result};
 

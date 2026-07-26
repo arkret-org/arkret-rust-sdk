@@ -6,7 +6,7 @@ use arkret_models_crypto::mls_envelopes::{
 };
 use arkret_wire::{
     Audience, CriticalExtension, DeviceMessageId, Did, Event, EventId, EventRef, EventRequirements,
-    GrantId, Hash, Hlc, OPERATION_SCHEMA, OperationId, OperationType, Proof,
+    GrantId, Hash, Hlc, OPERATION_SCHEMA, OperationId, OperationKind, Proof,
     ProofBindingRequirements, ProtocolKind, RealmId, SignatureBindingPayload, canonical,
 };
 use chrono::{DateTime, Utc};
@@ -20,13 +20,12 @@ use crate::{EventDraftError, Result};
 pub struct Operation {
     pub schema: String,
     pub operation_id: OperationId,
-    #[serde(rename = "type")]
-    pub record_type: String,
-    pub operation_type: OperationType,
+    pub record_kind: String,
+    pub operation_kind: OperationKind,
     pub realm_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub object_id: Option<String>,
-    pub object_type: String,
+    pub object_kind: String,
     pub payload: Value,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub refs: Vec<EventRef>,
@@ -45,17 +44,17 @@ impl Operation {
     pub fn create(
         operation_id: OperationId,
         realm_id: RealmId,
-        object_type: impl Into<String>,
+        object_kind: impl Into<String>,
         payload: Value,
     ) -> Self {
         Self {
             schema: OPERATION_SCHEMA.to_owned(),
             operation_id,
-            record_type: "operation".to_owned(),
-            operation_type: OperationType::Create,
+            record_kind: "operation".to_owned(),
+            operation_kind: OperationKind::Create,
             realm_id,
             object_id: None,
-            object_type: object_type.into(),
+            object_kind: object_kind.into(),
             payload,
             refs: Vec::new(),
             idempotency_key: None,

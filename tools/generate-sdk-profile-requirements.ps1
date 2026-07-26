@@ -13,8 +13,8 @@ param(
 #
 # The artifact field `required_endpoints` is surfaced as `required_operations`
 # to match the rest of the Arkret SDK vocabulary (operation registry, etc).
-# Constraint kinds aggregate `required_constraint_types` and
-# `required_constraint_subtypes` from the artifact.
+# Constraint kinds aggregate `required_constraint_kinds` and
+# `required_constraint_subkinds` from the artifact.
 
 $profilesPath = Join-Path $ArtifactsDir "profiles\conformance-profiles.json"
 if (!(Test-Path -LiteralPath $profilesPath)) {
@@ -93,7 +93,7 @@ $lines.Add("//! Input version: $($artifact.version); sha256=$digest; requirement
 $lines.Add("//!") | Out-Null
 $lines.Add('//! `required_operations` corresponds to the artifact field `required_endpoints`.') | Out-Null
 $lines.Add('//! `required_constraint_kinds` is the sorted union of the artifact fields') | Out-Null
-$lines.Add('//! `required_constraint_types`, `required_constraint_subtypes`, and any') | Out-Null
+$lines.Add('//! `required_constraint_kinds`, `required_constraint_subkinds`, and any') | Out-Null
 $lines.Add('//! explicit `required_constraint_kinds` entries.') | Out-Null
 $lines.Add('//! Additional profile-gate fields are surfaced verbatim so services and') | Out-Null
 $lines.Add('//! conformance tests do not need to parse the JSON artifact directly.') | Out-Null
@@ -135,12 +135,12 @@ foreach ($profileId in $profileIds) {
     $required_features = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_features')
     $required_cell_namespaces = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_cell_namespaces')
     $required_cells = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_cells')
-    $constraint_types = Get-StringArray -Source $entry -Field 'required_constraint_types'
-    $constraint_subtypes = Get-StringArray -Source $entry -Field 'required_constraint_subtypes'
+    $constraint_kinds = Get-StringArray -Source $entry -Field 'required_constraint_kinds'
+    $constraint_subkinds = Get-StringArray -Source $entry -Field 'required_constraint_subkinds'
     $constraint_kinds_field = Get-StringArray -Source $entry -Field 'required_constraint_kinds'
     $combined = [string[]]@()
-    $combined += $constraint_types
-    $combined += $constraint_subtypes
+    $combined += $constraint_kinds
+    $combined += $constraint_subkinds
     $combined += $constraint_kinds_field
     $required_constraint_kinds = Sort-Ordinal -Values $combined
 

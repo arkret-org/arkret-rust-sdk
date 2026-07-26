@@ -38,7 +38,7 @@ pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_EFFECTIVE_RULES: &str = "effec
 pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_ORGANIZATION_EFFECTIVE_RULES: &str =
     "organization_effective_rules";
 pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_OVERRIDE_REQUIRES_ORGANIZATION_APPROVAL: &str =
-    "override_requires_organization_approval";
+    "override_organization_approval_required";
 pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_POLICY_MERGE_STRATEGY: &str =
     "policy_merge_strategy";
 pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_ORGANIZATION_POLICY_MERGE_STRATEGY: &str =
@@ -483,7 +483,7 @@ pub struct RealmEffectiveModerationPolicy {
     pub realm_policy: Option<BTreeMap<String, Value>>,
     pub effective_rules: Vec<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub override_requires_organization_approval: Option<bool>,
+    pub override_organization_approval_required: Option<bool>,
     /// content-moderation.md §7 — how the owning organizations' policy layers
     /// combine. A Realm that names more than one owning organization merges
     /// their layers most-restrictively (`most_restrictive`): a join / write is

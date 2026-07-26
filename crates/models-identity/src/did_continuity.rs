@@ -33,7 +33,7 @@ pub enum DidContinuitySignatureAlgorithm {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DidContinuityTransferEvidence {
+pub struct DidContinuityTransferProof {
     pub old_did_document_canonical_digest: Hash,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
@@ -79,7 +79,7 @@ pub struct DidContinuityProof {
     pub old_did_document_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub new_did_document_digest: Option<Hash>,
-    pub transfer_evidence: DidContinuityTransferEvidence,
+    pub transfer_proof: DidContinuityTransferProof,
     pub signature_chain: Vec<DidContinuitySignatureLink>,
 }
 
@@ -138,7 +138,7 @@ impl DidContinuityProof {
             }
         }
         if self
-            .transfer_evidence
+            .transfer_proof
             .user_oob_confirmation_id
             .trim()
             .is_empty()
@@ -243,7 +243,7 @@ mod tests {
             expires_at: Some("2026-04-30T00:00:00.000Z".parse().unwrap()),
             old_did_document_digest: Some(hash("a")),
             new_did_document_digest: Some(hash("b")),
-            transfer_evidence: DidContinuityTransferEvidence {
+            transfer_proof: DidContinuityTransferProof {
                 old_did_document_canonical_digest: hash("c"),
                 old_did_document_fetched_at: "2026-04-28T23:00:00.000Z".parse().unwrap(),
                 inception_public_key_fingerprint: hash("d"),

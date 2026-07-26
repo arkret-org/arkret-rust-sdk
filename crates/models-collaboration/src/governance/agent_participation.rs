@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 
 /// Controller-owned account-data type carrying a per-scope participation
 /// selection (AKP-0010 §5.1).
-pub const AGENT_PARTICIPATION_ACCOUNT_DATA_TYPE: &str = "ak.agent.participation.v1";
+pub const AGENT_PARTICIPATION_ACCOUNT_DATA_KEY: &str = "ak.agent.participation.v1";
 
 /// The three participation bits. Constructs a partial order under
 /// implication: `a ⊆ b` iff every bit set in `a` is set in `b`.

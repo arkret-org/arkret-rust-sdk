@@ -58,7 +58,7 @@ pub struct WireResourceSelector {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub circle_id: Option<CircleId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub object_type: Option<String>,
+    pub object_kind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub object_ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -68,7 +68,7 @@ pub struct WireResourceSelector {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub morph_id: Option<MorphId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub morph_type: Option<String>,
+    pub morph_kind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub relation_kind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -134,7 +134,7 @@ struct ResourceSelectorWire {
     #[serde(default)]
     circle_id: Option<CircleId>,
     #[serde(default)]
-    object_type: Option<String>,
+    object_kind: Option<String>,
     #[serde(default)]
     object_ref: Option<ObjectRef>,
     #[serde(default)]
@@ -144,7 +144,7 @@ struct ResourceSelectorWire {
     #[serde(default)]
     morph_id: Option<MorphId>,
     #[serde(default)]
-    morph_type: Option<String>,
+    morph_kind: Option<String>,
     #[serde(default)]
     relation_kind: Option<String>,
     #[serde(default)]
@@ -178,12 +178,12 @@ impl<'de> Deserialize<'de> for WireResourceSelector {
             realm_id: wire.realm_id,
             space_id: wire.space_id,
             circle_id: wire.circle_id,
-            object_type: wire.object_type,
+            object_kind: wire.object_kind,
             object_ref: wire.object_ref,
             strand_id: wire.strand_id,
             message_id: wire.message_id,
             morph_id: wire.morph_id,
-            morph_type: wire.morph_type,
+            morph_kind: wire.morph_kind,
             relation_kind: wire.relation_kind,
             relation_id: wire.relation_id,
             view_id: wire.view_id,

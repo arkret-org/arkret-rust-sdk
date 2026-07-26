@@ -23,7 +23,7 @@ impl RealmState {
             realm_id: event.realm_id.clone(),
             scope_circle_id: object.scope_circle_id,
             schema_refs,
-            morph_type: object.morph_type,
+            morph_kind: object.morph_kind,
             facets: object.facets,
             metadata: object.metadata,
             encrypted_metadata: object.encrypted_metadata,
@@ -39,7 +39,7 @@ impl RealmState {
             updated_by: None,
             updated_at: None,
         };
-        morph.validate_morph_type(&[])?;
+        morph.validate_morph_kind(&[])?;
         self.morphs.insert(morph_id_str, morph);
         Ok(())
     }

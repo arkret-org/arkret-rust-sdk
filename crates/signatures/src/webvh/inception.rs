@@ -39,7 +39,7 @@ use arkret_models_identity::service_identity::{
     CanonicalServiceUrl, ServiceRegistrationKey, ServiceWebvhInceptionOperation,
     service_registration_local_id,
 };
-use arkret_wire::{Did, Hash, ServiceType};
+use arkret_wire::{Did, Hash, ServiceKind};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{SECRET_KEY_LENGTH, Signature, Signer, SigningKey, VerifyingKey};
 use rand_core::RngCore;
@@ -974,7 +974,7 @@ fn prepare_service_registration_inception_internal<R: RngCore + ?Sized>(
         rng,
         input.provider_endpoint,
         input.registration_key.public_base(),
-        *input.registration_key.service_type(),
+        *input.registration_key.service_kind(),
         &local_id,
         input.also_known_as,
         input.version_time,
@@ -994,7 +994,7 @@ fn prepare_service_inception_internal<R: RngCore + ?Sized>(
         rng,
         input.principal_endpoint,
         &public_base,
-        ServiceType::PrincipalServer,
+        ServiceKind::PrincipalServer,
         input.local_id,
         input.also_known_as,
         input.version_time,
@@ -1008,7 +1008,7 @@ fn prepare_service_inception_parts<R: RngCore + ?Sized>(
     rng: &mut R,
     provider_endpoint: &Url,
     public_base: &CanonicalServiceUrl,
-    service_type: ServiceType,
+    service_kind: ServiceKind,
     local_id: &str,
     also_known_as: &[String],
     version_time: DateTime<Utc>,
@@ -1046,7 +1046,7 @@ fn prepare_service_inception_parts<R: RngCore + ?Sized>(
         &did_public_key_multibase,
         also_known_as,
         service_endpoint,
-        service_type,
+        service_kind,
     );
     let entry_skeleton = json!({
         "versionId": WEBVH_SCID_PLACEHOLDER,
@@ -1202,7 +1202,7 @@ fn embedded_webvh_document_value_without_enrollment(
     did_public_key_multibase: &str,
     also_known_as: &[String],
     service_endpoint: &str,
-    service_type: ServiceType,
+    service_kind: ServiceKind,
 ) -> Value {
     let mut verification_methods = vec![json!({
         "id": did_key_id,
@@ -1212,7 +1212,7 @@ fn embedded_webvh_document_value_without_enrollment(
     })];
     let authentication = vec![did_key_id.to_owned()];
     let mut assertion_methods = vec![did_key_id.to_owned()];
-    if service_type == ServiceType::PrincipalServer {
+    if service_kind == ServiceKind::PrincipalServer {
         let federation_key_id = format!("{did}#federation-fanout-key");
         if federation_key_id != did_key_id {
             verification_methods.push(json!({
@@ -1235,7 +1235,7 @@ fn embedded_webvh_document_value_without_enrollment(
             {
                 "id": format!("{did}#service"),
                 "type": "ArkretService",
-                "serviceType": service_type,
+                "serviceKind": service_kind,
                 "serviceEndpoint": service_endpoint,
             }
         ],
@@ -2522,7 +2522,7 @@ mod tests {
         assert!(
             services.iter().any(|svc| {
                 svc.get("type").and_then(Value::as_str) == Some("ArkretService")
-                    && svc.get("serviceType").and_then(Value::as_str) == Some("principal_server")
+                    && svc.get("serviceKind").and_then(Value::as_str) == Some("principal_server")
             }),
             "service DID document should carry the typed ArkretService entry",
         );
@@ -2533,7 +2533,7 @@ mod tests {
         let mut rng = ChaCha20Rng::seed_from_u64(29);
         let provider_endpoint = Url::parse("https://identity.example/").unwrap();
         let registration_key = ServiceRegistrationKey::new(
-            ServiceType::AuthServer,
+            ServiceKind::AuthServer,
             CanonicalServiceUrl::new("https://auth.example/").unwrap(),
         )
         .unwrap();
@@ -2559,8 +2559,8 @@ mod tests {
             "https://auth.example/"
         );
         assert_eq!(
-            operation.state.service[0].service_type,
-            ServiceType::AuthServer
+            operation.state.service[0].service_kind,
+            ServiceKind::AuthServer
         );
     }
 

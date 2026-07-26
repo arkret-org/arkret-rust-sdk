@@ -27,8 +27,8 @@ pub const CAPABILITY_SCHEMA: &str = "ak.schema.capability.v1";
 pub const INVITE_SCHEMA: &str = "ak.schema.invite.v1";
 pub const READ_CURSOR_SCHEMA: &str = "ak.schema.read_cursor.v1";
 pub const READ_RECEIPT_SCHEMA: &str = "ak.schema.read_receipt.v1";
-/// `receipt_type` const value of `read-receipt.schema.json`.
-pub const READ_RECEIPT_TYPE: &str = "read";
+/// `receipt_kind` const value of `read-receipt.schema.json`.
+pub const READ_RECEIPT_KIND: &str = "read";
 pub const NOTIFICATION_SCHEMA: &str = "ak.schema.notification.v1";
 /// SDK-local operation draft schema marker.
 ///
@@ -78,7 +78,7 @@ pub const PROFILE_DISCLOSED_AUDIT_E2EE: &str = "ak.profile.disclosed_audit.e2ee.
 // the broadcast ephemeral envelope, and structured attestation evidence.
 pub const EPHEMERAL_ENVELOPE_SCHEMA: &str = "ak.schema.ephemeral_envelope.v1";
 pub const MODERATION_APPEAL_SCHEMA: &str = "ak.schema.moderation_appeal.v1";
-pub const ATTESTATION_EVIDENCE_SCHEMA: &str = "ak.schema.attestation_evidence.v1";
+pub const AUDIT_RELEASE_ATTESTATION_SCHEMA: &str = "ak.schema.audit_release_attestation.v1";
 pub const CROSS_SIGNING_RESET_SCHEMA: &str = "ak.schema.cross_signing_reset.v1";
 
 // ── Canonical ak.* event kinds ──────────────────────────────────────────────
@@ -110,22 +110,22 @@ pub const CIRCLE_CAPABILITY_ACTIONS: &[&str] = &[
 // agent lifecycle events are registered separately under `AGENT_*`
 // event-kind constants above.
 
-/// AKP-0008 / AKP-0009 — controller-private account-data types. Reducer
+/// AKP-0008 / AKP-0009 — controller-private account-data keys. Reducer
 /// MUST reject writes from non-controller actors.
-pub const ACCOUNT_DATA_TYPE_AGENT_DRAFT: &str = "ak.agent.draft.v1";
+pub const ACCOUNT_DATA_KEY_AGENT_DRAFT: &str = "ak.agent.draft.v1";
 // `ak.agent.sidecar_projection.v1` was removed from the account-data registry
 // on 2026-07-23: the exchange projection is a controller-device-local fold
 // cache, never Account Data (zh/models/sidecar.md §7.2.4).
-pub const ACCOUNT_DATA_TYPE_AGENT_SIDECAR_VIEW_STATE: &str = "ak.agent.sidecar_view_state.v1";
-pub const ACCOUNT_DATA_TYPE_REMINDER: &str = "ak.reminders.v1";
-pub const ACCOUNT_DATA_TYPE_SCHEDULED_SEND: &str = "ak.scheduled_send.v1";
-pub const ACCOUNT_DATA_TYPE_SNOOZE: &str = "ak.snooze.v1";
-pub const ACCOUNT_DATA_TYPE_SAVED: &str = "ak.saved.v1";
-pub const ACCOUNT_DATA_TYPE_DRAFT: &str = "ak.draft.v1";
-pub const ACCOUNT_DATA_TYPE_FILE_TRANSFER: &str = "ak.file_transfer.v1";
-pub const ACCOUNT_DATA_TYPE_SEARCH_INDEX_MANIFEST: &str = "ak.search.index_manifest.v1";
-pub const ACCOUNT_DATA_TYPE_CONTACTS_ACTOR: &str = "ak.contacts.actor";
-pub const ACCOUNT_DATA_TYPE_CONTACTS_REALM: &str = "ak.contacts.realm";
+pub const ACCOUNT_DATA_KEY_AGENT_SIDECAR_VIEW_STATE: &str = "ak.agent.sidecar_view_state.v1";
+pub const ACCOUNT_DATA_KEY_REMINDER: &str = "ak.reminders.v1";
+pub const ACCOUNT_DATA_KEY_SCHEDULED_SEND: &str = "ak.scheduled_send.v1";
+pub const ACCOUNT_DATA_KEY_SNOOZE: &str = "ak.snooze.v1";
+pub const ACCOUNT_DATA_KEY_SAVED: &str = "ak.saved.v1";
+pub const ACCOUNT_DATA_KEY_DRAFT: &str = "ak.draft.v1";
+pub const ACCOUNT_DATA_KEY_FILE_TRANSFER: &str = "ak.file_transfer.v1";
+pub const ACCOUNT_DATA_KEY_SEARCH_INDEX_MANIFEST: &str = "ak.search.index_manifest.v1";
+pub const ACCOUNT_DATA_KEY_CONTACTS_ACTOR: &str = "ak.contacts.actor";
+pub const ACCOUNT_DATA_KEY_CONTACTS_REALM: &str = "ak.contacts.realm";
 
 /// Key-backup hardening (B-C) — new schema ids registered in
 /// `schema-registry.json` for recovery policy and recovery receipts.
@@ -304,7 +304,7 @@ pub fn is_personal_agent_runtime_event_service_scope(scope: &str) -> bool {
 
 // Round 4 (2026-05-20, spec a77b995) — capability action gating Morph
 // creation. Medium risk; the spec
-// `capability-action-registry.json` declares `required_constraints=[allowed_morph_types]`.
+// `capability-action-registry.json` declares `required_constraints=[allowed_morph_kinds]`.
 
 // AKP-0010 (R3 spec-sync 2026-05-27, arkret-spec b47ff6ec) — call /
 // media capability actions registered in
@@ -368,44 +368,44 @@ pub const AGENT_RUNTIME_SURFACE_OPERATIONS: &[&str] = &[
     ServiceOperationId::SELF_AGENT_SIDECAR_RESOURCE_GET,
 ];
 
-/// Round 4 (2026-05-20) — canonical signal_type enum values carried in the
+/// Round 4 (2026-05-20) — canonical signal_kind enum values carried in the
 /// `ak.call.signal` ephemeral envelope payload. Wire-break: the
 /// pre-round-4 6-value enum (`invite, answer, candidate, renegotiate,
 /// hangup, ack`) is replaced by this 14-value set. Spec
 /// `schemas/ephemeral-envelope.schema.json` (Round 4 commit 58c5926).
-pub const CALL_SIGNAL_TYPE_INVITE: &str = "invite";
-pub const CALL_SIGNAL_TYPE_ANSWER: &str = "answer";
-pub const CALL_SIGNAL_TYPE_CANDIDATE: &str = "candidate";
-pub const CALL_SIGNAL_TYPE_RENEGOTIATE: &str = "renegotiate";
-pub const CALL_SIGNAL_TYPE_HANGUP: &str = "hangup";
-pub const CALL_SIGNAL_TYPE_ACK: &str = "ack";
-pub const CALL_SIGNAL_TYPE_REJECT: &str = "reject";
-pub const CALL_SIGNAL_TYPE_MUTE_STATE: &str = "mute_state";
-pub const CALL_SIGNAL_TYPE_MEDIA_STATE: &str = "media_state";
-pub const CALL_SIGNAL_TYPE_SPEAKING: &str = "speaking";
-pub const CALL_SIGNAL_TYPE_FOCUS_JOIN: &str = "focus_join";
-pub const CALL_SIGNAL_TYPE_FOCUS_LEAVE: &str = "focus_leave";
-pub const CALL_SIGNAL_TYPE_MODERATION: &str = "moderation";
-pub const CALL_SIGNAL_TYPE_ERROR: &str = "error";
+pub const CALL_SIGNAL_KIND_INVITE: &str = "invite";
+pub const CALL_SIGNAL_KIND_ANSWER: &str = "answer";
+pub const CALL_SIGNAL_KIND_CANDIDATE: &str = "candidate";
+pub const CALL_SIGNAL_KIND_RENEGOTIATE: &str = "renegotiate";
+pub const CALL_SIGNAL_KIND_HANGUP: &str = "hangup";
+pub const CALL_SIGNAL_KIND_ACK: &str = "ack";
+pub const CALL_SIGNAL_KIND_REJECT: &str = "reject";
+pub const CALL_SIGNAL_KIND_MUTE_STATE: &str = "mute_state";
+pub const CALL_SIGNAL_KIND_MEDIA_STATE: &str = "media_state";
+pub const CALL_SIGNAL_KIND_SPEAKING: &str = "speaking";
+pub const CALL_SIGNAL_KIND_FOCUS_JOIN: &str = "focus_join";
+pub const CALL_SIGNAL_KIND_FOCUS_LEAVE: &str = "focus_leave";
+pub const CALL_SIGNAL_KIND_MODERATION: &str = "moderation";
+pub const CALL_SIGNAL_KIND_ERROR: &str = "error";
 
-/// All canonical `ak.call.signal` signal_type values. Round 4 (spec a77b995).
-/// Receivers MUST reject any envelope whose `payload.signal_type` is not in
+/// All canonical `ak.call.signal` signal_kind values. Round 4 (spec a77b995).
+/// Receivers MUST reject any envelope whose `payload.signal_kind` is not in
 /// this set with `crate::ErrorCode::SCHEMA_VIOLATION`.
-pub const CALL_SIGNAL_TYPES: &[&str] = &[
-    CALL_SIGNAL_TYPE_INVITE,
-    CALL_SIGNAL_TYPE_ANSWER,
-    CALL_SIGNAL_TYPE_CANDIDATE,
-    CALL_SIGNAL_TYPE_RENEGOTIATE,
-    CALL_SIGNAL_TYPE_HANGUP,
-    CALL_SIGNAL_TYPE_ACK,
-    CALL_SIGNAL_TYPE_REJECT,
-    CALL_SIGNAL_TYPE_MUTE_STATE,
-    CALL_SIGNAL_TYPE_MEDIA_STATE,
-    CALL_SIGNAL_TYPE_SPEAKING,
-    CALL_SIGNAL_TYPE_FOCUS_JOIN,
-    CALL_SIGNAL_TYPE_FOCUS_LEAVE,
-    CALL_SIGNAL_TYPE_MODERATION,
-    CALL_SIGNAL_TYPE_ERROR,
+pub const CALL_SIGNAL_KINDS: &[&str] = &[
+    CALL_SIGNAL_KIND_INVITE,
+    CALL_SIGNAL_KIND_ANSWER,
+    CALL_SIGNAL_KIND_CANDIDATE,
+    CALL_SIGNAL_KIND_RENEGOTIATE,
+    CALL_SIGNAL_KIND_HANGUP,
+    CALL_SIGNAL_KIND_ACK,
+    CALL_SIGNAL_KIND_REJECT,
+    CALL_SIGNAL_KIND_MUTE_STATE,
+    CALL_SIGNAL_KIND_MEDIA_STATE,
+    CALL_SIGNAL_KIND_SPEAKING,
+    CALL_SIGNAL_KIND_FOCUS_JOIN,
+    CALL_SIGNAL_KIND_FOCUS_LEAVE,
+    CALL_SIGNAL_KIND_MODERATION,
+    CALL_SIGNAL_KIND_ERROR,
 ];
 
 /// Round 4 (2026-05-20) — federation S2S HTTP message-signature headers.

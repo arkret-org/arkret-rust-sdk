@@ -14,9 +14,9 @@ pub struct QueryValue {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_ids: Option<Vec<RealmId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub object_types: Option<Vec<String>>,
+    pub object_kinds: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub morph_types: Option<Vec<String>>,
+    pub morph_kinds: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub facets: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

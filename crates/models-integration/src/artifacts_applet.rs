@@ -35,12 +35,12 @@ pub struct ExternalRef {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/field_type`.
+/// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/field_definition`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct FieldType {
-    pub r#type: String,
+pub struct FieldDefinition {
+    pub value_kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -96,7 +96,7 @@ pub struct ThirdPartyQuery {
 #[serde(deny_unknown_fields)]
 pub struct E2eePolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allow_mls_join: Option<bool>,
+    pub mls_join_allowed: Option<bool>,
 }
 
 /// Counterpart for
@@ -122,7 +122,7 @@ pub type TypedRef = String;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CapabilityConstraint {
-    pub constraint_type: String,
+    pub constraint_kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub params: Option<BTreeMap<String, Value>>,
 }
@@ -141,7 +141,7 @@ pub struct DeniedScope {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct E2eeEffect {
-    pub requires_mls_join: bool,
+    pub mls_join_required: bool,
     pub plaintext_access: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_refs: Option<Vec<EventId>>,
@@ -177,7 +177,7 @@ pub struct NamespaceConflict {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WidgetEffect {
-    pub allow_widget: bool,
+    pub widget_allowed: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub policy_event_ref: Option<EventId>,
 }
@@ -364,7 +364,7 @@ pub struct Widget {
     pub widget_origin: String,
     pub csp: String,
     pub token_scope: WidgetTokenScope,
-    pub requires_consent: bool,
+    pub consent_required: bool,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
 }

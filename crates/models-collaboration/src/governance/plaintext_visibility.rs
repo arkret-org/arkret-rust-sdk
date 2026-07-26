@@ -24,7 +24,7 @@ pub enum PlaintextServiceVisibility {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlaintextVisibleService {
     pub service_id: Did,
-    pub service_type: String,
+    pub service_kind: String,
     pub data_classes: Vec<PlaintextDataClassKind>,
     pub purposes: Vec<String>,
     pub visibility: PlaintextServiceVisibility,
@@ -39,14 +39,14 @@ pub struct PlaintextVisibleService {
 impl PlaintextVisibleService {
     pub fn new(
         service_id: Did,
-        service_type: impl Into<String>,
+        service_kind: impl Into<String>,
         data_classes: Vec<PlaintextDataClassKind>,
         purposes: Vec<String>,
         visibility: PlaintextServiceVisibility,
     ) -> Self {
         Self {
             service_id,
-            service_type: service_type.into(),
+            service_kind: service_kind.into(),
             data_classes,
             purposes,
             visibility,

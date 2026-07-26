@@ -455,13 +455,13 @@ def generate_reason_codes(artifacts: Path) -> str:
     return "\n".join(lines) + "\n"
 
 
-def generate_service_types(artifacts: Path) -> str:
-    relative = "registry/service-type-registry.json"
+def generate_service_kinds(artifacts: Path) -> str:
+    relative = "registry/service-kind-registry.json"
     artifact, digest = load(artifacts / relative)
     rows = sorted(
         (
             row
-            for row in artifact["service_types"]
+            for row in artifact["service_kinds"]
             if row["status"] == "active"
         ),
         key=lambda row: row["canonical_id"],
@@ -476,7 +476,7 @@ def generate_service_types(artifacts: Path) -> str:
             '#[serde(rename_all = "snake_case")]',
             "#[repr(usize)]",
             '#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]',
-            "pub enum ServiceType {",
+            "pub enum ServiceKind {",
         ]
     )
     for row in rows:
@@ -486,13 +486,13 @@ def generate_service_types(artifacts: Path) -> str:
             "}",
             "",
             "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
-            "pub struct ServiceTypeDescriptor {",
-            "    pub service_type: ServiceType,",
+            "pub struct ServiceKindDescriptor {",
+            "    pub service_kind: ServiceKind,",
             "    pub valid_in: &'static [&'static str],",
             "    pub description: &'static str,",
             "}",
             "",
-            "impl ServiceType {",
+            "impl ServiceKind {",
             "    pub const ALL: &'static [Self] = &[",
         ]
     )
@@ -516,8 +516,8 @@ def generate_service_types(artifacts: Path) -> str:
             "        }",
             "    }",
             "",
-            "    pub fn descriptor(self) -> &'static ServiceTypeDescriptor {",
-            "        &SERVICE_TYPE_DESCRIPTORS[self as usize]",
+            "    pub fn descriptor(self) -> &'static ServiceKindDescriptor {",
+            "        &SERVICE_KIND_DESCRIPTORS[self as usize]",
             "    }",
             "",
             "    pub fn valid_in(self, context: &str) -> bool {",
@@ -525,14 +525,14 @@ def generate_service_types(artifacts: Path) -> str:
             "    }",
             "}",
             "",
-            "pub const SERVICE_TYPE_DESCRIPTORS: &[ServiceTypeDescriptor] = &[",
+            "pub const SERVICE_KIND_DESCRIPTORS: &[ServiceKindDescriptor] = &[",
         ]
     )
     for row in rows:
         lines.extend(
             [
-                "    ServiceTypeDescriptor {",
-                f"        service_type: ServiceType::{variant(row['canonical_id'])},",
+                "    ServiceKindDescriptor {",
+                f"        service_kind: ServiceKind::{variant(row['canonical_id'])},",
                 f"        valid_in: {rust_slice(row['valid_in'])},",
                 f"        description: {rust_string(row['description'])},",
                 "    },",
@@ -843,7 +843,7 @@ def generate_security_strings(artifacts: Path) -> str:
             "    pub label: &'static str,",
             "    pub primitive: Option<&'static str>,",
             "    pub context_fields: &'static [&'static str],",
-            "    pub output_length: &'static str,",
+            "    pub output_bytes: &'static str,",
             "    pub empty_context_forbidden: bool,",
             "    pub forbid_reuse_with: &'static [&'static str],",
             "}",
@@ -895,7 +895,7 @@ def generate_security_strings(artifacts: Path) -> str:
                 f"        label: {rust_string(row['label'])},",
                 f"        primitive: {rust_option(row.get('primitive'))},",
                 f"        context_fields: {rust_slice(row['context_fields'])},",
-                f"        output_length: {rust_string(str(row['output_length']))},",
+                f"        output_bytes: {rust_string(str(row['output_bytes']))},",
                 "        empty_context_forbidden: "
                 f"{str(bool(row['empty_context_forbidden'])).lower()},",
                 f"        forbid_reuse_with: {rust_slice(row['forbid_reuse_with'])},",
@@ -1097,7 +1097,7 @@ def generate_registry_descriptors(artifacts: Path) -> str:
         "id-kind-registry.json",
         "capability-action-registry.json",
         "schema-registry.json",
-        "account-data-type-registry.json",
+        "account-data-key-registry.json",
     ]
     loaded = [
         (f"registry/{name}", *load(artifacts / "registry" / name))
@@ -1139,7 +1139,7 @@ def generate_registry_descriptors(artifacts: Path) -> str:
     patterns = sorted(
         (
             row
-            for row in account_artifact["account_data_types"]
+            for row in account_artifact["account_data_key_patterns"]
             if row["status"] == "active"
         ),
         key=lambda row: row["key_pattern"],
@@ -1365,7 +1365,7 @@ GENERATORS = {
     "crates/wire/src/error_codes/error_code.rs": generate_error_codes,
     "crates/wire/src/error_codes/reason_code.rs": generate_reason_codes,
     "crates/wire/src/generated/operation_ids.rs": generate_operations,
-    "crates/wire/src/generated/service_types.rs": generate_service_types,
+    "crates/wire/src/generated/service_kinds.rs": generate_service_kinds,
     "crates/wire/src/generated/relation_kinds.rs": generate_relation_kinds,
     "crates/wire/src/generated/security_strings.rs": (
         generate_security_strings

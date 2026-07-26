@@ -14,7 +14,7 @@
 use arkret_identifiers::Did;
 use arkret_models_identity::{
     DeliveryBindingHint, Handle, HandleBindingState, HandleClaim, HandleHintBindingSource,
-    RecipientServiceType,
+    RecipientServiceKind,
 };
 use chrono::{Duration, Utc};
 use proptest::prelude::*;
@@ -113,7 +113,7 @@ proptest! {
         let mut claim = HandleClaim {
             member_delivery_binding: Some(DeliveryBindingHint {
                 recipient_service_id: Did::new("did:webvh:z6mkfixture:recipient.example".to_owned()).unwrap(),
-                recipient_service_type: RecipientServiceType::PrincipalServer,
+                recipient_service_kind: RecipientServiceKind::PrincipalServer,
                 binding_source: HandleHintBindingSource::Explicit,
                 delivery_modes: Default::default(),
                 service_acceptance_ref: None,

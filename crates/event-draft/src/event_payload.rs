@@ -191,7 +191,7 @@ mod tests {
             "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
             "track_name": "discussion",
             "encrypted_content": {
-                "scheme": "mls-rfc9420",
+                "scheme": "mls_rfc9420",
                 "version": "1.0",
                 "group_id": "AA",
                 "epoch": 1,

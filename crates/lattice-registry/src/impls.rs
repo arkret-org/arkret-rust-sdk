@@ -328,14 +328,14 @@ impl LatticeKind for KeyBackupActiveSeries {
                 cell_family: "ak.component.key_backup.active_series.v1",
                 field: "actor_id",
             })?;
-        let backup_class = effect_payload
-            .get("backup_class")
+        let backup_kind = effect_payload
+            .get("backup_kind")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
                 cell_family: "ak.component.key_backup.active_series.v1",
-                field: "backup_class",
+                field: "backup_kind",
             })?;
-        Ok(Some(format!("{actor_id}::{backup_class}")))
+        Ok(Some(format!("{actor_id}::{backup_kind}")))
     }
     fn event_kinds(&self) -> &'static [&'static str] {
         &["ak.key_backup.active_series"]
@@ -1417,7 +1417,7 @@ singleton_lattice!(
 );
 
 // `ak.strand.create` writes the strand object cell
-// (contract-catalog `cell_writes`: lattice `mv_register`, bottom `expose`).
+// (contract-registry `cell_writes`: lattice `mv_register`, bottom `expose`).
 // Without this registration a governance proof over a realm whose accepted
 // history carries a drafted strand-create cell (e.g. the direct-conversation
 // materialization) fails with `no lattice registered for governance cell`.

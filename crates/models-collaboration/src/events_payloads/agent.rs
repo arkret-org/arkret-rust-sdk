@@ -98,8 +98,6 @@ pub struct AgentActionTarget {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub operation_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub account_data_type: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_data_key: Option<String>,
 }
 
@@ -269,7 +267,7 @@ pub struct AgentKeyAuthorizePayloadRuntimeAttestation {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attestation_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub evidence_ref: Option<ObjectRef>,
+    pub attestation_ref: Option<ObjectRef>,
 }
 
 /// One active authorization dot atomically replaced by a controller-signed

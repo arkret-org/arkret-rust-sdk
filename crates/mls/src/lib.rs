@@ -1275,7 +1275,7 @@ mod tests {
         ] {
             assert!(obj.contains_key(field), "missing required field {field}");
         }
-        assert_eq!(obj["scheme"], "mls-rfc9420");
+        assert_eq!(obj["scheme"], "mls_rfc9420");
         assert_eq!(obj["version"], "1.0");
         assert_eq!(obj["aad_visibility_event_id"], "hidden");
         assert_eq!(obj["key_ref"]["algorithm"], "MLS");
@@ -1353,7 +1353,7 @@ mod tests {
     // NOTE: the Remove-result `commit_operation` projection test also moved to
     // `arkret-event-draft` (tests/mls_projection.rs) — see the note above.
 
-    // ── mls-exporter-aead-v1 content scheme ──────────────────────────────────
+    // ── mls_exporter_aead_v1 content scheme ──────────────────────────────────
 
     const HISTORY_REALM: &str = "ak:realm:01904100-0000-7000-8000-e2eeae0d0001";
 

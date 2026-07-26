@@ -734,7 +734,7 @@ mod tests {
         let with_subscriptions = SyncRequestBody {
             subscriptions: Some(SubscriptionConfig {
                 subscriptions: Vec::new(),
-                batch_size: None,
+                batch_item_count: None,
                 timeline_filter: None,
             }),
             ..empty_request()

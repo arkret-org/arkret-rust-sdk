@@ -89,7 +89,7 @@ pub struct AuditAppletBindingPayloadReleaseWindowPolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_epoch_span: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allowed_target_classes: Option<Vec<NonEmptyString>>,
+    pub allowed_target_kinds: Option<Vec<NonEmptyString>>,
 }
 
 /// Closed state set for `ak.component.audit.binding.v1`.
@@ -123,7 +123,7 @@ pub struct AuditAppletBindingPayload {
     pub applet_id: AppletIdentifier,
     pub service_id: Did,
     pub status: AuditBindingStatus,
-    pub purpose_classes: Vec<NonEmptyString>,
+    pub purpose_kinds: Vec<NonEmptyString>,
     pub allowed_release_modes: Vec<AuditReleaseMode>,
     pub audit_assurance_class: AuditAssurance,
     pub notice_policy: NonEmptyJsonObject,
@@ -201,7 +201,7 @@ pub struct AuditReleasePayload {
     pub recipient_public_key_ref: DidUrl,
     pub approver_actor_id: Did,
     pub notice_ref: EventId,
-    pub purpose_class: NonEmptyString,
+    pub purpose_kind: NonEmptyString,
     pub legal_basis_ref: NonEmptyString,
     pub policy_version_digest: Hash,
     pub eligibility_proof: AuditReleasePayloadEligibilityProof,
@@ -245,7 +245,7 @@ pub struct AuditSessionPayload {
     pub binding_id: AuditBindingId,
     pub realm_id: RealmId,
     pub effective_scope: EffectiveScope,
-    pub stage: AuditSessionStage,
+    pub session_state: AuditSessionStage,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applet_id: Option<AppletIdentifier>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -261,7 +261,7 @@ pub struct AuditSessionPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub closer_actor_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub purpose_class: Option<NonEmptyString>,
+    pub purpose_kind: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub legal_basis_ref: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -336,7 +336,7 @@ mod tests {
                 "kind": "realm",
                 "realm_id": "ak:realm:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5f"
             },
-            "stage": "authorize",
+            "session_state": "authorize",
             "approved_recipient_audit_actor_id": "did:webvh:z6mkfixture:auditor.example",
             "approved_recipient_public_key_ref": "did:webvh:z6mkfixture:auditor.example#audit-1",
             "occurred_at": "2026-07-22T10:05:00.000Z"

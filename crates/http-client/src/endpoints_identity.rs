@@ -23,7 +23,7 @@ use arkret_models_identity::{
     IdentityDocumentView, IdentityLogListOutcome, IdentityReceiptListOutcome,
     IdentityResolveOutcome, IdentityResolveRequestBody,
 };
-use arkret_wire::ServiceType;
+use arkret_wire::ServiceKind;
 use reqwest::Method;
 
 use crate::{Client, Error, Result};
@@ -35,19 +35,19 @@ impl Client {
     }
 
     /// Fetches the description for exactly one co-located service role.
-    pub async fn describe_for_role(&self, service_type: ServiceType) -> Result<ServiceDescribe> {
-        if !service_type.valid_in("service_describe") {
+    pub async fn describe_for_role(&self, service_kind: ServiceKind) -> Result<ServiceDescribe> {
+        if !service_kind.valid_in("service_describe") {
             return Err(Error::Protocol(format!(
-                "service_type {} is not valid for service describe",
-                service_type.as_str()
+                "service_kind {} is not valid for service describe",
+                service_kind.as_str()
             )));
         }
         let builder = self
             .public_request(Method::GET, "/_arkret/describe")?
-            .query(&[("service_type", service_type.as_str())]);
+            .query(&[("service_kind", service_kind.as_str())]);
         let description: ServiceDescribe = self.send_json(builder).await?;
         ServiceRequirements::new()
-            .service_type(service_type)
+            .service_kind(service_kind)
             .verify(&description)?;
         Ok(description)
     }
@@ -63,10 +63,10 @@ impl Client {
 
     pub async fn describe_role_and_verify(
         &self,
-        service_type: ServiceType,
+        service_kind: ServiceKind,
         requirements: &ServiceRequirements,
     ) -> Result<ServiceDescribe> {
-        let description = self.describe_for_role(service_type).await?;
+        let description = self.describe_for_role(service_kind).await?;
         requirements.verify(&description)?;
         Ok(description)
     }
@@ -75,18 +75,18 @@ impl Client {
     /// advertised operations against the expected DID service binding.
     pub async fn describe_role_and_verify_binding(
         &self,
-        service_type: ServiceType,
+        service_kind: ServiceKind,
         requirements: &ServiceRequirements,
         binding: &ServiceEndpointBinding,
     ) -> Result<ServiceDescribe> {
-        if binding.service_type != service_type {
+        if binding.service_kind != service_kind {
             return Err(Error::Protocol(format!(
                 "service binding role {} does not match requested role {}",
-                binding.service_type, service_type
+                binding.service_kind, service_kind
             )));
         }
         let description = self
-            .describe_role_and_verify(service_type, requirements)
+            .describe_role_and_verify(service_kind, requirements)
             .await?;
         ServiceIdAllowlist::new()
             .allow(binding.clone())
@@ -168,7 +168,7 @@ impl Client {
         let builder = self
             .request(Method::GET, SERVICE_REGISTRATION_GET_PATH)?
             .query(&[
-                ("service_type", key.service_type().as_str()),
+                ("service_kind", key.service_kind().as_str()),
                 ("public_base", key.public_base().as_str()),
             ]);
         let outcome: ServiceRegistrationOutcome = self.send_json(builder).await?;

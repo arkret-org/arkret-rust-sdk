@@ -48,7 +48,7 @@ pub enum ModerationQueueVisibility {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ModerationEvidencePolicy {
     pub plaintext_allowed: bool,
-    pub requires_franking_proof_verification: bool,
+    pub franking_proof_verification_required: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
@@ -115,7 +115,7 @@ mod tests {
             assigned_to: vec![],
             evidence_policy: Some(ModerationEvidencePolicy {
                 plaintext_allowed: false,
-                requires_franking_proof_verification: true,
+                franking_proof_verification_required: true,
                 retention_expires_at: None,
                 legal_hold: None,
             }),

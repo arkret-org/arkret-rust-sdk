@@ -48,7 +48,7 @@ impl MorphUpdatePayload {
 fn validate_morph_update_patch(patch: &Patch) -> Result<()> {
     patch.validate()?;
     for (path, _) in patch.iter() {
-        if matches!(path.as_str(), "morph_type" | "stage" | "stage_changed_at") {
+        if matches!(path.as_str(), "morph_kind" | "stage" | "stage_changed_at") {
             return Err(Error::Protocol(
                 "morph update patch targets create-locked or single-sourced field".to_owned(),
             ));
@@ -327,7 +327,7 @@ pub struct MessageCreatePayload {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub blob_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub mention_sidecar_hash: Vec<String>,
+    pub mention_sidecar_digest: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reply_to: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -349,7 +349,7 @@ impl MessageCreatePayload {
             metadata: None,
             encrypted_metadata: None,
             blob_refs: Vec::new(),
-            mention_sidecar_hash: Vec::new(),
+            mention_sidecar_digest: Vec::new(),
             reply_to: None,
             expiry: None,
         }
@@ -369,7 +369,7 @@ impl MessageCreatePayload {
             metadata: None,
             encrypted_metadata: None,
             blob_refs: Vec::new(),
-            mention_sidecar_hash: Vec::new(),
+            mention_sidecar_digest: Vec::new(),
             reply_to: None,
             expiry: None,
         }

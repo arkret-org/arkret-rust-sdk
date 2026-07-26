@@ -61,12 +61,12 @@
     {
       "generator": "registry-types",
       "outputs": [
-        "crates/wire/src/generated/service_types.rs"
+        "crates/wire/src/generated/service_kinds.rs"
       ],
       "owner": "arkret-wire",
       "mode": "enum+descriptor",
       "artifacts": [
-        "registry/service-type-registry.json"
+        "registry/service-kind-registry.json"
       ]
     },
     {
@@ -119,7 +119,7 @@
         "registry/schema-registry.json",
         "registry/id-kind-registry.json",
         "registry/capability-action-registry.json",
-        "registry/account-data-type-registry.json"
+        "registry/account-data-key-registry.json"
       ]
     }
   ]

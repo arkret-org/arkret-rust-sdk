@@ -15,7 +15,7 @@ use arkret_crypto::backup::{
     VAULT_AEAD_PROFILE, VaultBinding, commitment_digest, decrypt_vault, derive_subkey,
     derive_vault_kek_with_salt, encrypt_vault_with_nonce_salt,
 };
-use arkret_models_crypto::{BackupClass, KeyBackupDomainSeparationAad};
+use arkret_models_crypto::{BackupKind, KeyBackupDomainSeparationAad};
 use arkret_schema::embedded_json_artifact;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -77,8 +77,8 @@ fn run_kat(kat: &Value) {
     let plaintext = str_field(input, "plaintext_utf8");
 
     let binding_json = &input["binding"];
-    let backup_class: BackupClass = serde_json::from_value(binding_json["backup_class"].clone())
-        .expect("fixture backup_class parses");
+    let backup_kind: BackupKind = serde_json::from_value(binding_json["backup_kind"].clone())
+        .expect("fixture backup_kind parses");
     let binding = VaultBinding {
         backup_id: str_field(binding_json, "backup_id")
             .parse()
@@ -90,16 +90,16 @@ fn run_kat(kat: &Value) {
                 .parse()
                 .expect("actor_id parses"),
             device_id: binding_json["device_id"].as_str().map(ToOwned::to_owned),
-            backup_class,
+            backup_kind,
             backup_version: str_field(binding_json, "backup_version").to_owned(),
             created_at: str_field(binding_json, "created_at")
                 .parse::<DateTime<Utc>>()
                 .expect("created_at parses"),
-            item_types: binding_json["item_types"]
+            item_kinds: binding_json["item_kinds"]
                 .as_array()
-                .expect("item_types array")
+                .expect("item_kinds array")
                 .iter()
-                .map(|item| item.as_str().expect("item_type string").to_owned())
+                .map(|item| item.as_str().expect("item_kind string").to_owned())
                 .collect(),
             managed_principal_bindings: vec![],
             recipient_method: None,
@@ -116,7 +116,7 @@ fn run_kat(kat: &Value) {
         "{label}: Argon2id root key drift"
     );
 
-    // Stage 2: HKDF-SHA256 subkeys (domain-separated per backup_class).
+    // Stage 2: HKDF-SHA256 subkeys (domain-separated per backup_kind).
     let subkeys = &mid["hkdf_sha256_subkeys"];
     assert_eq!(
         hex(&binding.subkey(&kek.key, "aead")),
@@ -134,12 +134,12 @@ fn run_kat(kat: &Value) {
         "{label}: commitment subkey drift"
     );
     assert_eq!(
-        backup_class.hkdf_info("aead"),
+        backup_kind.hkdf_info("aead"),
         str_field(&subkeys["aead"], "info"),
         "{label}: aead HKDF info drift"
     );
     assert_eq!(
-        backup_class.hkdf_info("commitment"),
+        backup_kind.hkdf_info("commitment"),
         str_field(&subkeys["commitment"], "info"),
         "{label}: commitment HKDF info drift"
     );
@@ -190,7 +190,7 @@ fn run_kat(kat: &Value) {
 
     // Stage 4: key commitment.
     assert_eq!(
-        format!("sha256:{}", hex(&commitment_digest(&kek.key, backup_class))),
+        format!("sha256:{}", hex(&commitment_digest(&kek.key, backup_kind))),
         str_field(expected, "key_commitment"),
         "{label}: key commitment drift"
     );

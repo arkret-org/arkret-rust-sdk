@@ -34,7 +34,7 @@ pub enum Resource {
     Morph {
         realm_id: String,
         morph_id: String,
-        morph_type: String,
+        morph_kind: String,
     },
     /// Notification resource (per-actor private channel).
     Notification {
@@ -112,15 +112,15 @@ pub enum Constraint {
         fields: Vec<String>,
     },
     /// Type restriction constraint
-    TypeRestriction {
+    KindRestriction {
         #[serde(skip_serializing_if = "Option::is_none")]
-        allowed_object_types: Option<Vec<String>>,
+        allowed_object_kinds: Option<Vec<String>>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        denied_object_types: Option<Vec<String>>,
+        denied_object_kinds: Option<Vec<String>>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        allowed_morph_types: Option<Vec<String>>,
+        allowed_morph_kinds: Option<Vec<String>>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        denied_morph_types: Option<Vec<String>>,
+        denied_morph_kinds: Option<Vec<String>>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         allowed_facets: Vec<Facet>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -161,7 +161,7 @@ pub enum Constraint {
     },
     /// Claim-based constraint
     ClaimBased {
-        requires_claims: Vec<ClaimRequirement>,
+        required_claims: Vec<ClaimRequirement>,
         trusted_issuers: Vec<Did>,
         #[serde(default)]
         claim_refresh_required: bool,
@@ -182,7 +182,7 @@ pub enum Constraint {
         #[serde(skip_serializing_if = "Option::is_none")]
         min_encryption_level: Option<String>,
     },
-    /// Visibility control constraint (`confidentiality{subtype=visibility}`).
+    /// Visibility control constraint (`confidentiality{constraint_subkind=visibility}`).
     /// See `constraint-schema.md` §13.
     VisibilityControl {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -190,9 +190,9 @@ pub enum Constraint {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         denied_history_visibility_values: Vec<String>,
         #[serde(default = "default_false")]
-        deny_redacted_history: bool,
+        redacted_history_allowed: bool,
     },
-    /// Resource quota constraint (`quota{subtype=resource}`).
+    /// Resource quota constraint (`quota{constraint_subkind=resource}`).
     /// See `constraint-schema.md` §8.2 / §14.1.
     ResourceLimit {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -202,14 +202,14 @@ pub enum Constraint {
         #[serde(skip_serializing_if = "Option::is_none")]
         max_resources: Option<u64>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        resource_type: Option<String>,
+        resource_kind: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         period: Option<ConstraintDuration>,
         #[serde(default = "default_rate_limit_scope")]
         scope: GrantRateLimitScope,
     },
     /// Edit / redact temporal window for messages
-    /// (`temporal{subtype=edit_window}`). See `constraint-schema.md` §14.2.
+    /// (`temporal{constraint_subkind=edit_window}`). See `constraint-schema.md` §14.2.
     EditWindow {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         applies_to_actions: Vec<String>,
@@ -218,7 +218,7 @@ pub enum Constraint {
         #[serde(skip_serializing_if = "Option::is_none")]
         message_redact_window: Option<ConstraintDuration>,
         #[serde(default = "default_false")]
-        allow_redact_after_window: bool,
+        redact_after_window_allowed: bool,
     },
     /// Container move scope (`scope_limitation` with container refs).
     /// See `constraint-schema.md` §6.3.
@@ -778,7 +778,7 @@ impl ConstraintEntry {
         match &self.constraint {
             Constraint::Temporal { .. } => ConstraintEffect::Allow,
             Constraint::FieldAccess { effect, .. } => effect.clone(),
-            Constraint::TypeRestriction { .. } => ConstraintEffect::Allow,
+            Constraint::KindRestriction { .. } => ConstraintEffect::Allow,
             Constraint::DelegationControl { .. } => ConstraintEffect::Allow,
             Constraint::RateLimiting { .. } => ConstraintEffect::Allow,
             Constraint::ApprovalWorkflow { .. } => ConstraintEffect::RequireReview,
@@ -811,7 +811,7 @@ impl ConstraintEntry {
         match &self.constraint {
             Constraint::Temporal { .. } => EvaluationClass::Stateless,
             Constraint::FieldAccess { .. } => EvaluationClass::Stateless,
-            Constraint::TypeRestriction { .. } => EvaluationClass::Stateless,
+            Constraint::KindRestriction { .. } => EvaluationClass::Stateless,
             Constraint::DelegationControl { .. } => EvaluationClass::GrantLocal,
             Constraint::RateLimiting { .. } => EvaluationClass::External,
             Constraint::ApprovalWorkflow { .. } => EvaluationClass::External,

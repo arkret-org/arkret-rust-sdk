@@ -23,12 +23,12 @@ fn operation_serializes_protocol_field_names() {
     let value = serde_json::to_value(operation).unwrap();
 
     assert_eq!(value["type"], "operation");
-    assert_eq!(value["operation_type"], "create");
+    assert_eq!(value["operation_kind"], "create");
     assert_eq!(
         value["object_id"],
         "ak:morph:01904100-0000-7000-8000-c12dc98b2948"
     );
-    assert_eq!(value["object_type"], "morph");
+    assert_eq!(value["object_kind"], "morph");
     assert!(value.get("target_object_id").is_none());
     assert_eq!(value["schema"], OPERATION_SCHEMA);
 }

@@ -39,8 +39,8 @@ fn relation_requires_exact_wire_endpoints() {
 fn query_request_uses_protocol_filters_array() {
     let request = ViewQuery {
         realm_ids: vec![RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
-        object_types: vec!["morph".to_owned()],
-        morph_types: vec!["task".to_owned()],
+        object_kinds: vec!["morph".to_owned()],
+        morph_kinds: vec!["task".to_owned()],
         facets: vec![Facet::Stateful, Facet::Rankable],
         seal_ref: None,
         filters: vec![Filter::Predicate(FieldFilter {
@@ -88,8 +88,8 @@ fn facets_accept_name_lists_and_config_maps() {
 fn view_supports_renderer_and_facet_config_facades() {
     let request = ViewQuery {
         realm_ids: vec![RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
-        object_types: Vec::new(),
-        morph_types: Vec::new(),
+        object_kinds: Vec::new(),
+        morph_kinds: Vec::new(),
         facets: vec![Facet::Stateful, Facet::Rankable],
         seal_ref: None,
         filters: Vec::new(),

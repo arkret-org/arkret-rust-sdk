@@ -76,7 +76,7 @@ const REDACTION_DERIVED_FIELD_KEYS: &[&str] = &[
     "encrypted_content",
     "media",
     "mention_routing_hint",
-    "mention_sidecar_hash",
+    "mention_sidecar_digest",
     "mentions",
     "poll",
     "preview",

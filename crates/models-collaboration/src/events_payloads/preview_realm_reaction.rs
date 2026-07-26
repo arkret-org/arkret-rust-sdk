@@ -188,7 +188,7 @@ pub struct RealmDisappearingPolicyPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default_grace_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allow_plaintext_realms: Option<bool>,
+    pub plaintext_realms_allowed: Option<bool>,
 }
 
 /// Counterpart for
@@ -493,7 +493,7 @@ pub struct RealmKeyRequestScope {
 /// can decrypt pre-join content. The sealed material rides back inside a
 /// `ak.realm_key.share` `ciphertext`.
 ///
-/// `requested_source_class` reuses the authoritative
+/// `requested_source_kind` reuses the authoritative
 /// [`HistoryKeySource`] (defined in `history_visibility.rs`).
 /// The direct request/share path is not allowed to request the
 /// [`HistoryKeySource::KeyBackup`] class — backup-derived history keys are out
@@ -505,7 +505,7 @@ pub struct RealmKeyRequestPayload {
     pub recipient_principal_id: Did,
     pub recipient_device_id: DeviceId,
     pub recipient_hpke_public_key: NonEmptyString,
-    pub requested_source_class: HistoryKeySource,
+    pub requested_source_kind: HistoryKeySource,
     pub target_source_ref: RealmKeySourceRef,
     pub target_principal_id: Did,
     #[serde(
@@ -519,9 +519,9 @@ impl RealmKeyRequestPayload {
     /// Reject empty load-bearing fields and the out-of-scope `key_backup`
     /// source class before the request is shipped.
     pub fn validate(&self) -> Result<()> {
-        if self.requested_source_class == HistoryKeySource::KeyBackup {
+        if self.requested_source_kind == HistoryKeySource::KeyBackup {
             return Err(Error::Protocol(
-                "ak.realm_key.request.requested_source_class must not be key_backup".to_owned(),
+                "ak.realm_key.request.requested_source_kind must not be key_backup".to_owned(),
             ));
         }
         if self.recipient_hpke_public_key.trim().is_empty() {
@@ -571,7 +571,7 @@ pub struct RealmKeyShareAuditPayload {
     pub recorded_at: DateTime<Utc>,
 }
 
-/// Discriminator for `realm_key_share_payload.share_class`
+/// Discriminator for `realm_key_share_payload.share_kind`
 /// (event-payload.schema.json, device-lifecycle.md §13). `member_device` is the
 /// ordinary per-member history delivery path (carries `recipient_device_id`);
 /// `realm_recovery_key` is the Realm `durability_policy` RRK durability seal
@@ -584,18 +584,18 @@ pub enum RealmKeyShareClass {
     RealmRecoveryKey,
 }
 
-/// Variant target of a realm key share, keyed by `share_class`.
+/// Variant target of a realm key share, keyed by `share_kind`.
 ///
-/// `share_class` is the discriminator the cell subject and the sender
+/// `share_kind` is the discriminator the cell subject and the sender
 /// transcript both read, so it stays a top-level field on the payload; this
 /// enum is untagged and carries only the branch-specific target fields.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RealmKeyShareTarget {
-    /// `share_class=member_device`: the authorized recipient device whose HPKE
+    /// `share_kind=member_device`: the authorized recipient device whose HPKE
     /// public key receives the sealed history secret.
     MemberDevice { recipient_device_id: DeviceId },
-    /// `share_class=realm_recovery_key`: the RRK verification method
+    /// `share_kind=realm_recovery_key`: the RRK verification method
     /// (identity-did.md §8.3) plus the stable durability-policy recipient id.
     RealmRecoveryKey {
         recipient_verification_method: DidUrl,
@@ -620,7 +620,7 @@ pub enum RealmKeyShareMaterial {
 /// silently dropped.
 #[derive(Clone, Debug, Serialize)]
 pub struct RealmKeySharePayload {
-    pub share_class: RealmKeyShareClass,
+    pub share_kind: RealmKeyShareClass,
     pub recipient_principal_id: Did,
     /// Variant target. Flattened so the wire shape stays exactly the schema's
     /// `oneOf`, while cross-carrying or omitting a branch's fields becomes
@@ -662,7 +662,7 @@ pub struct RealmKeySharePayload {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RealmKeySharePayloadWire {
-    share_class: RealmKeyShareClass,
+    share_kind: RealmKeyShareClass,
     recipient_principal_id: Did,
     #[serde(default)]
     recipient_device_id: Option<DeviceId>,
@@ -700,7 +700,7 @@ impl<'de> Deserialize<'de> for RealmKeySharePayload {
         // material; mirroring that here keeps a cross-carried field from being
         // silently discarded on the way into the strong type.
         let target = match (
-            wire.share_class,
+            wire.share_kind,
             wire.recipient_device_id,
             wire.recipient_verification_method,
             wire.recovery_recipient_id,
@@ -721,7 +721,7 @@ impl<'de> Deserialize<'de> for RealmKeySharePayload {
             },
             _ => {
                 return Err(D::Error::custom(
-                    "realm key share target fields must match share_class exactly:                      member_device carries only recipient_device_id, realm_recovery_key                      carries only recipient_verification_method + recovery_recipient_id",
+                    "realm key share target fields must match share_kind exactly:                      member_device carries only recipient_device_id, realm_recovery_key                      carries only recipient_verification_method + recovery_recipient_id",
                 ));
             }
         };
@@ -737,7 +737,7 @@ impl<'de> Deserialize<'de> for RealmKeySharePayload {
             }
         };
         Ok(Self {
-            share_class: wire.share_class,
+            share_kind: wire.share_kind,
             recipient_principal_id: wire.recipient_principal_id,
             target,
             sender_device_id: wire.sender_device_id,
@@ -802,7 +802,7 @@ pub struct RealmKeyWithheldPayload {
     /// Shared with `RealmKeySharePayload` so both kinds derive the same
     /// `ak.component.realm_key.delivery.v1` subject. v1 registers
     /// `member_device` only.
-    pub share_class: RealmKeyShareClass,
+    pub share_kind: RealmKeyShareClass,
     pub recipient_principal_id: Did,
     pub recipient_device_id: DeviceId,
     pub sender_device_id: DeviceId,
@@ -941,7 +941,7 @@ mod realm_control_payload_tests {
         let value = json!({
             "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
             "notary": {
-                "type": "single_did",
+                "kind": "single_did",
                 "did": "did:web:notary.example"
             }
         });
@@ -1008,7 +1008,7 @@ mod realm_key_request_tests {
             recipient_device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000b")
                 .unwrap(),
             recipient_hpke_public_key: NonEmptyString::new("cHVia2V5").unwrap(),
-            requested_source_class: source,
+            requested_source_kind: source,
             target_source_ref: RealmKeySourceRef::Device(
                 DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000c").unwrap(),
             ),
@@ -1026,7 +1026,7 @@ mod realm_key_request_tests {
         payload.validate().unwrap();
         let value = serde_json::to_value(&payload).unwrap();
         assert_eq!(
-            value["requested_source_class"],
+            value["requested_source_kind"],
             json!("verified_member_device")
         );
         let parsed: RealmKeyRequestPayload = serde_json::from_value(value).unwrap();
@@ -1222,9 +1222,9 @@ pub fn realm_organization_statement_signing_bytes(
 mod realm_key_share_tests {
     use super::*;
 
-    fn wire(share_class: &str, extra: Value) -> Value {
+    fn wire(share_kind: &str, extra: Value) -> Value {
         let mut base = serde_json::json!({
-            "share_class": share_class,
+            "share_kind": share_kind,
             "recipient_principal_id": "did:webvh:z6mkfixture:bob.example",
             "sender_device_id": "ak:device:019f9000-0000-7000-8000-000000000004",
             "source_authorization_ref": "ak:event:019f9000-0000-7000-8000-000000000005",
@@ -1287,7 +1287,7 @@ mod realm_key_share_tests {
         // member_device and silently drop `recovery_recipient_id`.
         let error = parse(member(serde_json::json!({"recovery_recipient_id": "rr-1"})))
             .expect_err("cross-carried target must be rejected");
-        assert!(format!("{error}").contains("match share_class exactly"));
+        assert!(format!("{error}").contains("match share_kind exactly"));
     }
 
     #[test]

@@ -750,7 +750,7 @@ pub enum PendingSidecarAccessReconciliationStage {
 #[serde(deny_unknown_fields)]
 pub struct PendingSidecarAccessReconciliationItem {
     pub agent_id: Did,
-    pub stage: PendingSidecarAccessReconciliationStage,
+    pub provisioning_phase: PendingSidecarAccessReconciliationStage,
     pub reason: NonEmptyString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub membership_frontier: Option<Vec<EventId>>,
@@ -758,7 +758,7 @@ pub struct PendingSidecarAccessReconciliationItem {
 
 impl PendingSidecarAccessReconciliationItem {
     pub fn validate(&self) -> Result<()> {
-        match (&self.stage, &self.membership_frontier) {
+        match (&self.provisioning_phase, &self.membership_frontier) {
             (PendingSidecarAccessReconciliationStage::MlsRemove, Some(frontier))
                 if !frontier.is_empty()
                     && frontier.windows(2).all(|pair| pair[0].as_str() < pair[1].as_str()) =>
@@ -1098,15 +1098,15 @@ pub struct AgentSidecarViewState {
 }
 
 impl AgentSidecarViewState {
-    pub fn account_data_type(&self) -> String {
+    pub fn account_data_key(&self) -> String {
         format!(
             "ak.agent.sidecar_view_state.v1:{}:{}:{}",
             self.controller_id, self.context_ref.realm_id, self.context_ref.strand_id
         )
     }
 
-    pub fn validate_account_data_type(&self, data_type: &str) -> Result<()> {
-        if data_type == self.account_data_type() {
+    pub fn validate_account_data_key(&self, account_data_key: &str) -> Result<()> {
+        if account_data_key == self.account_data_key() {
             Ok(())
         } else {
             Err(Error::Protocol(
@@ -1230,7 +1230,7 @@ fn validate_sidecar_order_key(value: &str, label: &str) -> Result<()> {
     Ok(())
 }
 
-fn validate_sidecar_failure_code(value: &str) -> Result<()> {
+fn validate_sidecar_failure_reason_code(value: &str) -> Result<()> {
     let bytes = value.as_bytes();
     if bytes.is_empty()
         || bytes.len() > 64
@@ -1540,7 +1540,7 @@ pub struct AgentSidecarExchangeControl {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub response_event_ids: Option<Vec<EventId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub failure_code: Option<NonEmptyString>,
+    pub failure_reason_code: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_coordinator_agent_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1588,18 +1588,18 @@ impl AgentSidecarExchangeControl {
                 ));
             }
         }
-        match (&self.failure_code, self.action) {
+        match (&self.failure_reason_code, self.action) {
             (Some(code), AgentSidecarExchangeControlAction::Fail) => {
-                validate_sidecar_failure_code(code.as_str())?;
+                validate_sidecar_failure_reason_code(code.as_str())?;
             }
             (None, AgentSidecarExchangeControlAction::Fail) => {
                 return Err(Error::Protocol(
-                    "action=fail requires failure_code".to_owned(),
+                    "action=fail requires failure_reason_code".to_owned(),
                 ));
             }
             (Some(_), _) => {
                 return Err(Error::Protocol(
-                    "failure_code is legal only on action=fail".to_owned(),
+                    "failure_reason_code is legal only on action=fail".to_owned(),
                 ));
             }
             (None, _) => {}
@@ -1618,7 +1618,7 @@ impl AgentSidecarExchangeControl {
         }
         let responses = self.response_event_ids.clone().unwrap_or_default();
         Ok(Some(if responses.is_empty() {
-            let failure_code = match self.action {
+            let failure_reason_code = match self.action {
                 AgentSidecarExchangeControlAction::Close => {
                     AGENT_SIDECAR_EXCHANGE_FAILURE_CONTROLLER_CLOSED_EMPTY.to_owned()
                 }
@@ -1626,7 +1626,7 @@ impl AgentSidecarExchangeControl {
                     AGENT_SIDECAR_EXCHANGE_FAILURE_CONTROLLER_CANCELLED.to_owned()
                 }
                 AgentSidecarExchangeControlAction::Fail => self
-                    .failure_code
+                    .failure_reason_code
                     .as_ref()
                     .expect("validated above")
                     .as_str()
@@ -1635,13 +1635,13 @@ impl AgentSidecarExchangeControl {
             };
             AgentSidecarExchangeTerminalOutcome {
                 status: AgentSidecarExchangeStatus::Failed,
-                failure_code: Some(failure_code),
+                failure_reason_code: Some(failure_reason_code),
                 response_event_ids: Vec::new(),
             }
         } else {
             AgentSidecarExchangeTerminalOutcome {
                 status: AgentSidecarExchangeStatus::Complete,
-                failure_code: None,
+                failure_reason_code: None,
                 response_event_ids: responses,
             }
         }))
@@ -1653,7 +1653,7 @@ impl AgentSidecarExchangeControl {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AgentSidecarExchangeTerminalOutcome {
     pub status: AgentSidecarExchangeStatus,
-    pub failure_code: Option<String>,
+    pub failure_reason_code: Option<String>,
     pub response_event_ids: Vec<EventId>,
 }
 
@@ -1745,7 +1745,7 @@ pub struct AgentSidecarExchangeProjection {
     pub user_facing_response_event_ids: Vec<EventId>,
     pub status: AgentSidecarExchangeStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub failure_code: Option<NonEmptyString>,
+    pub failure_reason_code: Option<NonEmptyString>,
     /// Controller-authored control Event that produced `complete`/`failed`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub terminal_event_id: Option<EventId>,
@@ -1803,13 +1803,13 @@ impl AgentSidecarExchangeProjection {
                 "Sidecar response Event ids must be unique".to_owned(),
             ));
         }
-        if let Some(failure_code) = &self.failure_code {
-            validate_sidecar_failure_code(failure_code.as_str())?;
+        if let Some(failure_reason_code) = &self.failure_reason_code {
+            validate_sidecar_failure_reason_code(failure_reason_code.as_str())?;
         }
         match self.status {
             AgentSidecarExchangeStatus::Delivered => {
                 if !self.user_facing_response_event_ids.is_empty()
-                    || self.failure_code.is_some()
+                    || self.failure_reason_code.is_some()
                     || self.terminal_event_id.is_some()
                 {
                     return Err(Error::Protocol(
@@ -1820,7 +1820,7 @@ impl AgentSidecarExchangeProjection {
             }
             AgentSidecarExchangeStatus::Responding => {
                 if self.user_facing_response_event_ids.is_empty()
-                    || self.failure_code.is_some()
+                    || self.failure_reason_code.is_some()
                     || self.terminal_event_id.is_some()
                 {
                     return Err(Error::Protocol(
@@ -1831,7 +1831,7 @@ impl AgentSidecarExchangeProjection {
             }
             AgentSidecarExchangeStatus::Complete => {
                 if self.user_facing_response_event_ids.is_empty()
-                    || self.failure_code.is_some()
+                    || self.failure_reason_code.is_some()
                     || self.terminal_event_id.is_none()
                 {
                     return Err(Error::Protocol(
@@ -1842,11 +1842,11 @@ impl AgentSidecarExchangeProjection {
             }
             AgentSidecarExchangeStatus::Failed => {
                 if !self.user_facing_response_event_ids.is_empty()
-                    || self.failure_code.is_none()
+                    || self.failure_reason_code.is_none()
                     || self.terminal_event_id.is_none()
                 {
                     return Err(Error::Protocol(
-                        "failed Sidecar exchange requires failure_code and terminal Event and no responses"
+                        "failed Sidecar exchange requires failure_reason_code and terminal Event and no responses"
                             .to_owned(),
                     ));
                 }
@@ -2097,7 +2097,7 @@ mod tests {
         let event_b = EventId::new("ak:event:01964137-0000-7000-8000-000000000002").unwrap();
         let valid = PendingSidecarAccessReconciliationItem {
             agent_id,
-            stage: PendingSidecarAccessReconciliationStage::MlsRemove,
+            provisioning_phase: PendingSidecarAccessReconciliationStage::MlsRemove,
             reason: NonEmptyString::new("mls_remove_obligation_pending").unwrap(),
             membership_frontier: Some(vec![event_a.clone(), event_b.clone()]),
         };
@@ -2112,7 +2112,7 @@ mod tests {
         assert!(unsorted.validate().is_err());
 
         let mut wrong_stage = valid;
-        wrong_stage.stage = PendingSidecarAccessReconciliationStage::MlsWelcome;
+        wrong_stage.provisioning_phase = PendingSidecarAccessReconciliationStage::MlsWelcome;
         assert!(wrong_stage.validate().is_err());
     }
 
@@ -2197,7 +2197,7 @@ mod tests {
             private_request_event_id: fixture_event_id(0x34),
             user_facing_response_event_ids: vec![],
             status: AgentSidecarExchangeStatus::Delivered,
-            failure_code: None,
+            failure_reason_code: None,
             terminal_event_id: None,
             folded_frontier: AgentSidecarExchangeFoldedFrontier {
                 event_ids: vec![fixture_event_id(0x34)],
@@ -2238,7 +2238,8 @@ mod tests {
 
         let mut failed_with_response = projection.clone();
         failed_with_response.status = AgentSidecarExchangeStatus::Failed;
-        failed_with_response.failure_code = Some(NonEmptyString::new("agent_deactivated").unwrap());
+        failed_with_response.failure_reason_code =
+            Some(NonEmptyString::new("agent_deactivated").unwrap());
         failed_with_response.terminal_event_id = Some(fixture_event_id(0x36));
         failed_with_response.user_facing_response_event_ids = vec![fixture_event_id(0x35)];
         assert!(
@@ -2252,7 +2253,7 @@ mod tests {
         assert!(serde_json::from_value::<AgentSidecarExchangeProjection>(unknown).is_err());
 
         let mut account_data_key = serde_json::to_value(&projection).unwrap();
-        account_data_key["account_data_type"] = serde_json::json!(
+        account_data_key["account_data_key"] = serde_json::json!(
             "ak.agent.sidecar_projection.v1:did:webvh:z6mkfixture:example.com:users:alice"
         );
         assert!(
@@ -2349,14 +2350,14 @@ mod tests {
             basis_event_ids: vec![fixture_event_id(0x34), fixture_event_id(0x35)],
             action: AgentSidecarExchangeControlAction::Cancel,
             response_event_ids: Some(vec![fixture_event_id(0x35)]),
-            failure_code: None,
+            failure_reason_code: None,
             expected_coordinator_agent_id: None,
             coordinator_agent_id: None,
         };
         let outcome = base.terminal_outcome().unwrap().unwrap();
         assert_eq!(outcome.status, AgentSidecarExchangeStatus::Complete);
         assert!(
-            outcome.failure_code.is_none(),
+            outcome.failure_reason_code.is_none(),
             "cancel with delivered responses folds to complete, not failed"
         );
 
@@ -2366,7 +2367,7 @@ mod tests {
         let outcome = empty_close.terminal_outcome().unwrap().unwrap();
         assert_eq!(outcome.status, AgentSidecarExchangeStatus::Failed);
         assert_eq!(
-            outcome.failure_code.as_deref(),
+            outcome.failure_reason_code.as_deref(),
             Some(AGENT_SIDECAR_EXCHANGE_FAILURE_CONTROLLER_CLOSED_EMPTY)
         );
 
@@ -2374,17 +2375,23 @@ mod tests {
         empty_cancel.response_event_ids = Some(vec![]);
         let outcome = empty_cancel.terminal_outcome().unwrap().unwrap();
         assert_eq!(
-            outcome.failure_code.as_deref(),
+            outcome.failure_reason_code.as_deref(),
             Some(AGENT_SIDECAR_EXCHANGE_FAILURE_CONTROLLER_CANCELLED)
         );
 
         let mut fail = base.clone();
         fail.action = AgentSidecarExchangeControlAction::Fail;
         fail.response_event_ids = Some(vec![]);
-        assert!(fail.validate().is_err(), "fail requires failure_code");
-        fail.failure_code = Some(NonEmptyString::new("agent_deactivated").unwrap());
+        assert!(
+            fail.validate().is_err(),
+            "fail requires failure_reason_code"
+        );
+        fail.failure_reason_code = Some(NonEmptyString::new("agent_deactivated").unwrap());
         let outcome = fail.terminal_outcome().unwrap().unwrap();
-        assert_eq!(outcome.failure_code.as_deref(), Some("agent_deactivated"));
+        assert_eq!(
+            outcome.failure_reason_code.as_deref(),
+            Some("agent_deactivated")
+        );
 
         let mut reassign = base.clone();
         reassign.action = AgentSidecarExchangeControlAction::ReassignCoordinator;

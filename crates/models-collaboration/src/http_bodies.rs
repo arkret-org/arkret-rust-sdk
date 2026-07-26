@@ -439,7 +439,7 @@ pub struct ProjectionStrandList {
 pub struct ProjectionMorphRow {
     pub morph_id: MorphId,
     pub realm_id: RealmId,
-    pub morph_type: String,
+    pub morph_kind: String,
     pub state: ProjectionObjectState,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,

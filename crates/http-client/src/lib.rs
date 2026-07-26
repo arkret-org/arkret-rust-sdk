@@ -846,14 +846,14 @@ mod tests {
         use arkret_models_collaboration::objects::blob::BlobUploadMetadata;
         use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
         use arkret_models_crypto::{
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE, MlsGovernanceProofRequest,
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE, MlsGovernanceProofRequestBodyBody,
         };
         use arkret_models_discovery::{
             DirectoryPrivateContactDiscoveryOutcome, DirectoryPrivateContactDiscoveryRequestBody,
         };
         use arkret_wire::{
             BlobRef, Did, EffectiveScope, Event, EventId, EventRequirements, Hash, Hlc,
-            MimiRoomUri, NonEmptyString, RealmId, ServiceType, StrandId,
+            MimiRoomUri, NonEmptyString, RealmId, ServiceKind, StrandId,
         };
         use serde_json::{Value, json};
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -1027,7 +1027,7 @@ mod tests {
         async fn mls_governance_proof_posts_typed_request() {
             let (client, capture) = spawn_capture_server("{}").await;
             let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap();
-            let request = MlsGovernanceProofRequest {
+            let request = MlsGovernanceProofRequestBodyBody {
                 realm_id: realm_id.clone(),
                 effective_scope: EffectiveScope::Realm {
                     realm_id: realm_id.clone(),
@@ -1242,7 +1242,7 @@ mod tests {
         async fn dpop_auth_does_not_authenticate_public_describe() {
             let canned = r#"{
                 "protocol_version":"1.0",
-                "service_type":"principal_server",
+                "service_kind":"principal_server",
                 "service_id":"did:web:server.local",
                 "trust_domain":"ak:trust_domain:server.local",
                 "supported_profiles":[],
@@ -1288,7 +1288,7 @@ mod tests {
         async fn role_scoped_describe_sends_selector_and_rejects_mismatched_response() {
             let canned = r#"{
                 "protocol_version":"1.0",
-                "service_type":"principal_server",
+                "service_kind":"principal_server",
                 "service_id":"did:web:server.local",
                 "trust_domain":"ak:trust_domain:server.local",
                 "supported_profiles":[],
@@ -1308,31 +1308,31 @@ mod tests {
             }"#;
             let (client, capture) = spawn_capture_server(canned).await;
             let description = client
-                .describe_for_role(ServiceType::PrincipalServer)
+                .describe_for_role(ServiceKind::PrincipalServer)
                 .await
                 .unwrap();
-            assert_eq!(description.service_type, ServiceType::PrincipalServer);
+            assert_eq!(description.service_kind, ServiceKind::PrincipalServer);
 
             let raw = capture.await.unwrap();
             let (request_line, _headers, _body) = split_request(&raw);
             assert!(
                 request_line
-                    .starts_with("GET /_arkret/describe?service_type=principal_server HTTP/1.1"),
+                    .starts_with("GET /_arkret/describe?service_kind=principal_server HTTP/1.1"),
                 "unexpected request line: {request_line}",
             );
 
             let mismatched = Box::leak(
                 canned
                     .replace(
-                        "\"service_type\":\"principal_server\"",
-                        "\"service_type\":\"auth_server\"",
+                        "\"service_kind\":\"principal_server\"",
+                        "\"service_kind\":\"auth_server\"",
                     )
                     .into_boxed_str(),
             );
             let (client, _capture) = spawn_capture_server(mismatched).await;
             assert!(
                 client
-                    .describe_for_role(ServiceType::PrincipalServer)
+                    .describe_for_role(ServiceKind::PrincipalServer)
                     .await
                     .is_err()
             );
@@ -1444,7 +1444,7 @@ mod tests {
                     )
                     .unwrap(),
                 ),
-                backup_class: Some(arkret_models_crypto::BackupClass::DidRecovery),
+                backup_kind: Some(arkret_models_crypto::BackupKind::DidRecovery),
                 cursor: None,
                 limit: Some(25),
             };
@@ -1464,7 +1464,7 @@ mod tests {
                     "series_id=ak%3Abackup_series%3A01964137-0000-7000-8000-000000000777"
                 )
             );
-            assert!(request_line.contains("backup_class=did_recovery"));
+            assert!(request_line.contains("backup_kind=did_recovery"));
             assert!(request_line.contains("limit=25"));
         }
 
@@ -1568,7 +1568,7 @@ mod tests {
         async fn mimi_provider_directory_gets_canonical_path_with_filters() {
             let (client, capture) = spawn_capture_server(
                 r#"{
-                    "service_type":"mimi_provider",
+                    "service_kind":"mimi_provider",
                     "supported_profiles":[],
                     "mimi":{
                         "protocol_draft":"draft-ietf-mimi-protocol-04",
@@ -1586,7 +1586,7 @@ mod tests {
                 .mimi_provider_directory(Some("provider-a"), &features)
                 .await
                 .unwrap();
-            assert_eq!(response.service_type, "mimi_provider");
+            assert_eq!(response.service_kind, "mimi_provider");
             assert_eq!(response.mimi.provider_id, "provider-a");
             assert!(response.mimi.features.is_empty());
 

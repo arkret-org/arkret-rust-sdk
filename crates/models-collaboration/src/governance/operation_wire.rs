@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    Did, Error, GrantId, Hash, InviteId, InviteState, PolicyEffect, PolicyId, PolicyType, RealmId,
+    Did, Error, GrantId, Hash, InviteId, InviteState, PolicyEffect, PolicyId, PolicyKind, RealmId,
     Result, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
@@ -21,7 +21,7 @@ pub struct Policy {
     pub id: PolicyId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    pub policy_type: PolicyType,
+    pub policy_kind: PolicyKind,
     pub rules: Vec<PolicyRule>,
     pub default_effect: PolicyEffect,
     #[serde(skip_serializing_if = "Option::is_none")]

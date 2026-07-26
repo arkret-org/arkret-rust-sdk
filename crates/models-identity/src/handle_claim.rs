@@ -5,7 +5,7 @@
 //! handle-claim vocabulary enums live in `arkret-models-identity`.
 //! [`HandleClaim`] and [`DeliveryBindingHint`] live here because they
 //! embed the collaboration delivery-binding types
-//! ([`RecipientServiceType`], [`DeliveryMode`]).
+//! ([`RecipientServiceKind`], [`DeliveryMode`]).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -14,7 +14,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::delivery_binding::{DeliveryMode, RecipientServiceType};
+use crate::delivery_binding::{DeliveryMode, RecipientServiceKind};
 use crate::handle::{
     HANDLE_CLAIM_SCHEMA, Handle, HandleBindingState, HandleClaimKind, HandleHintBindingSource,
     HandleVisibility, validate_handle_claim_subject,
@@ -24,8 +24,8 @@ use crate::handle::{
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeliveryBindingHint {
     pub recipient_service_id: Did,
-    #[serde(default = "default_hint_recipient_service_type")]
-    pub recipient_service_type: RecipientServiceType,
+    #[serde(default = "default_hint_recipient_service_kind")]
+    pub recipient_service_kind: RecipientServiceKind,
     pub binding_source: HandleHintBindingSource,
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub delivery_modes: BTreeSet<DeliveryMode>,
@@ -35,8 +35,8 @@ pub struct DeliveryBindingHint {
     pub policy_event_ref: Option<String>,
 }
 
-fn default_hint_recipient_service_type() -> RecipientServiceType {
-    RecipientServiceType::PrincipalServer
+fn default_hint_recipient_service_kind() -> RecipientServiceKind {
+    RecipientServiceKind::PrincipalServer
 }
 
 fn default_handle_claim_schema() -> String {
@@ -264,7 +264,7 @@ mod tests {
             member_delivery_binding: Some(DeliveryBindingHint {
                 recipient_service_id: Did::new("did:webvh:z6mkfixture:rs.example".to_owned())
                     .unwrap(),
-                recipient_service_type: RecipientServiceType::PrincipalServer,
+                recipient_service_kind: RecipientServiceKind::PrincipalServer,
                 binding_source: HandleHintBindingSource::Explicit,
                 delivery_modes: BTreeSet::new(),
                 service_acceptance_ref: None,
@@ -290,7 +290,7 @@ mod tests {
             member_delivery_binding: Some(DeliveryBindingHint {
                 recipient_service_id: Did::new("did:webvh:z6mkfixture:rs.example".to_owned())
                     .unwrap(),
-                recipient_service_type: RecipientServiceType::PrincipalServer,
+                recipient_service_kind: RecipientServiceKind::PrincipalServer,
                 binding_source: HandleHintBindingSource::OrganizationPolicy,
                 delivery_modes: BTreeSet::from([DeliveryMode::Events]),
                 service_acceptance_ref: Some(
@@ -304,7 +304,7 @@ mod tests {
         let value = serde_json::to_value(&claim).unwrap();
         assert_eq!(value["claim_kind"], "handle_binding");
         assert!(value.get("class").is_none());
-        assert!(value.get("claim_type").is_none());
+        assert!(value.get("claim_kind").is_none());
         assert!(value.get("issued_at").is_none());
         assert!(value["created_at"].is_string());
         assert_eq!(
@@ -350,7 +350,7 @@ mod tests {
             expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
             member_delivery_binding: Some(DeliveryBindingHint {
                 recipient_service_id: recipient.clone(),
-                recipient_service_type: RecipientServiceType::PrincipalServer,
+                recipient_service_kind: RecipientServiceKind::PrincipalServer,
                 binding_source: HandleHintBindingSource::OrganizationPolicy,
                 delivery_modes: BTreeSet::from([DeliveryMode::Events]),
                 service_acceptance_ref: None,

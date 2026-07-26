@@ -951,7 +951,7 @@ fn morph_schema_document() -> Value {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": MORPH_SCHEMA,
         "type": "object",
-        "required": ["schema", "id", "realm_id", "schema_refs", "morph_type", "created_by", "created_at"],
+        "required": ["schema", "id", "realm_id", "schema_refs", "morph_kind", "created_by", "created_at"],
         "not": {
             "anyOf": [
                 { "required": ["title"] },
@@ -967,7 +967,7 @@ fn morph_schema_document() -> Value {
             "realm_id": { "type": "string" },
             "scope_circle_id": { "type": "string" },
             "schema_refs": { "type": "array", "minItems": 1, "uniqueItems": true },
-            "morph_type": { "type": "string" },
+            "morph_kind": { "type": "string" },
             "facets": { "type": "object" },
             "metadata": {
                 "type": "object",
@@ -978,7 +978,7 @@ fn morph_schema_document() -> Value {
                         { "required": ["realm_id"] },
                         { "required": ["scope_circle_id"] },
                         { "required": ["schema_refs"] },
-                        { "required": ["morph_type"] },
+                        { "required": ["morph_kind"] },
                         { "required": ["facets"] },
                         { "required": ["fields"] },
                         { "required": ["stage"] },

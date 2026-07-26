@@ -4,7 +4,7 @@ use arkret_crypto::backup::{
     VAULT_SCHEMA_ID, VaultBinding, commitment_digest, derive_subkey, derive_vault_kek_with_salt,
     encrypt_vault_with_nonce_salt,
 };
-use arkret_models_crypto::{BackupClass, KeyBackupDomainSeparationAad};
+use arkret_models_crypto::{BackupKind, KeyBackupDomainSeparationAad};
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -38,8 +38,8 @@ fn main() {
     for kat in case["kat_cases"].as_array().unwrap() {
         let input = &kat["input"];
         let binding_json = &input["binding"];
-        let backup_class: BackupClass =
-            serde_json::from_value(binding_json["backup_class"].clone()).unwrap();
+        let backup_kind: BackupKind =
+            serde_json::from_value(binding_json["backup_kind"].clone()).unwrap();
         let binding = VaultBinding {
             backup_id: string(binding_json, "backup_id").parse().unwrap(),
             subdomain: "aead".to_owned(),
@@ -49,12 +49,12 @@ fn main() {
                 device_id: binding_json["device_id"]
                     .as_str()
                     .map(|value| value.to_owned()),
-                backup_class,
+                backup_kind,
                 backup_version: string(binding_json, "backup_version").to_owned(),
                 created_at: string(binding_json, "created_at")
                     .parse::<DateTime<Utc>>()
                     .unwrap(),
-                item_types: binding_json["item_types"]
+                item_kinds: binding_json["item_kinds"]
                     .as_array()
                     .unwrap()
                     .iter()
@@ -85,7 +85,7 @@ fn main() {
                 "root_key_hex": hex(&kek.key),
                 "hkdf_sha256_subkeys": {
                     "aead": {
-                        "info": backup_class.hkdf_info("aead"),
+                        "info": backup_kind.hkdf_info("aead"),
                         "subkey_hex": hex(&binding.subkey(&kek.key, "aead")),
                     },
                     "nonce": {
@@ -96,7 +96,7 @@ fn main() {
                         )),
                     },
                     "commitment": {
-                        "info": backup_class.hkdf_info("commitment"),
+                        "info": backup_kind.hkdf_info("commitment"),
                         "subkey_hex": hex(&binding.subkey(&kek.key, "commitment")),
                     },
                 },
@@ -120,7 +120,7 @@ fn main() {
                 ),
                 "key_commitment": format!(
                     "sha256:{}",
-                    hex(&commitment_digest(&kek.key, backup_class)),
+                    hex(&commitment_digest(&kek.key, backup_kind)),
                 ),
             },
         }));

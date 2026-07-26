@@ -24,16 +24,16 @@ pub struct AccountDataEncryptedValueAad {
     pub schema: String,
     pub version: String,
     pub actor_id: String,
-    pub data_type: String,
+    pub account_data_key: String,
 }
 
 impl AccountDataEncryptedValueAad {
-    pub fn new(actor_id: impl Into<String>, data_type: impl Into<String>) -> Self {
+    pub fn new(actor_id: impl Into<String>, account_data_key: impl Into<String>) -> Self {
         Self {
             schema: ACCOUNT_DATA_ENCRYPTED_VALUE_SCHEMA.to_owned(),
             version: ACCOUNT_DATA_ENCRYPTED_VALUE_VERSION.to_owned(),
             actor_id: actor_id.into(),
-            data_type: data_type.into(),
+            account_data_key: account_data_key.into(),
         }
     }
 }
@@ -56,15 +56,17 @@ fn protocol_error(message: impl Into<String>) -> Error {
     Error::Protocol(message.into())
 }
 
-fn validate_actor_and_data_type(actor_id: &str, data_type: &str) -> Result<()> {
+fn validate_actor_and_account_data_key(actor_id: &str, account_data_key: &str) -> Result<()> {
     let actor_id = actor_id.trim();
     if !actor_id.starts_with("did:") || actor_id.chars().any(char::is_whitespace) {
         return Err(protocol_error("account-data actor_id must be a DID"));
     }
     let pattern = Regex::new(r"^ak\.[A-Za-z0-9._:-]+$")
         .map_err(|error| Error::Protocol(format!("account-data type regex: {error}")))?;
-    if !pattern.is_match(data_type) {
-        return Err(protocol_error("account-data data_type is not canonical"));
+    if !pattern.is_match(account_data_key) {
+        return Err(protocol_error(
+            "account-data account_data_key is not canonical",
+        ));
     }
     Ok(())
 }
@@ -76,13 +78,13 @@ fn canonical_aad(aad: &AccountDataEncryptedValueAad) -> Result<Vec<u8>> {
 pub fn derive_account_data_value_key(
     account_secret: &[u8; 32],
     actor_id: &str,
-    data_type: &str,
+    account_data_key: &str,
 ) -> Result<[u8; 32]> {
-    validate_actor_and_data_type(actor_id, data_type)?;
+    validate_actor_and_account_data_key(actor_id, account_data_key)?;
     let info = canonical_json_bytes(&serde_json::json!({
         "schema": ACCOUNT_DATA_ENCRYPTED_VALUE_SCHEMA,
         "actor_id": actor_id,
-        "data_type": data_type,
+        "account_data_key": account_data_key,
     }))?;
     let hkdf = Hkdf::<Sha256>::new(Some(ACCOUNT_DATA_HKDF_SALT), account_secret);
     let mut key = [0u8; 32];
@@ -94,24 +96,24 @@ pub fn derive_account_data_value_key(
 pub fn seal_account_data_value(
     account_secret: &[u8; 32],
     actor_id: &str,
-    data_type: &str,
+    account_data_key: &str,
     plaintext: &Value,
 ) -> Result<AccountDataEncryptedValue> {
     let mut nonce = [0u8; ACCOUNT_DATA_NONCE_LEN];
     getrandom::fill(&mut nonce)
         .map_err(|error| Error::Crypto(format!("account-data nonce generation failed: {error}")))?;
-    seal_account_data_value_with_nonce(account_secret, actor_id, data_type, plaintext, nonce)
+    seal_account_data_value_with_nonce(account_secret, actor_id, account_data_key, plaintext, nonce)
 }
 
 pub fn seal_account_data_value_with_nonce(
     account_secret: &[u8; 32],
     actor_id: &str,
-    data_type: &str,
+    account_data_key: &str,
     plaintext: &Value,
     nonce: [u8; ACCOUNT_DATA_NONCE_LEN],
 ) -> Result<AccountDataEncryptedValue> {
-    let key = derive_account_data_value_key(account_secret, actor_id, data_type)?;
-    let aad = AccountDataEncryptedValueAad::new(actor_id, data_type);
+    let key = derive_account_data_value_key(account_secret, actor_id, account_data_key)?;
+    let aad = AccountDataEncryptedValueAad::new(actor_id, account_data_key);
     let aad_bytes = canonical_aad(&aad)?;
     let plaintext_bytes = canonical_json_bytes(plaintext)?;
     let cipher = XChaCha20Poly1305::new_from_slice(&key)
@@ -142,9 +144,9 @@ pub fn seal_account_data_value_with_nonce(
 pub fn validate_account_data_encrypted_value(
     value: &AccountDataEncryptedValue,
     expected_actor_id: &str,
-    expected_data_type: &str,
+    expected_account_data_key: &str,
 ) -> Result<()> {
-    validate_actor_and_data_type(expected_actor_id, expected_data_type)?;
+    validate_actor_and_account_data_key(expected_actor_id, expected_account_data_key)?;
     if value.schema != ACCOUNT_DATA_ENCRYPTED_VALUE_SCHEMA
         || value.version != ACCOUNT_DATA_ENCRYPTED_VALUE_VERSION
         || value.aead_profile != ACCOUNT_DATA_AEAD_PROFILE
@@ -155,7 +157,9 @@ pub fn validate_account_data_encrypted_value(
             "unsupported account-data encrypted value envelope",
         ));
     }
-    if value.aad.actor_id != expected_actor_id || value.aad.data_type != expected_data_type {
+    if value.aad.actor_id != expected_actor_id
+        || value.aad.account_data_key != expected_account_data_key
+    {
         return Err(protocol_error(
             "account-data encrypted value AAD binding mismatch",
         ));
@@ -185,11 +189,15 @@ pub fn validate_account_data_encrypted_value(
 pub fn open_account_data_value(
     account_secret: &[u8; 32],
     expected_actor_id: &str,
-    expected_data_type: &str,
+    expected_account_data_key: &str,
     value: &AccountDataEncryptedValue,
 ) -> Result<Value> {
-    validate_account_data_encrypted_value(value, expected_actor_id, expected_data_type)?;
-    let key = derive_account_data_value_key(account_secret, expected_actor_id, expected_data_type)?;
+    validate_account_data_encrypted_value(value, expected_actor_id, expected_account_data_key)?;
+    let key = derive_account_data_value_key(
+        account_secret,
+        expected_actor_id,
+        expected_account_data_key,
+    )?;
     if value.key_ref != sha256_digest(key) {
         return Err(protocol_error("account-data key_ref mismatch"));
     }
@@ -222,18 +230,23 @@ mod tests {
     use super::*;
 
     const ACTOR: &str = "did:webvh:z6mkfixture:alice.example";
-    const DATA_TYPE: &str = "ak.dnd_schedule";
+    const ACCOUNT_DATA_KEY: &str = "ak.dnd_schedule";
 
     #[test]
     fn account_data_value_round_trips_and_is_not_plaintext() {
         let secret = [7u8; 32];
         let plaintext = serde_json::json!({"dnd":{"enabled":true}});
-        let envelope =
-            seal_account_data_value_with_nonce(&secret, ACTOR, DATA_TYPE, &plaintext, [9u8; 24])
-                .unwrap();
+        let envelope = seal_account_data_value_with_nonce(
+            &secret,
+            ACTOR,
+            ACCOUNT_DATA_KEY,
+            &plaintext,
+            [9u8; 24],
+        )
+        .unwrap();
         assert!(!envelope.ciphertext.contains("enabled"));
         assert_eq!(
-            open_account_data_value(&secret, ACTOR, DATA_TYPE, &envelope).unwrap(),
+            open_account_data_value(&secret, ACTOR, ACCOUNT_DATA_KEY, &envelope).unwrap(),
             plaintext
         );
     }
@@ -242,29 +255,34 @@ mod tests {
     fn account_data_value_rejects_tamper_and_cross_domain_open() {
         let secret = [11u8; 32];
         let plaintext = serde_json::json!({"dnd":{"enabled":true}});
-        let envelope =
-            seal_account_data_value_with_nonce(&secret, ACTOR, DATA_TYPE, &plaintext, [13u8; 24])
-                .unwrap();
+        let envelope = seal_account_data_value_with_nonce(
+            &secret,
+            ACTOR,
+            ACCOUNT_DATA_KEY,
+            &plaintext,
+            [13u8; 24],
+        )
+        .unwrap();
         assert!(open_account_data_value(&secret, ACTOR, "ak.push_rules", &envelope).is_err());
-        assert!(open_account_data_value(&[12u8; 32], ACTOR, DATA_TYPE, &envelope,).is_err());
+        assert!(open_account_data_value(&[12u8; 32], ACTOR, ACCOUNT_DATA_KEY, &envelope,).is_err());
         let mut tampered = envelope;
         tampered.ciphertext.push('A');
-        assert!(open_account_data_value(&secret, ACTOR, DATA_TYPE, &tampered).is_err());
+        assert!(open_account_data_value(&secret, ACTOR, ACCOUNT_DATA_KEY, &tampered).is_err());
     }
 
     #[test]
     fn account_data_value_accepts_registered_multi_segment_private_key() {
-        let data_type = "ak.saved.v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+        let account_data_key = "ak.saved.v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
         let envelope = seal_account_data_value_with_nonce(
             &[17u8; 32],
             ACTOR,
-            data_type,
+            account_data_key,
             &serde_json::json!({"saved": true}),
             [19u8; 24],
         )
         .unwrap();
         assert_eq!(
-            open_account_data_value(&[17u8; 32], ACTOR, data_type, &envelope).unwrap(),
+            open_account_data_value(&[17u8; 32], ACTOR, account_data_key, &envelope).unwrap(),
             serde_json::json!({"saved": true})
         );
     }

@@ -145,7 +145,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                             "ak:trust_domain:example.net",
                         )
                         .unwrap(),
-                        service_type: arkret_wire::ServiceType::PrincipalServer,
+                        service_kind: arkret_wire::ServiceKind::PrincipalServer,
                         protocol_version: arkret_wire::PROTOCOL_VERSION.to_owned(),
                         supported_profiles: vec![],
                         profile_bindings: Default::default(),
@@ -176,7 +176,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                         egress_network_policy: Some(
                             arkret_models_discovery::service_description::EgressNetworkPolicy::deny_private_defaults(),
                         ),
-                        resource_types: vec![],
+                        resource_kinds: vec![],
                         discovery_profiles: vec![],
                         restricted_query_proof: None,
                         ingest_modes: vec![],

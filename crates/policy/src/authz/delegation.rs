@@ -82,18 +82,18 @@ pub struct Grant {
 /// A constraint entry attached to a [`Grant`].
 ///
 /// Typed enum mirroring the v1 spec's `grant-constraint.schema.json`
-/// `constraint_type` discriminator plus runtime-only families used by
+/// `constraint_kind` discriminator plus runtime-only families used by
 /// soland's HTTP authz path (`Decision`, `AllowedObjectFacets`). The
 /// upstream typed validator in [`crate::authz::ConstraintEntry`] /
 /// [`crate::authz::Constraint`] remains the canonical schema-aligned
 /// representation; this enum is the in-memory runtime projection that
 /// soland threads through `AuthzEngine::check`.
 ///
-/// AKP-0007 P1.3.4: the previous `{ constraint_type: String, value:
+/// AKP-0007 P1.3.4: the previous `{ constraint_kind: String, value:
 /// serde_json::Value }` weakly-typed form has been removed (no backwards
 /// compat). All call sites construct one of these variants directly.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "constraint_type", rename_all = "snake_case")]
+#[serde(tag = "constraint_kind", rename_all = "snake_case")]
 pub enum GrantConstraint {
     /// Hard decision constraint used by soland to attach explicit
     /// allow/deny/quarantine/require_review verdicts to a grant
@@ -102,15 +102,15 @@ pub enum GrantConstraint {
     /// standalone constraint type because soland's engine treats decision
     /// constraints separately from the spec-typed evaluation families.
     Decision { decision: GrantDecisionVerdict },
-    /// Temporal constraint (`constraint_type: "temporal"`). Carries two
+    /// Temporal constraint (`constraint_kind: "temporal"`). Carries two
     /// independent facets that share the spec `temporal` discriminator:
     ///
     /// - Grant expiry: optional `expires_at`. The top-level `Grant::expires_at` field and any
     ///   `Temporal { expires_at }` entry are intersected; the stricter wins (see
     ///   [`grant_effective_expiry`]).
-    /// - Message edit / redact window (`subtype = "edit_window" | "redact_window"`,
+    /// - Message edit / redact window (`constraint_subkind = "edit_window" | "redact_window"`,
     ///   constraint-schema.md §14.2). `message_edit_window` governs `ak.message.revise[.own]`;
-    ///   `message_redact_window` governs `ak.message.redact[.own]`. `allow_redact_after_window`
+    ///   `message_redact_window` governs `ak.message.redact[.own]`. `redact_after_window_allowed`
     ///   controls whether redact stays coupled to the edit window when no separate redact window is
     ///   declared (default `false` = coupled; omitting a redact window then means unbounded recall
     ///   once the edit window closes only if this flag is `true`). When `message_redact_window` is
@@ -125,13 +125,13 @@ pub enum GrantConstraint {
         )]
         expires_at: Option<DateTime<Utc>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        subtype: Option<String>,
+        constraint_subkind: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         message_edit_window: Option<ConstraintDuration>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         message_redact_window: Option<ConstraintDuration>,
         #[serde(default, skip_serializing_if = "is_false")]
-        allow_redact_after_window: bool,
+        redact_after_window_allowed: bool,
     },
     /// AKP-0007 (spec b7d35be) — narrow a Circle-management capability
     /// (`ak.circle.manage`, `ak.circle.member.manage`,
@@ -258,7 +258,7 @@ pub enum DelegationError {
 }
 
 /// Returns the effective expiry for a grant, taking the stricter of the
-/// top-level `expires_at` and any `constraint_type=temporal` entry inside
+/// top-level `expires_at` and any `constraint_kind=temporal` entry inside
 /// `constraints[]`. `None` means the grant never expires.
 pub fn grant_effective_expiry(grant: &Grant) -> Option<DateTime<Utc>> {
     let top_level = grant.expires_at;
@@ -277,7 +277,7 @@ pub fn grant_effective_expiry(grant: &Grant) -> Option<DateTime<Utc>> {
     }
 }
 
-/// serde `skip_serializing_if` helper — omits `allow_redact_after_window`
+/// serde `skip_serializing_if` helper — omits `redact_after_window_allowed`
 /// from the wire form when it carries its default (`false`).
 fn is_false(value: &bool) -> bool {
     !*value
@@ -1027,10 +1027,10 @@ mod tests {
         grant.expires_at = Some(now + Duration::hours(2));
         grant.constraints.push(GrantConstraint::Temporal {
             expires_at: Some(now + Duration::hours(1)),
-            subtype: None,
+            constraint_subkind: None,
             message_edit_window: None,
             message_redact_window: None,
-            allow_redact_after_window: false,
+            redact_after_window_allowed: false,
         });
         let effective = grant_effective_expiry(&grant).expect("has expiry");
         // The constraint says 1h; top-level says 2h. Stricter (1h) wins.

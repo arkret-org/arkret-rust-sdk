@@ -67,7 +67,7 @@ pub struct SubscriptionConfig {
     pub subscriptions: Vec<RealmSubscription>,
     /// Batch size for timeline
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub batch_size: Option<u32>,
+    pub batch_item_count: Option<u32>,
     /// Timeline filter
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeline_filter: Option<TimelineFilter>,
@@ -303,8 +303,11 @@ fn normalized_subscription_config(subscriptions: &SubscriptionConfig) -> Result<
             Value::Array(normalized_subscriptions),
         );
     }
-    if let Some(batch_size) = subscriptions.batch_size {
-        object.insert("batch_size".to_owned(), serde_json::json!(batch_size));
+    if let Some(batch_item_count) = subscriptions.batch_item_count {
+        object.insert(
+            "batch_item_count".to_owned(),
+            serde_json::json!(batch_item_count),
+        );
     }
     if let Some(timeline_filter) = &subscriptions.timeline_filter {
         object.insert(
@@ -803,7 +806,7 @@ mod tests {
                     required_state: vec!["m.room.topic".to_owned(), "m.room.name".to_owned()],
                 },
             ],
-            batch_size: Some(20),
+            batch_item_count: Some(20),
             timeline_filter: None,
         };
         let subscriptions_b = SubscriptionConfig {
@@ -822,7 +825,7 @@ mod tests {
                     required_state: vec!["m.room.topic".to_owned(), "m.room.name".to_owned()],
                 },
             ],
-            batch_size: Some(20),
+            batch_item_count: Some(20),
             timeline_filter: None,
         };
 
