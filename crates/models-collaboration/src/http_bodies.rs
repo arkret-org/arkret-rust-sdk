@@ -1223,6 +1223,9 @@ pub struct DirectConversationMaterializationDraft {
     pub realm_event: Event,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub founding_grant_event: Event,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub creator_member_event: Option<Event>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub peer_member_event: Event,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -1238,13 +1241,16 @@ pub struct DirectConversationMaterializationDraft {
 
 impl DirectConversationMaterializationDraft {
     pub fn validate_shape(&self) -> Result<()> {
-        let expected = [
+        let mut expected = vec![
             (&self.realm_event, EventKind::REALM_CREATE),
             (&self.founding_grant_event, EventKind::CAPABILITY_GRANT),
             (&self.peer_member_event, EventKind::MEMBER_STATE),
             (&self.main_strand_event, EventKind::STRAND_CREATE),
             (&self.binding_event, EventKind::DIRECT_CONVERSATION_BOUND),
         ];
+        if let Some(event) = &self.creator_member_event {
+            expected.push((event, EventKind::MEMBER_STATE));
+        }
         if expected
             .iter()
             .any(|(event, kind)| event.kind.as_str() != *kind || !event.proofs.is_empty())
@@ -1253,7 +1259,10 @@ impl DirectConversationMaterializationDraft {
                 "direct conversation materialization Event draft shape is invalid".into(),
             ));
         }
-        if self.realm_event.realm_id != self.peer_member_event.realm_id
+        if self.creator_member_event.as_ref().is_some_and(|event| {
+            self.realm_event.realm_id != event.realm_id
+                || self.realm_event.actor_id != event.actor_id
+        }) || self.realm_event.realm_id != self.peer_member_event.realm_id
             || self.realm_event.realm_id != self.main_strand_event.realm_id
             || self.realm_event.realm_id != self.founding_grant_event.realm_id
             || self.realm_event.actor_id != self.peer_member_event.actor_id
