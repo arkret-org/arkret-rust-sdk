@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/proof-context-registry.json; version=2026-07-24;
-//! sha256=43f8b6483f41248933491bb95addba017534974a73aa10c886ac000e23287e43 Input: registry/
+//! sha256=988e1b8d35e2dfd1c69c563cb111855acc30b90012460f313f9bac97305f438b Input: registry/
 //! exporter-label-registry.json; version=2026-06-10;
 //! sha256=899604056f85a86c29627783c29f7607c9e12776768cb147392e11b42e2ec46c Input: registry/
 //! digest-suite-registry.json; version=2026-06-10;
-//! sha256=6522a9f899872e285762d46634a8f13a2d9f69437d04287a404cccde42327344 Input: registry/
+//! sha256=a2ec09df95e7115ea2feba454b121cb9095f21e42313422ac6d9b9c9cd5f7573 Input: registry/
 //! signature-alg-registry.json; version=2026-07-13;
 //! sha256=5ccd1caf0e223f267b782a5d8bd61310597031f76f71cc49d60eea261b73061f Input: registry/
 //! hpke-suite-registry.json; version=2026-07-13;
@@ -13,8 +13,8 @@
 //! mls-ciphersuite-registry.json; version=2026-07-13;
 //! sha256=a480b2b689250123d2cc22e004bc376cb8080d9f6bf1500886271ff30b5a6ad6 Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
-//! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
-//! Entries: proof_contexts=28, exporter_labels=8, digest_suites=3, signature_algorithms=4,
+//! sha256=0fbcc85e00b58715c360aa0ed37acf11d858fd6b1a7d0ceb9b0c82bda99f1614
+//! Entries: proof_contexts=31, exporter_labels=8, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -30,6 +30,7 @@ pub enum ProofContextId {
     CapabilityGrantProofV1,
     DidContinuityProofV1,
     DidKeyLogEntryProofV1,
+    DidWebvhWitnessReceiptProofV1,
     DirectoryOperationProofV1,
     EphemeralProofV1,
     EventProofV1,
@@ -41,6 +42,8 @@ pub enum ProofContextId {
     JoinApplicationReviewReceiptProofV1,
     MemberDeliveryBindingCandidateProofV1,
     MimiOperationProofV1,
+    OrganizationRegistrationControlProofV1,
+    OrganizationRegistrationReceiptProofV1,
     PrincipalLocatorProofV1,
     RangeCompletenessAttestationProofV1,
     RealmJoinCandidateProofV1,
@@ -62,6 +65,7 @@ impl ProofContextId {
         Self::CapabilityGrantProofV1,
         Self::DidContinuityProofV1,
         Self::DidKeyLogEntryProofV1,
+        Self::DidWebvhWitnessReceiptProofV1,
         Self::DirectoryOperationProofV1,
         Self::EphemeralProofV1,
         Self::EventProofV1,
@@ -73,6 +77,8 @@ impl ProofContextId {
         Self::JoinApplicationReviewReceiptProofV1,
         Self::MemberDeliveryBindingCandidateProofV1,
         Self::MimiOperationProofV1,
+        Self::OrganizationRegistrationControlProofV1,
+        Self::OrganizationRegistrationReceiptProofV1,
         Self::PrincipalLocatorProofV1,
         Self::RangeCompletenessAttestationProofV1,
         Self::RealmJoinCandidateProofV1,
@@ -95,6 +101,8 @@ impl ProofContextId {
     pub const CAPABILITY_GRANT_PROOF_V1: &'static str = "ak.capability-grant-proof-v1";
     pub const DID_CONTINUITY_PROOF_V1: &'static str = "ak.did-continuity-proof-v1";
     pub const DID_KEY_LOG_ENTRY_PROOF_V1: &'static str = "ak.did-key-log-entry-proof-v1";
+    pub const DID_WEBVH_WITNESS_RECEIPT_PROOF_V1: &'static str =
+        "ak.did-webvh-witness-receipt-proof-v1";
     pub const DIRECTORY_OPERATION_PROOF_V1: &'static str = "ak.directory-operation-proof-v1";
     pub const EPHEMERAL_PROOF_V1: &'static str = "ak.ephemeral-proof-v1";
     pub const EVENT_PROOF_V1: &'static str = "ak.event-proof-v1";
@@ -111,6 +119,10 @@ impl ProofContextId {
     pub const MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1: &'static str =
         "ak.member-delivery-binding-candidate-proof-v1";
     pub const MIMI_OPERATION_PROOF_V1: &'static str = "ak.mimi-operation-proof-v1";
+    pub const ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1: &'static str =
+        "ak.organization-registration-control-proof-v1";
+    pub const ORGANIZATION_REGISTRATION_RECEIPT_PROOF_V1: &'static str =
+        "ak.organization-registration-receipt-proof-v1";
     pub const PRINCIPAL_LOCATOR_PROOF_V1: &'static str = "ak.principal-locator-proof-v1";
     pub const RANGE_COMPLETENESS_ATTESTATION_PROOF_V1: &'static str =
         "ak.range-completeness-attestation-proof-v1";
@@ -137,6 +149,7 @@ impl ProofContextId {
             Self::CapabilityGrantProofV1 => "ak.capability-grant-proof-v1",
             Self::DidContinuityProofV1 => "ak.did-continuity-proof-v1",
             Self::DidKeyLogEntryProofV1 => "ak.did-key-log-entry-proof-v1",
+            Self::DidWebvhWitnessReceiptProofV1 => "ak.did-webvh-witness-receipt-proof-v1",
             Self::DirectoryOperationProofV1 => "ak.directory-operation-proof-v1",
             Self::EphemeralProofV1 => "ak.ephemeral-proof-v1",
             Self::EventProofV1 => "ak.event-proof-v1",
@@ -154,6 +167,12 @@ impl ProofContextId {
                 "ak.member-delivery-binding-candidate-proof-v1"
             }
             Self::MimiOperationProofV1 => "ak.mimi-operation-proof-v1",
+            Self::OrganizationRegistrationControlProofV1 => {
+                "ak.organization-registration-control-proof-v1"
+            }
+            Self::OrganizationRegistrationReceiptProofV1 => {
+                "ak.organization-registration-receipt-proof-v1"
+            }
             Self::PrincipalLocatorProofV1 => "ak.principal-locator-proof-v1",
             Self::RangeCompletenessAttestationProofV1 => {
                 "ak.range-completeness-attestation-proof-v1"
@@ -182,6 +201,7 @@ impl ProofContextId {
             "ak.capability-grant-proof-v1" => Some(Self::CapabilityGrantProofV1),
             "ak.did-continuity-proof-v1" => Some(Self::DidContinuityProofV1),
             "ak.did-key-log-entry-proof-v1" => Some(Self::DidKeyLogEntryProofV1),
+            "ak.did-webvh-witness-receipt-proof-v1" => Some(Self::DidWebvhWitnessReceiptProofV1),
             "ak.directory-operation-proof-v1" => Some(Self::DirectoryOperationProofV1),
             "ak.ephemeral-proof-v1" => Some(Self::EphemeralProofV1),
             "ak.event-proof-v1" => Some(Self::EventProofV1),
@@ -199,6 +219,12 @@ impl ProofContextId {
                 Some(Self::MemberDeliveryBindingCandidateProofV1)
             }
             "ak.mimi-operation-proof-v1" => Some(Self::MimiOperationProofV1),
+            "ak.organization-registration-control-proof-v1" => {
+                Some(Self::OrganizationRegistrationControlProofV1)
+            }
+            "ak.organization-registration-receipt-proof-v1" => {
+                Some(Self::OrganizationRegistrationReceiptProofV1)
+            }
             "ak.principal-locator-proof-v1" => Some(Self::PrincipalLocatorProofV1),
             "ak.range-completeness-attestation-proof-v1" => {
                 Some(Self::RangeCompletenessAttestationProofV1)
@@ -464,6 +490,23 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/did-key-log-entry.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::DidWebvhWitnessReceiptProofV1,
+        context: "ak.did-webvh-witness-receipt-proof-v1",
+        object_family: "did_webvh_witness_receipt",
+        binding_fields: &[
+            "payload_digest",
+            "issuer_service_id",
+            "did",
+            "version_id",
+            "witness_did",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
+        schema_ref: "schemas/did-webvh-witness-receipt.schema.json",
+    },
+    ProofContextDescriptor {
         id: ProofContextId::DirectoryOperationProofV1,
         context: "ak.directory-operation-proof-v1",
         object_family: "directory_operation",
@@ -621,6 +664,37 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/mimi-operations.schema.json",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::OrganizationRegistrationControlProofV1,
+        context: "ak.organization-registration-control-proof-v1",
+        object_family: "organization_registration_control_proof",
+        binding_fields: &[
+            "challenge_id",
+            "organization_id",
+            "local_admin_subject",
+            "version_id",
+            "log_head_digest",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/OrganizationControlProof",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::OrganizationRegistrationReceiptProofV1,
+        context: "ak.organization-registration-receipt-proof-v1",
+        object_family: "organization_registration_receipt",
+        binding_fields: &[
+            "payload_digest",
+            "issuer_service_id",
+            "registration_receipt_id",
+            "organization_id",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
+        schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationReceipt",
     },
     ProofContextDescriptor {
         id: ProofContextId::PrincipalLocatorProofV1,

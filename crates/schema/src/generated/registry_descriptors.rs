@@ -5,10 +5,10 @@
 //! capability-action-registry.json; version=2026-07-20;
 //! sha256=dcba96da280fe85a2b71fa708ce1264670807e3ee0018f6d38a6df700f2ec01b Input: registry/
 //! schema-registry.json; version=2026-07-20;
-//! sha256=653fd877d344c4bf0f2c7f2fb6da626be2a4725e22ea6ddabe98271b70893812 Input: registry/
+//! sha256=b8623dded94750ad7f270c7d1eb732247c3cb9910eeedf81434ab4ff0250994f Input: registry/
 //! account-data-key-registry.json; version=2026-07-03;
 //! sha256=f0f567769bfb523fc2d62dadce5fdd8ebade4de62daa6d36b60c8a321ef6ca56 Entries: id_kinds=50,
-//! special_forms=9, actions=154, schemas=136, account_data_patterns=22
+//! special_forms=9, actions=154, schemas=137, account_data_patterns=22
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -2024,6 +2024,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: "ak.schema.did_key_log_entry.v1",
         file: "schemas/did-key-log-entry.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.did_webvh_witness_receipt.v1",
+        file: "schemas/did-webvh-witness-receipt.schema.json",
     },
     SchemaDescriptor {
         schema_id: "ak.schema.directory_operations.v1",

@@ -9,7 +9,7 @@ use serde_json::{Map, Value};
 #[cfg(test)]
 use crate::integration::IntegrationDependencyDescriptor;
 use crate::integration::IntegrationDescribeOutcome;
-use crate::models_push::{PushNotifyOutcome, PushNotifyRejection, PushRegisterDeviceRequestBody};
+use crate::models_push::PushRegisterDeviceRequestBody;
 
 fn list_contains_ignore_ascii_case(haystack: &[String], needle: &str) -> bool {
     haystack
@@ -307,14 +307,6 @@ pub fn blind_payload_data_for_event_kind(event_kind: &str) -> Value {
         data.insert("push_hint".to_owned(), Value::String(push_hint.to_owned()));
     }
     Value::Object(data)
-}
-
-pub fn rejected_response(
-    rejections: impl IntoIterator<Item = PushNotifyRejection>,
-) -> PushNotifyOutcome {
-    PushNotifyOutcome {
-        rejected: rejections.into_iter().collect(),
-    }
 }
 
 fn parse_platform(value: &str) -> Option<PushPlatform> {
@@ -673,29 +665,6 @@ mod tests {
         assert_eq!(payload.data["push_hint"], "new_message");
         assert!(payload.data.get("event_id").is_none());
         assert!(payload.data.get("realm_id").is_none());
-    }
-
-    #[test]
-    fn rejected_response_serializes_wire_rejections() {
-        let rejected = rejected_response([PushNotifyRejection {
-            push_target_id: "ak:pseudonym:push:01js0pt0000000000000000000".to_owned(),
-            device_id: Some(
-                DeviceId::new("ak:device:01904100-0000-7000-8000-000000000003").unwrap(),
-            ),
-            reason_code: "invalid_token".to_owned(),
-            retry_after_ms: None,
-        }]);
-        assert_eq!(rejected.rejected.len(), 1);
-        assert_eq!(
-            rejected.rejected[0].push_target_id,
-            "ak:pseudonym:push:01js0pt0000000000000000000"
-        );
-        assert_eq!(rejected.rejected[0].reason_code, "invalid_token");
-        assert!(
-            serde_json::to_value(&rejected).unwrap()["rejected"][0]
-                .get("event_id")
-                .is_none()
-        );
     }
 
     #[test]

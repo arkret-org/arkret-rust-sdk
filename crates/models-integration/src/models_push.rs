@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use arkret_wire::{
     DeviceId, Did, EventId, MessageId, NonEmptyString, PROFILE_ATTESTED_AUDIT_E2EE,
     PROFILE_DISCLOSED_AUDIT_E2EE, PROFILE_E2EE_CLIENT, PROFILE_MLS_MINIMAL_METADATA_REALM, RealmId,
@@ -373,23 +375,128 @@ pub struct PushNotifyRequestBody {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PushNotifyOutcome {
-    #[serde(default)]
-    pub rejected: Vec<PushNotifyRejection>,
+    pub push_target_id: String,
+    pub outcomes: Vec<PushNotifyDeviceOutcome>,
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/push_notify_device_outcome`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PushNotifyDeviceOutcome {
+    pub device_id: DeviceId,
+    pub gateway_status: PushNotifyGatewayStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<PushNotifyReasonCode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry_after_ms: Option<u64>,
+}
+
+impl PushNotifyDeviceOutcome {
+    pub fn accepted(device_id: DeviceId) -> Self {
+        Self {
+            device_id,
+            gateway_status: PushNotifyGatewayStatus::Accepted,
+            reason_code: None,
+            retry_after_ms: None,
+        }
+    }
+
+    pub fn duplicate(device_id: DeviceId) -> Self {
+        Self {
+            device_id,
+            gateway_status: PushNotifyGatewayStatus::Duplicate,
+            reason_code: None,
+            retry_after_ms: None,
+        }
+    }
+
+    pub fn rejected(
+        device_id: DeviceId,
+        reason_code: PushNotifyReasonCode,
+        retry_after_ms: Option<u64>,
+    ) -> Self {
+        Self {
+            device_id,
+            gateway_status: PushNotifyGatewayStatus::Rejected,
+            reason_code: Some(reason_code),
+            retry_after_ms,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        match self.gateway_status {
+            PushNotifyGatewayStatus::Accepted | PushNotifyGatewayStatus::Duplicate => {
+                if self.reason_code.is_some() || self.retry_after_ms.is_some() {
+                    return Err(
+                        "accepted and duplicate push notify outcomes must not carry rejection fields"
+                            .to_owned(),
+                    );
+                }
+            }
+            PushNotifyGatewayStatus::Rejected => {
+                let Some(reason_code) = self.reason_code else {
+                    return Err("rejected push notify outcomes require reason_code".to_owned());
+                };
+                if self.retry_after_ms == Some(0) {
+                    return Err("retry_after_ms must be greater than zero".to_owned());
+                }
+                if self.retry_after_ms.is_some() && !reason_code.is_caller_retryable() {
+                    return Err(
+                        "retry_after_ms is only valid for caller-retryable push notify reasons"
+                            .to_owned(),
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PushNotifyRejection {
-    pub push_target_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_id: Option<DeviceId>,
-    pub reason_code: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub retry_after_ms: Option<u64>,
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PushNotifyGatewayStatus {
+    Accepted,
+    Duplicate,
+    Rejected,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PushNotifyReasonCode {
+    PushTargetUnknown,
+    PushPayloadTooLarge,
+    ProfileUnsupported,
+    DeliveryBindingStale,
+    PushTokenUnknown,
+    PushTokenInvalid,
+    PushGatewayUnreachable,
+    RateLimited,
+}
+
+impl PushNotifyReasonCode {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::PushTargetUnknown => "push_target_unknown",
+            Self::PushPayloadTooLarge => "push_payload_too_large",
+            Self::ProfileUnsupported => "profile_unsupported",
+            Self::DeliveryBindingStale => "delivery_binding_stale",
+            Self::PushTokenUnknown => "push_token_unknown",
+            Self::PushTokenInvalid => "push_token_invalid",
+            Self::PushGatewayUnreachable => "push_gateway_unreachable",
+            Self::RateLimited => "rate_limited",
+        }
+    }
+
+    pub const fn is_caller_retryable(self) -> bool {
+        matches!(self, Self::PushGatewayUnreachable | Self::RateLimited)
+    }
 }
 
 const FORBIDDEN_PLAINTEXT_PARENT_LEAF: &[(&str, &str)] = &[
@@ -452,6 +559,19 @@ pub fn validate_push_notify_contract_shape(request: &PushNotifyRequestBody) -> R
     validate_wakeup_kind(notification.wakeup_kind.as_deref())?;
     validate_timing_profile_hint(notification.timing_profile_hint)?;
 
+    if notification.devices.is_empty() {
+        return Err("notification.devices must contain at least one device".to_owned());
+    }
+    let mut device_ids = HashSet::with_capacity(notification.devices.len());
+    for device in &notification.devices {
+        if !device_ids.insert(device.device_id.as_str()) {
+            return Err(format!(
+                "notification.devices contains duplicate device_id `{}`",
+                device.device_id.as_str()
+            ));
+        }
+    }
+
     if let Some(route_tokens) = &notification.route_tokens {
         validate_push_route_token(
             route_tokens.realm_route_token.as_deref(),
@@ -477,6 +597,59 @@ pub fn validate_push_notify_contract_shape(request: &PushNotifyRequestBody) -> R
         }
     }
 
+    Ok(())
+}
+
+pub fn validate_push_notify_outcome_conservation(
+    request: &PushNotifyRequestBody,
+    outcome: &PushNotifyOutcome,
+) -> Result<(), String> {
+    let expected_push_target_id = request
+        .notification
+        .push_target_id
+        .as_deref()
+        .ok_or_else(|| "notification.push_target_id is required".to_owned())?;
+    if outcome.push_target_id != expected_push_target_id {
+        return Err("push notify outcome push_target_id does not match the request".to_owned());
+    }
+
+    let requested_device_ids = request
+        .notification
+        .devices
+        .iter()
+        .map(|device| device.device_id.as_str())
+        .collect::<HashSet<_>>();
+    if requested_device_ids.is_empty() {
+        return Err("notification.devices must contain at least one device".to_owned());
+    }
+    if requested_device_ids.len() != request.notification.devices.len() {
+        return Err("notification.devices contains duplicate device_id values".to_owned());
+    }
+    let mut outcome_device_ids = HashSet::with_capacity(outcome.outcomes.len());
+    for device_outcome in &outcome.outcomes {
+        device_outcome.validate()?;
+        let device_id = device_outcome.device_id.as_str();
+        if !requested_device_ids.contains(device_id) {
+            return Err(format!(
+                "push notify outcome contains unrequested device_id `{device_id}`"
+            ));
+        }
+        if !outcome_device_ids.insert(device_id) {
+            return Err(format!(
+                "push notify outcome contains duplicate device_id `{device_id}`"
+            ));
+        }
+    }
+    if outcome_device_ids.len() != requested_device_ids.len() {
+        let missing = requested_device_ids
+            .difference(&outcome_device_ids)
+            .copied()
+            .collect::<Vec<_>>();
+        return Err(format!(
+            "push notify outcome is missing requested device_id values: {}",
+            missing.join(", ")
+        ));
+    }
     Ok(())
 }
 
@@ -594,6 +767,26 @@ mod tests {
                 push_target_id: Some("ak:pseudonym:push:01HYZ8Z000000000000000".to_owned()),
                 wakeup_kind: Some("message".to_owned()),
                 timing_profile_hint: Some(PushTimingProfileHint::Default),
+                devices: vec![
+                    PushDeviceRoute {
+                        device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001")
+                            .unwrap(),
+                        push_key: Some("token-1".to_owned()),
+                        app_id: Some("com.example.app".to_owned()),
+                        platform: None,
+                        target_route_token: None,
+                        visible_notification_opt_in: false,
+                    },
+                    PushDeviceRoute {
+                        device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002")
+                            .unwrap(),
+                        push_key: Some("token-2".to_owned()),
+                        app_id: Some("com.example.app".to_owned()),
+                        platform: None,
+                        target_route_token: None,
+                        visible_notification_opt_in: false,
+                    },
+                ],
                 ..PushNotificationEnvelope::default()
             },
             event_kind: None,
@@ -712,6 +905,113 @@ mod tests {
     }
 
     #[test]
+    fn rejects_duplicate_push_notify_request_device_ids() {
+        let mut request = valid_request();
+        request.notification.devices[1].device_id =
+            request.notification.devices[0].device_id.clone();
+
+        let error = validate_push_notify_contract_shape(&request).unwrap_err();
+        assert!(error.contains("duplicate device_id"));
+    }
+
+    #[test]
+    fn validates_push_notify_outcome_conservation() {
+        let request = valid_request();
+        let outcome = PushNotifyOutcome {
+            push_target_id: request.notification.push_target_id.clone().unwrap(),
+            outcomes: vec![
+                PushNotifyDeviceOutcome::accepted(
+                    request.notification.devices[0].device_id.clone(),
+                ),
+                PushNotifyDeviceOutcome::rejected(
+                    request.notification.devices[1].device_id.clone(),
+                    PushNotifyReasonCode::RateLimited,
+                    Some(500),
+                ),
+            ],
+        };
+
+        validate_push_notify_outcome_conservation(&request, &outcome).unwrap();
+        let encoded = serde_json::to_value(&outcome).unwrap();
+        assert_eq!(encoded["outcomes"][0]["gateway_status"], "accepted");
+        assert_eq!(encoded["outcomes"][1]["reason_code"], "rate_limited");
+        assert!(encoded["outcomes"][0].get("reason_code").is_none());
+    }
+
+    #[test]
+    fn rejects_non_conserving_push_notify_outcomes() {
+        let request = valid_request();
+        let push_target_id = request.notification.push_target_id.clone().unwrap();
+        let first_device_id = request.notification.devices[0].device_id.clone();
+        let second_device_id = request.notification.devices[1].device_id.clone();
+
+        let missing = PushNotifyOutcome {
+            push_target_id: push_target_id.clone(),
+            outcomes: vec![PushNotifyDeviceOutcome::accepted(first_device_id.clone())],
+        };
+        assert!(
+            validate_push_notify_outcome_conservation(&request, &missing)
+                .unwrap_err()
+                .contains("missing")
+        );
+
+        let duplicate = PushNotifyOutcome {
+            push_target_id: push_target_id.clone(),
+            outcomes: vec![
+                PushNotifyDeviceOutcome::accepted(first_device_id.clone()),
+                PushNotifyDeviceOutcome::duplicate(first_device_id),
+            ],
+        };
+        assert!(
+            validate_push_notify_outcome_conservation(&request, &duplicate)
+                .unwrap_err()
+                .contains("duplicate")
+        );
+
+        let unrequested = PushNotifyOutcome {
+            push_target_id,
+            outcomes: vec![
+                PushNotifyDeviceOutcome::accepted(second_device_id),
+                PushNotifyDeviceOutcome::accepted(
+                    DeviceId::new("ak:device:01904100-0000-7000-8000-000000000099").unwrap(),
+                ),
+            ],
+        };
+        assert!(
+            validate_push_notify_outcome_conservation(&request, &unrequested)
+                .unwrap_err()
+                .contains("unrequested")
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_push_notify_device_outcome_fields() {
+        let device_id = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap();
+        let accepted_with_reason = PushNotifyDeviceOutcome {
+            device_id: device_id.clone(),
+            gateway_status: PushNotifyGatewayStatus::Accepted,
+            reason_code: Some(PushNotifyReasonCode::PushTokenInvalid),
+            retry_after_ms: None,
+        };
+        assert!(accepted_with_reason.validate().is_err());
+
+        let rejected_without_reason = PushNotifyDeviceOutcome {
+            device_id: device_id.clone(),
+            gateway_status: PushNotifyGatewayStatus::Rejected,
+            reason_code: None,
+            retry_after_ms: None,
+        };
+        assert!(rejected_without_reason.validate().is_err());
+
+        let non_retryable_backoff = PushNotifyDeviceOutcome::rejected(
+            device_id,
+            PushNotifyReasonCode::PushTokenInvalid,
+            Some(500),
+        );
+        assert!(non_retryable_backoff.validate().is_err());
+    }
+
+    #[test]
     fn push_count_indicators_reject_absolute_counts_and_invalid_buckets() {
         for invalid in [
             json!(1),
@@ -815,19 +1115,6 @@ pub struct DeviceRoute {
     pub target_route_token: Option<PushRouteToken>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub visible_notification_opt_in: bool,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/notify_rejection`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct NotifyRejection {
-    pub push_target_id: PushTargetId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_id: Option<DeviceId>,
-    pub reason_code: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub retry_after_ms: Option<u64>,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/push_key`.

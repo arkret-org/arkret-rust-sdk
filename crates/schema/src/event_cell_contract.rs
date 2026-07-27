@@ -1244,7 +1244,14 @@ mod tests {
             "payload": {
                 "event_ref": "ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9182",
                 "occurrence": occurrence,
-                "status": "accepted"
+                "entry": {
+                    "schedule_basis_refs": [
+                        "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+                    ],
+                    "response": {
+                        "status": "accepted"
+                    }
+                }
             },
             "proofs": []
         }))
@@ -1262,7 +1269,17 @@ mod tests {
         event.effects = vec![
             serde_json::from_value(json!({
                 "cell": "ak:cell:ak.component.calendar.rsvp.v1:3iBI9bjQLklvfcVhQeaxLajMskSVG4oZ5IMpU62GvRc",
-                "op": {"kind": "set", "value": "accepted"}
+                "op": {
+                    "kind": "set",
+                    "value": {
+                        "schedule_basis_refs": [
+                            "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+                        ],
+                        "response": {
+                            "status": "accepted"
+                        }
+                    }
+                }
             }))
             .unwrap(),
         ];

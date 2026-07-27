@@ -537,7 +537,14 @@ mod tests {
                 &json!({
                     "event_ref": "ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9182",
                     "occurrence": null,
-                    "status": "accepted"
+                    "entry": {
+                        "schedule_basis_refs": [
+                            "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+                        ],
+                        "response": {
+                            "status": "accepted"
+                        }
+                    }
                 }),
             )
             .unwrap();
@@ -548,7 +555,14 @@ mod tests {
                     &json!({
                         "event_ref": null,
                         "occurrence": null,
-                        "status": "accepted"
+                        "entry": {
+                            "schedule_basis_refs": [
+                                "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+                            ],
+                            "response": {
+                                "status": "accepted"
+                            }
+                        }
                     }),
                 )
                 .is_err()

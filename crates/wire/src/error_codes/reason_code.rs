@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=c2b36dba10bcc51aade732537fddcdc1916bd70ae4cf8babe40441978392e941
-//! Entries: reason_codes=422
+//! sha256=98c62ed199f57c36cb6bf4d0f918db19baa72b9054a9a013e53fc51fe6fd4a4f
+//! Entries: reason_codes=444
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -65,6 +65,10 @@ pub enum ReasonCode {
     BackupFrontierStale,
     BackupPostResetStale,
     BlobRedacted,
+    CalendarActivationMismatch,
+    CalendarEventCancelled,
+    CalendarScheduleUnsettled,
+    CalendarTzdbMismatch,
     CallModerationUnauthorised,
     CallParticipantRemoved,
     CallStateTerminal,
@@ -130,6 +134,7 @@ pub enum ReasonCode {
     DeliveryBindingHandoverRateLimited,
     DeliveryBindingInvalid,
     DeliveryBindingPolicyMismatch,
+    DeliveryBindingStale,
     DeltaContainsDataEvent,
     DeviceAuthorizedPrincipalControlRealmMismatch,
     DeviceEnrollmentAuthoritySnapshotMissing,
@@ -296,17 +301,24 @@ pub enum ReasonCode {
     PrincipalControlEventKindForbidden,
     PrincipalDeactivated,
     PrivateAttachment,
+    ProfileUnsupported,
     ProjectionIncomplete,
     ProofBindingMissing,
     ProofFailed,
     ProofInvalid,
+    PushGatewayUnreachable,
+    PushPayloadTooLarge,
     PushRouteLimitExceeded,
     PushRouteRegistrationRateLimited,
+    PushTargetUnknown,
+    PushTokenInvalid,
+    PushTokenUnknown,
     Quarantined,
     QueueFull,
     QuorumUnreachable,
     RangeCompletenessActorSeqGap,
     RangeCompletenessRootMismatch,
+    RateLimited,
     ReactionScopeMismatch,
     ReactionTargetUnsupported,
     ReadReceiptForcedPublicWorldReadableForbidden,
@@ -357,6 +369,9 @@ pub enum ReasonCode {
     RevokeOrderUnknownRequiresBackfillOrReview,
     RevokeUndoInvalidSignature,
     RiskPolicy,
+    RsvpBasisNotCausal,
+    RsvpOccurrenceNotCanonical,
+    ScheduleFrontierTooLarge,
     SchemaDerivationMismatch,
     ScopeExpansionForbidden,
     ScopeIncomparable,
@@ -412,6 +427,7 @@ pub enum ReasonCode {
     UnknownField,
     UnknownFocusType,
     UnknownKind,
+    UnresolvedBasis,
     UnsupportedAeadProfile,
     UnsupportedAttachmentScheme,
     UnsupportedDigestAlgorithm,
@@ -428,6 +444,12 @@ pub enum ReasonCode {
     WatchSetOthersAuditMissing,
     WebvhCacheTooStale,
     WebvhCacheUnavailable,
+    WebvhWitnessControllingOrganizationUnverified,
+    WebvhWitnessEvidenceStale,
+    WebvhWitnessParameterMalformed,
+    WebvhWitnessProofInvalid,
+    WebvhWitnessProofsUnavailable,
+    WebvhWitnessThresholdNotMet,
     WelcomeCapabilityMismatch,
     WitnessDisagreement,
     Unknown(String),
@@ -512,6 +534,10 @@ impl ReasonCode {
     pub const BACKUP_FRONTIER_STALE: &'static str = "backup_frontier_stale";
     pub const BACKUP_POST_RESET_STALE: &'static str = "backup_post_reset_stale";
     pub const BLOB_REDACTED: &'static str = "blob_redacted";
+    pub const CALENDAR_ACTIVATION_MISMATCH: &'static str = "calendar_activation_mismatch";
+    pub const CALENDAR_EVENT_CANCELLED: &'static str = "calendar_event_cancelled";
+    pub const CALENDAR_SCHEDULE_UNSETTLED: &'static str = "calendar_schedule_unsettled";
+    pub const CALENDAR_TZDB_MISMATCH: &'static str = "calendar_tzdb_mismatch";
     pub const CALL_MODERATION_UNAUTHORISED: &'static str = "call_moderation_unauthorised";
     pub const CALL_PARTICIPANT_REMOVED: &'static str = "call_participant_removed";
     pub const CALL_STATE_TERMINAL: &'static str = "call_state_terminal";
@@ -597,6 +623,7 @@ impl ReasonCode {
         "delivery_binding_handover_rate_limited";
     pub const DELIVERY_BINDING_INVALID: &'static str = "delivery_binding_invalid";
     pub const DELIVERY_BINDING_POLICY_MISMATCH: &'static str = "delivery_binding_policy_mismatch";
+    pub const DELIVERY_BINDING_STALE: &'static str = "delivery_binding_stale";
     pub const DELTA_CONTAINS_DATA_EVENT: &'static str = "delta_contains_data_event";
     pub const DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH: &'static str =
         "device_authorized_principal_control_realm_mismatch";
@@ -800,18 +827,25 @@ impl ReasonCode {
         "principal_control_event_kind_forbidden";
     pub const PRINCIPAL_DEACTIVATED: &'static str = "principal_deactivated";
     pub const PRIVATE_ATTACHMENT: &'static str = "private_attachment";
+    pub const PROFILE_UNSUPPORTED: &'static str = "profile_unsupported";
     pub const PROJECTION_INCOMPLETE: &'static str = "projection_incomplete";
     pub const PROOF_BINDING_MISSING: &'static str = "proof_binding_missing";
     pub const PROOF_FAILED: &'static str = "proof_failed";
     pub const PROOF_INVALID: &'static str = "proof_invalid";
+    pub const PUSH_GATEWAY_UNREACHABLE: &'static str = "push_gateway_unreachable";
+    pub const PUSH_PAYLOAD_TOO_LARGE: &'static str = "push_payload_too_large";
     pub const PUSH_ROUTE_LIMIT_EXCEEDED: &'static str = "push_route_limit_exceeded";
     pub const PUSH_ROUTE_REGISTRATION_RATE_LIMITED: &'static str =
         "push_route_registration_rate_limited";
+    pub const PUSH_TARGET_UNKNOWN: &'static str = "push_target_unknown";
+    pub const PUSH_TOKEN_INVALID: &'static str = "push_token_invalid";
+    pub const PUSH_TOKEN_UNKNOWN: &'static str = "push_token_unknown";
     pub const QUARANTINED: &'static str = "quarantined";
     pub const QUEUE_FULL: &'static str = "queue_full";
     pub const QUORUM_UNREACHABLE: &'static str = "quorum_unreachable";
     pub const RANGE_COMPLETENESS_ACTOR_SEQ_GAP: &'static str = "range_completeness_actor_seq_gap";
     pub const RANGE_COMPLETENESS_ROOT_MISMATCH: &'static str = "range_completeness_root_mismatch";
+    pub const RATE_LIMITED: &'static str = "rate_limited";
     pub const REACTION_SCOPE_MISMATCH: &'static str = "reaction_scope_mismatch";
     pub const REACTION_TARGET_UNSUPPORTED: &'static str = "reaction_target_unsupported";
     pub const READ_RECEIPT_FORCED_PUBLIC_WORLD_READABLE_FORBIDDEN: &'static str =
@@ -874,6 +908,9 @@ impl ReasonCode {
         "revoke_order_unknown_requires_backfill_or_review";
     pub const REVOKE_UNDO_INVALID_SIGNATURE: &'static str = "revoke_undo_invalid_signature";
     pub const RISK_POLICY: &'static str = "risk_policy";
+    pub const RSVP_BASIS_NOT_CAUSAL: &'static str = "rsvp_basis_not_causal";
+    pub const RSVP_OCCURRENCE_NOT_CANONICAL: &'static str = "rsvp_occurrence_not_canonical";
+    pub const SCHEDULE_FRONTIER_TOO_LARGE: &'static str = "schedule_frontier_too_large";
     pub const SCHEMA_DERIVATION_MISMATCH: &'static str = "schema_derivation_mismatch";
     pub const SCOPE_EXPANSION_FORBIDDEN: &'static str = "scope_expansion_forbidden";
     pub const SCOPE_INCOMPARABLE: &'static str = "scope_incomparable";
@@ -932,6 +969,7 @@ impl ReasonCode {
     pub const UNKNOWN_FIELD: &'static str = "unknown_field";
     pub const UNKNOWN_FOCUS_TYPE: &'static str = "unknown_focus_type";
     pub const UNKNOWN_KIND: &'static str = "unknown_kind";
+    pub const UNRESOLVED_BASIS: &'static str = "unresolved_basis";
     pub const UNSUPPORTED_AEAD_PROFILE: &'static str = "unsupported_aead_profile";
     pub const UNSUPPORTED_ATTACHMENT_SCHEME: &'static str = "unsupported_attachment_scheme";
     pub const UNSUPPORTED_DIGEST_ALGORITHM: &'static str = "unsupported_digest_algorithm";
@@ -949,6 +987,13 @@ impl ReasonCode {
     pub const WATCH_SET_OTHERS_AUDIT_MISSING: &'static str = "watch_set_others_audit_missing";
     pub const WEBVH_CACHE_TOO_STALE: &'static str = "webvh_cache_too_stale";
     pub const WEBVH_CACHE_UNAVAILABLE: &'static str = "webvh_cache_unavailable";
+    pub const WEBVH_WITNESS_CONTROLLING_ORGANIZATION_UNVERIFIED: &'static str =
+        "webvh_witness_controlling_organization_unverified";
+    pub const WEBVH_WITNESS_EVIDENCE_STALE: &'static str = "webvh_witness_evidence_stale";
+    pub const WEBVH_WITNESS_PARAMETER_MALFORMED: &'static str = "webvh_witness_parameter_malformed";
+    pub const WEBVH_WITNESS_PROOF_INVALID: &'static str = "webvh_witness_proof_invalid";
+    pub const WEBVH_WITNESS_PROOFS_UNAVAILABLE: &'static str = "webvh_witness_proofs_unavailable";
+    pub const WEBVH_WITNESS_THRESHOLD_NOT_MET: &'static str = "webvh_witness_threshold_not_met";
     pub const WELCOME_CAPABILITY_MISMATCH: &'static str = "welcome_capability_mismatch";
     pub const WITNESS_DISAGREEMENT: &'static str = "witness_disagreement";
 
@@ -1025,6 +1070,10 @@ impl ReasonCode {
             Self::BackupFrontierStale => "backup_frontier_stale",
             Self::BackupPostResetStale => "backup_post_reset_stale",
             Self::BlobRedacted => "blob_redacted",
+            Self::CalendarActivationMismatch => "calendar_activation_mismatch",
+            Self::CalendarEventCancelled => "calendar_event_cancelled",
+            Self::CalendarScheduleUnsettled => "calendar_schedule_unsettled",
+            Self::CalendarTzdbMismatch => "calendar_tzdb_mismatch",
             Self::CallModerationUnauthorised => "call_moderation_unauthorised",
             Self::CallParticipantRemoved => "call_participant_removed",
             Self::CallStateTerminal => "call_state_terminal",
@@ -1098,6 +1147,7 @@ impl ReasonCode {
             Self::DeliveryBindingHandoverRateLimited => "delivery_binding_handover_rate_limited",
             Self::DeliveryBindingInvalid => "delivery_binding_invalid",
             Self::DeliveryBindingPolicyMismatch => "delivery_binding_policy_mismatch",
+            Self::DeliveryBindingStale => "delivery_binding_stale",
             Self::DeltaContainsDataEvent => "delta_contains_data_event",
             Self::DeviceAuthorizedPrincipalControlRealmMismatch => {
                 "device_authorized_principal_control_realm_mismatch"
@@ -1300,17 +1350,24 @@ impl ReasonCode {
             Self::PrincipalControlEventKindForbidden => "principal_control_event_kind_forbidden",
             Self::PrincipalDeactivated => "principal_deactivated",
             Self::PrivateAttachment => "private_attachment",
+            Self::ProfileUnsupported => "profile_unsupported",
             Self::ProjectionIncomplete => "projection_incomplete",
             Self::ProofBindingMissing => "proof_binding_missing",
             Self::ProofFailed => "proof_failed",
             Self::ProofInvalid => "proof_invalid",
+            Self::PushGatewayUnreachable => "push_gateway_unreachable",
+            Self::PushPayloadTooLarge => "push_payload_too_large",
             Self::PushRouteLimitExceeded => "push_route_limit_exceeded",
             Self::PushRouteRegistrationRateLimited => "push_route_registration_rate_limited",
+            Self::PushTargetUnknown => "push_target_unknown",
+            Self::PushTokenInvalid => "push_token_invalid",
+            Self::PushTokenUnknown => "push_token_unknown",
             Self::Quarantined => "quarantined",
             Self::QueueFull => "queue_full",
             Self::QuorumUnreachable => "quorum_unreachable",
             Self::RangeCompletenessActorSeqGap => "range_completeness_actor_seq_gap",
             Self::RangeCompletenessRootMismatch => "range_completeness_root_mismatch",
+            Self::RateLimited => "rate_limited",
             Self::ReactionScopeMismatch => "reaction_scope_mismatch",
             Self::ReactionTargetUnsupported => "reaction_target_unsupported",
             Self::ReadReceiptForcedPublicWorldReadableForbidden => {
@@ -1371,6 +1428,9 @@ impl ReasonCode {
             }
             Self::RevokeUndoInvalidSignature => "revoke_undo_invalid_signature",
             Self::RiskPolicy => "risk_policy",
+            Self::RsvpBasisNotCausal => "rsvp_basis_not_causal",
+            Self::RsvpOccurrenceNotCanonical => "rsvp_occurrence_not_canonical",
+            Self::ScheduleFrontierTooLarge => "schedule_frontier_too_large",
             Self::SchemaDerivationMismatch => "schema_derivation_mismatch",
             Self::ScopeExpansionForbidden => "scope_expansion_forbidden",
             Self::ScopeIncomparable => "scope_incomparable",
@@ -1428,6 +1488,7 @@ impl ReasonCode {
             Self::UnknownField => "unknown_field",
             Self::UnknownFocusType => "unknown_focus_type",
             Self::UnknownKind => "unknown_kind",
+            Self::UnresolvedBasis => "unresolved_basis",
             Self::UnsupportedAeadProfile => "unsupported_aead_profile",
             Self::UnsupportedAttachmentScheme => "unsupported_attachment_scheme",
             Self::UnsupportedDigestAlgorithm => "unsupported_digest_algorithm",
@@ -1444,6 +1505,14 @@ impl ReasonCode {
             Self::WatchSetOthersAuditMissing => "watch_set_others_audit_missing",
             Self::WebvhCacheTooStale => "webvh_cache_too_stale",
             Self::WebvhCacheUnavailable => "webvh_cache_unavailable",
+            Self::WebvhWitnessControllingOrganizationUnverified => {
+                "webvh_witness_controlling_organization_unverified"
+            }
+            Self::WebvhWitnessEvidenceStale => "webvh_witness_evidence_stale",
+            Self::WebvhWitnessParameterMalformed => "webvh_witness_parameter_malformed",
+            Self::WebvhWitnessProofInvalid => "webvh_witness_proof_invalid",
+            Self::WebvhWitnessProofsUnavailable => "webvh_witness_proofs_unavailable",
+            Self::WebvhWitnessThresholdNotMet => "webvh_witness_threshold_not_met",
             Self::WelcomeCapabilityMismatch => "welcome_capability_mismatch",
             Self::WitnessDisagreement => "witness_disagreement",
             Self::Unknown(value) => value,
@@ -1523,6 +1592,10 @@ impl ReasonCode {
             "backup_frontier_stale" => Self::BackupFrontierStale,
             "backup_post_reset_stale" => Self::BackupPostResetStale,
             "blob_redacted" => Self::BlobRedacted,
+            "calendar_activation_mismatch" => Self::CalendarActivationMismatch,
+            "calendar_event_cancelled" => Self::CalendarEventCancelled,
+            "calendar_schedule_unsettled" => Self::CalendarScheduleUnsettled,
+            "calendar_tzdb_mismatch" => Self::CalendarTzdbMismatch,
             "call_moderation_unauthorised" => Self::CallModerationUnauthorised,
             "call_participant_removed" => Self::CallParticipantRemoved,
             "call_state_terminal" => Self::CallStateTerminal,
@@ -1596,6 +1669,7 @@ impl ReasonCode {
             "delivery_binding_handover_rate_limited" => Self::DeliveryBindingHandoverRateLimited,
             "delivery_binding_invalid" => Self::DeliveryBindingInvalid,
             "delivery_binding_policy_mismatch" => Self::DeliveryBindingPolicyMismatch,
+            "delivery_binding_stale" => Self::DeliveryBindingStale,
             "delta_contains_data_event" => Self::DeltaContainsDataEvent,
             "device_authorized_principal_control_realm_mismatch" => {
                 Self::DeviceAuthorizedPrincipalControlRealmMismatch
@@ -1798,17 +1872,24 @@ impl ReasonCode {
             "principal_control_event_kind_forbidden" => Self::PrincipalControlEventKindForbidden,
             "principal_deactivated" => Self::PrincipalDeactivated,
             "private_attachment" => Self::PrivateAttachment,
+            "profile_unsupported" => Self::ProfileUnsupported,
             "projection_incomplete" => Self::ProjectionIncomplete,
             "proof_binding_missing" => Self::ProofBindingMissing,
             "proof_failed" => Self::ProofFailed,
             "proof_invalid" => Self::ProofInvalid,
+            "push_gateway_unreachable" => Self::PushGatewayUnreachable,
+            "push_payload_too_large" => Self::PushPayloadTooLarge,
             "push_route_limit_exceeded" => Self::PushRouteLimitExceeded,
             "push_route_registration_rate_limited" => Self::PushRouteRegistrationRateLimited,
+            "push_target_unknown" => Self::PushTargetUnknown,
+            "push_token_invalid" => Self::PushTokenInvalid,
+            "push_token_unknown" => Self::PushTokenUnknown,
             "quarantined" => Self::Quarantined,
             "queue_full" => Self::QueueFull,
             "quorum_unreachable" => Self::QuorumUnreachable,
             "range_completeness_actor_seq_gap" => Self::RangeCompletenessActorSeqGap,
             "range_completeness_root_mismatch" => Self::RangeCompletenessRootMismatch,
+            "rate_limited" => Self::RateLimited,
             "reaction_scope_mismatch" => Self::ReactionScopeMismatch,
             "reaction_target_unsupported" => Self::ReactionTargetUnsupported,
             "read_receipt_forced_public_world_readable_forbidden" => {
@@ -1869,6 +1950,9 @@ impl ReasonCode {
             }
             "revoke_undo_invalid_signature" => Self::RevokeUndoInvalidSignature,
             "risk_policy" => Self::RiskPolicy,
+            "rsvp_basis_not_causal" => Self::RsvpBasisNotCausal,
+            "rsvp_occurrence_not_canonical" => Self::RsvpOccurrenceNotCanonical,
+            "schedule_frontier_too_large" => Self::ScheduleFrontierTooLarge,
             "schema_derivation_mismatch" => Self::SchemaDerivationMismatch,
             "scope_expansion_forbidden" => Self::ScopeExpansionForbidden,
             "scope_incomparable" => Self::ScopeIncomparable,
@@ -1926,6 +2010,7 @@ impl ReasonCode {
             "unknown_field" => Self::UnknownField,
             "unknown_focus_type" => Self::UnknownFocusType,
             "unknown_kind" => Self::UnknownKind,
+            "unresolved_basis" => Self::UnresolvedBasis,
             "unsupported_aead_profile" => Self::UnsupportedAeadProfile,
             "unsupported_attachment_scheme" => Self::UnsupportedAttachmentScheme,
             "unsupported_digest_algorithm" => Self::UnsupportedDigestAlgorithm,
@@ -1942,6 +2027,14 @@ impl ReasonCode {
             "watch_set_others_audit_missing" => Self::WatchSetOthersAuditMissing,
             "webvh_cache_too_stale" => Self::WebvhCacheTooStale,
             "webvh_cache_unavailable" => Self::WebvhCacheUnavailable,
+            "webvh_witness_controlling_organization_unverified" => {
+                Self::WebvhWitnessControllingOrganizationUnverified
+            }
+            "webvh_witness_evidence_stale" => Self::WebvhWitnessEvidenceStale,
+            "webvh_witness_parameter_malformed" => Self::WebvhWitnessParameterMalformed,
+            "webvh_witness_proof_invalid" => Self::WebvhWitnessProofInvalid,
+            "webvh_witness_proofs_unavailable" => Self::WebvhWitnessProofsUnavailable,
+            "webvh_witness_threshold_not_met" => Self::WebvhWitnessThresholdNotMet,
             "welcome_capability_mismatch" => Self::WelcomeCapabilityMismatch,
             "witness_disagreement" => Self::WitnessDisagreement,
             _ => Self::Unknown(value.to_owned()),
@@ -2252,6 +2345,26 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "blob_redacted",
         applies_to: &["state_resolution"],
         description: "Blob has been redacted (ak.redaction accepted) or hard-erased (ak.audit.erasure_receipt published) and is no longer fetchable. Both new presign requests and in-flight (not-yet-expired) presign URLs MUST be rejected with this code. See zh/crypto-media/media-and-blob.md §5.4.4.1.",
+    },
+    ReasonCodeDescriptor {
+        code: "calendar_activation_mismatch",
+        applies_to: &["event_envelope", "schema_validation"],
+        description: "Sub-reason for schema_violation when Strand.schema_refs and the matching metadata.fields profile subtree do not co-occur on the post-patch object, in either direction. Applies to ak.schema.calendar_event.v1 with metadata.fields.calendar. See zh/models/calendar-event.md.",
+    },
+    ReasonCodeDescriptor {
+        code: "calendar_event_cancelled",
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "A new RSVP targets a Calendar Strand whose schedule status is cancelled. Historical RSVP projection is retained; new responses are refused. The generic Strand stage axis MUST NOT be reinterpreted as calendar status. See zh/models/calendar-event.md. This is an authoring-side and projection-side code for the same reason as calendar_schedule_unsettled: the cancelled status lives in the Calendar subtree plaintext.",
+    },
+    ReasonCodeDescriptor {
+        code: "calendar_schedule_unsettled",
+        applies_to: &["event_envelope", "state_resolution"],
+        description: "An RSVP or occurrence expansion was attempted while the Calendar schedule projection is conflict or encrypted_unresolved rather than settled. Concurrent schedule heads MUST be resolved by a schedule resolution Event first; no HLC, arrival order, or private last-writer rule may pick a winner. See zh/models/calendar-event.md. This is an authoring-side and projection-side code, never a server admission gate: deciding settledness requires the Calendar subtree plaintext, so gating admission on it would fork the accepted set between e2ee and plaintext Realms.",
+    },
+    ReasonCodeDescriptor {
+        code: "calendar_tzdb_mismatch",
+        applies_to: &["event_envelope", "service_call", "projection"],
+        description: "The signed schedule tzdb_version is outside the receiver's executable release set declared in ServiceDescribe.calendar_tzdb_versions. The receiver MUST fail closed or mark instant projection unresolved and MUST NOT substitute a nearby or newer release. See zh/models/calendar-event.md.",
     },
     ReasonCodeDescriptor {
         code: "call_moderation_unauthorised",
@@ -2581,6 +2694,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "delivery_binding_policy_mismatch",
         applies_to: &["event_envelope", "auth_decision", "state_resolution"],
         description: "The resolved member delivery binding source, recipient_service_id, endorsement set, unroutable-membership status, or selected source priority conflicts with the Realm delivery_binding_policy allowlist / priority rules. Reducers MUST NOT fall through to a lower-priority binding source after this mismatch. See zh/governance/member-delivery-binding.md §2 and §3.1.",
+    },
+    ReasonCodeDescriptor {
+        code: "delivery_binding_stale",
+        applies_to: &["push_notify_outcome"],
+        description: "Per-device rejection reason in ak.edge.push.command.notify: the receiver's delivery-binding frontier has advanced past the route this notify was built against. Terminal for this attempt; the caller MUST re-resolve the route rather than retry the same one. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
         code: "delta_contains_data_event",
@@ -3422,6 +3540,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "The target blob is actor_private / private attachment material and MUST NOT be exposed through a bearer presign URL. It remains fetchable only through header-authenticated actor-bound access. See zh/crypto-media/media-and-blob.md §5.4.4.1.",
     },
     ReasonCodeDescriptor {
+        code: "profile_unsupported",
+        applies_to: &["push_notify_outcome"],
+        description: "Per-device rejection reason in ak.edge.push.command.notify: the device has not opted in to the requested notification profile (for example a visible notification sent to a device without visible_notification_opt_in). Terminal; the caller falls back to the blind_wakeup form and MUST NOT resend the same shape. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
+    },
+    ReasonCodeDescriptor {
         code: "projection_incomplete",
         applies_to: &["client_sync", "view_projection"],
         description: "Projection cannot be materialized because of missing reducer inputs, decryption_pending epochs, or out-of-window backfill.",
@@ -3442,6 +3565,16 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A runtime key-pairing or session-grant proof (DID `assertionMethod` signature, agent_key_proof transcript, etc.) failed signature verification, transcript binding, or `proof_kind` check. Distinct from `invalid_signature` in that the wire shape was syntactically valid but the proof semantics did not bind to the expected principal / nonce / audience. See zh/identity/key-management.md §3.6 §4.5.",
     },
     ReasonCodeDescriptor {
+        code: "push_gateway_unreachable",
+        applies_to: &["push_notify_outcome"],
+        description: "Per-device rejection reason in ak.edge.push.command.notify: the gateway could not durably take the route over. One of exactly two caller-retryable notify reasons; it MAY carry retry_after_ms, and its presence is the wire signal that the caller — not the gateway — owns the next attempt. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
+    },
+    ReasonCodeDescriptor {
+        code: "push_payload_too_large",
+        applies_to: &["push_notify_outcome"],
+        description: "Per-device rejection reason in ak.edge.push.command.notify: the notification exceeds the push profile, provider, or deployment size limit. Target-level, so the gateway MUST expand it into one same-reason rejected outcome per input device. Terminal until the caller shrinks the payload; MUST NOT carry retry_after_ms. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
+    },
+    ReasonCodeDescriptor {
         code: "push_route_limit_exceeded",
         applies_to: &["event_envelope", "service_call"],
         description: "A `ak.device.push_route` registration would exceed the v1 wire limit of 16 active push_route entries per `(recipient_service_id, principal_id, device_id)`. The server MUST reject the new registration. See zh/crypto-media/device-lifecycle.md §5a.2 and zh/conformance/scalability-constraints.md §6.1.",
@@ -3450,6 +3583,21 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "push_route_registration_rate_limited",
         applies_to: &["service_call"],
         description: "Internal audit reason recorded when push-route registration / rotation writes for a `(recipient_service_id, principal_id, device_id)` exceed the default rate (8 writes per 60s). The outward response uses a generic rate-limited envelope; this reason is for server-side abuse detection only. See zh/crypto-media/device-lifecycle.md §5a.2 and zh/conformance/scalability-constraints.md §6.1.",
+    },
+    ReasonCodeDescriptor {
+        code: "push_target_unknown",
+        applies_to: &["push_notify_outcome"],
+        description: "Per-device rejection reason in ak.edge.push.command.notify: the push target is unknown or no longer visible. Target-level, so the gateway MUST expand it into one same-reason rejected outcome per input device. Terminal; not caller-retryable and MUST NOT carry retry_after_ms. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
+    },
+    ReasonCodeDescriptor {
+        code: "push_token_invalid",
+        applies_to: &["push_notify_outcome"],
+        description: "Per-device rejection reason in ak.edge.push.command.notify: the registered route failed provider validation or is no longer bound to this device. Terminal; the caller SHOULD drop the device registration. Cleanup is addressed by the composite identity — the response never returns the raw push_key. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
+    },
+    ReasonCodeDescriptor {
+        code: "push_token_unknown",
+        applies_to: &["push_notify_outcome"],
+        description: "Per-device rejection reason in ak.edge.push.command.notify: no active push registration exists for this (push_target_id, device_id). Terminal; the caller SHOULD drop the device registration. Cleanup is addressed by the composite identity — the response never returns the raw push_key. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
         code: "quarantined",
@@ -3475,6 +3623,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "range_completeness_root_mismatch",
         applies_to: &["audit_decision", "state_resolution"],
         description: "A ak.attestation.range_completeness attestation's root (payload schema ak.schema.range_completeness_attestation.v1) does not match the locally-recomputed Merkle root over the scope's reducer-input events. Indicates either silent omission by the issuer or scope/canonicalization drift. See zh/sync/operations-sync.md §6.4.4 step 4.",
+    },
+    ReasonCodeDescriptor {
+        code: "rate_limited",
+        applies_to: &["push_notify_outcome"],
+        description: "Per-device rejection reason in ak.edge.push.command.notify: gateway-side admission limiting refused durable takeover of this route. One of exactly two caller-retryable notify reasons; it MAY carry retry_after_ms. A route the gateway already accepted is retried by the gateway and never surfaces this reason. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
         code: "reaction_scope_mismatch",
@@ -3729,6 +3882,21 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "risk_policy",
         applies_to: &["device_recovery"],
         description: "Recovery-session `rejection_reason_code` value: a server-side risk policy rejected the session. Closed value set defined in artifacts/schemas/recovery-session.schema.json and zh/crypto-media/device-lifecycle.md §15.",
+    },
+    ReasonCodeDescriptor {
+        code: "rsvp_basis_not_causal",
+        applies_to: &["event_envelope", "schema_validation"],
+        description: "entry.schedule_basis_refs is not a subset of the envelope causal_refs[], or is empty, duplicated, or not sorted in ascending canonical byte order. This shape admission is decidable without resolving the referenced Events and MUST reject rather than pend. See zh/models/calendar-event.md.",
+    },
+    ReasonCodeDescriptor {
+        code: "rsvp_occurrence_not_canonical",
+        applies_to: &["event_envelope", "schema_validation"],
+        description: "payload.occurrence is neither JSON null nor a canonical instance key (YYYY-MM-DD for all-day, YYYY-MM-DDTHH:MM:SS[Zone] for timed), including when its date component is not a real proleptic-Gregorian date. Receivers MUST reject instead of rewriting the key, since the cell subject derives from the signed value. See zh/models/calendar-event.md.",
+    },
+    ReasonCodeDescriptor {
+        code: "schedule_frontier_too_large",
+        applies_to: &["event_envelope", "schema_validation"],
+        description: "The observed Calendar schedule revision frontier exceeds the 128-entry bound shared with causal_refs, so entry.schedule_basis_refs cannot express it. The producer MUST converge the schedule before responding and MUST NOT truncate the basis. See zh/conformance/scalability-constraints.md. It is raised by the authoring client when the observed frontier itself exceeds the bound; a wire Event that actually carries more than 128 refs is instead rejected by schema maxItems as schema_violation.",
     },
     ReasonCodeDescriptor {
         code: "schema_derivation_mismatch",
@@ -4006,6 +4174,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Current parser rejected an Event whose `kind` is not an active registered v1 kind. Sync, federation, snapshot, SDK, and conformance paths MUST fail closed and MUST NOT perform payload-shape disambiguation or alias lookup. See zh/spec-map.md §1.2.1 and zh/overview/evolution-and-compatibility.md.",
     },
     ReasonCodeDescriptor {
+        code: "unresolved_basis",
+        applies_to: &["state_resolution", "projection"],
+        description: "A projected RSVP head references a schedule basis that cannot be resolved, is invisible, or is not on the target Strand's schedule revision DAG. The head is retained for audit, excluded from the effective response, and MUST NOT be guessed into currency. See zh/models/calendar-event.md.",
+    },
+    ReasonCodeDescriptor {
         code: "unsupported_aead_profile",
         applies_to: &["crypto", "schema_validation"],
         description: "Receiver does not recognise `encryption.aead.aead_profile` (or sees a reserved-but-unpublished profile such as `ak.aead.hybrid_kem.*`). Receivers MUST fail closed; inferring parameters from `aead.name` alone is forbidden. See zh/identity/key-management.md §7.9.",
@@ -4084,6 +4257,36 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "webvh_cache_unavailable",
         applies_to: &["identity_resolution"],
         description: "did:webvh resolution is in cache-only degraded mode and either the requested operation is outside the closed low-risk read-only set, or no sealed, controller-proof-verified cache evidence is available. Resolver MUST fail closed rather than treat unresolvable as valid.",
+    },
+    ReasonCodeDescriptor {
+        code: "webvh_witness_controlling_organization_unverified",
+        applies_to: &["identity_resolution", "auth_decision"],
+        description: "A deployment profile requires witnesses from distinct controlling organizations, but the controlling organization of at least one witness cannot be verified, or two witnesses resolve to the same organization. Counting unverifiable or colliding organizations would let one operator running several witness keys satisfy a distinct-organization requirement alone; the verifier MUST fail closed on high-risk paths. See zh/identity/identity-did.md §3.4.2.",
+    },
+    ReasonCodeDescriptor {
+        code: "webvh_witness_evidence_stale",
+        applies_to: &["identity_resolution", "auth_decision"],
+        description: "Witness evidence is older than the effective max age set by deployment / Realm policy, measured from when the proof was observed rather than from when any Arkret receipt was signed. Re-signing an old observation does not refresh it. See zh/identity/identity-did.md §3.4.2.",
+    },
+    ReasonCodeDescriptor {
+        code: "webvh_witness_parameter_malformed",
+        applies_to: &["identity_resolution", "auth_decision"],
+        description: "parameters.witness is present but is not the did:webvh 1.0 shape {threshold, witnesses:[{id}]}: threshold outside 1..witnesses.length, a duplicated witness id, a witness id that is not a did:key, a did:key whose multibase/multicodec payload does not decode to a well-formed public key compatible with the log's Data Integrity cryptosuite, or an unregistered extension key. Key decoding happens during parameter validation, not at signature time; accepting a witness id on string shape alone would let an unverifiable key occupy a threshold slot and hollow out the threshold. Also raised when parameters carries a look-alike key such as witnesses, witness_threshold or witnessThreshold, because that shape is evidence the log was produced against a non-standard dialect and the true policy is therefore unknown. A verifier MUST fail closed and MUST NOT fall back to treating the DID as unwitnessed: silently reading a malformed or aliased declaration as threshold 0 turns a DID that declares witnesses into one that requires none. See zh/identity/identity-did.md §3.4.1.",
+    },
+    ReasonCodeDescriptor {
+        code: "webvh_witness_proof_invalid",
+        applies_to: &["identity_resolution", "auth_decision"],
+        description: "A witness proof in did-witness.json fails signature verification, is signed by a key outside the witness listed in parameters.witness, or does not bind the versionId it is offered for. The proof does not count toward threshold and the entry MUST be treated as under-witnessed. See zh/identity/identity-did.md §3.4.1.",
+    },
+    ReasonCodeDescriptor {
+        code: "webvh_witness_proofs_unavailable",
+        applies_to: &["identity_resolution", "auth_decision"],
+        description: "parameters.witness declares a witness policy but the did-witness.json proofs file is unreachable, unparseable, or contains no entry for the versionId under evaluation. Unavailable evidence is not absent policy; the verifier MUST fail closed on high-risk paths rather than proceed as if no witnessing were required. See zh/identity/identity-did.md §3.4.1.",
+    },
+    ReasonCodeDescriptor {
+        code: "webvh_witness_threshold_not_met",
+        applies_to: &["identity_resolution", "auth_decision"],
+        description: "Valid distinct witness proofs for the versionId are fewer than the effective threshold, which is the strictest intersection of the method-native parameters.witness.threshold and the deployment / Realm policy minimum. A holder-declared policy can raise this bar but MUST NOT lower it. See zh/identity/identity-did.md §3.4.1 and §3.4.2.",
     },
     ReasonCodeDescriptor {
         code: "welcome_capability_mismatch",

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=c2b36dba10bcc51aade732537fddcdc1916bd70ae4cf8babe40441978392e941 Entries: error_codes=262
+//! sha256=98c62ed199f57c36cb6bf4d0f918db19baa72b9054a9a013e53fc51fe6fd4a4f Entries: error_codes=268
 
 use serde::{Deserialize, Serialize};
 
@@ -160,6 +160,12 @@ pub enum ErrorCode {
     NotMember,
     NotaryRecoveryMissing,
     OneTimeKeysExhausted,
+    OrganizationRegistrationChallengeInvalid,
+    OrganizationRegistrationControlProofInvalid,
+    OrganizationRegistrationQuorumNotMet,
+    OrganizationRegistrationRevoked,
+    OrganizationRegistrationScopeUnsupported,
+    OrganizationRegistrationStale,
     OverbroadRequest,
     PayloadDigestMismatch,
     PayloadTooLarge,
@@ -435,6 +441,12 @@ impl ErrorCode {
         Self::NotMember,
         Self::NotaryRecoveryMissing,
         Self::OneTimeKeysExhausted,
+        Self::OrganizationRegistrationChallengeInvalid,
+        Self::OrganizationRegistrationControlProofInvalid,
+        Self::OrganizationRegistrationQuorumNotMet,
+        Self::OrganizationRegistrationRevoked,
+        Self::OrganizationRegistrationScopeUnsupported,
+        Self::OrganizationRegistrationStale,
         Self::OverbroadRequest,
         Self::PayloadDigestMismatch,
         Self::PayloadTooLarge,
@@ -711,6 +723,16 @@ impl ErrorCode {
     pub const NOT_MEMBER: &'static str = "not_member";
     pub const NOTARY_RECOVERY_MISSING: &'static str = "notary_recovery_missing";
     pub const ONE_TIME_KEYS_EXHAUSTED: &'static str = "one_time_keys_exhausted";
+    pub const ORGANIZATION_REGISTRATION_CHALLENGE_INVALID: &'static str =
+        "organization_registration_challenge_invalid";
+    pub const ORGANIZATION_REGISTRATION_CONTROL_PROOF_INVALID: &'static str =
+        "organization_registration_control_proof_invalid";
+    pub const ORGANIZATION_REGISTRATION_QUORUM_NOT_MET: &'static str =
+        "organization_registration_quorum_not_met";
+    pub const ORGANIZATION_REGISTRATION_REVOKED: &'static str = "organization_registration_revoked";
+    pub const ORGANIZATION_REGISTRATION_SCOPE_UNSUPPORTED: &'static str =
+        "organization_registration_scope_unsupported";
+    pub const ORGANIZATION_REGISTRATION_STALE: &'static str = "organization_registration_stale";
     pub const OVERBROAD_REQUEST: &'static str = "overbroad_request";
     pub const PAYLOAD_DIGEST_MISMATCH: &'static str = "payload_digest_mismatch";
     pub const PAYLOAD_TOO_LARGE: &'static str = "payload_too_large";
@@ -996,6 +1018,20 @@ impl ErrorCode {
             Self::NotMember => "not_member",
             Self::NotaryRecoveryMissing => "notary_recovery_missing",
             Self::OneTimeKeysExhausted => "one_time_keys_exhausted",
+            Self::OrganizationRegistrationChallengeInvalid => {
+                "organization_registration_challenge_invalid"
+            }
+            Self::OrganizationRegistrationControlProofInvalid => {
+                "organization_registration_control_proof_invalid"
+            }
+            Self::OrganizationRegistrationQuorumNotMet => {
+                "organization_registration_quorum_not_met"
+            }
+            Self::OrganizationRegistrationRevoked => "organization_registration_revoked",
+            Self::OrganizationRegistrationScopeUnsupported => {
+                "organization_registration_scope_unsupported"
+            }
+            Self::OrganizationRegistrationStale => "organization_registration_stale",
             Self::OverbroadRequest => "overbroad_request",
             Self::PayloadDigestMismatch => "payload_digest_mismatch",
             Self::PayloadTooLarge => "payload_too_large",
@@ -1279,6 +1315,20 @@ impl ErrorCode {
             "not_member" => Some(Self::NotMember),
             "notary_recovery_missing" => Some(Self::NotaryRecoveryMissing),
             "one_time_keys_exhausted" => Some(Self::OneTimeKeysExhausted),
+            "organization_registration_challenge_invalid" => {
+                Some(Self::OrganizationRegistrationChallengeInvalid)
+            }
+            "organization_registration_control_proof_invalid" => {
+                Some(Self::OrganizationRegistrationControlProofInvalid)
+            }
+            "organization_registration_quorum_not_met" => {
+                Some(Self::OrganizationRegistrationQuorumNotMet)
+            }
+            "organization_registration_revoked" => Some(Self::OrganizationRegistrationRevoked),
+            "organization_registration_scope_unsupported" => {
+                Some(Self::OrganizationRegistrationScopeUnsupported)
+            }
+            "organization_registration_stale" => Some(Self::OrganizationRegistrationStale),
             "overbroad_request" => Some(Self::OverbroadRequest),
             "payload_digest_mismatch" => Some(Self::PayloadDigestMismatch),
             "payload_too_large" => Some(Self::PayloadTooLarge),
@@ -1872,7 +1922,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         scope: "endpoint",
         applies_to: &[],
-        description: "Federation sender used an obsolete member delivery binding frontier; response carries new_recipient_service_id and handover_frontier so the sender can retry at the current service.",
+        description: "Federation sender used an obsolete member delivery binding frontier; response carries new_recipient_service_id and handover_frontier so the sender can retry at the current service. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeliveryBindingUnresolvable,
@@ -2484,6 +2534,48 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "No suitable one-time key or KeyPackage remains available for the requested device, principal, cipher suite, or profile.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::OrganizationRegistrationChallengeInvalid,
+        http_status: 400,
+        scope: "endpoint",
+        applies_to: &[],
+        description: "The referenced organization registration challenge is unknown, expired, already consumed without an exact successful-replay ledger match, or its purpose / audience / origin / trust_domain / local_admin_subject / requested_scopes binding does not match the submitted request. On first success the registry atomically records (challenge_id, canonical_request_digest, outcome): a byte-identical retry returns that outcome, while the same challenge with a different digest fails here rather than authorising a second intent.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::OrganizationRegistrationControlProofInvalid,
+        http_status: 400,
+        scope: "endpoint",
+        applies_to: &[],
+        description: "The method-native control proof fails verification, was produced under a different signing context, does not bind the submitted challenge / organization / version_id, or its signer is not in the organization DID's control relationship at the pinned version. Resolvability of the DID is never accepted in place of this proof.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::OrganizationRegistrationQuorumNotMet,
+        http_status: 400,
+        scope: "endpoint",
+        applies_to: &[],
+        description: "proof_kind=governance_quorum but fewer than quorum_threshold distinct valid governance signatures were supplied, or two signatures resolve to the same verification method. JSON Schema cannot compare the array length against the declared threshold, so the receiver enforces it and fails closed rather than accepting a partial quorum.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::OrganizationRegistrationRevoked,
+        http_status: 409,
+        scope: "endpoint",
+        applies_to: &[],
+        description: "The local organization binding generation is revoked, which is terminal. This also covers an older generation atomically terminated with reason organization_registration_superseded when a new current generation was opened. Refresh MUST NOT revive it, and a receipt from it MUST NOT authorize after the current-generation pointer advances: a binding withdrawn locally, superseded by changed admin/scopes, or forced to revoked because the external DID was deactivated can only be replaced by a fresh registration with a new challenge and proof.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::OrganizationRegistrationScopeUnsupported,
+        http_status: 422,
+        scope: "endpoint",
+        applies_to: &[],
+        description: "A requested delegated scope is outside the closed organization registration scope set, or this deployment does not offer it. The scope vocabulary is closed so that a deployment cannot mint administrative authority the organization never consented to.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::OrganizationRegistrationStale,
+        http_status: 409,
+        scope: "endpoint",
+        applies_to: &[],
+        description: "The organization binding is stale — the pinned version no longer reflects current control after a controller rotation, or the receipt has passed expires_at — and the attempted operation is on a high-risk path. Low-risk reads may still proceed; high-risk paths MUST fail closed until a successful refresh, so that one first-time proof cannot authorise the relationship indefinitely.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::OverbroadRequest,
         http_status: 422,
         scope: "service_call",
@@ -2572,7 +2664,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 422,
         scope: "both",
         applies_to: &[],
-        description: "Caller requested an operation that relies on a Realm-declared profile or feature this service has not declared in ak.server.query.describe.supported_features / supported_profiles. The server MUST fail-closed and MUST NOT silently downgrade to a permissive interpretation.",
+        description: "Caller requested an operation that relies on a Realm-declared profile or feature this service has not declared in ak.server.query.describe.supported_features / supported_profiles. The server MUST fail-closed and MUST NOT silently downgrade to a permissive interpretation. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ProjectionIncomplete,
@@ -2600,35 +2692,35 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 503,
         scope: "endpoint",
         applies_to: &[],
-        description: "The push gateway or downstream push provider could not be reached or is unavailable for this route.",
+        description: "The push gateway or downstream push provider could not be reached or is unavailable for this route. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PushPayloadTooLarge,
         http_status: 413,
         scope: "endpoint",
         applies_to: &[],
-        description: "The notification payload exceeds the push profile, provider, or deployment size limit.",
+        description: "The notification payload exceeds the push profile, provider, or deployment size limit. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PushTargetUnknown,
         http_status: 404,
         scope: "endpoint",
         applies_to: &[],
-        description: "The requested push target, device route, or notification subscription is unknown or no longer visible.",
+        description: "The requested push target, device route, or notification subscription is unknown or no longer visible. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PushTokenInvalid,
         http_status: 400,
         scope: "endpoint",
         applies_to: &[],
-        description: "The supplied push token is malformed, fails provider validation, or is not bound to the authenticated principal/device.",
+        description: "The supplied push token is malformed, fails provider validation, or is not bound to the authenticated principal/device. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PushTokenUnknown,
         http_status: 404,
         scope: "endpoint",
         applies_to: &[],
-        description: "The push token or registration id is unknown, revoked, expired, or already unregistered.",
+        description: "The push token or registration id is unknown, revoked, expired, or already unregistered. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::Quarantine,
@@ -2656,7 +2748,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 429,
         scope: "both",
         applies_to: &[],
-        description: "The caller exceeded the current rate limit policy.",
+        description: "The caller exceeded the current rate limit policy. Dual-registered as a per-device reason_code for ak.edge.push.command.notify (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ReadReceiptComplianceFloorViolated,

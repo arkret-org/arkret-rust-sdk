@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-07-20;
-//! sha256=477aadb7801ae84db0653453848e4d90f9004973f7d9558f52e4569bf9e96365 Entries: registered=202
+//! sha256=a5c58054909d2e4ed2a2750716f61c91f71c187a64744f2ff127c2d18f345fb6 Entries: registered=207
 
 use serde::{Deserialize, Serialize};
 
@@ -80,6 +80,11 @@ pub enum ServiceOperationId {
     RootIdentityCommandSubmitDidOperation,
     RootIdentityDocumentResourceGet,
     RootIdentityLogQueryList,
+    RootIdentityOrganizationRegistrationCommandEnsure,
+    RootIdentityOrganizationRegistrationCommandPrepare,
+    RootIdentityOrganizationRegistrationCommandRefresh,
+    RootIdentityOrganizationRegistrationCommandRevoke,
+    RootIdentityOrganizationRegistrationResourceGet,
     RootIdentityQueryResolve,
     RootIdentityReceiptsQueryList,
     RootIdentityRecoveryPolicyCommandPublish,
@@ -285,6 +290,11 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.root.identity.command.submit_did_operation",
     "ak.root.identity.document.resource.get",
     "ak.root.identity.log.query.list",
+    "ak.root.identity.organization_registration.command.ensure",
+    "ak.root.identity.organization_registration.command.prepare",
+    "ak.root.identity.organization_registration.command.refresh",
+    "ak.root.identity.organization_registration.command.revoke",
+    "ak.root.identity.organization_registration.resource.get",
     "ak.root.identity.query.resolve",
     "ak.root.identity.receipts.query.list",
     "ak.root.identity.recovery_policy.command.publish",
@@ -506,6 +516,11 @@ impl ServiceOperationId {
         Self::RootIdentityCommandSubmitDidOperation,
         Self::RootIdentityDocumentResourceGet,
         Self::RootIdentityLogQueryList,
+        Self::RootIdentityOrganizationRegistrationCommandEnsure,
+        Self::RootIdentityOrganizationRegistrationCommandPrepare,
+        Self::RootIdentityOrganizationRegistrationCommandRefresh,
+        Self::RootIdentityOrganizationRegistrationCommandRevoke,
+        Self::RootIdentityOrganizationRegistrationResourceGet,
         Self::RootIdentityQueryResolve,
         Self::RootIdentityReceiptsQueryList,
         Self::RootIdentityRecoveryPolicyCommandPublish,
@@ -757,6 +772,16 @@ impl ServiceOperationId {
     pub const ROOT_IDENTITY_DOCUMENT_RESOURCE_GET: &'static str =
         "ak.root.identity.document.resource.get";
     pub const ROOT_IDENTITY_LOG_QUERY_LIST: &'static str = "ak.root.identity.log.query.list";
+    pub const ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_ENSURE: &'static str =
+        "ak.root.identity.organization_registration.command.ensure";
+    pub const ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_PREPARE: &'static str =
+        "ak.root.identity.organization_registration.command.prepare";
+    pub const ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_REFRESH: &'static str =
+        "ak.root.identity.organization_registration.command.refresh";
+    pub const ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_REVOKE: &'static str =
+        "ak.root.identity.organization_registration.command.revoke";
+    pub const ROOT_IDENTITY_ORGANIZATION_REGISTRATION_RESOURCE_GET: &'static str =
+        "ak.root.identity.organization_registration.resource.get";
     pub const ROOT_IDENTITY_QUERY_RESOLVE: &'static str = "ak.root.identity.query.resolve";
     pub const ROOT_IDENTITY_RECEIPTS_QUERY_LIST: &'static str =
         "ak.root.identity.receipts.query.list";
@@ -1052,6 +1077,21 @@ impl ServiceOperationId {
             }
             Self::RootIdentityDocumentResourceGet => "ak.root.identity.document.resource.get",
             Self::RootIdentityLogQueryList => "ak.root.identity.log.query.list",
+            Self::RootIdentityOrganizationRegistrationCommandEnsure => {
+                "ak.root.identity.organization_registration.command.ensure"
+            }
+            Self::RootIdentityOrganizationRegistrationCommandPrepare => {
+                "ak.root.identity.organization_registration.command.prepare"
+            }
+            Self::RootIdentityOrganizationRegistrationCommandRefresh => {
+                "ak.root.identity.organization_registration.command.refresh"
+            }
+            Self::RootIdentityOrganizationRegistrationCommandRevoke => {
+                "ak.root.identity.organization_registration.command.revoke"
+            }
+            Self::RootIdentityOrganizationRegistrationResourceGet => {
+                "ak.root.identity.organization_registration.resource.get"
+            }
             Self::RootIdentityQueryResolve => "ak.root.identity.query.resolve",
             Self::RootIdentityReceiptsQueryList => "ak.root.identity.receipts.query.list",
             Self::RootIdentityRecoveryPolicyCommandPublish => {
@@ -1341,6 +1381,21 @@ impl ServiceOperationId {
             }
             "ak.root.identity.document.resource.get" => Some(Self::RootIdentityDocumentResourceGet),
             "ak.root.identity.log.query.list" => Some(Self::RootIdentityLogQueryList),
+            "ak.root.identity.organization_registration.command.ensure" => {
+                Some(Self::RootIdentityOrganizationRegistrationCommandEnsure)
+            }
+            "ak.root.identity.organization_registration.command.prepare" => {
+                Some(Self::RootIdentityOrganizationRegistrationCommandPrepare)
+            }
+            "ak.root.identity.organization_registration.command.refresh" => {
+                Some(Self::RootIdentityOrganizationRegistrationCommandRefresh)
+            }
+            "ak.root.identity.organization_registration.command.revoke" => {
+                Some(Self::RootIdentityOrganizationRegistrationCommandRevoke)
+            }
+            "ak.root.identity.organization_registration.resource.get" => {
+                Some(Self::RootIdentityOrganizationRegistrationResourceGet)
+            }
             "ak.root.identity.query.resolve" => Some(Self::RootIdentityQueryResolve),
             "ak.root.identity.receipts.query.list" => Some(Self::RootIdentityReceiptsQueryList),
             "ak.root.identity.recovery_policy.command.publish" => {
@@ -2762,6 +2817,91 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/IdentityLogListOutcome",
+        ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::RootIdentityOrganizationRegistrationCommandEnsure,
+        http_method: "POST",
+        http_path: "/_arkret/root/identity/organization-registrations:ensure",
+        grpc: Some("RootIdentity/EnsureOrganizationRegistration"),
+        mq: Some("root.identity.organization_registration.command.ensure"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("object_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationEnsureRequestBody",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationOutcome",
+        ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::RootIdentityOrganizationRegistrationCommandPrepare,
+        http_method: "POST",
+        http_path: "/_arkret/root/identity/organization-registrations:prepare",
+        grpc: Some("RootIdentity/PrepareOrganizationRegistration"),
+        mq: Some("root.identity.organization_registration.command.prepare"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("none"),
+        retry_safe: Some(false),
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationChallengeRequestBody",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationChallenge",
+        ),
+        uncertain_outcome: Some(
+            "{\"operation_id\":\"ak.root.identity.organization_registration.command.prepare\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
+        ),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::RootIdentityOrganizationRegistrationCommandRefresh,
+        http_method: "POST",
+        http_path: "/_arkret/root/identity/organization-registrations:refresh",
+        grpc: Some("RootIdentity/RefreshOrganizationRegistration"),
+        mq: Some("root.identity.organization_registration.command.refresh"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("object_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationRefreshRequestBody",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationOutcome",
+        ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::RootIdentityOrganizationRegistrationCommandRevoke,
+        http_method: "POST",
+        http_path: "/_arkret/root/identity/organization-registrations:revoke",
+        grpc: Some("RootIdentity/RevokeOrganizationRegistration"),
+        mq: Some("root.identity.organization_registration.command.revoke"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("object_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationRevokeRequestBody",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationOutcome",
+        ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::RootIdentityOrganizationRegistrationResourceGet,
+        http_method: "GET",
+        http_path: "/_arkret/root/identity/organization-registrations",
+        grpc: Some("RootIdentity/GetOrganizationRegistration"),
+        mq: Some("root.identity.organization_registration.resource.get"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationOutcome",
         ),
         uncertain_outcome: None,
     },
