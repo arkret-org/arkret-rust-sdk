@@ -253,7 +253,7 @@ fn generic_standard_payload_fallback_allowed(event_kind: &str) -> bool {
             | "ak.realm.moderation_policy"
             | "ak.realm.plaintext_visible_services"
             | "ak.realm.policy"
-            | "ak.realm.policy_components"
+            | "ak.realm.policy_bundle"
             | "ak.realm.policy_server"
             | "ak.realm.preview_policy"
             | "ak.realm.schema"
@@ -769,7 +769,7 @@ mod tests {
         "ak.realm.moderation_policy",
         "ak.realm.plaintext_visible_services",
         "ak.realm.policy",
-        "ak.realm.policy_components",
+        "ak.realm.policy_bundle",
         "ak.realm.policy_server",
         "ak.realm.preview_policy",
         "ak.realm.schema",

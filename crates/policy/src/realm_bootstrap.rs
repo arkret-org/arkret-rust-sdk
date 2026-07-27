@@ -24,7 +24,7 @@ pub fn is_realm_bootstrap_followup_kind(kind: &str) -> bool {
         EventKind::MEMBER_STATE
             | EventKind::REALM_HISTORY_VISIBILITY
             | EventKind::REALM_HISTORY_SHARING_POLICY
-            | EventKind::REALM_POLICY_COMPONENTS
+            | EventKind::REALM_POLICY_BUNDLE
             | EventKind::REALM_DISCOVERY
             | EventKind::REALM_JOIN_RULE
             | EventKind::REALM_DELIVERY_BINDING_POLICY
@@ -312,7 +312,7 @@ mod tests {
         let events = vec![
             create(),
             event(
-                EventKind::REALM_POLICY_COMPONENTS,
+                EventKind::REALM_POLICY_BUNDLE,
                 json!({"value": {"policy_revision": 1}}),
             ),
         ];

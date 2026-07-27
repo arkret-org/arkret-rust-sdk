@@ -43,7 +43,7 @@ const MLS_GOVERNANCE_CHUNK_DOMAIN: &[u8] = b"arkret-mls-governance-proof-chunk-v
 // Leaves enough headroom for the repeated response header and JSON delimiters.
 const MLS_GOVERNANCE_MAX_CHUNK_ITEM_BYTES: usize = 3_500_000;
 
-const POLICY_COMPONENTS_CELL: &str = "ak.component.realm.policy_components.v1";
+const POLICY_BUNDLE_CELL: &str = "ak.component.realm.policy_bundle.v1";
 const PLAINTEXT_VISIBLE_SERVICES_CELL: &str = "ak.component.realm.plaintext_visible_services.v1";
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -732,7 +732,7 @@ pub fn derive_mls_discussion_metadata_digest(
     for leaf in control_state {
         let cell = CellId::from_ref(&leaf.cell)?;
         match cell.component() {
-            POLICY_COMPONENTS_CELL => {
+            POLICY_BUNDLE_CELL => {
                 media_service_decrypts = leaf
                     .state
                     .value

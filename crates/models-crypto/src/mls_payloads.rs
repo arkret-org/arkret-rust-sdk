@@ -891,7 +891,7 @@ pub struct MediaPlaintextService {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MediaDecryptPolicyValue {
-    /// `ak.realm.policy_components.media_service_decrypts` (§10.5.1 rule 1).
+    /// `ak.realm.policy_bundle.media_service_decrypts` (§10.5.1 rule 1).
     pub media_service_decrypts: bool,
     /// `plaintext_visible_services[]` whose `data_classes[]` contains
     /// `media_plaintext`

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=98c62ed199f57c36cb6bf4d0f918db19baa72b9054a9a013e53fc51fe6fd4a4f Entries: error_codes=268
+//! sha256=c34ae42f2957a9b12fa9764e62cec82bf8128fabae75f0f82409c456411f1955 Entries: error_codes=269
 
 use serde::{Deserialize, Serialize};
 
@@ -264,6 +264,7 @@ pub enum ErrorCode {
     Unauthenticated,
     UnknownDid,
     UnrecognizedEndpoint,
+    UnsupportedContentEncoding,
     UnsupportedDidMethod,
     UnsupportedDigestAlgorithm,
     UnsupportedEventKind,
@@ -545,6 +546,7 @@ impl ErrorCode {
         Self::Unauthenticated,
         Self::UnknownDid,
         Self::UnrecognizedEndpoint,
+        Self::UnsupportedContentEncoding,
         Self::UnsupportedDidMethod,
         Self::UnsupportedDigestAlgorithm,
         Self::UnsupportedEventKind,
@@ -843,6 +845,7 @@ impl ErrorCode {
     pub const UNAUTHENTICATED: &'static str = "unauthenticated";
     pub const UNKNOWN_DID: &'static str = "unknown_did";
     pub const UNRECOGNIZED_ENDPOINT: &'static str = "unrecognized_endpoint";
+    pub const UNSUPPORTED_CONTENT_ENCODING: &'static str = "unsupported_content_encoding";
     pub const UNSUPPORTED_DID_METHOD: &'static str = "unsupported_did_method";
     pub const UNSUPPORTED_DIGEST_ALGORITHM: &'static str = "unsupported_digest_algorithm";
     pub const UNSUPPORTED_EVENT_KIND: &'static str = "unsupported_event_kind";
@@ -1132,6 +1135,7 @@ impl ErrorCode {
             Self::Unauthenticated => "unauthenticated",
             Self::UnknownDid => "unknown_did",
             Self::UnrecognizedEndpoint => "unrecognized_endpoint",
+            Self::UnsupportedContentEncoding => "unsupported_content_encoding",
             Self::UnsupportedDidMethod => "unsupported_did_method",
             Self::UnsupportedDigestAlgorithm => "unsupported_digest_algorithm",
             Self::UnsupportedEventKind => "unsupported_event_kind",
@@ -1443,6 +1447,7 @@ impl ErrorCode {
             "unauthenticated" => Some(Self::Unauthenticated),
             "unknown_did" => Some(Self::UnknownDid),
             "unrecognized_endpoint" => Some(Self::UnrecognizedEndpoint),
+            "unsupported_content_encoding" => Some(Self::UnsupportedContentEncoding),
             "unsupported_did_method" => Some(Self::UnsupportedDidMethod),
             "unsupported_digest_algorithm" => Some(Self::UnsupportedDigestAlgorithm),
             "unsupported_event_kind" => Some(Self::UnsupportedEventKind),
@@ -3260,6 +3265,13 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "The path is inside the protocol namespace but not implemented by the service.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::UnsupportedContentEncoding,
+        http_status: 415,
+        scope: "both",
+        applies_to: &[],
+        description: "A canonical non-streaming JSON operation carried a Content-Encoding header. Canonical JSON bindings MUST reject the request before reading or decompressing the body; see zh/conformance/scalability-constraints.md section 2.1.4.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedDidMethod,

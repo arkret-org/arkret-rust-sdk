@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=98c62ed199f57c36cb6bf4d0f918db19baa72b9054a9a013e53fc51fe6fd4a4f
+//! sha256=c34ae42f2957a9b12fa9764e62cec82bf8128fabae75f0f82409c456411f1955
 //! Entries: reason_codes=444
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2509,7 +2509,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "content_encryption_floor_downgrade",
         applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition when a ak.realm.policy_components or ak.circle.update would lower a scope's effective content_encryption_floor from e2ee_required back to allow_plaintext. The effective content encryption floor is a one-way ratchet (monotonically non-decreasing); tightening is allowed, lowering is rejected. See zh/models/realm-and-space.md §2.5 and zh/models/circle.md §7.",
+        description: "Sub-reason for failed_precondition when a ak.realm.policy_bundle or ak.circle.update would lower a scope's effective content_encryption_floor from e2ee_required back to allow_plaintext. The effective content encryption floor is a one-way ratchet (monotonically non-decreasing); tightening is allowed, lowering is rejected. See zh/models/realm-and-space.md §2.5 and zh/models/circle.md §7.",
     },
     ReasonCodeDescriptor {
         code: "content_encryption_floor_violation",
@@ -2793,7 +2793,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "durability_scheme_incompatible",
         applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition when a ak.realm.policy_components write declares durability_policy.mode != none on a Realm whose content_scheme is not mls_exporter_aead_v1. mls_rfc9420 Realms have no deliverable history_secret, so Realm Recovery Key (RRK) durability is structurally unavailable. See zh/models/realm-and-space.md §2.3.1 and zh/crypto-media/encryption-and-audit.md §2.10.8.",
+        description: "Sub-reason for failed_precondition when a ak.realm.policy_bundle write declares durability_policy.mode != none on a Realm whose content_scheme is not mls_exporter_aead_v1. mls_rfc9420 Realms have no deliverable history_secret, so Realm Recovery Key (RRK) durability is structurally unavailable. See zh/models/realm-and-space.md §2.3.1 and zh/crypto-media/encryption-and-audit.md §2.10.8.",
     },
     ReasonCodeDescriptor {
         code: "durability_seal_missing_before_gc",
@@ -3097,7 +3097,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "join_rule_policy_mismatch",
         applies_to: &["event_envelope", "auth_decision"],
-        description: "Realm `ak.realm.join_rule` and `ak.realm.policy_components` declare conflicting join modes (e.g., `restricted` with no gate configuration, or `knock_restricted` with all-auto gates degrading to `restricted`). See zh/governance/join-policy.md §4.",
+        description: "Realm `ak.realm.join_rule` and `ak.realm.policy_bundle` declare conflicting join modes (e.g., `restricted` with no gate configuration, or `knock_restricted` with all-auto gates degrading to `restricted`). See zh/governance/join-policy.md §4.",
     },
     ReasonCodeDescriptor {
         code: "join_rule_tightened",
@@ -3237,7 +3237,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "metadata_encryption_floor_downgrade",
         applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition when a ak.realm.policy_components or ak.circle.update would lower a scope's effective metadata encryption floor to a lower level (comparison order allow_plaintext < e2ee_required). The effective metadata encryption floor is a one-way ratchet (monotonically non-decreasing). See zh/models/realm-and-space.md §2.5 and zh/models/circle.md §7.",
+        description: "Sub-reason for failed_precondition when a ak.realm.policy_bundle or ak.circle.update would lower a scope's effective metadata encryption floor to a lower level (comparison order allow_plaintext < e2ee_required). The effective metadata encryption floor is a one-way ratchet (monotonically non-decreasing). See zh/models/realm-and-space.md §2.5 and zh/models/circle.md §7.",
     },
     ReasonCodeDescriptor {
         code: "metadata_encryption_floor_violation",
@@ -3267,7 +3267,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "mimi_policy_root_mismatch",
         applies_to: &["service_call", "state_resolution"],
-        description: "A MIMI room policy component does not match the Arkret Realm policy_root or ak.realm.policy_components state. Facade MUST reject the update until a fresh policy projection is available. See zh/extensions/mimi-interop.md §4.1.",
+        description: "A MIMI room policy component does not match the Arkret Realm policy_root or ak.realm.policy_bundle state. Facade MUST reject the update until a fresh policy projection is available. See zh/extensions/mimi-interop.md §4.1.",
     },
     ReasonCodeDescriptor {
         code: "mimi_provider_unreachable",
@@ -3492,7 +3492,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "policy_revision_gap",
         applies_to: &["event_envelope", "state_resolution"],
-        description: "A ak.realm.policy_components update skipped one or more monotonic policy_revision values. Reducer MUST reject instead of accepting a discontinuous policy frontier.",
+        description: "A ak.realm.policy_bundle update skipped one or more monotonic policy_revision values. Reducer MUST reject instead of accepting a discontinuous policy frontier.",
     },
     ReasonCodeDescriptor {
         code: "policy_revoked",
@@ -3842,7 +3842,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "relaxed_window_exceeds_ceiling",
         applies_to: &["schema_violation", "state_resolution"],
-        description: "A ak.realm.policy_components write under ak.profile.e2ee_relaxed.v1 declared relaxed_window_max_ms greater than the spec hard ceiling (300000 ms / 5 min). Reducer MUST reject the policy update and receivers MUST NOT silently clamp; otherwise visible policy state splits across implementations. See artifacts/profiles/conformance-profiles.json#ak.profile.e2ee_relaxed.v1.downgrade_window_constraint.",
+        description: "A ak.realm.policy_bundle write under ak.profile.e2ee_relaxed.v1 declared relaxed_window_max_ms greater than the spec hard ceiling (300000 ms / 5 min). Reducer MUST reject the policy update and receivers MUST NOT silently clamp; otherwise visible policy state splits across implementations. See artifacts/profiles/conformance-profiles.json#ak.profile.e2ee_relaxed.v1.downgrade_window_constraint.",
     },
     ReasonCodeDescriptor {
         code: "requires_organization_approval",

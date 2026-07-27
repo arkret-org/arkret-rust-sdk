@@ -94,7 +94,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(RealmHistorySharingPolicy);
     registry.register(RealmPreviewPolicy);
     registry.register(RealmAssetPrivacyPolicy);
-    registry.register(RealmPolicyComponents);
+    registry.register(RealmPolicyBundle);
     registry.register(RealmPolicyServer);
     registry.register(RealmPlaintextVisibleServices);
     registry.register(RealmMediaService);
@@ -193,7 +193,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ak.component.realm.history_sharing_policy.v1",
         "ak.component.realm.preview_policy.v1",
         "ak.component.realm.asset_privacy_policy.v1",
-        "ak.component.realm.policy_components.v1",
+        "ak.component.realm.policy_bundle.v1",
         "ak.component.realm.policy_server.v1",
         "ak.component.realm.plaintext_visible_services.v1",
         "ak.component.realm.media_service.v1",

@@ -69,7 +69,7 @@ impl LatticeKind {
                 "ak.realm.history_visibility",
                 "ak.realm.discovery",
                 "ak.realm.policy_server",
-                "ak.realm.policy_components",
+                "ak.realm.policy_bundle",
                 "ak.realm.history_sharing_policy",
                 "ak.realm.asset_privacy_policy",
                 "ak.realm.read_receipt_policy",

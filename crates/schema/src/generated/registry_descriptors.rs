@@ -3,7 +3,7 @@
 //! Input: registry/id-kind-registry.json; version=2026-07-20;
 //! sha256=d819c17d998ca95455441dbce72fc060dc64f4c382af1aa07d95568cfd8a4714 Input: registry/
 //! capability-action-registry.json; version=2026-07-20;
-//! sha256=dcba96da280fe85a2b71fa708ce1264670807e3ee0018f6d38a6df700f2ec01b Input: registry/
+//! sha256=1a6e23305bfa5690e79ed6632097783dc50038576ddced67a6bafd82a32054b0 Input: registry/
 //! schema-registry.json; version=2026-07-20;
 //! sha256=b8623dded94750ad7f270c7d1eb732247c3cb9910eeedf81434ab4ff0250994f Input: registry/
 //! account-data-key-registry.json; version=2026-07-03;
@@ -1103,7 +1103,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.policy.action",
             "ak.realm.policy",
             "ak.realm.policy_server",
-            "ak.realm.policy_components",
+            "ak.realm.policy_bundle",
             "ak.realm.delivery_binding_policy",
             "ak.realm.asset_privacy_policy",
             "ak.realm.read_receipt_policy",
@@ -1186,7 +1186,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.realm.notary",
             "ak.realm.preview_policy",
             "ak.realm.policy_server",
-            "ak.realm.policy_components",
+            "ak.realm.policy_bundle",
             "ak.realm.history_sharing_policy",
             "ak.realm.delivery_binding_policy",
             "ak.realm.asset_privacy_policy",

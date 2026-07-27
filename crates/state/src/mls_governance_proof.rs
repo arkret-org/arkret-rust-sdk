@@ -329,7 +329,7 @@ pub fn derive_mls_policy_root(control_state: &BTreeMap<CellRef, CellState>) -> R
                     "ak.component.realm.join_rule.v1"
                         | "ak.component.realm.history_visibility.v1"
                         | "ak.component.realm.media_service.v1"
-                        | "ak.component.realm.policy_components.v1"
+                        | "ak.component.realm.policy_bundle.v1"
                         | "ak.component.realm.plaintext_visible_services.v1"
                 )))
             || (component.starts_with("ak.component.circle.")
@@ -443,7 +443,7 @@ mod tests {
                 },
             },
             MlsGovernanceControlStateLeaf {
-                cell: cell("ak.component.realm.policy_components.v1", realm().as_str()),
+                cell: cell("ak.component.realm.policy_bundle.v1", realm().as_str()),
                 state: MlsGovernanceControlStateValue {
                     value: json!({"media_service_decrypts": true}),
                 },

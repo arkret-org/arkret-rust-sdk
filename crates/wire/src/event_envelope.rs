@@ -46,7 +46,24 @@ use crate::primitives::{
 };
 use crate::{DidKey, canonical};
 
+/// Full canonical Event Envelope bound, measured over the reducer-accepted envelope including
+/// reducer-stamped top-level fields and every producer proof, excluding the read-view `unsigned`.
+///
+/// See `zh/conformance/scalability-constraints.md` section 2.1.1.
 pub const MAX_EVENT_ENVELOPE_BYTES: usize = 1024 * 1024;
+
+/// Canonical body bound for `body_class=non_streaming_json` operations
+/// (`scalability-constraints.md` section 2.1.2).
+pub const MAX_OPERATION_CANONICAL_BODY_BYTES: usize = 8 * 1024 * 1024;
+
+/// HTTP message content wire bound enforced before JSON parse
+/// (`scalability-constraints.md` section 2.1.3).
+pub const MAX_HTTP_MESSAGE_CONTENT_BYTES: usize = 16 * 1024 * 1024;
+
+/// Bound on the service-added read-view `unsigned` object of a single Event
+/// (`scalability-constraints.md` section 2.1.1). Submit paths MUST reject `unsigned` outright.
+pub const MAX_READ_VIEW_UNSIGNED_CANONICAL_BYTES: usize = 16 * 1024;
+
 pub const MAX_EVENT_SUBMIT_BATCH: usize = 1_000;
 pub const MAX_EVENT_RESOLVE: usize = 100;
 pub const MAX_EVENT_PREV_REFS: usize = 128;
@@ -63,6 +80,43 @@ pub fn validate_event_envelope_byte_len(byte_len: usize) -> Result<()> {
     if byte_len > MAX_EVENT_ENVELOPE_BYTES {
         return Err(Error::Protocol(format!(
             "event envelope exceeds v1 maximum of {MAX_EVENT_ENVELOPE_BYTES} bytes"
+        )));
+    }
+    Ok(())
+}
+
+/// Reject a canonical non-streaming JSON operation body that exceeds the general 8 MiB bound, or
+/// the lower per-operation bound registered in `operation-registry.json`.
+pub fn validate_operation_canonical_body_len(
+    byte_len: usize,
+    operation_max: Option<usize>,
+) -> Result<()> {
+    let limit = operation_max
+        .unwrap_or(MAX_OPERATION_CANONICAL_BODY_BYTES)
+        .min(MAX_OPERATION_CANONICAL_BODY_BYTES);
+    if byte_len > limit {
+        return Err(Error::Protocol(format!(
+            "canonical operation body exceeds v1 maximum of {limit} bytes"
+        )));
+    }
+    Ok(())
+}
+
+/// Reject an HTTP message content length before the body is parsed or canonicalized.
+pub fn validate_http_message_content_len(byte_len: usize) -> Result<()> {
+    if byte_len > MAX_HTTP_MESSAGE_CONTENT_BYTES {
+        return Err(Error::Protocol(format!(
+            "HTTP message content exceeds v1 maximum of {MAX_HTTP_MESSAGE_CONTENT_BYTES} bytes"
+        )));
+    }
+    Ok(())
+}
+
+/// Reject a service-added read-view `unsigned` object that exceeds its canonical bound.
+pub fn validate_read_view_unsigned_len(byte_len: usize) -> Result<()> {
+    if byte_len > MAX_READ_VIEW_UNSIGNED_CANONICAL_BYTES {
+        return Err(Error::Protocol(format!(
+            "read-view unsigned exceeds v1 maximum of {MAX_READ_VIEW_UNSIGNED_CANONICAL_BYTES} bytes"
         )));
     }
     Ok(())

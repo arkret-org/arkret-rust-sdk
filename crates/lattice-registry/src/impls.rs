@@ -1465,12 +1465,12 @@ singleton_lattice!(
 );
 
 singleton_lattice!(
-    RealmPolicyComponents,
-    "ak.component.realm.policy_components.v1",
+    RealmPolicyBundle,
+    "ak.component.realm.policy_bundle.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["ak.realm.policy_components"]
+    &["ak.realm.policy_bundle"]
 );
 
 singleton_lattice!(

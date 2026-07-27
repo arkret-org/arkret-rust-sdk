@@ -96,7 +96,7 @@ pub struct Realm {
     /// axis durability, orthogonal to `notary` / `notary.recovery_*` (finality
     /// axis). Only effective (`mode != none`) when
     /// `content_scheme == "mls_exporter_aead_v1"`. Reducer-derived (written via
-    /// `ak.realm.policy_components`); a value at create time is a hint only.
+    /// `ak.realm.policy_bundle`); a value at create time is a hint only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub durability_policy: Option<DurabilityPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]

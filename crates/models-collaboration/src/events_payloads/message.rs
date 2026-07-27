@@ -177,6 +177,7 @@ impl<'de> Deserialize<'de> for MessageRevisePayload {
 
 pub const CONTENT_KIND_COMPOSITE: &str = "ak.content.composite";
 pub const CONTENT_KIND_TEXT: &str = "ak.content.text";
+pub const CONTENT_KIND_LONG_TEXT: &str = "ak.content.long_text";
 pub const CONTENT_KIND_FORMATTED_TEXT: &str = "ak.content.formatted_text";
 pub const CONTENT_KIND_CODE: &str = "ak.content.code";
 pub const CONTENT_KIND_IMAGE: &str = "ak.content.image";
@@ -306,6 +307,7 @@ impl ContentBlock {
 pub enum ContentBlockKind {
     Composite,
     Text,
+    LongText,
     FormattedText,
     Code,
     Image,
@@ -324,6 +326,7 @@ impl ContentBlockKind {
         match value {
             CONTENT_KIND_COMPOSITE => Some(Self::Composite),
             CONTENT_KIND_TEXT => Some(Self::Text),
+            CONTENT_KIND_LONG_TEXT => Some(Self::LongText),
             CONTENT_KIND_FORMATTED_TEXT => Some(Self::FormattedText),
             CONTENT_KIND_CODE => Some(Self::Code),
             CONTENT_KIND_IMAGE => Some(Self::Image),
@@ -343,6 +346,7 @@ impl ContentBlockKind {
         match self {
             Self::Composite => CONTENT_KIND_COMPOSITE,
             Self::Text => CONTENT_KIND_TEXT,
+            Self::LongText => CONTENT_KIND_LONG_TEXT,
             Self::FormattedText => CONTENT_KIND_FORMATTED_TEXT,
             Self::Code => CONTENT_KIND_CODE,
             Self::Image => CONTENT_KIND_IMAGE,
@@ -359,6 +363,342 @@ impl ContentBlockKind {
 
     pub fn is_media(&self) -> bool {
         matches!(self, Self::Image | Self::Video | Self::Audio | Self::File)
+    }
+}
+
+/// Inline / long-text boundary for `ak.content.text.body`, measured in normalized UTF-8 bytes.
+///
+/// See `zh/models/content-types.md` section 4.1.4 and
+/// `zh/conformance/scalability-constraints.md` section 5.
+pub const CONTENT_TEXT_INLINE_MAX_BYTES: usize = 262_144;
+
+/// Fallback `body` bound for `ak.content.long_text`, measured in normalized UTF-8 bytes.
+pub const LONG_TEXT_FALLBACK_MAX_BYTES: usize = 4_096;
+
+/// Closed `body_kind` set for `ak.content.long_text`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LongTextBodyKind {
+    Prefix,
+    Summary,
+}
+
+impl LongTextBodyKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Prefix => "prefix",
+            Self::Summary => "summary",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "prefix" => Some(Self::Prefix),
+            "summary" => Some(Self::Summary),
+            _ => None,
+        }
+    }
+}
+
+/// Closed `format` set for `ak.content.long_text`, paired with its media type.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LongTextFormat {
+    Plain,
+    Markdown,
+}
+
+impl LongTextFormat {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Plain => "plain",
+            Self::Markdown => "markdown",
+        }
+    }
+
+    /// Media type bound to this format. No parameters: charset is fixed to UTF-8 by the kind.
+    pub fn media_type(self) -> &'static str {
+        match self {
+            Self::Plain => "text/plain",
+            Self::Markdown => "text/markdown",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "plain" => Some(Self::Plain),
+            "markdown" => Some(Self::Markdown),
+            _ => None,
+        }
+    }
+}
+
+/// Normalize a long-text body per `zh/models/content-types.md` section 4.1.2.
+///
+/// Rejects a BOM and every C0 control character other than LF and TAB, and rewrites CRLF / CR to
+/// LF. The result is what `size_bytes` (plaintext form) or `attachment.size_bytes` (E2EE form),
+/// the Blob digest and `line_count` are computed over; producers MUST normalize before deriving a
+/// prefix or a summary.
+pub fn normalize_long_text(input: &str) -> Result<String> {
+    if input.starts_with('\u{feff}') {
+        return Err(Error::Protocol(
+            "long_text body must not start with a BOM".to_owned(),
+        ));
+    }
+    let mut out = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\r' => {
+                if chars.peek() == Some(&'\n') {
+                    chars.next();
+                }
+                out.push('\n');
+            }
+            '\n' | '\t' => out.push(ch),
+            '\u{0}'..='\u{1f}' | '\u{7f}' => {
+                return Err(Error::Protocol(format!(
+                    "long_text body must not contain control character U+{:04X}",
+                    ch as u32
+                )));
+            }
+            _ => out.push(ch),
+        }
+    }
+    Ok(out)
+}
+
+/// `line_count` for an already normalized long-text body.
+pub fn long_text_line_count(normalized: &str) -> u64 {
+    if normalized.is_empty() {
+        return 0;
+    }
+    let newlines = normalized.matches('\n').count() as u64;
+    if normalized.ends_with('\n') {
+        newlines
+    } else {
+        newlines + 1
+    }
+}
+
+fn hash_blob_ref_suite_and_hex(blob_ref: &str) -> Option<(&str, &str)> {
+    let rest = blob_ref.strip_prefix("ak:blob:")?;
+    let (suite, hex) = rest.split_once(':')?;
+    if !matches!(suite, "sha256" | "blake3") {
+        return None;
+    }
+    if hex.len() != 64
+        || !hex
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+    {
+        return None;
+    }
+    Some((suite, hex))
+}
+
+impl ContentBlock {
+    /// Validate an `ak.content.long_text` block against the normative rules that JSON Schema
+    /// cannot express: UTF-8 byte bounds, normalization, format / media-type binding,
+    /// hash-only Blob refs, the plaintext `size_bytes` / `segment_count` relation and the
+    /// mandatory streaming AEAD scheme for the E2EE branch.
+    ///
+    /// The `>256 KiB` rule itself is not enforced here: section 4.1.4 allows a shorter body when
+    /// the full Event would otherwise exceed the 1 MiB envelope limit, and only a full-Event size
+    /// validator can prove that exception.
+    pub fn validate_long_text(&self) -> Result<()> {
+        if self.kind != CONTENT_KIND_LONG_TEXT {
+            return Err(Error::Protocol(format!(
+                "expected {CONTENT_KIND_LONG_TEXT}, got {}",
+                self.kind
+            )));
+        }
+        if !self.parts.is_empty() {
+            return Err(Error::Protocol(
+                "long_text must not carry composite parts".to_owned(),
+            ));
+        }
+
+        let format = self
+            .extra_str("format")
+            .and_then(LongTextFormat::parse)
+            .ok_or_else(|| {
+                Error::Protocol("long_text requires format = plain | markdown".to_owned())
+            })?;
+        self.extra_str("body_kind")
+            .and_then(LongTextBodyKind::parse)
+            .ok_or_else(|| {
+                Error::Protocol("long_text requires body_kind = prefix | summary".to_owned())
+            })?;
+
+        if normalize_long_text(&self.body)? != self.body {
+            return Err(Error::Protocol(
+                "long_text fallback body is not normalized (BOM, CR or forbidden control character)"
+                    .to_owned(),
+            ));
+        }
+        if self.body.len() > LONG_TEXT_FALLBACK_MAX_BYTES {
+            return Err(Error::Protocol(format!(
+                "long_text fallback body is {} UTF-8 bytes, limit is {LONG_TEXT_FALLBACK_MAX_BYTES}",
+                self.body.len()
+            )));
+        }
+
+        let plaintext_branch = self.extra.contains_key("blob_ref");
+        let e2ee_branch = self.extra.contains_key("attachment");
+        if plaintext_branch == e2ee_branch {
+            return Err(Error::Protocol(
+                "long_text requires exactly one of blob_ref (plaintext) and attachment (E2EE)"
+                    .to_owned(),
+            ));
+        }
+
+        // The wire shape is additionalProperties=false, so the branch's field set is closed.
+        let allowed: &[&str] = if plaintext_branch {
+            &[
+                "format",
+                "body_kind",
+                "blob_ref",
+                "size_bytes",
+                "line_count",
+                "media_type",
+            ]
+        } else {
+            &["format", "body_kind", "line_count", "attachment"]
+        };
+        if let Some(unknown) = self
+            .extra
+            .keys()
+            .find(|key| !allowed.contains(&key.as_str()))
+        {
+            return Err(Error::Protocol(format!(
+                "long_text does not allow field {unknown:?}"
+            )));
+        }
+
+        if plaintext_branch {
+            let blob_ref = self.extra_str("blob_ref").unwrap_or_default();
+            if hash_blob_ref_suite_and_hex(blob_ref).is_none() {
+                return Err(Error::Protocol(
+                    "long_text blob_ref must be hash-addressed ak:blob:(sha256|blake3):<64 hex>"
+                        .to_owned(),
+                ));
+            }
+            if self.extra_u64("size_bytes").is_none() {
+                return Err(Error::Protocol(
+                    "plaintext long_text requires size_bytes".to_owned(),
+                ));
+            }
+            let media_type = self.extra_str("media_type").unwrap_or_default();
+            if media_type != format.media_type() {
+                return Err(Error::Protocol(format!(
+                    "long_text media_type {media_type:?} does not match format {}",
+                    format.as_str()
+                )));
+            }
+        } else {
+            let attachment = self
+                .extra
+                .get("attachment")
+                .and_then(Value::as_object)
+                .ok_or_else(|| {
+                    Error::Protocol("E2EE long_text attachment must be an object".to_owned())
+                })?;
+            let field = |key: &str| {
+                attachment
+                    .get(key)
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+            };
+            if field("scheme") != "ak.blob.stream_aead.v1" {
+                return Err(Error::Protocol(
+                    "E2EE long_text attachment must use ak.blob.stream_aead.v1".to_owned(),
+                ));
+            }
+            if !field("alg").ends_with("_stream") {
+                return Err(Error::Protocol(
+                    "E2EE long_text attachment must use the matching _stream AEAD algorithm"
+                        .to_owned(),
+                ));
+            }
+            if field("media_type") != format.media_type() {
+                return Err(Error::Protocol(format!(
+                    "E2EE long_text attachment media_type does not match format {}",
+                    format.as_str()
+                )));
+            }
+            let blob_ref = field("blob_ref");
+            let Some((suite, hex)) = hash_blob_ref_suite_and_hex(blob_ref) else {
+                return Err(Error::Protocol(
+                    "E2EE long_text attachment blob_ref must be hash-addressed".to_owned(),
+                ));
+            };
+            if field("ciphertext_digest") != format!("{suite}:{hex}") {
+                return Err(Error::Protocol(
+                    "E2EE long_text attachment ciphertext_digest must equal the blob_ref digest"
+                        .to_owned(),
+                ));
+            }
+            for key in [
+                "nonce_prefix",
+                "segment_bytes",
+                "segment_count",
+                "size_bytes",
+            ] {
+                if !attachment.contains_key(key) {
+                    return Err(Error::Protocol(format!(
+                        "E2EE long_text attachment requires {key}"
+                    )));
+                }
+            }
+            let plaintext_size = attachment.get("size_bytes").and_then(Value::as_u64);
+            let segment_bytes = attachment.get("segment_bytes").and_then(Value::as_u64);
+            let segment_count = attachment.get("segment_count").and_then(Value::as_u64);
+            if let (Some(size), Some(seg), Some(count)) =
+                (plaintext_size, segment_bytes, segment_count)
+            {
+                if seg == 0 {
+                    return Err(Error::Protocol(
+                        "E2EE long_text attachment segment_bytes must be positive".to_owned(),
+                    ));
+                }
+                let expected = if size == 0 { 1 } else { size.div_ceil(seg) };
+                if expected != count {
+                    return Err(Error::Protocol(format!(
+                        "E2EE long_text attachment segment_count {count} does not equal                          ceil(size_bytes / segment_bytes) = {expected}"
+                    )));
+                }
+            }
+        }
+
+        if let Some(declared) = self.extra_u64("line_count")
+            && declared == 0
+            && !self.body.is_empty()
+        {
+            return Err(Error::Protocol(
+                "long_text line_count of 0 requires an empty body".to_owned(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Validate that an `ak.content.text` block stays inside the inline boundary.
+    pub fn validate_inline_text(&self) -> Result<()> {
+        if self.kind != CONTENT_KIND_TEXT {
+            return Err(Error::Protocol(format!(
+                "expected {CONTENT_KIND_TEXT}, got {}",
+                self.kind
+            )));
+        }
+        if self.body.len() > CONTENT_TEXT_INLINE_MAX_BYTES {
+            return Err(Error::Protocol(format!(
+                "ak.content.text body is {} UTF-8 bytes, limit is {CONTENT_TEXT_INLINE_MAX_BYTES}; \
+                 use {CONTENT_KIND_LONG_TEXT}",
+                self.body.len()
+            )));
+        }
+        Ok(())
     }
 }
 
@@ -642,6 +982,9 @@ pub fn validate_content_block(block: &Value) -> ContentBlockValidationResult<()>
             }
             Ok(())
         }
+        ContentBlockKind::LongText => ContentBlock::from_value(block.clone())
+            .and_then(|parsed| parsed.validate_long_text())
+            .map_err(|_| ContentBlockValidationError::new("long text content block is invalid")),
         ContentBlockKind::Code => {
             if block
                 .get("text")
