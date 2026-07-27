@@ -8,13 +8,10 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{Base64UrlString, Did, EventId, GrantId, Hash, NonEmptyString, RealmId};
+use arkret_wire::{Base64UrlString, Did, DidUrl, EventId, GrantId, Hash, NonEmptyString, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-/// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/base64url`.
-pub type Base64url = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/grant_snapshot`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -55,8 +52,8 @@ pub struct DeviceMetadata {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentKeyAuthorizationState {
-    pub key_id: String,
-    pub verification_method: String,
+    pub key_id: NonEmptyString,
+    pub verification_method: DidUrl,
     pub authorized_event_ref: EventId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(
@@ -65,9 +62,6 @@ pub struct AgentKeyAuthorizationState {
     )]
     pub expires_at: Option<DateTime<Utc>>,
 }
-
-/// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/opaque_local_id`.
-pub type OpaqueLocalId = String;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/
@@ -80,7 +74,7 @@ pub struct PendingMemberReconciliationItem {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/public_key`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PublicKey {

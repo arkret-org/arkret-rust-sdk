@@ -13,7 +13,7 @@ use arkret_models_crypto::{
 };
 use arkret_wire::{
     Base64UrlString, BlobRef, ConsentId, Cursor, DeviceId, Did, Error, Event, EventId, EventKind,
-    Hash, MimiRoomUri, MlsGroupId, MorphId, MoveId, NonEmptyString, PayloadProof, Proof,
+    GrantId, Hash, MimiRoomUri, MlsGroupId, MorphId, MoveId, NonEmptyString, PayloadProof, Proof,
     ProofContextId, RealmId, RelationId, ReportId, Result, SealId, SpaceId, StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
@@ -1242,6 +1242,56 @@ pub struct DirectConversationMaterializationDraft {
 }
 
 impl DirectConversationMaterializationDraft {
+    pub fn founding_grant_payload(&self) -> Result<crate::events_payloads::CapabilityGrantPayload> {
+        self.capability_grant_payload(
+            &self.founding_grant_event,
+            "direct conversation founding grant draft payload",
+        )
+    }
+
+    pub fn main_strand_grant_payload(
+        &self,
+    ) -> Result<crate::events_payloads::CapabilityGrantPayload> {
+        self.capability_grant_payload(
+            &self.main_strand_grant_event,
+            "direct conversation main Strand grant draft payload",
+        )
+    }
+
+    pub fn founding_grant_id(&self) -> Result<GrantId> {
+        Ok(self.founding_grant_payload()?.grant_id)
+    }
+
+    pub fn main_strand_grant_id(&self) -> Result<GrantId> {
+        Ok(self.main_strand_grant_payload()?.grant_id)
+    }
+
+    pub fn expected_event_ids(&self) -> Vec<&EventId> {
+        let mut event_ids = vec![
+            &self.realm_event.event_id,
+            &self.founding_grant_event.event_id,
+        ];
+        if let Some(event) = &self.creator_member_event {
+            event_ids.push(&event.event_id);
+        }
+        event_ids.extend([
+            &self.peer_member_event.event_id,
+            &self.main_strand_grant_event.event_id,
+            &self.main_strand_event.event_id,
+            &self.binding_event.event_id,
+        ]);
+        event_ids
+    }
+
+    fn capability_grant_payload(
+        &self,
+        event: &Event,
+        context: &str,
+    ) -> Result<crate::events_payloads::CapabilityGrantPayload> {
+        serde_json::from_value(serde_json::to_value(&event.payload)?)
+            .map_err(|error| Error::Protocol(format!("{context} is invalid: {error}")))
+    }
+
     pub fn validate_shape(&self) -> Result<()> {
         let mut expected = vec![
             (&self.realm_event, EventKind::REALM_CREATE),
@@ -1279,13 +1329,7 @@ impl DirectConversationMaterializationDraft {
                 "direct conversation materialization Event draft binding is invalid".into(),
             ));
         }
-        let founding_payload: crate::events_payloads::CapabilityGrantPayload =
-            serde_json::from_value(serde_json::to_value(&self.founding_grant_event.payload)?)
-                .map_err(|error| {
-                    Error::Protocol(format!(
-                        "direct conversation founding grant draft payload is invalid: {error}"
-                    ))
-                })?;
+        let founding_payload = self.founding_grant_payload()?;
         let founding_grant = founding_payload.grant.ok_or_else(|| {
             Error::Protocol("direct conversation founding grant draft is absent".into())
         })?;
@@ -1297,13 +1341,7 @@ impl DirectConversationMaterializationDraft {
                 "direct conversation founding grant must be an unsigned issuer draft".into(),
             ));
         }
-        let strand_grant_payload: crate::events_payloads::CapabilityGrantPayload =
-            serde_json::from_value(serde_json::to_value(&self.main_strand_grant_event.payload)?)
-                .map_err(|error| {
-                    Error::Protocol(format!(
-                        "direct conversation main Strand grant draft payload is invalid: {error}"
-                    ))
-                })?;
+        let strand_grant_payload = self.main_strand_grant_payload()?;
         let strand_grant = strand_grant_payload.grant.ok_or_else(|| {
             Error::Protocol("direct conversation main Strand grant draft is absent".into())
         })?;

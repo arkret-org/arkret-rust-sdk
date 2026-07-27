@@ -9,7 +9,6 @@ pub(crate) use std::collections::BTreeMap;
 
 pub(crate) use arkret_canonical::binding_contexts;
 pub(crate) use arkret_models_crypto::artifacts_keys::*;
-pub(crate) use arkret_models_crypto::encrypted_envelope::*;
 pub(crate) use arkret_models_crypto::key_backup::*;
 pub(crate) use arkret_models_crypto::mls_payloads::*;
 pub(crate) use arkret_models_identity::actor_profile::*;

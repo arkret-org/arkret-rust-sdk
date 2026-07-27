@@ -28,7 +28,7 @@ pub enum AccountNotificationDataKind {
 #[serde(deny_unknown_fields)]
 pub struct AgentRuntimeApprovalNotificationData {
     pub kind: AccountNotificationDataKind,
-    pub approval_request_id: String,
+    pub approval_request_id: OpaqueLocalId,
     pub agent_id: Did,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
@@ -79,6 +79,66 @@ pub struct NotificationDelta {
     pub data: Option<NotificationData>,
 }
 
+impl NotificationDelta {
+    pub fn try_new(
+        id: NotificationId,
+        notification_kind: NotificationKind,
+        action: NotificationDeltaAction,
+        data: Option<NotificationData>,
+    ) -> Result<Self> {
+        let delta = Self {
+            id,
+            notification_kind,
+            action,
+            data,
+        };
+        delta.validate_shape()?;
+        Ok(delta)
+    }
+
+    pub fn validate_shape(&self) -> Result<()> {
+        if self.notification_kind != NotificationKind::Agent {
+            return Err(Error::Protocol(
+                "account notification delta notification_kind must be agent".to_owned(),
+            ));
+        }
+        match (self.action, self.data.as_ref()) {
+            (
+                NotificationDeltaAction::Add | NotificationDeltaAction::Update,
+                Some(NotificationData::AgentRuntimeApproval(_)),
+            )
+            | (
+                NotificationDeltaAction::Remove,
+                None | Some(NotificationData::AgentRuntimeApprovalRemoval(_)),
+            ) => Ok(()),
+            (NotificationDeltaAction::Add | NotificationDeltaAction::Update, _) => {
+                Err(Error::Protocol(
+                    "notification add/update requires agent_runtime_approval data".to_owned(),
+                ))
+            }
+            (NotificationDeltaAction::Remove, _) => Err(Error::Protocol(
+                "notification remove data must contain only a terminal reason".to_owned(),
+            )),
+        }
+    }
+
+    pub fn agent_runtime_approval(&self) -> Option<&AgentRuntimeApprovalNotificationData> {
+        match self.data.as_ref() {
+            Some(NotificationData::AgentRuntimeApproval(data)) => Some(data),
+            None | Some(NotificationData::AgentRuntimeApprovalRemoval(_)) => None,
+        }
+    }
+
+    pub fn agent_runtime_approval_removal(
+        &self,
+    ) -> Option<&AgentRuntimeApprovalNotificationRemovalData> {
+        match self.data.as_ref() {
+            Some(NotificationData::AgentRuntimeApprovalRemoval(data)) => Some(data),
+            None | Some(NotificationData::AgentRuntimeApproval(_)) => None,
+        }
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct NotificationDeltaWire {
@@ -95,37 +155,8 @@ impl<'de> Deserialize<'de> for NotificationDelta {
         D: serde::Deserializer<'de>,
     {
         let wire = NotificationDeltaWire::deserialize(deserializer)?;
-        if wire.notification_kind != NotificationKind::Agent {
-            return Err(serde::de::Error::custom(
-                "account notification delta type must be agent",
-            ));
-        }
-        match (wire.action, wire.data.as_ref()) {
-            (
-                NotificationDeltaAction::Add | NotificationDeltaAction::Update,
-                Some(NotificationData::AgentRuntimeApproval(_)),
-            )
-            | (
-                NotificationDeltaAction::Remove,
-                None | Some(NotificationData::AgentRuntimeApprovalRemoval(_)),
-            ) => {}
-            (NotificationDeltaAction::Add | NotificationDeltaAction::Update, _) => {
-                return Err(serde::de::Error::custom(
-                    "notification add/update requires agent_runtime_approval data",
-                ));
-            }
-            (NotificationDeltaAction::Remove, _) => {
-                return Err(serde::de::Error::custom(
-                    "notification remove data must contain only a terminal reason",
-                ));
-            }
-        }
-        Ok(Self {
-            id: wire.id,
-            notification_kind: wire.notification_kind,
-            action: wire.action,
-            data: wire.data,
-        })
+        Self::try_new(wire.id, wire.notification_kind, wire.action, wire.data)
+            .map_err(serde::de::Error::custom)
     }
 }
 

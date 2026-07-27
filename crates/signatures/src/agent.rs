@@ -146,8 +146,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
             body: AgentRuntimeApprovalRequestBody {
                 pairing_code: NonEmptyString::new(self.bootstrap.pairing_code.clone())
                     .map_err(|reason| Error::Protocol(reason.to_owned()))?,
-                pairing_request_id: NonEmptyString::new(self.bootstrap.pairing_request_id.clone())
-                    .map_err(|reason| Error::Protocol(reason.to_owned()))?,
+                pairing_request_id: self.bootstrap.pairing_request_id.clone(),
                 agent_id: self.bootstrap.agent_id.clone(),
                 verification_method: DidUrl::new(self.verification_method.clone())
                     .map_err(|reason| Error::Protocol(reason.to_owned()))?,
@@ -193,8 +192,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         let (public_key, public_key_digest, proof_of_possession) = self.request_material()?;
         Ok(RuntimeKeyRequest {
             body: AgentKeyPairRequestBody {
-                pairing_request_id: NonEmptyString::new(self.bootstrap.pairing_request_id.clone())
-                    .map_err(|reason| Error::Protocol(reason.to_owned()))?,
+                pairing_request_id: self.bootstrap.pairing_request_id.clone(),
                 agent_id: self.bootstrap.agent_id.clone(),
                 verification_method: DidUrl::new(self.verification_method.clone())
                     .map_err(|reason| Error::Protocol(reason.to_owned()))?,
@@ -595,7 +593,10 @@ mod tests {
             arkret_base_url: "https://arkret.example".to_owned(),
             service_id: Did::new("did:webvh:z6mkfixture:service.example").unwrap(),
             agent_id,
-            pairing_request_id: "01970000-0000-7000-8000-000000000022".to_owned(),
+            pairing_request_id: arkret_wire::OpaqueLocalId::new(
+                "01970000-0000-7000-8000-000000000022",
+            )
+            .unwrap(),
             pairing_code: "12345678".to_owned(),
             pairing_expires_at: "2026-07-14T14:43:48.784473Z"
                 .parse::<DateTime<Utc>>()
@@ -689,7 +690,7 @@ mod tests {
             arkret_base_url: "https://arkret.example".to_owned(),
             service_id,
             agent_id: agent_id.clone(),
-            pairing_request_id: pairing_request_id.to_owned(),
+            pairing_request_id: arkret_wire::OpaqueLocalId::new(pairing_request_id).unwrap(),
             pairing_code: "12345678".to_owned(),
             pairing_expires_at: issued_at + chrono::Duration::minutes(5),
         };

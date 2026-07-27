@@ -141,7 +141,7 @@ impl AgentRequestedScopeDisclosure {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentKeyPairRequestBody {
-    pub pairing_request_id: NonEmptyString,
+    pub pairing_request_id: OpaqueLocalId,
     pub agent_id: Did,
     pub verification_method: DidUrl,
     pub public_key: PublicKey,
@@ -167,7 +167,25 @@ pub struct AgentKeyPairOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRuntimeApprovalRequestBody {
     pub pairing_code: NonEmptyString,
-    pub pairing_request_id: NonEmptyString,
+    pub pairing_request_id: OpaqueLocalId,
+    pub agent_id: Did,
+    pub verification_method: DidUrl,
+    pub public_key: PublicKey,
+    pub proof_of_possession: NonEmptyJsonObject,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
+}
+
+/// Authenticated controller-safe projection of a pending runtime-key request.
+///
+/// This deliberately excludes the pairing secret and all controller-authored
+/// approval material. It is a separate closed DTO from both
+/// [`AgentRuntimeApprovalRequestBody`] and [`AgentKeyPairRequestBody`].
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentRuntimeApprovalControllerProjection {
+    pub pairing_request_id: OpaqueLocalId,
     pub agent_id: Did,
     pub verification_method: DidUrl,
     pub public_key: PublicKey,
@@ -181,7 +199,7 @@ pub struct AgentRuntimeApprovalRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRuntimeApprovalOutcome {
     pub ok: bool,
-    pub approval_request_id: String,
+    pub approval_request_id: OpaqueLocalId,
     pub status: AgentLifecycleState,
 }
 
@@ -194,7 +212,7 @@ pub struct AgentRuntimeApprovalOutcome {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRuntimeApprovalStatusRequestBody {
-    pub pairing_request_id: String,
+    pub pairing_request_id: OpaqueLocalId,
     pub pairing_code: String,
     pub agent_id: Did,
 }
@@ -213,7 +231,7 @@ pub struct AgentRuntimeApprovalStatusOutcome {
     pub status: AgentLifecycleState,
     pub runtime_state: AgentRuntimeState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub approval_request_id: Option<String>,
+    pub approval_request_id: Option<OpaqueLocalId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -374,7 +392,7 @@ pub enum AgentProvisionOutcome {
         agent_id: Did,
         principal_control_realm_id: RealmId,
         controller_realm_id: RealmId,
-        controller_authorization_ref: String,
+        controller_authorization_ref: DidUrl,
         requested_scope_digest: Hash,
     },
     Complete {
@@ -389,10 +407,10 @@ pub enum AgentProvisionOutcome {
 pub struct AgentProvisionComplete {
     pub agent_id: Did,
     pub principal_control_realm_id: RealmId,
-    pub controller_authorization_ref: String,
+    pub controller_authorization_ref: DidUrl,
     pub requested_scope_digest: Hash,
     pub pcr_recovery: AgentProvisionPcrRecovery,
-    pub pairing_request_id: String,
+    pub pairing_request_id: OpaqueLocalId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
     #[serde(
@@ -408,11 +426,11 @@ pub struct AgentProvisionComplete {
 pub struct AgentRenewPairingOutcome {
     pub agent_id: Did,
     pub principal_control_realm_id: RealmId,
-    pub controller_authorization_ref: String,
+    pub controller_authorization_ref: DidUrl,
     pub requested_scope_digest: Hash,
     pub pcr_recovery: AgentPcrRecoveryState,
     pub pairing_mode: AgentPairingMode,
-    pub pairing_request_id: String,
+    pub pairing_request_id: OpaqueLocalId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
     #[serde(
@@ -435,7 +453,7 @@ pub struct AgentPairingBootstrap {
     pub arkret_base_url: String,
     pub service_id: Did,
     pub agent_id: Did,
-    pub pairing_request_id: String,
+    pub pairing_request_id: OpaqueLocalId,
     pub pairing_code: String,
     #[serde(
         serialize_with = "serialize_canonical_timestamp",
@@ -540,6 +558,15 @@ impl AgentLifecycleState {
             Self::Active => "active",
             Self::Paused => "paused",
             Self::Deactivated => "deactivated",
+        }
+    }
+
+    pub fn from_wire_str(value: &str) -> Option<Self> {
+        match value {
+            "active" => Some(Self::Active),
+            "paused" => Some(Self::Paused),
+            "deactivated" => Some(Self::Deactivated),
+            _ => None,
         }
     }
 }
@@ -1921,7 +1948,7 @@ pub struct KeyState {
     pub agent_id: Did,
     pub controller_id: Did,
     pub principal_control_realm_id: RealmId,
-    pub controller_authorization_ref: String,
+    pub controller_authorization_ref: DidUrl,
     pub status: AgentLifecycleState,
     pub runtime_state: AgentRuntimeState,
     pub pcr_recovery: AgentPcrRecoveryState,
@@ -1930,7 +1957,7 @@ pub struct KeyState {
     /// Digest of the immutable ceiling committed by the accepted Agent DID.
     pub requested_scope_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pairing_request_id: Option<String>,
+    pub pairing_request_id: Option<OpaqueLocalId>,
     /// Branch of the current unconsumed, unexpired pairing handle. Present
     /// exactly when `pairing_request_id` and `pairing_expires_at` are present.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1944,9 +1971,9 @@ pub struct KeyState {
     )]
     pub pairing_expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub approval_request_id: Option<String>,
+    pub approval_request_id: Option<OpaqueLocalId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pending_runtime_key_request: Option<BTreeMap<String, Value>>,
+    pub pending_runtime_key_request: Option<AgentRuntimeApprovalControllerProjection>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",

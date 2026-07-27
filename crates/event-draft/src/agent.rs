@@ -6,8 +6,8 @@ use arkret_models_collaboration::events_payloads::agent::{
     AgentResumePayload, AgentSidecarExposureAck,
 };
 use arkret_wire::{
-    CellRef, Did, Effect, Event, EventId, EventKind, Hlc, LatticeOp, LatticeOpType, RealmId,
-    composite_subject,
+    CellRef, Did, DidUrl, Effect, Event, EventId, EventKind, Hlc, LatticeOp, LatticeOpType,
+    RealmId, composite_subject,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -21,7 +21,7 @@ pub fn build_agent_key_authorize_event(
     realm_id: RealmId,
     agent_actor_id: Did,
     controller_id: Did,
-    controller_authorization_ref: impl Into<String>,
+    controller_authorization_ref: DidUrl,
     actor_seq: u64,
     hlc: Hlc,
 ) -> Result<Event> {
@@ -35,7 +35,7 @@ pub fn build_agent_key_authorize_event(
     )?;
     event.event_id = event_id;
     event.executed_by = Some(controller_id);
-    event.authorization_ref = Some(controller_authorization_ref.into());
+    event.authorization_ref = Some(controller_authorization_ref.to_string());
     event.effects = agent_key_authorize_effects(payload, &event.event_id)?;
     Ok(event)
 }
@@ -76,7 +76,7 @@ pub fn build_agent_key_revoke_event(
     realm_id: RealmId,
     agent_actor_id: Did,
     controller_id: Did,
-    controller_authorization_ref: impl Into<String>,
+    controller_authorization_ref: DidUrl,
     actor_seq: u64,
     hlc: Hlc,
 ) -> Result<Event> {
@@ -90,7 +90,7 @@ pub fn build_agent_key_revoke_event(
     )?;
     event.event_id = event_id;
     event.executed_by = Some(controller_id);
-    event.authorization_ref = Some(controller_authorization_ref.into());
+    event.authorization_ref = Some(controller_authorization_ref.to_string());
     event.effects = agent_key_revoke_effects(payload, authorized_event_refs, &event.event_id)?;
     Ok(event)
 }
@@ -152,7 +152,7 @@ struct AgentLifecycleEventInput {
     agent_id: Did,
     controller_id: Did,
     principal_control_realm_id: RealmId,
-    controller_authorization_ref: String,
+    controller_authorization_ref: DidUrl,
     previous_status: &'static str,
     next_status: &'static str,
     reason: Option<String>,
@@ -172,7 +172,7 @@ fn build_agent_lifecycle_event(input: AgentLifecycleEventInput) -> Result<Event>
         input.status_changed_at,
     )?;
     event.executed_by = Some(input.controller_id);
-    event.authorization_ref = Some(input.controller_authorization_ref);
+    event.authorization_ref = Some(input.controller_authorization_ref.to_string());
     event.effects = vec![Effect {
         cell: CellRef::new(format!(
             "ak:cell:ak.component.agent.status.v1:{}",
@@ -197,7 +197,7 @@ pub fn build_agent_pause_event(
     agent_id: Did,
     controller_id: Did,
     principal_control_realm_id: RealmId,
-    controller_authorization_ref: impl Into<String>,
+    controller_authorization_ref: DidUrl,
     reason: Option<String>,
     actor_seq: u64,
     hlc: Hlc,
@@ -217,7 +217,7 @@ pub fn build_agent_pause_event(
         agent_id,
         controller_id,
         principal_control_realm_id,
-        controller_authorization_ref: controller_authorization_ref.into(),
+        controller_authorization_ref,
         previous_status: "active",
         next_status: "paused",
         reason,
@@ -233,7 +233,7 @@ pub fn build_agent_resume_event(
     agent_id: Did,
     controller_id: Did,
     principal_control_realm_id: RealmId,
-    controller_authorization_ref: impl Into<String>,
+    controller_authorization_ref: DidUrl,
     sidecar_exposure_ack: Option<AgentSidecarExposureAck>,
     actor_seq: u64,
     hlc: Hlc,
@@ -254,7 +254,7 @@ pub fn build_agent_resume_event(
         agent_id,
         controller_id,
         principal_control_realm_id,
-        controller_authorization_ref: controller_authorization_ref.into(),
+        controller_authorization_ref,
         previous_status: "paused",
         next_status: "active",
         reason: None,
@@ -271,7 +271,7 @@ pub fn build_agent_deactivate_event(
     agent_id: Did,
     controller_id: Did,
     principal_control_realm_id: RealmId,
-    controller_authorization_ref: impl Into<String>,
+    controller_authorization_ref: DidUrl,
     previous_status: AgentLifecycleState,
     reason: Option<String>,
     actor_seq: u64,
@@ -301,7 +301,7 @@ pub fn build_agent_deactivate_event(
         agent_id,
         controller_id,
         principal_control_realm_id,
-        controller_authorization_ref: controller_authorization_ref.into(),
+        controller_authorization_ref,
         previous_status,
         next_status: "deactivated",
         reason,
@@ -333,8 +333,8 @@ mod tests {
     fn key_authorize_payload(agent_id: Did, controller_id: Did) -> AgentKeyAuthorizePayload {
         AgentKeyAuthorizePayload {
             agent_id: agent_id.clone(),
-            key_id: "runtime-key-1".to_owned(),
-            verification_method: format!("{agent_id}#runtime-key-1"),
+            key_id: arkret_wire::NonEmptyString::new("runtime-key-1").unwrap(),
+            verification_method: DidUrl::new(format!("{agent_id}#runtime-key-1")).unwrap(),
             public_key_digest: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
             signing_key_binding_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
             accountable_principal_id: controller_id.clone(),
@@ -369,7 +369,7 @@ mod tests {
             realm(),
             agent_id.clone(),
             controller_id.clone(),
-            format!("{agent_id}#managed-controller"),
+            DidUrl::new(format!("{agent_id}#managed-controller")).unwrap(),
             7,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         )
@@ -405,7 +405,7 @@ mod tests {
         let event = build_agent_key_revoke_event(
             &AgentKeyRevokePayload {
                 agent_id: agent_id.clone(),
-                key_id: "runtime-key-1".to_owned(),
+                key_id: arkret_wire::NonEmptyString::new("runtime-key-1").unwrap(),
                 revoked_by: controller_id.clone(),
                 revoked_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
                 reason: Some("controller_deactivated".to_owned()),
@@ -415,7 +415,7 @@ mod tests {
             realm(),
             agent_id,
             controller_id,
-            "did:webvh:z6mkfixture:agent.example#managed-controller",
+            DidUrl::new("did:webvh:z6mkfixture:agent.example#managed-controller").unwrap(),
             8,
             Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
         )
@@ -446,7 +446,7 @@ mod tests {
         let agent_id = did("agent");
         let controller_id = did("controller");
         let changed_at = Utc.with_ymd_and_hms(2026, 7, 19, 8, 0, 0).unwrap();
-        let authorization_ref = format!("{agent_id}#managed-controller");
+        let authorization_ref = DidUrl::new(format!("{agent_id}#managed-controller")).unwrap();
 
         let pause = build_agent_pause_event(
             agent_id.clone(),
@@ -486,7 +486,7 @@ mod tests {
             resume.actor_id.clone(),
             resume.executed_by.clone().unwrap(),
             realm(),
-            resume.authorization_ref.clone().unwrap(),
+            DidUrl::new(resume.authorization_ref.clone().unwrap()).unwrap(),
             AgentLifecycleState::Paused,
             Some("user_requested".to_owned()),
             10,

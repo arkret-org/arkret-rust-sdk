@@ -244,6 +244,81 @@ non_empty_wire_string!(
     ContentProfileId
 );
 
+/// Deployment-local short-lived account/auth artifact identifier matching
+/// `^[A-Za-z0-9._:-]{1,128}$`.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct OpaqueLocalId(String);
+
+impl OpaqueLocalId {
+    pub fn new(value: impl Into<String>) -> Result<Self, &'static str> {
+        let value = value.into();
+        if value.is_empty() || value.len() > 128 {
+            return Err("opaque local id must contain 1 to 128 ASCII characters");
+        }
+        if !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b':' | b'-'))
+        {
+            return Err("opaque local id contains a character outside [A-Za-z0-9._:-]");
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl AsRef<str> for OpaqueLocalId {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Deref for OpaqueLocalId {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
+impl fmt::Display for OpaqueLocalId {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl TryFrom<String> for OpaqueLocalId {
+    type Error = &'static str;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<OpaqueLocalId> for String {
+    fn from(value: OpaqueLocalId) -> Self {
+        value.into_string()
+    }
+}
+
+impl<'de> Deserialize<'de> for OpaqueLocalId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::new(value).map_err(de::Error::custom)
+    }
+}
+
 /// Non-empty unpadded base64url value (`[A-Za-z0-9_-]+`).
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
@@ -541,6 +616,10 @@ mod tests {
         assert!(serde_json::from_str::<MlsGroupId>(r#"""#).is_err());
         assert!(MimiInteropProfileId::new("").is_err());
         assert!(ContentProfileId::new("").is_err());
+        assert!(OpaqueLocalId::new("").is_err());
+        assert!(OpaqueLocalId::new("contains a space").is_err());
+        assert!(OpaqueLocalId::new("a".repeat(129)).is_err());
+        assert!(OpaqueLocalId::new("agent_runtime_approval:request-1").is_ok());
         assert!(MimiRoomUri::new("mimi://").is_err());
         assert!(MimiRoomUri::new("https://example.test/room").is_err());
         assert!(DidUrl::new("did:webvh:z6mkfixture:alice.example").is_err());
@@ -564,6 +643,12 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<MlsGroupId>(r#""Z3JvdXA""#).unwrap(),
             group_id
+        );
+        let local_id = OpaqueLocalId::new("agent_pairing_request:request-1").unwrap();
+        assert_eq!(
+            serde_json::from_str::<OpaqueLocalId>(&serde_json::to_string(&local_id).unwrap())
+                .unwrap(),
+            local_id
         );
     }
 }

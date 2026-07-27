@@ -171,7 +171,7 @@ pub struct AgentKeyApprovalEvidence {
     /// Profile-local pairing artifact. Present only when this authorization
     /// accepts an agent runtime pairing request.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pairing_request_id: Option<String>,
+    pub pairing_request_id: Option<OpaqueLocalId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approved_by: Option<Did>,
 }
@@ -255,7 +255,7 @@ pub enum AgentKeyRuntimeAttestationKind {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_authorize_payload`
 /// `runtime_attestation` object.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentKeyAuthorizePayloadRuntimeAttestation {
@@ -275,7 +275,7 @@ pub struct AgentKeyAuthorizePayloadRuntimeAttestation {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentKeySupersession {
-    pub key_id: String,
+    pub key_id: NonEmptyString,
     pub authorized_event_ref: EventId,
 }
 
@@ -285,9 +285,9 @@ pub struct AgentKeySupersession {
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyAuthorizePayload {
     pub agent_id: Did,
-    pub key_id: String,
+    pub key_id: NonEmptyString,
     /// DID URL for the runtime signing key, including its key fragment.
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub public_key_digest: Hash,
     pub signing_key_binding_digest: Hash,
     pub accountable_principal_id: Did,
@@ -322,7 +322,7 @@ pub struct AgentKeyAuthorizePayload {
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyRevokePayload {
     pub agent_id: Did,
-    pub key_id: String,
+    pub key_id: NonEmptyString,
     pub revoked_by: Did,
     #[serde(
         serialize_with = "serialize_canonical_timestamp",

@@ -13,26 +13,15 @@ use serde_json::Value;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct AgentHumanApprovalProblem {
     reason_code: &'static str,
-    approval_request_id: String,
+    approval_request_id: crate::OpaqueLocalId,
 }
 
 impl AgentHumanApprovalProblem {
     pub fn new(
         approval_request_id: impl Into<String>,
     ) -> StdResult<Self, AgentHumanApprovalProblemError> {
-        let approval_request_id = approval_request_id.into();
-        if approval_request_id.trim().is_empty() {
-            return Err(AgentHumanApprovalProblemError::EmptyApprovalRequestId);
-        }
-        if approval_request_id.len() > 128 {
-            return Err(AgentHumanApprovalProblemError::ApprovalRequestIdTooLong);
-        }
-        if !approval_request_id
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b':' | b'-'))
-        {
-            return Err(AgentHumanApprovalProblemError::InvalidApprovalRequestId);
-        }
+        let approval_request_id = crate::OpaqueLocalId::new(approval_request_id)
+            .map_err(AgentHumanApprovalProblemError::InvalidApprovalRequestId)?;
         Ok(Self {
             reason_code: crate::ReasonCode::HUMAN_APPROVAL_REQUIRED,
             approval_request_id,
@@ -44,7 +33,7 @@ impl AgentHumanApprovalProblem {
     }
 
     pub fn approval_request_id(&self) -> &str {
-        &self.approval_request_id
+        self.approval_request_id.as_str()
     }
 
     fn into_wire_details(self) -> BTreeMap<String, Value> {
@@ -55,7 +44,7 @@ impl AgentHumanApprovalProblem {
             ),
             (
                 "approval_request_id".to_owned(),
-                Value::String(self.approval_request_id),
+                Value::String(self.approval_request_id.into_string()),
             ),
         ])
     }
@@ -86,12 +75,8 @@ impl<'de> Deserialize<'de> for AgentHumanApprovalProblem {
 
 #[derive(Debug, thiserror::Error)]
 pub enum AgentHumanApprovalProblemError {
-    #[error("approval_request_id must be non-empty")]
-    EmptyApprovalRequestId,
-    #[error("approval_request_id must be at most 128 ASCII characters")]
-    ApprovalRequestIdTooLong,
-    #[error("approval_request_id contains a character outside [A-Za-z0-9._:-]")]
-    InvalidApprovalRequestId,
+    #[error("invalid approval_request_id: {0}")]
+    InvalidApprovalRequestId(&'static str),
     #[error("invalid agent human-approval error details: {0}")]
     InvalidDetails(#[from] serde_json::Error),
 }

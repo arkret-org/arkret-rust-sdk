@@ -15,10 +15,42 @@
 
 use arkret_wire::{CircleId, RealmId, StrandId};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest as _, Sha256};
 
 /// Controller-owned account-data type carrying a per-scope participation
 /// selection (AKP-0010 §5.1).
 pub const AGENT_PARTICIPATION_ACCOUNT_DATA_KEY: &str = "ak.agent.participation.v1";
+
+/// Stable grant id for the capability materialized from one Agent
+/// participation selection. Keeping this derivation shared lets the controller
+/// replace or revoke the same grant cell across repeated selection changes.
+#[must_use]
+pub fn agent_participation_grant_id(agent_id: &str, scope_key: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(b"ak:grant:agent_participation:v1:");
+    hasher.update(agent_id.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(scope_key.as_bytes());
+    let digest = hasher.finalize();
+    let mut bytes = [0u8; 16];
+    bytes.copy_from_slice(&digest[..16]);
+    bytes[6] = (bytes[6] & 0x0F) | 0x70;
+    bytes[8] = (bytes[8] & 0x3F) | 0x80;
+    let hex = |slice: &[u8]| {
+        slice
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    };
+    format!(
+        "ak:grant:{}-{}-{}-{}-{}",
+        hex(&bytes[0..4]),
+        hex(&bytes[4..6]),
+        hex(&bytes[6..8]),
+        hex(&bytes[8..10]),
+        hex(&bytes[10..16]),
+    )
+}
 
 /// The three participation bits. Constructs a partial order under
 /// implication: `a ⊆ b` iff every bit set in `a` is set in `b`.
@@ -458,5 +490,21 @@ mod tests {
             scope.scope_key(),
             "strand:01970000-0000-7000-8000-000000000000:01970000-0000-7000-8000-000000000001"
         );
+    }
+
+    #[test]
+    fn participation_grant_id_is_stable_and_scope_specific() {
+        let agent = "did:web:agent.example";
+        let realm_scope = "realm:01970000-0000-7000-8000-000000000000";
+        let first = agent_participation_grant_id(agent, realm_scope);
+        assert_eq!(first, agent_participation_grant_id(agent, realm_scope));
+        assert_ne!(
+            first,
+            agent_participation_grant_id(
+                agent,
+                "strand:01970000-0000-7000-8000-000000000000:01970000-0000-7000-8000-000000000001"
+            )
+        );
+        assert!(arkret_wire::GrantId::new(first).is_ok());
     }
 }
