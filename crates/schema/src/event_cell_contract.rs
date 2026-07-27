@@ -1246,11 +1246,9 @@ mod tests {
                 "occurrence": occurrence,
                 "entry": {
                     "schedule_basis_refs": [
-                        "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+                        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                     ],
-                    "response": {
-                        "status": "accepted"
-                    }
+                    "response": {"status": "accepted"}
                 }
             },
             "proofs": []
@@ -1266,24 +1264,26 @@ mod tests {
             derive_subject(&event, descriptor.cell_subject_rule).unwrap(),
             "3iBI9bjQLklvfcVhQeaxLajMskSVG4oZ5IMpU62GvRc"
         );
+        // effect_projection = set(payload.entry): the lattice value is the whole
+        // entry, so basis and response converge together as one head.
         event.effects = vec![
             serde_json::from_value(json!({
                 "cell": "ak:cell:ak.component.calendar.rsvp.v1:3iBI9bjQLklvfcVhQeaxLajMskSVG4oZ5IMpU62GvRc",
-                "op": {
-                    "kind": "set",
-                    "value": {
-                        "schedule_basis_refs": [
-                            "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
-                        ],
-                        "response": {
-                            "status": "accepted"
-                        }
-                    }
-                }
+                "op": {"kind": "set", "value": {
+                    "schedule_basis_refs": [
+                        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    ],
+                    "response": {"status": "accepted"}
+                }}
             }))
             .unwrap(),
         ];
         validate_registered_cell_writes(&event).unwrap();
+
+        // A bare status value no longer satisfies the projection.
+        let mut status_only = event.clone();
+        status_only.effects[0].op.value = Some(json!("accepted"));
+        assert!(validate_registered_cell_writes(&status_only).is_err());
 
         let instance = rsvp_event(json!("2026-07-26T09:00:00[Asia/Shanghai]"));
         assert_eq!(

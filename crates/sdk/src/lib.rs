@@ -66,9 +66,10 @@ pub use arkret_event_draft::{
     EventDraftKindConformanceVector, EventDraftKindRegistry, EventDraftKindSpec,
     EventDraftKindValidation, EventPayloadExt, GhostActorProfileRequest, MessageEventPayload,
     MlsEnvelopeOperationExt, Operation, OperationEnvelope, OperationEnvelopeBuilder,
-    OperationEventConversion, OperationSignature, StrandCreateObject, StrandTracksUpdatePayload,
-    accountability_grant_event, container_rebalance_assignments,
-    event_draft_kind_conformance_vectors, operations, rank_between, rank_exhausted,
+    OperationEventConversion, OperationSignature, RsvpAuthoring, RsvpResponseBranch,
+    StrandCreateObject, StrandTracksUpdatePayload, accountability_grant_event,
+    container_rebalance_assignments, event_draft_kind_conformance_vectors, operations,
+    rank_between, rank_exhausted,
 };
 pub use arkret_hlc::{
     CURSOR_HANDLE_MIN_LEN, Cursor, CursorPurpose, HlcGenerator, RealmSyncPosition, SyncPositions,
@@ -161,6 +162,7 @@ pub use arkret_models_collaboration::objects::account_status::{
     project_account_status_heads,
 };
 pub use arkret_models_collaboration::objects::blob::*;
+pub use arkret_models_collaboration::objects::calendar_projection::*;
 pub use arkret_models_collaboration::objects::direct_conversation::*;
 pub use arkret_models_collaboration::objects::interop::*;
 pub use arkret_models_collaboration::objects::media::*;
@@ -489,3 +491,68 @@ pub use server::{
     ProtocolGoldenVector, ProtocolServerFixture, ServerOutcome, ServerRequestBody,
     WireConformanceVector, protocol_golden_vectors, reject_query_auth, wire_negative_vectors,
 };
+
+/// Calendar RSVP authoring.
+///
+/// [`arkret_event_draft::RsvpAuthoring`] builds the validated payload; this
+/// module adds the half that needs the event-kind registry — deriving the
+/// `ak.component.calendar.rsvp.v1` cell effect from
+/// `effect_projection = set(payload.entry)` and re-checking the result through
+/// the same contract a receiver runs. Clients MUST author RSVPs through
+/// [`calendar::build_rsvp_set_event`] and MUST NOT hand-assemble the effect: an
+/// effect-less or mismatched RSVP is rejected with `effects_payload_mismatch`
+/// and never converges into the CBA cell.
+pub mod calendar {
+    use arkret_event_draft::RsvpAuthoring;
+    use arkret_models_collaboration::objects::productivity::CalendarEventFields;
+    use arkret_schema::{materialize_registered_cell_writes, validate_registered_cell_writes};
+    use arkret_wire::generated::event_kinds::EventKind;
+    use arkret_wire::{Did, Error, Event, EventId, Hash, Hlc, RealmId, Result};
+
+    /// Builds a complete, self-verified `ak.rsvp.set` Event.
+    ///
+    /// `causal_refs` MUST already contain every entry of
+    /// `schedule_basis_refs`; the subset rule is enforced here because a
+    /// producer, unlike a JSON Schema, can see both sides.
+    #[allow(clippy::too_many_arguments)]
+    pub fn build_rsvp_set_event(
+        authoring: RsvpAuthoring,
+        calendar: &CalendarEventFields,
+        schedule: &crate::CalendarScheduleProjection,
+        event_id: EventId,
+        realm_id: RealmId,
+        actor_id: Did,
+        actor_seq: u64,
+        hlc: Hlc,
+        causal_refs: Vec<Hash>,
+    ) -> Result<Event> {
+        let payload = authoring.into_payload(calendar, schedule)?;
+        for basis in &payload.entry.schedule_basis_refs {
+            if !causal_refs
+                .iter()
+                .any(|value| value.as_str() == basis.as_str())
+            {
+                return Err(Error::Protocol(
+                    "rsvp schedule_basis_refs must be a subset of the envelope causal_refs"
+                        .to_owned(),
+                ));
+            }
+        }
+        let mut event = Event::new(
+            EventKind::RSVP_SET,
+            realm_id,
+            actor_id,
+            actor_seq,
+            hlc,
+            serde_json::to_value(&payload)?,
+        )?;
+        event.event_id = event_id;
+        event.causal_refs = causal_refs;
+        materialize_registered_cell_writes(&mut event).map_err(|error| {
+            Error::Protocol(format!("rsvp cell materialization failed: {error}"))
+        })?;
+        validate_registered_cell_writes(&event)
+            .map_err(|error| Error::Protocol(format!("rsvp cell contract failed: {error}")))?;
+        Ok(event)
+    }
+}

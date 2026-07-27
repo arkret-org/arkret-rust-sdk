@@ -35,6 +35,17 @@ pub const FILE_TRANSFER_KEY_ENVELOPE_SCHEME: &str = "ak.hpke_x25519_aead_chacha2
 
 pub const MAX_CALENDAR_ATTENDEES: usize = 1_000;
 pub const MAX_CALENDAR_RECURRENCE_COUNT: u64 = 10_000;
+/// Single namespace holding the Calendar schedule subtree inside Strand
+/// `metadata.fields`. Flat schedule keys and `profile` / `profile_refs`
+/// activation impostors are rejected by `strand.schema.json`.
+pub const CALENDAR_METADATA_FIELDS_NAMESPACE: &str = "calendar";
+/// Media type pinned on `RsvpEntry::encrypted_response`, so a receiver can
+/// route the ciphertext to exactly one decrypted schema.
+pub const RSVP_RESPONSE_CONTENT_TYPE: &str = "application/vnd.arkret.calendar-rsvp-response+json";
+pub const MAX_RSVP_COMMENT_CODE_POINTS: usize = 2_000;
+/// Shared with the envelope `causal_refs` bound: the basis MUST be a subset of
+/// `causal_refs[]`, so it can never be larger.
+pub const MAX_RSVP_SCHEDULE_BASIS_REFS: usize = 128;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -212,13 +223,37 @@ pub struct CalendarAttendee {
     pub display_name_snapshot: Option<String>,
 }
 
+/// Whole-event schedule status. Orthogonal to the generic Strand `state`
+/// (physical lifecycle) and `stage` (business progression) axes: it only says
+/// whether the meeting itself stands. Required with no implicit default.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CalendarStatus {
+    Confirmed,
+    Tentative,
+    Cancelled,
+}
+
+/// Calendar schedule subtree carried at `metadata.fields.calendar` and
+/// activated by `ak.schema.calendar_event.v1` in `Strand.schema_refs`.
+///
+/// The schedule never carries an absolute instant: timed events use a
+/// whole-second RFC 8984 `LocalDateTime` resolved through `timezone` plus
+/// `tzdb_version`. Field order mirrors `calendar-event.schema.json`.
+///
+/// [`Self::validate`] covers every rule expressible without the TZDB registry.
+/// Resolving `timezone` to the canonical Zone of the pinned release requires
+/// that registry, so it lives in `arkret-schema`, which is the layer that
+/// embeds spec artifacts.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CalendarEventFields {
     pub start: String,
     pub end: String,
     pub timezone: String,
+    pub tzdb_version: String,
     pub all_day: bool,
+    pub status: CalendarStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recurrence: Option<CalendarRecurrence>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -237,41 +272,121 @@ pub enum RsvpStatus {
     Tentative,
 }
 
+/// Decrypted RSVP response. Used directly by [`RsvpEntry::response`] and as the
+/// plaintext of [`RsvpEntry::encrypted_response`]; `status` and `comment`
+/// therefore always share one encryption boundary.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RsvpResponse {
+    pub status: RsvpStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
+}
+
+impl RsvpResponse {
+    pub fn validate(&self) -> Result<()> {
+        let Some(comment) = &self.comment else {
+            return Ok(());
+        };
+        if comment.is_empty() {
+            return Err(Error::Protocol(
+                "rsvp response comment must be omitted rather than empty".to_owned(),
+            ));
+        }
+        if comment.chars().count() > MAX_RSVP_COMMENT_CODE_POINTS {
+            return Err(Error::Protocol(
+                "rsvp response comment must be <= 2000 code points".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Complete RSVP cell value. The whole entry is the `mv_register` set value, so
+/// every head independently carries the schedule the responder observed plus
+/// the response itself.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RsvpEntry {
+    /// Non-empty schedule revision frontier the responder actually observed, as
+    /// `event_digest` values sorted in ascending canonical byte order. It MUST
+    /// be a subset of the envelope `causal_refs[]`; that cross-field check
+    /// belongs to the envelope validator, while [`Self::validate`] enforces the
+    /// shape rules decidable from the entry alone.
+    pub schedule_basis_refs: Vec<Hash>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response: Option<RsvpResponse>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encrypted_response: Option<Box<EncryptedEnvelope>>,
+}
+
+impl RsvpEntry {
+    pub fn validate(&self) -> Result<()> {
+        match (&self.response, &self.encrypted_response) {
+            (Some(response), None) => response.validate()?,
+            (None, Some(envelope)) => {
+                envelope.validate()?;
+                if envelope.content_type != RSVP_RESPONSE_CONTENT_TYPE {
+                    return Err(Error::Protocol(format!(
+                        "rsvp encrypted_response content_type must be {RSVP_RESPONSE_CONTENT_TYPE}"
+                    )));
+                }
+            }
+            (Some(_), Some(_)) => {
+                return Err(Error::Protocol(
+                    "rsvp entry must carry exactly one of response or encrypted_response"
+                        .to_owned(),
+                ));
+            }
+            (None, None) => {
+                return Err(Error::Protocol(
+                    "rsvp entry must carry either response or encrypted_response".to_owned(),
+                ));
+            }
+        }
+        if self.schedule_basis_refs.is_empty() {
+            return Err(Error::Protocol(
+                "rsvp entry schedule_basis_refs must be non-empty".to_owned(),
+            ));
+        }
+        if self.schedule_basis_refs.len() > MAX_RSVP_SCHEDULE_BASIS_REFS {
+            return Err(Error::Protocol(
+                "rsvp entry schedule_basis_refs must contain <= 128 entries".to_owned(),
+            ));
+        }
+        // Canonical ascending byte order is a shape-admission condition that
+        // JSON Schema cannot express; accepting an unsorted basis would fork
+        // both the accepted set and the signed canonical bytes.
+        let ordered = self
+            .schedule_basis_refs
+            .windows(2)
+            .all(|pair| pair[0].as_str().as_bytes() < pair[1].as_str().as_bytes());
+        if !ordered {
+            return Err(Error::Protocol(
+                "rsvp entry schedule_basis_refs must be unique and sorted in ascending canonical byte order"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RsvpSetPayload {
     pub event_ref: StrandId,
-    pub status: RsvpStatus,
+    /// `None` is the whole series; `Some` is a canonical recurrence instance
+    /// key produced by [`CalendarEventFields::canonical_occurrence_key`].
     pub occurrence: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub comment: Option<RsvpComment>,
+    pub entry: RsvpEntry,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[serde(untagged)]
-pub enum RsvpComment {
-    Encrypted(Box<EncryptedEnvelope>),
-    Plaintext(String),
-}
-
-impl<'de> Deserialize<'de> for RsvpComment {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = Value::deserialize(deserializer)?;
-        if let Some(text) = value.as_str() {
-            if text.chars().count() > 2_000 {
-                return Err(serde::de::Error::custom(
-                    "RSVP plaintext comment exceeds 2000 characters",
-                ));
-            }
-            return Ok(Self::Plaintext(text.to_owned()));
+impl RsvpSetPayload {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(occurrence) = &self.occurrence {
+            validate_canonical_occurrence_key(occurrence)?;
         }
-        serde_json::from_value::<EncryptedEnvelope>(value)
-            .map(Box::new)
-            .map(Self::Encrypted)
-            .map_err(serde::de::Error::custom)
+        self.entry.validate()
     }
 }
 
@@ -284,10 +399,10 @@ impl CalendarRecurrence {
         }
         if self
             .count
-            .is_some_and(|count| count > MAX_CALENDAR_RECURRENCE_COUNT)
+            .is_some_and(|count| !(1..=MAX_CALENDAR_RECURRENCE_COUNT).contains(&count))
         {
             return Err(Error::Protocol(
-                "calendar recurrence count must be <= 10000".to_owned(),
+                "calendar recurrence count must be in 1..=10000".to_owned(),
             ));
         }
         if self.interval == Some(0) {
@@ -295,16 +410,10 @@ impl CalendarRecurrence {
                 "calendar recurrence interval must be positive".to_owned(),
             ));
         }
-        if let Some(until) = &self.until
-            && (until.ends_with('Z')
-                || until.contains('+')
-                || NaiveDateTime::parse_from_str(until, "%Y-%m-%dT%H:%M:%S%.f").is_err())
-        {
-            return Err(Error::Protocol(
-                "calendar recurrence until must be a canonical offset-free local date-time"
-                    .to_owned(),
-            ));
-        }
+        // `by_day` is `#[serde(default)]`, so an absent field and a wire `[]`
+        // both deserialize to an empty Vec. The empty-array form is rejected by
+        // `calendar-event.schema.json` (`minItems: 1`) before this validator
+        // runs; only the wire-level check can tell the two apart.
         require_unique("calendar recurrence by_day", &self.by_day)?;
         for day in &self.by_day {
             if day.nth_of_period == Some(0)
@@ -358,6 +467,65 @@ impl CalendarRecurrence {
             }
             require_unique("calendar recurrence by_set_position", positions)?;
         }
+        self.validate_field_combinations()?;
+        Ok(())
+    }
+
+    /// RFC 8984 subset companion preconditions. Unsatisfied combinations are
+    /// rejected outright rather than accepted-and-ignored.
+    fn validate_field_combinations(&self) -> Result<()> {
+        let daily_or_weekly = matches!(
+            self.frequency,
+            RecurrenceFrequency::Daily | RecurrenceFrequency::Weekly
+        );
+        if daily_or_weekly && self.by_day.iter().any(|day| day.nth_of_period.is_some()) {
+            return Err(Error::Protocol(
+                "calendar recurrence nth_of_period is only allowed for monthly or yearly frequency"
+                    .to_owned(),
+            ));
+        }
+        if self.frequency == RecurrenceFrequency::Weekly && self.by_month_day.is_some() {
+            return Err(Error::Protocol(
+                "calendar recurrence by_month_day must not be combined with weekly frequency"
+                    .to_owned(),
+            ));
+        }
+        if self.by_set_position.is_some()
+            && self.by_day.is_empty()
+            && self.by_month.is_none()
+            && self.by_month_day.is_none()
+        {
+            return Err(Error::Protocol(
+                "calendar recurrence by_set_position requires at least one of by_day, by_month or by_month_day"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Validates `until` against the branch selected by `all_day`, and against
+    /// the base start it must not precede.
+    fn validate_until(&self, all_day: bool, base_start: &str) -> Result<()> {
+        let Some(until) = &self.until else {
+            return Ok(());
+        };
+        if all_day {
+            let until_date = parse_calendar_date(until, "calendar recurrence until")?;
+            let start_date = parse_calendar_date(base_start, "calendar start")?;
+            if until_date < start_date {
+                return Err(Error::Protocol(
+                    "calendar recurrence until must not precede the base start".to_owned(),
+                ));
+            }
+        } else {
+            let until_local = parse_calendar_local_date_time(until, "calendar recurrence until")?;
+            let start_local = parse_calendar_local_date_time(base_start, "calendar start")?;
+            if until_local < start_local {
+                return Err(Error::Protocol(
+                    "calendar recurrence until must not precede the base start".to_owned(),
+                ));
+            }
+        }
         Ok(())
     }
 }
@@ -410,27 +578,46 @@ impl CalendarEventLocation {
 }
 
 impl CalendarEventFields {
+    /// Every schedule rule expressible without the TZDB registry.
+    ///
+    /// Resolving `timezone` to the canonical Zone of the pinned release, and
+    /// checking that `tzdb_version` names a registered release, require the
+    /// registry and therefore live in `arkret-schema`.
     pub fn validate(&self) -> Result<()> {
-        let timezone = parse_calendar_timezone(&self.timezone)?;
+        parse_calendar_timezone(&self.timezone)?;
+        validate_tzdb_version(&self.tzdb_version)?;
+        // Both branches are half-open [start, end), so end is strictly later
+        // than start in each. v1 dropped the inclusive all-day `end == start`
+        // special case.
         if self.all_day {
             let start = parse_calendar_date(&self.start, "calendar start")?;
             let end = parse_calendar_date(&self.end, "calendar end")?;
-            if end < start {
+            if end <= start {
                 return Err(Error::Protocol(
-                    "calendar all_day end must be on or after start".to_owned(),
+                    "calendar all_day end must be strictly later than start; a single-day event spells end as the following date"
+                        .to_owned(),
                 ));
             }
         } else {
-            let start = parse_calendar_instant(&self.start, timezone, "calendar start")?;
-            let end = parse_calendar_instant(&self.end, timezone, "calendar end")?;
+            let timezone = parse_calendar_timezone(&self.timezone)?;
+            let start = resolve_local_to_instant(
+                parse_calendar_local_date_time(&self.start, "calendar start")?,
+                timezone,
+            )?;
+            let end = resolve_local_to_instant(
+                parse_calendar_local_date_time(&self.end, "calendar end")?,
+                timezone,
+            )?;
             if end <= start {
                 return Err(Error::Protocol(
-                    "calendar end must be later than start".to_owned(),
+                    "calendar end instant must be later than start instant under the pinned timezone rules"
+                        .to_owned(),
                 ));
             }
         }
         if let Some(recurrence) = &self.recurrence {
             recurrence.validate()?;
+            recurrence.validate_until(self.all_day, &self.start)?;
         }
         if let Some(location) = &self.location {
             location.validate()?;
@@ -438,6 +625,16 @@ impl CalendarEventFields {
         if self.attendees.len() > MAX_CALENDAR_ATTENDEES {
             return Err(Error::Protocol(
                 "calendar attendees must contain <= 1000 entries".to_owned(),
+            ));
+        }
+        let organizers = self
+            .attendees
+            .iter()
+            .filter(|attendee| attendee.role == Some(CalendarAttendeeRole::Organizer))
+            .count();
+        if organizers > 1 {
+            return Err(Error::Protocol(
+                "calendar attendees must contain at most one organizer".to_owned(),
             ));
         }
         let attendee_actor_ids = self
@@ -449,21 +646,67 @@ impl CalendarEventFields {
         Ok(())
     }
 
-    pub fn canonical_occurrence_key(&self, occurrence: Option<&str>) -> Result<String> {
-        let Some(occurrence) = occurrence.map(str::trim).filter(|value| !value.is_empty()) else {
-            return Ok("series".to_owned());
+    /// Canonical RSVP instance key for `occurrence`, or `None` for the whole
+    /// series.
+    ///
+    /// Series is JSON `null` on the wire and `None` here; there is no `"series"`
+    /// sentinel, because the signed composite cell subject keeps a real JSON
+    /// null and a sentinel string would address a different cell.
+    pub fn canonical_occurrence_key(&self, occurrence: Option<&str>) -> Result<Option<String>> {
+        let Some(occurrence) = occurrence else {
+            return Ok(None);
         };
-        let timezone = parse_calendar_timezone(&self.timezone)?;
         if self.all_day {
-            let date = parse_calendar_occurrence_date(occurrence, timezone)?;
-            return Ok(date.format("%Y-%m-%d").to_string());
+            let date = parse_calendar_date(occurrence, "calendar occurrence")?;
+            return Ok(Some(date.format("%Y-%m-%d").to_string()));
         }
-        let local = parse_calendar_occurrence_datetime(occurrence, timezone)?;
-        Ok(format!(
+        let (local, zone) = split_bracketed_occurrence(occurrence)?;
+        if zone != self.timezone {
+            return Err(Error::Protocol(
+                "calendar occurrence zone must equal the signed calendar timezone".to_owned(),
+            ));
+        }
+        Ok(Some(format!(
             "{}[{}]",
             local.format("%Y-%m-%dT%H:%M:%S"),
             self.timezone
-        ))
+        )))
+    }
+
+    /// Local wall-clock start of the base occurrence, i.e. the recurrence
+    /// anchor, as an instant in the event timezone under the pinned release.
+    pub fn base_start_instant(&self) -> Result<DateTime<Utc>> {
+        let timezone = parse_calendar_timezone(&self.timezone)?;
+        if self.all_day {
+            let date = parse_calendar_date(&self.start, "calendar start")?;
+            return resolve_local_to_instant(
+                date.and_hms_opt(0, 0, 0).expect("midnight is always valid"),
+                timezone,
+            );
+        }
+        let local = parse_calendar_local_date_time(&self.start, "calendar start")?;
+        resolve_local_to_instant(local, timezone)
+    }
+
+    /// Base interval length. Recurring timed events reuse this elapsed duration
+    /// for every occurrence; v1 has no ISO duration wire field, so an
+    /// implementation MUST NOT pick between elapsed and wall-clock deltas.
+    pub fn base_duration(&self) -> Result<chrono::Duration> {
+        let timezone = parse_calendar_timezone(&self.timezone)?;
+        if self.all_day {
+            let start = parse_calendar_date(&self.start, "calendar start")?;
+            let end = parse_calendar_date(&self.end, "calendar end")?;
+            return Ok(chrono::Duration::days((end - start).num_days()));
+        }
+        let start = resolve_local_to_instant(
+            parse_calendar_local_date_time(&self.start, "calendar start")?,
+            timezone,
+        )?;
+        let end = resolve_local_to_instant(
+            parse_calendar_local_date_time(&self.end, "calendar end")?,
+            timezone,
+        )?;
+        Ok(end - start)
     }
 }
 
@@ -481,48 +724,45 @@ fn looks_like_uri(value: &str) -> bool {
         && !value.chars().any(char::is_whitespace)
 }
 
+/// Legacy flat schedule keys and activation impostors that MUST NOT appear at
+/// the `metadata.fields` root. `strand.schema.json` rejects them on the wire;
+/// this list lets reducers produce the same decision without re-running the
+/// full JSON Schema.
+pub const FORBIDDEN_CALENDAR_METADATA_FIELD_KEYS: &[&str] = &[
+    "all_day",
+    "attendees",
+    "end",
+    "profile",
+    "profile_refs",
+    "recurrence",
+    "start",
+    "timezone",
+];
+
+/// Reads the Calendar schedule subtree from Strand `metadata.fields`.
+///
+/// The single activation path is `schema_refs` containing
+/// `ak.schema.calendar_event.v1` plus this `calendar` namespace; the two MUST
+/// co-occur in both directions on the post-patch object. This helper only sees
+/// `fields`, so it reports whether the subtree is present and well-formed —
+/// the co-presence half is enforced by the caller that also holds
+/// `schema_refs`.
 pub fn calendar_event_fields_from_metadata_fields(
     fields: &BTreeMap<String, Value>,
 ) -> Result<Option<CalendarEventFields>> {
-    const REQUIRED: &[&str] = &["start", "end", "timezone", "all_day"];
-    const CORE: &[&str] = &[
-        "start",
-        "end",
-        "timezone",
-        "all_day",
-        "recurrence",
-        "call_id",
-        "attendees",
-    ];
-    const EXTRACT: &[&str] = &[
-        "start",
-        "end",
-        "timezone",
-        "all_day",
-        "recurrence",
-        "location",
-        "call_id",
-        "attendees",
-    ];
-    if !CORE.iter().any(|key| fields.contains_key(*key)) {
-        return Ok(None);
-    }
-    for key in REQUIRED {
-        if !fields.contains_key(*key) {
+    for key in FORBIDDEN_CALENDAR_METADATA_FIELD_KEYS {
+        if fields.contains_key(*key) {
             return Err(Error::Protocol(format!(
-                "calendar event metadata.fields.{key} is required"
+                "metadata.fields.{key} is a forbidden calendar activation impostor; the canonical path is metadata.fields.{CALENDAR_METADATA_FIELDS_NAMESPACE}"
             )));
         }
     }
-    let mut object = serde_json::Map::new();
-    for key in EXTRACT {
-        if let Some(value) = fields.get(*key) {
-            object.insert((*key).to_owned(), value.clone());
-        }
-    }
-    let fields = serde_json::from_value::<CalendarEventFields>(Value::Object(object))
+    let Some(subtree) = fields.get(CALENDAR_METADATA_FIELDS_NAMESPACE) else {
+        return Ok(None);
+    };
+    let parsed = serde_json::from_value::<CalendarEventFields>(subtree.clone())
         .map_err(|error| Error::Protocol(format!("calendar event fields invalid: {error}")))?;
-    Ok(Some(fields))
+    Ok(Some(parsed))
 }
 
 pub fn validate_calendar_event_metadata_fields(fields: &BTreeMap<String, Value>) -> Result<()> {
@@ -532,10 +772,15 @@ pub fn validate_calendar_event_metadata_fields(fields: &BTreeMap<String, Value>)
     Ok(())
 }
 
+/// Producer-side canonicalization of an RSVP occurrence key.
+///
+/// Receivers MUST NOT call this to repair a signed value: a non-canonical key
+/// on the wire is rejected with `rsvp_occurrence_not_canonical`, because the
+/// cell subject derives from the signed bytes.
 pub fn canonical_calendar_rsvp_occurrence_key(
     fields: &BTreeMap<String, Value>,
     occurrence: Option<&str>,
-) -> Result<String> {
+) -> Result<Option<String>> {
     let Some(calendar_fields) = calendar_event_fields_from_metadata_fields(fields)? else {
         return Err(Error::Protocol(
             "rsvp event_ref must reference a calendar event".to_owned(),
@@ -543,6 +788,21 @@ pub fn canonical_calendar_rsvp_occurrence_key(
     };
     calendar_fields.validate()?;
     calendar_fields.canonical_occurrence_key(occurrence)
+}
+
+/// Receiver-side syntax check for a signed `payload.occurrence`.
+pub fn validate_canonical_occurrence_key(occurrence: &str) -> Result<()> {
+    if parse_calendar_date(occurrence, "calendar occurrence").is_ok() {
+        return Ok(());
+    }
+    let (local, zone) = split_bracketed_occurrence(occurrence)?;
+    let rendered = format!("{}[{}]", local.format("%Y-%m-%dT%H:%M:%S"), zone);
+    if rendered != occurrence {
+        return Err(Error::Protocol(
+            "calendar occurrence key is not canonical".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -2106,98 +2366,93 @@ fn parse_calendar_date(value: &str, field: &str) -> Result<NaiveDate> {
         .map_err(|_| Error::Protocol(format!("{field} must be YYYY-MM-DD")))
 }
 
-fn parse_calendar_instant(value: &str, timezone: Tz, field: &str) -> Result<DateTime<Utc>> {
-    if let Some((local, zone)) = parse_bracketed_calendar_datetime(value)? {
-        if zone != timezone {
-            return Err(Error::Protocol(format!(
-                "{field} bracketed timezone must match calendar timezone"
-            )));
-        }
-        return local_datetime_to_utc(local, timezone, field);
+/// Strict RFC 8984 `LocalDateTime` narrowed to whole seconds.
+///
+/// Offsets, a trailing `Z`, bracketed zones and fractional seconds are all
+/// rejected: the schedule never carries an absolute instant, and accepting a
+/// second spelling would let two producers sign different bytes for the same
+/// wall-clock time.
+fn parse_calendar_local_date_time(value: &str, field: &str) -> Result<NaiveDateTime> {
+    if value.len() != 19 || value.as_bytes()[10] != b'T' {
+        return Err(Error::Protocol(format!(
+            "{field} must be a whole-second local date-time YYYY-MM-DDTHH:mm:ss"
+        )));
     }
-    if let Ok(instant) = DateTime::parse_from_rfc3339(value) {
-        return Ok(instant.with_timezone(&Utc));
-    }
-    let local = NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S").map_err(|_| {
+    let parsed = NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S").map_err(|_| {
         Error::Protocol(format!(
-            "{field} must be RFC3339 or YYYY-MM-DDTHH:mm:ss in calendar timezone"
+            "{field} must be a whole-second local date-time YYYY-MM-DDTHH:mm:ss"
         ))
     })?;
-    local_datetime_to_utc(local, timezone, field)
+    if parsed.format("%Y-%m-%dT%H:%M:%S").to_string() != value {
+        return Err(Error::Protocol(format!("{field} is not canonical")));
+    }
+    Ok(parsed)
 }
 
-fn parse_calendar_occurrence_date(value: &str, timezone: Tz) -> Result<NaiveDate> {
-    if let Ok(date) = NaiveDate::parse_from_str(value, "%Y-%m-%d") {
-        return Ok(date);
+fn validate_tzdb_version(value: &str) -> Result<()> {
+    let bytes = value.as_bytes();
+    let well_formed = bytes.len() == 5
+        && bytes[..4].iter().all(u8::is_ascii_digit)
+        && bytes[4].is_ascii_lowercase();
+    if !well_formed {
+        return Err(Error::Protocol(
+            "calendar tzdb_version must be an IANA release tag such as 2026a".to_owned(),
+        ));
     }
-    if let Some((local, zone)) = parse_bracketed_calendar_datetime(value)? {
-        if zone != timezone {
-            return Err(Error::Protocol(
-                "calendar occurrence timezone must match event timezone".to_owned(),
-            ));
-        }
-        return Ok(local.date());
-    }
-    if let Ok(instant) = DateTime::parse_from_rfc3339(value) {
-        return Ok(instant.with_timezone(&timezone).date_naive());
-    }
-    let local = NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S").map_err(|_| {
-        Error::Protocol("all_day calendar occurrence must canonicalize to YYYY-MM-DD".to_owned())
-    })?;
-    Ok(local.date())
+    Ok(())
 }
 
-fn parse_calendar_occurrence_datetime(value: &str, timezone: Tz) -> Result<NaiveDateTime> {
-    if let Some((local, zone)) = parse_bracketed_calendar_datetime(value)? {
-        if zone != timezone {
-            return Err(Error::Protocol(
-                "calendar occurrence timezone must match event timezone".to_owned(),
-            ));
-        }
-        local_datetime_to_utc(local, timezone, "calendar occurrence")?;
-        return Ok(local);
-    }
-    if let Ok(instant) = DateTime::parse_from_rfc3339(value) {
-        return Ok(instant.with_timezone(&timezone).naive_local());
-    }
-    let local = NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S").map_err(|_| {
-        Error::Protocol(
-            "calendar occurrence must be RFC3339, local datetime, or canonical bracketed datetime"
-                .to_owned(),
-        )
-    })?;
-    local_datetime_to_utc(local, timezone, "calendar occurrence")?;
-    Ok(local)
-}
-
-fn parse_bracketed_calendar_datetime(value: &str) -> Result<Option<(NaiveDateTime, Tz)>> {
-    let Some(zone_start) = value.rfind('[') else {
-        return Ok(None);
+/// Splits a canonical timed occurrence key `YYYY-MM-DDTHH:mm:ss[Zone]`.
+fn split_bracketed_occurrence(value: &str) -> Result<(NaiveDateTime, String)> {
+    let Some(zone_start) = value.find('[') else {
+        return Err(Error::Protocol(
+            "timed calendar occurrence must be YYYY-MM-DDTHH:mm:ss[Zone]".to_owned(),
+        ));
     };
     if !value.ends_with(']') || zone_start == 0 {
         return Err(Error::Protocol(
-            "calendar bracketed datetime must end with [Zone]".to_owned(),
+            "timed calendar occurrence must end with [Zone]".to_owned(),
         ));
     }
-    let local = &value[..zone_start];
     let zone = &value[zone_start + 1..value.len() - 1];
-    let timezone = parse_calendar_timezone(zone)?;
-    let local = NaiveDateTime::parse_from_str(local, "%Y-%m-%dT%H:%M:%S").map_err(|_| {
-        Error::Protocol("calendar bracketed datetime must be YYYY-MM-DDTHH:mm:ss[Zone]".to_owned())
-    })?;
-    Ok(Some((local, timezone)))
+    parse_calendar_timezone(zone)?;
+    let local = parse_calendar_local_date_time(&value[..zone_start], "calendar occurrence")?;
+    Ok((local, zone.to_owned()))
 }
 
-fn local_datetime_to_utc(local: NaiveDateTime, timezone: Tz, field: &str) -> Result<DateTime<Utc>> {
-    let instant = timezone
-        .from_local_datetime(&local)
-        .single()
-        .ok_or_else(|| {
-            Error::Protocol(format!(
-                "{field} must resolve unambiguously in calendar timezone"
-            ))
-        })?;
-    Ok(instant.with_timezone(&Utc))
+/// Resolves a local wall-clock time to an instant using the RFC 8984
+/// discontinuity rule: both the gap and the fold take the offset in effect
+/// *before* the transition, so a fixed local meeting time never drifts and an
+/// ambiguous time yields exactly one occurrence.
+fn resolve_local_to_instant(local: NaiveDateTime, timezone: Tz) -> Result<DateTime<Utc>> {
+    use chrono::LocalResult;
+    match timezone.from_local_datetime(&local) {
+        LocalResult::Single(instant) => Ok(instant.with_timezone(&Utc)),
+        // Fold: two valid instants. RFC 8984 selects the earlier one, which is
+        // the offset in effect before the transition.
+        LocalResult::Ambiguous(earlier, _later) => Ok(earlier.with_timezone(&Utc)),
+        // Gap: the local time does not exist. Interpreting it with the
+        // pre-transition offset maps it to a real instant just after the
+        // transition, which is what RFC 8984 requires instead of rejecting.
+        LocalResult::None => {
+            let probe = local - chrono::Duration::days(1);
+            let before = timezone
+                .from_local_datetime(&probe)
+                .earliest()
+                .ok_or_else(|| {
+                    Error::Protocol(
+                        "calendar local time could not be resolved in the event timezone"
+                            .to_owned(),
+                    )
+                })?;
+            let offset = before.offset().clone();
+            let utc = local
+                - chrono::TimeDelta::seconds(i64::from(
+                    chrono::Offset::fix(&offset).local_minus_utc(),
+                ));
+            Ok(DateTime::<Utc>::from_naive_utc_and_offset(utc, Utc))
+        }
+    }
 }
 
 fn require_unique<T: Ord>(field: &str, values: &[T]) -> Result<()> {
@@ -2274,10 +2529,12 @@ mod tests {
     #[test]
     fn calendar_event_fields_validate_cross_field_constraints() {
         let fields = CalendarEventFields {
-            start: "2026-06-22T09:00:00.000Z".to_owned(),
-            end: "2026-06-22T10:00:00.000Z".to_owned(),
+            start: "2026-06-22T09:00:00".to_owned(),
+            end: "2026-06-22T10:00:00".to_owned(),
             timezone: "America/Los_Angeles".to_owned(),
+            tzdb_version: "2025a".to_owned(),
             all_day: false,
+            status: CalendarStatus::Confirmed,
             recurrence: Some(CalendarRecurrence {
                 frequency: RecurrenceFrequency::Weekly,
                 interval: Some(1),
@@ -2306,8 +2563,41 @@ mod tests {
         invalid.end = invalid.start.clone();
         assert!(invalid.validate().is_err());
 
-        let mut invalid = fields;
+        let mut invalid = fields.clone();
         invalid.recurrence.as_mut().unwrap().count = Some(10_001);
+        assert!(invalid.validate().is_err());
+
+        // Timed anchors are whole-second LocalDateTime; a UTC instant, an
+        // offset and a fractional second are all rejected spellings.
+        for spelling in [
+            "2026-06-22T09:00:00.000Z",
+            "2026-06-22T09:00:00-07:00",
+            "2026-06-22T09:00:00.000",
+        ] {
+            let mut invalid = fields.clone();
+            invalid.start = spelling.to_owned();
+            assert!(invalid.validate().is_err(), "accepted {spelling}");
+        }
+
+        // nth_of_period is meaningless for weekly recurrence.
+        let mut invalid = fields.clone();
+        invalid.recurrence.as_mut().unwrap().by_day[0].nth_of_period = Some(1);
+        assert!(invalid.validate().is_err());
+
+        // by_set_position needs a candidate-producing companion.
+        let mut invalid = fields.clone();
+        let recurrence = invalid.recurrence.as_mut().unwrap();
+        recurrence.by_day.clear();
+        recurrence.by_set_position = Some(vec![-1]);
+        assert!(invalid.validate().is_err());
+
+        // At most one organizer.
+        let mut invalid = fields;
+        invalid.attendees.push(CalendarAttendee {
+            actor_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            role: Some(CalendarAttendeeRole::Organizer),
+            display_name_snapshot: None,
+        });
         assert!(invalid.validate().is_err());
     }
 
@@ -2342,48 +2632,74 @@ mod tests {
     fn calendar_rsvp_occurrence_keys_are_canonicalized() {
         let mut fields = BTreeMap::new();
         fields.insert(
-            "start".to_owned(),
-            Value::String("2026-06-22T16:00:00.000Z".to_owned()),
+            CALENDAR_METADATA_FIELDS_NAMESPACE.to_owned(),
+            serde_json::json!({
+                "start": "2026-06-22T09:00:00",
+                "end": "2026-06-22T10:00:00",
+                "timezone": "America/Los_Angeles",
+                "tzdb_version": "2025a",
+                "all_day": false,
+                "status": "confirmed"
+            }),
         );
-        fields.insert(
-            "end".to_owned(),
-            Value::String("2026-06-22T17:00:00.000Z".to_owned()),
-        );
-        fields.insert(
-            "timezone".to_owned(),
-            Value::String("America/Los_Angeles".to_owned()),
-        );
-        fields.insert("all_day".to_owned(), Value::Bool(false));
 
         assert_eq!(
-            canonical_calendar_rsvp_occurrence_key(&fields, Some("2026-06-22T16:00:00.000Z"))
-                .unwrap(),
-            "2026-06-22T09:00:00[America/Los_Angeles]"
+            canonical_calendar_rsvp_occurrence_key(
+                &fields,
+                Some("2026-06-22T09:00:00[America/Los_Angeles]")
+            )
+            .unwrap(),
+            Some("2026-06-22T09:00:00[America/Los_Angeles]".to_owned())
         );
+        // Series is JSON null, never a "series" sentinel string: the sentinel
+        // would address a different composite cell.
         assert_eq!(
             canonical_calendar_rsvp_occurrence_key(&fields, None).unwrap(),
-            "series"
+            None
+        );
+        // A UTC instant is not a canonical instance key.
+        assert!(
+            canonical_calendar_rsvp_occurrence_key(&fields, Some("2026-06-22T16:00:00.000Z"))
+                .is_err()
         );
     }
 
     #[test]
     fn calendar_all_day_occurrence_keys_are_dates() {
         let mut fields = BTreeMap::new();
-        fields.insert("start".to_owned(), Value::String("2026-06-22".to_owned()));
-        fields.insert("end".to_owned(), Value::String("2026-06-23".to_owned()));
         fields.insert(
-            "timezone".to_owned(),
-            Value::String("Asia/Shanghai".to_owned()),
+            CALENDAR_METADATA_FIELDS_NAMESPACE.to_owned(),
+            serde_json::json!({
+                "start": "2026-06-22",
+                "end": "2026-06-23",
+                "timezone": "Asia/Shanghai",
+                "tzdb_version": "2025a",
+                "all_day": true,
+                "status": "confirmed"
+            }),
         );
-        fields.insert("all_day".to_owned(), Value::Bool(true));
 
         assert_eq!(
-            canonical_calendar_rsvp_occurrence_key(
-                &fields,
-                Some("2026-06-22T00:00:00[Asia/Shanghai]")
-            )
-            .unwrap(),
-            "2026-06-22"
+            canonical_calendar_rsvp_occurrence_key(&fields, Some("2026-06-22")).unwrap(),
+            Some("2026-06-22".to_owned())
+        );
+    }
+
+    #[test]
+    fn calendar_metadata_rejects_flat_activation_impostors() {
+        for key in ["start", "timezone", "profile", "profile_refs", "attendees"] {
+            let mut fields = BTreeMap::new();
+            fields.insert(key.to_owned(), Value::String("whatever".to_owned()));
+            assert!(
+                calendar_event_fields_from_metadata_fields(&fields).is_err(),
+                "accepted flat metadata.fields.{key}"
+            );
+        }
+        // A Strand with no calendar subtree is simply not a calendar event.
+        assert!(
+            calendar_event_fields_from_metadata_fields(&BTreeMap::new())
+                .unwrap()
+                .is_none()
         );
     }
 

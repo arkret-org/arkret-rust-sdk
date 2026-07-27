@@ -1,6 +1,6 @@
 //! Strand model and shared object metadata.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::constants::STRAND_SCHEMA;
@@ -43,6 +43,13 @@ impl ObjectMetadata {
         }
     }
 }
+
+/// Registered `(profile schema id, metadata.fields namespace)` pairs subject to
+/// the bidirectional co-presence rule. v1 registers exactly one pair; adding a
+/// Strand profile subtree means adding its pair here and in
+/// `strand.schema.json` together, never in prose alone.
+pub const PROFILE_SUBTREE_ACTIVATION_PAIRS: &[(&str, &str)] =
+    &[("ak.schema.calendar_event.v1", "calendar")];
 
 /// Strand `metadata` shape — see [`ObjectMetadata`].
 pub type StrandMetadata = ObjectMetadata;
@@ -115,6 +122,21 @@ pub struct Strand {
     /// (common-fields §3.2): `id, schema, realm_id, scope_circle_id, …`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope_circle_id: Option<CircleId>,
+    /// Authoritative schema set for profile-defined `metadata.fields` subtrees,
+    /// and the only profile activation axis: `metadata.fields.profile` and
+    /// `profile_refs` are forbidden impostors.
+    ///
+    /// Unlike Morph this field is optional — a plain discussion Strand carries
+    /// no profile subtree and omits it rather than filling a placeholder id.
+    /// The container self-schema `ak.schema.strand.v1` MUST NOT appear here.
+    /// Every listed profile schema and its `metadata.fields` namespace MUST
+    /// co-occur in both directions on the post-patch object; writers MUST also
+    /// bind the same id in the Event `requirements.schema[]` so replay
+    /// validates against the write-time schema.
+    ///
+    /// Declaration order mirrors `strand.schema.json`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub schema_refs: Option<Vec<String>>,
     /// Optional native-agent participation ceiling, wrapped by agent class.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_participation: Option<AgentParticipationPolicy>,
@@ -181,6 +203,7 @@ impl Strand {
             schema: STRAND_SCHEMA.to_owned(),
             realm_id,
             scope_circle_id: None,
+            schema_refs: None,
             agent_participation: None,
             metadata: Some(StrandMetadata::with_title(title)),
             encrypted_metadata: None,
@@ -196,6 +219,68 @@ impl Strand {
             updated_by: None,
             updated_at: None,
         }
+    }
+
+    /// Activates a profile subtree: adds `schema_id` to `schema_refs` while the
+    /// caller writes the matching `metadata.fields` namespace. The two MUST be
+    /// added and removed together; a lone ref is `calendar_activation_mismatch`.
+    pub fn with_schema_ref(mut self, schema_id: impl Into<String>) -> Self {
+        let schema_id = schema_id.into();
+        let refs = self.schema_refs.get_or_insert_with(Vec::new);
+        if !refs.contains(&schema_id) {
+            refs.push(schema_id);
+            refs.sort();
+        }
+        self
+    }
+
+    pub fn has_schema_ref(&self, schema_id: &str) -> bool {
+        self.schema_refs
+            .as_ref()
+            .is_some_and(|refs| refs.iter().any(|value| value == schema_id))
+    }
+
+    /// Checks the bidirectional co-presence rule for every registered profile
+    /// pair on the post-patch object. v1 registers exactly one pair:
+    /// `ak.schema.calendar_event.v1` and `metadata.fields.calendar`.
+    ///
+    /// Only decidable when plaintext `metadata` is present; an
+    /// `encrypted_metadata` Strand is checked by the producer before encryption
+    /// and by authorized clients after decryption.
+    pub fn validate_profile_activation(&self) -> Result<()> {
+        if let Some(refs) = &self.schema_refs {
+            if refs.is_empty() {
+                return Err(Error::Protocol(
+                    "strand schema_refs must be omitted rather than empty".to_owned(),
+                ));
+            }
+            if refs.iter().any(|value| value == STRAND_SCHEMA) {
+                return Err(Error::Protocol(
+                    "strand schema_refs must not list the container self-schema".to_owned(),
+                ));
+            }
+            let unique = refs.iter().collect::<BTreeSet<_>>().len();
+            if unique != refs.len() {
+                return Err(Error::Protocol(
+                    "strand schema_refs must not contain duplicates".to_owned(),
+                ));
+            }
+        }
+        let Some(fields) = self.metadata_fields() else {
+            // No plaintext metadata object: the co-presence half is not
+            // decidable here.
+            return Ok(());
+        };
+        for (schema_id, namespace) in PROFILE_SUBTREE_ACTIVATION_PAIRS {
+            let has_ref = self.has_schema_ref(schema_id);
+            let has_subtree = fields.contains_key(*namespace);
+            if has_ref != has_subtree {
+                return Err(Error::Protocol(format!(
+                    "strand schema_refs {schema_id} and metadata.fields.{namespace} must co-occur in both directions"
+                )));
+            }
+        }
+        Ok(())
     }
 
     pub fn with_metadata_title(mut self, title: impl Into<String>) -> Self {

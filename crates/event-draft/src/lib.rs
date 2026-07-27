@@ -14,6 +14,7 @@
 mod accountability;
 mod agent;
 mod applet;
+mod calendar;
 mod device;
 mod event_payload;
 mod ghost_profile;
@@ -30,6 +31,7 @@ pub use agent::{
     build_agent_resume_event,
 };
 pub use applet::AppletBridgeErrorBuilder;
+pub use calendar::{RsvpAuthoring, RsvpResponseBranch};
 pub use device::{build_cross_signing_publish_event_at, build_device_authorize_event_at};
 pub use event_payload::{EventPayloadExt, MessageEventPayload};
 pub use ghost_profile::GhostActorProfileRequest;

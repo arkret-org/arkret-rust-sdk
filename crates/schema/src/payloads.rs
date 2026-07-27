@@ -531,20 +531,20 @@ mod tests {
     #[test]
     fn rsvp_payload_allows_nullable_occurrence_but_not_null_event_ref() {
         let catalog = event_payload_validator_catalog().unwrap();
+        let entry = json!({
+            "schedule_basis_refs": [
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ],
+            "response": {"status": "accepted"}
+        });
+        // occurrence=null is the whole series.
         catalog
             .validate_payload(
                 "ak.rsvp.set",
                 &json!({
                     "event_ref": "ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9182",
                     "occurrence": null,
-                    "entry": {
-                        "schedule_basis_refs": [
-                            "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
-                        ],
-                        "response": {
-                            "status": "accepted"
-                        }
-                    }
+                    "entry": entry
                 }),
             )
             .unwrap();
@@ -555,14 +555,36 @@ mod tests {
                     &json!({
                         "event_ref": null,
                         "occurrence": null,
-                        "entry": {
-                            "schedule_basis_refs": [
-                                "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
-                            ],
-                            "response": {
-                                "status": "accepted"
-                            }
-                        }
+                        "entry": entry
+                    }),
+                )
+                .is_err()
+        );
+        // The pre-closure flat shape carried status at the payload root; the
+        // response now lives inside the complete entry.
+        assert!(
+            catalog
+                .validate_payload(
+                    "ak.rsvp.set",
+                    &json!({
+                        "event_ref": "ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9182",
+                        "occurrence": null,
+                        "status": "accepted"
+                    }),
+                )
+                .is_err()
+        );
+        // Exactly one response branch.
+        assert!(
+            catalog
+                .validate_payload(
+                    "ak.rsvp.set",
+                    &json!({
+                        "event_ref": "ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9182",
+                        "occurrence": null,
+                        "entry": {"schedule_basis_refs": [
+                            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                        ]}
                     }),
                 )
                 .is_err()

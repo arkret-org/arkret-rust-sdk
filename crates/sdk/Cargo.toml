@@ -65,7 +65,7 @@ arkret-egress-policy = {workspace = true}
 arkret-mls = {workspace = true,optional = true}
 arkret-policy = {workspace = true}
 arkret-push-policy.workspace = true
-arkret-schema = {workspace = true}
+arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
 arkret-server = {workspace = true,optional = true}
 arkret-signatures = {workspace = true,features = [
     "collaboration",

@@ -173,6 +173,20 @@ impl Seal {
     /// [`crate::SealKind`]. Use `Normal` for delta-accepting seals and
     /// `Compaction` for checkpoint seals that re-state the existing
     /// delta without accepting new moves.
+    ///
+    /// Derives `control_event_set_root` from `delta` alone, which only
+    /// equals the value a verifier recomputes when `predecessor_refs`
+    /// carry no coverage of their own — i.e. genesis, or a Seal whose
+    /// predecessors are all empty. `control_event_set_root` is
+    /// *cumulative*: [`crate::state`-side verification][av] recomputes it
+    /// over predecessor coverage ∪ delta and rejects the Seal when the
+    /// declared root differs. Any Seal built on non-empty predecessors —
+    /// every compaction Seal, in particular, whose empty delta hashes to
+    /// the empty root — MUST use
+    /// [`Seal::sign_single_kind_with_control_root`] and pass the
+    /// cumulative root from the effective seal view.
+    ///
+    /// [av]: https://docs.rs/arkret-state
     #[allow(clippy::too_many_arguments)]
     pub fn sign_single_kind<S: MoveSigner + ?Sized>(
         realm_id: RealmId,
@@ -183,11 +197,43 @@ impl Seal {
         kind: crate::SealKind,
         signer: &S,
     ) -> Result<Seal> {
+        let control_event_set_root = delta_control_root(&delta)?;
+        Self::sign_single_kind_with_control_root(
+            realm_id,
+            predecessor_refs,
+            delta,
+            control_event_set_root,
+            state_root,
+            hlc,
+            kind,
+            signer,
+        )
+    }
+
+    /// Build + single-sign a Seal whose cumulative `control_event_set_root`
+    /// is supplied by the caller.
+    ///
+    /// This is the form to use whenever the Seal has predecessors that
+    /// already cover Moves: pass the root the notary computes over
+    /// predecessor coverage ∪ delta (an effective seal view exposes it
+    /// directly), because that is what a verifier recomputes. The
+    /// delta-only shorthand [`Seal::sign_single_kind`] silently produces a
+    /// root that a verifier rejects in exactly that case.
+    #[allow(clippy::too_many_arguments)]
+    pub fn sign_single_kind_with_control_root<S: MoveSigner + ?Sized>(
+        realm_id: RealmId,
+        predecessor_refs: Vec<SealId>,
+        delta: Vec<MoveId>,
+        control_event_set_root: Hash,
+        state_root: Hash,
+        hlc: Hlc,
+        kind: crate::SealKind,
+        signer: &S,
+    ) -> Result<Seal> {
         // Compute canonical body bytes (excluding id + notary_signature).
         let sealed_at = Utc::now();
         let previous_state_root = None;
         let previous_digest_algorithm = None;
-        let control_event_set_root = delta_control_root(&delta)?;
         let completeness_root = control_event_set_root.clone();
         let notary_seq = 0;
         let body_bytes = canonical::canonical_json_bytes(&SealBodyView {

@@ -5,6 +5,7 @@
 
 pub mod account_status;
 pub mod blob;
+pub mod calendar_projection;
 pub mod direct_conversation;
 pub mod interop;
 pub mod media;

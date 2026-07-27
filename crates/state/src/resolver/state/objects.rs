@@ -481,6 +481,7 @@ impl RealmState {
             schema: crate::STRAND_SCHEMA.to_owned(),
             realm_id: event.realm_id.clone(),
             scope_circle_id: object.scope_circle_id,
+            schema_refs: object.schema_refs,
             agent_participation: object.agent_participation,
             metadata: Some(metadata),
             encrypted_metadata: object.encrypted_metadata,
