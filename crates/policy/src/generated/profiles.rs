@@ -5,7 +5,7 @@
 //! Conformance input version: 2026-07-13;
 //! sha256=46530129c3b37a424804d19e51b8616fb40e7aaeba84e658469d4185e8a62a1b; profiles=96.
 //! Reducer input version: 2026-07-16;
-//! sha256=809624694d1f0f08c84ce258ec771f16e4d2e7196281d4ee4380bfce67b549c7; active_profiles=5.
+//! sha256=c1a372e4e051156860b5b43776cabaf74ba2274f0f9dabd67752614f6001e2fd; active_profiles=5.
 
 pub const PROFILE_IDS: &[&str] = &[
     "ak.profile.accountable_principals.strict_reject.v1",
@@ -130,7 +130,7 @@ pub const REDUCER_PROFILE_DIGESTS: &[(&str, &str)] = &[
     ),
     (
         "ak.profile.principal_server.v1",
-        "sha256:4651f9b632eee0f9b0c0242aceb4c3798be204883018c7135c0a420543693a64",
+        "sha256:782be3e439f58566b551a1d71ecda723d0a27f524bbf9571ff42d00c983b64d0",
     ),
 ];
 
