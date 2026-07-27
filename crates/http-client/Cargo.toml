@@ -30,6 +30,7 @@ tls-rustls = ["reqwest/rustls"]
 [dependencies]
 chrono = {workspace = true,features = ["serde"]}
 arkret-canonical = {workspace = true}
+arkret-egress-policy = {workspace = true}
 arkret-models-collaboration = {workspace = true}
 arkret-models-crypto = {workspace = true}
 arkret-models-discovery = {workspace = true}
@@ -56,7 +57,7 @@ arkret-identity = {workspace = true}
 # rt-multi-thread is required for tokio::task::block_in_place, which the sync
 # HttpDidResolver facade uses to block safely on multi-thread runtimes; sync
 # for OnceCell single-flight; rt for the current-thread fallback driver.
-tokio = {workspace = true,features = ["rt", "rt-multi-thread", "sync"]}
+tokio = {workspace = true,features = ["rt", "rt-multi-thread", "sync", "net"]}
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tokio = {workspace = true,features = ["macros", "rt", "net", "io-util"]}

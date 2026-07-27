@@ -27,6 +27,7 @@ pub mod identity;
 pub mod identity_key_log;
 pub mod identity_link_cache;
 pub mod member_identity;
+pub mod organization_registration;
 /// §3.2.1 deterministic primary-handle selection, `claim_digest`, and
 /// §3.8.2 mention/subject rendering. wasm-safe, dependency-free helpers
 /// shared by inkson / sodmin / soland / cotest (SOD-05-001 / SPEC-CR-019).
@@ -54,5 +55,6 @@ pub use identity::*;
 pub use identity_key_log::*;
 pub use identity_link_cache::*;
 pub use member_identity::*;
+pub use organization_registration::*;
 pub use proof::*;
 pub use session_credential::*;

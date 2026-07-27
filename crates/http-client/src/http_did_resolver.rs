@@ -4,8 +4,9 @@
 //! helpers. Per `identity/identity-handles.md` §4 the resolver:
 //!
 //! - fetches `https://<host>/.well-known/did.json` for `did:web`,
-//! - fetches `https://<host>/.well-known/did.jsonl` and `did.json` for `did:webvh` and validates
-//!   the SCID + chain via the existing [`DidWebvhResolver`] helpers,
+//! - fetches `did.json`, `did.jsonl`, and, when declared, the separate `did-witness.json` for
+//!   `did:webvh`, then validates the SCID, chain, controller proofs, and method-native witness
+//!   threshold,
 //! - caches results behind a configurable TTL (default 7d),
 //! - applies the [`ResolverPolicy`] allow-list and fail-mode,
 //! - bounds responses by [`DID_WEB_MAX_DOCUMENT_BYTES`] and rejects non-JSON content types.
@@ -18,13 +19,15 @@
 
 use std::collections::BTreeMap;
 use std::future::Future;
+use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use arkret_egress_policy::OutboundPolicy;
 use arkret_identity::{
     DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidResolver, DidWebDocumentOutcome, DidWebResolver,
     DidWebvhDocumentOutcome, DidWebvhLogOutcome, DidWebvhResolver, ResolverFailMode,
-    ResolverPolicy,
+    ResolverPolicy, verify_did_webvh_v1_chain_and_witness_bytes,
 };
 use arkret_wire::Did;
 use chrono::{DateTime, Utc};
@@ -126,6 +129,7 @@ impl<T: Clone> SingleFlight<T> {
 /// Reqwest-backed DID resolver covering `did:web` and `did:webvh`.
 pub struct HttpDidResolver {
     http: HttpClient,
+    egress_policy: Option<OutboundPolicy>,
     policy: ResolverPolicy,
     cache: Mutex<BTreeMap<Did, CacheEntry>>,
     max_cache_entries: usize,
@@ -166,14 +170,34 @@ impl HttpDidResolver {
 
     /// Build a resolver with the supplied [`ResolverPolicy`].
     pub fn with_policy(policy: ResolverPolicy) -> Result<Self> {
+        Self::with_policy_and_egress(policy, OutboundPolicy::public_https())
+    }
+
+    /// Build a resolver with the supplied resolution and outbound-target
+    /// policies. Each request validates the URL before DNS resolution,
+    /// validates every resolved address, pins the validated candidates into
+    /// the connector, and rejects redirects.
+    pub fn with_policy_and_egress(
+        policy: ResolverPolicy,
+        egress_policy: OutboundPolicy,
+    ) -> Result<Self> {
         let http = HttpClient::builder()
             .timeout(Duration::from_millis(DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS))
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|err| Error::Protocol(format!("failed to build reqwest client: {err}")))?;
-        Self::with_client(http, policy)
+        Self::build(
+            http,
+            policy,
+            DEFAULT_HTTP_DID_RESOLVER_MAX_ENTRIES,
+            Some(egress_policy),
+        )
     }
 
     /// Build a resolver from a pre-configured [`reqwest::Client`].
+    ///
+    /// The caller owns the transport policy for an injected client. Production
+    /// callers should prefer [`Self::with_policy_and_egress`].
     pub fn with_client(http: HttpClient, policy: ResolverPolicy) -> Result<Self> {
         Self::with_client_and_cache_limit(http, policy, DEFAULT_HTTP_DID_RESOLVER_MAX_ENTRIES)
     }
@@ -183,6 +207,15 @@ impl HttpDidResolver {
         http: HttpClient,
         policy: ResolverPolicy,
         max_cache_entries: usize,
+    ) -> Result<Self> {
+        Self::build(http, policy, max_cache_entries, None)
+    }
+
+    fn build(
+        http: HttpClient,
+        policy: ResolverPolicy,
+        max_cache_entries: usize,
+        egress_policy: Option<OutboundPolicy>,
     ) -> Result<Self> {
         if max_cache_entries == 0 {
             return Err(Error::Protocol(
@@ -196,6 +229,7 @@ impl HttpDidResolver {
         })?;
         Ok(Self {
             http,
+            egress_policy,
             policy,
             cache: Mutex::new(BTreeMap::new()),
             max_cache_entries,
@@ -203,6 +237,37 @@ impl HttpDidResolver {
             runtime,
             single_flight: SingleFlight::new(),
         })
+    }
+
+    async fn client_for_url(&self, url: &str) -> Result<HttpClient> {
+        let Some(policy) = self.egress_policy else {
+            return Ok(self.http.clone());
+        };
+        let parsed = reqwest::Url::parse(url)
+            .map_err(|error| Error::Protocol(format!("did fetch URL is invalid: {error}")))?;
+        policy
+            .validate_url(&parsed)
+            .map_err(|error| Error::Protocol(format!("did fetch target is denied: {error}")))?;
+        let host = parsed
+            .host_str()
+            .ok_or_else(|| Error::Protocol("did fetch URL has no host".to_owned()))?
+            .to_owned();
+        let port = parsed
+            .port_or_known_default()
+            .ok_or_else(|| Error::Protocol("did fetch URL has no usable port".to_owned()))?;
+        let addresses: Vec<SocketAddr> = tokio::net::lookup_host((host.as_str(), port))
+            .await
+            .map_err(|error| Error::Protocol(format!("did fetch DNS resolution failed: {error}")))?
+            .collect();
+        let target = policy
+            .bind_resolved(parsed, addresses)
+            .map_err(|error| Error::Protocol(format!("did fetch target is denied: {error}")))?;
+        HttpClient::builder()
+            .timeout(Duration::from_millis(DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS))
+            .redirect(reqwest::redirect::Policy::none())
+            .resolve_to_addrs(&host, target.addresses())
+            .build()
+            .map_err(|error| Error::Protocol(format!("failed to build pinned DID client: {error}")))
     }
 
     /// Read the active policy.
@@ -325,8 +390,8 @@ impl HttpDidResolver {
     /// `Content-Length` above the ceiling is rejected before any body
     /// byte is read.
     async fn fetch_bytes(&self, url: &str, max_bytes: usize) -> Result<(String, Vec<u8>)> {
-        let mut response = self
-            .http
+        let client = self.client_for_url(url).await?;
+        let mut response = client
             .get(url)
             .send()
             .await
@@ -394,6 +459,27 @@ impl HttpDidResolver {
         let (log_ct, log_body) = self
             .fetch_bytes(&log_url, DID_WEB_MAX_DOCUMENT_BYTES.saturating_mul(32))
             .await?;
+        let witness_declared = log_body
+            .split(|byte| *byte == b'\n')
+            .filter(|line| !line.iter().all(u8::is_ascii_whitespace))
+            .filter_map(|line| serde_json::from_slice::<serde_json::Value>(line).ok())
+            .any(|entry| entry.pointer("/parameters/witness").is_some());
+        let witness_body = if witness_declared {
+            let witness_url = DidWebvhResolver::witness_url(did)?;
+            let (witness_ct, witness_body) = self
+                .fetch_bytes(&witness_url, DID_WEB_MAX_DOCUMENT_BYTES.saturating_mul(32))
+                .await?;
+            if !is_json_content_type(&witness_ct) {
+                return Err(Error::Protocol(format!(
+                    "did witness response content type is not JSON: {witness_ct}"
+                )));
+            }
+            Some(witness_body)
+        } else {
+            None
+        };
+        verify_did_webvh_v1_chain_and_witness_bytes(did, &log_body, witness_body.as_deref())
+            .map_err(|error| Error::Protocol(error.to_string()))?;
         let mut resolver = DidWebvhResolver::new();
         let document = resolver.insert_from_https_response(
             did,
@@ -514,6 +600,16 @@ impl HttpDidResolver {
     }
 }
 
+fn is_json_content_type(content_type: &str) -> bool {
+    let media_type = content_type
+        .split(';')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    media_type == "application/json" || media_type.ends_with("+json")
+}
+
 impl DidResolver for HttpDidResolver {
     fn supports(&self, did: &Did) -> bool {
         if !self.policy.permits(did) {
@@ -559,6 +655,16 @@ mod tests {
         let did = Did::new("did:key:z6MkfZ6S2cYbVdXBgnYzQwHgKZ4ApZRzELZ8R6PqQVqzDqXY").unwrap();
         assert!(!resolver.supports(&did));
         assert!(resolver.resolve_did(&did).is_err());
+    }
+
+    #[tokio::test]
+    async fn default_transport_rejects_private_targets_before_connecting() {
+        let resolver = HttpDidResolver::new().unwrap();
+        let error = resolver
+            .client_for_url("https://127.0.0.1/.well-known/did.json")
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("target is denied"));
     }
 
     #[tokio::test]

@@ -91,6 +91,19 @@ pub(super) fn is_allowed_did_web_content_type(content_type: &str) -> bool {
     )
 }
 
+pub(super) fn is_allowed_did_webvh_log_content_type(content_type: &str) -> bool {
+    let media_type = content_type
+        .split(';')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
+    matches!(
+        media_type.as_str(),
+        "application/json" | "application/jsonl" | "application/x-ndjson" | "application/did+json"
+    )
+}
+
 /// Split a `did:webvh:<scid>:<host>[%3A<port>][:<path>…]` DID into its
 /// component parts: `(scid, host, port, path_segments)`.
 ///
@@ -137,6 +150,10 @@ pub(super) fn did_webvh_document_url(did: &Did) -> Option<String> {
 
 pub(super) fn did_webvh_log_url(did: &Did) -> Option<String> {
     did_webvh_url(did, "did.jsonl")
+}
+
+pub(super) fn did_webvh_witness_url(did: &Did) -> Option<String> {
+    did_webvh_url(did, "did-witness.json")
 }
 
 pub(super) fn did_webvh_url(did: &Did, leaf: &str) -> Option<String> {

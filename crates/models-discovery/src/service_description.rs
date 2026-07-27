@@ -974,6 +974,7 @@ pub enum ConformanceVerifiedKind {
 /// enum so receivers can fast-path the dispatch.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CompatSurfaceEntry {
     pub name: String,
     pub kind: CompatSurfaceKind,
@@ -981,9 +982,6 @@ pub struct CompatSurfaceEntry {
     pub since: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
-    #[serde(default, flatten)]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub extra: BTreeMap<String, Value>,
 }
 
 impl CompatSurfaceEntry {
@@ -993,7 +991,6 @@ impl CompatSurfaceEntry {
             kind,
             since: None,
             notes: None,
-            extra: BTreeMap::new(),
         }
     }
 
@@ -1009,6 +1006,10 @@ impl CompatSurfaceEntry {
         Self::new(name, CompatSurfaceKind::ExternalInterop)
     }
 
+    pub fn delegated_resolver(name: impl Into<String>) -> Self {
+        Self::new(name, CompatSurfaceKind::DelegatedResolver)
+    }
+
     pub fn with_since(mut self, since: impl Into<String>) -> Self {
         self.since = Some(since.into());
         self
@@ -1017,15 +1018,6 @@ impl CompatSurfaceEntry {
     pub fn with_notes(mut self, notes: impl Into<String>) -> Self {
         self.notes = Some(notes.into());
         self
-    }
-
-    pub fn with_extra(mut self, key: impl Into<String>, value: Value) -> Self {
-        self.extra.insert(key.into(), value);
-        self
-    }
-
-    pub fn with_extra_string(self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.with_extra(key, Value::String(value.into()))
     }
 }
 
@@ -1037,6 +1029,7 @@ pub enum CompatSurfaceKind {
     MatrixPassthrough,
     MimiPassthrough,
     ExternalInterop,
+    DelegatedResolver,
 }
 
 /// Strongly-typed entry of [`ServiceDescribe::supported_bindings`].

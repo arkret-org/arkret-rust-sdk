@@ -1,23 +1,24 @@
 use arkret_models_discovery::{
-    CompatSurfaceEntry, DirectoryRealmSearchOutcome, DirectorySearchRealmsRequestBody,
-    RealmMemberCountBucket, RealmMemberCountBucketLabel,
+    CompatSurfaceEntry, CompatSurfaceKind, DirectoryRealmSearchOutcome,
+    DirectorySearchRealmsRequestBody, RealmMemberCountBucket, RealmMemberCountBucketLabel,
 };
 use arkret_wire::RealmId;
 
 #[test]
-fn compat_surface_entry_serializes_schema_shape() {
-    let surface = CompatSurfaceEntry::external_interop("soland_private_local_routes")
-        .with_notes("local compatibility surface")
-        .with_extra_string("base_path", "/_soland")
-        .with_extra_string("status", "soland_private_local");
+fn compat_surface_entry_is_closed_and_supports_delegated_resolver() {
+    let surface = CompatSurfaceEntry::delegated_resolver("auth_server_did_resolver")
+        .with_since("1")
+        .with_notes("delegated DID document surface");
+    let encoded = serde_json::to_value(&surface).unwrap();
+    assert_eq!(encoded["kind"], "delegated_resolver");
+    assert_eq!(surface.kind, CompatSurfaceKind::DelegatedResolver);
 
-    let value = serde_json::to_value(surface).unwrap();
-
-    assert_eq!(value["name"], "soland_private_local_routes");
-    assert_eq!(value["kind"], "external_interop");
-    assert_eq!(value["notes"], "local compatibility surface");
-    assert_eq!(value["base_path"], "/_soland");
-    assert_eq!(value["status"], "soland_private_local");
+    let open = serde_json::json!({
+        "name": "private_routes",
+        "kind": "external_interop",
+        "base_path": "/_product"
+    });
+    assert!(serde_json::from_value::<CompatSurfaceEntry>(open).is_err());
 }
 
 #[test]

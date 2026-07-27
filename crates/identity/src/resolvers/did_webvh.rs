@@ -68,6 +68,66 @@ pub struct VerifiedDidWebvhLog {
     pub active_update_keys: Vec<String>,
 }
 
+/// The method-native witness policy carried by `parameters.witness`.
+///
+/// Arkret intentionally keeps deployment trust policy out of this type. The
+/// only accepted wire shape is the did:webvh v1.0
+/// `{threshold, witnesses:[{id}]}` object.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DidWebvhWitnessPolicy {
+    pub threshold: usize,
+    pub witnesses: Vec<String>,
+}
+
+/// One successfully verified method-native witness set.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VerifiedDidWebvhWitnessSet {
+    pub version_id: String,
+    pub threshold: usize,
+    pub verified_witnesses: Vec<String>,
+}
+
+/// Result of verifying a complete did:webvh history together with the
+/// separately published `did-witness.json`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VerifiedDidWebvhWitnessLog {
+    pub log: VerifiedDidWebvhLog,
+    pub witness_sets: Vec<VerifiedDidWebvhWitnessSet>,
+}
+
+/// Fail-closed errors specific to the method-native witness rail.
+#[derive(Debug, thiserror::Error)]
+pub enum DidWebvhWitnessValidationError {
+    #[error("webvh_witness_parameter_malformed: {0}")]
+    ParameterMalformed(String),
+    #[error("webvh_witness_proofs_unavailable: no witness proof record for {version_id}")]
+    ProofsUnavailable { version_id: String },
+    #[error("webvh_witness_proof_invalid: {0}")]
+    ProofInvalid(String),
+    #[error(
+        "webvh_witness_threshold_not_met: version {version_id} requires {required}, verified {verified}"
+    )]
+    ThresholdNotMet {
+        version_id: String,
+        required: usize,
+        verified: usize,
+    },
+    #[error(transparent)]
+    Log(#[from] IdentityError),
+}
+
+impl DidWebvhWitnessValidationError {
+    pub const fn reason_code(&self) -> &'static str {
+        match self {
+            Self::ParameterMalformed(_) => "webvh_witness_parameter_malformed",
+            Self::ProofsUnavailable { .. } => "webvh_witness_proofs_unavailable",
+            Self::ProofInvalid(_) => "webvh_witness_proof_invalid",
+            Self::ThresholdNotMet { .. } => "webvh_witness_threshold_not_met",
+            Self::Log(_) => "invalid_signature",
+        }
+    }
+}
+
 impl DidWebvhResolver {
     pub fn new() -> Self {
         Self::default()
@@ -82,6 +142,12 @@ impl DidWebvhResolver {
     /// HTTPS URL of the append-only history.
     pub fn log_url(did: &Did) -> Result<String> {
         did_webvh_log_url(did)
+            .ok_or_else(|| Error::Protocol("unsupported did:webvh form".to_owned()))
+    }
+
+    /// HTTPS URL of the separate method-native witness proofs file.
+    pub fn witness_url(did: &Did) -> Result<String> {
+        did_webvh_witness_url(did)
             .ok_or_else(|| Error::Protocol("unsupported did:webvh form".to_owned()))
     }
 
@@ -141,6 +207,11 @@ impl DidWebvhResolver {
         let expected_url = Self::log_url(did)?;
         if response.url != expected_url {
             return Err(Error::Protocol("did:webvh log URL mismatch".to_owned()));
+        }
+        if !is_allowed_did_webvh_log_content_type(&response.content_type) {
+            return Err(Error::Protocol(
+                "unsupported did:webvh log content type".to_owned(),
+            ));
         }
         if response.body.len() > DID_WEB_MAX_DOCUMENT_BYTES * 32 {
             return Err(Error::Protocol(
@@ -227,6 +298,294 @@ pub fn verify_did_webvh_v1_log_bytes(did: &Did, bytes: &[u8]) -> Result<Verified
 pub fn verify_did_webvh_v1_chain_bytes(did: &Did, bytes: &[u8]) -> Result<VerifiedDidWebvhLog> {
     let raw_entries = parse_did_webvh_json_lines(bytes)?;
     verify_did_webvh_v1_chain(did, &raw_entries)
+}
+
+/// Parse the only method-native witness policy shape accepted by Arkret.
+///
+/// A missing `parameters.witness` means that no method witness is declared.
+/// A present but malformed object is never rounded down to an empty policy.
+pub fn parse_did_webvh_witness_policy(
+    parameters: &Value,
+) -> std::result::Result<Option<DidWebvhWitnessPolicy>, DidWebvhWitnessValidationError> {
+    const FORBIDDEN_ALIASES: &[&str] = &[
+        "witness_threshold",
+        "witnessThreshold",
+        "witnesses",
+        "trusted_witnesses",
+        "profileMinThreshold",
+        "structuredWitnesses",
+        "watcherEvidence",
+        "maxAgeSeconds",
+    ];
+    for alias in FORBIDDEN_ALIASES {
+        if parameters.get(*alias).is_some() {
+            return Err(DidWebvhWitnessValidationError::ParameterMalformed(format!(
+                "parameters.{alias} is not a did:webvh 1.0 witness parameter"
+            )));
+        }
+    }
+
+    let Some(witness) = parameters.get("witness") else {
+        return Ok(None);
+    };
+    let witness = witness.as_object().ok_or_else(|| {
+        DidWebvhWitnessValidationError::ParameterMalformed(
+            "parameters.witness must be an object".to_owned(),
+        )
+    })?;
+    if witness.len() != 2
+        || !witness.contains_key("threshold")
+        || !witness.contains_key("witnesses")
+    {
+        return Err(DidWebvhWitnessValidationError::ParameterMalformed(
+            "parameters.witness is closed and requires only threshold and witnesses".to_owned(),
+        ));
+    }
+    let threshold = witness
+        .get("threshold")
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+        .filter(|value| *value > 0)
+        .ok_or_else(|| {
+            DidWebvhWitnessValidationError::ParameterMalformed(
+                "parameters.witness.threshold must be a positive integer".to_owned(),
+            )
+        })?;
+    let entries = witness
+        .get("witnesses")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            DidWebvhWitnessValidationError::ParameterMalformed(
+                "parameters.witness.witnesses must be an array".to_owned(),
+            )
+        })?;
+    if entries.is_empty() || threshold > entries.len() {
+        return Err(DidWebvhWitnessValidationError::ParameterMalformed(
+            "witness threshold must be within 1..=witnesses.length".to_owned(),
+        ));
+    }
+
+    let mut witnesses = Vec::with_capacity(entries.len());
+    let mut unique = std::collections::BTreeSet::new();
+    for entry in entries {
+        let entry = entry.as_object().ok_or_else(|| {
+            DidWebvhWitnessValidationError::ParameterMalformed(
+                "each witness must be an object containing only id".to_owned(),
+            )
+        })?;
+        if entry.len() != 1 || !entry.contains_key("id") {
+            return Err(DidWebvhWitnessValidationError::ParameterMalformed(
+                "each witness object is closed and requires only id".to_owned(),
+            ));
+        }
+        let id = entry.get("id").and_then(Value::as_str).ok_or_else(|| {
+            DidWebvhWitnessValidationError::ParameterMalformed(
+                "witness id must be a string".to_owned(),
+            )
+        })?;
+        let key = id.strip_prefix("did:key:").ok_or_else(|| {
+            DidWebvhWitnessValidationError::ParameterMalformed(
+                "witness id must be a did:key".to_owned(),
+            )
+        })?;
+        if key.is_empty() || key.contains('#') || key.contains(':') {
+            return Err(DidWebvhWitnessValidationError::ParameterMalformed(
+                "witness id must be a canonical did:key without a fragment".to_owned(),
+            ));
+        }
+        arkret_canonical::decode_ed25519_multibase(key).map_err(|error| {
+            DidWebvhWitnessValidationError::ParameterMalformed(format!(
+                "witness did:key is not a decodable Ed25519 key: {error}"
+            ))
+        })?;
+        if !unique.insert(id) {
+            return Err(DidWebvhWitnessValidationError::ParameterMalformed(
+                "witness ids must be unique".to_owned(),
+            ));
+        }
+        witnesses.push(id.to_owned());
+    }
+
+    Ok(Some(DidWebvhWitnessPolicy {
+        threshold,
+        witnesses,
+    }))
+}
+
+/// Build the canonical did:webvh v1.0 `parameters.witness` value.
+pub fn did_webvh_witness_parameter(
+    threshold: usize,
+    witnesses: &[String],
+) -> std::result::Result<Value, DidWebvhWitnessValidationError> {
+    let value = serde_json::json!({
+        "threshold": threshold,
+        "witnesses": witnesses
+            .iter()
+            .map(|id| serde_json::json!({"id": id}))
+            .collect::<Vec<_>>(),
+    });
+    let parameters = serde_json::json!({"witness": value});
+    parse_did_webvh_witness_policy(&parameters)?;
+    Ok(value)
+}
+
+/// Verify one `did-witness.json` record against an already parsed policy.
+pub fn verify_did_webvh_witness_record(
+    version_id: &str,
+    policy: &DidWebvhWitnessPolicy,
+    record: &Value,
+) -> std::result::Result<VerifiedDidWebvhWitnessSet, DidWebvhWitnessValidationError> {
+    if record.get("versionId").and_then(Value::as_str) != Some(version_id) {
+        return Err(DidWebvhWitnessValidationError::ProofsUnavailable {
+            version_id: version_id.to_owned(),
+        });
+    }
+    let record_object = record.as_object().ok_or_else(|| {
+        DidWebvhWitnessValidationError::ProofInvalid(
+            "witness proof record must be an object".to_owned(),
+        )
+    })?;
+    if record_object.len() != 2
+        || !record_object.contains_key("versionId")
+        || !record_object.contains_key("proof")
+    {
+        return Err(DidWebvhWitnessValidationError::ProofInvalid(
+            "witness proof record is closed and requires only versionId and proof".to_owned(),
+        ));
+    }
+    let proofs = record
+        .get("proof")
+        .and_then(Value::as_array)
+        .ok_or_else(|| DidWebvhWitnessValidationError::ProofsUnavailable {
+            version_id: version_id.to_owned(),
+        })?;
+    let mut verified = std::collections::BTreeSet::new();
+    for proof in proofs {
+        let verification_method = proof
+            .get("verificationMethod")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                DidWebvhWitnessValidationError::ProofInvalid(
+                    "witness proof is missing verificationMethod".to_owned(),
+                )
+            })?;
+        let (method, fragment) = verification_method.split_once('#').ok_or_else(|| {
+            DidWebvhWitnessValidationError::ProofInvalid(
+                "witness verificationMethod must use did:key:<key>#<key>".to_owned(),
+            )
+        })?;
+        let key = method.strip_prefix("did:key:").ok_or_else(|| {
+            DidWebvhWitnessValidationError::ProofInvalid(
+                "witness verificationMethod must be a did:key".to_owned(),
+            )
+        })?;
+        if key != fragment {
+            return Err(DidWebvhWitnessValidationError::ProofInvalid(
+                "witness verificationMethod fragment must equal its did:key material".to_owned(),
+            ));
+        }
+        if !policy.witnesses.iter().any(|witness| witness == method) {
+            return Err(DidWebvhWitnessValidationError::ProofInvalid(format!(
+                "unlisted witness signer {method}"
+            )));
+        }
+        if verified.contains(method) {
+            return Err(DidWebvhWitnessValidationError::ProofInvalid(format!(
+                "duplicate witness proof signer {method}"
+            )));
+        }
+        verify_webvh_proof(record, proof, key)
+            .map_err(|error| DidWebvhWitnessValidationError::ProofInvalid(error.to_string()))?;
+        verified.insert(method.to_owned());
+    }
+    if verified.len() < policy.threshold {
+        return Err(DidWebvhWitnessValidationError::ThresholdNotMet {
+            version_id: version_id.to_owned(),
+            required: policy.threshold,
+            verified: verified.len(),
+        });
+    }
+    Ok(VerifiedDidWebvhWitnessSet {
+        version_id: version_id.to_owned(),
+        threshold: policy.threshold,
+        verified_witnesses: verified.into_iter().collect(),
+    })
+}
+
+/// Verify controller history and all applicable method-native witness proofs.
+///
+/// `did-witness.json` is a JSON array. Each item binds one `versionId` and
+/// carries Data Integrity proofs over that item with `proof` removed.
+pub fn verify_did_webvh_v1_chain_and_witness_bytes(
+    did: &Did,
+    log_bytes: &[u8],
+    witness_bytes: Option<&[u8]>,
+) -> std::result::Result<VerifiedDidWebvhWitnessLog, DidWebvhWitnessValidationError> {
+    let log = verify_did_webvh_v1_chain_bytes(did, log_bytes)?;
+    let mut active_policy: Option<DidWebvhWitnessPolicy> = None;
+    let mut required_versions = Vec::new();
+    for (raw, entry) in log.raw_entries.iter().zip(&log.entries) {
+        if raw.get("parameters").and_then(Value::as_object).is_none() {
+            return Err(DidWebvhWitnessValidationError::ParameterMalformed(
+                "log entry parameters must be an object".to_owned(),
+            ));
+        }
+        if let Some(policy) = parse_did_webvh_witness_policy(&entry.parameters)? {
+            active_policy = Some(policy);
+        }
+        if let Some(policy) = &active_policy {
+            required_versions.push((entry.version_id.clone(), policy.clone()));
+        }
+    }
+
+    if required_versions.is_empty() {
+        return Ok(VerifiedDidWebvhWitnessLog {
+            log,
+            witness_sets: Vec::new(),
+        });
+    }
+    let witness_bytes =
+        witness_bytes.ok_or_else(|| DidWebvhWitnessValidationError::ProofsUnavailable {
+            version_id: required_versions[0].0.clone(),
+        })?;
+    let records: Vec<Value> = serde_json::from_slice(witness_bytes).map_err(|error| {
+        DidWebvhWitnessValidationError::ProofInvalid(format!(
+            "did-witness.json is not a JSON array: {error}"
+        ))
+    })?;
+    let mut by_version = BTreeMap::new();
+    for record in records {
+        let version_id = record
+            .get("versionId")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                DidWebvhWitnessValidationError::ProofInvalid(
+                    "witness proof record is missing versionId".to_owned(),
+                )
+            })?
+            .to_owned();
+        if by_version.insert(version_id.clone(), record).is_some() {
+            return Err(DidWebvhWitnessValidationError::ProofInvalid(format!(
+                "duplicate witness proof record for {version_id}"
+            )));
+        }
+    }
+
+    let mut witness_sets = Vec::with_capacity(required_versions.len());
+    for (version_id, policy) in required_versions {
+        let record = by_version.get(&version_id).ok_or_else(|| {
+            DidWebvhWitnessValidationError::ProofsUnavailable {
+                version_id: version_id.clone(),
+            }
+        })?;
+        witness_sets.push(verify_did_webvh_witness_record(
+            &version_id,
+            &policy,
+            record,
+        )?);
+    }
+
+    Ok(VerifiedDidWebvhWitnessLog { log, witness_sets })
 }
 
 /// Verify a fetched current DID document against a complete WebVH log without
@@ -516,6 +875,33 @@ fn derive_webvh_scid(scid: &str, raw_first: &Value) -> Result<String> {
     Ok(webvh_multihash_base58(&bytes))
 }
 
+/// Derive the did:webvh SCID from either a placeholder skeleton or a realized
+/// genesis entry.
+pub fn derive_did_webvh_scid(raw_first: &Value) -> Result<String> {
+    let scid = raw_first
+        .pointer("/parameters/scid")
+        .and_then(Value::as_str)
+        .unwrap_or("{SCID}");
+    derive_webvh_scid(scid, raw_first)
+}
+
+/// Compute the entry-hash component for a did:webvh log entry.
+pub fn did_webvh_entry_hash(raw: &Value, previous_anchor: &str) -> Result<String> {
+    let mut preimage = raw.clone();
+    let object = preimage
+        .as_object_mut()
+        .ok_or_else(|| Error::Protocol("did:webvh entry must be an object".to_owned()))?;
+    object.remove("proof");
+    object.insert(
+        "versionId".to_owned(),
+        Value::String(previous_anchor.to_owned()),
+    );
+    let bytes = arkret_canonical::canonical::canonical_json_bytes(&preimage).map_err(|error| {
+        Error::Protocol(format!("did:webvh entry canonicalization failed: {error}"))
+    })?;
+    Ok(webvh_multihash_base58(&bytes))
+}
+
 /// Verify the `versionId`'s entry-hash component. `version_id` is
 /// `<seq>-<hash>`; `prev_anchor` is the predecessor `versionId` (or the
 /// SCID for the first entry). The hash MUST equal the multihash of the
@@ -606,6 +992,42 @@ fn verify_webvh_proof(raw_entry: &Value, proof: &Value, key_multibase: &str) -> 
             &ed25519_dalek::Signature::from_bytes(&signature),
         )
         .map_err(|_| Error::Protocol("did:webvh proof signature verification failed".to_owned()))
+}
+
+/// Verify every controller proof on one entry against its declared active
+/// `updateKeys`.
+pub fn verify_did_webvh_entry_controller_proofs(raw_entry: &Value) -> Result<()> {
+    let parameters = raw_entry
+        .get("parameters")
+        .ok_or_else(|| Error::Protocol("did:webvh entry is missing parameters".to_owned()))?;
+    let active_keys = webvh_update_keys(parameters)?;
+    if active_keys.is_empty() {
+        return Err(Error::Protocol(
+            "did:webvh entry must explicitly declare updateKeys".to_owned(),
+        ));
+    }
+    let proofs = raw_entry
+        .get("proof")
+        .and_then(Value::as_array)
+        .filter(|proofs| !proofs.is_empty())
+        .ok_or_else(|| Error::Protocol("did:webvh entry is missing its proof".to_owned()))?;
+    for proof in proofs {
+        let verification_method = proof
+            .get("verificationMethod")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                Error::Protocol("did:webvh proof missing verificationMethod".to_owned())
+            })?;
+        let key = webvh_verification_method_key(verification_method);
+        let exact_method = format!("did:key:{key}#{key}");
+        if verification_method != exact_method || !active_keys.contains(&key) {
+            return Err(Error::Protocol(
+                "did:webvh proof verificationMethod is not an active canonical did:key".to_owned(),
+            ));
+        }
+        verify_webvh_proof(raw_entry, proof, &key)?;
+    }
+    Ok(())
 }
 
 /// Extract a `verificationMethod`'s key portion. did:webvh uses

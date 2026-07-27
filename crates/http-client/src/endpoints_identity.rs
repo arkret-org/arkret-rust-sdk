@@ -21,9 +21,14 @@ use arkret_models_identity::service_identity::{
 use arkret_models_identity::{
     DidOperationSubmitOutcome, DidOperationSubmitRequestBody, IdentityDescription,
     IdentityDocumentView, IdentityLogListOutcome, IdentityReceiptListOutcome,
-    IdentityResolveOutcome, IdentityResolveRequestBody,
+    IdentityResolveOutcome, IdentityResolveRequestBody, ORGANIZATION_REGISTRATION_ENSURE_PATH,
+    ORGANIZATION_REGISTRATION_GET_PATH, ORGANIZATION_REGISTRATION_PREPARE_PATH,
+    ORGANIZATION_REGISTRATION_REFRESH_PATH, ORGANIZATION_REGISTRATION_REVOKE_PATH,
+    OrganizationRegistrationChallenge, OrganizationRegistrationChallengeRequestBody,
+    OrganizationRegistrationEnsureRequestBody, OrganizationRegistrationOutcome,
+    OrganizationRegistrationRefreshRequestBody, OrganizationRegistrationRevokeRequestBody,
 };
-use arkret_wire::ServiceKind;
+use arkret_wire::{Did, ServiceKind};
 use reqwest::Method;
 
 use crate::{Client, Error, Result};
@@ -190,6 +195,80 @@ impl Client {
             .request(Method::GET, "/_arkret/root/identity/receipts")?
             .query(&[("did", did), ("head", head)]);
         self.send_json(builder).await
+    }
+
+    pub async fn organization_registration_prepare(
+        &self,
+        request: &OrganizationRegistrationChallengeRequestBody,
+    ) -> Result<OrganizationRegistrationChallenge> {
+        request.validate()?;
+        let challenge: OrganizationRegistrationChallenge = self
+            .post(ORGANIZATION_REGISTRATION_PREPARE_PATH, request)
+            .await?;
+        challenge.validate_for(request)?;
+        Ok(challenge)
+    }
+
+    pub async fn organization_registration_ensure(
+        &self,
+        request: &OrganizationRegistrationEnsureRequestBody,
+    ) -> Result<OrganizationRegistrationOutcome> {
+        request.validate()?;
+        let outcome: OrganizationRegistrationOutcome = self
+            .post(ORGANIZATION_REGISTRATION_ENSURE_PATH, request)
+            .await?;
+        outcome.validate()?;
+        Ok(outcome)
+    }
+
+    pub async fn organization_registration_get(
+        &self,
+        organization_id: &Did,
+    ) -> Result<OrganizationRegistrationOutcome> {
+        let builder = self
+            .request(Method::GET, ORGANIZATION_REGISTRATION_GET_PATH)?
+            .query(&[("organization_id", organization_id.as_str())]);
+        let outcome: OrganizationRegistrationOutcome = self.send_json(builder).await?;
+        outcome.validate()?;
+        if outcome.created {
+            return Err(Error::Protocol(
+                "organization-registration GET response must set created=false".to_owned(),
+            ));
+        }
+        Ok(outcome)
+    }
+
+    pub async fn organization_registration_refresh(
+        &self,
+        request: &OrganizationRegistrationRefreshRequestBody,
+    ) -> Result<OrganizationRegistrationOutcome> {
+        request.validate()?;
+        let outcome: OrganizationRegistrationOutcome = self
+            .post(ORGANIZATION_REGISTRATION_REFRESH_PATH, request)
+            .await?;
+        outcome.validate()?;
+        if outcome.created {
+            return Err(Error::Protocol(
+                "organization-registration refresh must not open a generation".to_owned(),
+            ));
+        }
+        Ok(outcome)
+    }
+
+    pub async fn organization_registration_revoke(
+        &self,
+        request: &OrganizationRegistrationRevokeRequestBody,
+    ) -> Result<OrganizationRegistrationOutcome> {
+        let outcome: OrganizationRegistrationOutcome = self
+            .post(ORGANIZATION_REGISTRATION_REVOKE_PATH, request)
+            .await?;
+        outcome.validate()?;
+        if outcome.created {
+            return Err(Error::Protocol(
+                "organization-registration revoke must not open a generation".to_owned(),
+            ));
+        }
+        Ok(outcome)
     }
 
     pub async fn directory_describe(&self) -> Result<ServiceDescribe> {

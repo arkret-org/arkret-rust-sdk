@@ -178,6 +178,67 @@ fn vector_log_response(did: &Did, body: Vec<u8>) -> DidWebvhLogOutcome {
 }
 
 #[test]
+fn official_did_webvh_witness_vector_verifies_end_to_end() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../tests/fixtures/did-webvh-witness-official.json"
+    ))
+    .expect("official witness fixture");
+    let did = Did::new(
+        fixture
+            .get("did")
+            .and_then(Value::as_str)
+            .expect("fixture did"),
+    )
+    .expect("valid did");
+    let log = fixture
+        .get("did_log_entries")
+        .and_then(Value::as_array)
+        .expect("fixture log")
+        .iter()
+        .map(|entry| serde_json::to_string(entry).expect("serialize log entry"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let witness = serde_json::to_vec(
+        fixture
+            .get("did_witness_json")
+            .expect("fixture witness file"),
+    )
+    .expect("serialize witness file");
+
+    let verified =
+        verify_did_webvh_v1_chain_and_witness_bytes(&did, log.as_bytes(), Some(&witness))
+            .expect("official controller and witness proofs verify");
+    assert_eq!(verified.witness_sets.len(), 1);
+    assert_eq!(verified.witness_sets[0].threshold, 1);
+    assert_eq!(
+        verified.witness_sets[0].verified_witnesses,
+        ["did:key:z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L"]
+    );
+}
+
+#[test]
+fn malformed_did_webvh_witness_policy_never_rounds_down() {
+    let malformed = serde_json::json!({
+        "method": "did:webvh:1.0",
+        "witness": {
+            "threshold": 1,
+            "witnesses": [{"id": "did:key:z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L"}],
+            "maxAgeSeconds": 3600
+        }
+    });
+    let error = parse_did_webvh_witness_policy(&malformed)
+        .expect_err("overlay fields in method parameters fail closed");
+    assert_eq!(error.reason_code(), "webvh_witness_parameter_malformed");
+
+    let alias = serde_json::json!({
+        "method": "did:webvh:1.0",
+        "witness_threshold": 1,
+        "witnesses": ["did:key:z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L"]
+    });
+    assert!(parse_did_webvh_witness_policy(&alias).is_err());
+}
+
+#[test]
 fn webvh_resolver_validates_url_shape() {
     let did = Did::new("did:webvh:zabc:starid.example.com:users:alice").unwrap();
     assert_eq!(

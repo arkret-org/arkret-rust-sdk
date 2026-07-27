@@ -11,18 +11,15 @@
 //!    skeleton),
 //! 4. substitute the SCID and compute `versionId = 1-<entryHash>`, where the entryHash preimage
 //!    carries `versionId = <SCID>` (the predecessor anchor) and no `proof`,
-//! 5. sign the entry (sans `proof`) under `cryptosuite: eddsa-jcs-2022` with the update key —
-//!    soland verifies that signature in `verify_webvh_log_proof`.
+//! 5. sign the entry (sans `proof`) under `cryptosuite: eddsa-jcs-2022` with the update key.
 //!
 //! Principal builders borrow cold root material and never return it. Service
 //! builders retain their separate assertion/update key result because a
 //! service owns and durably operates both keys.
 //!
-//! The algorithm intentionally mirrors soland's helpers byte-for-byte:
-//! `sha256_multihash_base58btc`, `strip_webvh_entry_for_hash`,
-//! `substitute_webvh_scid`, and the eddsa-jcs-2022 proof shape are all
-//! re-implemented here, and the test module includes an in-crate copy of
-//! soland's `verify_webvh_log_proof` so any divergence trips CI.
+//! Authoritative history verification is owned by `arkret-identity`; this
+//! module still self-validates every proof it constructs and every proof
+//! accepted by its public inception validator.
 //!
 //! HTTP transport (POSTing the prepared operation to soland) deliberately lives
 //! outside this crate: this module is pure build + cryptography so clients
@@ -49,9 +46,6 @@ use url::Url;
 
 const WEBVH_SCID_PLACEHOLDER: &str = "{SCID}";
 const WEBVH_METHOD_VERSION: &str = "did:webvh:1.0";
-#[cfg(test)]
-const ED25519_MULTICODEC_PREFIX: [u8; 2] = [0xed, 0x01];
-
 /// Errors produced while preparing a `did:webvh` inception entry.
 ///
 /// Only build / cryptography failures live here; transport (HTTP submit) and
@@ -258,8 +252,7 @@ pub fn validate_principal_inception_operation(
             "principal inception versionId does not match its canonical entry hash".to_owned(),
         ));
     }
-    verify_webvh_log_proof(&entry).map_err(WebvhInceptionError::InvalidProof)?;
-
+    verify_constructed_webvh_proof(&entry).map_err(WebvhInceptionError::InvalidProof)?;
     let state = entry.get("state").ok_or_else(|| {
         WebvhInceptionError::InvalidProof(
             "principal inception must contain a DID document state".to_owned(),
@@ -456,7 +449,7 @@ pub struct PrincipalInceptionInput<'a> {
     /// `also_known_as` reverse-link surface.
     pub principal_endpoint: &'a Url,
     /// Stable per-user identifier — typically the user's ULID lower-cased.
-    /// Validated against soland's `normalize_webvh_local_id` rules.
+    /// Validated against the canonical embedded-provider local-id profile.
     pub local_id: &'a str,
     /// Optional `alsoKnownAs` entries (e.g. the user's `@handle@host`).
     pub also_known_as: &'a [String],
@@ -562,7 +555,7 @@ pub fn prepare_principal_inception(
     if let Value::Object(map) = &mut log_entry {
         map.insert("proof".to_owned(), Value::Array(vec![proof]));
     }
-    verify_webvh_log_proof(&log_entry).map_err(WebvhInceptionError::InvalidProof)?;
+    verify_constructed_webvh_proof(&log_entry).map_err(WebvhInceptionError::InvalidProof)?;
     let submit_body = did_submit_body(&did, 1, None, log_entry.clone())?;
     let document_url = identity_document_url(input.principal_endpoint, &did)?;
     let log_url = identity_log_url(input.principal_endpoint, &did)?;
@@ -705,7 +698,7 @@ fn validate_principal_rotation_history<'a>(
                 "principal history entry {sequence} versionId hash is invalid"
             )));
         }
-        verify_webvh_log_proof(entry).map_err(WebvhInceptionError::InvalidProof)?;
+        verify_constructed_webvh_proof(entry).map_err(WebvhInceptionError::InvalidProof)?;
         previous_version_id = Some(version_id);
     }
 
@@ -854,7 +847,7 @@ pub fn prepare_principal_rotation(
     if let Value::Object(properties) = &mut log_entry {
         properties.insert("proof".to_owned(), Value::Array(vec![proof]));
     }
-    verify_webvh_log_proof(&log_entry).map_err(WebvhInceptionError::InvalidProof)?;
+    verify_constructed_webvh_proof(&log_entry).map_err(WebvhInceptionError::InvalidProof)?;
     let previous_event_digest = Hash::new(
         arkret_canonical::canonical::canonical_sha256(previous_entry)
             .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
@@ -1074,7 +1067,7 @@ fn prepare_service_inception_parts<R: RngCore + ?Sized>(
     if let Value::Object(map) = &mut log_entry {
         map.insert("proof".to_owned(), Value::Array(vec![proof]));
     }
-    verify_webvh_log_proof(&log_entry).map_err(WebvhInceptionError::InvalidProof)?;
+    verify_constructed_webvh_proof(&log_entry).map_err(WebvhInceptionError::InvalidProof)?;
     let submit_body = did_submit_body(&did, 1, None, log_entry.clone())?;
     let document_url = identity_document_url(provider_endpoint, &did)?;
     let log_url = identity_log_url(provider_endpoint, &did)?;
@@ -1155,8 +1148,7 @@ pub fn prepare_supplied_principal_inception(
         map.insert("versionId".to_owned(), Value::String(version_id.clone()));
         map.insert("proof".to_owned(), Value::Array(vec![input.proof.clone()]));
     }
-    verify_webvh_log_proof(&log_entry).map_err(WebvhInceptionError::InvalidProof)?;
-
+    verify_constructed_webvh_proof(&log_entry).map_err(WebvhInceptionError::InvalidProof)?;
     let did = format_webvh_did(&method_authority, &scid, &local_id);
     let root_verification_method = did_key_verification_method(input.root_public_key_multibase);
     let submit_body = did_submit_body(&did, 1, None, log_entry.clone())?;
@@ -1597,10 +1589,13 @@ fn build_proof(
     Ok(proof)
 }
 
-/// Local mirror of soland's `verify_webvh_log_proof`. The inception builder runs
-/// this against its own output so a build that soland would reject never leaves
-/// the process.
-fn verify_webvh_log_proof(entry: &Value) -> Result<(), String> {
+/// Self-check one constructed or caller-supplied method-native proof.
+///
+/// Complete history and witness verification remains centralized in
+/// `arkret-identity`; this narrow check prevents a public builder or inception
+/// validator from returning an object whose own controller signature is
+/// invalid.
+fn verify_constructed_webvh_proof(entry: &Value) -> Result<(), String> {
     let proof = entry
         .get("proof")
         .and_then(Value::as_array)
@@ -1633,12 +1628,14 @@ fn verify_webvh_log_proof(entry: &Value) -> Result<(), String> {
         .and_then(|bytes| {
             VerifyingKey::from_bytes(&bytes).map_err(|_| "invalid ed25519 public key".to_owned())
         })?;
-    let signature = decode_webvh_signature(
+    let signature_bytes = arkret_canonical::decode_ed25519_signature_multibase(
         proof
             .get("proofValue")
             .and_then(Value::as_str)
             .unwrap_or_default(),
-    )?;
+    )
+    .map_err(|error| format!("invalid ed25519 proofValue: {error}"))?;
+    let signature = Signature::from_bytes(&signature_bytes);
     let mut proof_config = Value::Object(proof.clone());
     if let Value::Object(properties) = &mut proof_config {
         properties.remove("proofValue");
@@ -1647,22 +1644,14 @@ fn verify_webvh_log_proof(entry: &Value) -> Result<(), String> {
     if let Value::Object(properties) = &mut document {
         properties.remove("proof");
     }
-    let proof_config = arkret_canonical::canonical::canonical_json_bytes(&proof_config)
-        .map_err(|error| error.to_string())?;
-    let document = arkret_canonical::canonical::canonical_json_bytes(&document)
-        .map_err(|error| error.to_string())?;
+    let proof_config = canonical_bytes(&proof_config).map_err(|error| error.to_string())?;
+    let document = canonical_bytes(&document).map_err(|error| error.to_string())?;
     let mut payload = Vec::with_capacity(64);
     payload.extend_from_slice(&arkret_canonical::canonical::sha256_bytes(&proof_config));
     payload.extend_from_slice(&arkret_canonical::canonical::sha256_bytes(&document));
     public_key
         .verify_strict(&payload, &signature)
         .map_err(|_| "webvh log proof signature is invalid".to_owned())
-}
-
-fn decode_webvh_signature(value: &str) -> Result<Signature, String> {
-    let signature_bytes = arkret_canonical::decode_ed25519_signature_multibase(value)
-        .map_err(|error| format!("invalid ed25519 proofValue: {error}"))?;
-    Ok(Signature::from_bytes(&signature_bytes))
 }
 
 /// Build the DIF did:webvh v1.0 entry-hash preimage: drop `proof[]` and set
@@ -1728,7 +1717,7 @@ fn format_webvh_did(method_authority: &str, scid: &str, local_id: &str) -> Strin
     format!("did:webvh:{scid}:{method_authority}:webvh:{local_id}")
 }
 
-/// Mirror of soland's `embedded_webvh_authority`. Returns (method_authority,
+/// Derive the embedded provider authority. Returns (method_authority,
 /// https_authority) — the first uses `%3A` for ports (DID-syntax safe), the
 /// second uses a literal colon (URL-syntax safe).
 fn authority_pair(endpoint: &Url) -> Result<(String, String), WebvhInceptionError> {
@@ -1753,7 +1742,7 @@ fn trimmed_endpoint(endpoint: &Url) -> String {
     endpoint.as_str().trim_end_matches('/').to_owned()
 }
 
-/// Mirror of soland's `normalize_webvh_local_id` so the local_id we send is
+/// Apply the embedded-provider local-id profile so the local_id we send is
 /// guaranteed accepted on the wire.
 fn normalize_local_id(value: &str) -> Option<String> {
     let normalized = value.trim().trim_start_matches('@').to_ascii_lowercase();
@@ -1782,93 +1771,10 @@ fn valid_multibase_key(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use arkret_canonical::multibase::decode_base58btc;
-    use ed25519_dalek::{PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH, Signature, VerifyingKey};
     use rand_chacha::ChaCha20Rng;
     use rand_chacha::rand_core::SeedableRng;
 
     use super::*;
-
-    /// In-crate copy of soland's `verify_webvh_log_proof`. If soland tightens
-    /// its verification rules, this copy must be updated — and the test below
-    /// will fail until it is, which is exactly the byte-for-byte guard we want.
-    fn verify_proof_like_soland(entry: &Value) -> Result<(), String> {
-        let proof = entry
-            .get("proof")
-            .and_then(Value::as_array)
-            .and_then(|items| items.first())
-            .and_then(Value::as_object)
-            .ok_or_else(|| "entry must include proof[0]".to_owned())?;
-        if proof.get("type").and_then(Value::as_str) != Some("DataIntegrityProof") {
-            return Err("proof type must be DataIntegrityProof".to_owned());
-        }
-        if proof.get("cryptosuite").and_then(Value::as_str) != Some("eddsa-jcs-2022") {
-            return Err("proof cryptosuite must be eddsa-jcs-2022".to_owned());
-        }
-        let vm = proof
-            .get("verificationMethod")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
-        let public_key_multibase = vm.rsplit_once('#').map_or(vm, |(_, f)| f);
-        let update_keys = entry
-            .pointer("/parameters/updateKeys")
-            .and_then(Value::as_array)
-            .map(|items| items.iter().filter_map(Value::as_str).collect::<Vec<_>>())
-            .unwrap_or_default();
-        if !update_keys.contains(&public_key_multibase) {
-            return Err("proof verificationMethod must reference updateKeys[0]".to_owned());
-        }
-        let public_key = decode_pubkey(public_key_multibase)?;
-        let signature = decode_signature(
-            proof
-                .get("proofValue")
-                .and_then(Value::as_str)
-                .unwrap_or_default(),
-        )?;
-        let mut proof_config = Value::Object(proof.clone());
-        if let Value::Object(properties) = &mut proof_config {
-            properties.remove("proofValue");
-        }
-        let mut document = entry.clone();
-        if let Value::Object(properties) = &mut document {
-            properties.remove("proof");
-        }
-        let proof_config = arkret_canonical::canonical::canonical_json_bytes(&proof_config)
-            .map_err(|error| error.to_string())?;
-        let document = arkret_canonical::canonical::canonical_json_bytes(&document)
-            .map_err(|error| error.to_string())?;
-        let mut payload = Vec::with_capacity(64);
-        payload.extend_from_slice(&arkret_canonical::canonical::sha256_bytes(&proof_config));
-        payload.extend_from_slice(&arkret_canonical::canonical::sha256_bytes(&document));
-        public_key
-            .verify_strict(&payload, &signature)
-            .map_err(|_| "signature invalid".to_owned())
-    }
-
-    fn decode_pubkey(value: &str) -> Result<VerifyingKey, String> {
-        let rest = value.strip_prefix('z').ok_or("missing z prefix")?;
-        let raw = decode_base58btc(rest).map_err(|_| "base58 decode failed")?;
-        let bytes = raw
-            .strip_prefix(&ED25519_MULTICODEC_PREFIX)
-            .ok_or("missing ed25519 multicodec")?;
-        if bytes.len() != PUBLIC_KEY_LENGTH {
-            return Err("public key must be 32 bytes".to_owned());
-        }
-        let mut arr = [0u8; PUBLIC_KEY_LENGTH];
-        arr.copy_from_slice(bytes);
-        VerifyingKey::from_bytes(&arr).map_err(|e| e.to_string())
-    }
-
-    fn decode_signature(value: &str) -> Result<Signature, String> {
-        let rest = value.strip_prefix('z').ok_or("missing z prefix")?;
-        let raw = decode_base58btc(rest).map_err(|_| "base58 decode failed")?;
-        if raw.len() != SIGNATURE_LENGTH {
-            return Err("signature must be 64 bytes".to_owned());
-        }
-        let mut arr = [0u8; SIGNATURE_LENGTH];
-        arr.copy_from_slice(&raw);
-        Ok(Signature::from_bytes(&arr))
-    }
 
     fn public_multikey(seed: u8) -> String {
         encode_ed25519_pubkey_multibase(
@@ -1960,7 +1866,7 @@ mod tests {
     }
 
     #[test]
-    fn did_format_matches_soland_authority() {
+    fn did_format_matches_embedded_provider_authority() {
         let prepared = run_prepare(1);
         assert!(
             prepared.did.starts_with("did:webvh:")
@@ -1984,29 +1890,6 @@ mod tests {
             scid.starts_with("Qm") && scid.len() == 46,
             "SCID must be a bare 46-char base58btc multihash, got: {scid}"
         );
-    }
-
-    #[test]
-    fn proof_passes_soland_verification() {
-        let prepared = run_prepare(42);
-        verify_proof_like_soland(&prepared.log_entry).expect("soland-shape verify");
-    }
-
-    #[test]
-    fn proof_payload_excludes_proof_but_keeps_version_id() {
-        // soland's verify removes only `proof` from the entry before hashing.
-        // A common bug would be to also remove `versionId`; this test pins the
-        // correct behaviour by tampering with versionId after signing and
-        // confirming the proof no longer verifies.
-        let mut prepared = run_prepare(7);
-        if let Value::Object(map) = &mut prepared.log_entry {
-            map.insert(
-                "versionId".to_owned(),
-                Value::String("1-zTAMPERED".to_owned()),
-            );
-        }
-        let err = verify_proof_like_soland(&prepared.log_entry).expect_err("must fail");
-        assert!(err.contains("signature"), "got: {err}");
     }
 
     #[test]
@@ -2058,6 +1941,30 @@ mod tests {
 
         proof.verification_key_multibase = public_multikey(20);
         assert!(verify_identity_creation_control_proof(&prepared.submit_body, &proof).is_err());
+    }
+
+    #[test]
+    fn public_inception_validator_rejects_forged_controller_proof() {
+        let prepared = run_prepare(21);
+        let mut request = prepared.submit_body;
+        let forged = SigningKey::from_bytes(&[99_u8; 32]).sign(b"unrelated");
+        request
+            .operation
+            .get_mut("proof")
+            .and_then(Value::as_array_mut)
+            .and_then(|proofs| proofs.first_mut())
+            .and_then(Value::as_object_mut)
+            .expect("proof object")
+            .insert(
+                "proofValue".to_owned(),
+                Value::String(arkret_canonical::encode_multibase_base58btc(
+                    forged.to_bytes(),
+                )),
+            );
+        assert!(matches!(
+            validate_principal_inception_operation(&request),
+            Err(WebvhInceptionError::InvalidProof(_))
+        ));
     }
 
     #[test]
@@ -2193,7 +2100,6 @@ mod tests {
             prepared.submit_body.operation
         );
         assert_eq!(supplied.submit_body.did.as_str(), prepared.did.as_str());
-        verify_webvh_log_proof(&supplied.did_log[0]).expect("proof still verifies");
     }
 
     #[test]
@@ -2220,9 +2126,6 @@ mod tests {
             id.ends_with("#enrollment-authority"),
             "service id must use the #enrollment-authority fragment, got {id}"
         );
-        // The signed proof MUST still verify with the extra service entry in
-        // the canonical document.
-        verify_proof_like_soland(&prepared.log_entry).expect("soland-shape verify with service");
     }
 
     #[test]
@@ -2321,7 +2224,6 @@ mod tests {
                     .as_str()
             )
         );
-        verify_webvh_log_proof(&rotated.log_entry).unwrap();
 
         let error = prepare_principal_rotation(&PrincipalRotationInput {
             did: &genesis.did,
@@ -2501,7 +2403,6 @@ mod tests {
             prepared.did
         );
         assert_eq!(prepared.local_id, "service");
-        verify_proof_like_soland(&prepared.log_entry).expect("service inception proof verifies");
     }
 
     #[test]
@@ -2609,7 +2510,6 @@ mod tests {
             prepared.log_entry["state"]["assertionMethod"][1],
             format!("{}#federation-fanout-key", prepared.did),
         );
-        verify_proof_like_soland(&prepared.log_entry).expect("service inception proof verifies");
     }
 
     #[test]
