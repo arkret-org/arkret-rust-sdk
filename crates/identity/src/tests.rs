@@ -461,6 +461,31 @@ fn webvh_rejects_wrong_scid_in_did() {
 }
 
 #[test]
+fn webvh_scid_derivation_blanks_references_in_object_keys() {
+    let skeleton = json!({
+        "versionId": "{SCID}",
+        "parameters": {
+            "scid": "{SCID}",
+        },
+        "state": {
+            "id": "did:webvh:{SCID}:starid.example.com:applets:weather",
+            "verificationMethod": {
+                "did:webvh:{SCID}:starid.example.com:applets:weather#service-key": "z6Mkfixture",
+            },
+        },
+    });
+    let scid = derive_did_webvh_scid(&skeleton).unwrap();
+    let realized: Value = serde_json::from_str(
+        &serde_json::to_string(&skeleton)
+            .unwrap()
+            .replace("{SCID}", &scid),
+    )
+    .unwrap();
+
+    assert_eq!(derive_did_webvh_scid(&realized).unwrap(), scid);
+}
+
+#[test]
 fn webvh_rejects_unauthorized_key_rotation() {
     // Entry 2 rotates to key2 but is signed by an attacker key that was
     // never authorized by entry 1's updateKeys.

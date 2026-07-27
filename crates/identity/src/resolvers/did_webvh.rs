@@ -853,7 +853,7 @@ fn webvh_placeholder(value: &Value, scid: &str) -> Value {
         ),
         Value::Object(map) => Value::Object(
             map.iter()
-                .map(|(k, v)| (k.clone(), webvh_placeholder(v, scid)))
+                .map(|(k, v)| (k.replace(scid, "{SCID}"), webvh_placeholder(v, scid)))
                 .collect(),
         ),
         other => other.clone(),
