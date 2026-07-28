@@ -8,8 +8,9 @@ use arkret_canonical::{
 };
 use arkret_wire::{
     BackupId, BackupSeriesId, Base64UrlString, Cursor, DeviceId, Did, DidUrl, Error, EventId,
-    HPKE_SUITES, Hash, NonEmptyString, PolicyId, RealmId, ReceiptId, RecoveryAuthorityTicketId,
-    RecoverySessionId, Result, TransactionId, TypedTrustDomainId, XExtensionMap,
+    HPKE_SUITES, Hash, LeaseBasisRef, NonEmptyString, PolicyId, RealmId, ReceiptId,
+    RecoveryAuthorityTicketId, RecoverySessionId, Result, TransactionId, TypedTrustDomainId,
+    XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -1184,6 +1185,7 @@ pub struct RecoveryPolicySummary {
     pub policy_id: PolicyId,
     pub principal_id: Did,
     pub version: u64,
+    pub acceptance_basis: LeaseBasisRef,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recovery_policy_ref: Option<RecoveryPolicyRef>,
     pub trust_domain: TypedTrustDomainId,
@@ -1256,6 +1258,7 @@ pub struct RecoveryPolicyPublishOutcome {
     pub policy_id: PolicyId,
     pub principal_id: Did,
     pub version: u64,
+    pub acceptance_basis: LeaseBasisRef,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"

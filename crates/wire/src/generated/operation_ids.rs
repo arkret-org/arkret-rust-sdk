@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-07-20;
-//! sha256=646a5006ba09733658769b3471e90a3d5779f65ceef6fa153eef18764d178d91 Entries: registered=214
+//! sha256=eb092c527dcd1fef5006b2643ed799c0b710a8072f5f372e486279218ca44e7f Entries: registered=214
 
 use serde::{Deserialize, Serialize};
 
@@ -3058,7 +3058,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "schema_resource",
         idempotency_mechanism: Some("protocol_sequence"),
         retry_safe: Some(true),
-        request_schema_ref: Some("schemas/recovery-policy.schema.json"),
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/EventInitialSubmission",
+        ),
         response_schema_ref: Some(
             "schemas/recovery-policy.schema.json#/$defs/recovery_policy_publish_outcome",
         ),
