@@ -44,10 +44,18 @@ impl Lattice for CasRegister {
     }
 
     fn join(&self, cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
-        let valid_ops: Vec<&SealedOp> = sealed_ops
+        let mut valid_ops: Vec<&SealedOp> = Vec::new();
+        for entry in sealed_ops
             .iter()
-            .filter(|e| self.validate_op(&e.op).is_ok())
-            .collect();
+            .filter(|entry| self.validate_op(&entry.op).is_ok())
+        {
+            if !valid_ops
+                .iter()
+                .any(|existing| existing.op.value == entry.op.value)
+            {
+                valid_ops.push(entry);
+            }
+        }
         match valid_ops.len() {
             0 => CellState::Value(Value::Null),
             1 => CellState::Value(valid_ops[0].op.value.clone().unwrap_or(Value::Null)),
@@ -120,6 +128,18 @@ mod tests {
             }
             _ => panic!("expected Bottom"),
         }
+    }
+
+    #[test]
+    fn concurrent_same_value_sets_are_idempotent() {
+        let ops = vec![
+            SealedOp::new(move_id(1), set_op(json!("closed"))),
+            SealedOp::new(move_id(2), set_op(json!("closed"))),
+        ];
+        assert_eq!(
+            CasRegister.join(&cell(), &ops),
+            CellState::Value(json!("closed"))
+        );
     }
 
     #[test]

@@ -513,18 +513,28 @@ fn effective_state_for_covered_events(
 ) -> Result<BTreeMap<CellRef, CellState>, SealReject> {
     let mut out = BTreeMap::new();
     for cell in cells.list_cells(realm_id)? {
-        let ops: Vec<IssuedOp> = cells
-            .sealed_ops_for_cell(realm_id, &cell)?
+        let batches: Vec<(SealId, Vec<IssuedOp>)> = cells
+            .sealed_op_batches_for_cell(realm_id, &cell)?
             .into_iter()
-            .filter(|issued| covered.contains(&issued.op.move_id))
+            .filter_map(|(seal, ops)| {
+                let covered_ops = ops
+                    .into_iter()
+                    .filter(|issued| covered.contains(&issued.op.move_id))
+                    .collect::<Vec<_>>();
+                (!covered_ops.is_empty()).then_some((seal, covered_ops))
+            })
             .collect();
-        if ops.is_empty() {
+        if batches.is_empty() {
             continue;
         }
         let binding = registry.resolve(realm_id, &cell)?;
         out.insert(
             cell.clone(),
-            join_cell(binding.lattice.as_ref(), &cell, &ops),
+            join_cell_seal_batches(
+                binding.lattice.as_ref(),
+                &cell,
+                &batches.into_iter().map(|(_, ops)| ops).collect::<Vec<_>>(),
+            ),
         );
     }
     Ok(out)
@@ -1336,6 +1346,47 @@ mod tests {
         .unwrap();
         assert_eq!(state.get(&cell), Some(&CellState::Value(json!("ban"))));
     }
+
+    #[test]
+    fn register_seal_batches_distinguish_successors_from_siblings() {
+        let cell = CellRef::new(
+            "ak:cell:ak.component.realm.policy.v1:ak.realm.01js0sp00000000000000000aa".to_owned(),
+        )
+        .unwrap();
+        let set = |id, value| {
+            issued(SealedOp::new(
+                move_id(id),
+                LatticeOp {
+                    op_type: LatticeOpType::Set,
+                    tag: None,
+                    value: Some(json!(value)),
+                    from: None,
+                    to: None,
+                    reason: None,
+                    issuer_seq: None,
+                },
+            ))
+        };
+        let lattice = crate::lattice::CasRegister;
+
+        let sequential = vec![vec![set(1, "open")], vec![set(2, "closed")]];
+        assert_eq!(
+            join_cell_seal_batches(&lattice, &cell, &sequential),
+            CellState::Value(json!("closed"))
+        );
+
+        let siblings = vec![vec![set(3, "open"), set(4, "closed")]];
+        assert!(matches!(
+            join_cell_seal_batches(&lattice, &cell, &siblings),
+            CellState::Bottom(_)
+        ));
+
+        let duplicate_siblings = vec![vec![set(5, "closed"), set(6, "closed")]];
+        assert_eq!(
+            join_cell_seal_batches(&lattice, &cell, &duplicate_siblings),
+            CellState::Value(json!("closed"))
+        );
+    }
 }
 
 /// Join one cell's ops, routing `ordered_log` to its issuer-aware entry point.
@@ -1354,4 +1405,37 @@ pub fn join_cell(
     }
     let sealed: Vec<SealedOp> = ops.iter().map(|issued| issued.op.clone()).collect();
     lattice.join(cell, &sealed)
+}
+
+/// Join accepted operations while preserving frozen-predecessor Seal batches.
+///
+/// Register writes in a successor Seal causally replace the previous head.
+/// Multiple writes inside one Seal share one predecessor view and therefore
+/// remain sibling heads. Other core lattices consume their full accepted
+/// history because their join already models ordered transitions or
+/// commutative accumulation.
+pub fn join_cell_seal_batches(
+    lattice: &dyn crate::lattice::Lattice,
+    cell: &CellRef,
+    batches: &[Vec<IssuedOp>],
+) -> CellState {
+    match lattice.kind() {
+        crate::lattice::LatticeKind::CasRegister | crate::lattice::LatticeKind::MvRegister => {
+            batches
+                .iter()
+                .rev()
+                .find(|ops| !ops.is_empty())
+                .map_or_else(
+                    || lattice.join(cell, &[]),
+                    |ops| join_cell(lattice, cell, ops),
+                )
+        }
+        _ => {
+            let ops = batches
+                .iter()
+                .flat_map(|ops| ops.iter().cloned())
+                .collect::<Vec<_>>();
+            join_cell(lattice, cell, &ops)
+        }
+    }
 }

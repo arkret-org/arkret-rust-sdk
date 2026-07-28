@@ -176,6 +176,18 @@ pub trait CellStore: Send + Sync {
     fn sealed_ops_for_cell(&self, realm_id: &RealmId, cell: &CellRef)
     -> StoreResult<Vec<IssuedOp>>;
 
+    /// Sealed operations grouped by the Seal batch that accepted them, in
+    /// Seal acceptance order.
+    ///
+    /// The batch boundary is consensus-significant for registers: writes in
+    /// one Seal share the frozen predecessor view and are concurrent siblings,
+    /// while a write in a successor Seal causally replaces the prior head.
+    fn sealed_op_batches_for_cell(
+        &self,
+        realm_id: &RealmId,
+        cell: &CellRef,
+    ) -> StoreResult<Vec<(SealId, Vec<IssuedOp>)>>;
+
     /// Cached effective state. `None` means the runtime must recompute.
     fn cached_state(
         &self,

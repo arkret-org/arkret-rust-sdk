@@ -363,8 +363,8 @@ pub struct MemoryCellStore {
 
 #[derive(Default)]
 struct MemoryCellStoreInner {
-    /// (realm, cell) -> ordered SealedOp list
-    cell_log: BTreeMap<(String, String), Vec<IssuedOp>>,
+    /// (realm, cell) -> ordered (accepting Seal, SealedOp) list
+    cell_log: BTreeMap<(String, String), Vec<(SealId, IssuedOp)>>,
     /// (realm, cell, view_hash) -> CellState
     cache: BTreeMap<(String, String, String), CellState>,
     /// seal → ops it appended (used for rollback)
@@ -400,8 +400,35 @@ impl CellStore for MemoryCellStore {
         Ok(inner
             .cell_log
             .get(&(realm_id.as_str().to_owned(), cell.as_str().to_owned()))
-            .cloned()
+            .map(|entries| entries.iter().map(|(_, op)| op.clone()).collect())
             .unwrap_or_default())
+    }
+
+    fn sealed_op_batches_for_cell(
+        &self,
+        realm_id: &RealmId,
+        cell: &CellRef,
+    ) -> StoreResult<Vec<(SealId, Vec<IssuedOp>)>> {
+        let inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut batches: Vec<(SealId, Vec<IssuedOp>)> = Vec::new();
+        for (seal, op) in inner
+            .cell_log
+            .get(&(realm_id.as_str().to_owned(), cell.as_str().to_owned()))
+            .into_iter()
+            .flatten()
+        {
+            if let Some((batch_seal, ops)) = batches.last_mut()
+                && batch_seal == seal
+            {
+                ops.push(op.clone());
+            } else {
+                batches.push((seal.clone(), vec![op.clone()]));
+            }
+        }
+        Ok(batches)
     }
 
     fn cached_state(
@@ -463,7 +490,7 @@ impl CellStore for MemoryCellStore {
                 .cell_log
                 .entry(key.clone())
                 .or_default()
-                .push(op.clone());
+                .push((seal.clone(), op.clone()));
             applied.push((cell.as_str().to_owned(), op.clone()));
         }
         inner.seal_ops.insert(seal.as_str().to_owned(), applied);
@@ -489,9 +516,10 @@ impl CellStore for MemoryCellStore {
         for (cell_str, op) in applied {
             let key = (realm_id.as_str().to_owned(), cell_str);
             if let Some(log) = inner.cell_log.get_mut(&key) {
-                // Remove the op from the tail; if it's not at the tail (concurrent
-                // writes), search and remove the first match.
-                if let Some(pos) = log.iter().rposition(|x| x == &op) {
+                if let Some(pos) = log
+                    .iter()
+                    .rposition(|(entry_seal, entry_op)| entry_seal == seal && entry_op == &op)
+                {
                     log.remove(pos);
                 }
                 if log.is_empty() {
