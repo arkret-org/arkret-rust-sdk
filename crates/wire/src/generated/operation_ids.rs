@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-07-20;
-//! sha256=3fcd442d746116bc1ed4d658c2a03315fee5d94d8accdef6953c98f2c742f45f Entries: registered=211
+//! sha256=c5b66d73e13d14995acefcaf831335cdc661e118af8a58536148adbc5af52098 Entries: registered=212
 
 use serde::{Deserialize, Serialize};
 
@@ -76,6 +76,7 @@ pub enum ServiceOperationId {
     PeerInvitesCommandSubmit,
     PeerKeysKeypackagesCommandClaim,
     PeerKeysKeypackagesQueryClaim,
+    PeerSignalCommandRelay,
     PeerSnapshotQueryManifestHead,
     RootIdentityCommandSubmitDidOperation,
     RootIdentityDocumentResourceGet,
@@ -290,6 +291,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.peer.invites.command.submit",
     "ak.peer.keys.keypackages.command.claim",
     "ak.peer.keys.keypackages.query.claim",
+    "ak.peer.signal.command.relay",
     "ak.peer.snapshot.query.manifest_head",
     "ak.root.identity.command.submit_did_operation",
     "ak.root.identity.document.resource.get",
@@ -520,6 +522,7 @@ impl ServiceOperationId {
         Self::PeerInvitesCommandSubmit,
         Self::PeerKeysKeypackagesCommandClaim,
         Self::PeerKeysKeypackagesQueryClaim,
+        Self::PeerSignalCommandRelay,
         Self::PeerSnapshotQueryManifestHead,
         Self::RootIdentityCommandSubmitDidOperation,
         Self::RootIdentityDocumentResourceGet,
@@ -777,6 +780,7 @@ impl ServiceOperationId {
         "ak.peer.keys.keypackages.command.claim";
     pub const PEER_KEYS_KEYPACKAGES_QUERY_CLAIM: &'static str =
         "ak.peer.keys.keypackages.query.claim";
+    pub const PEER_SIGNAL_COMMAND_RELAY: &'static str = "ak.peer.signal.command.relay";
     pub const PEER_SNAPSHOT_QUERY_MANIFEST_HEAD: &'static str =
         "ak.peer.snapshot.query.manifest_head";
     pub const ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION: &'static str =
@@ -1090,6 +1094,7 @@ impl ServiceOperationId {
             Self::PeerInvitesCommandSubmit => "ak.peer.invites.command.submit",
             Self::PeerKeysKeypackagesCommandClaim => "ak.peer.keys.keypackages.command.claim",
             Self::PeerKeysKeypackagesQueryClaim => "ak.peer.keys.keypackages.query.claim",
+            Self::PeerSignalCommandRelay => "ak.peer.signal.command.relay",
             Self::PeerSnapshotQueryManifestHead => "ak.peer.snapshot.query.manifest_head",
             Self::RootIdentityCommandSubmitDidOperation => {
                 "ak.root.identity.command.submit_did_operation"
@@ -1402,6 +1407,7 @@ impl ServiceOperationId {
             "ak.peer.invites.command.submit" => Some(Self::PeerInvitesCommandSubmit),
             "ak.peer.keys.keypackages.command.claim" => Some(Self::PeerKeysKeypackagesCommandClaim),
             "ak.peer.keys.keypackages.query.claim" => Some(Self::PeerKeysKeypackagesQueryClaim),
+            "ak.peer.signal.command.relay" => Some(Self::PeerSignalCommandRelay),
             "ak.peer.snapshot.query.manifest_head" => Some(Self::PeerSnapshotQueryManifestHead),
             "ak.root.identity.command.submit_did_operation" => {
                 Some(Self::RootIdentityCommandSubmitDidOperation)
@@ -2796,6 +2802,19 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_query_outcome",
         ),
         uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerSignalCommandRelay,
+        http_method: "POST",
+        http_path: "/_arkret/peer/signal",
+        grpc: Some("PeerSignal/Relay"),
+        mq: Some("peer.signal.command.relay"),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("none"),
+        retry_safe: Some(false),
+        request_schema_ref: Some("schemas/signal-relay.schema.json"),
+        response_schema_ref: Some("schemas/signal-relay.schema.json#/$defs/signal_relay_outcome"),
+        uncertain_outcome: Some("{\"strategy\":\"drop_unconfirmed\"}"),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerSnapshotQueryManifestHead,

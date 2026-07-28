@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=01b783fef34032c8abcf350f73efd91348b6db0f4ed8687260fe39d3d5295381
-//! Entries: reason_codes=445
+//! sha256=8a15acdc8364a503c303242612b395cf4fe6c54b3df22c5a74e3856046fa536d
+//! Entries: reason_codes=446
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -99,6 +99,7 @@ pub enum ReasonCode {
     ConsentWithdrawn,
     ContentEncryptionFloorDowngrade,
     ContentEncryptionFloorViolation,
+    ControlMoveFinalityExceeded,
     ControllerMembershipEnded,
     CounterBoundExceeded,
     CoveredSetMismatch,
@@ -574,6 +575,7 @@ impl ReasonCode {
         "content_encryption_floor_downgrade";
     pub const CONTENT_ENCRYPTION_FLOOR_VIOLATION: &'static str =
         "content_encryption_floor_violation";
+    pub const CONTROL_MOVE_FINALITY_EXCEEDED: &'static str = "control_move_finality_exceeded";
     pub const CONTROLLER_MEMBERSHIP_ENDED: &'static str = "controller_membership_ended";
     pub const COUNTER_BOUND_EXCEEDED: &'static str = "counter_bound_exceeded";
     pub const COVERED_SET_MISMATCH: &'static str = "covered_set_mismatch";
@@ -1106,6 +1108,7 @@ impl ReasonCode {
             Self::ConsentWithdrawn => "consent_withdrawn",
             Self::ContentEncryptionFloorDowngrade => "content_encryption_floor_downgrade",
             Self::ContentEncryptionFloorViolation => "content_encryption_floor_violation",
+            Self::ControlMoveFinalityExceeded => "control_move_finality_exceeded",
             Self::ControllerMembershipEnded => "controller_membership_ended",
             Self::CounterBoundExceeded => "counter_bound_exceeded",
             Self::CoveredSetMismatch => "covered_set_mismatch",
@@ -1629,6 +1632,7 @@ impl ReasonCode {
             "consent_withdrawn" => Self::ConsentWithdrawn,
             "content_encryption_floor_downgrade" => Self::ContentEncryptionFloorDowngrade,
             "content_encryption_floor_violation" => Self::ContentEncryptionFloorViolation,
+            "control_move_finality_exceeded" => Self::ControlMoveFinalityExceeded,
             "controller_membership_ended" => Self::ControllerMembershipEnded,
             "counter_bound_exceeded" => Self::CounterBoundExceeded,
             "covered_set_mismatch" => Self::CoveredSetMismatch,
@@ -2519,6 +2523,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "content_encryption_floor_violation",
         applies_to: &["state_resolution"],
         description: "Sub-reason for failed_precondition when a Realm declares content_encryption_floor=e2ee_required but a Strand / Message / Morph / Blob content write would land in a non-MLS-backed effective_scope (plaintext). The content effective_scope MUST be Realm-default MLS or Circle MLS. See zh/models/circle.md §7 (Realm.content_encryption_floor).",
+    },
+    ReasonCodeDescriptor {
+        code: "control_move_finality_exceeded",
+        applies_to: &["state_resolution", "auth_decision"],
+        description: "An accepted control-plane Control Move did not reach control-plane finality within the Realm's control_move_finality_sla_ms: neither an accepted Seal covering its digest nor an independently verifiable terminal rejection arrived in time, measured from the received_at its notary-signed receipt commits to. This is a governance health fault, not an acceptance result - the Realm's health projection goes degraded and authoring that depends on the pending Move fails closed, but a Seal arriving after the deadline is still accepted and the fault is retained as auditable evidence. It does not replace the Event's own pending state. See zh/authz/event-auth-state-resolution.md section 7.2.",
     },
     ReasonCodeDescriptor {
         code: "controller_membership_ended",

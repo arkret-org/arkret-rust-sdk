@@ -5,10 +5,10 @@
 //! capability-action-registry.json; version=2026-07-20;
 //! sha256=449da095c4545f33ff8cc7f67f466c018ac9d3768e625e5f981c748448c6ef78 Input: registry/
 //! schema-registry.json; version=2026-07-20;
-//! sha256=f56ba43f39efebb061277700a96d4af274ceaed9d0d109ba92c1dfa901dba1a7 Input: registry/
+//! sha256=2c91a7538885f92bc227d2ee15da72245e6ad01a5e224148f2fb219938ff5f66 Input: registry/
 //! account-data-key-registry.json; version=2026-07-03;
 //! sha256=32b003a9e2bf2281ae93079070512566de7b19ba0fa003fe6cfd43dcfce614db Entries: id_kinds=51,
-//! special_forms=9, actions=155, schemas=141, account_data_patterns=22
+//! special_forms=9, actions=155, schemas=144, account_data_patterns=22
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -2364,6 +2364,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/signal-envelope.schema.json",
     },
     SchemaDescriptor {
+        schema_id: "ak.schema.signal_relay.v1",
+        file: "schemas/signal-relay.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.signal_stream_frame.v1",
+        file: "schemas/signal-stream-frame.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: "ak.schema.snapshot.v1",
         file: "schemas/snapshot.schema.json",
     },
@@ -2382,6 +2390,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: "ak.schema.time.v1",
         file: "schemas/time.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.transport_binding.v1",
+        file: "schemas/transport-binding.schema.json",
     },
     SchemaDescriptor {
         schema_id: "ak.schema.view.v1",
