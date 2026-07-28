@@ -762,14 +762,14 @@ impl Event {
                 self.seal_ref.is_none() && self.auth_context.is_none() && self.seal_basis.is_some();
             // The §5 anchor units carry no basis field at all: bootstrap has no
             // accepted Seal to point at, and the B-model re-anchor fixes its
-            // frontier in the payload's `pre_fence_basis`. They are still
-            // required to be empty rather than partially filled, so a malformed
-            // Event cannot smuggle a half-basis through the exemption.
+            // frontier in the payload's `pre_fence_basis`. A bootstrap Event
+            // may still carry a precondition, which is evaluated against the
+            // unit's empty frozen predecessor state; only the three mutually
+            // exclusive CBA basis fields participate in this shape test.
             let is_anchor_unit = context == EventSubmitContext::AnchorUnit
                 && self.seal_ref.is_none()
                 && self.auth_context.is_none()
-                && self.seal_basis.is_none()
-                && self.preconditions.is_empty();
+                && self.seal_basis.is_none();
             if !is_data_event && !is_control_move && !is_anchor_unit {
                 return Err(Error::Protocol(
                     "reducer-input events must be either DataEvent(seal_ref+auth_context) or Control Move(seal_basis)"
@@ -1286,6 +1286,43 @@ mod event_wire_surface_tests {
         assert!(
             err.to_string().contains("scope_ref.realm_id"),
             "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn anchor_unit_allows_preconditions_without_any_cba_basis_field() {
+        let mut event = base_event();
+        event.kind = EventKind::from(EventKind::REALM_CREATE);
+        event.preconditions.push(Precondition {
+            cell: crate::CellRef::new("ak:cell:ak.component.realm.create.v1:null".to_owned())
+                .unwrap(),
+            predicate: crate::cba::Predicate {
+                op: crate::cba::PredicateOp::HeadEq,
+                value: Some(Value::Null),
+                values: None,
+                predicate_id: None,
+            },
+        });
+        event.proofs.push(Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+            event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "a..b".to_owned(),
+        });
+
+        event
+            .validate_for_submit_structural_in_context(EventSubmitContext::AnchorUnit)
+            .expect("anchor-unit precondition is evaluated against the frozen predecessor");
+        assert!(
+            event
+                .validate_for_submit_structural_in_context(EventSubmitContext::Standard)
+                .is_err(),
+            "the same basis-less Event is not an ordinary Control Move"
         );
     }
 }

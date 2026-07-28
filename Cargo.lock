@@ -429,6 +429,7 @@ name = "arkret-models-identity"
 version = "0.3.0"
 dependencies = [
  "arkret-canonical",
+ "arkret-schema",
  "arkret-wire",
  "chrono",
  "salvo-oapi",

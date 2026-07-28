@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use arkret_wire::{Did, Error, Hash, Proof, Result};
+use arkret_wire::{Did, Error, Hash, PayloadProof, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +16,8 @@ pub const ORGANIZATION_REGISTRATION_REVOKE_PATH: &str =
     "/_arkret/root/identity/organization-registrations:revoke";
 pub const ORGANIZATION_REGISTRATION_CONTROL_PURPOSE: &str =
     "ak.organization-registration-control-proof-v1";
+pub const ORGANIZATION_REGISTRATION_RECEIPT_PROOF_CONTEXT: &str =
+    "ak.organization-registration-receipt-proof-v1";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -41,7 +43,7 @@ pub struct OrganizationControlProof {
     pub proof_kind: OrganizationControlProofKind,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quorum_threshold: Option<u64>,
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<PayloadProof>,
 }
 
 impl OrganizationControlProof {
@@ -50,6 +52,9 @@ impl OrganizationControlProof {
             return Err(Error::Protocol(
                 "organization control proof requires at least one proof".to_owned(),
             ));
+        }
+        for proof in &self.proofs {
+            proof.validate_production()?;
         }
         let unique_methods = self
             .proofs
@@ -85,6 +90,43 @@ impl OrganizationControlProof {
                 Error::Protocol("resolved control proof forbids quorum_threshold".to_owned()),
             ),
         }
+    }
+
+    /// Validate the digest carried by every detached proof against the exact
+    /// beneficiary-bound control transcript required by identity-did §8.4.
+    ///
+    /// Signature verification remains the resolver's responsibility because
+    /// it requires the DID document pinned by `version_id` and
+    /// `log_head_digest`.
+    pub fn validate_transcript_bindings(
+        &self,
+        challenge_id: &str,
+        organization_id: &Did,
+        local_admin_subject: &Did,
+        version_id: &str,
+        log_head_digest: &Hash,
+    ) -> Result<()> {
+        self.validate()?;
+        for proof in &self.proofs {
+            let transcript = serde_json::json!({
+                "context": ORGANIZATION_REGISTRATION_CONTROL_PURPOSE,
+                "challenge_id": challenge_id,
+                "organization_id": organization_id,
+                "local_admin_subject": local_admin_subject,
+                "version_id": version_id,
+                "log_head_digest": log_head_digest,
+                "verification_method": proof.verification_method,
+                "created_at": proof.created_at,
+            });
+            let expected = Hash::new(arkret_canonical::canonical::canonical_sha256(&transcript)?)?;
+            if proof.payload_digest != expected {
+                return Err(Error::Protocol(
+                    "organization control proof payload_digest does not match its bound transcript"
+                        .to_owned(),
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -261,6 +303,48 @@ impl OrganizationRegistrationEnsureRequestBody {
         }
         Ok(())
     }
+
+    pub fn validate_for_challenge_at(
+        &self,
+        challenge: &OrganizationRegistrationChallenge,
+        now: DateTime<Utc>,
+    ) -> Result<()> {
+        self.validate()?;
+        let challenge_request = OrganizationRegistrationChallengeRequestBody {
+            organization_id: self.organization_id.clone(),
+            local_admin_subject: self.local_admin_subject.clone(),
+            requested_scopes: self.requested_scopes.clone(),
+        };
+        challenge.validate_for_at(&challenge_request, now)?;
+        if self.challenge_id != challenge.challenge_id {
+            return Err(Error::Protocol(
+                "organization registration ensure challenge_id mismatch".to_owned(),
+            ));
+        }
+        self.control_proof.validate_transcript_bindings(
+            &self.challenge_id,
+            &self.organization_id,
+            &self.local_admin_subject,
+            &self.version_id,
+            &self.log_head_digest,
+        )?;
+        if self.control_proof.proofs.iter().any(|proof| {
+            proof.created_at < challenge.created_at || proof.created_at >= challenge.expires_at
+        }) {
+            return Err(Error::Protocol(
+                "organization control proof was not created during the challenge lifetime"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn canonical_request_digest(&self) -> Result<Hash> {
+        self.validate()?;
+        Ok(Hash::new(arkret_canonical::canonical::canonical_sha256(
+            self,
+        )?)?)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -288,6 +372,50 @@ impl OrganizationRegistrationRefreshRequestBody {
             ));
         }
         Ok(())
+    }
+
+    pub fn validate_for_challenge_at(
+        &self,
+        challenge: &OrganizationRegistrationChallenge,
+        current_local_admin_subject: &Did,
+        current_scopes: &[OrganizationRegistrationScope],
+        now: DateTime<Utc>,
+    ) -> Result<()> {
+        self.validate()?;
+        let challenge_request = OrganizationRegistrationChallengeRequestBody {
+            organization_id: self.organization_id.clone(),
+            local_admin_subject: current_local_admin_subject.clone(),
+            requested_scopes: current_scopes.to_vec(),
+        };
+        challenge.validate_for_at(&challenge_request, now)?;
+        if self.challenge_id != challenge.challenge_id {
+            return Err(Error::Protocol(
+                "organization registration refresh challenge_id mismatch".to_owned(),
+            ));
+        }
+        self.control_proof.validate_transcript_bindings(
+            &self.challenge_id,
+            &self.organization_id,
+            current_local_admin_subject,
+            &self.version_id,
+            &self.log_head_digest,
+        )?;
+        if self.control_proof.proofs.iter().any(|proof| {
+            proof.created_at < challenge.created_at || proof.created_at >= challenge.expires_at
+        }) {
+            return Err(Error::Protocol(
+                "organization control proof was not created during the challenge lifetime"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn canonical_request_digest(&self) -> Result<Hash> {
+        self.validate()?;
+        Ok(Hash::new(arkret_canonical::canonical::canonical_sha256(
+            self,
+        )?)?)
     }
 }
 
@@ -342,7 +470,7 @@ pub struct OrganizationRegistrationReceipt {
     )]
     pub expires_at: DateTime<Utc>,
     pub issuer_service_id: Did,
-    pub proof: Proof,
+    pub proof: PayloadProof,
 }
 
 impl OrganizationRegistrationReceipt {
@@ -360,12 +488,51 @@ impl OrganizationRegistrationReceipt {
         ))
     }
 
+    pub fn expected_payload_digest(&self) -> Result<Hash> {
+        let mut document = serde_json::to_value(self)?;
+        let object = document.as_object_mut().ok_or_else(|| {
+            Error::Protocol("organization registration receipt must be an object".to_owned())
+        })?;
+        object.remove("proof");
+        Ok(Hash::new(arkret_canonical::canonical::canonical_sha256(
+            &document,
+        )?)?)
+    }
+
+    /// Return the exact detached-JWS payload for the receipt proof. Consumers
+    /// still need signing-time DID resolution to verify the signature.
+    pub fn proof_signing_bytes(&self) -> Result<Vec<u8>> {
+        let binding = serde_json::json!({
+            "context": ORGANIZATION_REGISTRATION_RECEIPT_PROOF_CONTEXT,
+            "payload_digest": self.proof.payload_digest,
+            "issuer_service_id": self.issuer_service_id,
+            "registration_receipt_id": self.registration_receipt_id,
+            "organization_id": self.organization_id,
+            "verification_method": self.proof.verification_method,
+            "created_at": self.proof.created_at,
+            "domain": self.proof.domain,
+            "audience": self.proof.audience,
+        });
+        let object = binding.as_object().expect("JSON object");
+        let mut compact = object.clone();
+        if self.proof.domain.is_none() {
+            compact.remove("domain");
+        }
+        if self.proof.audience.is_none() {
+            compact.remove("audience");
+        }
+        Ok(arkret_canonical::canonical::canonical_json_bytes(&compact)?)
+    }
+
     pub fn validate(&self) -> Result<()> {
         validate_scopes(&self.delegated_scopes)?;
+        self.proof.validate_production()?;
         if self.registration_generation == 0
             || self.version_id.is_empty()
             || self.expires_at <= self.issued_at
             || self.registration_receipt_id != self.expected_receipt_id()?
+            || self.proof.payload_digest != self.expected_payload_digest()?
+            || self.proof.created_at != self.issued_at
             || self.issuer_service_id.method() != "webvh"
             || !self
                 .proof
@@ -406,6 +573,66 @@ impl OrganizationRegistrationOutcome {
     }
 }
 
+/// Return the stored outcome only for the one replay shape permitted by the
+/// single-use challenge contract: the submitted canonical request digest is
+/// byte-identical to the digest committed with the successful outcome.
+pub fn organization_registration_replay_outcome(
+    successful_request_digest: &Hash,
+    submitted_request_digest: &Hash,
+    successful_outcome: &OrganizationRegistrationOutcome,
+) -> Result<OrganizationRegistrationOutcome> {
+    if successful_request_digest != submitted_request_digest {
+        return Err(Error::Protocol(
+            "organization registration challenge was consumed by a different request".to_owned(),
+        ));
+    }
+    let mut replay = successful_outcome.clone();
+    replay.created = false;
+    replay.validate()?;
+    Ok(replay)
+}
+
+/// Enforce the current-generation pointer and lifecycle state before a receipt
+/// is used for a high-risk authorization decision.
+pub fn validate_organization_registration_authorization_at(
+    receipt: &OrganizationRegistrationReceipt,
+    current_generation: u64,
+    current_status: OrganizationRegistrationStatus,
+    now: DateTime<Utc>,
+) -> Result<()> {
+    receipt.validate()?;
+    if receipt.registration_generation != current_generation
+        || current_status == OrganizationRegistrationStatus::Revoked
+    {
+        return Err(Error::Protocol(
+            "organization registration receipt is revoked or superseded".to_owned(),
+        ));
+    }
+    if current_status == OrganizationRegistrationStatus::Stale
+        || receipt.status != OrganizationRegistrationStatus::Active
+        || receipt.expires_at <= now
+    {
+        return Err(Error::Protocol(
+            "organization registration receipt is stale".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+/// Compute the generation for a non-replay ensure transition. Generation zero
+/// is never emitted; a revoked or superseded generation remains immutable.
+pub fn next_organization_registration_generation(current_generation: Option<u64>) -> Result<u64> {
+    match current_generation {
+        None => Ok(1),
+        Some(0) => Err(Error::Protocol(
+            "organization registration generation must start at one".to_owned(),
+        )),
+        Some(generation) => generation.checked_add(1).ok_or_else(|| {
+            Error::Protocol("organization registration generation overflow".to_owned())
+        }),
+    }
+}
+
 fn is_lower_hex_sha256(value: &str) -> bool {
     value.len() == 64
         && value
@@ -426,6 +653,20 @@ mod tests {
             organization_id: did("did:webvh:zOrg:org.example"),
             local_admin_subject: did("did:webvh:zAdmin:admin.example"),
             requested_scopes: vec![OrganizationRegistrationScope::OrganizationProfileManage],
+        }
+    }
+
+    fn payload_proof(created_at: DateTime<Utc>, verification_method: &str) -> PayloadProof {
+        PayloadProof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: verification_method.to_owned(),
+            payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+            created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "eyJhbGciOiJFZERTQSJ9..fixture".to_owned(),
         }
     }
 
@@ -473,5 +714,284 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn ensure_binds_control_proof_to_challenge_and_beneficiary() {
+        let request = challenge_request();
+        let created_at = DateTime::parse_from_rfc3339("2026-07-27T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let challenge = OrganizationRegistrationChallenge {
+            challenge_id: format!("ak:organization-registration-challenge:{}", "a".repeat(64)),
+            organization_id: request.organization_id.clone(),
+            purpose: ORGANIZATION_REGISTRATION_CONTROL_PURPOSE.to_owned(),
+            nonce: "0123456789abcdefghijkl".to_owned(),
+            audience: did("did:webvh:zService:service.example"),
+            origin: "https://service.example/".to_owned(),
+            trust_domain: "example".to_owned(),
+            local_admin_subject: request.local_admin_subject.clone(),
+            requested_scopes: request.requested_scopes.clone(),
+            created_at,
+            expires_at: created_at + chrono::Duration::seconds(300),
+        };
+        let version_id = "3-zQmPinnedVersion".to_owned();
+        let log_head_digest = Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap();
+        let verification_method = format!("{}#org-control-key-1", request.organization_id);
+        let transcript = serde_json::json!({
+            "context": ORGANIZATION_REGISTRATION_CONTROL_PURPOSE,
+            "challenge_id": challenge.challenge_id,
+            "organization_id": request.organization_id,
+            "local_admin_subject": request.local_admin_subject,
+            "version_id": version_id,
+            "log_head_digest": log_head_digest,
+            "verification_method": verification_method,
+            "created_at": created_at,
+        });
+        let mut proof = payload_proof(created_at, &verification_method);
+        proof.payload_digest =
+            Hash::new(arkret_canonical::canonical::canonical_sha256(&transcript).unwrap()).unwrap();
+        let ensure = OrganizationRegistrationEnsureRequestBody {
+            organization_id: request.organization_id.clone(),
+            challenge_id: challenge.challenge_id.clone(),
+            version_id,
+            log_head_digest,
+            control_proof: OrganizationControlProof {
+                proof_kind: OrganizationControlProofKind::ResolvedVerificationMethod,
+                quorum_threshold: None,
+                proofs: vec![proof],
+            },
+            local_admin_subject: request.local_admin_subject.clone(),
+            requested_scopes: request.requested_scopes.clone(),
+            handle_attestation: None,
+        };
+        assert!(
+            ensure
+                .validate_for_challenge_at(&challenge, created_at + chrono::Duration::seconds(1))
+                .is_ok()
+        );
+
+        let mut transferred = ensure;
+        transferred.local_admin_subject = did("did:webvh:zAttacker:attacker.example");
+        assert!(
+            transferred
+                .validate_for_challenge_at(&challenge, created_at + chrono::Duration::seconds(1))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn receipt_digest_layers_are_non_recursive_and_verified() {
+        let issued_at = DateTime::parse_from_rfc3339("2026-07-27T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let issuer = did("did:webvh:zService:service.example");
+        let mut receipt = OrganizationRegistrationReceipt {
+            registration_receipt_id: "ak:organization-registration-receipt:placeholder".to_owned(),
+            organization_id: did("did:webvh:zOrg:org.example"),
+            registration_generation: 1,
+            version_id: "3-zQmPinnedVersion".to_owned(),
+            log_head_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
+            control_proof_kind: OrganizationControlProofKind::ResolvedVerificationMethod,
+            control_key_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
+            local_admin_subject: did("did:webvh:zAdmin:admin.example"),
+            delegated_scopes: vec![OrganizationRegistrationScope::OrganizationProfileManage],
+            status: OrganizationRegistrationStatus::Active,
+            issued_at,
+            expires_at: issued_at + chrono::Duration::days(30),
+            issuer_service_id: issuer.clone(),
+            proof: payload_proof(issued_at, &format!("{issuer}#notary-key")),
+        };
+        receipt.registration_receipt_id = receipt.expected_receipt_id().unwrap();
+        receipt.proof.payload_digest = receipt.expected_payload_digest().unwrap();
+        assert!(receipt.validate().is_ok());
+        assert!(!receipt.proof_signing_bytes().unwrap().is_empty());
+
+        receipt.proof.created_at += chrono::Duration::seconds(1);
+        assert!(receipt.validate().is_err());
+    }
+
+    #[test]
+    fn challenge_replay_requires_the_committed_request_digest() {
+        let issued_at = DateTime::parse_from_rfc3339("2026-07-27T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let issuer = did("did:webvh:zService:service.example");
+        let mut receipt = OrganizationRegistrationReceipt {
+            registration_receipt_id: "ak:organization-registration-receipt:placeholder".to_owned(),
+            organization_id: did("did:webvh:zOrg:org.example"),
+            registration_generation: 1,
+            version_id: "3-zQmPinnedVersion".to_owned(),
+            log_head_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
+            control_proof_kind: OrganizationControlProofKind::ResolvedVerificationMethod,
+            control_key_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
+            local_admin_subject: did("did:webvh:zAdmin:admin.example"),
+            delegated_scopes: vec![OrganizationRegistrationScope::OrganizationProfileManage],
+            status: OrganizationRegistrationStatus::Active,
+            issued_at,
+            expires_at: issued_at + chrono::Duration::days(30),
+            issuer_service_id: issuer.clone(),
+            proof: payload_proof(issued_at, &format!("{issuer}#notary-key")),
+        };
+        receipt.registration_receipt_id = receipt.expected_receipt_id().unwrap();
+        receipt.proof.payload_digest = receipt.expected_payload_digest().unwrap();
+        let outcome = OrganizationRegistrationOutcome {
+            organization_id: receipt.organization_id.clone(),
+            registration_generation: 1,
+            version_id: receipt.version_id.clone(),
+            registration_receipt: receipt,
+            created: true,
+        };
+        let committed = Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap();
+        let different = Hash::new(format!("sha256:{}", "e".repeat(64))).unwrap();
+        let replay =
+            organization_registration_replay_outcome(&committed, &committed, &outcome).unwrap();
+        assert!(!replay.created);
+        assert!(
+            organization_registration_replay_outcome(&committed, &different, &outcome).is_err()
+        );
+    }
+
+    #[test]
+    fn high_risk_authorization_checks_current_generation_and_status() {
+        let issued_at = DateTime::parse_from_rfc3339("2026-07-27T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let issuer = did("did:webvh:zService:service.example");
+        let mut receipt = OrganizationRegistrationReceipt {
+            registration_receipt_id: "ak:organization-registration-receipt:placeholder".to_owned(),
+            organization_id: did("did:webvh:zOrg:org.example"),
+            registration_generation: 1,
+            version_id: "3-zQmPinnedVersion".to_owned(),
+            log_head_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
+            control_proof_kind: OrganizationControlProofKind::ResolvedVerificationMethod,
+            control_key_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
+            local_admin_subject: did("did:webvh:zAdmin:admin.example"),
+            delegated_scopes: vec![OrganizationRegistrationScope::OrganizationRealmEndorse],
+            status: OrganizationRegistrationStatus::Active,
+            issued_at,
+            expires_at: issued_at + chrono::Duration::days(30),
+            issuer_service_id: issuer.clone(),
+            proof: payload_proof(issued_at, &format!("{issuer}#notary-key")),
+        };
+        receipt.registration_receipt_id = receipt.expected_receipt_id().unwrap();
+        receipt.proof.payload_digest = receipt.expected_payload_digest().unwrap();
+        let now = issued_at + chrono::Duration::days(1);
+        assert!(
+            validate_organization_registration_authorization_at(
+                &receipt,
+                1,
+                OrganizationRegistrationStatus::Active,
+                now,
+            )
+            .is_ok()
+        );
+        assert!(
+            validate_organization_registration_authorization_at(
+                &receipt,
+                2,
+                OrganizationRegistrationStatus::Active,
+                now,
+            )
+            .is_err()
+        );
+        assert!(
+            validate_organization_registration_authorization_at(
+                &receipt,
+                1,
+                OrganizationRegistrationStatus::Stale,
+                now,
+            )
+            .is_err()
+        );
+        assert_eq!(next_organization_registration_generation(None).unwrap(), 1);
+        assert_eq!(
+            next_organization_registration_generation(Some(1)).unwrap(),
+            2
+        );
+    }
+
+    #[test]
+    fn embedded_organization_registration_fixture_has_19_typed_schema_cases() {
+        let fixture = arkret_schema::embedded_json_artifact(
+            "fixtures/organization-registration-fixture.json",
+        )
+        .unwrap();
+        assert_eq!(
+            fixture
+                .pointer("/runner/kind")
+                .and_then(serde_json::Value::as_str),
+            Some("json_schema_and_semantic_cases")
+        );
+        let cases = fixture["schema_validation_cases"].as_array().unwrap();
+        assert_eq!(cases.len(), 19);
+        for case in cases {
+            let instance = case["instance"].clone();
+            let schema_ref = case["schema_ref"].as_str().unwrap();
+            let schema_only_valid = case["schema_only_valid"].as_bool() == Some(true);
+            let accepted = match schema_ref.rsplit('/').next().unwrap() {
+                "OrganizationRegistrationChallenge" => {
+                    serde_json::from_value::<OrganizationRegistrationChallenge>(instance).is_ok()
+                }
+                "OrganizationRegistrationChallengeRequestBody" => {
+                    serde_json::from_value::<OrganizationRegistrationChallengeRequestBody>(instance)
+                        .is_ok()
+                }
+                "OrganizationRegistrationEnsureRequestBody" => serde_json::from_value::<
+                    OrganizationRegistrationEnsureRequestBody,
+                >(instance)
+                .and_then(|body| {
+                    if schema_only_valid {
+                        Ok(())
+                    } else {
+                        body.validate()
+                            .map_err(|error| serde_json::Error::io(std::io::Error::other(error)))
+                    }
+                })
+                .is_ok(),
+                "OrganizationRegistrationRefreshRequestBody" => serde_json::from_value::<
+                    OrganizationRegistrationRefreshRequestBody,
+                >(instance)
+                .and_then(|body| {
+                    if schema_only_valid {
+                        Ok(())
+                    } else {
+                        body.validate()
+                            .map_err(|error| serde_json::Error::io(std::io::Error::other(error)))
+                    }
+                })
+                .is_ok(),
+                "OrganizationControlProof" => {
+                    serde_json::from_value::<OrganizationControlProof>(instance)
+                        .and_then(|proof| {
+                            if schema_only_valid {
+                                Ok(())
+                            } else {
+                                proof.validate().map_err(|error| {
+                                    serde_json::Error::io(std::io::Error::other(error))
+                                })
+                            }
+                        })
+                        .is_ok()
+                }
+                "OrganizationRegistrationReceipt" => {
+                    // Fixture receipt ids, payload digests and JWS values are
+                    // explicit structural placeholders. Cryptographic and
+                    // lifecycle semantics are exercised by the focused tests
+                    // above rather than being silently treated as valid.
+                    serde_json::from_value::<OrganizationRegistrationReceipt>(instance).is_ok()
+                }
+                "OrganizationRegistrationOutcome" => {
+                    serde_json::from_value::<OrganizationRegistrationOutcome>(instance).is_ok()
+                }
+                other => panic!("unhandled organization registration fixture schema: {other}"),
+            };
+            assert_eq!(
+                accepted,
+                case["expect_valid"].as_bool().unwrap(),
+                "typed schema drift in fixture case {}",
+                case["name"]
+            );
+        }
     }
 }
