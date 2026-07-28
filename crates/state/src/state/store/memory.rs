@@ -1175,16 +1175,20 @@ mod tests {
             decision_due_at: received_at + chrono::Duration::seconds(30),
             absolute_due_at: received_at + chrono::Duration::seconds(90),
             defer_count: 0,
-            authority_set_ref: hash(0x44),
-            signature: PayloadSignature {
+            authority_set_ref: arkret_wire::AuthoritySetRef {
+                authority_set_id: "ak.authority_set.fixture.v1".to_owned(),
+                authority_set_digest: hash(0x44),
+            },
+            receipt_coordinator: Did::new("did:webvh:z6mkfixture:notary.example").unwrap(),
+            signatures: vec![PayloadSignature {
                 alg: "EdDSA".to_owned(),
                 verification_method: "did:webvh:z6mkfixture:notary.example#k1".to_owned(),
                 payload_digest: hash(0),
                 created_at: received_at,
                 jws: "e30..c2ln".to_owned(),
-            },
+            }],
         };
-        receipt.signature.payload_digest = receipt.receipt_digest().unwrap();
+        receipt.signatures[0].payload_digest = receipt.receipt_digest().unwrap();
         receipt
     }
 

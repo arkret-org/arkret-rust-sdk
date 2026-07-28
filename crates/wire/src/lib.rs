@@ -87,7 +87,9 @@ pub use event_envelope::*;
 pub use event_receipt::*;
 pub use event_submission::{
     AuthorizationLeaseIssueOutcome, AuthorizationLeaseIssueRequest, EventFederationSubmission,
-    EventInitialSubmission, EventsSubmitBatchRequestBody, validate_anchor_unit_lease_bindings,
+    ControlProposalReceiptSignOutcome, ControlProposalReceiptSignRequestBody,
+    EventFederationSubmission, EventInitialSubmission, EventsSubmitBatchRequestBody,
+    validate_anchor_unit_lease_bindings,
 };
 pub use events::*;
 pub use extension_manifest::{
@@ -140,11 +142,13 @@ pub use seal::{
     ThresholdSigKind, ThresholdSignature, compute_seal_id, seal_canonical_bytes,
 };
 pub use security_transaction::{
-    AcceptedStep, CLIENT_STEP_ATTESTATION_SIGNED_FIELDS, ClientStepAttestation,
+    AcceptedStep, BackupSeriesEraseIntent, BackupSeriesEraseObject, BackupSeriesEraseRequestBody,
+    BackupSeriesEraseTarget, CLIENT_STEP_ATTESTATION_SIGNED_FIELDS, ClientStepAttestation,
     ClientStepAttestationAuthData, CrossSigningRecoveryBinding, CrossSigningRecoveryPlan,
     EnrollmentAuthorityRecoveryBinding, EnrollmentAuthorityRecoveryPlan, PreparedDidPublication,
     PreparedEventUnit, RecoveryBinding, RecoveryIdentityModel, RecoveryPreparedPlan,
-    RecoveryTransactionCreateRequest, SecurityRotationBinding, SecurityRotationPlan,
+    RecoveryTransactionCreateRequest, SecurityRotationBackupBinding, SecurityRotationBackupKind,
+    SecurityRotationBackupPlan, SecurityRotationBinding, SecurityRotationPlan,
     SecurityRotationTransactionCreateRequest, SecurityTransaction, SecurityTransactionBinding,
     SecurityTransactionContinueRequest, SecurityTransactionCreateRequest, SecurityTransactionKind,
     SecurityTransactionPreparedPlan, SecurityTransactionResultKind, SecurityTransactionState,

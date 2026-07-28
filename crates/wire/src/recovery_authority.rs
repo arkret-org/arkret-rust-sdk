@@ -13,8 +13,9 @@ use serde_json::Value;
 
 use crate::error::{Error, Result};
 use crate::{
-    AuthoritySetPolicy, AuthoritySetRef, AuthorizationLease, CbaProofBundle, DeviceId, Did, Event,
-    EventId, GrantId, Hash, LeaseBasisRef, PolicyId, RECOVERY_ACCOUNT_AUTHORITY_SET_ID, ReceiptId,
+    AuthoritySetPolicy, AuthoritySetRef, AuthorizationLease, CbaProofBundle,
+    ControlProposalDecisionPolicy, ControlProposalReceipt, DeviceId, Did, Event, EventId, GrantId,
+    Hash, LeaseBasisRef, PolicyId, RECOVERY_ACCOUNT_AUTHORITY_SET_ID, ReceiptId,
     RecoveryAuthorityTicketId, RecoverySessionId, RiskTier, ScopeRef, TransactionId,
     TypedTrustDomainId,
 };
@@ -543,6 +544,7 @@ pub struct AuthorizeRecoveryDeviceOutcome {
     pub authorized_event_digest: Hash,
     pub authorization_lease: AuthorizationLease,
     pub cba_proof_bundles: Vec<CbaProofBundle>,
+    pub control_proposal_receipt: ControlProposalReceipt,
     pub authority_receipt_id: ReceiptId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
@@ -601,6 +603,18 @@ impl AuthorizeRecoveryDeviceOutcome {
         }
         for bundle in &self.cba_proof_bundles {
             bundle.validate_structural()?;
+        }
+        self.control_proposal_receipt
+            .validate_structural(ControlProposalDecisionPolicy::protocol_maximum())?;
+        if self.control_proposal_receipt.realm_id != event.realm_id
+            || self.control_proposal_receipt.proposal_digest != self.authorized_event_digest
+            || self.control_proposal_receipt.authority_set_ref != intent.authority_set_ref
+            || self.control_proposal_receipt.received_at > self.accepted_at
+        {
+            return Err(Error::Protocol(
+                "recovery authority proposal receipt does not bind the authorized Event or authority"
+                    .to_owned(),
+            ));
         }
         Ok(())
     }

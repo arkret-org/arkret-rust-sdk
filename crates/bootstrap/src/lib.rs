@@ -1371,6 +1371,7 @@ mod tests {
             event,
             authorization_lease: lease,
             cba_proof_bundles: Vec::new(),
+            control_proposal_receipt: None,
         }
     }
 

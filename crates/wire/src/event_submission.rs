@@ -10,6 +10,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::cba_proof_bundle::CbaProofBundle;
+use crate::control_proposal::ControlProposalReceipt;
 use crate::error::{Error, Result};
 use crate::event_envelope::{Event, EventSubmitContext};
 use crate::offline_publication::{
@@ -107,6 +108,8 @@ pub struct EventInitialSubmission {
     pub authorization_lease: AuthorizationLease,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cba_proof_bundles: Vec<CbaProofBundle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control_proposal_receipt: Option<ControlProposalReceipt>,
 }
 
 /// Previously receipted publication evidence transported between peers.
@@ -118,6 +121,28 @@ pub struct EventFederationSubmission {
     pub event: Event,
     pub authorization_lease: AuthorizationLease,
     pub ingress_receipts: Vec<IngressReceipt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control_proposal_receipt: Option<ControlProposalReceipt>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ControlProposalReceiptSignRequestBody {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub event: Event,
+    pub authorization_lease: AuthorizationLease,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cba_proof_bundles: Vec<CbaProofBundle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proposal_receipt: Option<ControlProposalReceipt>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ControlProposalReceiptSignOutcome {
+    pub proposal_receipt: ControlProposalReceipt,
 }
 
 /// Bindings that hold for every submission regardless of Realm policy.
@@ -143,6 +168,29 @@ fn validate_lease_binds_event(event: &Event, lease: &AuthorizationLease) -> Resu
     Ok(())
 }
 
+fn validate_control_proposal_receipt(
+    event: &Event,
+    receipt: Option<&ControlProposalReceipt>,
+    context: EventSubmitContext,
+) -> Result<()> {
+    let requires_receipt = context == EventSubmitContext::Standard && event.seal_basis.is_some();
+    if requires_receipt != receipt.is_some() {
+        return Err(Error::Protocol(
+            "non-genesis Control Move requires exactly one proposal receipt; DataEvent and anchor units forbid it"
+                .to_owned(),
+        ));
+    }
+    if let Some(receipt) = receipt {
+        let event_digest = crate::Hash::new(event.event_digest()?)?;
+        if receipt.realm_id != event.realm_id || receipt.proposal_digest != event_digest {
+            return Err(Error::Protocol(
+                "control proposal receipt does not bind the submitted Event".to_owned(),
+            ));
+        }
+    }
+    Ok(())
+}
+
 impl EventInitialSubmission {
     /// Structural gate an ingress runs before it will mint a receipt.
     ///
@@ -162,6 +210,11 @@ impl EventInitialSubmission {
             .validate_for_submit_structural_in_context(context)?;
         self.authorization_lease.validate_structural()?;
         validate_lease_binds_event(&self.event, &self.authorization_lease)?;
+        validate_control_proposal_receipt(
+            &self.event,
+            self.control_proposal_receipt.as_ref(),
+            context,
+        )?;
         if self.cba_proof_bundles.len() > MAX_SUBMISSION_CBA_BUNDLES {
             return Err(Error::Protocol(format!(
                 "submission exceeds {MAX_SUBMISSION_CBA_BUNDLES} CBA proof bundles"
@@ -191,6 +244,11 @@ impl EventFederationSubmission {
             .validate_for_submit_structural_in_context(context)?;
         self.authorization_lease.validate_structural()?;
         validate_lease_binds_event(&self.event, &self.authorization_lease)?;
+        validate_control_proposal_receipt(
+            &self.event,
+            self.control_proposal_receipt.as_ref(),
+            context,
+        )?;
         if self.ingress_receipts.is_empty()
             || self.ingress_receipts.len() > MAX_FEDERATION_INGRESS_RECEIPTS
         {
@@ -202,6 +260,37 @@ impl EventFederationSubmission {
         for receipt in &self.ingress_receipts {
             receipt.validate_structural()?;
             receipt.validate_against_lease(&self.authorization_lease, &event_digest)?;
+        }
+        Ok(())
+    }
+}
+
+impl ControlProposalReceiptSignRequestBody {
+    pub fn validate_structural(&self) -> Result<()> {
+        self.event
+            .validate_for_submit_structural_in_context(EventSubmitContext::Standard)?;
+        if self.event.seal_basis.is_none() {
+            return Err(Error::Protocol(
+                "proposal receipt signing accepts only non-genesis Control Moves".to_owned(),
+            ));
+        }
+        self.authorization_lease.validate_structural()?;
+        validate_lease_binds_event(&self.event, &self.authorization_lease)?;
+        if self.cba_proof_bundles.len() > MAX_SUBMISSION_CBA_BUNDLES {
+            return Err(Error::Protocol(format!(
+                "proposal receipt signing exceeds {MAX_SUBMISSION_CBA_BUNDLES} CBA proof bundles"
+            )));
+        }
+        for bundle in &self.cba_proof_bundles {
+            bundle.validate_structural()?;
+        }
+        if let Some(receipt) = &self.proposal_receipt {
+            let event_digest = crate::Hash::new(self.event.event_digest()?)?;
+            if receipt.realm_id != self.event.realm_id || receipt.proposal_digest != event_digest {
+                return Err(Error::Protocol(
+                    "co-sign proposal receipt does not bind the requested Event".to_owned(),
+                ));
+            }
         }
         Ok(())
     }

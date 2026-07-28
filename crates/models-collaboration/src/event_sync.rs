@@ -1070,8 +1070,9 @@ mod tests {
         AUTHORITY_SET_POLICY_SCHEMA, AuthoritySetAuthorizationRule, AuthoritySetIssuer,
         AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind,
         AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease,
-        AuthorizationLeaseId, DeviceId, DidKey, DidUrl, Hash, IngressReceipt, LeaseBasisRef,
-        NotarySig, PayloadProof, PayloadSignature, ReceiptId, RiskTier, ScopeRef, SealKind,
+        AuthorizationLeaseId, ControlProposalReceiptKind, DeviceId, DidKey, DidUrl, Hash,
+        IngressReceipt, LeaseBasisRef, NotarySig, PayloadProof, PayloadSignature, ReceiptId,
+        RiskTier, ScopeRef, SealKind,
     };
     use serde_json::json;
 
@@ -1296,6 +1297,10 @@ mod tests {
             authority_set_id: authority_set_policy.authority_set_id.clone(),
             authority_set_digest: authority_set_policy.digest().unwrap(),
         };
+        let control_proposal_receipt = event
+            .seal_basis
+            .as_ref()
+            .map(|_| proposal_receipt_for(&event, &authority_set_ref, issued_at));
         let mut authorization_lease = AuthorizationLease {
             authorization_lease_id: AuthorizationLeaseId::new(
                 "ak:authorization_lease:01904100-0000-7000-8000-aaaaaaaaaaaa",
@@ -1343,7 +1348,37 @@ mod tests {
             event,
             authorization_lease,
             ingress_receipts: vec![receipt],
+            control_proposal_receipt,
         }
+    }
+
+    fn proposal_receipt_for(
+        event: &Event,
+        authority_set_ref: &AuthoritySetRef,
+        received_at: DateTime<Utc>,
+    ) -> ControlProposalReceipt {
+        let coordinator = Did::new("did:web:authority.example").unwrap();
+        let mut receipt = ControlProposalReceipt {
+            kind: ControlProposalReceiptKind::ProposalReceipt,
+            realm_id: event.realm_id.clone(),
+            proposal_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
+            received_at,
+            decision_due_at: received_at + chrono::Duration::seconds(30),
+            absolute_due_at: received_at + chrono::Duration::seconds(90),
+            defer_count: 0,
+            authority_set_ref: authority_set_ref.clone(),
+            receipt_coordinator: coordinator,
+            signatures: Vec::new(),
+        };
+        let payload_digest = receipt.receipt_digest().unwrap();
+        receipt.signatures = vec![PayloadSignature {
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:web:authority.example#key-1".to_owned(),
+            payload_digest,
+            created_at: received_at,
+            jws: "a..b".to_owned(),
+        }];
+        receipt
     }
 
     fn federation_request(events: Vec<Event>) -> EventsSubmitFederationRequestBody {

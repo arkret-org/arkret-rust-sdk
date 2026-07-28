@@ -9,16 +9,16 @@ use arkret_models_collaboration::sync_frames::account_sync::{
     DeviceMessagesSendOutcome, DeviceMessagesSendRequestBody,
 };
 use arkret_models_crypto::{
-    KeyBackup, KeyBackupSummary, KeyBackupsListQuery, KeyPackagesClaimOutcome,
-    KeyPackagesClaimRequestBody, KeyPackagesConsumeOutcome, KeyPackagesConsumeRequestBody,
-    KeyPackagesRevokeOutcome, KeyPackagesRevokeRequestBody, KeyPackagesUploadOutcome,
-    KeyPackagesUploadRequestBody, KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody,
-    KeysBackupsList, KeysBackupsReplaceOutcome, KeysBackupsUnlockRequestBody, KeysClaimOutcome,
-    KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody, KeysUploadOutcome,
-    KeysUploadRequestBody,
+    BackupSeriesEraseOutcome, KeyBackup, KeyBackupSummary, KeyBackupsListQuery,
+    KeyPackagesClaimOutcome, KeyPackagesClaimRequestBody, KeyPackagesConsumeOutcome,
+    KeyPackagesConsumeRequestBody, KeyPackagesRevokeOutcome, KeyPackagesRevokeRequestBody,
+    KeyPackagesUploadOutcome, KeyPackagesUploadRequestBody, KeysBackupsDeleteOutcome,
+    KeysBackupsDeleteRequestBody, KeysBackupsList, KeysBackupsReplaceOutcome,
+    KeysBackupsUnlockRequestBody, KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome,
+    KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody,
 };
 use arkret_models_discovery::ServiceDescribe;
-use arkret_wire::{BackupId, BlobRef};
+use arkret_wire::{BackupId, BackupSeriesEraseRequestBody, BlobRef};
 use reqwest::Method;
 use reqwest::header::{HeaderMap, RANGE};
 use url::Url;
@@ -580,6 +580,17 @@ impl Client {
         let path = format!("/_arkret/self/keys/backups/{}", backup_id.as_str());
         let builder = self.canonical_json_body(self.request(Method::DELETE, &path)?, request)?;
         self.send_json(builder).await
+    }
+
+    pub async fn erase_backup_series(
+        &self,
+        request: &BackupSeriesEraseRequestBody,
+    ) -> Result<BackupSeriesEraseOutcome> {
+        let outcome: BackupSeriesEraseOutcome = self
+            .post("/_arkret/self/keys/backup-series/erase", request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
     }
 
     pub async fn send_device_messages(

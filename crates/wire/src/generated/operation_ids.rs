@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-07-20;
-//! sha256=d468188a65fe7ebe52afffd636774676ee117ec2e4d69db94f1b2df6ad8f6d43 Entries: registered=215
+//! sha256=35f23c4323c7f0407f4149c6bc690c28df3578a002c1620bccd7e80d7696c53b Entries: registered=217
 
 use serde::{Deserialize, Serialize};
 
@@ -157,6 +157,7 @@ pub enum ServiceOperationId {
     SelfDeviceMessagesCommandSend,
     SelfDeviceMessagesQueryList,
     SelfDirectConversationCommandResolve,
+    SelfEventsCommandSignControlProposalReceipt,
     SelfEventsCommandSubmit,
     SelfEventsCommandSubmitSeal,
     SelfEventsQueryDescribe,
@@ -172,6 +173,7 @@ pub enum ServiceOperationId {
     SelfInviteLocatorCommandRotate,
     SelfInviteReceivePolicyResourceGet,
     SelfInviteReceivePolicyResourceReplace,
+    SelfKeysBackupSeriesCommandErase,
     SelfKeysBackupsCommandUnlock,
     SelfKeysBackupsQueryList,
     SelfKeysBackupsResourceDelete,
@@ -375,6 +377,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.self.device_messages.command.send",
     "ak.self.device_messages.query.list",
     "ak.self.direct_conversation.command.resolve",
+    "ak.self.events.command.sign_control_proposal_receipt",
     "ak.self.events.command.submit",
     "ak.self.events.command.submit_seal",
     "ak.self.events.query.describe",
@@ -390,6 +393,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.self.invite_locator.command.rotate",
     "ak.self.invite_receive_policy.resource.get",
     "ak.self.invite_receive_policy.resource.replace",
+    "ak.self.keys.backup_series.command.erase",
     "ak.self.keys.backups.command.unlock",
     "ak.self.keys.backups.query.list",
     "ak.self.keys.backups.resource.delete",
@@ -609,6 +613,7 @@ impl ServiceOperationId {
         Self::SelfDeviceMessagesCommandSend,
         Self::SelfDeviceMessagesQueryList,
         Self::SelfDirectConversationCommandResolve,
+        Self::SelfEventsCommandSignControlProposalReceipt,
         Self::SelfEventsCommandSubmit,
         Self::SelfEventsCommandSubmitSeal,
         Self::SelfEventsQueryDescribe,
@@ -624,6 +629,7 @@ impl ServiceOperationId {
         Self::SelfInviteLocatorCommandRotate,
         Self::SelfInviteReceivePolicyResourceGet,
         Self::SelfInviteReceivePolicyResourceReplace,
+        Self::SelfKeysBackupSeriesCommandErase,
         Self::SelfKeysBackupsCommandUnlock,
         Self::SelfKeysBackupsQueryList,
         Self::SelfKeysBackupsResourceDelete,
@@ -909,6 +915,8 @@ impl ServiceOperationId {
     pub const SELF_DEVICE_MESSAGES_QUERY_LIST: &'static str = "ak.self.device_messages.query.list";
     pub const SELF_DIRECT_CONVERSATION_COMMAND_RESOLVE: &'static str =
         "ak.self.direct_conversation.command.resolve";
+    pub const SELF_EVENTS_COMMAND_SIGN_CONTROL_PROPOSAL_RECEIPT: &'static str =
+        "ak.self.events.command.sign_control_proposal_receipt";
     pub const SELF_EVENTS_COMMAND_SUBMIT: &'static str = "ak.self.events.command.submit";
     pub const SELF_EVENTS_COMMAND_SUBMIT_SEAL: &'static str = "ak.self.events.command.submit_seal";
     pub const SELF_EVENTS_QUERY_DESCRIBE: &'static str = "ak.self.events.query.describe";
@@ -930,6 +938,8 @@ impl ServiceOperationId {
         "ak.self.invite_receive_policy.resource.get";
     pub const SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE: &'static str =
         "ak.self.invite_receive_policy.resource.replace";
+    pub const SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE: &'static str =
+        "ak.self.keys.backup_series.command.erase";
     pub const SELF_KEYS_BACKUPS_COMMAND_UNLOCK: &'static str =
         "ak.self.keys.backups.command.unlock";
     pub const SELF_KEYS_BACKUPS_QUERY_LIST: &'static str = "ak.self.keys.backups.query.list";
@@ -1226,6 +1236,9 @@ impl ServiceOperationId {
             Self::SelfDirectConversationCommandResolve => {
                 "ak.self.direct_conversation.command.resolve"
             }
+            Self::SelfEventsCommandSignControlProposalReceipt => {
+                "ak.self.events.command.sign_control_proposal_receipt"
+            }
             Self::SelfEventsCommandSubmit => "ak.self.events.command.submit",
             Self::SelfEventsCommandSubmitSeal => "ak.self.events.command.submit_seal",
             Self::SelfEventsQueryDescribe => "ak.self.events.query.describe",
@@ -1245,6 +1258,7 @@ impl ServiceOperationId {
             Self::SelfInviteReceivePolicyResourceReplace => {
                 "ak.self.invite_receive_policy.resource.replace"
             }
+            Self::SelfKeysBackupSeriesCommandErase => "ak.self.keys.backup_series.command.erase",
             Self::SelfKeysBackupsCommandUnlock => "ak.self.keys.backups.command.unlock",
             Self::SelfKeysBackupsQueryList => "ak.self.keys.backups.query.list",
             Self::SelfKeysBackupsResourceDelete => "ak.self.keys.backups.resource.delete",
@@ -1554,6 +1568,9 @@ impl ServiceOperationId {
             "ak.self.direct_conversation.command.resolve" => {
                 Some(Self::SelfDirectConversationCommandResolve)
             }
+            "ak.self.events.command.sign_control_proposal_receipt" => {
+                Some(Self::SelfEventsCommandSignControlProposalReceipt)
+            }
             "ak.self.events.command.submit" => Some(Self::SelfEventsCommandSubmit),
             "ak.self.events.command.submit_seal" => Some(Self::SelfEventsCommandSubmitSeal),
             "ak.self.events.query.describe" => Some(Self::SelfEventsQueryDescribe),
@@ -1574,6 +1591,9 @@ impl ServiceOperationId {
             }
             "ak.self.invite_receive_policy.resource.replace" => {
                 Some(Self::SelfInviteReceivePolicyResourceReplace)
+            }
+            "ak.self.keys.backup_series.command.erase" => {
+                Some(Self::SelfKeysBackupSeriesCommandErase)
             }
             "ak.self.keys.backups.command.unlock" => Some(Self::SelfKeysBackupsCommandUnlock),
             "ak.self.keys.backups.query.list" => Some(Self::SelfKeysBackupsQueryList),
@@ -4146,6 +4166,23 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfEventsCommandSignControlProposalReceipt,
+        http_method: "POST",
+        http_path: "/_arkret/self/events/control-proposal-receipts",
+        grpc: Some("SelfEvents/SignControlProposalReceipt"),
+        mq: Some("self.events.command.sign_control_proposal_receipt"),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/ControlProposalEvidenceSignRequestBody",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/ControlProposalEvidenceSignOutcome",
+        ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfEventsCommandSubmit,
         http_method: "POST",
         http_path: "/_arkret/self/events",
@@ -4372,6 +4409,23 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: Some(true),
         request_schema_ref: Some("schemas/invite-receive-policy.schema.json"),
         response_schema_ref: Some("schemas/invite-receive-policy.schema.json"),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfKeysBackupSeriesCommandErase,
+        http_method: "POST",
+        http_path: "/_arkret/self/keys/backup-series/erase",
+        grpc: Some("SelfKeys/BackupSeriesErase"),
+        mq: Some("self.keys.backup_series.command.erase"),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("protocol_sequence"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/keys-operations.schema.json#/$defs/keys_backup_series_erase_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/keys-operations.schema.json#/$defs/keys_backup_series_erase_outcome",
+        ),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {

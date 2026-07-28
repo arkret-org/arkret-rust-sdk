@@ -8,10 +8,10 @@ use arkret_canonical::{
 };
 use arkret_wire::{
     AuthoritySetIssuer, AuthoritySetIssuerRole, AuthorizationLease, BackupId, BackupSeriesId,
-    Base64UrlString, CbaProofBundle, Cursor, DeviceId, Did, DidUrl, Error, Event, EventId,
-    EventInitialSubmission, EventKind, HPKE_SUITES, Hash, LeaseBasisRef, NonEmptyString, PolicyId,
-    RealmId, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId, Result, TransactionId,
-    TypedTrustDomainId, XExtensionMap,
+    BackupSeriesEraseRequestBody, Base64UrlString, CbaProofBundle, Cursor, DeviceId, Did, DidUrl,
+    Error, Event, EventId, EventInitialSubmission, EventKind, HPKE_SUITES, Hash, LeaseBasisRef,
+    NonEmptyString, PolicyId, RealmId, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId,
+    Result, SecurityRotationBackupKind, TransactionId, TypedTrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -152,6 +152,127 @@ pub struct KeysBackupsDeleteOutcome {
     pub deleted: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub backup_id: Option<BackupId>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BackupSeriesEraseStatus {
+    Complete,
+    Partial,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BackupSeriesEraseState {
+    Erased,
+    Pending,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BackupSeriesEraseResult {
+    pub backup_kind: SecurityRotationBackupKind,
+    pub series_id: BackupSeriesId,
+    pub state: BackupSeriesEraseState,
+    pub erased_backup_ids: Vec<BackupId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after_ms: Option<u64>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BackupSeriesEraseOutcome {
+    pub transaction_id: TransactionId,
+    pub request_digest: Hash,
+    pub status: BackupSeriesEraseStatus,
+    pub series_results: Vec<BackupSeriesEraseResult>,
+}
+
+impl BackupSeriesEraseOutcome {
+    pub fn validate_structural(&self) -> Result<()> {
+        let expected_kinds = [
+            SecurityRotationBackupKind::MlsHistory,
+            SecurityRotationBackupKind::SecretStorage,
+        ];
+        if self.series_results.len() != expected_kinds.len()
+            || self
+                .series_results
+                .iter()
+                .map(|result| result.backup_kind)
+                .ne(expected_kinds)
+        {
+            return Err(Error::Protocol(
+                "backup-series erase outcome must contain one canonical result for each backup kind"
+                    .to_owned(),
+            ));
+        }
+
+        let mut series_ids = BTreeSet::new();
+        let mut has_pending = false;
+        for result in &self.series_results {
+            if !series_ids.insert(result.series_id.clone()) {
+                return Err(Error::Protocol(
+                    "backup-series erase outcome repeats a backup series".to_owned(),
+                ));
+            }
+            if result
+                .erased_backup_ids
+                .windows(2)
+                .any(|pair| pair[0] >= pair[1])
+            {
+                return Err(Error::Protocol(
+                    "erased backup ids must be canonical bytewise sorted and unique".to_owned(),
+                ));
+            }
+            match result.state {
+                BackupSeriesEraseState::Erased if result.retry_after_ms.is_some() => {
+                    return Err(Error::Protocol(
+                        "an erased backup series cannot carry retry_after_ms".to_owned(),
+                    ));
+                }
+                BackupSeriesEraseState::Pending if result.retry_after_ms.is_none() => {
+                    return Err(Error::Protocol(
+                        "a pending backup series requires retry_after_ms".to_owned(),
+                    ));
+                }
+                BackupSeriesEraseState::Pending => has_pending = true,
+                BackupSeriesEraseState::Erased => {}
+            }
+        }
+        if (self.status == BackupSeriesEraseStatus::Partial) != has_pending {
+            return Err(Error::Protocol(
+                "backup-series erase status does not match its per-series states".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_request(&self, request: &BackupSeriesEraseRequestBody) -> Result<()> {
+        self.validate_structural()?;
+        request.erase_intent.validate_structural()?;
+        let request_digest = arkret_canonical::canonical::canonical_sha256(request)?;
+        if self.transaction_id != request.transaction_id
+            || self.request_digest.as_str() != request_digest
+            || self
+                .series_results
+                .iter()
+                .zip(&request.erase_intent.targets)
+                .any(|(result, target)| {
+                    result.backup_kind != target.backup_kind
+                        || result.series_id != target.previous_series_id
+                })
+        {
+            return Err(Error::Protocol(
+                "backup-series erase outcome changed the transaction, request, or target binding"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

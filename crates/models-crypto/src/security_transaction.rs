@@ -21,6 +21,7 @@ pub struct SecurityRotationLocalCommit {
     pub transaction_request_digest: Hash,
     pub prepared_plan_digest: Hash,
     pub local_commit_digest: Hash,
+    pub erase_confirmation_digest: Hash,
     pub device_id: DeviceId,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",

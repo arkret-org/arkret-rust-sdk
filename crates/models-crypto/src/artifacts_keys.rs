@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::key_backup::{
-    BackupKind, KeyBackupSignatureAlgorithm, KeysBackupsDeleteOutcome,
+    BackupKind, BackupSeriesEraseOutcome, KeyBackupSignatureAlgorithm, KeysBackupsDeleteOutcome,
     KeysBackupsDeleteRequestBody, KeysBackupsList, KeysBackupsReplaceOutcome,
     ManagedPrincipalBinding, RecoveryProofKind,
 };
@@ -223,6 +223,8 @@ pub enum KeysOperations {
     KeysBackupsList(KeysBackupsList),
     KeysBackupsDeleteRequestBody(KeysBackupsDeleteRequestBody),
     KeysBackupsDeleteOutcome(KeysBackupsDeleteOutcome),
+    BackupSeriesEraseRequestBody(arkret_wire::BackupSeriesEraseRequestBody),
+    BackupSeriesEraseOutcome(BackupSeriesEraseOutcome),
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/algorithm_counts`.

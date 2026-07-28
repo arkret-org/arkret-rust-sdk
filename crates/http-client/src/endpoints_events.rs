@@ -19,7 +19,10 @@ use arkret_models_crypto::{
 };
 use arkret_models_discovery::ServiceDescribe;
 use arkret_state::SnapshotManifest;
-use arkret_wire::{EventInitialSubmission, Seal};
+use arkret_wire::{
+    ControlProposalDecisionPolicy, ControlProposalReceiptSignOutcome,
+    ControlProposalReceiptSignRequestBody, EventInitialSubmission, Hash, Seal,
+};
 use reqwest::{Method, Response};
 
 use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment};
@@ -127,6 +130,28 @@ impl EventsSubscribeFrameStream {
 }
 
 impl Client {
+    pub async fn sign_control_proposal_receipt(
+        &self,
+        request: &ControlProposalReceiptSignRequestBody,
+    ) -> Result<ControlProposalReceiptSignOutcome> {
+        request.validate_structural()?;
+        let outcome: ControlProposalReceiptSignOutcome = self
+            .post("/_arkret/self/events/control-proposal-receipts", request)
+            .await?;
+        outcome
+            .proposal_receipt
+            .validate_structural(ControlProposalDecisionPolicy::protocol_maximum())?;
+        let event_digest = Hash::new(request.event.event_digest()?)?;
+        if outcome.proposal_receipt.realm_id != request.event.realm_id
+            || outcome.proposal_receipt.proposal_digest != event_digest
+        {
+            return Err(Error::Protocol(
+                "proposal receipt signing response changed the Event binding".to_owned(),
+            ));
+        }
+        Ok(outcome)
+    }
+
     /// Describe the Event service via `ak.self.events.query.describe`
     /// (`GET /_arkret/self/events/describe`).
     pub async fn events_describe(&self) -> Result<ServiceDescribe> {

@@ -413,6 +413,10 @@ components:
       $ref: ../schemas/applet-edge-operations.schema.json#/$defs/applet_transaction_outcome
     AppletTransactionRequestBody:
       $ref: ../schemas/applet-edge-operations.schema.json#/$defs/applet_transaction_request_body
+    AuthorizationLeaseIssueOutcome:
+      $ref: ../schemas/service-operation-dtos.schema.json#/$defs/AuthorizationLeaseIssueOutcome
+    AuthorizationLeaseIssueRequestBody:
+      $ref: ../schemas/service-operation-dtos.schema.json#/$defs/AuthorizationLeaseIssueRequest
     AuthSessionLogoutOutcome:
       $ref: ../schemas/service-operation-dtos.schema.json#/$defs/AuthSessionLogoutOutcome
     AuthSessionLogoutRequestBody:
@@ -3947,6 +3951,57 @@ paths:
             application/json:
               schema:
                 $ref: ../schemas/security-transaction.schema.json
+  /_arkret/self/authorization-leases:
+    post:
+      operationId: ak.self.authorization_leases.command.issue
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizationLeaseIssueRequestBody'
+      responses:
+        '200':
+          description: One authority-issued publication lease per requested Event.
+          headers:
+            Idempotency-Key:
+              $ref: '#/components/headers/IdempotencyKey'
+            X-Arkret-Request-Id:
+              $ref: '#/components/headers/XArkretRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationLeaseIssueOutcome'
+  /_arkret/self/events/control-proposal-receipts:
+    post:
+      operationId: ak.self.events.command.sign_control_proposal_receipt
+      security:
+      - bearerAuth: []
+      - httpMessageSignature: []
+        sourceServiceId: []
+        destinationServiceId: []
+        sourceTrustDomain: []
+        destinationTrustDomain: []
+        requestCanonicalDigest: []
+        contentDigest: []
+      summary: Obtain or co-sign a Control Move proposal receipt.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/service-operation-dtos.schema.json#/$defs/ControlProposalEvidenceSignRequestBody
+      responses:
+        '200':
+          description: Immutable proposal-receipt statement with cumulative authority signatures.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/service-operation-dtos.schema.json#/$defs/ControlProposalEvidenceSignOutcome
+        '409':
+          description: Statement conflict, invalid coordinator or bootstrap authority, or authority equivocation.
   /_arkret/self/events:
     post:
       operationId: ak.self.events.command.submit
@@ -6359,6 +6414,27 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/KeyPackagesRevokeRequestBody'
+  /_arkret/self/keys/backup-series/erase:
+    post:
+      operationId: ak.self.keys.backup_series.command.erase
+      security:
+      - bearerAuth: []
+      summary: Erase predecessor backup series bound to a SecurityRotationTransaction.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/keys-operations.schema.json#/$defs/keys_backup_series_erase_request_body
+      responses:
+        '200':
+          description: Durable complete or partial per-series erasure outcome.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/keys-operations.schema.json#/$defs/keys_backup_series_erase_outcome
+        '409':
+          description: Transaction bytes conflict or successor pointer is not authoritative.
   /_arkret/self/keys/backups/{backup_id}:
     put:
       operationId: ak.self.keys.backups.resource.replace
