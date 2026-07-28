@@ -12,10 +12,10 @@ use arkret_models_crypto::{
     PeerKeyPackagesClaimRequestBody,
 };
 use arkret_wire::{
-    Base64UrlString, BlobRef, ConsentId, Cursor, DeviceId, Did, Error, Event, EventId,
-    EventInitialSubmission, EventKind, GrantId, Hash, IngressReceipt, MimiRoomUri, MlsGroupId,
-    MorphId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId, RelationId, ReportId,
-    Result, SealId, SignalEnvelope, SpaceId, StrandId, canonical,
+    Base64UrlString, BlobRef, CbaProofBundle, ConsentId, Cursor, DeviceId, Did, Error, Event,
+    EventId, EventInitialSubmission, EventKind, GrantId, Hash, IngressReceipt, MimiRoomUri,
+    MlsGroupId, MorphId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId, RelationId,
+    ReportId, Result, SealId, SignalEnvelope, SpaceId, StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -183,9 +183,63 @@ pub struct EventsSubmitRejectedItem {
     /// guessing. A bundle MAY be a bounded verifiable superset, so the receiver
     /// never asks for a byte-minimal one.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing_event_ids: Vec<EventId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub missing_seal_refs: Vec<SealId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub missing_event_digests: Vec<Hash>,
+}
+
+impl EventsSubmitRejectedItem {
+    pub fn validate_dependency_details(&self) -> Result<()> {
+        let has_missing = !self.missing_event_ids.is_empty()
+            || !self.missing_event_digests.is_empty()
+            || !self.missing_seal_refs.is_empty();
+        if (self.reason_code == "dependency_missing") != has_missing {
+            return Err(Error::Protocol(
+                "dependency_missing requires typed missing details and other reasons forbid them"
+                    .to_owned(),
+            ));
+        }
+        validate_typed_missing_order(
+            &self.missing_event_ids,
+            &self.missing_event_digests,
+            &self.missing_seal_refs,
+        )
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EventsDependencyMissingProblem {
+    pub reason_code: String,
+    #[serde(default)]
+    pub missing_event_ids: Vec<EventId>,
+    #[serde(default)]
+    pub missing_event_digests: Vec<Hash>,
+    #[serde(default)]
+    pub missing_seal_refs: Vec<SealId>,
+}
+
+impl EventsDependencyMissingProblem {
+    pub fn validate(&self) -> Result<()> {
+        if self.reason_code != "dependency_missing"
+            || (self.missing_event_ids.is_empty()
+                && self.missing_event_digests.is_empty()
+                && self.missing_seal_refs.is_empty())
+        {
+            return Err(Error::Protocol(
+                "EventsDependencyMissingProblem requires dependency_missing and a non-empty typed missing set"
+                    .to_owned(),
+            ));
+        }
+        validate_typed_missing_order(
+            &self.missing_event_ids,
+            &self.missing_event_digests,
+            &self.missing_seal_refs,
+        )
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -283,6 +337,123 @@ pub struct EventsResolveOutcome {
     pub missing: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unauthorized: Vec<String>,
+}
+
+pub const MAX_PEER_RESOLVE_EVENT_SELECTORS: usize = 1024;
+pub const MAX_PEER_RESOLVE_SEAL_SELECTORS: usize = 64;
+pub const MAX_PEER_RESOLVE_RESPONSE_BYTES: u32 = 8 * 1024 * 1024;
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeerEventsResolveRequestBody {
+    pub realm_id: RealmId,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub event_ids: Vec<EventId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub event_digests: Vec<Hash>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub seal_refs: Vec<SealId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub include_payload: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_response_bytes: Option<u32>,
+}
+
+impl PeerEventsResolveRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        if self.event_ids.is_empty() && self.event_digests.is_empty() && self.seal_refs.is_empty() {
+            return Err(Error::Protocol(
+                "peer dependency resolve requires at least one selector".to_owned(),
+            ));
+        }
+        if self.event_ids.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
+            || self.event_digests.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
+            || self.seal_refs.len() > MAX_PEER_RESOLVE_SEAL_SELECTORS
+        {
+            return Err(Error::Protocol(
+                "peer dependency resolve selector limit exceeded".to_owned(),
+            ));
+        }
+        if self
+            .max_response_bytes
+            .is_some_and(|bytes| !(1024..=MAX_PEER_RESOLVE_RESPONSE_BYTES).contains(&bytes))
+        {
+            return Err(Error::Protocol(
+                "peer dependency resolve max_response_bytes is outside 1024..=8388608".to_owned(),
+            ));
+        }
+        validate_typed_missing_order(&self.event_ids, &self.event_digests, &self.seal_refs)
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeerEventsResolveOutcome {
+    #[serde(default)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub events: Vec<Event>,
+    #[serde(default)]
+    pub cba_proof_bundles: Vec<CbaProofBundle>,
+    #[serde(default)]
+    pub missing_event_ids: Vec<EventId>,
+    #[serde(default)]
+    pub missing_event_digests: Vec<Hash>,
+    #[serde(default)]
+    pub missing_seal_refs: Vec<SealId>,
+}
+
+impl PeerEventsResolveOutcome {
+    pub fn validate_structural(&self) -> Result<()> {
+        if self.events.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
+            || self.cba_proof_bundles.len()
+                > arkret_wire::event_submission::MAX_SUBMISSION_CBA_BUNDLES
+            || self.missing_event_ids.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
+            || self.missing_event_digests.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
+            || self.missing_seal_refs.len() > MAX_PEER_RESOLVE_SEAL_SELECTORS
+        {
+            return Err(Error::Protocol(
+                "peer dependency resolve outcome limit exceeded".to_owned(),
+            ));
+        }
+        validate_typed_missing_order(
+            &self.missing_event_ids,
+            &self.missing_event_digests,
+            &self.missing_seal_refs,
+        )?;
+        for bundle in &self.cba_proof_bundles {
+            bundle.validate_structural()?;
+        }
+        Ok(())
+    }
+}
+
+fn validate_typed_missing_order(
+    event_ids: &[EventId],
+    event_digests: &[Hash],
+    seal_refs: &[SealId],
+) -> Result<()> {
+    fn sorted_unique(values: impl Iterator<Item = String>) -> bool {
+        let mut previous: Option<String> = None;
+        for value in values {
+            if previous.as_ref().is_some_and(|previous| previous >= &value) {
+                return false;
+            }
+            previous = Some(value);
+        }
+        true
+    }
+    if !sorted_unique(event_ids.iter().map(ToString::to_string))
+        || !sorted_unique(event_digests.iter().map(ToString::to_string))
+        || !sorted_unique(seal_refs.iter().map(ToString::to_string))
+    {
+        return Err(Error::Protocol(
+            "typed missing/selectors must be strictly canonical-bytewise sorted and unique"
+                .to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1810,6 +1981,56 @@ pub struct BlobUploadRequestBody(pub BlobUploadMetadata);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct GrantListOutcome(pub GrantList);
+
+#[cfg(test)]
+mod federation_dependency_tests {
+    use super::*;
+
+    fn event_id(suffix: &str) -> EventId {
+        EventId::new(format!("ak:event:01964137-0000-7000-8000-{suffix:0>12}")).unwrap()
+    }
+
+    fn realm_id() -> RealmId {
+        RealmId::new("ak:realm:01964137-0000-7000-8000-000000000001".to_owned()).unwrap()
+    }
+
+    #[test]
+    fn peer_resolve_requires_sorted_non_empty_selectors() {
+        let valid = PeerEventsResolveRequestBody {
+            realm_id: realm_id(),
+            event_ids: vec![event_id("1"), event_id("2")],
+            event_digests: Vec::new(),
+            seal_refs: Vec::new(),
+            include_payload: None,
+            max_response_bytes: Some(4096),
+        };
+        assert!(valid.validate().is_ok());
+
+        let mut empty = valid.clone();
+        empty.event_ids.clear();
+        assert!(empty.validate().is_err());
+
+        let mut unsorted = valid;
+        unsorted.event_ids.reverse();
+        assert!(unsorted.validate().is_err());
+    }
+
+    #[test]
+    fn dependency_missing_details_are_closed_and_non_empty() {
+        let mut rejected = EventsSubmitRejectedItem {
+            id: event_id("1").to_string(),
+            reason_code: "dependency_missing".to_owned(),
+            missing_event_ids: vec![event_id("2")],
+            ..Default::default()
+        };
+        assert!(rejected.validate_dependency_details().is_ok());
+        rejected.missing_event_ids.clear();
+        assert!(rejected.validate_dependency_details().is_err());
+        rejected.reason_code = "signature_invalid".to_owned();
+        rejected.missing_event_ids.push(event_id("2"));
+        assert!(rejected.validate_dependency_details().is_err());
+    }
+}
 
 #[cfg(test)]
 mod device_pairing_tests {

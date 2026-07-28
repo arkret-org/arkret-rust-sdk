@@ -471,7 +471,6 @@ pub struct FederationServiceBindingRef {
 pub use crate::http_bodies::EventsSubmitBatchRequestBody;
 
 pub const MAX_FEDERATED_EVENT_SIGNER_EVIDENCE: usize = 64;
-pub const MAX_FEDERATED_SEAL_PREREQUISITES: usize = 4096;
 pub const MAX_FEDERATED_EVENTS: usize = 500;
 
 /// Round 4 — federation `/events/submit` request. Used when a remote
@@ -542,6 +541,42 @@ impl EventsSubmitFederationRequestBody {
         for submission in &self.events {
             submission.validate_structural()?;
         }
+        if self.cba_proof_bundles.len() > arkret_wire::event_submission::MAX_SUBMISSION_CBA_BUNDLES
+        {
+            return Err(Error::Protocol(format!(
+                "federation request exceeds {} CBA proof bundles",
+                arkret_wire::event_submission::MAX_SUBMISSION_CBA_BUNDLES
+            )));
+        }
+        let required_targets = self
+            .transported_events()
+            .flat_map(|event| {
+                event.seal_ref.iter().chain(
+                    event
+                        .seal_basis
+                        .iter()
+                        .flat_map(|basis| basis.leaves.iter()),
+                )
+            })
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        let mut previous_target: Option<&str> = None;
+        for bundle in &self.cba_proof_bundles {
+            bundle.validate_structural()?;
+            if previous_target.is_some_and(|previous| previous >= bundle.target_seal_ref.as_str()) {
+                return Err(Error::Protocol(
+                    "federation CBA proof bundles must be strictly sorted by target_seal_ref"
+                        .to_owned(),
+                ));
+            }
+            previous_target = Some(bundle.target_seal_ref.as_str());
+            if !required_targets.contains(&bundle.target_seal_ref) {
+                return Err(Error::Protocol(
+                    "federation CBA proof bundle target is unrelated to transported Events"
+                        .to_owned(),
+                ));
+            }
+        }
         let seals = self.transported_seals()?;
         let mut saw_data_event = false;
         for event in self.transported_events() {
@@ -571,21 +606,8 @@ impl EventsSubmitFederationRequestBody {
             }
         }
 
-        if seals.len() > MAX_FEDERATED_SEAL_PREREQUISITES {
-            return Err(Error::Protocol(
-                "federation CBA proof bundle seals exceed the v1 limit".to_owned(),
-            ));
-        }
         let mut seal_ids = BTreeSet::new();
-        let mut previous_order: Option<(u64, &str)> = None;
         for seal in &seals {
-            let order = (seal.notary_seq, seal.id.as_str());
-            if previous_order.is_some_and(|previous| previous >= order) {
-                return Err(Error::Protocol(
-                    "federation seals must be strictly sorted by (notary_seq, id)".to_owned(),
-                ));
-            }
-            previous_order = Some(order);
             if !seal_ids.insert(seal.id.clone()) {
                 return Err(Error::Protocol(
                     "federation CBA proof bundles contain a duplicate Seal id".to_owned(),

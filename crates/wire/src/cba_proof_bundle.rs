@@ -8,6 +8,8 @@
 //! dependencies. A bundle MAY be a bounded verifiable superset of what the
 //! receiver needs.
 
+use std::collections::{BTreeMap, BTreeSet};
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -21,6 +23,9 @@ pub const MAX_BUNDLE_SEALS: usize = 256;
 pub const MAX_BUNDLE_CONTROL_MOVES: usize = 1024;
 pub const MAX_BUNDLE_INCLUSION_PROOFS: usize = 2048;
 pub const MAX_BUNDLE_AVAILABILITY_PROOFS: usize = 2048;
+pub const MAX_BUNDLE_PROOFS: usize = 2048;
+pub const MAX_BUNDLE_CANONICAL_BYTES: usize = 8 * 1024 * 1024;
+pub const MAX_BUNDLE_DEPENDENCY_DEPTH: usize = 4096;
 
 /// Signed holder commitment that an Event's bytes stay retrievable until
 /// `retention_expires_at`.
@@ -84,6 +89,11 @@ impl CbaProofBundle {
     /// authoritative is exactly the mistake the bundle's unsigned status warns
     /// against.
     pub fn validate_structural(&self) -> Result<()> {
+        if canonical::canonical_json_bytes(self)?.len() > MAX_BUNDLE_CANONICAL_BYTES {
+            return Err(Error::Protocol(format!(
+                "CBA proof bundle exceeds {MAX_BUNDLE_CANONICAL_BYTES} canonical bytes"
+            )));
+        }
         if self.seals.is_empty() || self.seals.len() > MAX_BUNDLE_SEALS {
             return Err(Error::Protocol(format!(
                 "CBA proof bundle requires 1..={MAX_BUNDLE_SEALS} seals"
@@ -104,16 +114,140 @@ impl CbaProofBundle {
                 "CBA proof bundle exceeds {MAX_BUNDLE_AVAILABILITY_PROOFS} availability proofs"
             )));
         }
-        for control_move in &self.control_moves {
-            if control_move.seal_basis.is_none() {
+        if self.inclusion_proofs.len() + self.availability_proofs.len() > MAX_BUNDLE_PROOFS {
+            return Err(Error::Protocol(format!(
+                "CBA proof bundle exceeds {MAX_BUNDLE_PROOFS} combined proofs"
+            )));
+        }
+        ensure_strictly_sorted(
+            "CBA proof bundle seals",
+            self.seals
+                .iter()
+                .map(|seal| Ok(seal.id.as_str().as_bytes().to_vec())),
+        )?;
+        ensure_strictly_sorted(
+            "CBA proof bundle control_moves",
+            self.control_moves
+                .iter()
+                .map(|event| event.event_digest().map(String::into_bytes)),
+        )?;
+        ensure_strictly_sorted(
+            "CBA proof bundle inclusion_proofs",
+            self.inclusion_proofs
+                .iter()
+                .map(|proof| canonical::canonical_json_bytes(proof).map_err(Into::into)),
+        )?;
+        ensure_strictly_sorted(
+            "CBA proof bundle availability_proofs",
+            self.availability_proofs.iter().map(|receipt| {
+                receipt
+                    .payload_digest()
+                    .map(|digest| digest.as_str().as_bytes().to_vec())
+            }),
+        )?;
+
+        let seals_by_id = self
+            .seals
+            .iter()
+            .map(|seal| (seal.id.clone(), seal))
+            .collect::<BTreeMap<_, _>>();
+        let Some(target) = seals_by_id.get(&self.target_seal_ref) else {
+            return Err(Error::Protocol(
+                "CBA proof bundle must contain its target_seal_ref".to_owned(),
+            ));
+        };
+        let target_realm = &target.realm_id;
+        for seal in &self.seals {
+            seal.validate_id()?;
+            seal.validate_structural()?;
+            if &seal.realm_id != target_realm {
                 return Err(Error::Protocol(
-                    "CBA proof bundle control_moves must carry seal_basis".to_owned(),
+                    "CBA proof bundle contains a cross-Realm Seal".to_owned(),
                 ));
             }
         }
+        for control_move in &self.control_moves {
+            if control_move.realm_id != *target_realm
+                || control_move
+                    .kind
+                    .descriptor()
+                    .and_then(|descriptor| descriptor.plane)
+                    != Some("control")
+                || control_move.seal_basis.is_none()
+            {
+                return Err(Error::Protocol(
+                    "CBA proof bundle control_moves must be same-Realm Control Events with seal_basis"
+                        .to_owned(),
+                ));
+            }
+            control_move.validate_for_submit_structural()?;
+        }
         for receipt in &self.availability_proofs {
             receipt.validate_structural()?;
+            if receipt.realm_id != *target_realm {
+                return Err(Error::Protocol(
+                    "CBA proof bundle contains a cross-Realm availability proof".to_owned(),
+                ));
+            }
+        }
+
+        let mut reachable = BTreeSet::new();
+        let mut pending = vec![(self.target_seal_ref.clone(), 1usize)];
+        while let Some((seal_id, depth)) = pending.pop() {
+            if depth > MAX_BUNDLE_DEPENDENCY_DEPTH {
+                return Err(Error::Protocol(format!(
+                    "CBA proof bundle dependency path exceeds {MAX_BUNDLE_DEPENDENCY_DEPTH}"
+                )));
+            }
+            if !reachable.insert(seal_id.clone()) {
+                continue;
+            }
+            if let Some(seal) = seals_by_id.get(&seal_id) {
+                pending.extend(
+                    seal.predecessor_refs
+                        .iter()
+                        .filter(|predecessor| seals_by_id.contains_key(*predecessor))
+                        .cloned()
+                        .map(|predecessor| (predecessor, depth + 1)),
+                );
+            }
+        }
+        if reachable.len() != self.seals.len() {
+            return Err(Error::Protocol(
+                "CBA proof bundle contains a Seal unreachable from target_seal_ref".to_owned(),
+            ));
+        }
+        let covered_control_digests = self
+            .seals
+            .iter()
+            .flat_map(|seal| seal.delta.iter().chain(&seal.covered_event_digests))
+            .collect::<BTreeSet<_>>();
+        for control_move in &self.control_moves {
+            let digest = Hash::new(control_move.event_digest()?)?;
+            if !covered_control_digests.contains(&digest) {
+                return Err(Error::Protocol(
+                    "CBA proof bundle contains a Control Move unreachable from target Seal coverage"
+                        .to_owned(),
+                ));
+            }
         }
         Ok(())
     }
+}
+
+fn ensure_strictly_sorted<I>(label: &str, values: I) -> Result<()>
+where
+    I: IntoIterator<Item = Result<Vec<u8>>>,
+{
+    let mut previous: Option<Vec<u8>> = None;
+    for value in values {
+        let value = value?;
+        if previous.as_ref().is_some_and(|previous| previous >= &value) {
+            return Err(Error::Protocol(format!(
+                "{label} must be strictly canonical-bytewise sorted and unique"
+            )));
+        }
+        previous = Some(value);
+    }
+    Ok(())
 }
