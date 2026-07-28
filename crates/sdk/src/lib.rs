@@ -85,11 +85,11 @@ pub use arkret_identifiers::{
     AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
     CapabilityId, CellRef, ChunkId, CircleId, ClaimId, ConsentId, DeviceId, DeviceMessageId, Did,
     EventId, FilterId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, InviteLocatorId,
-    KeyEventId, MessageId, ModerationQueueItemId, MorphId, NotificationId, OperationId, PolicyId,
-    PresentationId, ReadCursorId, RealmId, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId,
-    RelationId, ReportId, RequestId, RtcParticipantId, SealId, SidecarId, SnapshotId, SpaceId,
-    StrandId, SubscriptionId, TransactionId, TypedAppealId, TypedTrustDomainId, ViewId,
-    new_prefixed_uuid7,
+    KeyEventId, MessageId, MessageStreamId, ModerationQueueItemId, MorphId, NotificationId,
+    OperationId, PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId,
+    RecoveryAuthorityTicketId, RecoverySessionId, RelationId, ReportId, RequestId,
+    RtcParticipantId, SealId, SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId,
+    TransactionId, TypedAppealId, TypedTrustDomainId, ViewId, new_prefixed_uuid7,
 };
 pub use arkret_identity as identity;
 pub use arkret_identity::jws;
@@ -184,6 +184,7 @@ pub use arkret_models_collaboration::objects::view::*;
 pub use arkret_models_collaboration::runtime_identity::*;
 pub use arkret_models_collaboration::seal_transparency::*;
 pub use arkret_models_collaboration::session_grant_bodies::*;
+pub use arkret_models_collaboration::signal_message_stream::*;
 pub use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountStreamInterrupt, AccountSubscribeBatch, AccountSubscribeFrame,
     AccountSubscribeFrameKind, AccountSubscribeRealms, AccountSubscribeReconnectAfter,

@@ -447,6 +447,7 @@ uuid_id_type!(TypedAppealId, "ak:appeal:");
 // `[a-z0-9._:-]` max 128 chars. NOT a typed-UUIDv7 object id (stays text).
 id_type!(TypedTrustDomainId, is_trust_domain);
 uuid_id_type!(MessageId, "ak:message:");
+uuid_id_type!(MessageStreamId, "ak:message_stream:");
 uuid_id_type!(RelationId, "ak:relation:");
 uuid_id_type!(EventId, "ak:event:");
 // OperationId is hybrid: `ak:operation:<uuidv7>` OR a content hash. No bare
@@ -476,6 +477,18 @@ uuid_id_type!(TransactionId, "ak:transaction:");
 id_type!(BlobRef, is_blob_ref);
 uuid_id_type!(ViewId, "ak:view:");
 id_type!(Cursor, has_prefix("ak:cursor:"));
+
+impl MessageId {
+    /// Retype a durable `ak.message.create` Event UUIDv7 as the Message identity.
+    pub fn from_event_id(event_id: &EventId) -> Self {
+        Self::from_uuid(event_id.uuid())
+    }
+
+    /// Retype this Message UUIDv7 as its planned durable create Event identity.
+    pub fn event_id(&self) -> EventId {
+        EventId::from_uuid(self.uuid())
+    }
+}
 
 fn is_blob_ref(value: &str) -> bool {
     if is_hash(value) || is_strict_typed_id(value, "ak:blob:") {
@@ -737,6 +750,7 @@ mod tests {
         assert_id!(InviteId, "ak:invite:");
         assert_id!(KeyEventId, "ak:key_event:");
         assert_id!(MessageId, "ak:message:");
+        assert_id!(MessageStreamId, "ak:message_stream:");
         assert_id!(ModerationQueueItemId, "ak:moderation_queue_item:");
         assert_id!(MorphId, "ak:morph:");
         assert_id!(AuthorizationLeaseId, "ak:authorization_lease:");
@@ -754,6 +768,18 @@ mod tests {
         assert_id!(SnapshotId, "ak:snapshot:");
         assert_id!(TransactionId, "ak:transaction:");
         assert_id!(ViewId, "ak:view:");
+    }
+
+    #[test]
+    fn message_and_create_event_ids_retype_the_same_uuid() {
+        let event_id = EventId::new("ak:event:01904100-0000-7000-8000-000000000001").unwrap();
+        let message_id = MessageId::from_event_id(&event_id);
+
+        assert_eq!(
+            message_id.as_str(),
+            "ak:message:01904100-0000-7000-8000-000000000001"
+        );
+        assert_eq!(message_id.event_id(), event_id);
     }
 
     #[test]

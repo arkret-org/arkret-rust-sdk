@@ -174,11 +174,11 @@ fn message_create_payload_carries_disappearing_expiry() {
             .with_grace_ms(5_000);
     let payload =
         MessageCreatePayload::with_content(strand_id, "discussion", ContentBlock::text("hello"))
-            .with_message_id("ak:message:01904100-0000-7000-8000-000000000003")
             .with_expiry(expiry)
             .to_value()
             .unwrap();
 
+    assert!(payload.get("message_id").is_none());
     assert_eq!(payload["expiry"]["ttl_ms"], 60_000);
     assert_eq!(payload["expiry"]["trigger"], "on_last_read");
     assert_eq!(payload["expiry"]["grace_ms"], 5_000);
@@ -186,6 +186,18 @@ fn message_create_payload_carries_disappearing_expiry() {
         .unwrap()
         .validate_payload("ak.message.create", &payload)
         .unwrap();
+}
+
+#[test]
+fn message_create_payload_rejects_a_second_producer_chosen_identity() {
+    let payload = serde_json::json!({
+        "strand_id": "ak:strand:01904100-0000-7000-8000-000000000002",
+        "message_id": "ak:message:01904100-0000-7000-8000-000000000003",
+        "track_name": "discussion",
+        "content": {"kind": "ak.content.text", "body": "hello"}
+    });
+
+    assert!(serde_json::from_value::<MessageCreatePayload>(payload).is_err());
 }
 
 #[test]

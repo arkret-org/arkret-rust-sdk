@@ -9,7 +9,7 @@ use arkret_wire::constants::{
     ACCOUNT_DATA_KEY_SNOOZE, FILE_TRANSFER_SCHEMA,
 };
 use arkret_wire::{
-    BlobId, CallId, CircleId, DeviceId, Did, Error, Hash, Hlc, MessageId, RealmId, Result,
+    BlobId, CallId, CircleId, DeviceId, Did, Error, EventId, Hash, Hlc, MessageId, RealmId, Result,
     ScopeRef, SpaceId, StrandId, canonical,
 };
 use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
@@ -77,16 +77,11 @@ pub struct ScheduledSendValue {
 }
 
 impl ScheduledSendValue {
-    pub fn validate_message_id_and_digest(&self) -> Result<()> {
-        let payload_message_id = self.message_payload.message_id.as_deref().ok_or_else(|| {
-            Error::Protocol("scheduled_send.message_payload.message_id required".to_owned())
-        })?;
-        if payload_message_id != self.planned_message_id.as_str() {
-            return Err(Error::Protocol(
-                "scheduled_send.message_payload.message_id must equal planned_message_id"
-                    .to_owned(),
-            ));
-        }
+    pub fn planned_event_id(&self) -> EventId {
+        self.planned_message_id.event_id()
+    }
+
+    pub fn validate_digest(&self) -> Result<()> {
         let digest = scheduled_send_message_payload_digest(&self.message_payload)?;
         if digest != self.message_payload_digest {
             return Err(Error::Protocol(
@@ -2508,14 +2503,13 @@ mod tests {
     }
 
     #[test]
-    fn scheduled_send_validates_payload_id_and_digest() {
+    fn scheduled_send_validates_payload_digest() {
         let message_id = MessageId::new("ak:message:01904100-0000-7000-8000-000000000001").unwrap();
         let payload = MessageCreatePayload::with_content(
             StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap(),
             "discussion",
             ContentBlock::text("hello"),
-        )
-        .with_message_id(message_id.as_str());
+        );
         let value = ScheduledSendValue {
             planned_message_id: message_id,
             send_at: "2026-06-07T00:00:00.000Z".to_owned(),
@@ -2523,7 +2517,7 @@ mod tests {
             message_payload: payload,
             updated_hlc: "01970e589d21-0000-a13f9c2e".to_owned(),
         };
-        value.validate_message_id_and_digest().unwrap();
+        value.validate_digest().unwrap();
     }
 
     #[test]

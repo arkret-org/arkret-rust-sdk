@@ -825,10 +825,18 @@ impl DisappearingMessageExpiry {
 ///
 /// Producers must choose exactly one of `content` or `encrypted_content`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MessageAgentContext {
+    pub agent_id: Did,
+    pub operator_or_controller: String,
+    pub execution_purpose: String,
+    pub authorization_ref: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MessageCreatePayload {
     pub strand_id: StrandId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub message_id: Option<String>,
     pub track_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<ContentBlock>,
@@ -845,6 +853,8 @@ pub struct MessageCreatePayload {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reply_to: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_context: Option<MessageAgentContext>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub expiry: Option<DisappearingMessageExpiry>,
 }
 
@@ -856,7 +866,6 @@ impl MessageCreatePayload {
     ) -> Self {
         Self {
             strand_id,
-            message_id: None,
             track_name: track_name.into(),
             content: Some(content),
             encrypted_content: None,
@@ -865,6 +874,7 @@ impl MessageCreatePayload {
             blob_refs: Vec::new(),
             mention_sidecar_digest: Vec::new(),
             reply_to: None,
+            agent_context: None,
             expiry: None,
         }
     }
@@ -876,7 +886,6 @@ impl MessageCreatePayload {
     ) -> Self {
         Self {
             strand_id,
-            message_id: None,
             track_name: track_name.into(),
             content: None,
             encrypted_content: Some(encrypted_content),
@@ -885,13 +894,9 @@ impl MessageCreatePayload {
             blob_refs: Vec::new(),
             mention_sidecar_digest: Vec::new(),
             reply_to: None,
+            agent_context: None,
             expiry: None,
         }
-    }
-
-    pub fn with_message_id(mut self, message_id: impl Into<String>) -> Self {
-        self.message_id = Some(message_id.into());
-        self
     }
 
     pub fn with_reply_to(mut self, reply_to: impl Into<String>) -> Self {

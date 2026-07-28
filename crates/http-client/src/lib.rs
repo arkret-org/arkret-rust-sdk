@@ -40,6 +40,7 @@ mod endpoints_identity;
 mod endpoints_join_policy;
 mod endpoints_misc;
 mod endpoints_security;
+mod endpoints_signal;
 mod error;
 // Production reqwest + Tokio DID resolver. Leans on a live Tokio runtime,
 // blocking off-thread scheduling, and reqwest's native transport, none of
@@ -70,6 +71,7 @@ pub use endpoints_data::{
 pub use endpoints_events::{EventsSubscribeFrameStream, EventsSubscribeOptions};
 pub use endpoints_join_policy::JoinApplicationListOptions;
 pub use endpoints_misc::SignedAppletTransactionOptions;
+pub use endpoints_signal::SignalSubscribeFrameStream;
 pub use error::{Error, Result};
 
 pub const HEADER_REQUEST_ID: &str = "X-Arkret-Request-Id";

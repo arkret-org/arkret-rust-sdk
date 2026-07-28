@@ -1,5 +1,5 @@
-use arkret_wire::EventKind;
 use arkret_wire::event_envelope::ScopeRef;
+use arkret_wire::{EventKind, MessageId};
 use serde_json::json;
 
 use super::*;
@@ -764,16 +764,16 @@ fn message_revision_redaction_and_reaction_converge() {
         1,
         json!({
             "strand_id": "ak:strand:01904100-0000-7000-8000-1fb50799ad50",
-            "message_id": "m1",
             "track_name": "discussion",
             "content": { "kind": "ak.content.text", "body": "hello" }
         }),
     );
+    let message_id = MessageId::from_event_id(&base.event_id).to_string();
     let mut revise = event(
         "ak.message.revise",
         2,
         json!({
-            "target_message_id": "m1",
+            "target_message_id": message_id,
             "content": { "kind": "ak.content.text", "body": "edited" }
         }),
     );
@@ -781,20 +781,22 @@ fn message_revision_redaction_and_reaction_converge() {
     let mut reaction_add = event(
         "ak.reaction.add",
         3,
-        json!({ "message_id": "m1", "reaction_key": "+1" }),
+        json!({ "message_id": message_id, "reaction_key": "+1" }),
     );
     reaction_add.prev_refs.push(revise.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
     state.apply_events(&[reaction_add, revise, base]).unwrap();
 
-    let message = state.messages.get("m1").unwrap();
+    let message = state.messages.get(&message_id).unwrap();
     assert_eq!(message.content["body"], "edited");
     assert_eq!(message.revision_event_ids.len(), 1);
 
     let reaction = state
         .reactions
-        .get("m1|did:webvh:z6mkfixture:alice.example.com|+1")
+        .get(&format!(
+            "{message_id}|did:webvh:z6mkfixture:alice.example.com|+1"
+        ))
         .unwrap();
     assert!(reaction.active);
 }
