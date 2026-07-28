@@ -165,6 +165,16 @@ pub trait Lattice {
     /// associative and commutative w.r.t. this order so receivers
     /// converge.
     fn join(&self, cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState;
+
+    /// The value this lattice reports for a cell no write has reached yet.
+    ///
+    /// `join` starts from it, so a producer's derived `from` must too — an
+    /// absent `fsm` cell that derived `from = null` could never match the
+    /// registered initial state, and every first transition would join to
+    /// Bottom. Lattices with no such notion return `None`.
+    fn initial_state(&self) -> Option<serde_json::Value> {
+        None
+    }
 }
 
 #[cfg(test)]

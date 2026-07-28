@@ -264,7 +264,17 @@ pub fn resolve_projected_write(
         ProjectedOp::TransitionTo { to } => {
             let mut op = LatticeOp::empty();
             op.op_type = LatticeOpType::Transition;
-            op.from = Some(current_head(&observed));
+            // A cell no write has reached yet reads as its registered initial
+            // state, not as null. The fsm join starts there, so deriving null
+            // here would make every first transition join to Bottom.
+            op.from = Some(if pre_state.contains_key(&write.cell) {
+                current_head(&observed)
+            } else {
+                let binding = registry
+                    .resolve(realm_id, &write.cell)
+                    .map_err(|error| ControlMoveReject::Registry(error.to_string()))?;
+                binding.lattice.initial_state().unwrap_or(Value::Null)
+            });
             op.to = Some(to.clone());
             Ok(vec![ProjectionEffect {
                 cell: write.cell.clone(),
@@ -811,6 +821,33 @@ mod tests {
             cell: cell_member(),
             op: ProjectedOp::Direct(op),
         }
+    }
+
+    #[test]
+    fn a_transition_onto_an_absent_fsm_cell_derives_the_registered_initial_state() {
+        // The reducer derives `from` from the frozen pre-state, and the fsm
+        // join starts at the cell's registered `initial_state`. If an absent
+        // cell derived `from = null` the two would never agree and the FIRST
+        // transition onto any fsm cell with a declared initial state would
+        // join to Bottom, so no member could ever leave that state.
+        let event = control_move(vec![], vec![]);
+        let effects = verify_control_move(
+            &event,
+            &realm(),
+            &BTreeMap::new(),
+            &MemoryCellRegistry::new(),
+            ok_proofs,
+            project(vec![ProjectedCellWrite {
+                cell: cell_member(),
+                op: ProjectedOp::TransitionTo { to: json!("join") },
+            }]),
+        )
+        .expect("a first transition must be derivable");
+
+        assert_eq!(effects.len(), 1);
+        // The registry's declared initial state, not null.
+        assert_eq!(effects[0].op.from, Some(json!("invited")));
+        assert_eq!(effects[0].op.to, Some(json!("join")));
     }
 
     #[test]

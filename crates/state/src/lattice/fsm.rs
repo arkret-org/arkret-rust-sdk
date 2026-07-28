@@ -51,6 +51,10 @@ impl Lattice for Fsm {
         LatticeKind::Fsm
     }
 
+    fn initial_state(&self) -> Option<Value> {
+        self.initial_state.clone()
+    }
+
     fn validate_op(&self, op: &LatticeOp) -> Result<(), OpError> {
         match op.op_type {
             LatticeOpType::Transition => {
