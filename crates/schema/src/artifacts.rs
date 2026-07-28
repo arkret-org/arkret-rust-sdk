@@ -647,9 +647,7 @@ pub const SUPPORTED_SCHEMA_IDS: &[&str] = &[
     "ak.schema.cross_signing_reset.v1",
     "ak.schema.inclusion_list.v1",
     "ak.schema.seal_transparency.v1",
-    // Round R2/R3 (2026-05-20) — broadcast ephemeral envelope, moderation
-    // appeal payloads, structured attestation evidence.
-    "ak.schema.ephemeral_envelope.v1",
+    // Moderation appeal payloads and structured attestation evidence.
     "ak.schema.moderation_appeal.v1",
     "ak.schema.audit_release_attestation.v1",
     // AKP-0007 (spec b7d35be) — Circle primitive schema.

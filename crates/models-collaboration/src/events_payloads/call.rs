@@ -1,10 +1,7 @@
 //! Call-state and call-participant payloads.
 
-use std::collections::BTreeMap;
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::internal_prelude::*;
 
@@ -153,20 +150,6 @@ impl CallMuteOverride {
         }
         Ok(())
     }
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/call_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CallPayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub call_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub strand_id: Option<StrandId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub signal: Option<BTreeMap<String, Value>>,
 }
 
 /// Stable opaque recording/transcript lifecycle handle used byte-for-byte in

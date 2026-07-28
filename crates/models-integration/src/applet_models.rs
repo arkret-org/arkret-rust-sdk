@@ -2,7 +2,7 @@
 //!
 //! The install preview / install request bodies embed the applet package
 //! (`AppletPackage`, this crate's `applet::registration`), so they live here.
-//! `AppletTransactionRequestBody` (binds `EphemeralEnvelope`) and
+//! `AppletTransactionRequestBody` (binds encrypted `SignalEnvelope` values) and
 //! `AppletRevokeRequestBody` (binds `AccountLifecycleProof`) live in
 //! `arkret-models-collaboration`.
 

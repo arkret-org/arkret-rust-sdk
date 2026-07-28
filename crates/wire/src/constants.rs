@@ -74,9 +74,7 @@ pub const PROFILE_MLS_MINIMAL_METADATA_REALM: &str = "ak.profile.mls.minimal_met
 pub const PROFILE_ATTESTED_AUDIT_E2EE: &str = "ak.profile.attested_audit.e2ee.v1";
 pub const PROFILE_DISCLOSED_AUDIT_E2EE: &str = "ak.profile.disclosed_audit.e2ee.v1";
 
-// Round R2/R3 (2026-05-20) — new schema ids for the moderation appeal strand,
-// the broadcast ephemeral envelope, and structured attestation evidence.
-pub const EPHEMERAL_ENVELOPE_SCHEMA: &str = "ak.schema.ephemeral_envelope.v1";
+// Schema ids for the moderation appeal strand and structured attestation evidence.
 pub const MODERATION_APPEAL_SCHEMA: &str = "ak.schema.moderation_appeal.v1";
 pub const AUDIT_RELEASE_ATTESTATION_SCHEMA: &str = "ak.schema.audit_release_attestation.v1";
 pub const CROSS_SIGNING_RESET_SCHEMA: &str = "ak.schema.cross_signing_reset.v1";
@@ -312,9 +310,8 @@ pub fn is_personal_agent_runtime_event_service_scope(scope: &str) -> bool {
 // screen-share, recording, transcription, moderation, and signal-send
 // surfaces of the ak.call.* feature.
 
-// `service-http-binding.md` §162 — sending a `ak.call.signal` ephemeral
-// envelope via `POST /_arkret/self/ephemeral` requires the actor to hold
-// this realm-scoped capability. Registered in
+// Sending call signalling inside the encrypted Signal Extension requires the
+// actor to hold this realm-scoped capability. Registered in
 // `capability-action-registry.json`.
 
 /// AKP-0010 — full call/media capability-action list.
@@ -366,46 +363,6 @@ pub const AGENT_RUNTIME_SURFACE_OPERATIONS: &[&str] = &[
     ServiceOperationId::SELF_AGENT_SIDECAR_COMMAND_ENSURE,
     ServiceOperationId::SELF_AGENT_SIDECAR_QUERY_LIST,
     ServiceOperationId::SELF_AGENT_SIDECAR_RESOURCE_GET,
-];
-
-/// Round 4 (2026-05-20) — canonical signal_kind enum values carried in the
-/// `ak.call.signal` ephemeral envelope payload. Wire-break: the
-/// pre-round-4 6-value enum (`invite, answer, candidate, renegotiate,
-/// hangup, ack`) is replaced by this 14-value set. Spec
-/// `schemas/ephemeral-envelope.schema.json` (Round 4 commit 58c5926).
-pub const CALL_SIGNAL_KIND_INVITE: &str = "invite";
-pub const CALL_SIGNAL_KIND_ANSWER: &str = "answer";
-pub const CALL_SIGNAL_KIND_CANDIDATE: &str = "candidate";
-pub const CALL_SIGNAL_KIND_RENEGOTIATE: &str = "renegotiate";
-pub const CALL_SIGNAL_KIND_HANGUP: &str = "hangup";
-pub const CALL_SIGNAL_KIND_ACK: &str = "ack";
-pub const CALL_SIGNAL_KIND_REJECT: &str = "reject";
-pub const CALL_SIGNAL_KIND_MUTE_STATE: &str = "mute_state";
-pub const CALL_SIGNAL_KIND_MEDIA_STATE: &str = "media_state";
-pub const CALL_SIGNAL_KIND_SPEAKING: &str = "speaking";
-pub const CALL_SIGNAL_KIND_FOCUS_JOIN: &str = "focus_join";
-pub const CALL_SIGNAL_KIND_FOCUS_LEAVE: &str = "focus_leave";
-pub const CALL_SIGNAL_KIND_MODERATION: &str = "moderation";
-pub const CALL_SIGNAL_KIND_ERROR: &str = "error";
-
-/// All canonical `ak.call.signal` signal_kind values. Round 4 (spec a77b995).
-/// Receivers MUST reject any envelope whose `payload.signal_kind` is not in
-/// this set with `crate::ErrorCode::SCHEMA_VIOLATION`.
-pub const CALL_SIGNAL_KINDS: &[&str] = &[
-    CALL_SIGNAL_KIND_INVITE,
-    CALL_SIGNAL_KIND_ANSWER,
-    CALL_SIGNAL_KIND_CANDIDATE,
-    CALL_SIGNAL_KIND_RENEGOTIATE,
-    CALL_SIGNAL_KIND_HANGUP,
-    CALL_SIGNAL_KIND_ACK,
-    CALL_SIGNAL_KIND_REJECT,
-    CALL_SIGNAL_KIND_MUTE_STATE,
-    CALL_SIGNAL_KIND_MEDIA_STATE,
-    CALL_SIGNAL_KIND_SPEAKING,
-    CALL_SIGNAL_KIND_FOCUS_JOIN,
-    CALL_SIGNAL_KIND_FOCUS_LEAVE,
-    CALL_SIGNAL_KIND_MODERATION,
-    CALL_SIGNAL_KIND_ERROR,
 ];
 
 /// Round 4 (2026-05-20) — federation S2S HTTP message-signature headers.

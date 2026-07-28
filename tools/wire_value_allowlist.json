@@ -17,12 +17,6 @@
       "reason": "DID Core relationships, services, contexts, and extension properties belong to the external DID document format."
     },
     {
-      "rust_field": "crates/models-collaboration/src/agent_operations.rs::KeyState.pending_runtime_key_request",
-      "spec_pointer": "agent-operations.schema.json#/$defs/key_state/properties/pending_runtime_key_request",
-      "classification": "polymorphic_boundary",
-      "reason": "The Spec pins this field to the closed agent_runtime_approval_controller_projection object while the Rust counterpart still transports the controller-safe projection as an opaque map."
-    },
-    {
       "rust_field": "crates/models-collaboration/src/governance/agent_artifacts.rs::Signature.extra",
       "spec_pointer": "seal.schema.json#/$defs/signature/additionalProperties",
       "classification": "open_json",
@@ -124,12 +118,6 @@
       "reason": "Conformance vectors are test inputs, not an Arkret wire DTO."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/ephemeral.rs::CallSignalPayload.data",
-      "spec_pointer": "ephemeral-envelope.schema.json#/allOf/0/then/properties/payload/properties/data",
-      "classification": "open_json",
-      "reason": "Call signalling data is explicitly unconstrained JSON in the Spec."
-    },
-    {
       "rust_field": "crates/models-collaboration/src/event_query.rs::EventsQueryPostRequestBody.filters",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventsQueryPostRequestBody/properties/filters",
       "classification": "open_json",
@@ -176,12 +164,6 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-collaboration/src/events_payloads/call.rs::CallPayload.signal",
-      "spec_pointer": "event-payload.schema.json#/$defs/call_payload/properties/signal",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
       "rust_field": "crates/models-collaboration/src/events_payloads/account_data.rs::AccountDataSetPayload.encrypted_payload",
       "spec_pointer": "event-payload.schema.json#/$defs/account_data_set_payload/properties/encrypted_payload",
       "classification": "open_json",
@@ -204,12 +186,6 @@
       "spec_pointer": "event-payload.schema.json#/$defs/consent_grant_payload/properties/constraints",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
-      "rust_field": "crates/models-collaboration/src/events_payloads/ephemeral.rs::EphemeralEnvelope.payload",
-      "spec_pointer": "ephemeral-envelope.schema.json#/properties/payload",
-      "classification": "open_json",
-      "reason": "The exact Spec field is an open property map."
     },
     {
       "rust_field": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationReportPayload.evidence_package",
@@ -910,12 +886,6 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/models-discovery/src/service_description.rs::CompatSurfaceEntry.extra",
-      "spec_pointer": "service-describe.schema.json#/properties/compat_surfaces/items/additionalProperties",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
       "rust_field": "crates/models-discovery/src/service_description.rs::RateLimitEntry.extra",
       "spec_pointer": "service-describe.schema.json#/properties/rate_limit_policy/properties/entries/items",
       "classification": "open_json",
@@ -953,9 +923,9 @@
     },
     {
       "rust_field": "crates/models-discovery/src/service_description.rs::SupportedBinding.extra",
-      "spec_pointer": "service-describe.schema.json#/properties/supported_bindings/items/additionalProperties",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+      "spec_pointer": "service-describe.schema.json#/$defs/transport_binding",
+      "classification": "polymorphic_boundary",
+      "reason": "This compatibility DTO preserves the fields selected by the closed transport-binding union until its Rust representation is split into tagged variants."
     },
     {
       "rust_field": "crates/models-discovery/src/service_description.rs::VerifiedProfileEntry.extra",
@@ -1330,36 +1300,6 @@
       "reason": "The Spec unsigned event section explicitly permits arbitrary JSON properties."
     },
     {
-      "rust_field": "crates/wire/src/move_event.rs::LatticeOp.from",
-      "spec_pointer": "event-envelope.schema.json#/$defs/lattice_op/properties/from",
-      "classification": "open_json",
-      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
-    },
-    {
-      "rust_field": "crates/wire/src/move_event.rs::LatticeOp.to",
-      "spec_pointer": "event-envelope.schema.json#/$defs/lattice_op/properties/to",
-      "classification": "open_json",
-      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
-    },
-    {
-      "rust_field": "crates/wire/src/move_event.rs::LatticeOp.value",
-      "spec_pointer": "event-envelope.schema.json#/$defs/lattice_op/properties/value",
-      "classification": "open_json",
-      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
-    },
-    {
-      "rust_field": "crates/wire/src/move_event.rs::Predicate.value",
-      "spec_pointer": "event-envelope.schema.json#/$defs/predicate/properties/value",
-      "classification": "open_json",
-      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
-    },
-    {
-      "rust_field": "crates/wire/src/move_event.rs::Predicate.values",
-      "spec_pointer": "event-envelope.schema.json#/$defs/predicate/properties/values",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
       "rust_field": "crates/wire/src/primitives.rs::CriticalExtension.parameters",
       "spec_pointer": "event-envelope.schema.json#/$defs/critical_extension/properties/parameters",
       "classification": "open_json",
@@ -1376,6 +1316,80 @@
       "spec_pointer": "../openapi/arkret-service-api.openapi.yaml#/components/schemas/Problem",
       "classification": "open_json",
       "reason": "RFC 9457 problem details explicitly permit extension members."
+    },
+    {
+      "rust_field": "crates/models-collaboration/src/agent_signer_evidence.rs::AgentAuthorizationStateWitness.cell_value",
+      "spec_pointer": "agent-signer-evidence.schema.json#/$defs/state_witness/properties/cell_value",
+      "classification": "open_json",
+      "reason": "The witness commits to a schema-selected reducer cell value whose concrete shape is determined by the named component."
+    },
+    {
+      "rust_field": "crates/models-collaboration/src/agent_signer_evidence.rs::AgentAuthorizationTransitionWitness.cell_value",
+      "spec_pointer": "agent-signer-evidence.schema.json#/$defs/transition_witness/properties/cell_value",
+      "classification": "open_json",
+      "reason": "The transition witness commits to a schema-selected reducer cell value whose concrete shape is determined by the named component."
+    },
+    {
+      "rust_field": "crates/wire/src/cba.rs::LatticeOp.from",
+      "classification": "internal_or_fixture",
+      "reason": "LatticeOp is a receiver-derived reducer output and is not reachable from the Event wire."
+    },
+    {
+      "rust_field": "crates/wire/src/cba.rs::LatticeOp.to",
+      "classification": "internal_or_fixture",
+      "reason": "LatticeOp is a receiver-derived reducer output and is not reachable from the Event wire."
+    },
+    {
+      "rust_field": "crates/wire/src/cba.rs::LatticeOp.value",
+      "classification": "internal_or_fixture",
+      "reason": "LatticeOp is a receiver-derived reducer output and is not reachable from the Event wire."
+    },
+    {
+      "rust_field": "crates/wire/src/cba.rs::ObservedRemoveMatch.expected",
+      "classification": "internal_or_fixture",
+      "reason": "ObservedRemoveMatch is an unresolved reducer projection evaluated only against frozen local pre-state."
+    },
+    {
+      "rust_field": "crates/wire/src/cba.rs::Predicate.value",
+      "spec_pointer": "event-envelope.schema.json#/$defs/predicate/properties/value",
+      "classification": "open_json",
+      "reason": "The predicate value is deliberately selected by the target cell schema."
+    },
+    {
+      "rust_field": "crates/wire/src/cba.rs::Predicate.values",
+      "spec_pointer": "event-envelope.schema.json#/$defs/predicate/properties/values",
+      "classification": "open_json",
+      "reason": "Each predicate comparison value is deliberately selected by the target cell schema."
+    },
+    {
+      "rust_field": "crates/wire/src/recovery_authority.rs::AuthorizeRecoveryDeviceOutcome.authorized_event",
+      "spec_pointer": "recovery-authority.schema.json#/$defs/authorize_recovery_device_outcome/properties/authorized_event",
+      "classification": "polymorphic_boundary",
+      "reason": "The outcome carries a complete signed Event that is independently validated against its declared Event schema."
+    },
+    {
+      "rust_field": "crates/wire/src/recovery_authority.rs::CanonicalPublicMaterial.value",
+      "spec_pointer": "recovery-authority.schema.json#/$defs/canonical_public_material/properties/value",
+      "classification": "polymorphic_boundary",
+      "reason": "The declared canonical encoding and digest bind this intentionally open public-material object."
+    },
+    {
+      "rust_field": "crates/wire/src/recovery_authority.rs::PromoteRecoverySessionGrantOutcome.new_grant",
+      "spec_pointer": "recovery-authority.schema.json#/$defs/promote_recovery_session_grant_outcome/properties/new_grant",
+      "classification": "polymorphic_boundary",
+      "reason": "The opaque value is independently constrained by the referenced SessionGrantOutcome schema."
+    },
+    {
+      "rust_field": "crates/wire/src/recovery_authority.rs::PromoteRecoverySessionGrantRequest.terminal_receipt",
+      "spec_pointer": "recovery-authority.schema.json#/$defs/promote_recovery_session_grant_request/properties/terminal_receipt",
+      "classification": "polymorphic_boundary",
+      "reason": "The opaque value is independently constrained by the referenced recovery receipt schema."
+    },
+    {
+      "rust_field": "crates/wire/src/security_transaction.rs::PreparedEventUnit.request",
+      "spec_pointer": "security-transaction.schema.json#/$defs/prepared_event_unit/properties/request",
+      "classification": "polymorphic_boundary",
+      "reason": "The request schema id, persisted canonical bytes, and digest bind this independently validated typed request."
     },
     {
       "rust_field": "crates/wire/src/seal.rs::Seal.coverage_scope",
