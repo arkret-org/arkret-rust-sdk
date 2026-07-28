@@ -105,8 +105,11 @@ pub use http_signature::HttpMessageSignature;
 pub use notary::{ForensicAttribution, NotaryValue};
 pub use object_address::*;
 pub use offline_publication::{
-    AuthoritySetRef, AuthorizationLease, IngressReceipt, LeaseBasisRef, RiskTier,
-    distinct_issuer_count,
+    AUTHORITY_SET_POLICY_SCHEMA, AuthoritySetAuthorizationRule, AuthoritySetIssuer,
+    AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource,
+    AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease, IngressReceipt, LeaseBasisRef,
+    RECOVERY_ACCOUNT_AUTHORITY_SET_ID, RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID,
+    RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RiskTier, distinct_issuer_count,
 };
 pub use patch::*;
 pub use plaintext::PlaintextDataClassKind;

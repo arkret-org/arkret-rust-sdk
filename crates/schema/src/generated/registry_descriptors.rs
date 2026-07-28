@@ -5,10 +5,10 @@
 //! capability-action-registry.json; version=2026-07-20;
 //! sha256=aefb5e175eacb3c3cf789f9bc28a86a616729f327983f7c229d6eb70a0c41a1c Input: registry/
 //! schema-registry.json; version=2026-07-20;
-//! sha256=867c0d4736afef41fb83bcdcc64cb8bce75f136d0fc425f246e5397d3dd2d30a Input: registry/
+//! sha256=d9873d94e49a7b7a4b7268848c5c44a254cac543f5147a91e28e0408161b1cb4 Input: registry/
 //! account-data-key-registry.json; version=2026-07-03;
 //! sha256=0ee8f8609eb903dbb1a254cb9fda133b843a332febfad0648d523e1aeeaf80eb Entries: id_kinds=53,
-//! special_forms=9, actions=156, schemas=148, account_data_patterns=22
+//! special_forms=9, actions=156, schemas=149, account_data_patterns=22
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -1961,6 +1961,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: "ak.schema.audit_ryw_receipt.v1",
         file: "schemas/audit-ryw-receipt.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.authority_set_policy.v1",
+        file: "schemas/authority-set-policy.schema.json",
     },
     SchemaDescriptor {
         schema_id: "ak.schema.authz_operations.v1",

@@ -13,9 +13,10 @@ use serde_json::Value;
 
 use crate::error::{Error, Result};
 use crate::{
-    AuthoritySetRef, AuthorizationLease, CbaProofBundle, DeviceId, Did, Event, EventId, GrantId,
-    Hash, LeaseBasisRef, PolicyId, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId,
-    RiskTier, ScopeRef, TransactionId, TypedTrustDomainId,
+    AuthoritySetPolicy, AuthoritySetRef, AuthorizationLease, CbaProofBundle, DeviceId, Did, Event,
+    EventId, GrantId, Hash, LeaseBasisRef, PolicyId, RECOVERY_ACCOUNT_AUTHORITY_SET_ID, ReceiptId,
+    RecoveryAuthorityTicketId, RecoverySessionId, RiskTier, ScopeRef, TransactionId,
+    TypedTrustDomainId,
 };
 
 const MAX_RECOVERY_PUBLICATION_CBA_BUNDLES: usize = 64;
@@ -121,6 +122,7 @@ pub struct AuthorizeEventPublicationIntent {
     pub risk_tier: RiskTier,
     pub basis_ref: LeaseBasisRef,
     pub authority_set_ref: AuthoritySetRef,
+    pub authority_set_policy: AuthoritySetPolicy,
     pub cba_proof_bundles: Vec<CbaProofBundle>,
 }
 
@@ -132,6 +134,17 @@ impl AuthorizeEventPublicationIntent {
                     .to_owned(),
             ));
         }
+        if self.authority_set_ref.authority_set_id != RECOVERY_ACCOUNT_AUTHORITY_SET_ID {
+            return Err(Error::Protocol(
+                "recovery authorize publication intent uses the wrong authority-set policy"
+                    .to_owned(),
+            ));
+        }
+        self.authority_set_policy.validate_reference_and_action(
+            &self.authority_set_ref,
+            &self.scope_ref,
+            &self.action,
+        )?;
         if self.cba_proof_bundles.len() > MAX_RECOVERY_PUBLICATION_CBA_BUNDLES {
             return Err(Error::Protocol(format!(
                 "recovery authorize publication intent exceeds {MAX_RECOVERY_PUBLICATION_CBA_BUNDLES} CBA bundles"
@@ -574,6 +587,7 @@ impl AuthorizeRecoveryDeviceOutcome {
             || self.authorization_lease.action != intent.action
             || self.authorization_lease.risk_tier != intent.risk_tier
             || self.authorization_lease.authority_set_ref != intent.authority_set_ref
+            || self.authorization_lease.authority_set_policy != intent.authority_set_policy
             || self.cba_proof_bundles != intent.cba_proof_bundles
         {
             return Err(Error::Protocol(
@@ -768,6 +782,36 @@ mod tests {
     }
 
     fn publication_intent() -> AuthorizeEventPublicationIntent {
+        let scope_ref = ScopeRef::Realm {
+            realm_id: crate::RealmId::new(
+                "ak:realm:019a7360-0000-7000-8000-000000000018".to_owned(),
+            )
+            .unwrap(),
+        };
+        let authority_set_policy = AuthoritySetPolicy {
+            schema: crate::AUTHORITY_SET_POLICY_SCHEMA.to_owned(),
+            authority_set_id: RECOVERY_ACCOUNT_AUTHORITY_SET_ID.to_owned(),
+            policy_kind: crate::AuthoritySetPolicyKind::PrincipalControl,
+            scope_ref: scope_ref.clone(),
+            source: crate::AuthoritySetPolicySource {
+                source_kind: crate::AuthoritySetSourceKind::DidDocument,
+                source_ref: "did:webvh:z6mkfixture:alice.example?versionId=1-genesis".to_owned(),
+                source_digest: hash('3'),
+                generation_ref: "1-genesis".to_owned(),
+            },
+            authorization_rules: vec![crate::AuthoritySetAuthorizationRule {
+                rule_id: "account_authority".to_owned(),
+                issuer_role: crate::AuthoritySetIssuerRole::AccountEnrollmentAuthority,
+                allowed_actions: vec!["ak.device.authorize".to_owned()],
+                issuers: vec![crate::AuthoritySetIssuer {
+                    verification_method: crate::DidUrl::new(
+                        "did:web:accounts.example#device-enrollment-1",
+                    )
+                    .unwrap(),
+                }],
+                threshold: 1,
+            }],
+        };
         AuthorizeEventPublicationIntent {
             event_id: EventId::new("ak:event:019a7360-0000-7000-8000-000000000017".to_owned())
                 .unwrap(),
@@ -775,21 +819,17 @@ mod tests {
             actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             device_id: DeviceId::new("ak:device:019a7360-0000-7000-8000-000000000015".to_owned())
                 .unwrap(),
-            scope_ref: ScopeRef::Realm {
-                realm_id: crate::RealmId::new(
-                    "ak:realm:019a7360-0000-7000-8000-000000000018".to_owned(),
-                )
-                .unwrap(),
-            },
+            scope_ref,
             action: "ak.device.authorize".to_owned(),
             risk_tier: RiskTier::High,
             basis_ref: LeaseBasisRef::Seal(
                 crate::SealId::new(format!("ak:seal:{}", hash('2').as_str())).unwrap(),
             ),
             authority_set_ref: AuthoritySetRef {
-                authority_set_id: "ak.authority_set.recovery.enrollment_authority.v1".to_owned(),
-                authority_set_digest: hash('3'),
+                authority_set_id: authority_set_policy.authority_set_id.clone(),
+                authority_set_digest: authority_set_policy.digest().unwrap(),
             },
+            authority_set_policy,
             cba_proof_bundles: Vec::new(),
         }
     }

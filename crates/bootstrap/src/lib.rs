@@ -35,8 +35,11 @@ use arkret_wire::{
 };
 #[cfg(test)]
 use arkret_wire::{
-    AuthoritySetRef, AuthorizationLease, AuthorizationLeaseId, DeviceId, LeaseBasisRef,
-    NonEmptyString, Proof, RiskTier, SemanticRefProof, SemanticRefProofKind, WireError,
+    AUTHORITY_SET_POLICY_SCHEMA, AuthoritySetAuthorizationRule, AuthoritySetIssuer,
+    AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource,
+    AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, DeviceId,
+    DidUrl, LeaseBasisRef, NonEmptyString, Proof, RiskTier, SemanticRefProof, SemanticRefProofKind,
+    WireError,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -1316,6 +1319,31 @@ mod tests {
     /// A lease bound to the Event it travels with. The bootstrap helper only
     /// checks the actor/scope binding, so the remaining members are fixtures.
     fn submission(event: Event) -> EventInitialSubmission {
+        let authority_set_policy = AuthoritySetPolicy {
+            schema: AUTHORITY_SET_POLICY_SCHEMA.to_owned(),
+            authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
+            policy_kind: AuthoritySetPolicyKind::RealmAdmission,
+            scope_ref: event.scope_ref.clone(),
+            source: AuthoritySetPolicySource {
+                source_kind: AuthoritySetSourceKind::RealmControl,
+                source_ref: event.event_id.as_str().to_owned(),
+                source_digest: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
+                generation_ref: "1".to_owned(),
+            },
+            authorization_rules: vec![AuthoritySetAuthorizationRule {
+                rule_id: "realm_admission".to_owned(),
+                issuer_role: AuthoritySetIssuerRole::RealmAdmission,
+                allowed_actions: vec!["ak.realm.admin".to_owned()],
+                issuers: vec![AuthoritySetIssuer {
+                    verification_method: DidUrl::new(format!(
+                        "{}#bootstrap-authority",
+                        event.actor_id
+                    ))
+                    .unwrap(),
+                }],
+                threshold: 1,
+            }],
+        };
         let lease = AuthorizationLease {
             authorization_lease_id: AuthorizationLeaseId::new(
                 "ak:authorization_lease:01904100-0000-7000-8000-0000000000f1",
@@ -1332,9 +1360,10 @@ mod tests {
             issued_at: event.created_at,
             expires_at: event.created_at + chrono::Duration::minutes(5),
             authority_set_ref: AuthoritySetRef {
-                authority_set_id: "ak:authority_set:bootstrap".to_owned(),
-                authority_set_digest: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
+                authority_set_id: authority_set_policy.authority_set_id.clone(),
+                authority_set_digest: authority_set_policy.digest().unwrap(),
             },
+            authority_set_policy,
             proofs: Vec::new(),
         };
         EventInitialSubmission {

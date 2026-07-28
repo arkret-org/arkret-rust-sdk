@@ -3,9 +3,11 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId, Did, DidUrl, Error,
-    EventId, Hash, LeaseBasisRef, NonEmptyString, PolicyId, RealmId, RecoverySessionId, Result,
-    ScopeRef, SealBasis, TransactionId, TypedTrustDomainId, XExtensionMap,
+    AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId, Did,
+    DidUrl, Error, EventId, Hash, LeaseBasisRef, NonEmptyString, PolicyId,
+    RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID, RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RealmId,
+    RecoverySessionId, Result, ScopeRef, SealBasis, TransactionId, TypedTrustDomainId,
+    XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -620,14 +622,6 @@ pub enum RecoveryIdentityModel {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RecoveryPublicationIssuerKeyRole {
-    SelfSigning,
-    IdentityRecovery,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RecoveryPublicationAction {
     #[serde(rename = "ak.device.authorize")]
     DeviceAuthorize,
@@ -642,11 +636,10 @@ pub enum RecoveryPublicationAction {
 #[serde(deny_unknown_fields)]
 pub struct RecoveryPublicationAuthorityContext {
     pub identity_model: RecoveryIdentityModel,
-    pub issuer_key_role: RecoveryPublicationIssuerKeyRole,
     pub basis_ref: LeaseBasisRef,
     pub scope_ref: ScopeRef,
     pub authority_set_ref: AuthoritySetRef,
-    pub verification_method: DidUrl,
+    pub authority_set_policy: AuthoritySetPolicy,
     pub allowed_actions: Vec<RecoveryPublicationAction>,
 }
 
@@ -655,7 +648,8 @@ impl RecoveryPublicationAuthorityContext {
         let valid = match identity_model {
             RecoveryIdentityModel::CrossSigning => {
                 self.identity_model == identity_model
-                    && self.issuer_key_role == RecoveryPublicationIssuerKeyRole::SelfSigning
+                    && self.authority_set_ref.authority_set_id
+                        == RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID
                     && self.allowed_actions
                         == [
                             RecoveryPublicationAction::DeviceAuthorize,
@@ -664,16 +658,30 @@ impl RecoveryPublicationAuthorityContext {
             }
             RecoveryIdentityModel::EnrollmentAuthority => {
                 self.identity_model == identity_model
-                    && self.issuer_key_role == RecoveryPublicationIssuerKeyRole::IdentityRecovery
+                    && self.authority_set_ref.authority_set_id
+                        == RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID
                     && self.allowed_actions == [RecoveryPublicationAction::DeviceReanchor]
             }
         };
-        valid.then_some(()).ok_or_else(|| {
-            Error::Protocol(
+        if !valid {
+            return Err(Error::Protocol(
                 "recovery publication authority context does not match the closed identity-model authority"
                     .to_owned(),
-            )
-        })
+            ));
+        }
+        for action in &self.allowed_actions {
+            let action = match action {
+                RecoveryPublicationAction::DeviceAuthorize => "ak.device.authorize",
+                RecoveryPublicationAction::DeviceListUpdate => "ak.device.list_update",
+                RecoveryPublicationAction::DeviceReanchor => "ak.device.reanchor",
+            };
+            self.authority_set_policy.validate_reference_and_action(
+                &self.authority_set_ref,
+                &self.scope_ref,
+                action,
+            )?;
+        }
+        Ok(())
     }
 
     pub fn digest(&self) -> Result<Hash> {
@@ -1150,40 +1158,93 @@ mod recovery_completion_tests {
     use super::*;
 
     fn add_publication_authority_context(value: &mut Value, identity_model: &str) {
+        let scope_ref = json!({
+            "kind": "realm",
+            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000008"
+        });
+        let (authority_set_id, authority_set_policy, allowed_actions) = if identity_model
+            == "cross_signing"
+        {
+            (
+                RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID,
+                json!({
+                    "schema": "ak.schema.authority_set_policy.v1",
+                    "authority_set_id": RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID,
+                    "policy_kind": "principal_control",
+                    "scope_ref": scope_ref,
+                    "source": {
+                        "source_kind": "cross_signing_publish",
+                        "source_ref": "ak:event:01904100-0000-7000-8000-000000000009",
+                        "source_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "generation_ref": "2"
+                    },
+                    "authorization_rules": [{
+                        "rule_id": "cross_signing",
+                        "issuer_role": "cross_signing_self_signing",
+                        "allowed_actions": [
+                            "ak.device.authorize",
+                            "ak.device.list_update"
+                        ],
+                        "issuers": [{
+                            "verification_method": "did:webvh:z6mkfixture:users.example:alice#self-signing-2"
+                        }],
+                        "threshold": 1
+                    }]
+                }),
+                json!(["ak.device.authorize", "ak.device.list_update"]),
+            )
+        } else {
+            (
+                RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID,
+                json!({
+                    "schema": "ak.schema.authority_set_policy.v1",
+                    "authority_set_id": RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID,
+                    "policy_kind": "principal_control",
+                    "scope_ref": scope_ref,
+                    "source": {
+                        "source_kind": "recovery_policy",
+                        "source_ref": "ak:policy:01904100-0000-7000-8000-000000000007",
+                        "source_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "generation_ref": "1"
+                    },
+                    "authorization_rules": [{
+                        "rule_id": "recovery_unlock",
+                        "issuer_role": "identity_recovery",
+                        "allowed_actions": ["ak.device.reanchor"],
+                        "issuers": [{
+                            "verification_method": "did:webvh:z6mkfixture:users.example:alice#identity-recovery-2"
+                        }],
+                        "threshold": 1
+                    }]
+                }),
+                json!(["ak.device.reanchor"]),
+            )
+        };
+        let authority_set_digest =
+            arkret_canonical::canonical_sha256(&authority_set_policy).unwrap();
         value["publication_authority_context"] = if identity_model == "cross_signing" {
             json!({
                 "identity_model": "cross_signing",
-                "issuer_key_role": "self_signing",
                 "basis_ref": "ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "scope_ref": {
-                    "kind": "realm",
-                    "realm_id": "ak:realm:01904100-0000-7000-8000-000000000008"
-                },
+                "scope_ref": scope_ref,
                 "authority_set_ref": {
-                    "authority_set_id": "ak.authority_set.recovery.cross_signing.v1",
-                    "authority_set_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    "authority_set_id": authority_set_id,
+                    "authority_set_digest": authority_set_digest
                 },
-                "verification_method": "did:webvh:z6mkfixture:users.example:alice#self-signing-2",
-                "allowed_actions": [
-                    "ak.device.authorize",
-                    "ak.device.list_update"
-                ]
+                "authority_set_policy": authority_set_policy,
+                "allowed_actions": allowed_actions
             })
         } else {
             json!({
                 "identity_model": "enrollment_authority",
-                "issuer_key_role": "identity_recovery",
                 "basis_ref": "ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "scope_ref": {
-                    "kind": "realm",
-                    "realm_id": "ak:realm:01904100-0000-7000-8000-000000000008"
-                },
+                "scope_ref": scope_ref,
                 "authority_set_ref": {
-                    "authority_set_id": "ak.authority_set.recovery.enrollment_authority.v1",
-                    "authority_set_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    "authority_set_id": authority_set_id,
+                    "authority_set_digest": authority_set_digest
                 },
-                "verification_method": "did:webvh:z6mkfixture:users.example:alice#identity-recovery-2",
-                "allowed_actions": ["ak.device.reanchor"]
+                "authority_set_policy": authority_set_policy,
+                "allowed_actions": allowed_actions
             })
         };
         value["publication_authority_context_digest"] = Value::String(

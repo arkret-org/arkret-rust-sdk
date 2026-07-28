@@ -1041,9 +1041,11 @@ impl EventsSubmitFederationRequestBody {
 #[cfg(test)]
 mod tests {
     use arkret_wire::{
-        AuthoritySetRef, AuthorizationLease, AuthorizationLeaseId, DeviceId, DidKey, Hash,
-        IngressReceipt, LeaseBasisRef, NotarySig, PayloadProof, PayloadSignature, ReceiptId,
-        RiskTier, ScopeRef, SealKind,
+        AUTHORITY_SET_POLICY_SCHEMA, AuthoritySetAuthorizationRule, AuthoritySetIssuer,
+        AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind,
+        AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease,
+        AuthorizationLeaseId, DeviceId, DidKey, DidUrl, Hash, IngressReceipt, LeaseBasisRef,
+        NotarySig, PayloadProof, PayloadSignature, ReceiptId, RiskTier, ScopeRef, SealKind,
     };
     use serde_json::json;
 
@@ -1220,13 +1222,6 @@ mod tests {
         assert!(request.validate_signer_key_evidence().is_err());
     }
 
-    fn publication_authority_set(id: &str) -> AuthoritySetRef {
-        AuthoritySetRef {
-            authority_set_id: id.to_owned(),
-            authority_set_digest: Hash::new(format!("sha256:{}", "e".repeat(64))).unwrap(),
-        }
-    }
-
     fn publication_proof(
         verification_method: &str,
         payload_digest: Hash,
@@ -1250,6 +1245,31 @@ mod tests {
     /// receipt that recorded its first publication inside the lease window.
     fn federation_submission(event: Event) -> EventFederationSubmission {
         let issued_at: DateTime<Utc> = "2026-07-21T08:00:00.000Z".parse().unwrap();
+        let authority_set_policy = AuthoritySetPolicy {
+            schema: AUTHORITY_SET_POLICY_SCHEMA.to_owned(),
+            authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
+            policy_kind: AuthoritySetPolicyKind::RealmAdmission,
+            scope_ref: event.scope_ref.clone(),
+            source: AuthoritySetPolicySource {
+                source_kind: AuthoritySetSourceKind::RealmControl,
+                source_ref: "ak:event:01904100-0000-7000-8000-111111111111".to_owned(),
+                source_digest: Hash::new(format!("sha256:{}", "e".repeat(64))).unwrap(),
+                generation_ref: "1".to_owned(),
+            },
+            authorization_rules: vec![AuthoritySetAuthorizationRule {
+                rule_id: "realm_admission".to_owned(),
+                issuer_role: AuthoritySetIssuerRole::RealmAdmission,
+                allowed_actions: vec![event.kind.as_str().to_owned()],
+                issuers: vec![AuthoritySetIssuer {
+                    verification_method: DidUrl::new("did:web:authority.example#key-1").unwrap(),
+                }],
+                threshold: 1,
+            }],
+        };
+        let authority_set_ref = AuthoritySetRef {
+            authority_set_id: authority_set_policy.authority_set_id.clone(),
+            authority_set_digest: authority_set_policy.digest().unwrap(),
+        };
         let mut authorization_lease = AuthorizationLease {
             authorization_lease_id: AuthorizationLeaseId::new(
                 "ak:authorization_lease:01904100-0000-7000-8000-aaaaaaaaaaaa",
@@ -1265,7 +1285,8 @@ mod tests {
             risk_tier: RiskTier::Low,
             issued_at,
             expires_at: issued_at + chrono::Duration::hours(1),
-            authority_set_ref: publication_authority_set("ak.authority_set.realm_admission.v1"),
+            authority_set_ref: authority_set_ref.clone(),
+            authority_set_policy,
             proofs: Vec::new(),
         };
         let lease_digest = authorization_lease.lease_digest().unwrap();
@@ -1281,7 +1302,7 @@ mod tests {
             authorization_lease_id: authorization_lease.authorization_lease_id.clone(),
             received_at: issued_at,
             service_id: Did::new("did:web:ingress.example").unwrap(),
-            authority_set_ref: publication_authority_set("ak.authority_set.realm_ingress.v1"),
+            authority_set_ref,
             proofs: Vec::new(),
         };
         let receipt_digest = receipt.receipt_digest().unwrap();

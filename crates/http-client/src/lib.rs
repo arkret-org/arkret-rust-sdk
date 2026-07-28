@@ -855,10 +855,13 @@ mod tests {
             DirectoryPrivateContactDiscoveryOutcome, DirectoryPrivateContactDiscoveryRequestBody,
         };
         use arkret_wire::{
-            AuthoritySetRef, AuthorizationLease, AuthorizationLeaseId, BlobRef, DeviceId, Did,
-            Event, EventId, EventInitialSubmission, EventRequirements, Hash, Hlc, LeaseBasisRef,
-            MimiRoomUri, NonEmptyString, PayloadProof, RealmId, RiskTier, ScopeRef, SealId,
-            ServiceKind, StrandId, proof_kind,
+            AUTHORITY_SET_POLICY_SCHEMA, AuthoritySetAuthorizationRule, AuthoritySetIssuer,
+            AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind,
+            AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease,
+            AuthorizationLeaseId, BlobRef, DeviceId, Did, DidUrl, Event, EventId,
+            EventInitialSubmission, EventRequirements, Hash, Hlc, LeaseBasisRef, MimiRoomUri,
+            NonEmptyString, PayloadProof, RealmId, RiskTier, ScopeRef, SealId, ServiceKind,
+            StrandId, proof_kind,
         };
         use serde_json::{Value, json};
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -917,6 +920,30 @@ mod tests {
             let event = fixture_event(content_body);
             let issued_at: chrono::DateTime<chrono::Utc> =
                 "2026-04-26T00:00:00.000Z".parse().unwrap();
+            let authority_set_policy = AuthoritySetPolicy {
+                schema: AUTHORITY_SET_POLICY_SCHEMA.to_owned(),
+                authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
+                policy_kind: AuthoritySetPolicyKind::RealmAdmission,
+                scope_ref: event.scope_ref.clone(),
+                source: AuthoritySetPolicySource {
+                    source_kind: AuthoritySetSourceKind::RealmControl,
+                    source_ref: event.event_id.as_str().to_owned(),
+                    source_digest: Hash::new(format!("sha256:{}", "e".repeat(64))).unwrap(),
+                    generation_ref: "1".to_owned(),
+                },
+                authorization_rules: vec![AuthoritySetAuthorizationRule {
+                    rule_id: "realm_admission".to_owned(),
+                    issuer_role: AuthoritySetIssuerRole::RealmAdmission,
+                    allowed_actions: vec![event.kind.as_str().to_owned()],
+                    issuers: vec![AuthoritySetIssuer {
+                        verification_method: DidUrl::new(
+                            "did:webvh:z6mkfixture:authority.example#key-1",
+                        )
+                        .unwrap(),
+                    }],
+                    threshold: 1,
+                }],
+            };
             let mut authorization_lease = AuthorizationLease {
                 authorization_lease_id: AuthorizationLeaseId::new(
                     "ak:authorization_lease:01904100-0000-7000-8000-aaaaaaaaaaaa",
@@ -933,9 +960,10 @@ mod tests {
                 issued_at,
                 expires_at: issued_at + chrono::Duration::hours(1),
                 authority_set_ref: AuthoritySetRef {
-                    authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
-                    authority_set_digest: Hash::new(format!("sha256:{}", "e".repeat(64))).unwrap(),
+                    authority_set_id: authority_set_policy.authority_set_id.clone(),
+                    authority_set_digest: authority_set_policy.digest().unwrap(),
                 },
+                authority_set_policy,
                 proofs: Vec::new(),
             };
             let lease_digest = authorization_lease.lease_digest().unwrap();

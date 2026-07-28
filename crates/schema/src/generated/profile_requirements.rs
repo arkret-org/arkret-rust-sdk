@@ -1094,37 +1094,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             },
         );
         map.insert(
-            "ak.profile.federation_minimal.v1",
-            ProfileRequirements {
-                profile_id: "ak.profile.federation_minimal.v1",
-                inherits: &["ak.profile.core_event_store.v1"],
-                required_operations: &[
-                    "ak.peer.events.command.submit",
-                    "ak.peer.events.query.frontier",
-                    "ak.peer.events.query.resolve",
-                    "ak.peer.events.query.scan",
-                ],
-                required_event_kinds: &["ak.member.state", "ak.realm.create"],
-                required_schemas: &[
-                    "ak.schema.event.v1",
-                    "ak.schema.event_batch_receipt.v1",
-                    "ak.schema.event_payload.v1",
-                    "ak.schema.seal.v1",
-                ],
-                rejected_event_kinds: &["wire_scope:actor_private_event"],
-                required_fixtures: &[
-                    "event-envelope-negative-fixture.json",
-                    "federation-fixture.json",
-                    "sync-fixture.json",
-                ],
-                required_capability_actions: &[],
-                required_features: &[],
-                required_cell_namespaces: &[],
-                required_cells: &[],
-                required_constraint_kinds: &[],
-            },
-        );
-        map.insert(
             "ak.profile.federation.high_assurance.v1",
             ProfileRequirements {
                 profile_id: "ak.profile.federation.high_assurance.v1",
@@ -1151,6 +1120,37 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_schemas: &[],
                 rejected_event_kinds: &[],
                 required_fixtures: &["sync-fixture.json"],
+                required_capability_actions: &[],
+                required_features: &[],
+                required_cell_namespaces: &[],
+                required_cells: &[],
+                required_constraint_kinds: &[],
+            },
+        );
+        map.insert(
+            "ak.profile.federation_minimal.v1",
+            ProfileRequirements {
+                profile_id: "ak.profile.federation_minimal.v1",
+                inherits: &["ak.profile.core_event_store.v1"],
+                required_operations: &[
+                    "ak.peer.events.command.submit",
+                    "ak.peer.events.query.frontier",
+                    "ak.peer.events.query.resolve",
+                    "ak.peer.events.query.scan",
+                ],
+                required_event_kinds: &["ak.member.state", "ak.realm.create"],
+                required_schemas: &[
+                    "ak.schema.event.v1",
+                    "ak.schema.event_batch_receipt.v1",
+                    "ak.schema.event_payload.v1",
+                    "ak.schema.seal.v1",
+                ],
+                rejected_event_kinds: &["wire_scope:actor_private_event"],
+                required_fixtures: &[
+                    "event-envelope-negative-fixture.json",
+                    "federation-fixture.json",
+                    "sync-fixture.json",
+                ],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1257,23 +1257,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             },
         );
         map.insert(
-            "ak.profile.hash_transition.v1",
-            ProfileRequirements {
-                profile_id: "ak.profile.hash_transition.v1",
-                inherits: &[],
-                required_operations: &[],
-                required_event_kinds: &[],
-                required_schemas: &[],
-                rejected_event_kinds: &[],
-                required_fixtures: &["hash-transition-fixture.json"],
-                required_capability_actions: &[],
-                required_features: &[],
-                required_cell_namespaces: &[],
-                required_cells: &[],
-                required_constraint_kinds: &[],
-            },
-        );
-        map.insert(
             "ak.profile.hash.blake3.v1",
             ProfileRequirements {
                 profile_id: "ak.profile.hash.blake3.v1",
@@ -1283,6 +1266,23 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_schemas: &[],
                 rejected_event_kinds: &[],
                 required_fixtures: &["encoding-fixture.json"],
+                required_capability_actions: &[],
+                required_features: &[],
+                required_cell_namespaces: &[],
+                required_cells: &[],
+                required_constraint_kinds: &[],
+            },
+        );
+        map.insert(
+            "ak.profile.hash_transition.v1",
+            ProfileRequirements {
+                profile_id: "ak.profile.hash_transition.v1",
+                inherits: &[],
+                required_operations: &[],
+                required_event_kinds: &[],
+                required_schemas: &[],
+                rejected_event_kinds: &[],
+                required_fixtures: &["hash-transition-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1667,6 +1667,35 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             },
         );
         map.insert(
+            "ak.profile.mls.minimal_metadata_realm.v1",
+            ProfileRequirements {
+                profile_id: "ak.profile.mls.minimal_metadata_realm.v1",
+                inherits: &["ak.profile.e2ee_client.v1"],
+                required_operations: &[
+                    "ak.self.events.command.submit",
+                    "ak.self.events.query.scan",
+                ],
+                required_event_kinds: &["ak.message.create", "ak.mls.commit"],
+                required_schemas: &[
+                    "ak.schema.encrypted_envelope.v1",
+                    "ak.schema.event.v1",
+                    "ak.schema.identity_link.v1",
+                ],
+                rejected_event_kinds: &[],
+                required_fixtures: &[
+                    "audit-release-fixture.json",
+                    "crypto-signature-fixture.json",
+                    "privacy-security-fixture.json",
+                    "push-rule-core-fixture.json",
+                ],
+                required_capability_actions: &[],
+                required_features: &[],
+                required_cell_namespaces: &[],
+                required_cells: &[],
+                required_constraint_kinds: &[],
+            },
+        );
+        map.insert(
             "ak.profile.mls_ciphersuite.chacha20poly1305.v1",
             ProfileRequirements {
                 profile_id: "ak.profile.mls_ciphersuite.chacha20poly1305.v1",
@@ -1735,35 +1764,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ak:cell:ak.component.mls.epoch.v1:<mls_group_id>",
                     "ak:cell:ak.component.mls.key_schedule.v1:<mls_group_id>",
                 ],
-                required_constraint_kinds: &[],
-            },
-        );
-        map.insert(
-            "ak.profile.mls.minimal_metadata_realm.v1",
-            ProfileRequirements {
-                profile_id: "ak.profile.mls.minimal_metadata_realm.v1",
-                inherits: &["ak.profile.e2ee_client.v1"],
-                required_operations: &[
-                    "ak.self.events.command.submit",
-                    "ak.self.events.query.scan",
-                ],
-                required_event_kinds: &["ak.message.create", "ak.mls.commit"],
-                required_schemas: &[
-                    "ak.schema.encrypted_envelope.v1",
-                    "ak.schema.event.v1",
-                    "ak.schema.identity_link.v1",
-                ],
-                rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "audit-release-fixture.json",
-                    "crypto-signature-fixture.json",
-                    "privacy-security-fixture.json",
-                    "push-rule-core-fixture.json",
-                ],
-                required_capability_actions: &[],
-                required_features: &[],
-                required_cell_namespaces: &[],
-                required_cells: &[],
                 required_constraint_kinds: &[],
             },
         );
@@ -2119,39 +2119,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             },
         );
         map.insert(
-            "ak.profile.principal_server_events_api.v1",
-            ProfileRequirements {
-                profile_id: "ak.profile.principal_server_events_api.v1",
-                inherits: &["ak.profile.core_event_store.v1"],
-                required_operations: &[
-                    "ak.self.events.command.submit",
-                    "ak.self.events.query.describe",
-                    "ak.self.events.query.frontier",
-                    "ak.self.events.query.resolve",
-                    "ak.self.events.query.scan",
-                    "ak.self.events.resource.get",
-                ],
-                required_event_kinds: &["ak.member.state", "ak.realm.create"],
-                required_schemas: &[
-                    "ak.schema.cursor.v1",
-                    "ak.schema.event.v1",
-                    "ak.schema.event_payload.v1",
-                    "ak.schema.seal.v1",
-                ],
-                rejected_event_kinds: &["wire_scope:actor_private_event"],
-                required_fixtures: &[
-                    "crypto-signature-fixture.json",
-                    "event-envelope-negative-fixture.json",
-                    "sync-fixture.json",
-                ],
-                required_capability_actions: &[],
-                required_features: &[],
-                required_cell_namespaces: &[],
-                required_cells: &[],
-                required_constraint_kinds: &[],
-            },
-        );
-        map.insert(
             "ak.profile.principal_server.v1",
             ProfileRequirements {
                 profile_id: "ak.profile.principal_server.v1",
@@ -2196,6 +2163,39 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "event-envelope-negative-fixture.json",
                     "privacy-security-fixture.json",
                     "security-closure-fixture.json",
+                    "sync-fixture.json",
+                ],
+                required_capability_actions: &[],
+                required_features: &[],
+                required_cell_namespaces: &[],
+                required_cells: &[],
+                required_constraint_kinds: &[],
+            },
+        );
+        map.insert(
+            "ak.profile.principal_server_events_api.v1",
+            ProfileRequirements {
+                profile_id: "ak.profile.principal_server_events_api.v1",
+                inherits: &["ak.profile.core_event_store.v1"],
+                required_operations: &[
+                    "ak.self.events.command.submit",
+                    "ak.self.events.query.describe",
+                    "ak.self.events.query.frontier",
+                    "ak.self.events.query.resolve",
+                    "ak.self.events.query.scan",
+                    "ak.self.events.resource.get",
+                ],
+                required_event_kinds: &["ak.member.state", "ak.realm.create"],
+                required_schemas: &[
+                    "ak.schema.cursor.v1",
+                    "ak.schema.event.v1",
+                    "ak.schema.event_payload.v1",
+                    "ak.schema.seal.v1",
+                ],
+                rejected_event_kinds: &["wire_scope:actor_private_event"],
+                required_fixtures: &[
+                    "crypto-signature-fixture.json",
+                    "event-envelope-negative-fixture.json",
                     "sync-fixture.json",
                 ],
                 required_capability_actions: &[],

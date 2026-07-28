@@ -19,7 +19,7 @@ use crate::error::{Error, Result};
 use crate::event_envelope::ScopeRef;
 use crate::generated::ProofContextId;
 use crate::primitives::{Audience, PayloadProof};
-use crate::{AuthorizationLeaseId, DeviceId, Did, Hash, ReceiptId, SealId, canonical};
+use crate::{AuthorizationLeaseId, DeviceId, Did, DidUrl, Hash, ReceiptId, SealId, canonical};
 
 /// Maximum number of issuer proofs on a lease or receipt
 /// (`offline-publication.schema.json`).
@@ -66,6 +66,175 @@ pub struct AuthoritySetRef {
     pub authority_set_digest: Hash,
 }
 
+pub const AUTHORITY_SET_POLICY_SCHEMA: &str = "ak.schema.authority_set_policy.v1";
+pub const RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID: &str =
+    "ak.authority_set.recovery_cross_signing.v1";
+pub const RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID: &str =
+    "ak.authority_set.recovery_identity_reanchor.v1";
+pub const RECOVERY_ACCOUNT_AUTHORITY_SET_ID: &str =
+    "ak.authority_set.recovery_account_authority.v1";
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthoritySetPolicyKind {
+    PrincipalControl,
+    RealmAdmission,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthoritySetSourceKind {
+    CrossSigningPublish,
+    DidDocument,
+    RecoveryPolicy,
+    RealmControl,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthoritySetIssuerRole {
+    CrossSigningSelfSigning,
+    IdentityRecovery,
+    AccountEnrollmentAuthority,
+    RealmAdmission,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthoritySetPolicySource {
+    pub source_kind: AuthoritySetSourceKind,
+    pub source_ref: String,
+    pub source_digest: Hash,
+    pub generation_ref: String,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthoritySetIssuer {
+    pub verification_method: DidUrl,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthoritySetAuthorizationRule {
+    pub rule_id: String,
+    pub issuer_role: AuthoritySetIssuerRole,
+    pub allowed_actions: Vec<String>,
+    pub issuers: Vec<AuthoritySetIssuer>,
+    pub threshold: u32,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthoritySetPolicy {
+    pub schema: String,
+    pub authority_set_id: String,
+    pub policy_kind: AuthoritySetPolicyKind,
+    pub scope_ref: ScopeRef,
+    pub source: AuthoritySetPolicySource,
+    pub authorization_rules: Vec<AuthoritySetAuthorizationRule>,
+}
+
+impl AuthoritySetPolicy {
+    pub fn digest(&self) -> Result<Hash> {
+        Ok(Hash::new(canonical::canonical_sha256(self)?)?)
+    }
+
+    pub fn validate_structural(&self) -> Result<()> {
+        if self.schema != AUTHORITY_SET_POLICY_SCHEMA
+            || self.authority_set_id.is_empty()
+            || self.source.source_ref.is_empty()
+            || self.source.generation_ref.is_empty()
+            || self.authorization_rules.is_empty()
+            || self.authorization_rules.len() > MAX_PUBLICATION_PROOFS
+        {
+            return Err(Error::Protocol(
+                "authority-set policy contains an invalid required value".to_owned(),
+            ));
+        }
+        let mut previous_rule_id: Option<&str> = None;
+        for rule in &self.authorization_rules {
+            if rule.rule_id.is_empty()
+                || rule.allowed_actions.is_empty()
+                || rule.issuers.is_empty()
+                || rule.threshold == 0
+                || usize::try_from(rule.threshold).unwrap_or(usize::MAX) > rule.issuers.len()
+            {
+                return Err(Error::Protocol(
+                    "authority-set authorization rule is invalid".to_owned(),
+                ));
+            }
+            if previous_rule_id.is_some_and(|previous| previous >= rule.rule_id.as_str()) {
+                return Err(Error::Protocol(
+                    "authority-set authorization rules are not strictly ordered".to_owned(),
+                ));
+            }
+            previous_rule_id = Some(&rule.rule_id);
+            if !strictly_ordered_unique(rule.allowed_actions.iter().map(String::as_str))
+                || !strictly_ordered_unique(
+                    rule.issuers
+                        .iter()
+                        .map(|issuer| issuer.verification_method.as_str()),
+                )
+            {
+                return Err(Error::Protocol(
+                    "authority-set rule actions or issuers are not strictly ordered".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn validate_reference_and_action(
+        &self,
+        authority_set_ref: &AuthoritySetRef,
+        scope_ref: &ScopeRef,
+        action: &str,
+    ) -> Result<&AuthoritySetAuthorizationRule> {
+        self.validate_structural()?;
+        if self.authority_set_id != authority_set_ref.authority_set_id
+            || self.digest()? != authority_set_ref.authority_set_digest
+            || self.scope_ref != *scope_ref
+        {
+            return Err(Error::Protocol(
+                "authority-set policy ref, digest, or scope mismatch".to_owned(),
+            ));
+        }
+        let mut matching = self.authorization_rules.iter().filter(|rule| {
+            rule.allowed_actions
+                .iter()
+                .any(|candidate| candidate == action)
+        });
+        let rule = matching.next().ok_or_else(|| {
+            Error::Protocol("authority-set policy does not allow the requested action".to_owned())
+        })?;
+        if matching.next().is_some() {
+            return Err(Error::Protocol(
+                "authority-set action is covered by multiple authorization rules".to_owned(),
+            ));
+        }
+        Ok(rule)
+    }
+}
+
+fn strictly_ordered_unique<'a>(values: impl Iterator<Item = &'a str>) -> bool {
+    let mut previous: Option<&str> = None;
+    for value in values {
+        if previous.is_some_and(|candidate| candidate >= value) {
+            return false;
+        }
+        previous = Some(value);
+    }
+    true
+}
+
 /// Accepted authorization basis a lease narrows.
 ///
 /// Single-chain finality profiles cite one accepted Seal; `open_set` MUST
@@ -100,6 +269,7 @@ pub struct AuthorizationLease {
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub authority_set_ref: AuthoritySetRef,
+    pub authority_set_policy: AuthoritySetPolicy,
     pub proofs: Vec<PayloadProof>,
 }
 
@@ -220,12 +390,9 @@ impl AuthorizationLease {
         )
     }
 
-    /// Structural validation independent of Realm issuer policy.
-    ///
-    /// Checks the protocol TTL ceiling, the proof-to-digest binding and the
-    /// `created_at == issued_at` rule. Whether the proof set satisfies
-    /// the basis-declared issuer quorum is a policy decision the caller makes
-    /// with [`distinct_issuer_count`] and the accepted basis.
+    /// Structural validation of the closed lease and its concrete authority
+    /// policy. Accepted-basis/CBA source rederivation and cryptographic
+    /// signature verification remain caller responsibilities.
     pub fn validate_structural(&self) -> Result<()> {
         if self.expires_at <= self.issued_at {
             return Err(Error::Protocol(
@@ -250,6 +417,28 @@ impl AuthorizationLease {
                     "lease proof created_at must equal issued_at".to_owned(),
                 ));
             }
+        }
+        let rule = self.authority_set_policy.validate_reference_and_action(
+            &self.authority_set_ref,
+            &self.scope_ref,
+            &self.action,
+        )?;
+        let accepted_issuers = rule
+            .issuers
+            .iter()
+            .map(|issuer| issuer.verification_method.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        let proof_issuers = self
+            .proofs
+            .iter()
+            .map(|proof| proof.verification_method.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        if !proof_issuers.is_subset(&accepted_issuers)
+            || proof_issuers.len() < usize::try_from(rule.threshold).unwrap_or(usize::MAX)
+        {
+            return Err(Error::Protocol(
+                "lease proofs do not satisfy the selected authority-set rule".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -341,10 +530,30 @@ mod tests {
         }
     }
 
-    fn authority_set(id: &str) -> AuthoritySetRef {
-        AuthoritySetRef {
-            authority_set_id: id.to_owned(),
-            authority_set_digest: Hash::new(format!("sha256:{}", "e".repeat(64))).unwrap(),
+    fn authority_policy() -> AuthoritySetPolicy {
+        AuthoritySetPolicy {
+            schema: AUTHORITY_SET_POLICY_SCHEMA.to_owned(),
+            authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
+            policy_kind: AuthoritySetPolicyKind::RealmAdmission,
+            scope_ref: scope(),
+            source: AuthoritySetPolicySource {
+                source_kind: AuthoritySetSourceKind::RealmControl,
+                source_ref: "ak:event:01904100-0000-7000-8000-111111111111".to_owned(),
+                source_digest: Hash::new(format!("sha256:{}", "e".repeat(64))).unwrap(),
+                generation_ref: "1".to_owned(),
+            },
+            authorization_rules: vec![AuthoritySetAuthorizationRule {
+                rule_id: "realm_admission".to_owned(),
+                issuer_role: AuthoritySetIssuerRole::RealmAdmission,
+                allowed_actions: vec!["ak.message.create".to_owned()],
+                issuers: vec![AuthoritySetIssuer {
+                    verification_method: DidUrl::new(
+                        "did:webvh:z6mkfixture:authority.example#key-1",
+                    )
+                    .unwrap(),
+                }],
+                threshold: 1,
+            }],
         }
     }
 
@@ -353,6 +562,11 @@ mod tests {
     }
 
     fn lease_with(risk_tier: RiskTier, expires_at: DateTime<Utc>) -> AuthorizationLease {
+        let authority_set_policy = authority_policy();
+        let authority_set_ref = AuthoritySetRef {
+            authority_set_id: authority_set_policy.authority_set_id.clone(),
+            authority_set_digest: authority_set_policy.digest().unwrap(),
+        };
         let mut lease = AuthorizationLease {
             authorization_lease_id: AuthorizationLeaseId::new(
                 "ak:authorization_lease:01904100-0000-7000-8000-aaaaaaaaaaaa",
@@ -368,7 +582,8 @@ mod tests {
             risk_tier,
             issued_at: instant(0),
             expires_at,
-            authority_set_ref: authority_set("ak.authority_set.realm_admission.v1"),
+            authority_set_ref,
+            authority_set_policy,
             proofs: Vec::new(),
         };
         let digest = lease.lease_digest().unwrap();
@@ -393,7 +608,7 @@ mod tests {
             authorization_lease_id: lease.authorization_lease_id.clone(),
             received_at,
             service_id: Did::new("did:webvh:z6mkfixture:ingress.example").unwrap(),
-            authority_set_ref: authority_set("ak.authority_set.realm_ingress.v1"),
+            authority_set_ref: lease.authority_set_ref.clone(),
             proofs: Vec::new(),
         };
         let digest = receipt.receipt_digest().unwrap();
@@ -455,6 +670,35 @@ mod tests {
         lease.proofs.push(duplicate);
         assert_eq!(lease.proofs.len(), 2);
         assert_eq!(distinct_issuer_count(&lease.proofs), 1);
+    }
+
+    #[test]
+    fn lease_rejects_policy_digest_and_issuer_substitution() {
+        let mut wrong_digest = lease_with(RiskTier::Low, instant(12));
+        wrong_digest.authority_set_ref.authority_set_digest =
+            Hash::new(format!("sha256:{}", "f".repeat(64))).unwrap();
+        assert!(wrong_digest.validate_structural().is_err());
+
+        let mut wrong_issuer = lease_with(RiskTier::Low, instant(12));
+        wrong_issuer.proofs[0].verification_method =
+            "did:webvh:z6mkfixture:attacker.example#key-1".to_owned();
+        assert!(wrong_issuer.validate_structural().is_err());
+    }
+
+    #[test]
+    fn authority_policy_rejects_overlapping_action_rules() {
+        let mut policy = authority_policy();
+        let mut second = policy.authorization_rules[0].clone();
+        second.rule_id = "realm_admission_second".to_owned();
+        policy.authorization_rules.push(second);
+        let authority_set_ref = AuthoritySetRef {
+            authority_set_id: policy.authority_set_id.clone(),
+            authority_set_digest: policy.digest().unwrap(),
+        };
+        let error = policy
+            .validate_reference_and_action(&authority_set_ref, &scope(), "ak.message.create")
+            .unwrap_err();
+        assert!(error.to_string().contains("multiple authorization rules"));
     }
 
     #[test]
