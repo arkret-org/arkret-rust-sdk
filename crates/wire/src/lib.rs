@@ -49,6 +49,7 @@ pub mod primitives;
 pub mod problem_details;
 pub mod query_auth;
 pub mod receive_policy;
+pub mod recovery_authority;
 pub mod resource_selector;
 pub mod seal;
 pub mod security_transaction;
@@ -108,17 +109,29 @@ pub use query_auth::{
     QUERY_AUTH_PARAMETER_NAMES, contains_query_auth_material, is_query_auth_parameter,
 };
 pub use receive_policy::*;
+pub use recovery_authority::{
+    AuthorizeRecoveryDeviceOutcome, AuthorizeRecoveryDeviceRequest, CanonicalEncoding,
+    CanonicalPublicMaterial, EnrollmentAuthorityIdentityModel, IssueAuthorityTicketStep,
+    PromoteRecoverySessionGrantOutcome, PromoteRecoverySessionGrantRequest,
+    RecoveryAuthorityHolderProof, RecoveryAuthorityTicket, RecoveryAuthorityTicketAuthData,
+    RecoveryAuthorityTicketIssueRequest, RecoveryAuthorizationPreimage, RecoveryModelGenerationRef,
+    ReplacementDevicePossessionProof, ServiceSignatureAlgorithm,
+};
 pub use resource_selector::{ResourceMatchScope, ResourceSelectorKind, WireResourceSelector};
 pub use seal::{
     MultiSigKind, MultiSignature, NotarySig, PayloadSignature, SEAL_SIGNATURE_ALGS, Seal, SealKind,
     ThresholdSigKind, ThresholdSignature, compute_seal_id, seal_canonical_bytes,
 };
 pub use security_transaction::{
-    AcceptedStep, ClientStepAttestation, RecoveryBinding, RecoveryIntent, SecurityRotationBinding,
-    SecurityRotationIntent, SecurityTransaction, SecurityTransactionBinding,
-    SecurityTransactionContinueRequest, SecurityTransactionCreateRequest,
-    SecurityTransactionIntent, SecurityTransactionKind, SecurityTransactionResultKind,
-    SecurityTransactionState, SecurityTransactionStep, SecurityTransactionTerminalResult,
+    AcceptedStep, ClientStepAttestation, CrossSigningRecoveryBinding, CrossSigningRecoveryPlan,
+    EnrollmentAuthorityRecoveryBinding, EnrollmentAuthorityRecoveryPlan, PreparedDidPublication,
+    PreparedEventPublicationMaterial, PreparedEventUnit, RecoveryBinding, RecoveryIdentityModel,
+    RecoveryPreparedPlan, RecoveryTransactionCreateRequest, SecurityRotationBinding,
+    SecurityRotationPlan, SecurityRotationTransactionCreateRequest, SecurityTransaction,
+    SecurityTransactionBinding, SecurityTransactionContinueRequest,
+    SecurityTransactionCreateRequest, SecurityTransactionKind, SecurityTransactionPreparedPlan,
+    SecurityTransactionResultKind, SecurityTransactionState, SecurityTransactionStep,
+    SecurityTransactionTerminalResult,
 };
 pub use self_contact_paths::*;
 pub use service_kind::{EvaluationClass, ServiceKind};

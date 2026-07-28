@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/capability-action-registry.json; version=2026-07-20;
-//! sha256=449da095c4545f33ff8cc7f67f466c018ac9d3768e625e5f981c748448c6ef78 Entries: registered=155
+//! sha256=aefb5e175eacb3c3cf789f9bc28a86a616729f327983f7c229d6eb70a0c41a1c Entries: registered=156
 
 use serde::{Deserialize, Serialize};
 
@@ -59,6 +59,7 @@ pub enum CapabilityActionId {
     MessageRedactOwn,
     MessageRevise,
     MessageReviseOwn,
+    MessageStreamSend,
     MlsCommit,
     MlsGenesis,
     MlsKeypackage,
@@ -218,6 +219,7 @@ impl CapabilityActionId {
         Self::MessageRedactOwn,
         Self::MessageRevise,
         Self::MessageReviseOwn,
+        Self::MessageStreamSend,
         Self::MlsCommit,
         Self::MlsGenesis,
         Self::MlsKeypackage,
@@ -375,6 +377,7 @@ impl CapabilityActionId {
     pub const MESSAGE_REDACT_OWN: &'static str = "ak.message.redact.own";
     pub const MESSAGE_REVISE: &'static str = "ak.message.revise";
     pub const MESSAGE_REVISE_OWN: &'static str = "ak.message.revise.own";
+    pub const MESSAGE_STREAM_SEND: &'static str = "ak.message.stream.send";
     pub const MLS_COMMIT: &'static str = "ak.mls.commit";
     pub const MLS_GENESIS: &'static str = "ak.mls.genesis";
     pub const MLS_KEYPACKAGE: &'static str = "ak.mls.keypackage";
@@ -539,6 +542,7 @@ impl CapabilityActionId {
             Self::MessageRedactOwn => "ak.message.redact.own",
             Self::MessageRevise => "ak.message.revise",
             Self::MessageReviseOwn => "ak.message.revise.own",
+            Self::MessageStreamSend => "ak.message.stream.send",
             Self::MlsCommit => "ak.mls.commit",
             Self::MlsGenesis => "ak.mls.genesis",
             Self::MlsKeypackage => "ak.mls.keypackage",
@@ -701,6 +705,7 @@ impl CapabilityActionId {
             "ak.message.redact.own" => Some(Self::MessageRedactOwn),
             "ak.message.revise" => Some(Self::MessageRevise),
             "ak.message.revise.own" => Some(Self::MessageReviseOwn),
+            "ak.message.stream.send" => Some(Self::MessageStreamSend),
             "ak.mls.commit" => Some(Self::MlsCommit),
             "ak.mls.genesis" => Some(Self::MlsGenesis),
             "ak.mls.keypackage" => Some(Self::MlsKeypackage),

@@ -395,6 +395,7 @@ uuid_id_type!(RtcParticipantId, "ak:rtc_participant:");
 // Key-backup hardening (B-C) typed ids.
 uuid_id_type!(BackupSeriesId, "ak:backup_series:");
 uuid_id_type!(RecoverySessionId, "ak:recovery_session:");
+uuid_id_type!(RecoveryAuthorityTicketId, "ak:recovery_authority_ticket:");
 uuid_id_type!(AnnounceId, "ak:announce:");
 uuid_id_type!(AppletId, "ak:applet:");
 
@@ -713,6 +714,7 @@ mod tests {
         assert_id!(RtcParticipantId, "ak:rtc_participant:");
         assert_id!(BackupSeriesId, "ak:backup_series:");
         assert_id!(RecoverySessionId, "ak:recovery_session:");
+        assert_id!(RecoveryAuthorityTicketId, "ak:recovery_authority_ticket:");
         assert_id!(AnnounceId, "ak:announce:");
         assert_id!(AppletId, "ak:applet:");
         assert_id!(BackupId, "ak:backup:");

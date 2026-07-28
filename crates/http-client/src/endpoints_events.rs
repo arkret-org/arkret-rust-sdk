@@ -6,8 +6,8 @@ use arkret_models_collaboration::governance::authorization::{
 };
 use arkret_models_collaboration::governance::realm_governance::RealmOrganizationRelationshipList;
 use arkret_models_collaboration::http_bodies::{
-    EventSealSubmitOutcome, EventsQueryOutcome, EventsSubmitBatchRequestBody, EventsSubmitOutcome,
-    EventsSubscribeFrame, ProjectionSpaceList, ProjectionStrandList,
+    EventSealSubmitOutcome, EventView, EventsQueryOutcome, EventsSubmitBatchRequestBody,
+    EventsSubmitOutcome, EventsSubscribeFrame, ProjectionSpaceList, ProjectionStrandList,
 };
 use arkret_models_collaboration::objects::query_projection::{
     CollectionProjectionView, DocumentMorphProjectionOutcome, ViewProjectionRequestBody,
@@ -131,6 +131,14 @@ impl Client {
     /// (`GET /_arkret/self/events/describe`).
     pub async fn events_describe(&self) -> Result<ServiceDescribe> {
         self.get("/_arkret/self/events/describe").await
+    }
+
+    /// Fetch one accepted Event together with its server-visible receipt
+    /// objects. B-model recovery uses this after atomic submission to obtain
+    /// and validate the generated `ak.schema.event_batch_receipt.v1`.
+    pub async fn event_view(&self, event_id: &str) -> Result<EventView> {
+        reject_path_segment(event_id)?;
+        self.get(&format!("/_arkret/self/events/{event_id}")).await
     }
 
     /// Subscribe to the Event stream for one or more Realms / actors via

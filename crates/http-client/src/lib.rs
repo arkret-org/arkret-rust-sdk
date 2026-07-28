@@ -39,6 +39,7 @@ mod endpoints_events;
 mod endpoints_identity;
 mod endpoints_join_policy;
 mod endpoints_misc;
+mod endpoints_security;
 mod error;
 // Production reqwest + Tokio DID resolver. Leans on a live Tokio runtime,
 // blocking off-thread scheduling, and reqwest's native transport, none of

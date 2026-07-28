@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::{
     BackupId, BackupSeriesId, Base64UrlString, DeviceId, Did, DidUrl, Error, EventId, Hash,
-    NonEmptyString, PolicyId, RealmId, ReceiptId, RecoverySessionId, Result, SealBasis,
+    NonEmptyString, PolicyId, RealmId, RecoverySessionId, Result, SealBasis, TransactionId,
     TypedTrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
@@ -374,7 +374,7 @@ pub type Challenge = String;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/generic_recovery_transcript`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RecoveryModelGenerationRef {
     CrossSigning(std::num::NonZeroU64),
@@ -604,198 +604,12 @@ pub struct RecoveryPolicyRef {
     pub policy_version: u64,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
-/// recovery_session_complete_outcome`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecoverySessionCompleteOutcome {
-    pub ok: bool,
-    pub recovery_session_id: RecoverySessionId,
-    pub state: SessionState,
-    pub device_id: DeviceId,
-    pub identity_model: RecoveryIdentityModel,
-    pub authorization_event_id: EventId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub device_list_update_event_id: Option<EventId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reanchor_event_id: Option<EventId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reanchor_batch_receipt_id: Option<ReceiptId>,
-}
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RecoveryIdentityModel {
     CrossSigning,
     EnrollmentAuthority,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct RecoverySessionCompleteOutcomeWire {
-    ok: bool,
-    recovery_session_id: RecoverySessionId,
-    state: SessionState,
-    device_id: DeviceId,
-    identity_model: RecoveryIdentityModel,
-    authorization_event_id: EventId,
-    device_list_update_event_id: Option<EventId>,
-    reanchor_event_id: Option<EventId>,
-    reanchor_batch_receipt_id: Option<ReceiptId>,
-}
-
-impl<'de> Deserialize<'de> for RecoverySessionCompleteOutcome {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let wire = RecoverySessionCompleteOutcomeWire::deserialize(deserializer)?;
-        validate_recovery_completion_shape(
-            wire.identity_model,
-            wire.device_list_update_event_id.as_ref(),
-            wire.reanchor_event_id.as_ref(),
-            wire.reanchor_batch_receipt_id.as_ref(),
-        )
-        .map_err(serde::de::Error::custom)?;
-        if !wire.ok || wire.state != SessionState::Completed {
-            return Err(serde::de::Error::custom(
-                "recovery completion outcome must have ok=true and state=completed",
-            ));
-        }
-        Ok(Self {
-            ok: wire.ok,
-            recovery_session_id: wire.recovery_session_id,
-            state: wire.state,
-            device_id: wire.device_id,
-            identity_model: wire.identity_model,
-            authorization_event_id: wire.authorization_event_id,
-            device_list_update_event_id: wire.device_list_update_event_id,
-            reanchor_event_id: wire.reanchor_event_id,
-            reanchor_batch_receipt_id: wire.reanchor_batch_receipt_id,
-        })
-    }
-}
-
-impl RecoverySessionCompleteOutcome {
-    pub fn validate(&self) -> Result<()> {
-        validate_recovery_completion_shape(
-            self.identity_model,
-            self.device_list_update_event_id.as_ref(),
-            self.reanchor_event_id.as_ref(),
-            self.reanchor_batch_receipt_id.as_ref(),
-        )
-        .map_err(|reason| Error::Protocol(reason.to_owned()))?;
-        if !self.ok || self.state != SessionState::Completed {
-            return Err(Error::Protocol(
-                "recovery completion outcome must have ok=true and state=completed".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
-/// recovery_session_complete_request_body`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecoverySessionCompleteRequestBody {
-    pub authorization_event_id: EventId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub device_list_update_event_id: Option<EventId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reanchor_event_id: Option<EventId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reanchor_batch_receipt_id: Option<ReceiptId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub idempotency_key: Option<NonEmptyString>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct RecoverySessionCompleteRequestBodyWire {
-    authorization_event_id: EventId,
-    device_list_update_event_id: Option<EventId>,
-    reanchor_event_id: Option<EventId>,
-    reanchor_batch_receipt_id: Option<ReceiptId>,
-    idempotency_key: Option<NonEmptyString>,
-}
-
-impl<'de> Deserialize<'de> for RecoverySessionCompleteRequestBody {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let wire = RecoverySessionCompleteRequestBodyWire::deserialize(deserializer)?;
-        let cross_signing = wire.device_list_update_event_id.is_some()
-            && wire.reanchor_event_id.is_none()
-            && wire.reanchor_batch_receipt_id.is_none();
-        let enrollment_authority = wire.device_list_update_event_id.is_none()
-            && wire.reanchor_event_id.is_some()
-            && wire.reanchor_batch_receipt_id.is_some();
-        if !cross_signing && !enrollment_authority {
-            return Err(serde::de::Error::custom(
-                "recovery completion must reference exactly the A or B accepted artifact set",
-            ));
-        }
-        Ok(Self {
-            authorization_event_id: wire.authorization_event_id,
-            device_list_update_event_id: wire.device_list_update_event_id,
-            reanchor_event_id: wire.reanchor_event_id,
-            reanchor_batch_receipt_id: wire.reanchor_batch_receipt_id,
-            idempotency_key: wire.idempotency_key,
-        })
-    }
-}
-
-impl RecoverySessionCompleteRequestBody {
-    pub fn identity_model(&self) -> Result<RecoveryIdentityModel> {
-        let cross_signing = self.device_list_update_event_id.is_some()
-            && self.reanchor_event_id.is_none()
-            && self.reanchor_batch_receipt_id.is_none();
-        let enrollment_authority = self.device_list_update_event_id.is_none()
-            && self.reanchor_event_id.is_some()
-            && self.reanchor_batch_receipt_id.is_some();
-        match (cross_signing, enrollment_authority) {
-            (true, false) => Ok(RecoveryIdentityModel::CrossSigning),
-            (false, true) => Ok(RecoveryIdentityModel::EnrollmentAuthority),
-            _ => Err(Error::Protocol(
-                "recovery completion must reference exactly the A or B accepted artifact set"
-                    .to_owned(),
-            )),
-        }
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        self.identity_model().map(|_| ())
-    }
-}
-
-fn validate_recovery_completion_shape(
-    identity_model: RecoveryIdentityModel,
-    device_list_update_event_id: Option<&EventId>,
-    reanchor_event_id: Option<&EventId>,
-    reanchor_batch_receipt_id: Option<&ReceiptId>,
-) -> std::result::Result<(), &'static str> {
-    let valid = match identity_model {
-        RecoveryIdentityModel::CrossSigning => {
-            device_list_update_event_id.is_some()
-                && reanchor_event_id.is_none()
-                && reanchor_batch_receipt_id.is_none()
-        }
-        RecoveryIdentityModel::EnrollmentAuthority => {
-            device_list_update_event_id.is_none()
-                && reanchor_event_id.is_some()
-                && reanchor_batch_receipt_id.is_some()
-        }
-    };
-    valid
-        .then_some(())
-        .ok_or("recovery completion identity_model does not match its accepted artifact set")
 }
 
 /// Counterpart for
@@ -971,6 +785,7 @@ pub struct RecoverySessionState {
     pub challenge: Challenge,
     pub state: SessionState,
     pub proof_summary: Option<ProofSummary>,
+    pub transaction_id: Option<TransactionId>,
     pub rejection_reason_code: Option<String>,
     pub expires_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
@@ -995,6 +810,7 @@ impl Serialize for RecoverySessionState {
         let mut map = serializer.serialize_map(Some(
             13 + model_fields
                 + usize::from(self.proof_summary.is_some())
+                + usize::from(self.transaction_id.is_some())
                 + usize::from(self.rejection_reason_code.is_some()),
         ))?;
         map.serialize_entry("schema", &self.schema)?;
@@ -1023,6 +839,9 @@ impl Serialize for RecoverySessionState {
         map.serialize_entry("state", &self.state)?;
         if let Some(proof_summary) = &self.proof_summary {
             map.serialize_entry("proof_summary", proof_summary)?;
+        }
+        if let Some(transaction_id) = &self.transaction_id {
+            map.serialize_entry("transaction_id", transaction_id)?;
         }
         if let Some(reason) = &self.rejection_reason_code {
             map.serialize_entry("rejection_reason_code", reason)?;
@@ -1053,6 +872,7 @@ struct RecoverySessionStateWire {
     challenge: Challenge,
     state: SessionState,
     proof_summary: Option<ProofSummary>,
+    transaction_id: Option<TransactionId>,
     rejection_reason_code: Option<String>,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     expires_at: DateTime<Utc>,
@@ -1140,6 +960,7 @@ impl<'de> Deserialize<'de> for RecoverySessionState {
             challenge: wire.challenge,
             state: wire.state,
             proof_summary: wire.proof_summary,
+            transaction_id: wire.transaction_id,
             rejection_reason_code: wire.rejection_reason_code,
             expires_at: wire.expires_at,
             created_at: wire.created_at,
@@ -1236,69 +1057,6 @@ mod recovery_completion_tests {
     use serde_json::json;
 
     use super::*;
-
-    fn event(suffix: &str) -> String {
-        format!("ak:event:01904100-0000-7000-8000-{suffix}")
-    }
-
-    #[test]
-    fn recovery_complete_request_accepts_exact_a_or_b_artifact_sets() {
-        let cross_signing: RecoverySessionCompleteRequestBody = serde_json::from_value(json!({
-            "authorization_event_id": event("000000000001"),
-            "device_list_update_event_id": event("000000000002")
-        }))
-        .unwrap();
-        assert_eq!(
-            cross_signing.identity_model().unwrap(),
-            RecoveryIdentityModel::CrossSigning
-        );
-
-        let enrollment: RecoverySessionCompleteRequestBody = serde_json::from_value(json!({
-            "authorization_event_id": event("000000000001"),
-            "reanchor_event_id": event("000000000003"),
-            "reanchor_batch_receipt_id": "ak:receipt:01904100-0000-7000-8000-000000000004"
-        }))
-        .unwrap();
-        assert_eq!(
-            enrollment.identity_model().unwrap(),
-            RecoveryIdentityModel::EnrollmentAuthority
-        );
-
-        assert!(
-            serde_json::from_value::<RecoverySessionCompleteRequestBody>(json!({
-                "authorization_event_id": event("000000000001"),
-                "device_list_update_event_id": event("000000000002"),
-                "reanchor_event_id": event("000000000003"),
-                "reanchor_batch_receipt_id": "ak:receipt:01904100-0000-7000-8000-000000000004"
-            }))
-            .is_err()
-        );
-    }
-
-    #[test]
-    fn recovery_complete_outcome_enforces_model_and_terminal_constants() {
-        let valid = json!({
-            "ok": true,
-            "recovery_session_id": "ak:recovery_session:01904100-0000-7000-8000-000000000005",
-            "state": "completed",
-            "device_id": "ak:device:01904100-0000-7000-8000-000000000006",
-            "identity_model": "enrollment_authority",
-            "authorization_event_id": event("000000000001"),
-            "reanchor_event_id": event("000000000003"),
-            "reanchor_batch_receipt_id": "ak:receipt:01904100-0000-7000-8000-000000000004"
-        });
-        let outcome: RecoverySessionCompleteOutcome =
-            serde_json::from_value(valid.clone()).unwrap();
-        outcome.validate().unwrap();
-
-        let mut wrong_model = valid.clone();
-        wrong_model["identity_model"] = json!("cross_signing");
-        assert!(serde_json::from_value::<RecoverySessionCompleteOutcome>(wrong_model).is_err());
-
-        let mut not_terminal = valid;
-        not_terminal["ok"] = json!(false);
-        assert!(serde_json::from_value::<RecoverySessionCompleteOutcome>(not_terminal).is_err());
-    }
 
     #[test]
     fn recovery_session_state_enforces_model_specific_snapshot_presence() {
