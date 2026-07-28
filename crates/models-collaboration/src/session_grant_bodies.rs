@@ -4,7 +4,10 @@
 //! auth-session logout), and the session-login outcome. `arkret-auth` binds
 //! directly to these owner-defined types; the `arkret` umbrella re-exports them.
 
-use arkret_models_identity::SessionGrantProofKind;
+use arkret_models_identity::{
+    SessionGrantCredentialClass, SessionGrantDeviceBinding, SessionGrantProofKind,
+    SessionGrantRecoveryBinding,
+};
 use arkret_wire::{
     DeviceId, Did, Error, FreshnessState, GrantId, Hash, NonEmptyString, RealmId, Result, ScopeRef,
     StrandId, canonical,
@@ -414,6 +417,11 @@ pub struct SessionGrantIntrospectGrant {
     /// the per-request DPoP proof on `/_arkret/self/*`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cnf_jkt: Option<String>,
+    pub credential_class: SessionGrantCredentialClass,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_binding: Option<SessionGrantRecoveryBinding>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_binding: Option<SessionGrantDeviceBinding>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub proof_kind: Option<SessionGrantProofKind>,

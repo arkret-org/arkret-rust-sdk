@@ -45,6 +45,22 @@ pub const RECOVERY_AUTHORITY_TICKET_SIGNED_FIELDS: [&str; 25] = [
     "expires_at",
 ];
 pub const MAX_RECOVERY_AUTHORITY_TICKET_TTL_SECONDS: i64 = 300;
+pub const RECOVERY_COMPLETION_ATTESTATION_SIGNED_FIELDS: [&str; 14] = [
+    "schema",
+    "transaction_id",
+    "transaction_request_digest",
+    "prepared_plan_digest",
+    "principal_id",
+    "coordinator_service_id",
+    "recovery_session_id",
+    "terminal_receipt_id",
+    "terminal_receipt_digest",
+    "replacement_device_id",
+    "device_authorization_event_id",
+    "device_authorization_event_digest",
+    "result_model_generation_ref",
+    "completed_at",
+];
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -458,11 +474,117 @@ pub enum RecoveryModelGenerationRef {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct RecoveryCompletionAttestationAuthData {
+    pub verification_method: String,
+    pub alg: String,
+    pub signature: String,
+    pub signed_fields: Vec<String>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryCompletionAttestation {
+    pub schema: String,
+    pub transaction_id: TransactionId,
+    pub transaction_request_digest: Hash,
+    pub prepared_plan_digest: Hash,
+    pub principal_id: Did,
+    pub coordinator_service_id: Did,
+    pub recovery_session_id: RecoverySessionId,
+    pub terminal_receipt_id: ReceiptId,
+    pub terminal_receipt_digest: Hash,
+    pub replacement_device_id: DeviceId,
+    pub device_authorization_event_id: EventId,
+    pub device_authorization_event_digest: Hash,
+    pub result_model_generation_ref: RecoveryModelGenerationRef,
+    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
+    pub completed_at: DateTime<Utc>,
+    pub auth_data: RecoveryCompletionAttestationAuthData,
+}
+
+impl RecoveryCompletionAttestation {
+    pub fn validate_structural(&self) -> Result<()> {
+        if self.schema != "ak.schema.recovery_completion_attestation.v1" {
+            return Err(Error::Protocol(
+                "recovery completion attestation schema is invalid".to_owned(),
+            ));
+        }
+        if self.auth_data.alg != "EdDSA"
+            || self.auth_data.verification_method.is_empty()
+            || self.auth_data.signature.is_empty()
+        {
+            return Err(Error::Protocol(
+                "recovery completion attestation requires a complete EdDSA authorization"
+                    .to_owned(),
+            ));
+        }
+        if self
+            .auth_data
+            .signed_fields
+            .iter()
+            .map(String::as_str)
+            .ne(RECOVERY_COMPLETION_ATTESTATION_SIGNED_FIELDS)
+        {
+            return Err(Error::Protocol(
+                "recovery completion attestation signed_fields must equal the registered ordered set"
+                    .to_owned(),
+            ));
+        }
+        match &self.result_model_generation_ref {
+            RecoveryModelGenerationRef::CrossSigning(0) => {
+                return Err(Error::Protocol(
+                    "recovery completion generation must be positive".to_owned(),
+                ));
+            }
+            RecoveryModelGenerationRef::EnrollmentAuthority(value) if value.is_empty() => {
+                return Err(Error::Protocol(
+                    "recovery completion generation must not be empty".to_owned(),
+                ));
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// Canonical coordinator signature transcript. `auth_data` is excluded so
+    /// the EdDSA signature cannot recursively contain itself.
+    pub fn signing_bytes(&self) -> Result<Vec<u8>> {
+        let value = serde_json::to_value(self)?;
+        let object = value.as_object().ok_or_else(|| {
+            Error::Protocol(
+                "recovery completion attestation must serialize as an object".to_owned(),
+            )
+        })?;
+        let projection = RECOVERY_COMPLETION_ATTESTATION_SIGNED_FIELDS
+            .iter()
+            .map(|field| {
+                object
+                    .get(*field)
+                    .cloned()
+                    .map(|value| ((*field).to_owned(), value))
+                    .ok_or_else(|| {
+                        Error::Protocol(format!(
+                            "recovery completion attestation is missing signed field {field}"
+                        ))
+                    })
+            })
+            .collect::<Result<serde_json::Map<String, Value>>>()?;
+        Ok(arkret_canonical::canonical::canonical_json_bytes(
+            &Value::Object(projection),
+        )?)
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PromoteRecoverySessionGrantRequest {
     pub old_grant_id: GrantId,
     pub transaction_id: TransactionId,
     pub transaction_request_digest: Hash,
     pub terminal_receipt: Value,
+    pub completion_attestation: RecoveryCompletionAttestation,
     pub device_authorization_event_id: EventId,
     pub result_model_generation_ref: RecoveryModelGenerationRef,
     pub canonical_request_digest: Hash,
@@ -475,6 +597,19 @@ impl PromoteRecoverySessionGrantRequest {
     }
 
     pub fn validate_structural(&self) -> Result<()> {
+        self.completion_attestation.validate_structural()?;
+        if self.transaction_id != self.completion_attestation.transaction_id
+            || self.transaction_request_digest
+                != self.completion_attestation.transaction_request_digest
+            || self.device_authorization_event_id
+                != self.completion_attestation.device_authorization_event_id
+            || self.result_model_generation_ref
+                != self.completion_attestation.result_model_generation_ref
+        {
+            return Err(Error::Protocol(
+                "recovery promotion request and completion attestation binding disagree".to_owned(),
+            ));
+        }
         if self.expected_canonical_request_digest()? != self.canonical_request_digest {
             return Err(Error::Protocol(
                 "canonical_request_digest does not equal the canonical request projection"
@@ -518,6 +653,48 @@ mod tests {
             .unwrap(),
             transaction_request_digest: hash('1'),
             terminal_receipt: json!({"receipt_id": "ak:receipt:019a7360-0000-7000-8000-000000000003"}),
+            completion_attestation: RecoveryCompletionAttestation {
+                schema: "ak.schema.recovery_completion_attestation.v1".to_owned(),
+                transaction_id: TransactionId::new(
+                    "ak:transaction:019a7360-0000-7000-8000-000000000002".to_owned(),
+                )
+                .unwrap(),
+                transaction_request_digest: hash('1'),
+                prepared_plan_digest: hash('2'),
+                principal_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+                coordinator_service_id: Did::new("did:webvh:z6mkfixture:principal.example")
+                    .unwrap(),
+                recovery_session_id: RecoverySessionId::new(
+                    "ak:recovery_session:019a7360-0000-7000-8000-000000000005".to_owned(),
+                )
+                .unwrap(),
+                terminal_receipt_id: ReceiptId::new(
+                    "ak:receipt:019a7360-0000-7000-8000-000000000003".to_owned(),
+                )
+                .unwrap(),
+                terminal_receipt_digest: hash('3'),
+                replacement_device_id: DeviceId::new(
+                    "ak:device:019a7360-0000-7000-8000-000000000006".to_owned(),
+                )
+                .unwrap(),
+                device_authorization_event_id: EventId::new(
+                    "ak:event:019a7360-0000-7000-8000-000000000004".to_owned(),
+                )
+                .unwrap(),
+                device_authorization_event_digest: hash('4'),
+                result_model_generation_ref: RecoveryModelGenerationRef::CrossSigning(7),
+                completed_at: Utc.with_ymd_and_hms(2026, 7, 28, 12, 0, 0).unwrap(),
+                auth_data: RecoveryCompletionAttestationAuthData {
+                    verification_method: "did:webvh:z6mkfixture:principal.example#signing"
+                        .to_owned(),
+                    alg: "EdDSA".to_owned(),
+                    signature: "c2lnbmF0dXJl".to_owned(),
+                    signed_fields: RECOVERY_COMPLETION_ATTESTATION_SIGNED_FIELDS
+                        .iter()
+                        .map(|field| (*field).to_owned())
+                        .collect(),
+                },
+            },
             device_authorization_event_id: EventId::new(
                 "ak:event:019a7360-0000-7000-8000-000000000004".to_owned(),
             )

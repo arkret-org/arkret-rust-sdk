@@ -15,6 +15,14 @@ use crate::event_envelope::{Event, EventSubmitContext};
 use crate::offline_publication::{AuthorizationLease, IngressReceipt};
 
 pub const MAX_SUBMISSION_CBA_BUNDLES: usize = 64;
+
+/// Batch `ak.self.events.command.submit` request used by account clients.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EventsSubmitBatchRequestBody {
+    pub events: Vec<EventInitialSubmission>,
+}
 pub const MAX_FEDERATION_INGRESS_RECEIPTS: usize = 32;
 
 /// First durable publication of an Event.

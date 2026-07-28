@@ -85,7 +85,9 @@ pub use error::{Error, Result, WireError};
 pub use error_codes::*;
 pub use event_envelope::*;
 pub use event_receipt::*;
-pub use event_submission::{EventFederationSubmission, EventInitialSubmission};
+pub use event_submission::{
+    EventFederationSubmission, EventInitialSubmission, EventsSubmitBatchRequestBody,
+};
 pub use events::*;
 pub use extension_manifest::{
     ConcurrencyClass, ConfidentialityClass, ExtensionManifest, ManifestResourceLimits,
@@ -120,8 +122,10 @@ pub use recovery_authority::{
     CanonicalPublicMaterial, EnrollmentAuthorityIdentityModel, IssueAuthorityTicketStep,
     MAX_RECOVERY_AUTHORITY_TICKET_TTL_SECONDS, PromoteRecoverySessionGrantOutcome,
     PromoteRecoverySessionGrantRequest, RECOVERY_AUTHORITY_TICKET_SIGNED_FIELDS,
-    RecoveryAuthorityHolderProof, RecoveryAuthorityTicket, RecoveryAuthorityTicketAuthData,
-    RecoveryAuthorityTicketIssueRequest, RecoveryAuthorizationPreimage, RecoveryModelGenerationRef,
+    RECOVERY_COMPLETION_ATTESTATION_SIGNED_FIELDS, RecoveryAuthorityHolderProof,
+    RecoveryAuthorityTicket, RecoveryAuthorityTicketAuthData, RecoveryAuthorityTicketIssueRequest,
+    RecoveryAuthorizationPreimage, RecoveryCompletionAttestation,
+    RecoveryCompletionAttestationAuthData, RecoveryModelGenerationRef,
     ReplacementDevicePossessionProof, ServiceSignatureAlgorithm,
 };
 pub use resource_selector::{ResourceMatchScope, ResourceSelectorKind, WireResourceSelector};
@@ -130,9 +134,10 @@ pub use seal::{
     ThresholdSigKind, ThresholdSignature, compute_seal_id, seal_canonical_bytes,
 };
 pub use security_transaction::{
-    AcceptedStep, ClientStepAttestation, CrossSigningRecoveryBinding, CrossSigningRecoveryPlan,
+    AcceptedStep, CLIENT_STEP_ATTESTATION_SIGNED_FIELDS, ClientStepAttestation,
+    ClientStepAttestationAuthData, CrossSigningRecoveryBinding, CrossSigningRecoveryPlan,
     EnrollmentAuthorityRecoveryBinding, EnrollmentAuthorityRecoveryPlan, PreparedDidPublication,
-    PreparedEventPublicationMaterial, PreparedEventUnit, RecoveryBinding, RecoveryIdentityModel,
+    PreparedEventPublicationEvidence, PreparedEventUnit, RecoveryBinding, RecoveryIdentityModel,
     RecoveryPreparedPlan, RecoveryTransactionCreateRequest, SecurityRotationBinding,
     SecurityRotationPlan, SecurityRotationTransactionCreateRequest, SecurityTransaction,
     SecurityTransactionBinding, SecurityTransactionContinueRequest,

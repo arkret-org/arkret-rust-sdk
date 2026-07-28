@@ -154,16 +154,7 @@ pub enum EventsSubmitRequestBody {
     Batch(EventsSubmitBatchRequestBody),
 }
 
-/// Batch `ak.self.events.command.submit` request used by account clients.
-///
-/// The receiver MUST process each submission independently; partial success
-/// returns the per-submission rejected list.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EventsSubmitBatchRequestBody {
-    pub events: Vec<EventInitialSubmission>,
-}
+pub use arkret_wire::EventsSubmitBatchRequestBody;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitRejectedItem`.

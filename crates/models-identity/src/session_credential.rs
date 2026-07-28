@@ -1,11 +1,26 @@
-use arkret_wire::{Did, Error, GrantId, Result};
+use arkret_wire::{
+    DeviceId, Did, Error, EventId, GrantId, PolicyId, RecoveryModelGenerationRef,
+    RecoverySessionId, Result,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const SIGNED_SESSION_GRANT_KIND: &str = "ak.session.grant";
+pub const RECOVERY_RESTRICTED_SESSION_GRANT_SCOPES: [&str; 9] = [
+    "ak.root.identity.recovery_policy.resource.get",
+    "ak.root.identity.recovery_session.command.create",
+    "ak.root.identity.recovery_session.resource.get",
+    "ak.root.identity.recovery_session.command.submit_proof",
+    "ak.self.security_transaction.command.create",
+    "ak.self.security_transaction.resource.get",
+    "ak.self.security_transaction.command.continue",
+    "ak.self.recovery_authority_ticket.command.issue",
+    "ak.self.keys.backups.command.unlock",
+];
 
 /// Proof kind presented with an `ak.session.grant` request.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SessionGrantProofKind {
@@ -15,6 +30,32 @@ pub enum SessionGrantProofKind {
     OidcCodeExchange,
     PreRegistrationHandoff,
     AgentKeyProof,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionGrantCredentialClass {
+    Standard,
+    RecoveryRestricted,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantRecoveryBinding {
+    pub recovery_session_id: RecoverySessionId,
+    pub policy_id: PolicyId,
+    pub policy_version: u64,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantDeviceBinding {
+    pub device_id: DeviceId,
+    pub authorization_event_id: EventId,
+    pub model_generation_ref: RecoveryModelGenerationRef,
 }
 
 /// Signed credential claims carried by an `ak.session.grant` JWT.
@@ -42,6 +83,11 @@ pub struct SignedSessionGrantClaims {
     pub expires_at: DateTime<Utc>,
     pub session_id: String,
     pub cnf: SessionGrantCnf,
+    pub credential_class: SessionGrantCredentialClass,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_binding: Option<SessionGrantRecoveryBinding>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_binding: Option<SessionGrantDeviceBinding>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof_kind: Option<SessionGrantProofKind>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -82,10 +128,33 @@ impl SignedSessionGrantClaims {
                 "session grant expires_at must be after not_before".to_owned(),
             ));
         }
-        if self.cnf.jkt.trim().is_empty() {
+        if self.cnf.jkt.len() != 43
+            || !self
+                .cnf
+                .jkt
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+        {
             return Err(Error::Protocol(
-                "session grant cnf.jkt must not be empty".to_owned(),
+                "session grant cnf.jkt must be a base64url SHA-256 JWK thumbprint".to_owned(),
             ));
+        }
+        match (
+            self.credential_class,
+            &self.recovery_binding,
+            &self.device_binding,
+        ) {
+            (SessionGrantCredentialClass::RecoveryRestricted, Some(binding), None)
+                if binding.policy_version > 0
+                    && self.scopes.iter().all(|scope| {
+                        RECOVERY_RESTRICTED_SESSION_GRANT_SCOPES.contains(&scope.as_str())
+                    }) => {}
+            (SessionGrantCredentialClass::Standard, None, _) => {}
+            _ => {
+                return Err(Error::Protocol(
+                    "session grant credential class and typed bindings disagree".to_owned(),
+                ));
+            }
         }
         Ok(())
     }
@@ -106,8 +175,11 @@ mod tests {
             expires_at: "2026-07-18T00:15:00.000Z".parse().unwrap(),
             session_id: "session-1".to_owned(),
             cnf: SessionGrantCnf {
-                jkt: "thumbprint".to_owned(),
+                jkt: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
             },
+            credential_class: SessionGrantCredentialClass::Standard,
+            recovery_binding: None,
+            device_binding: None,
             proof_kind: Some(SessionGrantProofKind::DidBoundSignature),
             scope_details: None,
         }

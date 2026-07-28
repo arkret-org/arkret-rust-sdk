@@ -11,18 +11,29 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::{Error, Result};
+use crate::event_submission::MAX_SUBMISSION_CBA_BUNDLES;
 use crate::recovery_authority::{
-    CanonicalPublicMaterial, IssueAuthorityTicketStep, RecoveryAuthorityTicketIssueRequest,
-    RecoveryAuthorizationPreimage,
+    AuthorizeRecoveryDeviceRequest, CanonicalPublicMaterial, IssueAuthorityTicketStep,
+    RecoveryAuthorityTicketIssueRequest, RecoveryAuthorizationPreimage,
+    RecoveryCompletionAttestation, RecoveryModelGenerationRef,
 };
 use crate::{
-    BackupId, BackupSeriesId, DeviceId, Did, EventId, Hash, ReceiptId, RecoveryAuthorityTicketId,
-    RecoverySessionId, TransactionId,
+    AuthorizationLease, BackupId, BackupSeriesId, CbaProofBundle, DeviceId, Did, EventId,
+    EventInitialSubmission, EventsSubmitBatchRequestBody, Hash, ReceiptId,
+    RecoveryAuthorityTicketId, RecoverySessionId, TransactionId,
 };
 
 pub const MAX_SECURITY_TRANSACTION_TTL: Duration = Duration::hours(24);
 pub const MAX_ACCEPTED_STEPS: usize = 5;
 pub const MAX_OPAQUE_REF_CHARS: usize = 2048;
+pub const CLIENT_STEP_ATTESTATION_SIGNED_FIELDS: [&str; 6] = [
+    "step",
+    "output_ref",
+    "transaction_id",
+    "transaction_request_digest",
+    "prepared_plan_digest",
+    "attestation_digest",
+];
 
 pub const CROSS_SIGNING_RECOVERY_STEP_ORDER: [SecurityTransactionStep; 2] = [
     SecurityTransactionStep::SubmitAuthorizeUnit,
@@ -227,28 +238,103 @@ pub struct PreparedEventUnit {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PreparedEventPublicationMaterial {
+pub struct PreparedEventSubmissionBatch {
+    pub destination_service_id: Did,
+    pub audience: Did,
+    pub request: EventsSubmitBatchRequestBody,
+    pub canonical_request_base64url: String,
+    pub request_digest: Hash,
+}
+
+impl PreparedEventSubmissionBatch {
+    fn validate_structural(&self, coordinator_service_id: &Did) -> Result<()> {
+        if &self.destination_service_id != coordinator_service_id
+            || self.audience != self.destination_service_id
+        {
+            return Err(Error::Protocol(
+                "prepared Event publication batch destination or audience is invalid".to_owned(),
+            ));
+        }
+        let bytes = arkret_canonical::base64url_decode(&self.canonical_request_base64url)?;
+        let canonical = arkret_canonical::canonical::canonical_json_bytes(&self.request)?;
+        if bytes != canonical {
+            return Err(Error::Protocol(
+                "prepared Event publication batch bytes do not equal the typed request".to_owned(),
+            ));
+        }
+        arkret_canonical::canonical::verify_digest(&bytes, self.request_digest.as_str())?;
+        for submission in &self.request.events {
+            submission.validate_structural()?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PreparedEventPublicationEvidence {
     pub event_id: EventId,
-    pub publication_material_schema: String,
-    pub publication_material: CanonicalPublicMaterial,
-    pub material_digest: Hash,
+    pub authorization_lease: AuthorizationLease,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cba_proof_bundles: Vec<CbaProofBundle>,
+}
+
+impl PreparedEventPublicationEvidence {
+    pub fn validate_structural(&self) -> Result<()> {
+        self.authorization_lease.validate_structural()?;
+        if self.cba_proof_bundles.len() > MAX_SUBMISSION_CBA_BUNDLES {
+            return Err(Error::Protocol(format!(
+                "prepared Event publication evidence exceeds {} CBA bundles",
+                MAX_SUBMISSION_CBA_BUNDLES
+            )));
+        }
+        for bundle in &self.cba_proof_bundles {
+            bundle.validate_structural()?;
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PreparedDidPublication {
-    pub registry_url: String,
+    pub registry_service_id: Did,
+    pub registry_endpoint: String,
     pub previous_entry_ref: String,
     pub expected_entry_ref: String,
     pub canonical_entry_base64url: String,
     pub entry_digest: Hash,
 }
 
+impl PreparedDidPublication {
+    pub fn validate_structural(&self) -> Result<()> {
+        let endpoint = url::Url::parse(&self.registry_endpoint).map_err(|error| {
+            Error::Protocol(format!(
+                "prepared DID registry endpoint is invalid: {error}"
+            ))
+        })?;
+        if endpoint.scheme() != "https"
+            || !endpoint.username().is_empty()
+            || endpoint.password().is_some()
+            || endpoint.query().is_some()
+            || endpoint.fragment().is_some()
+            || endpoint.path() != "/_arkret/root/identity/submit-did-operation"
+        {
+            return Err(Error::Protocol(
+                "prepared DID registry endpoint must be the exact standard HTTPS submit endpoint"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CrossSigningRecoveryPlan {
     pub identity_model: RecoveryIdentityModel,
@@ -256,11 +342,11 @@ pub struct CrossSigningRecoveryPlan {
     pub proof_digest: Hash,
     pub previous_model_generation_ref: u64,
     pub result_model_generation_ref: u64,
-    pub authorize_unit: PreparedEventUnit,
+    pub authorize_unit: PreparedEventSubmissionBatch,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EnrollmentAuthorityRecoveryPlan {
     pub identity_model: RecoveryIdentityModel,
@@ -271,13 +357,13 @@ pub struct EnrollmentAuthorityRecoveryPlan {
     pub authorization_preimage: RecoveryAuthorizationPreimage,
     pub authorization_request_digest: Hash,
     pub did_publication: PreparedDidPublication,
-    pub reanchor_event_submission: CanonicalPublicMaterial,
+    pub reanchor_event_submission: EventInitialSubmission,
     pub reanchor_event_submission_digest: Hash,
-    pub authorize_event_publication_material: PreparedEventPublicationMaterial,
+    pub authorize_event_publication_evidence: PreparedEventPublicationEvidence,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RecoveryPreparedPlan {
     CrossSigning(CrossSigningRecoveryPlan),
@@ -321,7 +407,7 @@ pub struct SecurityRotationPlan {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum SecurityTransactionPreparedPlan {
     Recovery(RecoveryPreparedPlan),
@@ -339,10 +425,12 @@ pub struct SecurityTransactionTerminalResult {
     pub receipt_id: Option<ReceiptId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub completion_attestation: Option<RecoveryCompletionAttestation>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SecurityTransaction {
     pub transaction_id: TransactionId,
@@ -365,7 +453,7 @@ pub struct SecurityTransaction {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryTransactionCreateRequest {
     pub transaction_id: TransactionId,
@@ -393,7 +481,7 @@ pub struct SecurityRotationTransactionCreateRequest {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum SecurityTransactionCreateRequest {
     Recovery(RecoveryTransactionCreateRequest),
@@ -478,27 +566,96 @@ impl SecurityTransactionCreateRequest {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ClientStepAttestation {
+pub struct ClientStepAttestationAuthData {
+    pub verification_method: String,
+    pub alg: String,
+    pub signature: String,
+    pub signed_fields: Vec<String>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ClientStepAttestation<A = Value> {
     pub step: SecurityTransactionStep,
     pub output_ref: String,
     pub transaction_id: TransactionId,
     pub transaction_request_digest: Hash,
     pub prepared_plan_digest: Hash,
     pub attestation_digest: Hash,
-    pub verification_method: String,
-    pub alg: String,
-    pub signature: String,
+    pub artifact: A,
+    pub auth_data: ClientStepAttestationAuthData,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[cfg_attr(
+    feature = "openapi",
+    salvo(schema(bound = "A: salvo_oapi::ToSchema + salvo_oapi::ComposeSchema + 'static"))
+)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SecurityTransactionContinueRequest {
+#[serde(
+    deny_unknown_fields,
+    bound(serialize = "A: Serialize", deserialize = "A: Deserialize<'de>")
+)]
+pub struct SecurityTransactionContinueRequest<A = Value> {
     pub request_digest: Hash,
     pub prepared_plan_digest: Hash,
     pub expected_next_step: SecurityTransactionStep,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub client_attestation: Option<ClientStepAttestation>,
+    pub client_attestation: Option<ClientStepAttestation<A>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub participant_request: Option<AuthorizeRecoveryDeviceRequest>,
+}
+
+impl<A: Serialize> ClientStepAttestation<A> {
+    pub fn validate_structural(&self) -> Result<()> {
+        if self.auth_data.alg != "EdDSA"
+            || self.auth_data.verification_method.is_empty()
+            || self.auth_data.signature.is_empty()
+            || self
+                .auth_data
+                .signed_fields
+                .iter()
+                .map(String::as_str)
+                .ne(CLIENT_STEP_ATTESTATION_SIGNED_FIELDS)
+        {
+            return Err(Error::Protocol(
+                "client step attestation authorization is incomplete or has invalid signed_fields"
+                    .to_owned(),
+            ));
+        }
+        validate_step_output_ref("client_attestation.output_ref", &self.output_ref)?;
+        let artifact_bytes = arkret_canonical::canonical::canonical_json_bytes(&self.artifact)?;
+        arkret_canonical::canonical::verify_digest(
+            &artifact_bytes,
+            self.attestation_digest.as_str(),
+        )?;
+        Ok(())
+    }
+
+    pub fn signing_bytes(&self) -> Result<Vec<u8>> {
+        let value = serde_json::to_value(self)?;
+        let object = value.as_object().ok_or_else(|| {
+            Error::Protocol("client step attestation must serialize as an object".to_owned())
+        })?;
+        let projection = CLIENT_STEP_ATTESTATION_SIGNED_FIELDS
+            .iter()
+            .map(|field| {
+                object
+                    .get(*field)
+                    .cloned()
+                    .map(|value| ((*field).to_owned(), value))
+                    .ok_or_else(|| {
+                        Error::Protocol(format!(
+                            "client step attestation is missing signed field {field}"
+                        ))
+                    })
+            })
+            .collect::<Result<serde_json::Map<String, Value>>>()?;
+        Ok(arkret_canonical::canonical::canonical_json_bytes(
+            &Value::Object(projection),
+        )?)
+    }
 }
 
 fn validate_opaque_ref(name: &str, value: &str) -> Result<()> {
@@ -663,7 +820,13 @@ impl SecurityTransaction {
                 )));
             }
             validate_step_output_ref("accepted_steps[].output_ref", &accepted.output_ref)?;
-            validate_opaque_ref("accepted_steps[].acceptor_id", &accepted.acceptor_id)?;
+            if Did::new(accepted.acceptor_id.clone()).is_err()
+                && DeviceId::new(accepted.acceptor_id.clone()).is_err()
+            {
+                return Err(Error::Protocol(
+                    "accepted_steps[].acceptor_id must be a DID or DeviceId".to_owned(),
+                ));
+            }
         }
 
         if self.state.is_terminal() {
@@ -701,6 +864,83 @@ impl SecurityTransaction {
                 return Err(Error::Protocol(
                     "security transaction terminal outcome disagrees with its state".to_owned(),
                 ));
+            }
+            match (self.kind, self.state, &outcome.completion_attestation) {
+                (
+                    SecurityTransactionKind::Recovery,
+                    SecurityTransactionState::Completed,
+                    Some(attestation),
+                ) => {
+                    attestation.validate_structural()?;
+                    let (binding, plan) = match (&self.binding, &self.prepared_plan) {
+                        (
+                            SecurityTransactionBinding::Recovery(binding),
+                            SecurityTransactionPreparedPlan::Recovery(plan),
+                        ) => (binding, plan),
+                        _ => unreachable!("kind/binding/plan closure was validated above"),
+                    };
+                    let (replacement_device_id, authorize_event_id, result_generation) =
+                        match (binding, plan) {
+                            (
+                                RecoveryBinding::CrossSigning(binding),
+                                RecoveryPreparedPlan::CrossSigning(plan),
+                            ) => (
+                                &binding.replacement_device_id,
+                                &binding.authorize_event_id,
+                                RecoveryModelGenerationRef::CrossSigning(
+                                    plan.result_model_generation_ref,
+                                ),
+                            ),
+                            (
+                                RecoveryBinding::EnrollmentAuthority(binding),
+                                RecoveryPreparedPlan::EnrollmentAuthority(plan),
+                            ) => (
+                                &binding.replacement_device_id,
+                                &binding.authorize_event_id,
+                                RecoveryModelGenerationRef::EnrollmentAuthority(
+                                    plan.result_model_generation_ref.clone(),
+                                ),
+                            ),
+                            _ => unreachable!("recovery model closure was validated above"),
+                        };
+                    let receipt_step = self.accepted_steps.last().ok_or_else(|| {
+                        Error::Protocol(
+                            "completed recovery transaction is missing its receipt step".to_owned(),
+                        )
+                    })?;
+                    if attestation.transaction_id != self.transaction_id
+                        || attestation.transaction_request_digest != self.request_digest
+                        || attestation.prepared_plan_digest != self.prepared_plan_digest
+                        || attestation.principal_id != self.principal_id
+                        || attestation.coordinator_service_id != self.coordinator_service_id
+                        || &attestation.recovery_session_id != binding.recovery_session_id()
+                        || &attestation.terminal_receipt_id != binding.terminal_receipt_id()
+                        || receipt_step.output_ref != attestation.terminal_receipt_id.as_str()
+                        || receipt_step.output_digest != attestation.terminal_receipt_digest
+                        || &attestation.replacement_device_id != replacement_device_id
+                        || &attestation.device_authorization_event_id != authorize_event_id
+                        || attestation.result_model_generation_ref != result_generation
+                        || attestation.completed_at != outcome.completed_at
+                    {
+                        return Err(Error::Protocol(
+                            "recovery completion attestation disagrees with the durable transaction"
+                                .to_owned(),
+                        ));
+                    }
+                }
+                (SecurityTransactionKind::Recovery, SecurityTransactionState::Completed, None) => {
+                    return Err(Error::Protocol(
+                        "completed recovery transaction requires a completion attestation"
+                            .to_owned(),
+                    ));
+                }
+                (_, _, Some(_)) => {
+                    return Err(Error::Protocol(
+                        "only a completed recovery transaction may carry a completion attestation"
+                            .to_owned(),
+                    ));
+                }
+                _ => {}
             }
             return Ok(());
         }
@@ -746,16 +986,7 @@ impl SecurityTransaction {
             (RecoveryBinding::CrossSigning(binding), RecoveryPreparedPlan::CrossSigning(plan)) => {
                 plan.authorize_unit
                     .validate_structural(&self.coordinator_service_id)?;
-                let events = plan
-                    .authorize_unit
-                    .request
-                    .get("events")
-                    .and_then(Value::as_array)
-                    .ok_or_else(|| {
-                        Error::Protocol(
-                            "cross-signing authorize unit must contain an events array".to_owned(),
-                        )
-                    })?;
+                let events = &plan.authorize_unit.request.events;
                 let expected = [
                     (binding.authorize_event_id.as_str(), "ak.device.authorize"),
                     (
@@ -764,9 +995,8 @@ impl SecurityTransaction {
                     ),
                 ];
                 if events.len() != expected.len()
-                    || events.iter().zip(expected).any(|(event, (id, kind))| {
-                        event.get("event_id").and_then(Value::as_str) != Some(id)
-                            || event.get("kind").and_then(Value::as_str) != Some(kind)
+                    || events.iter().zip(expected).any(|(submission, (id, kind))| {
+                        submission.event.event_id.as_str() != id || submission.event.kind != kind
                     })
                 {
                     return Err(Error::Protocol(
@@ -780,15 +1010,20 @@ impl SecurityTransaction {
                 RecoveryPreparedPlan::EnrollmentAuthority(plan),
             ) => {
                 plan.authorization_preimage.validate_structural()?;
+                plan.did_publication.validate_structural()?;
                 validate_canonical_digest(
                     "authorization_request_digest",
                     &plan.authorization_preimage,
                     &plan.authorization_request_digest,
                 )?;
                 plan.reanchor_event_submission.validate_structural()?;
-                plan.authorize_event_publication_material
-                    .publication_material
+                plan.authorize_event_publication_evidence
                     .validate_structural()?;
+                validate_canonical_digest(
+                    "reanchor_event_submission_digest",
+                    &plan.reanchor_event_submission,
+                    &plan.reanchor_event_submission_digest,
+                )?;
                 let preimage = &plan.authorization_preimage;
                 if preimage.principal_id != self.principal_id
                     || preimage.recovery_session_id != binding.recovery_session_id
@@ -804,15 +1039,9 @@ impl SecurityTransaction {
                     || plan.did_publication.canonical_entry_base64url
                         != preimage.did_entry_preimage.canonical_bytes_base64url
                     || plan.did_publication.entry_digest != preimage.did_entry_preimage.digest
-                    || plan.reanchor_event_submission.digest
-                        != plan.reanchor_event_submission_digest
-                    || plan.authorize_event_publication_material.event_id
+                    || plan.reanchor_event_submission.event.event_id != binding.reanchor_event_id
+                    || plan.authorize_event_publication_evidence.event_id
                         != binding.authorize_event_id
-                    || plan
-                        .authorize_event_publication_material
-                        .publication_material
-                        .digest
-                        != plan.authorize_event_publication_material.material_digest
                 {
                     return Err(Error::Protocol(
                         "enrollment-authority binding and prepared plan artifacts disagree"
@@ -890,7 +1119,10 @@ impl SecurityTransaction {
         )
     }
 
-    pub fn validate_continue(&self, request: &SecurityTransactionContinueRequest) -> Result<()> {
+    pub fn validate_continue<A: Serialize>(
+        &self,
+        request: &SecurityTransactionContinueRequest<A>,
+    ) -> Result<()> {
         if request.request_digest != self.request_digest
             || request.prepared_plan_digest != self.prepared_plan_digest
         {
@@ -910,7 +1142,15 @@ impl SecurityTransaction {
                 "terminal client-attested steps require exactly one client_attestation".to_owned(),
             ));
         }
+        let requires_participant_request =
+            request.expected_next_step == SecurityTransactionStep::AuthorizeRecoveryDevice;
+        if requires_participant_request != request.participant_request.is_some() {
+            return Err(Error::Protocol(
+                "authorize_recovery_device requires exactly one participant_request".to_owned(),
+            ));
+        }
         if let Some(attestation) = &request.client_attestation {
+            attestation.validate_structural()?;
             if attestation.step != request.expected_next_step
                 || attestation.transaction_id != self.transaction_id
                 || attestation.transaction_request_digest != self.request_digest
@@ -1056,6 +1296,7 @@ mod tests {
                         ReceiptId::new("ak:receipt:01904100-0000-7000-8000-a0086f45c579").unwrap(),
                     ),
                     reason_code: None,
+                    completion_attestation: None,
                 }),
         }
     }
@@ -1068,6 +1309,18 @@ mod tests {
         let mut skipped = rotation(2, SecurityTransactionState::Running);
         skipped.accepted_steps[1].step = SecurityTransactionStep::EraseOldMaterial;
         assert!(skipped.validate_structural().is_err());
+    }
+
+    #[test]
+    fn accepted_step_acceptor_is_strongly_typed() {
+        let mut invalid = rotation(1, SecurityTransactionState::Running);
+        invalid.accepted_steps[0].acceptor_id = "opaque-service-name".to_owned();
+        assert!(invalid.validate_structural().is_err());
+
+        let mut device = rotation(1, SecurityTransactionState::Running);
+        device.accepted_steps[0].acceptor_id =
+            "ak:device:01904100-0000-7000-8000-000000000001".to_owned();
+        device.validate_structural().unwrap();
     }
 
     #[test]
@@ -1097,14 +1350,19 @@ mod tests {
     #[test]
     fn continue_binds_request_plan_and_requires_terminal_attestation() {
         let resource = rotation(4, SecurityTransactionState::AwaitingDeviceAttestation);
-        let missing = SecurityTransactionContinueRequest {
-            request_digest: hash('b'),
-            prepared_plan_digest: resource.prepared_plan_digest.clone(),
-            expected_next_step: SecurityTransactionStep::LocalCommit,
-            client_attestation: None,
-        };
+        let missing: SecurityTransactionContinueRequest<Value> =
+            SecurityTransactionContinueRequest {
+                request_digest: hash('b'),
+                prepared_plan_digest: resource.prepared_plan_digest.clone(),
+                expected_next_step: SecurityTransactionStep::LocalCommit,
+                client_attestation: None,
+                participant_request: None,
+            };
         assert!(resource.validate_continue(&missing).is_err());
 
+        let artifact = json!({"fixture": true});
+        let attestation_digest =
+            Hash::new(arkret_canonical::canonical::canonical_sha256(&artifact).unwrap()).unwrap();
         let valid = SecurityTransactionContinueRequest {
             request_digest: hash('b'),
             prepared_plan_digest: resource.prepared_plan_digest.clone(),
@@ -1115,12 +1373,36 @@ mod tests {
                 transaction_id: resource.transaction_id.clone(),
                 transaction_request_digest: hash('b'),
                 prepared_plan_digest: resource.prepared_plan_digest.clone(),
-                attestation_digest: hash('6'),
-                verification_method: "did:webvh:z6mkfixture:alice.example#device".to_owned(),
-                alg: "EdDSA".to_owned(),
-                signature: "c2ln".to_owned(),
+                attestation_digest,
+                artifact,
+                auth_data: ClientStepAttestationAuthData {
+                    verification_method: "did:webvh:z6mkfixture:alice.example#device".to_owned(),
+                    alg: "EdDSA".to_owned(),
+                    signature: "c2ln".to_owned(),
+                    signed_fields: CLIENT_STEP_ATTESTATION_SIGNED_FIELDS
+                        .iter()
+                        .map(|field| (*field).to_owned())
+                        .collect(),
+                },
             }),
+            participant_request: None,
         };
         resource.validate_continue(&valid).unwrap();
+
+        let mut authority_resource = resource.clone();
+        authority_resource.next_required_step =
+            Some(SecurityTransactionStep::AuthorizeRecoveryDevice);
+        let missing_participant = SecurityTransactionContinueRequest {
+            request_digest: hash('b'),
+            prepared_plan_digest: authority_resource.prepared_plan_digest.clone(),
+            expected_next_step: SecurityTransactionStep::AuthorizeRecoveryDevice,
+            client_attestation: None::<ClientStepAttestation<Value>>,
+            participant_request: None,
+        };
+        assert!(
+            authority_resource
+                .validate_continue(&missing_participant)
+                .is_err()
+        );
     }
 }
