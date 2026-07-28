@@ -112,7 +112,8 @@ pub use receive_policy::*;
 pub use recovery_authority::{
     AuthorizeRecoveryDeviceOutcome, AuthorizeRecoveryDeviceRequest, CanonicalEncoding,
     CanonicalPublicMaterial, EnrollmentAuthorityIdentityModel, IssueAuthorityTicketStep,
-    PromoteRecoverySessionGrantOutcome, PromoteRecoverySessionGrantRequest,
+    MAX_RECOVERY_AUTHORITY_TICKET_TTL_SECONDS, PromoteRecoverySessionGrantOutcome,
+    PromoteRecoverySessionGrantRequest, RECOVERY_AUTHORITY_TICKET_SIGNED_FIELDS,
     RecoveryAuthorityHolderProof, RecoveryAuthorityTicket, RecoveryAuthorityTicketAuthData,
     RecoveryAuthorityTicketIssueRequest, RecoveryAuthorizationPreimage, RecoveryModelGenerationRef,
     ReplacementDevicePossessionProof, ServiceSignatureAlgorithm,

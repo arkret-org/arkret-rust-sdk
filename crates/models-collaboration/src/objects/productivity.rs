@@ -2503,7 +2503,7 @@ mod tests {
     }
 
     #[test]
-    fn scheduled_send_validates_payload_digest() {
+    fn scheduled_send_validates_payload_digest_without_second_message_identity() {
         let message_id = MessageId::new("ak:message:01904100-0000-7000-8000-000000000001").unwrap();
         let payload = MessageCreatePayload::with_content(
             StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap(),

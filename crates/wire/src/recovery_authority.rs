@@ -43,6 +43,7 @@ pub const RECOVERY_AUTHORITY_TICKET_SIGNED_FIELDS: [&str; 24] = [
     "issued_at",
     "expires_at",
 ];
+pub const MAX_RECOVERY_AUTHORITY_TICKET_TTL_SECONDS: i64 = 300;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -100,6 +101,9 @@ pub struct RecoveryAuthorizationPreimage {
     pub policy_id: PolicyId,
     pub policy_version: u64,
     pub trust_domain: TypedTrustDomainId,
+    /// Account Authority service audience fixed by the prepared plan before
+    /// the Principal Server issues the transaction-bound ticket.
+    pub account_authority_id: Did,
     pub identity_model: EnrollmentAuthorityIdentityModel,
     pub previous_model_generation_ref: String,
     pub result_model_generation_ref: String,
@@ -225,6 +229,13 @@ impl RecoveryAuthorityTicket {
                 "recovery authority ticket expires_at must be after issued_at".to_owned(),
             ));
         }
+        if (self.expires_at - self.issued_at).num_seconds()
+            > MAX_RECOVERY_AUTHORITY_TICKET_TTL_SECONDS
+        {
+            return Err(Error::Protocol(format!(
+                "recovery authority ticket TTL exceeds {MAX_RECOVERY_AUTHORITY_TICKET_TTL_SECONDS} seconds"
+            )));
+        }
         for required in RECOVERY_AUTHORITY_TICKET_SIGNED_FIELDS {
             if !self
                 .auth_data
@@ -249,6 +260,12 @@ impl RecoveryAuthorityTicket {
                 "recovery authority ticket signed_fields must be unique".to_owned(),
             ));
         }
+        if self.auth_data.signed_fields.len() != RECOVERY_AUTHORITY_TICKET_SIGNED_FIELDS.len() {
+            return Err(Error::Protocol(
+                "recovery authority ticket signed_fields must equal the registered closed set"
+                    .to_owned(),
+            ));
+        }
         if self.policy_version == 0 || self.actor_refs_are_empty() {
             return Err(Error::Protocol(
                 "recovery authority ticket contains an empty policy or artifact reference"
@@ -256,6 +273,33 @@ impl RecoveryAuthorityTicket {
             ));
         }
         Ok(())
+    }
+
+    /// Canonical signature transcript: the closed projection of the 24
+    /// registered top-level fields. `auth_data` is intentionally excluded so
+    /// the signature never contains itself.
+    pub fn signing_bytes(&self) -> Result<Vec<u8>> {
+        let value = serde_json::to_value(self)?;
+        let object = value.as_object().ok_or_else(|| {
+            Error::Protocol("recovery authority ticket must serialize as an object".to_owned())
+        })?;
+        let projection = RECOVERY_AUTHORITY_TICKET_SIGNED_FIELDS
+            .iter()
+            .map(|field| {
+                object
+                    .get(*field)
+                    .cloned()
+                    .map(|value| ((*field).to_owned(), value))
+                    .ok_or_else(|| {
+                        Error::Protocol(format!(
+                            "recovery authority ticket is missing signed field {field}"
+                        ))
+                    })
+            })
+            .collect::<Result<serde_json::Map<String, Value>>>()?;
+        Ok(arkret_canonical::canonical::canonical_json_bytes(
+            &Value::Object(projection),
+        )?)
     }
 
     fn actor_refs_are_empty(&self) -> bool {
@@ -282,6 +326,63 @@ pub struct AuthorizeRecoveryDeviceRequest {
     pub authorization_preimage: RecoveryAuthorizationPreimage,
     pub canonical_request_digest: Hash,
     pub holder_proof: RecoveryAuthorityHolderProof,
+}
+
+fn request_digest_without_digest_field<T: Serialize>(request: &T) -> Result<Hash> {
+    let mut value = serde_json::to_value(request)?;
+    let object = value.as_object_mut().ok_or_else(|| {
+        Error::Protocol("recovery authority request must serialize as an object".to_owned())
+    })?;
+    object.remove("canonical_request_digest");
+    let bytes = arkret_canonical::canonical::canonical_json_bytes(&value)?;
+    Ok(Hash::new(arkret_canonical::canonical::sha256_digest(
+        &bytes,
+    ))?)
+}
+
+impl AuthorizeRecoveryDeviceRequest {
+    pub fn expected_canonical_request_digest(&self) -> Result<Hash> {
+        request_digest_without_digest_field(self)
+    }
+
+    pub fn validate_structural(&self) -> Result<()> {
+        self.ticket.validate_structural()?;
+        self.authorization_preimage.validate_structural()?;
+        let preimage = &self.authorization_preimage;
+        let ticket = &self.ticket;
+        if ticket.principal_id != preimage.principal_id
+            || ticket.recovery_session_id != preimage.recovery_session_id
+            || ticket.policy_id != preimage.policy_id
+            || ticket.policy_version != preimage.policy_version
+            || ticket.trust_domain != preimage.trust_domain
+            || ticket.account_authority_id != preimage.account_authority_id
+            || ticket.replacement_device_id != preimage.replacement_device_id
+            || ticket.previous_model_generation_ref != preimage.previous_model_generation_ref
+            || ticket.result_model_generation_ref != preimage.result_model_generation_ref
+            || ticket.registry_previous_head != preimage.registry_previous_head
+            || ticket.did_entry_ref != preimage.did_entry_ref
+            || ticket.did_entry_digest != preimage.did_entry_digest
+            || ticket.reanchor_event_id != preimage.reanchor_event_id
+            || ticket.authorize_event_id != preimage.authorize_event_id
+        {
+            return Err(Error::Protocol(
+                "recovery authority ticket and authorization preimage binding disagree".to_owned(),
+            ));
+        }
+        let preimage_bytes =
+            arkret_canonical::canonical::canonical_json_bytes(&self.authorization_preimage)?;
+        arkret_canonical::canonical::verify_digest(
+            &preimage_bytes,
+            ticket.authorization_preimage_digest.as_str(),
+        )?;
+        if self.expected_canonical_request_digest()? != self.canonical_request_digest {
+            return Err(Error::Protocol(
+                "canonical_request_digest does not equal the canonical request projection"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -320,6 +421,22 @@ pub struct PromoteRecoverySessionGrantRequest {
     pub holder_proof: RecoveryAuthorityHolderProof,
 }
 
+impl PromoteRecoverySessionGrantRequest {
+    pub fn expected_canonical_request_digest(&self) -> Result<Hash> {
+        request_digest_without_digest_field(self)
+    }
+
+    pub fn validate_structural(&self) -> Result<()> {
+        if self.expected_canonical_request_digest()? != self.canonical_request_digest {
+            return Err(Error::Protocol(
+                "canonical_request_digest does not equal the canonical request projection"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -329,4 +446,110 @@ pub struct PromoteRecoverySessionGrantOutcome {
     pub new_grant: Value,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub consumed_at: DateTime<Utc>,
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::TimeZone;
+    use serde_json::json;
+
+    use super::*;
+
+    fn hash(byte: char) -> Hash {
+        Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
+    }
+
+    #[test]
+    fn promotion_request_digest_excludes_only_the_digest_field() {
+        let mut request = PromoteRecoverySessionGrantRequest {
+            old_grant_id: GrantId::new("ak:grant:019a7360-0000-7000-8000-000000000001".to_owned())
+                .unwrap(),
+            transaction_id: TransactionId::new(
+                "ak:transaction:019a7360-0000-7000-8000-000000000002".to_owned(),
+            )
+            .unwrap(),
+            transaction_request_digest: hash('1'),
+            terminal_receipt: json!({"receipt_id": "ak:receipt:019a7360-0000-7000-8000-000000000003"}),
+            device_authorization_event_id: EventId::new(
+                "ak:event:019a7360-0000-7000-8000-000000000004".to_owned(),
+            )
+            .unwrap(),
+            result_model_generation_ref: RecoveryModelGenerationRef::CrossSigning(7),
+            canonical_request_digest: hash('0'),
+            holder_proof: RecoveryAuthorityHolderProof {
+                dpop_jkt: "holder-thumbprint".to_owned(),
+                proof_jwt: "holder-proof".to_owned(),
+            },
+        };
+
+        let expected = request.expected_canonical_request_digest().unwrap();
+        request.canonical_request_digest = hash('9');
+        assert_eq!(
+            request.expected_canonical_request_digest().unwrap(),
+            expected,
+            "the digest field must not recursively affect its own projection"
+        );
+        request.holder_proof.proof_jwt = "different-holder-proof".to_owned();
+        assert_ne!(
+            request.expected_canonical_request_digest().unwrap(),
+            expected,
+            "holder proof must remain covered by the canonical projection"
+        );
+    }
+
+    fn ticket() -> RecoveryAuthorityTicket {
+        serde_json::from_value(json!({
+            "schema": "ak.schema.recovery_authority_ticket.v1",
+            "ticket_id": "ak:recovery_authority_ticket:019a7360-0000-7000-8000-000000000011",
+            "transaction_id": "ak:transaction:019a7360-0000-7000-8000-000000000012",
+            "transaction_request_digest": hash('1'),
+            "prepared_plan_digest": hash('2'),
+            "principal_id": "did:webvh:z6mkfixture:alice.example",
+            "recovery_session_id": "ak:recovery_session:019a7360-0000-7000-8000-000000000013",
+            "policy_id": "ak:policy:019a7360-0000-7000-8000-000000000014",
+            "policy_version": 3,
+            "trust_domain": "ak:trust_domain:example.local",
+            "principal_server_id": "did:web:principal.example",
+            "account_authority_id": "did:web:accounts.example",
+            "replacement_device_id": "ak:device:019a7360-0000-7000-8000-000000000015",
+            "previous_model_generation_ref": "1-genesis",
+            "result_model_generation_ref": "2-recovery",
+            "registry_previous_head": "did:webvh:z6mkfixture:alice.example?versionId=1-genesis",
+            "did_entry_ref": "did:webvh:z6mkfixture:alice.example?versionId=2-recovery",
+            "did_entry_digest": hash('3'),
+            "reanchor_event_id": "ak:event:019a7360-0000-7000-8000-000000000016",
+            "authorize_event_id": "ak:event:019a7360-0000-7000-8000-000000000017",
+            "authorization_preimage_digest": hash('4'),
+            "possession_proof_digest": hash('5'),
+            "issued_at": "2026-07-28T00:00:00.000Z",
+            "expires_at": "2026-07-28T00:05:00.000Z",
+            "auth_data": {
+                "verification_method": "did:web:principal.example#service-signing-key",
+                "alg": "EdDSA",
+                "signature": "c2ln",
+                "signed_fields": RECOVERY_AUTHORITY_TICKET_SIGNED_FIELDS
+            }
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn ticket_signing_projection_is_closed_and_non_recursive() {
+        let mut ticket = ticket();
+        ticket.validate_structural().unwrap();
+        let expected = ticket.signing_bytes().unwrap();
+
+        ticket.auth_data.signature = "ZGlmZmVyZW50".to_owned();
+        assert_eq!(ticket.signing_bytes().unwrap(), expected);
+
+        ticket.account_authority_id = Did::new("did:web:other-accounts.example").unwrap();
+        assert_ne!(ticket.signing_bytes().unwrap(), expected);
+    }
+
+    #[test]
+    fn ticket_ttl_is_capped_at_five_minutes() {
+        let mut ticket = ticket();
+        ticket.expires_at = Utc.with_ymd_and_hms(2026, 7, 28, 0, 5, 1).single().unwrap();
+        assert!(ticket.validate_structural().is_err());
+    }
 }
