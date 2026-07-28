@@ -322,6 +322,17 @@ pub struct EventRequirements {
     pub critical_extensions: Vec<CriticalExtension>,
 }
 
+/// DataEvent authorization context.
+///
+/// Pins the signing DID and key epoch a receiver verifies against at
+/// `seal_ref`. It carries no capability list: effective capabilities are
+/// derived from the accepted governance basis, never selected by the producer.
+/// `event-and-patch.md` §75 names producer-selected
+/// `auth_context.capability_refs` alongside `effects` as a field a v1 receiver
+/// MUST reject with `schema_violation`, and the envelope schema closes this
+/// object over `{did, key_id, key_epoch, credential_epoch}` — so
+/// `deny_unknown_fields` here is what makes an inbound one fail rather than be
+/// silently dropped.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthContext {
@@ -330,7 +341,6 @@ pub struct AuthContext {
     pub key_epoch: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub credential_epoch: Option<u64>,
-    pub capability_refs: Vec<String>,
 }
 
 impl EventRequirements {

@@ -1398,8 +1398,7 @@ mod tests {
             "auth_context": {
                 "did": "did:webvh:z6mkfixture:alice.example",
                 "key_id": "ak:device:019f9e50-d787-74e0-8731-c9ad5eaa9183",
-                "key_epoch": 1,
-                "capability_refs": []
+                "key_epoch": 1
             },
             "payload": {
                 "event_ref": "ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9182",
@@ -1842,8 +1841,7 @@ mod tests {
             "auth_context": {
                 "did": "did:webvh:z6mkfixture:alice.example",
                 "key_id": "ak:device:019f9000-0000-7000-8000-000000000004",
-                "key_epoch": 1,
-                "capability_refs": []
+                "key_epoch": 1
             },
             "payload": payload,
             "proofs": []

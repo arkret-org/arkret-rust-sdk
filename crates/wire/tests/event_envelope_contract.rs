@@ -139,3 +139,32 @@ fn event_scalability_helpers_reject_over_limits() {
     duplicate.push(duplicate[0].clone());
     assert!(validate_event_prev_refs(duplicate.iter().map(String::as_str)).is_err());
 }
+
+/// `event-and-patch.md` §75 names producer-selected `auth_context.capability_refs`
+/// alongside `effects` as a field a v1 receiver MUST reject with
+/// `schema_violation`, and the envelope schema closes `auth_context` over
+/// `{did, key_id, key_epoch, credential_epoch}`.
+///
+/// Rejecting is the point: effective capabilities are derived from the accepted
+/// governance basis, so a producer that ships a list has either been tampered
+/// with or is running pre-v1 code. Silently dropping the member would make both
+/// look like a well-formed Event.
+#[test]
+fn auth_context_rejects_a_producer_selected_capability_list() {
+    let base = json!({
+        "did": "did:webvh:z6mkfixture:alice.example",
+        "key_id": "ak:device:01904100-0000-7000-8000-65c7feb295d8",
+        "key_epoch": 1
+    });
+    serde_json::from_value::<arkret_wire::AuthContext>(base.clone())
+        .expect("the closed member set must still parse");
+
+    let mut smuggled = base;
+    smuggled["capability_refs"] = json!(["ak:grant:01904100-0000-7000-8000-65c7feb295d9"]);
+    let error = serde_json::from_value::<arkret_wire::AuthContext>(smuggled)
+        .expect_err("a producer-selected capability list must not deserialize");
+    assert!(
+        error.to_string().contains("capability_refs"),
+        "unexpected error: {error}"
+    );
+}

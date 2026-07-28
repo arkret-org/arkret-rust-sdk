@@ -885,8 +885,7 @@ mod tests {
             "auth_context": {
                 "did": "did:web:alice.example",
                 "key_id": "ak:device:01904100-0000-7000-8000-000000000002",
-                "key_epoch": 1,
-                "capability_refs": []
+                "key_epoch": 1
             },
             "payload": {},
             "proofs": [{
