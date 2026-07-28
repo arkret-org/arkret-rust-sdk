@@ -359,6 +359,7 @@ impl ArkretMlsIdentity {
             group,
             history_secrets: BTreeMap::new(),
             content_nonce_counter: 0,
+            signal_nonce_counter: 0,
         })
     }
 
@@ -402,6 +403,7 @@ impl ArkretMlsIdentity {
             group,
             history_secrets: BTreeMap::new(),
             content_nonce_counter: 0,
+            signal_nonce_counter: 0,
         })
     }
 }

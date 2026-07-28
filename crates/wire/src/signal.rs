@@ -42,7 +42,11 @@ pub const SIGNAL_AEAD_SCHEME: &str = "ak.signal_exporter_aead.v1";
 pub const SIGNAL_AEAD_PURPOSE: &str = "ak.signal.v1";
 
 /// MLS-Exporter label the Signal content key is derived under.
-pub const SIGNAL_EXPORTER_LABEL: &str = "ak.signal-v1";
+///
+/// Taken from the generated exporter-label registry rather than spelled out
+/// here: the label is a wire-breaking domain separator, so it must have
+/// exactly one source.
+pub const SIGNAL_EXPORTER_LABEL: &str = crate::generated::ExporterLabelId::SIGNAL_V1;
 
 /// Canonical envelope size bound.
 pub const MAX_SIGNAL_ENVELOPE_BYTES: usize = 64 * 1024;
@@ -121,6 +125,150 @@ pub struct SignalKeyRef {
     pub group_state_ref: String,
 }
 
+/// The Signal domain's **pre-encryption immutable header** (`encoding.md`
+/// §10.2). Its canonical bytes are the AEAD AAD, and its digest is what
+/// travels as [`SignalEncryptedPayload::aad_digest`].
+///
+/// Every member is fixed before the AEAD seal runs, which is the whole point
+/// of §10.2: nothing that depends on the AEAD output (ciphertext digest, the
+/// `aad_digest` itself, `envelope_digest`, the proof) may enter the AAD, so a
+/// sender can build the AAD without having encrypted anything yet. The one
+/// member a sender only learns *while* sealing is the nonce, so it is passed
+/// separately to [`Self::aad_bytes`] rather than stored here — that also lets
+/// the sealing layer own nonce derivation without owning the header shape.
+///
+/// Borrowed rather than owned so both directions use the same type: a sender
+/// assembles one from the values it is about to sign, and a receiver gets one
+/// from [`SignalEnvelope::aead_binding`] with no allocation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SignalAeadBinding<'a> {
+    pub realm_id: &'a RealmId,
+    pub scope_ref: &'a ScopeRef,
+    pub sender_actor_id: &'a Did,
+    pub sender_device_id: &'a DeviceId,
+    pub seal_ref: &'a SealId,
+    pub signal_class: SignalClass,
+    pub sent_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    /// Construction id; [`Self::validate`] pins it to [`SIGNAL_AEAD_SCHEME`].
+    pub scheme: &'a str,
+    pub key_ref: &'a SignalKeyRef,
+    /// AEAD purpose; [`Self::validate`] pins it to [`SIGNAL_AEAD_PURPOSE`].
+    pub purpose: &'a str,
+    /// `canonical_id` of the ciphersuite the group at `key_ref` negotiated.
+    pub aead_profile: &'a str,
+    pub epoch: u64,
+}
+
+impl SignalAeadBinding<'_> {
+    /// Every rule that is decidable from the immutable header alone.
+    ///
+    /// Shared by the sealing path (which has no envelope yet) and by
+    /// [`SignalEnvelope::validate_structural`], so a sender cannot encrypt
+    /// under a header an ingress would then reject.
+    pub fn validate(&self) -> Result<()> {
+        if self.scope_ref.realm_id() != self.realm_id {
+            return Err(Error::Protocol(
+                "signal scope_ref.realm_id must equal the envelope realm_id".to_owned(),
+            ));
+        }
+        if self.scheme != SIGNAL_AEAD_SCHEME {
+            return Err(Error::Protocol(format!(
+                "signal payload scheme must be {SIGNAL_AEAD_SCHEME}"
+            )));
+        }
+        if self.purpose != SIGNAL_AEAD_PURPOSE {
+            return Err(Error::Protocol(format!(
+                "signal payload purpose must be {SIGNAL_AEAD_PURPOSE}"
+            )));
+        }
+        if self.aead_profile.is_empty() {
+            return Err(Error::Protocol(
+                "signal payload aead_profile must name an active MLS ciphersuite".to_owned(),
+            ));
+        }
+        if self.expires_at <= self.sent_at {
+            return Err(Error::Protocol(
+                "signal expires_at must be strictly after sent_at".to_owned(),
+            ));
+        }
+        let ttl = self.expires_at - self.sent_at;
+        let ceiling = self.signal_class.max_ttl();
+        if ttl > ceiling || ttl > MAX_SIGNAL_TTL {
+            return Err(Error::Protocol(format!(
+                "{}: signal TTL {}s exceeds the {:?} class ceiling of {}s",
+                crate::error_codes::ErrorCode::SIGNAL_TTL_OUT_OF_RANGE,
+                ttl.num_seconds(),
+                self.signal_class,
+                ceiling.num_seconds()
+            )));
+        }
+        Ok(())
+    }
+
+    /// Canonical bytes of the immutable header — the AEAD AAD itself.
+    ///
+    /// `nonce` is the unpadded base64url form exactly as it appears in
+    /// [`SignalEncryptedPayload::nonce`]; binding the wire spelling rather
+    /// than the raw bytes means a receiver AADs whatever it actually read.
+    pub fn aad_bytes(&self, nonce: &str) -> Result<Vec<u8>> {
+        let mut object = serde_json::Map::new();
+        object.insert(
+            "realm_id".to_owned(),
+            Value::String(self.realm_id.as_str().to_owned()),
+        );
+        object.insert(
+            "scope_ref".to_owned(),
+            serde_json::to_value(self.scope_ref)?,
+        );
+        object.insert(
+            "sender_actor_id".to_owned(),
+            Value::String(self.sender_actor_id.as_str().to_owned()),
+        );
+        object.insert(
+            "sender_device_id".to_owned(),
+            Value::String(self.sender_device_id.as_str().to_owned()),
+        );
+        object.insert(
+            "seal_ref".to_owned(),
+            Value::String(self.seal_ref.as_str().to_owned()),
+        );
+        object.insert(
+            "signal_class".to_owned(),
+            serde_json::to_value(self.signal_class)?,
+        );
+        object.insert(
+            "sent_at".to_owned(),
+            Value::String(canonical::format_timestamp_canonical(self.sent_at)),
+        );
+        object.insert(
+            "expires_at".to_owned(),
+            Value::String(canonical::format_timestamp_canonical(self.expires_at)),
+        );
+        object.insert("scheme".to_owned(), Value::String(self.scheme.to_owned()));
+        // `encoding.md` §10.1 requires every AEAD-bearing envelope to bind at
+        // least key_ref, nonce, purpose and aead_profile. They are also the
+        // canonical nonce-derivation context, so omitting them would leave a
+        // receiver unable to recompute the sender nonce prefix.
+        object.insert("key_ref".to_owned(), serde_json::to_value(self.key_ref)?);
+        object.insert("purpose".to_owned(), Value::String(self.purpose.to_owned()));
+        object.insert(
+            "aead_profile".to_owned(),
+            Value::String(self.aead_profile.to_owned()),
+        );
+        object.insert("epoch".to_owned(), Value::Number(self.epoch.into()));
+        object.insert("nonce".to_owned(), Value::String(nonce.to_owned()));
+        Ok(canonical::canonical_json_bytes(&Value::Object(object))?)
+    }
+
+    /// `H(aad_bytes)`. Carried on the wire so a receiver can report a
+    /// mismatch before attempting the AEAD open, never as a substitute for
+    /// recomputing the AAD (`encoding.md` §10.2).
+    pub fn aad_digest(&self, nonce: &str) -> Result<Hash> {
+        Ok(Hash::new(canonical::sha256_digest(self.aad_bytes(nonce)?))?)
+    }
+}
+
 /// Detached device proof over the Signal envelope.
 ///
 /// Distinct from [`crate::primitives::Proof`]: the transcript names the
@@ -178,75 +326,42 @@ impl SignalEnvelope {
         Ok(Hash::new(canonical::canonical_sha256(&json)?)?)
     }
 
+    /// Borrow this envelope's immutable header as the AEAD binding.
+    ///
+    /// The header shape lives in exactly one place ([`SignalAeadBinding`]) so
+    /// a sender that has not yet produced a ciphertext and a receiver holding
+    /// a finished envelope cannot drift apart in what they authenticate.
+    pub fn aead_binding(&self) -> SignalAeadBinding<'_> {
+        SignalAeadBinding {
+            realm_id: &self.realm_id,
+            scope_ref: &self.scope_ref,
+            sender_actor_id: &self.sender_actor_id,
+            sender_device_id: &self.sender_device_id,
+            seal_ref: &self.seal_ref,
+            signal_class: self.signal_class,
+            sent_at: self.sent_at,
+            expires_at: self.expires_at,
+            scheme: &self.encrypted_payload.scheme,
+            key_ref: &self.encrypted_payload.key_ref,
+            purpose: &self.encrypted_payload.purpose,
+            aead_profile: &self.encrypted_payload.aead_profile,
+            epoch: self.encrypted_payload.epoch,
+        }
+    }
+
+    /// Canonical AEAD AAD bytes for this envelope — what a receiver MUST
+    /// recompute instead of trusting the carried `aad_digest`.
+    pub fn aead_aad_bytes(&self) -> Result<Vec<u8>> {
+        self.aead_binding().aad_bytes(&self.encrypted_payload.nonce)
+    }
+
     /// Recompute the AAD digest from the immutable server-visible header.
     ///
     /// Deliberately excludes `aad_digest` itself, the ciphertext and the
     /// proof: the AEAD tag already binds ciphertext to AAD.
     pub fn expected_aad_digest(&self) -> Result<Hash> {
-        let mut object = serde_json::Map::new();
-        object.insert(
-            "realm_id".to_owned(),
-            Value::String(self.realm_id.as_str().to_owned()),
-        );
-        object.insert(
-            "scope_ref".to_owned(),
-            serde_json::to_value(&self.scope_ref)?,
-        );
-        object.insert(
-            "sender_actor_id".to_owned(),
-            Value::String(self.sender_actor_id.as_str().to_owned()),
-        );
-        object.insert(
-            "sender_device_id".to_owned(),
-            Value::String(self.sender_device_id.as_str().to_owned()),
-        );
-        object.insert(
-            "seal_ref".to_owned(),
-            Value::String(self.seal_ref.as_str().to_owned()),
-        );
-        object.insert(
-            "signal_class".to_owned(),
-            serde_json::to_value(self.signal_class)?,
-        );
-        object.insert(
-            "sent_at".to_owned(),
-            Value::String(canonical::format_timestamp_canonical(self.sent_at)),
-        );
-        object.insert(
-            "expires_at".to_owned(),
-            Value::String(canonical::format_timestamp_canonical(self.expires_at)),
-        );
-        object.insert(
-            "scheme".to_owned(),
-            Value::String(self.encrypted_payload.scheme.clone()),
-        );
-        // `encoding.md` §10.1 requires every AEAD-bearing envelope to bind at
-        // least key_ref, nonce, purpose and aead_profile. They are also the
-        // canonical nonce-derivation context, so omitting them would leave a
-        // receiver unable to recompute the sender nonce prefix.
-        object.insert(
-            "key_ref".to_owned(),
-            serde_json::to_value(&self.encrypted_payload.key_ref)?,
-        );
-        object.insert(
-            "purpose".to_owned(),
-            Value::String(self.encrypted_payload.purpose.clone()),
-        );
-        object.insert(
-            "aead_profile".to_owned(),
-            Value::String(self.encrypted_payload.aead_profile.clone()),
-        );
-        object.insert(
-            "epoch".to_owned(),
-            Value::Number(self.encrypted_payload.epoch.into()),
-        );
-        object.insert(
-            "nonce".to_owned(),
-            Value::String(self.encrypted_payload.nonce.clone()),
-        );
-        Ok(Hash::new(canonical::canonical_sha256(&Value::Object(
-            object,
-        ))?)?)
+        self.aead_binding()
+            .aad_digest(&self.encrypted_payload.nonce)
     }
 
     /// Canonical bytes the sending device signs.
@@ -294,42 +409,10 @@ impl SignalEnvelope {
     /// an implementation that starts requiring them has reintroduced the
     /// metadata leak this rail removed.
     pub fn validate_structural(&self) -> Result<()> {
-        if self.scope_ref.realm_id() != &self.realm_id {
-            return Err(Error::Protocol(
-                "signal scope_ref.realm_id must equal the envelope realm_id".to_owned(),
-            ));
-        }
-        if self.encrypted_payload.scheme != SIGNAL_AEAD_SCHEME {
-            return Err(Error::Protocol(format!(
-                "signal payload scheme must be {SIGNAL_AEAD_SCHEME}"
-            )));
-        }
-        if self.encrypted_payload.purpose != SIGNAL_AEAD_PURPOSE {
-            return Err(Error::Protocol(format!(
-                "signal payload purpose must be {SIGNAL_AEAD_PURPOSE}"
-            )));
-        }
-        if self.encrypted_payload.aead_profile.is_empty() {
-            return Err(Error::Protocol(
-                "signal payload aead_profile must name an active MLS ciphersuite".to_owned(),
-            ));
-        }
-        if self.expires_at <= self.sent_at {
-            return Err(Error::Protocol(
-                "signal expires_at must be strictly after sent_at".to_owned(),
-            ));
-        }
-        let ttl = self.expires_at - self.sent_at;
-        let ceiling = self.signal_class.max_ttl();
-        if ttl > ceiling || ttl > MAX_SIGNAL_TTL {
-            return Err(Error::Protocol(format!(
-                "{}: signal TTL {}s exceeds the {:?} class ceiling of {}s",
-                crate::error_codes::ErrorCode::SIGNAL_TTL_OUT_OF_RANGE,
-                ttl.num_seconds(),
-                self.signal_class,
-                ceiling.num_seconds()
-            )));
-        }
+        // Everything decidable from the immutable header is delegated so the
+        // sealing path (which runs before an envelope exists) enforces the
+        // identical set.
+        self.aead_binding().validate()?;
         if self.encrypted_payload.ciphertext.len() > MAX_SIGNAL_CIPHERTEXT_CHARS {
             return Err(Error::Protocol(format!(
                 "signal ciphertext exceeds {MAX_SIGNAL_CIPHERTEXT_CHARS} characters"

@@ -718,17 +718,32 @@ pub fn invite_subject_proof_transcript_digest(
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RelationCreatePayload {
-    /// Stable relation identifier required by the flat branch.
-    pub relation_id: String,
+    /// The whole relation object.
+    ///
+    /// `ak.relation.create`'s registered projection is `set value =
+    /// payload.relation`, and `event-and-patch.md` §2.4.2 lets a projection
+    /// move an existing root path wholesale but never assemble one — so the
+    /// object is what the cell holds, and a flat
+    /// `{relation_id, kind, from_ref, to_ref}` form would reduce to nothing.
+    pub relation: RelationSnapshot,
+    /// Optional lexical ordering rank.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rank: Option<String>,
+}
+
+/// The relation object a `ak.relation.create` payload carries.
+///
+/// `object_snapshot` derives the object kind from the typed-id prefix on `id`,
+/// so there is deliberately no `type` member — the schema bans that name.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RelationSnapshot {
+    pub id: String,
     /// Registered `relation_kind` (e.g. `ak.relation.parent_of`).
     pub kind: String,
     /// Source endpoint `object_ref` (canonical typed id / did / digest).
     pub from_ref: ObjectRef,
     /// Target endpoint `object_ref`.
     pub to_ref: ObjectRef,
-    /// Optional lexical ordering rank.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rank: Option<String>,
 }
 
 impl RelationCreatePayload {
@@ -739,10 +754,12 @@ impl RelationCreatePayload {
         to_ref: impl Into<ObjectRef>,
     ) -> Self {
         Self {
-            relation_id: relation_id.into(),
-            kind: kind.into(),
-            from_ref: from_ref.into(),
-            to_ref: to_ref.into(),
+            relation: RelationSnapshot {
+                id: relation_id.into(),
+                kind: kind.into(),
+                from_ref: from_ref.into(),
+                to_ref: to_ref.into(),
+            },
             rank: None,
         }
     }

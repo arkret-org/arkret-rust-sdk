@@ -342,6 +342,7 @@ dependencies = [
 name = "arkret-mls"
 version = "0.3.0"
 dependencies = [
+ "aes-gcm",
  "arkret-canonical",
  "arkret-crypto",
  "arkret-identifiers",

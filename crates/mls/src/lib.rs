@@ -13,6 +13,7 @@ mod group;
 mod identity;
 mod message;
 mod recovery;
+mod signal;
 
 pub use arkret_policy::{
     AgentMlsLeafBindingError, AgentMlsSignerClaim, AgentMlsSignerView, AuthorGroupStateView,
@@ -31,6 +32,7 @@ pub use group::*;
 pub use identity::*;
 pub use message::*;
 pub use recovery::*;
+pub use signal::*;
 
 // The persistence ports the MLS layer inverts on live in `arkret-models-crypto`
 // (OpenMLS-free) so binding them in the SDK `CryptoStore` supertrait drags no

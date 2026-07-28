@@ -64,6 +64,10 @@ version = "0.3.0"
 rust-version = "1.96"
 
 [workspace.dependencies]
+# AES-128-GCM: the AEAD of the only ACTIVE MLS ciphersuite row
+# (mls-ciphersuite-registry.json `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`),
+# used by the `ak.signal_exporter_aead.v1` Signal rail.
+aes-gcm = {version = "0.10.3",default-features = false,features = ["aes", "alloc"]}
 argon2 = {version = "0.5.3",default-features = false,features = ["alloc", "password-hash"]}
 atomic-write-file = "0.3.0"
 base64 = {version = "0.22.1",default-features = false,features = ["std"]}

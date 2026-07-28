@@ -12,6 +12,7 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
+aes-gcm = {workspace = true}
 arkret-canonical = {workspace = true}
 arkret-crypto = {workspace = true,features = ["aead", "sframe"]}
 arkret-identifiers = {workspace = true}

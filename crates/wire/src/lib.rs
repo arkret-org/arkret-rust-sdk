@@ -122,7 +122,12 @@ pub use security_transaction::{
 };
 pub use self_contact_paths::*;
 pub use service_kind::{EvaluationClass, ServiceKind};
-pub use signal::{SignalClass, SignalEncryptedPayload, SignalEnvelope, SignalKeyRef, SignalProof};
+pub use signal::{
+    MAX_SIGNAL_CIPHERTEXT_CHARS, MAX_SIGNAL_ENVELOPE_BYTES, MAX_SIGNAL_PLAINTEXT_BYTES,
+    MAX_SIGNAL_TTL, SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME, SIGNAL_EXPORTER_LABEL,
+    SignalAeadBinding, SignalClass, SignalEncryptedPayload, SignalEnvelope, SignalKeyRef,
+    SignalProof,
+};
 pub use signer::{PartialSignature, PayloadSigner, ThresholdAggregator};
 pub use string_profiles::*;
 pub use wire_strings::*;

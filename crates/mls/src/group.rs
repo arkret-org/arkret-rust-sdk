@@ -36,7 +36,7 @@ pub const MLS_EXPORTER_AEAD_CONTENT_SCHEME: &str = "mls_exporter_aead_v1";
 /// AAD / nonce-context `purpose` for the exporter-aead content scheme.
 pub const MLS_EXPORTER_AEAD_CONTENT_PURPOSE: &str = "mls_exporter_aead_content";
 /// MLS exporter label for the per-epoch history secret.
-const HISTORY_SECRET_LABEL: &str = arkret_wire::ExporterLabelId::HISTORY_V1;
+pub(crate) const HISTORY_SECRET_LABEL: &str = arkret_wire::ExporterLabelId::HISTORY_V1;
 /// HKDF-Expand label deriving the content key from the history secret.
 const CONTENT_KEY_LABEL: &str = arkret_wire::ExporterLabelId::CONTENT_V1;
 /// XChaCha20-Poly1305 key length, `AEAD.Nk`.
@@ -62,6 +62,13 @@ pub struct ArkretMlsGroup {
     /// In-memory only; never reused within an epoch because the counter only
     /// ever advances.
     pub(super) content_nonce_counter: u64,
+    /// Monotonic per-device AEAD nonce counter for the
+    /// `ak.signal_exporter_aead.v1` Signal scheme (`encoding §10.1`). Kept
+    /// separate from [`Self::content_nonce_counter`] because `purpose` is part
+    /// of the nonce-derivation tuple: the two domains have disjoint nonce
+    /// spaces, and sharing one counter would only waste range. Persisted with
+    /// the group snapshot — see [`crate::signal`] for the reuse contract.
+    pub(super) signal_nonce_counter: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -123,6 +130,14 @@ struct OpenMlsStateSnapshot {
     /// for snapshots written before the content scheme existed.
     #[serde(default, skip_serializing_if = "is_zero_u64")]
     content_nonce_counter: u64,
+    /// Persisted monotonic Signal AEAD nonce counter. `encoding.md` §10.1
+    /// makes persistence mandatory: a device that cannot recover its counter
+    /// for an epoch MUST advance the epoch rather than restart at 0. The
+    /// counter only ever reaches this snapshot from an in-memory value that
+    /// has already been advanced past every nonce this device emitted, so a
+    /// missing field can only mean "never sealed a Signal", i.e. 0.
+    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    signal_nonce_counter: u64,
 }
 
 fn is_zero_u64(value: &u64) -> bool {
@@ -311,9 +326,21 @@ impl ArkretMlsGroup {
         &mut self,
         realm_id: &str,
     ) -> Result<Zeroizing<Vec<u8>>> {
-        let secret = self.export_secret(HISTORY_SECRET_LABEL, realm_id.as_bytes(), 32)?;
+        let secret = self.derive_history_secret(realm_id)?;
         self.history_secrets.insert(self.epoch(), secret.clone());
         Ok(secret)
+    }
+
+    /// Derive `history_secret[N]` for the current epoch **without** retaining
+    /// it.
+    ///
+    /// Retention exists so a late joiner can be granted readable history; an
+    /// ephemeral domain (the Signal rail) must not cause an epoch to be
+    /// retained as shareable history just because a typing indicator was sent
+    /// in it. Callers that do want the sharing side effect use
+    /// [`Self::derive_and_retain_history_secret`].
+    pub(crate) fn derive_history_secret(&self, realm_id: &str) -> Result<Zeroizing<Vec<u8>>> {
+        self.export_secret(HISTORY_SECRET_LABEL, realm_id.as_bytes(), 32)
     }
 
     /// Encrypt `plaintext` for the current epoch under the `mls_exporter_aead_v1`
@@ -511,6 +538,7 @@ impl ArkretMlsGroup {
                 .map(|(epoch, secret)| (epoch.to_string(), encode(secret)))
                 .collect(),
             content_nonce_counter: self.content_nonce_counter,
+            signal_nonce_counter: self.signal_nonce_counter,
         };
         Ok(MlsGroupStateRecord {
             group_id: snapshot.group_id.clone(),
@@ -588,6 +616,7 @@ impl ArkretMlsGroup {
             group,
             history_secrets,
             content_nonce_counter: snapshot.content_nonce_counter,
+            signal_nonce_counter: snapshot.signal_nonce_counter,
         })
     }
 
@@ -1052,6 +1081,7 @@ impl ArkretMlsGroup {
             group,
             history_secrets: BTreeMap::new(),
             content_nonce_counter: 0,
+            signal_nonce_counter: 0,
         })
     }
 
@@ -1313,7 +1343,10 @@ fn derive_content_key(history_secret: &[u8]) -> Result<Zeroizing<[u8; CONTENT_AE
     Ok(key)
 }
 
-fn mls_kdf_label(length: usize, label: &str, context: &[u8]) -> Result<Vec<u8>> {
+/// RFC 9420 §8.1 `KDFLabel` encoding used by `ExpandWithLabel`. Shared with
+/// the Signal domain ([`crate::signal`]), which derives its per-epoch key from
+/// the same `history_secret` under a different registered label.
+pub(crate) fn mls_kdf_label(length: usize, label: &str, context: &[u8]) -> Result<Vec<u8>> {
     let length = u16::try_from(length)
         .map_err(|_| Error::Crypto("MLS KDF output length exceeds uint16".to_owned()))?;
     let full_label = format!("MLS 1.0 {label}");
