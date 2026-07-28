@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-07-20;
-//! sha256=c5b66d73e13d14995acefcaf831335cdc661e118af8a58536148adbc5af52098 Entries: registered=212
+//! sha256=ddb1e11aed0504444a9f1cd57ca82eaf0f53b9288ab704e8093c268e33d98ebf Entries: registered=214
 
 use serde::{Deserialize, Serialize};
 
@@ -35,6 +35,7 @@ pub enum ServiceOperationId {
     FindDirectoryQuerySearchOrganizations,
     FindDirectoryQuerySearchRealms,
     FindDirectoryQuerySearchUsers,
+    GateAccountCommandAuthorizeRecoveryDevice,
     GateAccountCommandEnrollDevice,
     GateAccountCommandIntrospectSessionGrant,
     GateAccountCommandIssueIdentityBindingChallenge,
@@ -43,6 +44,7 @@ pub enum ServiceOperationId {
     GateAccountCommandLogoutAuthSession,
     GateAccountCommandPairAgentKey,
     GateAccountCommandPairDevice,
+    GateAccountCommandPromoteRecoverySessionGrant,
     GateAccountCommandRefreshSessionGrant,
     GateAccountCommandRegister,
     GateAccountCommandRevokeSession,
@@ -90,7 +92,6 @@ pub enum ServiceOperationId {
     RootIdentityReceiptsQueryList,
     RootIdentityRecoveryPolicyCommandPublish,
     RootIdentityRecoveryPolicyResourceGet,
-    RootIdentityRecoverySessionCommandComplete,
     RootIdentityRecoverySessionCommandCreate,
     RootIdentityRecoverySessionCommandSubmitProof,
     RootIdentityRecoverySessionResourceGet,
@@ -210,6 +211,7 @@ pub enum ServiceOperationId {
     SelfRealmPolicyServerResourceDelete,
     SelfRealmPolicyServerResourceGet,
     SelfRealmPolicyServerResourceReplace,
+    SelfRecoveryAuthorityTicketCommandIssue,
     SelfSecurityTransactionCommandContinue,
     SelfSecurityTransactionCommandCreate,
     SelfSecurityTransactionResourceGet,
@@ -250,6 +252,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.find.directory.query.search_organizations",
     "ak.find.directory.query.search_realms",
     "ak.find.directory.query.search_users",
+    "ak.gate.account.command.authorize_recovery_device",
     "ak.gate.account.command.enroll_device",
     "ak.gate.account.command.introspect_session_grant",
     "ak.gate.account.command.issue_identity_binding_challenge",
@@ -258,6 +261,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.gate.account.command.logout_auth_session",
     "ak.gate.account.command.pair_agent_key",
     "ak.gate.account.command.pair_device",
+    "ak.gate.account.command.promote_recovery_session_grant",
     "ak.gate.account.command.refresh_session_grant",
     "ak.gate.account.command.register",
     "ak.gate.account.command.revoke_session",
@@ -305,7 +309,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.root.identity.receipts.query.list",
     "ak.root.identity.recovery_policy.command.publish",
     "ak.root.identity.recovery_policy.resource.get",
-    "ak.root.identity.recovery_session.command.complete",
     "ak.root.identity.recovery_session.command.create",
     "ak.root.identity.recovery_session.command.submit_proof",
     "ak.root.identity.recovery_session.resource.get",
@@ -425,6 +428,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.self.realm_policy_server.resource.delete",
     "ak.self.realm_policy_server.resource.get",
     "ak.self.realm_policy_server.resource.replace",
+    "ak.self.recovery_authority_ticket.command.issue",
     "ak.self.security_transaction.command.continue",
     "ak.self.security_transaction.command.create",
     "ak.self.security_transaction.resource.get",
@@ -481,6 +485,7 @@ impl ServiceOperationId {
         Self::FindDirectoryQuerySearchOrganizations,
         Self::FindDirectoryQuerySearchRealms,
         Self::FindDirectoryQuerySearchUsers,
+        Self::GateAccountCommandAuthorizeRecoveryDevice,
         Self::GateAccountCommandEnrollDevice,
         Self::GateAccountCommandIntrospectSessionGrant,
         Self::GateAccountCommandIssueIdentityBindingChallenge,
@@ -489,6 +494,7 @@ impl ServiceOperationId {
         Self::GateAccountCommandLogoutAuthSession,
         Self::GateAccountCommandPairAgentKey,
         Self::GateAccountCommandPairDevice,
+        Self::GateAccountCommandPromoteRecoverySessionGrant,
         Self::GateAccountCommandRefreshSessionGrant,
         Self::GateAccountCommandRegister,
         Self::GateAccountCommandRevokeSession,
@@ -536,7 +542,6 @@ impl ServiceOperationId {
         Self::RootIdentityReceiptsQueryList,
         Self::RootIdentityRecoveryPolicyCommandPublish,
         Self::RootIdentityRecoveryPolicyResourceGet,
-        Self::RootIdentityRecoverySessionCommandComplete,
         Self::RootIdentityRecoverySessionCommandCreate,
         Self::RootIdentityRecoverySessionCommandSubmitProof,
         Self::RootIdentityRecoverySessionResourceGet,
@@ -656,6 +661,7 @@ impl ServiceOperationId {
         Self::SelfRealmPolicyServerResourceDelete,
         Self::SelfRealmPolicyServerResourceGet,
         Self::SelfRealmPolicyServerResourceReplace,
+        Self::SelfRecoveryAuthorityTicketCommandIssue,
         Self::SelfSecurityTransactionCommandContinue,
         Self::SelfSecurityTransactionCommandCreate,
         Self::SelfSecurityTransactionResourceGet,
@@ -713,6 +719,8 @@ impl ServiceOperationId {
         "ak.find.directory.query.search_realms";
     pub const FIND_DIRECTORY_QUERY_SEARCH_USERS: &'static str =
         "ak.find.directory.query.search_users";
+    pub const GATE_ACCOUNT_COMMAND_AUTHORIZE_RECOVERY_DEVICE: &'static str =
+        "ak.gate.account.command.authorize_recovery_device";
     pub const GATE_ACCOUNT_COMMAND_ENROLL_DEVICE: &'static str =
         "ak.gate.account.command.enroll_device";
     pub const GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT: &'static str =
@@ -728,6 +736,8 @@ impl ServiceOperationId {
         "ak.gate.account.command.pair_agent_key";
     pub const GATE_ACCOUNT_COMMAND_PAIR_DEVICE: &'static str =
         "ak.gate.account.command.pair_device";
+    pub const GATE_ACCOUNT_COMMAND_PROMOTE_RECOVERY_SESSION_GRANT: &'static str =
+        "ak.gate.account.command.promote_recovery_session_grant";
     pub const GATE_ACCOUNT_COMMAND_REFRESH_SESSION_GRANT: &'static str =
         "ak.gate.account.command.refresh_session_grant";
     pub const GATE_ACCOUNT_COMMAND_REGISTER: &'static str = "ak.gate.account.command.register";
@@ -805,8 +815,6 @@ impl ServiceOperationId {
         "ak.root.identity.recovery_policy.command.publish";
     pub const ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET: &'static str =
         "ak.root.identity.recovery_policy.resource.get";
-    pub const ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_COMPLETE: &'static str =
-        "ak.root.identity.recovery_session.command.complete";
     pub const ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE: &'static str =
         "ak.root.identity.recovery_session.command.create";
     pub const ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF: &'static str =
@@ -978,6 +986,8 @@ impl ServiceOperationId {
         "ak.self.realm_policy_server.resource.get";
     pub const SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE: &'static str =
         "ak.self.realm_policy_server.resource.replace";
+    pub const SELF_RECOVERY_AUTHORITY_TICKET_COMMAND_ISSUE: &'static str =
+        "ak.self.recovery_authority_ticket.command.issue";
     pub const SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE: &'static str =
         "ak.self.security_transaction.command.continue";
     pub const SELF_SECURITY_TRANSACTION_COMMAND_CREATE: &'static str =
@@ -1037,6 +1047,9 @@ impl ServiceOperationId {
             }
             Self::FindDirectoryQuerySearchRealms => "ak.find.directory.query.search_realms",
             Self::FindDirectoryQuerySearchUsers => "ak.find.directory.query.search_users",
+            Self::GateAccountCommandAuthorizeRecoveryDevice => {
+                "ak.gate.account.command.authorize_recovery_device"
+            }
             Self::GateAccountCommandEnrollDevice => "ak.gate.account.command.enroll_device",
             Self::GateAccountCommandIntrospectSessionGrant => {
                 "ak.gate.account.command.introspect_session_grant"
@@ -1053,6 +1066,9 @@ impl ServiceOperationId {
             }
             Self::GateAccountCommandPairAgentKey => "ak.gate.account.command.pair_agent_key",
             Self::GateAccountCommandPairDevice => "ak.gate.account.command.pair_device",
+            Self::GateAccountCommandPromoteRecoverySessionGrant => {
+                "ak.gate.account.command.promote_recovery_session_grant"
+            }
             Self::GateAccountCommandRefreshSessionGrant => {
                 "ak.gate.account.command.refresh_session_grant"
             }
@@ -1123,9 +1139,6 @@ impl ServiceOperationId {
             }
             Self::RootIdentityRecoveryPolicyResourceGet => {
                 "ak.root.identity.recovery_policy.resource.get"
-            }
-            Self::RootIdentityRecoverySessionCommandComplete => {
-                "ak.root.identity.recovery_session.command.complete"
             }
             Self::RootIdentityRecoverySessionCommandCreate => {
                 "ak.root.identity.recovery_session.command.create"
@@ -1282,6 +1295,9 @@ impl ServiceOperationId {
             Self::SelfRealmPolicyServerResourceReplace => {
                 "ak.self.realm_policy_server.resource.replace"
             }
+            Self::SelfRecoveryAuthorityTicketCommandIssue => {
+                "ak.self.recovery_authority_ticket.command.issue"
+            }
             Self::SelfSecurityTransactionCommandContinue => {
                 "ak.self.security_transaction.command.continue"
             }
@@ -1348,6 +1364,9 @@ impl ServiceOperationId {
             }
             "ak.find.directory.query.search_realms" => Some(Self::FindDirectoryQuerySearchRealms),
             "ak.find.directory.query.search_users" => Some(Self::FindDirectoryQuerySearchUsers),
+            "ak.gate.account.command.authorize_recovery_device" => {
+                Some(Self::GateAccountCommandAuthorizeRecoveryDevice)
+            }
             "ak.gate.account.command.enroll_device" => Some(Self::GateAccountCommandEnrollDevice),
             "ak.gate.account.command.introspect_session_grant" => {
                 Some(Self::GateAccountCommandIntrospectSessionGrant)
@@ -1364,6 +1383,9 @@ impl ServiceOperationId {
             }
             "ak.gate.account.command.pair_agent_key" => Some(Self::GateAccountCommandPairAgentKey),
             "ak.gate.account.command.pair_device" => Some(Self::GateAccountCommandPairDevice),
+            "ak.gate.account.command.promote_recovery_session_grant" => {
+                Some(Self::GateAccountCommandPromoteRecoverySessionGrant)
+            }
             "ak.gate.account.command.refresh_session_grant" => {
                 Some(Self::GateAccountCommandRefreshSessionGrant)
             }
@@ -1436,9 +1458,6 @@ impl ServiceOperationId {
             }
             "ak.root.identity.recovery_policy.resource.get" => {
                 Some(Self::RootIdentityRecoveryPolicyResourceGet)
-            }
-            "ak.root.identity.recovery_session.command.complete" => {
-                Some(Self::RootIdentityRecoverySessionCommandComplete)
             }
             "ak.root.identity.recovery_session.command.create" => {
                 Some(Self::RootIdentityRecoverySessionCommandCreate)
@@ -1612,6 +1631,9 @@ impl ServiceOperationId {
             }
             "ak.self.realm_policy_server.resource.replace" => {
                 Some(Self::SelfRealmPolicyServerResourceReplace)
+            }
+            "ak.self.recovery_authority_ticket.command.issue" => {
+                Some(Self::SelfRecoveryAuthorityTicketCommandIssue)
             }
             "ak.self.security_transaction.command.continue" => {
                 Some(Self::SelfSecurityTransactionCommandContinue)
@@ -2099,6 +2121,23 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::GateAccountCommandAuthorizeRecoveryDevice,
+        http_method: "POST",
+        http_path: "/_arkret/gate/account/recovery-device-authorizations",
+        grpc: Some("GateAccount/AuthorizeRecoveryDevice"),
+        mq: Some("gate.account.command.authorize_recovery_device"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("object_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/recovery-authority.schema.json#/$defs/authorize_recovery_device_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/recovery-authority.schema.json#/$defs/authorize_recovery_device_outcome",
+        ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandEnrollDevice,
         http_method: "POST",
         http_path: "/_arkret/gate/account/device-enroll",
@@ -2243,6 +2282,23 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.account.query.viewer\",\"strategy\":\"query_operation\"}",
         ),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::GateAccountCommandPromoteRecoverySessionGrant,
+        http_method: "POST",
+        http_path: "/_arkret/gate/account/recovery-session-grants/promote",
+        grpc: None,
+        mq: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("protocol_sequence"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/recovery-authority.schema.json#/$defs/promote_recovery_session_grant_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/recovery-authority.schema.json#/$defs/promote_recovery_session_grant_outcome",
+        ),
+        uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandRefreshSessionGrant,
@@ -3022,25 +3078,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/recovery-policy.schema.json#/$defs/recovery_policy_active_outcome",
         ),
         uncertain_outcome: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::RootIdentityRecoverySessionCommandComplete,
-        http_method: "POST",
-        http_path: "/_arkret/root/identity/recovery-sessions/{recovery_session_id}/complete",
-        grpc: Some("RootIdentity/RecoverySessionComplete"),
-        mq: Some("root.identity.recovery_session.command.complete"),
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/recovery-session.schema.json#/$defs/recovery_session_complete_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/recovery-session.schema.json#/$defs/recovery_session_complete_outcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.root.identity.recovery_session.resource.get\",\"strategy\":\"query_operation\"}",
-        ),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityRecoverySessionCommandCreate,
@@ -4951,6 +4988,21 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         response_schema_ref: Some(
             "schemas/realm-policy-server-operations.schema.json#/$defs/realm_policy_server_view",
         ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfRecoveryAuthorityTicketCommandIssue,
+        http_method: "POST",
+        http_path: "/_arkret/self/recovery-authority-tickets",
+        grpc: Some("SelfRecoveryAuthorityTickets/Issue"),
+        mq: Some("self.recovery_authority_ticket.command.issue"),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("object_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/recovery-authority.schema.json#/$defs/ticket_issue_request",
+        ),
+        response_schema_ref: Some("schemas/recovery-authority.schema.json"),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {

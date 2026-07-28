@@ -86,9 +86,10 @@ pub use arkret_identifiers::{
     CapabilityId, CellRef, ChunkId, CircleId, ClaimId, ConsentId, DeviceId, DeviceMessageId, Did,
     EventId, FilterId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, InviteLocatorId,
     KeyEventId, MessageId, ModerationQueueItemId, MorphId, NotificationId, OperationId, PolicyId,
-    PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId,
-    RequestId, RtcParticipantId, SealId, SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId,
-    TransactionId, TypedAppealId, TypedTrustDomainId, ViewId, new_prefixed_uuid7,
+    PresentationId, ReadCursorId, RealmId, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId,
+    RelationId, ReportId, RequestId, RtcParticipantId, SealId, SidecarId, SnapshotId, SpaceId,
+    StrandId, SubscriptionId, TransactionId, TypedAppealId, TypedTrustDomainId, ViewId,
+    new_prefixed_uuid7,
 };
 pub use arkret_identity as identity;
 pub use arkret_identity::jws;

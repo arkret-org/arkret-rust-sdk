@@ -136,8 +136,7 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         | ServiceOperationId::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION
         | ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE
         | ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET
-        | ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF
-        | ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_COMPLETE => {
+        | ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF => {
             OperationSurface::Identity
         }
         ServiceOperationId::SELF_KEYS_UPLOAD_CREATE

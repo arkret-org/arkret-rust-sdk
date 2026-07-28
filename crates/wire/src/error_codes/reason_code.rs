@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=8a15acdc8364a503c303242612b395cf4fe6c54b3df22c5a74e3856046fa536d
+//! sha256=a5e355eb98b283eaed2b497d4811f2cdae6344d6d46744a6f9a3c39a92de684b
 //! Entries: reason_codes=446
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -3245,7 +3245,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "message_id_conflict",
         applies_to: &["event_envelope", "scheduled_send", "client_sync"],
-        description: "A scheduled-send plan or to-device retry reused the same planned_message_id / message_id with different canonical content. The reducer or queue service MUST return duplicate_conflict with this reason_code and MUST NOT emit or enqueue a replacement message.",
+        description: "A scheduled-send plan reused the same planned_message_id with different canonical plan content, or a to-device retry reused the same message_id with different canonical target content. The plan store or queue service MUST return duplicate_conflict with this reason_code and MUST NOT emit or enqueue a replacement message. Durable ak.message.create identity conflicts are keyed only by Event.event_id.",
     },
     ReasonCodeDescriptor {
         code: "metadata_encryption_floor_downgrade",

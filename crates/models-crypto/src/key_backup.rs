@@ -8,14 +8,17 @@ use arkret_canonical::{
 };
 use arkret_wire::{
     BackupId, BackupSeriesId, Base64UrlString, Cursor, DeviceId, Did, DidUrl, Error, EventId,
-    HPKE_SUITES, Hash, NonEmptyString, PolicyId, RealmId, ReceiptId, RecoverySessionId, Result,
-    TypedTrustDomainId, XExtensionMap,
+    HPKE_SUITES, Hash, NonEmptyString, PolicyId, RealmId, ReceiptId, RecoveryAuthorityTicketId,
+    RecoverySessionId, Result, TransactionId, TypedTrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::artifacts_keys::{KeyBackupUnlockProof, RecoveryPolicyRef, ShareShareCommitment};
+use crate::artifacts_keys::{
+    KeyBackupUnlockProof, RecoveryIdentityModel, RecoveryModelGenerationRef, RecoveryPolicyRef,
+    ShareShareCommitment,
+};
 
 fn is_false(value: &bool) -> bool {
     !*value
@@ -1587,7 +1590,8 @@ impl RecoveryProofKind {
 /// recovery strand, bound to the `recovery_session_id` used by every proof,
 /// backup unlock, and MLS Welcome replay action.
 ///
-/// Required surface: `schema`, `receipt_id`, `principal_id`,
+/// Required surface: `schema`, `receipt_id`, `transaction_id`,
+/// `transaction_request_digest`, `principal_id`,
 /// `recovery_session_id`, `policy_id`, `policy_version`, `trust_domain`,
 /// `new_device_id`, `proof_summary`, `backup_classes_unlocked`,
 /// `welcome_count`, `outcome`, `started_at`, `completed_at`, `auth_data`.
@@ -1597,16 +1601,31 @@ pub struct RecoveryReceipt {
     /// Schema id (`ak.schema.recovery_receipt.v1`).
     pub schema: String,
     pub receipt_id: ReceiptId,
+    pub transaction_id: TransactionId,
+    pub transaction_request_digest: Hash,
+    pub prepared_plan_digest: Hash,
     pub principal_id: Did,
     pub recovery_session_id: RecoverySessionId,
     pub policy_id: PolicyId,
     pub policy_version: u64,
     pub trust_domain: TypedTrustDomainId,
     pub new_device_id: DeviceId,
+    pub identity_model: RecoveryIdentityModel,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub previous_model_generation_ref: RecoveryModelGenerationRef,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub result_model_generation_ref: RecoveryModelGenerationRef,
+    pub authorization_event_id: EventId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_ssk_generation: Option<u64>,
+    pub device_list_update_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub new_ssk_generation: Option<u64>,
+    pub reanchor_event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reanchor_batch_receipt_id: Option<ReceiptId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authority_ticket_id: Option<RecoveryAuthorityTicketId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub did_entry_ref: Option<String>,
     pub proof_summary: RecoveryProofSummary,
     pub backup_classes_unlocked: Vec<RecoveryBackupClassUnlocked>,
     /// MLS Welcomes successfully replayed for the recovering device.
@@ -1631,6 +1650,172 @@ pub struct RecoveryReceipt {
     /// `x_*` extension fields (`patternProperties`).
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
+}
+
+impl RecoveryReceipt {
+    pub const SIGNATURE_TYPE: &'static str = "ak.identity.recovery_receipt.signature.v1";
+
+    /// Canonical signature input shared by clients and verifiers.
+    ///
+    /// Only fields named by `auth_data.signed_fields` are copied into the
+    /// transcript, so the signature value itself can be filled after signing.
+    pub fn signature_transcript_bytes(&self) -> Result<Vec<u8>> {
+        self.validate()?;
+        let payload = serde_json::to_value(self).map_err(|error| {
+            Error::Protocol(format!("failed to serialize recovery receipt: {error}"))
+        })?;
+        let mut signed_payload = serde_json::Map::new();
+        for field in &self.auth_data.signed_fields {
+            let value = payload.get(field).cloned().ok_or_else(|| {
+                Error::Protocol(format!(
+                    "recovery receipt signed_fields names absent field {field}"
+                ))
+            })?;
+            signed_payload.insert(field.clone(), value);
+        }
+        let transcript = serde_json::json!({
+            "type": Self::SIGNATURE_TYPE,
+            "signed_fields": self.auth_data.signed_fields,
+            "payload": signed_payload,
+        });
+        arkret_canonical::canonical_json_bytes(&transcript).map_err(|error| {
+            Error::Protocol(format!(
+                "failed to canonicalize recovery receipt signature transcript: {error}"
+            ))
+        })
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.schema != "ak.schema.recovery_receipt.v1" {
+            return Err(Error::Protocol(
+                "recovery receipt schema must be ak.schema.recovery_receipt.v1".to_owned(),
+            ));
+        }
+        if self.policy_version == 0 {
+            return Err(Error::Protocol(
+                "recovery receipt policy_version must be positive".to_owned(),
+            ));
+        }
+        self.previous_model_generation_ref
+            .validate_for(self.identity_model)?;
+        self.result_model_generation_ref
+            .validate_for(self.identity_model)?;
+        match self.identity_model {
+            RecoveryIdentityModel::CrossSigning => {
+                if self.device_list_update_event_id.is_none()
+                    || self.reanchor_event_id.is_some()
+                    || self.reanchor_batch_receipt_id.is_some()
+                    || self.authority_ticket_id.is_some()
+                    || self.did_entry_ref.is_some()
+                    || self.previous_model_generation_ref != self.result_model_generation_ref
+                {
+                    return Err(Error::Protocol(
+                        "cross-signing recovery receipt requires equal generation refs and only a device-list-update artifact".to_owned(),
+                    ));
+                }
+            }
+            RecoveryIdentityModel::EnrollmentAuthority => {
+                if self.device_list_update_event_id.is_some()
+                    || self.reanchor_event_id.is_none()
+                    || self.reanchor_batch_receipt_id.is_none()
+                    || self.authority_ticket_id.is_none()
+                    || self.did_entry_ref.as_deref().is_none_or(str::is_empty)
+                    || self.previous_model_generation_ref == self.result_model_generation_ref
+                {
+                    return Err(Error::Protocol(
+                        "enrollment-authority recovery receipt requires an advancing re-anchor artifact pair".to_owned(),
+                    ));
+                }
+            }
+        }
+        if self.completed_at < self.started_at {
+            return Err(Error::Protocol(
+                "recovery receipt completed_at precedes started_at".to_owned(),
+            ));
+        }
+        if self.outcome == RecoveryReceiptOutcome::Completed && self.outcome_reason_code.is_some() {
+            return Err(Error::Protocol(
+                "completed recovery receipt must omit outcome_reason_code".to_owned(),
+            ));
+        }
+        if self.outcome != RecoveryReceiptOutcome::Completed
+            && self
+                .outcome_reason_code
+                .as_deref()
+                .is_none_or(str::is_empty)
+        {
+            return Err(Error::Protocol(
+                "non-completed recovery receipt requires outcome_reason_code".to_owned(),
+            ));
+        }
+        if self.auth_data.signature_algorithm != "Ed25519" {
+            return Err(Error::Protocol(
+                "recovery receipt signature_algorithm must be Ed25519".to_owned(),
+            ));
+        }
+        let signed = self
+            .auth_data
+            .signed_fields
+            .iter()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>();
+        if signed.len() != self.auth_data.signed_fields.len() {
+            return Err(Error::Protocol(
+                "recovery receipt signed_fields must be unique".to_owned(),
+            ));
+        }
+        let mut required = vec![
+            "schema",
+            "receipt_id",
+            "transaction_id",
+            "transaction_request_digest",
+            "prepared_plan_digest",
+            "principal_id",
+            "recovery_session_id",
+            "policy_id",
+            "policy_version",
+            "trust_domain",
+            "new_device_id",
+            "identity_model",
+            "previous_model_generation_ref",
+            "result_model_generation_ref",
+            "authorization_event_id",
+            "proof_summary",
+            "backup_classes_unlocked",
+            "welcome_count",
+            "outcome",
+            "started_at",
+            "completed_at",
+        ];
+        match self.identity_model {
+            RecoveryIdentityModel::CrossSigning => {
+                required.push("device_list_update_event_id");
+            }
+            RecoveryIdentityModel::EnrollmentAuthority => {
+                required.extend([
+                    "reanchor_event_id",
+                    "reanchor_batch_receipt_id",
+                    "authority_ticket_id",
+                    "did_entry_ref",
+                ]);
+            }
+        }
+        if self.welcome_realm_summary.is_some() {
+            required.push("welcome_realm_summary");
+        }
+        if self.outcome_reason_code.is_some() {
+            required.push("outcome_reason_code");
+        }
+        if let Some(missing) = required
+            .into_iter()
+            .find(|required_field| !signed.contains(required_field))
+        {
+            return Err(Error::Protocol(format!(
+                "recovery receipt signed_fields omits {missing}"
+            )));
+        }
+        Ok(())
+    }
 }
 
 /// `recovery-receipt.schema.json#/properties/proof_summary`.
@@ -1961,6 +2146,117 @@ mod encryption_validate_tests {
                 "device_generation_ref": "1-QmGeneration"
             }))
             .is_err()
+        );
+    }
+
+    fn recovery_receipt_value() -> Value {
+        serde_json::json!({
+            "schema": "ak.schema.recovery_receipt.v1",
+            "receipt_id": "ak:receipt:019a6aa0-0000-7000-8000-0000000000cc",
+            "transaction_id": "ak:transaction:019a6aa0-0000-7000-8000-0000000000dd",
+            "transaction_request_digest": format!("sha256:{}", "d".repeat(64)),
+            "prepared_plan_digest": format!("sha256:{}", "e".repeat(64)),
+            "principal_id": "did:webvh:z6mkfixture:alice.example",
+            "recovery_session_id": "ak:recovery_session:019a6aa0-0000-7000-8000-0000000000aa",
+            "policy_id": "ak:policy:019a6aa0-0000-7000-8000-0000000000bb",
+            "policy_version": 1,
+            "trust_domain": "ak:trust_domain:example.local",
+            "new_device_id": "ak:device:019a6aa0-0000-7000-8000-000000000099",
+            "identity_model": "cross_signing",
+            "previous_model_generation_ref": 1,
+            "result_model_generation_ref": 1,
+            "authorization_event_id": "ak:event:01964137-0000-7000-8000-00000000a111",
+            "device_list_update_event_id": "ak:event:01964137-0000-7000-8000-00000000a222",
+            "proof_summary": {
+                "kind": "principal_signing",
+                "proof_digest": format!("sha256:{}", "a".repeat(64))
+            },
+            "backup_classes_unlocked": [],
+            "welcome_count": 0,
+            "outcome": "completed",
+            "started_at": "2026-05-30T00:00:00.000Z",
+            "completed_at": "2026-05-30T00:00:01.000Z",
+            "auth_data": {
+                "verification_method": "did:webvh:z6mkfixture:alice.example#device-1",
+                "signature_algorithm": "Ed25519",
+                "signature": "c2ln",
+                "signed_fields": [
+                    "schema",
+                    "receipt_id",
+                    "transaction_id",
+                    "transaction_request_digest",
+                    "prepared_plan_digest",
+                    "principal_id",
+                    "recovery_session_id",
+                    "policy_id",
+                    "policy_version",
+                    "trust_domain",
+                    "new_device_id",
+                    "identity_model",
+                    "previous_model_generation_ref",
+                    "result_model_generation_ref",
+                    "authorization_event_id",
+                    "device_list_update_event_id",
+                    "proof_summary",
+                    "backup_classes_unlocked",
+                    "welcome_count",
+                    "outcome",
+                    "started_at",
+                    "completed_at"
+                ]
+            }
+        })
+    }
+
+    #[test]
+    fn recovery_receipt_signature_binds_transaction_identity_and_request_digest() {
+        let receipt: RecoveryReceipt =
+            serde_json::from_value(recovery_receipt_value()).expect("valid receipt");
+        receipt.validate().expect("receipt validates");
+
+        let transcript: Value =
+            serde_json::from_slice(&receipt.signature_transcript_bytes().unwrap()).unwrap();
+        assert_eq!(
+            transcript["payload"]["transaction_id"],
+            receipt.transaction_id.as_str()
+        );
+        assert_eq!(
+            transcript["payload"]["transaction_request_digest"],
+            receipt.transaction_request_digest.as_str()
+        );
+        assert_eq!(
+            transcript["payload"]["prepared_plan_digest"],
+            receipt.prepared_plan_digest.as_str()
+        );
+    }
+
+    #[test]
+    fn recovery_receipt_rejects_unsigned_transaction_or_wider_signature_algorithm() {
+        let mut missing_binding = recovery_receipt_value();
+        missing_binding["auth_data"]["signed_fields"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|field| field != "transaction_request_digest");
+        let receipt: RecoveryReceipt =
+            serde_json::from_value(missing_binding).expect("structural receipt");
+        assert!(
+            receipt
+                .validate()
+                .unwrap_err()
+                .to_string()
+                .contains("transaction_request_digest")
+        );
+
+        let mut wider_algorithm = recovery_receipt_value();
+        wider_algorithm["auth_data"]["signature_algorithm"] = serde_json::json!("ES256");
+        let receipt: RecoveryReceipt =
+            serde_json::from_value(wider_algorithm).expect("structural receipt");
+        assert!(
+            receipt
+                .validate()
+                .unwrap_err()
+                .to_string()
+                .contains("must be Ed25519")
         );
     }
 }

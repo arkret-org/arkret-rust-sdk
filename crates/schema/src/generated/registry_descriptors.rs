@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-07-20;
-//! sha256=9468557bda241ab4c8a0bbd1d1cf0c19955ff59ba3caa35bf0f5aa1608995796 Input: registry/
+//! sha256=f71350ccddedcc621b3a77b90549b5d0d1e0e317004019fca9dd642ac820ae3b Input: registry/
 //! capability-action-registry.json; version=2026-07-20;
-//! sha256=449da095c4545f33ff8cc7f67f466c018ac9d3768e625e5f981c748448c6ef78 Input: registry/
+//! sha256=aefb5e175eacb3c3cf789f9bc28a86a616729f327983f7c229d6eb70a0c41a1c Input: registry/
 //! schema-registry.json; version=2026-07-20;
-//! sha256=2c91a7538885f92bc227d2ee15da72245e6ad01a5e224148f2fb219938ff5f66 Input: registry/
+//! sha256=26a7d0d84bb99bc95684f5acf94b972e8087ad1f3d42302e3c22d4cb2476ae54 Input: registry/
 //! account-data-key-registry.json; version=2026-07-03;
-//! sha256=32b003a9e2bf2281ae93079070512566de7b19ba0fa003fe6cfd43dcfce614db Entries: id_kinds=51,
-//! special_forms=9, actions=155, schemas=144, account_data_patterns=22
+//! sha256=0ee8f8609eb903dbb1a254cb9fda133b843a332febfad0648d523e1aeeaf80eb Entries: id_kinds=53,
+//! special_forms=9, actions=156, schemas=146, account_data_patterns=22
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -227,6 +227,11 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:message:<uuid>",
     },
     IdKindDescriptor {
+        kind: "message_stream",
+        category: "sync",
+        wire_form: "ak:message_stream:<uuid>",
+    },
+    IdKindDescriptor {
         kind: "moderation_queue_item",
         category: "moderation",
         wire_form: "ak:moderation_queue_item:<uuid>",
@@ -265,6 +270,11 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "receipt",
         category: "receipt",
         wire_form: "ak:receipt:<uuid>",
+    },
+    IdKindDescriptor {
+        kind: "recovery_authority_ticket",
+        category: "security",
+        wire_form: "ak:recovery_authority_ticket:<uuid>",
     },
     IdKindDescriptor {
         kind: "recovery_session",
@@ -831,6 +841,15 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         target_event_kinds: &["ak.message.revise"],
         profile: None,
         event_mapping_kind: "scope_suffix_variant",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::MessageStreamSend,
+        category: "discussion",
+        risk_tier: CapabilityRiskTier::Low,
+        required_constraints: &[],
+        target_event_kinds: &[],
+        profile: Some("ak.profile.signal_message_stream.v1"),
+        event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MlsCommit,
@@ -2308,6 +2327,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/realm-read-operations.schema.json",
     },
     SchemaDescriptor {
+        schema_id: "ak.schema.recovery_authority_ticket.v1",
+        file: "schemas/recovery-authority.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: "ak.schema.recovery_policy.v1",
         file: "schemas/recovery-policy.schema.json",
     },
@@ -2362,6 +2385,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: "ak.schema.signal_envelope.v1",
         file: "schemas/signal-envelope.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.signal_message_stream.v1",
+        file: "schemas/signal-message-stream.schema.json",
     },
     SchemaDescriptor {
         schema_id: "ak.schema.signal_relay.v1",

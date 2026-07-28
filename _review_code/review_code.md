@@ -22,3 +22,54 @@
   80 to 82.
 - Prevention dimension: every active reducer-profile cell must round-trip
   through both the machine-readable contract and the executable factory.
+
+## 2026-07-27 — key-backup KAT vector recorded a non-canonical nonce transcript
+
+- Surface: `arkret-spec` `fixtures/key-backup-hardening-fixture.json`, case
+  `passphrase_kdf_kat`; consumed by
+  `arkret-crypto/tests/key_backup_kat_fixture.rs`.
+- Regression: `intermediate.nonce_transcript_canonical_json` listed
+  `backup_kind` before `backup_id`, which is not JCS key order, so it was not
+  canonical JSON at all (`encoding.md` §2). The recorded
+  `expected.nonce_hex` / `nonce_b64u` / `ciphertext_b64u` /
+  `ciphertext_digest` matched neither the recorded transcript nor the canonical
+  one, so the whole downstream chain of the vector was stale. Argon2id root
+  key, all three HKDF subkeys, the AEAD AAD and the key commitment were
+  unaffected and already matched the reference implementation.
+- Detection: `passphrase_kdf_kat_reproduces_fixture_bytes` failed at the
+  transcript assertion while clearing the workspace baseline.
+- Correction: regenerated the transcript and its four downstream values from
+  the reference implementation (`VaultBinding::nonce_transcript_canonical_bytes`
+  → `derive_nonce` → `encrypt_vault_with_nonce_salt`), then re-ran
+  `artifact_pipeline.py generate`, `check_fixture_digests.py --write-reference`,
+  `artifact_pipeline.py check`, `lint_spec.py`, `release_gate.py` and
+  `tools/refresh-embedded-artifacts.py`.
+- Prevention dimension: any fixture field spelled `*_canonical_json` must be
+  produced by the canonical encoder, never hand-edited; a KAT whose recorded
+  transcript does not reproduce its own recorded output bytes is stale by
+  construction.
+
+## 2026-07-28 — generated Rust types refreshed without the embedded spec snapshot
+
+- Surface: `arkret-schema` embedded artifacts.
+- Regression: registry/type generation picked up the recovery receipt operation and new reason
+  codes, but `embedded_artifacts.json` still carried the pre-change registry. Workspace tests
+  failed on generated reason-code equality and live-spec snapshot equality.
+- Detection: full SDK workspace test after rebasing all recovery work onto current `main`.
+- Correction: run `tools/refresh-embedded-artifacts.py` against the same checked artifact tree and
+  verify the 236 embedded JSON resources plus OpenAPI snapshot with the script's `--check` mode.
+- Prevention dimension: spec-backed SDK generation is one atomic edit round: generated Rust,
+  embedded JSON, embedded OpenAPI, and their equality tests must all use the same artifact tree.
+
+## 2026-07-28 — closed enrollment union was only validated by an optional method call
+
+- Surface: `AccountDeviceEnrollRequestBody`.
+- Regression: the schema declares a closed founding/recovery union, but ordinary Serde
+  deserialization can still construct a mixed or incomplete request and relies on each consumer
+  remembering to call `validate()`/`mode()` afterward.
+- Detection: wire-model self-review against the updated `agent-operations.schema.json`.
+- Status: fixed by deleting the recovery branch and restoring the founding-only enrollment DTO.
+  The future dedicated recovery authority operation must use an enum/validated deserializer that
+  cannot represent the wrong branch.
+- Prevention dimension: a protocol closed union should be enforced at construction and
+  deserialization boundaries, not as a convention imposed on every downstream handler.
