@@ -801,6 +801,9 @@ impl SecurityTransaction {
                     || plan.did_publication.previous_entry_ref != preimage.registry_previous_head
                     || plan.did_publication.expected_entry_ref != preimage.did_entry_ref
                     || plan.did_publication.entry_digest != preimage.did_entry_digest
+                    || plan.did_publication.canonical_entry_base64url
+                        != preimage.did_entry_preimage.canonical_bytes_base64url
+                    || plan.did_publication.entry_digest != preimage.did_entry_preimage.digest
                     || plan.reanchor_event_submission.digest
                         != plan.reanchor_event_submission_digest
                     || plan.authorize_event_publication_material.event_id

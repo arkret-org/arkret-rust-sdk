@@ -271,6 +271,70 @@ fn webvh_accepts_valid_signed_log_with_key_rotation() {
 }
 
 #[test]
+fn webvh_candidate_entry_is_verified_without_publishing_it() {
+    use arkret_signatures::webvh::{
+        PrincipalEnrollmentDelegation, PrincipalInceptionInput, PrincipalRotationInput,
+        prepare_principal_inception, prepare_principal_rotation,
+    };
+    use chrono::{DateTime, Utc};
+
+    let current_seed = [9u8; 32];
+    let current_key = vector_update_key(&SigningKey::from_bytes(&current_seed));
+    let next_key = vector_update_key(&SigningKey::from_bytes(&[11u8; 32]));
+    let authority_key = vector_update_key(&SigningKey::from_bytes(&[13u8; 32]));
+    let authority_did = format!("did:key:{authority_key}");
+    let endpoint = "https://starid.example.com/".parse().unwrap();
+    let inception = prepare_principal_inception(&PrincipalInceptionInput {
+        principal_endpoint: &endpoint,
+        local_id: "alice",
+        also_known_as: &[],
+        version_time: DateTime::parse_from_rfc3339("2026-05-06T00:00:00.000Z")
+            .unwrap()
+            .with_timezone(&Utc),
+        root_seed: &[7u8; 32],
+        next_root_public_key_multibase: &current_key,
+        enrollment: PrincipalEnrollmentDelegation::ExternalAuthority {
+            authority_did: &authority_did,
+        },
+    })
+    .unwrap();
+    let rotation = prepare_principal_rotation(&PrincipalRotationInput {
+        did: &inception.did,
+        local_id: &inception.local_id,
+        previous_entries: std::slice::from_ref(&inception.log_entry),
+        version_time: DateTime::parse_from_rfc3339("2026-05-07T00:00:00.000Z")
+            .unwrap()
+            .with_timezone(&Utc),
+        current_root_seed: &current_seed,
+        next_root_public_key_multibase: &next_key,
+        state: &inception.log_entry["state"],
+    })
+    .unwrap();
+    let did = Did::new(inception.did).unwrap();
+    let current_history = format!("{}\n", inception.log_entry).into_bytes();
+    let candidate = serde_json::to_vec(&rotation.log_entry).unwrap();
+    let verified = verify_did_webvh_v1_candidate_entry_bytes(
+        &did,
+        &current_history,
+        &inception.version_id,
+        &candidate,
+        &rotation.version_id,
+    )
+    .unwrap();
+    assert_eq!(verified.head_version_id, rotation.version_id);
+    assert!(
+        verify_did_webvh_v1_candidate_entry_bytes(
+            &did,
+            &current_history,
+            "1-wrong-head",
+            &candidate,
+            &rotation.version_id,
+        )
+        .is_err()
+    );
+}
+
+#[test]
 fn webvh_document_and_log_bytes_require_the_verified_head_document() {
     let key1 = SigningKey::from_bytes(&[7u8; 32]);
     let key2 = SigningKey::from_bytes(&[9u8; 32]);

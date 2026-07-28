@@ -17,7 +17,7 @@ use crate::{
     RecoverySessionId, TransactionId, TypedTrustDomainId,
 };
 
-pub const RECOVERY_AUTHORITY_TICKET_SIGNED_FIELDS: [&str; 24] = [
+pub const RECOVERY_AUTHORITY_TICKET_SIGNED_FIELDS: [&str; 25] = [
     "schema",
     "ticket_id",
     "transaction_id",
@@ -30,6 +30,7 @@ pub const RECOVERY_AUTHORITY_TICKET_SIGNED_FIELDS: [&str; 24] = [
     "trust_domain",
     "principal_server_id",
     "account_authority_id",
+    "recovery_holder_jkt",
     "replacement_device_id",
     "previous_model_generation_ref",
     "result_model_generation_ref",
@@ -104,12 +105,18 @@ pub struct RecoveryAuthorizationPreimage {
     /// Account Authority service audience fixed by the prepared plan before
     /// the Principal Server issues the transaction-bound ticket.
     pub account_authority_id: Did,
+    /// RFC 7638 thumbprint copied from the Principal Server's verified
+    /// recovery-session holder binding.
+    pub recovery_holder_jkt: String,
     pub identity_model: EnrollmentAuthorityIdentityModel,
     pub previous_model_generation_ref: String,
     pub result_model_generation_ref: String,
     pub registry_previous_head: String,
     pub did_entry_ref: String,
     pub did_entry_digest: Hash,
+    /// Candidate did:webvh entry that the Account Authority verifies in
+    /// memory against the independently resolved previous history.
+    pub did_entry_preimage: CanonicalPublicMaterial,
     pub reanchor_event_id: EventId,
     pub authorize_event_id: EventId,
     pub actor_seq: u64,
@@ -123,9 +130,22 @@ pub struct RecoveryAuthorizationPreimage {
 impl RecoveryAuthorizationPreimage {
     pub fn validate_structural(&self) -> Result<()> {
         self.authorize_event_preimage.validate_structural()?;
+        self.did_entry_preimage.validate_structural()?;
+        if self.did_entry_preimage.canonical_encoding != CanonicalEncoding::CanonicalJson
+            || self.did_entry_preimage.digest != self.did_entry_digest
+            || did_version_id(&self.principal_id, &self.registry_previous_head)
+                != Some(self.previous_model_generation_ref.as_str())
+            || did_version_id(&self.principal_id, &self.did_entry_ref)
+                != Some(self.result_model_generation_ref.as_str())
+        {
+            return Err(Error::Protocol(
+                "recovery DID entry preimage/ref/generation binding is invalid".to_owned(),
+            ));
+        }
         if self.algorithms.is_empty()
             || self.device_public_key.is_empty()
             || self.hpke_key.is_empty()
+            || !valid_recovery_holder_jkt(&self.recovery_holder_jkt)
             || self.registry_previous_head.is_empty()
             || self.did_entry_ref.is_empty()
             || self.possession_proof.verification_method.is_empty()
@@ -138,6 +158,24 @@ impl RecoveryAuthorizationPreimage {
         }
         Ok(())
     }
+}
+
+fn did_version_id<'a>(principal_id: &Did, reference: &'a str) -> Option<&'a str> {
+    let version_id = reference
+        .strip_prefix(principal_id.as_str())?
+        .strip_prefix("?versionId=")?;
+    (!version_id.is_empty()
+        && !version_id
+            .bytes()
+            .any(|byte| matches!(byte, b'&' | b'#' | b'?')))
+    .then_some(version_id)
+}
+
+fn valid_recovery_holder_jkt(value: &str) -> bool {
+    value.len() == 43
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -199,6 +237,7 @@ pub struct RecoveryAuthorityTicket {
     pub trust_domain: TypedTrustDomainId,
     pub principal_server_id: Did,
     pub account_authority_id: Did,
+    pub recovery_holder_jkt: String,
     pub replacement_device_id: DeviceId,
     pub previous_model_generation_ref: String,
     pub result_model_generation_ref: String,
@@ -236,39 +275,27 @@ impl RecoveryAuthorityTicket {
                 "recovery authority ticket TTL exceeds {MAX_RECOVERY_AUTHORITY_TICKET_TTL_SECONDS} seconds"
             )));
         }
-        for required in RECOVERY_AUTHORITY_TICKET_SIGNED_FIELDS {
-            if !self
-                .auth_data
-                .signed_fields
-                .iter()
-                .any(|field| field == required)
-            {
-                return Err(Error::Protocol(format!(
-                    "recovery authority ticket signed_fields must include {required}"
-                )));
-            }
-        }
-        if self.auth_data.signed_fields.len()
-            != self
-                .auth_data
-                .signed_fields
-                .iter()
-                .collect::<std::collections::HashSet<_>>()
-                .len()
+        if self
+            .auth_data
+            .signed_fields
+            .iter()
+            .map(String::as_str)
+            .ne(RECOVERY_AUTHORITY_TICKET_SIGNED_FIELDS)
         {
             return Err(Error::Protocol(
-                "recovery authority ticket signed_fields must be unique".to_owned(),
-            ));
-        }
-        if self.auth_data.signed_fields.len() != RECOVERY_AUTHORITY_TICKET_SIGNED_FIELDS.len() {
-            return Err(Error::Protocol(
-                "recovery authority ticket signed_fields must equal the registered closed set"
+                "recovery authority ticket signed_fields must equal the registered ordered set"
                     .to_owned(),
             ));
         }
         if self.policy_version == 0 || self.actor_refs_are_empty() {
             return Err(Error::Protocol(
                 "recovery authority ticket contains an empty policy or artifact reference"
+                    .to_owned(),
+            ));
+        }
+        if !valid_recovery_holder_jkt(&self.recovery_holder_jkt) {
+            return Err(Error::Protocol(
+                "recovery authority ticket recovery_holder_jkt must be a SHA-256 JWK thumbprint"
                     .to_owned(),
             ));
         }
@@ -328,12 +355,21 @@ pub struct AuthorizeRecoveryDeviceRequest {
     pub holder_proof: RecoveryAuthorityHolderProof,
 }
 
-fn request_digest_without_digest_field<T: Serialize>(request: &T) -> Result<Hash> {
+fn request_digest_without_proof_jwt<T: Serialize>(request: &T) -> Result<Hash> {
     let mut value = serde_json::to_value(request)?;
     let object = value.as_object_mut().ok_or_else(|| {
         Error::Protocol("recovery authority request must serialize as an object".to_owned())
     })?;
     object.remove("canonical_request_digest");
+    let holder_proof = object
+        .get_mut("holder_proof")
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| {
+            Error::Protocol(
+                "recovery authority request holder_proof must serialize as an object".to_owned(),
+            )
+        })?;
+    holder_proof.remove("proof_jwt");
     let bytes = arkret_canonical::canonical::canonical_json_bytes(&value)?;
     Ok(Hash::new(arkret_canonical::canonical::sha256_digest(
         &bytes,
@@ -342,7 +378,7 @@ fn request_digest_without_digest_field<T: Serialize>(request: &T) -> Result<Hash
 
 impl AuthorizeRecoveryDeviceRequest {
     pub fn expected_canonical_request_digest(&self) -> Result<Hash> {
-        request_digest_without_digest_field(self)
+        request_digest_without_proof_jwt(self)
     }
 
     pub fn validate_structural(&self) -> Result<()> {
@@ -356,6 +392,7 @@ impl AuthorizeRecoveryDeviceRequest {
             || ticket.policy_version != preimage.policy_version
             || ticket.trust_domain != preimage.trust_domain
             || ticket.account_authority_id != preimage.account_authority_id
+            || ticket.recovery_holder_jkt != preimage.recovery_holder_jkt
             || ticket.replacement_device_id != preimage.replacement_device_id
             || ticket.previous_model_generation_ref != preimage.previous_model_generation_ref
             || ticket.result_model_generation_ref != preimage.result_model_generation_ref
@@ -369,11 +406,22 @@ impl AuthorizeRecoveryDeviceRequest {
                 "recovery authority ticket and authorization preimage binding disagree".to_owned(),
             ));
         }
+        if self.holder_proof.dpop_jkt != ticket.recovery_holder_jkt {
+            return Err(Error::Protocol(
+                "holder_proof.dpop_jkt does not equal the ticket-bound recovery holder".to_owned(),
+            ));
+        }
         let preimage_bytes =
             arkret_canonical::canonical::canonical_json_bytes(&self.authorization_preimage)?;
         arkret_canonical::canonical::verify_digest(
             &preimage_bytes,
             ticket.authorization_preimage_digest.as_str(),
+        )?;
+        let possession_proof_bytes =
+            arkret_canonical::canonical::canonical_json_bytes(&preimage.possession_proof)?;
+        arkret_canonical::canonical::verify_digest(
+            &possession_proof_bytes,
+            ticket.possession_proof_digest.as_str(),
         )?;
         if self.expected_canonical_request_digest()? != self.canonical_request_digest {
             return Err(Error::Protocol(
@@ -423,7 +471,7 @@ pub struct PromoteRecoverySessionGrantRequest {
 
 impl PromoteRecoverySessionGrantRequest {
     pub fn expected_canonical_request_digest(&self) -> Result<Hash> {
-        request_digest_without_digest_field(self)
+        request_digest_without_proof_jwt(self)
     }
 
     pub fn validate_structural(&self) -> Result<()> {
@@ -460,7 +508,7 @@ mod tests {
     }
 
     #[test]
-    fn promotion_request_digest_excludes_only_the_digest_field() {
+    fn promotion_request_digest_excludes_digest_and_proof_jwt() {
         let mut request = PromoteRecoverySessionGrantRequest {
             old_grant_id: GrantId::new("ak:grant:019a7360-0000-7000-8000-000000000001".to_owned())
                 .unwrap(),
@@ -490,10 +538,16 @@ mod tests {
             "the digest field must not recursively affect its own projection"
         );
         request.holder_proof.proof_jwt = "different-holder-proof".to_owned();
+        assert_eq!(
+            request.expected_canonical_request_digest().unwrap(),
+            expected,
+            "proof_jwt signs the digest and must be excluded to avoid self-reference"
+        );
+        request.holder_proof.dpop_jkt = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB".to_owned();
         assert_ne!(
             request.expected_canonical_request_digest().unwrap(),
             expected,
-            "holder proof must remain covered by the canonical projection"
+            "the holder JKT must remain covered by the canonical projection"
         );
     }
 
@@ -511,6 +565,7 @@ mod tests {
             "trust_domain": "ak:trust_domain:example.local",
             "principal_server_id": "did:web:principal.example",
             "account_authority_id": "did:web:accounts.example",
+            "recovery_holder_jkt": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
             "replacement_device_id": "ak:device:019a7360-0000-7000-8000-000000000015",
             "previous_model_generation_ref": "1-genesis",
             "result_model_generation_ref": "2-recovery",
@@ -550,6 +605,13 @@ mod tests {
     fn ticket_ttl_is_capped_at_five_minutes() {
         let mut ticket = ticket();
         ticket.expires_at = Utc.with_ymd_and_hms(2026, 7, 28, 0, 5, 1).single().unwrap();
+        assert!(ticket.validate_structural().is_err());
+    }
+
+    #[test]
+    fn ticket_rejects_reordered_signed_fields_metadata() {
+        let mut ticket = ticket();
+        ticket.auth_data.signed_fields.swap(0, 1);
         assert!(ticket.validate_structural().is_err());
     }
 }
