@@ -371,6 +371,33 @@ impl MlsGovernanceBindingPayload {
         self.validate()?;
         let mut out = Vec::new();
         cbor_put_map_len(&mut out, self.cbor_field_count());
+        // RFC 8949 4.2.1: map keys are ordered by the bytewise lexicographic
+        // order of their *encoded* form. A text string's head byte encodes its
+        // length, so for every key here that is "shorter first, then bytes" -
+        // realm_id (head 0x68) precedes binding_profile (head 0x6F). This is
+        // not plain lexicographic order over the key text; see
+        // `encryption-and-audit.md` 2.5.3.
+        cbor_put_tstr(&mut out, "realm_id");
+        cbor_put_tstr(&mut out, self.realm_id.as_str());
+        if let Some(circle_id) = &self.circle_id {
+            cbor_put_tstr(&mut out, "circle_id");
+            cbor_put_tstr(&mut out, circle_id.as_str());
+        }
+        cbor_put_tstr(&mut out, "next_epoch");
+        cbor_put_uint(&mut out, self.next_epoch);
+        cbor_put_tstr(&mut out, "policy_root");
+        cbor_put_bstr(
+            &mut out,
+            &hash_digest_bytes("policy_root", &self.policy_root)?,
+        );
+        cbor_put_tstr(&mut out, "mls_group_id");
+        cbor_put_bstr(&mut out, &base64url_decode(self.mls_group_id.as_str()).map_err(|err| {
+            Error::Protocol(format!(
+                "mls_governance_binding.mls_group_id must be base64url for CBOR bstr encoding: {err} (schema_violation)"
+            ))
+        })?);
+        cbor_put_tstr(&mut out, "previous_epoch");
+        cbor_put_uint(&mut out, self.previous_epoch);
         cbor_put_tstr(&mut out, "binding_profile");
         cbor_put_tstr(&mut out, &self.binding_profile);
         cbor_put_tstr(&mut out, "binding_version");
@@ -382,14 +409,28 @@ impl MlsGovernanceBindingPayload {
                 &hash_digest_bytes("capability_root", capability_root)?,
             );
         }
-        if let Some(circle_id) = &self.circle_id {
-            cbor_put_tstr(&mut out, "circle_id");
-            cbor_put_tstr(&mut out, circle_id.as_str());
+        cbor_put_tstr(&mut out, "effective_scope");
+        encode_effective_scope(&mut out, &self.effective_scope)?;
+        cbor_put_tstr(&mut out, "reducer_profile");
+        cbor_put_tstr(&mut out, &self.reducer_profile);
+        if let Some(binding) = &self.sidecar_binding {
+            cbor_put_tstr(&mut out, "sidecar_binding");
+            encode_sidecar_binding(&mut out, binding)?;
         }
+        cbor_put_tstr(&mut out, "encoding_profile");
+        cbor_put_tstr(&mut out, &self.encoding_profile);
+        // `ak:` refs are text identifiers, so they are tstr like realm_id and
+        // sidecar_id. bstr in this map means a binary value and nothing else:
+        // the decoded digest bytes and the decoded base64url group id.
         cbor_put_tstr(&mut out, "covered_seal_refs");
         cbor_put_array_len(&mut out, self.covered_seal_refs.len() as u64);
         for seal_ref in &self.covered_seal_refs {
-            cbor_put_bstr(&mut out, seal_ref.as_str().as_bytes());
+            cbor_put_tstr(&mut out, seal_ref.as_str());
+        }
+        cbor_put_tstr(&mut out, "membership_frontier");
+        cbor_put_array_len(&mut out, self.membership_frontier.len() as u64);
+        for event_id in &self.membership_frontier {
+            cbor_put_tstr(&mut out, event_id.as_str());
         }
         if let Some(digest) = &self.discussion_metadata_digest {
             cbor_put_tstr(&mut out, "discussion_metadata_digest");
@@ -397,38 +438,6 @@ impl MlsGovernanceBindingPayload {
                 &mut out,
                 &hash_digest_bytes("discussion_metadata_digest", digest)?,
             );
-        }
-        cbor_put_tstr(&mut out, "effective_scope");
-        encode_effective_scope(&mut out, &self.effective_scope)?;
-        cbor_put_tstr(&mut out, "encoding_profile");
-        cbor_put_tstr(&mut out, &self.encoding_profile);
-        cbor_put_tstr(&mut out, "membership_frontier");
-        cbor_put_array_len(&mut out, self.membership_frontier.len() as u64);
-        for event_id in &self.membership_frontier {
-            cbor_put_bstr(&mut out, event_id.as_str().as_bytes());
-        }
-        cbor_put_tstr(&mut out, "mls_group_id");
-        cbor_put_bstr(&mut out, &base64url_decode(self.mls_group_id.as_str()).map_err(|err| {
-            Error::Protocol(format!(
-                "mls_governance_binding.mls_group_id must be base64url for CBOR bstr encoding: {err} (schema_violation)"
-            ))
-        })?);
-        cbor_put_tstr(&mut out, "next_epoch");
-        cbor_put_uint(&mut out, self.next_epoch);
-        cbor_put_tstr(&mut out, "policy_root");
-        cbor_put_bstr(
-            &mut out,
-            &hash_digest_bytes("policy_root", &self.policy_root)?,
-        );
-        cbor_put_tstr(&mut out, "previous_epoch");
-        cbor_put_uint(&mut out, self.previous_epoch);
-        cbor_put_tstr(&mut out, "realm_id");
-        cbor_put_tstr(&mut out, self.realm_id.as_str());
-        cbor_put_tstr(&mut out, "reducer_profile");
-        cbor_put_tstr(&mut out, &self.reducer_profile);
-        if let Some(binding) = &self.sidecar_binding {
-            cbor_put_tstr(&mut out, "sidecar_binding");
-            encode_sidecar_binding(&mut out, binding)?;
         }
         Ok(out)
     }
@@ -526,38 +535,24 @@ impl MlsGovernanceBindingPayload {
             .map(CircleId::new)
             .transpose()
             .map_err(|err| cbor_error_message(format!("circle_id is invalid: {err}")))?;
-        let covered_seal_refs = take_bstr_array(&mut fields, "covered_seal_refs")?
+        let covered_seal_refs = take_tstr_array(&mut fields, "covered_seal_refs")?
             .into_iter()
-            .map(|bytes| {
-                std::str::from_utf8(&bytes)
-                    .map_err(|err| {
-                        cbor_error_message(format!("covered_seal_refs is not UTF-8: {err}"))
-                    })
-                    .and_then(|value| {
-                        SealId::new(value.to_owned()).map_err(|err| {
-                            cbor_error_message(format!("covered_seal_refs item is invalid: {err}"))
-                        })
-                    })
+            .map(|value| {
+                SealId::new(value).map_err(|err| {
+                    cbor_error_message(format!("covered_seal_refs item is invalid: {err}"))
+                })
             })
             .collect::<Result<Vec<_>>>()?;
         let discussion_metadata_digest =
             take_optional_hash(&mut fields, "discussion_metadata_digest")?;
         let effective_scope = take_effective_scope(&mut fields)?;
         let encoding_profile = take_tstr(&mut fields, "encoding_profile")?;
-        let membership_frontier = take_bstr_array(&mut fields, "membership_frontier")?
+        let membership_frontier = take_tstr_array(&mut fields, "membership_frontier")?
             .into_iter()
-            .map(|bytes| {
-                std::str::from_utf8(&bytes)
-                    .map_err(|err| {
-                        cbor_error_message(format!("membership_frontier is not UTF-8: {err}"))
-                    })
-                    .and_then(|value| {
-                        EventId::new(value.to_owned()).map_err(|err| {
-                            cbor_error_message(format!(
-                                "membership_frontier item is invalid: {err}"
-                            ))
-                        })
-                    })
+            .map(|value| {
+                EventId::new(value).map_err(|err| {
+                    cbor_error_message(format!("membership_frontier item is invalid: {err}"))
+                })
             })
             .collect::<Result<Vec<_>>>()?;
         let mls_group_id =
@@ -1278,12 +1273,12 @@ fn encode_effective_scope(out: &mut Vec<u8>, scope: &ScopeRef) -> Result<()> {
             circle_id,
         } => {
             cbor_put_map_len(out, 3);
-            cbor_put_tstr(out, "circle_id");
-            cbor_put_tstr(out, circle_id.as_str());
             cbor_put_tstr(out, "kind");
             cbor_put_tstr(out, "circle");
             cbor_put_tstr(out, "realm_id");
             cbor_put_tstr(out, realm_id.as_str());
+            cbor_put_tstr(out, "circle_id");
+            cbor_put_tstr(out, circle_id.as_str());
         }
         // Fail closed on scope kinds this crate does not know about.
         _ => {
@@ -1299,6 +1294,8 @@ fn encode_effective_scope(out: &mut Vec<u8>, scope: &ScopeRef) -> Result<()> {
 fn encode_sidecar_binding(out: &mut Vec<u8>, binding: &SidecarMlsBinding) -> Result<()> {
     binding.validate()?;
     cbor_put_map_len(out, 3);
+    cbor_put_tstr(out, "sidecar_id");
+    cbor_put_tstr(out, binding.sidecar_id.as_str());
     cbor_put_tstr(out, "control_frontier");
     cbor_put_array_len(out, binding.control_frontier.len() as u64);
     for control_ref in &binding.control_frontier {
@@ -1312,8 +1309,6 @@ fn encode_sidecar_binding(out: &mut Vec<u8>, binding: &SidecarMlsBinding) -> Res
             &binding.desired_access_digest,
         )?,
     );
-    cbor_put_tstr(out, "sidecar_id");
-    cbor_put_tstr(out, binding.sidecar_id.as_str());
     Ok(())
 }
 
@@ -1348,24 +1343,6 @@ fn take_bstr(fields: &mut BTreeMap<String, CborValue>, key: &str) -> Result<Vec<
     match fields.remove(key) {
         Some(CborValue::Bstr(value)) => Ok(value),
         Some(_) => Err(cbor_error_message(format!("CBOR key `{key}` must be bstr"))),
-        None => Err(cbor_error_message(format!("missing CBOR key `{key}`"))),
-    }
-}
-
-fn take_bstr_array(fields: &mut BTreeMap<String, CborValue>, key: &str) -> Result<Vec<Vec<u8>>> {
-    match fields.remove(key) {
-        Some(CborValue::Array(values)) => values
-            .into_iter()
-            .map(|value| match value {
-                CborValue::Bstr(bytes) => Ok(bytes),
-                _ => Err(cbor_error_message(format!(
-                    "CBOR key `{key}` array items must be bstr"
-                ))),
-            })
-            .collect(),
-        Some(_) => Err(cbor_error_message(format!(
-            "CBOR key `{key}` must be array"
-        ))),
         None => Err(cbor_error_message(format!("missing CBOR key `{key}`"))),
     }
 }
@@ -1664,6 +1641,75 @@ mod tests {
         assert_eq!(decoded, binding);
     }
 
+    /// Walk a CBOR map and assert RFC 8949 4.2.1 key ordering: keys strictly
+    /// ascending by the bytewise order of their *encoded* form, recursively.
+    ///
+    /// This is the property the pinned digest below only witnesses indirectly.
+    /// Asserting it directly is what keeps the encoder from drifting back to
+    /// plain lexicographic order over the key text, which is a different order
+    /// (realm_id sorts first here, and near-last there) and was what
+    /// `encryption-and-audit.md` 2.5.3 used to say.
+    fn assert_rfc8949_key_order(bytes: &[u8]) {
+        fn head(bytes: &[u8], at: usize) -> (u8, u64, usize) {
+            let major = bytes[at] >> 5;
+            let extra = bytes[at] & 0x1f;
+            match extra {
+                0..=23 => (major, u64::from(extra), at + 1),
+                24 => (major, u64::from(bytes[at + 1]), at + 2),
+                25 => (
+                    major,
+                    u64::from(u16::from_be_bytes([bytes[at + 1], bytes[at + 2]])),
+                    at + 3,
+                ),
+                other => panic!("unexpected CBOR head argument {other}"),
+            }
+        }
+
+        /// Skip one data item and return the offset just past it.
+        fn skip(bytes: &[u8], at: usize) -> usize {
+            let (major, argument, next) = head(bytes, at);
+            match major {
+                0 | 1 => next,
+                2 | 3 => next + argument as usize,
+                4 => (0..argument).fold(next, |cursor, _| skip(bytes, cursor)),
+                5 => {
+                    let mut cursor = next;
+                    for _ in 0..argument {
+                        cursor = skip(bytes, cursor);
+                        cursor = skip(bytes, cursor);
+                    }
+                    cursor
+                }
+                other => panic!("unexpected CBOR major type {other}"),
+            }
+        }
+
+        fn walk(bytes: &[u8], at: usize) -> usize {
+            let (major, argument, next) = head(bytes, at);
+            if major != 5 {
+                return skip(bytes, at);
+            }
+            let mut cursor = next;
+            let mut previous: Option<&[u8]> = None;
+            for _ in 0..argument {
+                let key_end = skip(bytes, cursor);
+                let key = &bytes[cursor..key_end];
+                if let Some(previous) = previous {
+                    assert!(
+                        previous < key,
+                        "CBOR map keys are not in RFC 8949 4.2.1 order: {previous:02x?} then {key:02x?}"
+                    );
+                }
+                previous = Some(key);
+                cursor = walk(bytes, key_end);
+            }
+            cursor
+        }
+
+        let end = walk(bytes, 0);
+        assert_eq!(end, bytes.len(), "trailing bytes after the CBOR map");
+    }
+
     #[test]
     fn sidecar_mls_binding_round_trips_and_is_validated_exactly() {
         let circle_id = CircleId::new("ak:circle:0196419b-0000-7000-8000-000000000009").unwrap();
@@ -1694,9 +1740,10 @@ mod tests {
         .unwrap();
 
         let bytes = binding.to_deterministic_cbor().unwrap();
+        assert_rfc8949_key_order(&bytes);
         assert_eq!(
             canonical::sha256_digest(&bytes),
-            "sha256:2912bc6e77cde758bc341f20e4c02ab10ed500395a7b7266562d4fc1b1946ea7"
+            "sha256:9d55a4674dc165de7000dd548d8a26607bfd47c9b5bec57faac513843a06d1b1"
         );
         let decoded = MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes).unwrap();
         assert_eq!(decoded.sidecar_binding(), Some(&sidecar_binding));
@@ -1829,22 +1876,57 @@ mod tests {
 
     #[test]
     fn mls_governance_binding_rejects_noncanonical_cbor_order() {
+        // Everything here matches the encoder byte for byte except that
+        // `previous_epoch` and `binding_profile` are swapped. Both are correct
+        // in isolation, so the only thing under test is RFC 8949 4.2.1 key
+        // order: 14 bytes must precede 15. Keeping every other key and every
+        // value type canonical is what makes the rejection attributable to
+        // order rather than to a type or a missing field.
         let binding = full_binding();
         let mut bytes = Vec::new();
         cbor_put_map_len(&mut bytes, binding.cbor_field_count());
-        cbor_put_tstr(&mut bytes, "binding_version");
-        cbor_put_uint(&mut bytes, u64::from(binding.binding_version));
+        cbor_put_tstr(&mut bytes, "realm_id");
+        cbor_put_tstr(&mut bytes, binding.realm_id().as_str());
+        cbor_put_tstr(&mut bytes, "next_epoch");
+        cbor_put_uint(&mut bytes, binding.next_epoch());
+        cbor_put_tstr(&mut bytes, "policy_root");
+        cbor_put_bstr(
+            &mut bytes,
+            &hash_digest_bytes("policy_root", binding.policy_root()).unwrap(),
+        );
+        cbor_put_tstr(&mut bytes, "mls_group_id");
+        cbor_put_bstr(
+            &mut bytes,
+            &base64url_decode(binding.mls_group_id()).unwrap(),
+        );
+        // --- the swapped pair ---
         cbor_put_tstr(&mut bytes, "binding_profile");
         cbor_put_tstr(&mut bytes, &binding.binding_profile);
+        cbor_put_tstr(&mut bytes, "previous_epoch");
+        cbor_put_uint(&mut bytes, binding.previous_epoch());
+        // --- back to canonical order ---
+        cbor_put_tstr(&mut bytes, "binding_version");
+        cbor_put_uint(&mut bytes, u64::from(binding.binding_version));
         cbor_put_tstr(&mut bytes, "capability_root");
         cbor_put_bstr(
             &mut bytes,
             &hash_digest_bytes("capability_root", binding.capability_root().unwrap()).unwrap(),
         );
+        cbor_put_tstr(&mut bytes, "effective_scope");
+        encode_effective_scope(&mut bytes, binding.effective_scope()).unwrap();
+        cbor_put_tstr(&mut bytes, "reducer_profile");
+        cbor_put_tstr(&mut bytes, binding.reducer_profile());
+        cbor_put_tstr(&mut bytes, "encoding_profile");
+        cbor_put_tstr(&mut bytes, &binding.encoding_profile);
         cbor_put_tstr(&mut bytes, "covered_seal_refs");
         cbor_put_array_len(&mut bytes, binding.covered_seal_refs().len() as u64);
         for seal_ref in binding.covered_seal_refs() {
-            cbor_put_bstr(&mut bytes, seal_ref.as_str().as_bytes());
+            cbor_put_tstr(&mut bytes, seal_ref.as_str());
+        }
+        cbor_put_tstr(&mut bytes, "membership_frontier");
+        cbor_put_array_len(&mut bytes, binding.membership_frontier().len() as u64);
+        for event_id in binding.membership_frontier() {
+            cbor_put_tstr(&mut bytes, event_id.as_str());
         }
         cbor_put_tstr(&mut bytes, "discussion_metadata_digest");
         cbor_put_bstr(
@@ -1855,33 +1937,6 @@ mod tests {
             )
             .unwrap(),
         );
-        cbor_put_tstr(&mut bytes, "effective_scope");
-        encode_effective_scope(&mut bytes, binding.effective_scope()).unwrap();
-        cbor_put_tstr(&mut bytes, "encoding_profile");
-        cbor_put_tstr(&mut bytes, &binding.encoding_profile);
-        cbor_put_tstr(&mut bytes, "membership_frontier");
-        cbor_put_array_len(&mut bytes, binding.membership_frontier().len() as u64);
-        for event_id in binding.membership_frontier() {
-            cbor_put_bstr(&mut bytes, event_id.as_str().as_bytes());
-        }
-        cbor_put_tstr(&mut bytes, "mls_group_id");
-        cbor_put_bstr(
-            &mut bytes,
-            &base64url_decode(binding.mls_group_id()).unwrap(),
-        );
-        cbor_put_tstr(&mut bytes, "next_epoch");
-        cbor_put_uint(&mut bytes, binding.next_epoch());
-        cbor_put_tstr(&mut bytes, "policy_root");
-        cbor_put_bstr(
-            &mut bytes,
-            &hash_digest_bytes("policy_root", binding.policy_root()).unwrap(),
-        );
-        cbor_put_tstr(&mut bytes, "previous_epoch");
-        cbor_put_uint(&mut bytes, binding.previous_epoch());
-        cbor_put_tstr(&mut bytes, "realm_id");
-        cbor_put_tstr(&mut bytes, binding.realm_id().as_str());
-        cbor_put_tstr(&mut bytes, "reducer_profile");
-        cbor_put_tstr(&mut bytes, binding.reducer_profile());
 
         let err = MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes).unwrap_err();
 
