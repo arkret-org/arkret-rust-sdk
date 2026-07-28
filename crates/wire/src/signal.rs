@@ -51,6 +51,12 @@ pub const SIGNAL_EXPORTER_LABEL: &str = crate::generated::ExporterLabelId::SIGNA
 /// Canonical envelope size bound.
 pub const MAX_SIGNAL_ENVELOPE_BYTES: usize = 64 * 1024;
 
+/// Maximum number of envelopes in one single-hop peer relay request.
+pub const MAX_SIGNAL_RELAY_ITEMS: usize = 128;
+
+/// Canonical JSON bound for one peer relay request.
+pub const MAX_SIGNAL_RELAY_CANONICAL_BODY_BYTES: usize = 1024 * 1024;
+
 /// AEAD plaintext bound before encryption.
 pub const MAX_SIGNAL_PLAINTEXT_BYTES: usize = 48 * 1024;
 
@@ -443,6 +449,62 @@ impl SignalEnvelope {
     }
 }
 
+/// Closed request body for `ak.peer.signal.command.relay`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SignalRelayRequest {
+    pub realm_id: RealmId,
+    pub signals: Vec<SignalEnvelope>,
+}
+
+impl SignalRelayRequest {
+    /// Validate request-level invariants before any local fanout.
+    pub fn validate(&self) -> Result<()> {
+        if self.signals.is_empty() || self.signals.len() > MAX_SIGNAL_RELAY_ITEMS {
+            return Err(Error::Protocol(format!(
+                "signal relay requires 1..={MAX_SIGNAL_RELAY_ITEMS} signals"
+            )));
+        }
+        for signal in &self.signals {
+            if signal.realm_id != self.realm_id || signal.scope_ref.realm_id() != &self.realm_id {
+                return Err(Error::Protocol(
+                    "signal relay request and every envelope must use one realm_id".to_owned(),
+                ));
+            }
+            signal.validate_structural()?;
+        }
+        let canonical_len = canonical::canonical_json_bytes(self)?.len();
+        if canonical_len > MAX_SIGNAL_RELAY_CANONICAL_BODY_BYTES {
+            return Err(Error::Protocol(format!(
+                "signal relay request exceeds {MAX_SIGNAL_RELAY_CANONICAL_BODY_BYTES} canonical bytes"
+            )));
+        }
+        Ok(())
+    }
+}
+
+/// Opaque success body for `ak.peer.signal.command.relay`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SignalRelayOutcome {
+    pub accepted: bool,
+}
+
+impl SignalRelayOutcome {
+    pub const ACCEPTED: Self = Self { accepted: true };
+
+    pub fn validate(self) -> Result<()> {
+        if !self.accepted {
+            return Err(Error::Protocol(
+                "signal relay outcome accepted must be true".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::TimeZone;
@@ -496,6 +558,40 @@ mod tests {
         envelope.encrypted_payload.aad_digest = envelope.expected_aad_digest().unwrap();
         envelope.proof.envelope_digest = envelope.envelope_digest().unwrap();
         envelope
+    }
+
+    #[test]
+    fn relay_request_is_closed_bounded_and_single_realm() {
+        let signal = envelope(SignalClass::Session, 30);
+        let request = SignalRelayRequest {
+            realm_id: realm(),
+            signals: vec![signal.clone()],
+        };
+        request.validate().unwrap();
+        assert_eq!(
+            serde_json::to_value(SignalRelayOutcome::ACCEPTED).unwrap(),
+            serde_json::json!({"accepted": true})
+        );
+        SignalRelayOutcome::ACCEPTED.validate().unwrap();
+
+        let empty = SignalRelayRequest {
+            realm_id: realm(),
+            signals: Vec::new(),
+        };
+        assert!(empty.validate().is_err());
+
+        let too_many = SignalRelayRequest {
+            realm_id: realm(),
+            signals: vec![signal.clone(); MAX_SIGNAL_RELAY_ITEMS + 1],
+        };
+        assert!(too_many.validate().is_err());
+
+        let other_realm = RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d8").unwrap();
+        let cross_realm = SignalRelayRequest {
+            realm_id: other_realm,
+            signals: vec![signal],
+        };
+        assert!(cross_realm.validate().is_err());
     }
 
     #[test]

@@ -481,6 +481,18 @@ pub fn long_text_line_count(normalized: &str) -> u64 {
     }
 }
 
+/// Return the longest UTF-8 scalar-safe prefix within the normative fallback bound.
+pub fn long_text_prefix(normalized: &str) -> &str {
+    if normalized.len() <= LONG_TEXT_FALLBACK_MAX_BYTES {
+        return normalized;
+    }
+    let mut end = LONG_TEXT_FALLBACK_MAX_BYTES;
+    while !normalized.is_char_boundary(end) {
+        end -= 1;
+    }
+    &normalized[..end]
+}
+
 fn hash_blob_ref_suite_and_hex(blob_ref: &str) -> Option<(&str, &str)> {
     let rest = blob_ref.strip_prefix("ak:blob:")?;
     let (suite, hex) = rest.split_once(':')?;
@@ -498,6 +510,50 @@ fn hash_blob_ref_suite_and_hex(blob_ref: &str) -> Option<(&str, &str)> {
 }
 
 impl ContentBlock {
+    /// Build the plaintext branch of `ak.content.long_text` from the complete
+    /// source body and the hash-addressed Blob ref returned by its upload.
+    ///
+    /// The body is normalized before all derived fields are computed. Prefix
+    /// mode derives the longest scalar-safe 4 KiB prefix; summary mode requires
+    /// an explicit summary and normalizes it independently.
+    pub fn plaintext_long_text(
+        full_body: &str,
+        format: LongTextFormat,
+        blob_ref: impl Into<String>,
+        body_kind: LongTextBodyKind,
+        summary: Option<&str>,
+    ) -> Result<Self> {
+        let normalized = normalize_long_text(full_body)?;
+        let fallback = match body_kind {
+            LongTextBodyKind::Prefix => long_text_prefix(&normalized).to_owned(),
+            LongTextBodyKind::Summary => {
+                let summary = summary.ok_or_else(|| {
+                    Error::Protocol(
+                        "long_text body_kind=summary requires an explicit summary".to_owned(),
+                    )
+                })?;
+                let summary = normalize_long_text(summary)?;
+                if summary.len() > LONG_TEXT_FALLBACK_MAX_BYTES {
+                    return Err(Error::Protocol(format!(
+                        "long_text summary is {} UTF-8 bytes, limit is \
+                         {LONG_TEXT_FALLBACK_MAX_BYTES}",
+                        summary.len()
+                    )));
+                }
+                summary
+            }
+        };
+        let block = Self::new(CONTENT_KIND_LONG_TEXT, fallback)
+            .with_field("format", Value::String(format.as_str().to_owned()))
+            .with_field("body_kind", Value::String(body_kind.as_str().to_owned()))
+            .with_field("blob_ref", Value::String(blob_ref.into()))
+            .with_field("size_bytes", Value::from(normalized.len() as u64))
+            .with_field("line_count", Value::from(long_text_line_count(&normalized)))
+            .with_field("media_type", Value::String(format.media_type().to_owned()));
+        block.validate_long_text()?;
+        Ok(block)
+    }
+
     /// Validate an `ak.content.long_text` block against the normative rules that JSON Schema
     /// cannot express: UTF-8 byte bounds, normalization, format / media-type binding,
     /// hash-only Blob refs, the plaintext `size_bytes` / `segment_count` relation and the

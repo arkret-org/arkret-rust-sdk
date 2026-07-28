@@ -8,7 +8,7 @@
 use arkret_models_collaboration::events_payloads::message::{
     CONTENT_KIND_LONG_TEXT, CONTENT_TEXT_INLINE_MAX_BYTES, ContentBlock, ContentBlockKind,
     LONG_TEXT_FALLBACK_MAX_BYTES, LongTextBodyKind, LongTextFormat, long_text_line_count,
-    normalize_long_text,
+    long_text_prefix, normalize_long_text,
 };
 use serde_json::json;
 
@@ -233,4 +233,51 @@ fn inline_text_boundary_is_measured_in_utf8_bytes() {
     let multibyte = ContentBlock::text("\u{4e2d}".repeat(100_000));
     assert!(multibyte.body.chars().count() < CONTENT_TEXT_INLINE_MAX_BYTES);
     assert!(multibyte.validate_inline_text().is_err());
+}
+
+#[test]
+fn plaintext_builder_derives_normalized_metadata_and_scalar_safe_prefix() {
+    let source = format!("{}\r\nlast", "\u{4e2d}".repeat(1_400));
+    let block = ContentBlock::plaintext_long_text(
+        &source,
+        LongTextFormat::Markdown,
+        format!("ak:blob:sha256:{}", "d".repeat(64)),
+        LongTextBodyKind::Prefix,
+        None,
+    )
+    .unwrap();
+    let normalized = normalize_long_text(&source).unwrap();
+    assert_eq!(block.body, long_text_prefix(&normalized));
+    assert!(block.body.is_char_boundary(block.body.len()));
+    assert!(block.body.len() <= LONG_TEXT_FALLBACK_MAX_BYTES);
+    assert_eq!(block.extra_u64("size_bytes"), Some(normalized.len() as u64));
+    assert_eq!(
+        block.extra_u64("line_count"),
+        Some(long_text_line_count(&normalized))
+    );
+    block.validate_long_text().unwrap();
+}
+
+#[test]
+fn plaintext_builder_requires_a_bounded_normalized_summary() {
+    let blob_ref = format!("ak:blob:sha256:{}", "e".repeat(64));
+    assert!(
+        ContentBlock::plaintext_long_text(
+            "full body",
+            LongTextFormat::Plain,
+            &blob_ref,
+            LongTextBodyKind::Summary,
+            None,
+        )
+        .is_err()
+    );
+    let block = ContentBlock::plaintext_long_text(
+        "line one\r\nline two",
+        LongTextFormat::Plain,
+        blob_ref,
+        LongTextBodyKind::Summary,
+        Some("short\rsummary"),
+    )
+    .unwrap();
+    assert_eq!(block.body, "short\nsummary");
 }
