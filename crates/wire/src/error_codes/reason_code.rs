@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=d81575e084d4e86297d7ee38e262220c2878c38d0e008e0b998bfe51ae200bda
+//! sha256=40f8caa97fdb3d7e2abccc488b4c0365cfc9e4017525cd7d705bb55e420ce575
 //! Entries: reason_codes=446
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -3780,7 +3780,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "recovery_session_terminal",
         applies_to: &["device_recovery", "service_call"],
-        description: "A recovery-session operation (submit_proof / complete) targeted a recovery session that is already in a terminal state (`completed` / `rejected` / `expired`). Terminal recovery sessions are immutable; servers MUST reject with top-level `failed_precondition` carrying this reason_code. See zh/crypto-media/device-lifecycle.md §15 and artifacts/schemas/recovery-session.schema.json.",
+        description: "A recovery-session submit_proof or a new RecoveryTransaction binding targeted a recovery session that is already in a terminal state (`completed` / `rejected` / `expired`). Terminal recovery sessions are immutable; servers MUST reject with top-level `failed_precondition` carrying this reason_code. Recovery sessions have no public complete operation. See zh/crypto-media/device-lifecycle.md §15 and artifacts/schemas/recovery-session.schema.json.",
     },
     ReasonCodeDescriptor {
         code: "recovery_target_not_in_bottom",

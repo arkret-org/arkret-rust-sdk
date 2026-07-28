@@ -5,10 +5,10 @@
 //! capability-action-registry.json; version=2026-07-20;
 //! sha256=aefb5e175eacb3c3cf789f9bc28a86a616729f327983f7c229d6eb70a0c41a1c Input: registry/
 //! schema-registry.json; version=2026-07-20;
-//! sha256=26a7d0d84bb99bc95684f5acf94b972e8087ad1f3d42302e3c22d4cb2476ae54 Input: registry/
+//! sha256=867c0d4736afef41fb83bcdcc64cb8bce75f136d0fc425f246e5397d3dd2d30a Input: registry/
 //! account-data-key-registry.json; version=2026-07-03;
 //! sha256=0ee8f8609eb903dbb1a254cb9fda133b843a332febfad0648d523e1aeeaf80eb Entries: id_kinds=53,
-//! special_forms=9, actions=156, schemas=146, account_data_patterns=22
+//! special_forms=9, actions=156, schemas=148, account_data_patterns=22
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -2331,6 +2331,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/recovery-authority.schema.json",
     },
     SchemaDescriptor {
+        schema_id: "ak.schema.recovery_completion_attestation.v1",
+        file: "schemas/recovery-authority.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: "ak.schema.recovery_policy.v1",
         file: "schemas/recovery-policy.schema.json",
     },
@@ -2369,6 +2373,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: "ak.schema.search_service.v1",
         file: "schemas/search-service.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.security_rotation_local_commit.v1",
+        file: "schemas/security-transaction.schema.json",
     },
     SchemaDescriptor {
         schema_id: "ak.schema.security_transaction.v1",

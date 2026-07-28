@@ -5,7 +5,7 @@
 //! Conformance input version: 2026-07-13;
 //! sha256=ad6dfe7f899cdd308cb52b8f6d9beb5c0987f7b8e6d112ef363df7659d6cbc68; profiles=99.
 //! Reducer input version: 2026-07-16;
-//! sha256=577b7e2c8df9ce93bf2a3be182e59bbae1287367898917cda3a3f0e3424f0d4f; active_profiles=5.
+//! sha256=dc1155b58b5c69858287080811322174ff2c3947f92900263945a113209bca63; active_profiles=5.
 
 pub const PROFILE_IDS: &[&str] = &[
     "ak.profile.accountable_principals.strict_reject.v1",
@@ -117,29 +117,29 @@ pub fn is_profile_id(value: &str) -> bool {
 pub const REDUCER_PROFILE_DIGESTS: &[(&str, &str)] = &[
     (
         "ak.profile.chat_mvp.v1",
-        "sha256:b9a738dd9081b9e3aca4e9a3ec2aa44337305c12bbf805f2b88c5ed62f67576b",
+        "sha256:9d0823712269d9dac5e295643a6ae03faa9ccbcea436f489e0036028b192a004",
     ),
     (
         "ak.profile.core_event_store.v1",
-        "sha256:987423092394fc1d505212de3e6b06534a450c643cf6a1acfb0e9eb682a3ec1e",
+        "sha256:e9c9dcc453feb39c0f33309802fb8ac5c6a47a5f3c1df79b1166f33dd78ae02c",
     ),
     (
         "ak.profile.federation_minimal.v1",
-        "sha256:9a5e3b75a361489e48acfd1129826ab69b723b872af33fa8165460afbba27fb0",
+        "sha256:af5567174622e78ddca6dc18f56d003a75cb95aeefb61ee8e34fab1a80c1eff6",
     ),
     (
         "ak.profile.kanban_mvp.v1",
-        "sha256:f317c40a3de4d7b5987351ae9a5722b44a52664aa9d8083e38208535d6f4a0be",
+        "sha256:ece07b74c58cb09d147895ff220d8b78c4855bc5531a8c5ea1746254cf6c55f8",
     ),
     (
         "ak.profile.principal_server.v1",
-        "sha256:d5dfcd1407c5930e46b32fb68bb99a765a8ec1f1dbb4b9aef41e9f8e25f01d2e",
+        "sha256:4c351ebe214771eba2ba5dff4dccf320562185a6a4e062680cc3eb73c49aaa76",
     ),
 ];
 
 /// Spec-generated digest for `ak.profile.federation_minimal.v1`.
 pub const FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST: &str =
-    "sha256:9a5e3b75a361489e48acfd1129826ab69b723b872af33fa8165460afbba27fb0";
+    "sha256:af5567174622e78ddca6dc18f56d003a75cb95aeefb61ee8e34fab1a80c1eff6";
 
 /// Returns the Spec-generated digest for an active reducer profile.
 pub fn reducer_profile_digest(profile_id: &str) -> Option<&'static str> {

@@ -11,16 +11,15 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::{Error, Result};
-use crate::event_submission::MAX_SUBMISSION_CBA_BUNDLES;
 use crate::recovery_authority::{
-    AuthorizeRecoveryDeviceRequest, CanonicalPublicMaterial, IssueAuthorityTicketStep,
-    RecoveryAuthorityTicketIssueRequest, RecoveryAuthorizationPreimage,
+    AuthorizeEventPublicationIntent, AuthorizeRecoveryDeviceRequest, CanonicalPublicMaterial,
+    IssueAuthorityTicketStep, RecoveryAuthorityTicketIssueRequest, RecoveryAuthorizationPreimage,
     RecoveryCompletionAttestation, RecoveryModelGenerationRef,
 };
 use crate::{
-    AuthorizationLease, BackupId, BackupSeriesId, CbaProofBundle, DeviceId, Did, EventId,
-    EventInitialSubmission, EventsSubmitBatchRequestBody, Hash, ReceiptId,
-    RecoveryAuthorityTicketId, RecoverySessionId, TransactionId,
+    BackupId, BackupSeriesId, DeviceId, Did, EventId, EventInitialSubmission,
+    EventsSubmitBatchRequestBody, Hash, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId,
+    TransactionId,
 };
 
 pub const MAX_SECURITY_TRANSACTION_TTL: Duration = Duration::hours(24);
@@ -273,32 +272,6 @@ impl PreparedEventSubmissionBatch {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PreparedEventPublicationEvidence {
-    pub event_id: EventId,
-    pub authorization_lease: AuthorizationLease,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cba_proof_bundles: Vec<CbaProofBundle>,
-}
-
-impl PreparedEventPublicationEvidence {
-    pub fn validate_structural(&self) -> Result<()> {
-        self.authorization_lease.validate_structural()?;
-        if self.cba_proof_bundles.len() > MAX_SUBMISSION_CBA_BUNDLES {
-            return Err(Error::Protocol(format!(
-                "prepared Event publication evidence exceeds {} CBA bundles",
-                MAX_SUBMISSION_CBA_BUNDLES
-            )));
-        }
-        for bundle in &self.cba_proof_bundles {
-            bundle.validate_structural()?;
-        }
-        Ok(())
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PreparedDidPublication {
@@ -359,7 +332,7 @@ pub struct EnrollmentAuthorityRecoveryPlan {
     pub did_publication: PreparedDidPublication,
     pub reanchor_event_submission: EventInitialSubmission,
     pub reanchor_event_submission_digest: Hash,
-    pub authorize_event_publication_evidence: PreparedEventPublicationEvidence,
+    pub authorize_event_publication_intent: AuthorizeEventPublicationIntent,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -592,7 +565,7 @@ pub struct ClientStepAttestation<A = Value> {
     feature = "openapi",
     salvo(schema(bound = "A: salvo_oapi::ToSchema + salvo_oapi::ComposeSchema + 'static"))
 )]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(
     deny_unknown_fields,
     bound(serialize = "A: Serialize", deserialize = "A: Deserialize<'de>")
@@ -1017,7 +990,7 @@ impl SecurityTransaction {
                     &plan.authorization_request_digest,
                 )?;
                 plan.reanchor_event_submission.validate_structural()?;
-                plan.authorize_event_publication_evidence
+                plan.authorize_event_publication_intent
                     .validate_structural()?;
                 validate_canonical_digest(
                     "reanchor_event_submission_digest",
@@ -1040,8 +1013,12 @@ impl SecurityTransaction {
                         != preimage.did_entry_preimage.canonical_bytes_base64url
                     || plan.did_publication.entry_digest != preimage.did_entry_preimage.digest
                     || plan.reanchor_event_submission.event.event_id != binding.reanchor_event_id
-                    || plan.authorize_event_publication_evidence.event_id
+                    || plan.authorize_event_publication_intent.event_id
                         != binding.authorize_event_id
+                    || plan
+                        .authorization_preimage
+                        .authorize_event_publication_intent
+                        != plan.authorize_event_publication_intent
                 {
                     return Err(Error::Protocol(
                         "enrollment-authority binding and prepared plan artifacts disagree"

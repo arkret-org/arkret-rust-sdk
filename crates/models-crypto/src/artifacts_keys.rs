@@ -3,9 +3,9 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    BackupId, BackupSeriesId, Base64UrlString, DeviceId, Did, DidUrl, Error, EventId, Hash,
-    NonEmptyString, PolicyId, RealmId, RecoverySessionId, Result, SealBasis, TransactionId,
-    TypedTrustDomainId, XExtensionMap,
+    AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId, Did, DidUrl, Error,
+    EventId, Hash, LeaseBasisRef, NonEmptyString, PolicyId, RealmId, RecoverySessionId, Result,
+    ScopeRef, SealBasis, TransactionId, TypedTrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -413,6 +413,7 @@ pub struct GenericRecoveryTranscript {
     pub identity_model: RecoveryIdentityModel,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub model_generation_ref: RecoveryModelGenerationRef,
+    pub publication_authority_context_digest: Hash,
     pub challenge: Challenge,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
@@ -440,6 +441,7 @@ struct GenericRecoveryTranscriptWire {
     recovery_session_id: RecoverySessionId,
     identity_model: RecoveryIdentityModel,
     model_generation_ref: RecoveryModelGenerationRef,
+    publication_authority_context_digest: Hash,
     challenge: Challenge,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     expires_at: DateTime<Utc>,
@@ -463,6 +465,7 @@ impl TryFrom<GenericRecoveryTranscriptWire> for GenericRecoveryTranscript {
             recovery_session_id: wire.recovery_session_id,
             identity_model: wire.identity_model,
             model_generation_ref: wire.model_generation_ref,
+            publication_authority_context_digest: wire.publication_authority_context_digest,
             challenge: wire.challenge,
             expires_at: wire.expires_at,
             created_at: wire.created_at,
@@ -501,6 +504,7 @@ pub struct PrincipalSigningTranscript {
     pub identity_model: RecoveryIdentityModel,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub model_generation_ref: RecoveryModelGenerationRef,
+    pub publication_authority_context_digest: Hash,
     pub challenge: Challenge,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
@@ -527,6 +531,7 @@ struct PrincipalSigningTranscriptWire {
     recovery_session_id: RecoverySessionId,
     identity_model: RecoveryIdentityModel,
     model_generation_ref: RecoveryModelGenerationRef,
+    publication_authority_context_digest: Hash,
     challenge: Challenge,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     expires_at: DateTime<Utc>,
@@ -549,6 +554,7 @@ impl TryFrom<PrincipalSigningTranscriptWire> for PrincipalSigningTranscript {
             recovery_session_id: wire.recovery_session_id,
             identity_model: wire.identity_model,
             model_generation_ref: wire.model_generation_ref,
+            publication_authority_context_digest: wire.publication_authority_context_digest,
             challenge: wire.challenge,
             expires_at: wire.expires_at,
             created_at: wire.created_at,
@@ -610,6 +616,69 @@ pub struct RecoveryPolicyRef {
 pub enum RecoveryIdentityModel {
     CrossSigning,
     EnrollmentAuthority,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecoveryPublicationIssuerKeyRole {
+    SelfSigning,
+    IdentityRecovery,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RecoveryPublicationAction {
+    #[serde(rename = "ak.device.authorize")]
+    DeviceAuthorize,
+    #[serde(rename = "ak.device.list_update")]
+    DeviceListUpdate,
+    #[serde(rename = "ak.device.reanchor")]
+    DeviceReanchor,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryPublicationAuthorityContext {
+    pub identity_model: RecoveryIdentityModel,
+    pub issuer_key_role: RecoveryPublicationIssuerKeyRole,
+    pub basis_ref: LeaseBasisRef,
+    pub scope_ref: ScopeRef,
+    pub authority_set_ref: AuthoritySetRef,
+    pub verification_method: DidUrl,
+    pub allowed_actions: Vec<RecoveryPublicationAction>,
+}
+
+impl RecoveryPublicationAuthorityContext {
+    pub fn validate_for(&self, identity_model: RecoveryIdentityModel) -> Result<()> {
+        let valid = match identity_model {
+            RecoveryIdentityModel::CrossSigning => {
+                self.identity_model == identity_model
+                    && self.issuer_key_role == RecoveryPublicationIssuerKeyRole::SelfSigning
+                    && self.allowed_actions
+                        == [
+                            RecoveryPublicationAction::DeviceAuthorize,
+                            RecoveryPublicationAction::DeviceListUpdate,
+                        ]
+            }
+            RecoveryIdentityModel::EnrollmentAuthority => {
+                self.identity_model == identity_model
+                    && self.issuer_key_role == RecoveryPublicationIssuerKeyRole::IdentityRecovery
+                    && self.allowed_actions == [RecoveryPublicationAction::DeviceReanchor]
+            }
+        };
+        valid.then_some(()).ok_or_else(|| {
+            Error::Protocol(
+                "recovery publication authority context does not match the closed identity-model authority"
+                    .to_owned(),
+            )
+        })
+    }
+
+    pub fn digest(&self) -> Result<Hash> {
+        Ok(Hash::new(arkret_canonical::canonical_sha256(self)?)?)
+    }
 }
 
 /// Counterpart for
@@ -782,6 +851,8 @@ pub struct RecoverySessionState {
         salvo(schema(value_type = Option<serde_json::Value>))
     )]
     pub accepted_seal_frontier: Option<SealBasis>,
+    pub publication_authority_context: RecoveryPublicationAuthorityContext,
+    pub publication_authority_context_digest: Hash,
     pub challenge: Challenge,
     pub state: SessionState,
     pub proof_summary: Option<ProofSummary>,
@@ -808,7 +879,7 @@ impl Serialize for RecoverySessionState {
             RecoveryIdentityModel::EnrollmentAuthority => 4,
         };
         let mut map = serializer.serialize_map(Some(
-            13 + model_fields
+            15 + model_fields
                 + usize::from(self.proof_summary.is_some())
                 + usize::from(self.transaction_id.is_some())
                 + usize::from(self.rejection_reason_code.is_some()),
@@ -835,6 +906,14 @@ impl Serialize for RecoverySessionState {
                 map.serialize_entry("accepted_seal_frontier", &self.accepted_seal_frontier)?;
             }
         }
+        map.serialize_entry(
+            "publication_authority_context",
+            &self.publication_authority_context,
+        )?;
+        map.serialize_entry(
+            "publication_authority_context_digest",
+            &self.publication_authority_context_digest,
+        )?;
         map.serialize_entry("challenge", &self.challenge)?;
         map.serialize_entry("state", &self.state)?;
         if let Some(proof_summary) = &self.proof_summary {
@@ -869,6 +948,8 @@ struct RecoverySessionStateWire {
     device_generation_status: Option<DeviceGenerationStatus>,
     registry_head: Option<Hash>,
     accepted_seal_frontier: Option<SealBasis>,
+    publication_authority_context: RecoveryPublicationAuthorityContext,
+    publication_authority_context_digest: Hash,
     challenge: Challenge,
     state: SessionState,
     proof_summary: Option<ProofSummary>,
@@ -957,6 +1038,8 @@ impl<'de> Deserialize<'de> for RecoverySessionState {
             device_generation_status: wire.device_generation_status,
             registry_head: wire.registry_head,
             accepted_seal_frontier: wire.accepted_seal_frontier,
+            publication_authority_context: wire.publication_authority_context,
+            publication_authority_context_digest: wire.publication_authority_context_digest,
             challenge: wire.challenge,
             state: wire.state,
             proof_summary: wire.proof_summary,
@@ -992,6 +1075,14 @@ impl RecoverySessionState {
             self.identity_model == RecoveryIdentityModel::EnrollmentAuthority,
         )
         .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+        self.publication_authority_context
+            .validate_for(self.identity_model)?;
+        if self.publication_authority_context.digest()? != self.publication_authority_context_digest
+        {
+            return Err(Error::Protocol(
+                "recovery publication authority context digest is invalid".to_owned(),
+            ));
+        }
         if matches!(self.state, SessionState::Verified | SessionState::Completed)
             && self.proof_summary.is_none()
         {
@@ -1058,9 +1149,51 @@ mod recovery_completion_tests {
 
     use super::*;
 
+    fn add_publication_authority_context(value: &mut Value, identity_model: &str) {
+        value["publication_authority_context"] = if identity_model == "cross_signing" {
+            json!({
+                "identity_model": "cross_signing",
+                "issuer_key_role": "self_signing",
+                "basis_ref": "ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "scope_ref": {
+                    "kind": "realm",
+                    "realm_id": "ak:realm:01904100-0000-7000-8000-000000000008"
+                },
+                "authority_set_ref": {
+                    "authority_set_id": "ak.authority_set.recovery.cross_signing.v1",
+                    "authority_set_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                },
+                "verification_method": "did:webvh:z6mkfixture:users.example:alice#self-signing-2",
+                "allowed_actions": [
+                    "ak.device.authorize",
+                    "ak.device.list_update"
+                ]
+            })
+        } else {
+            json!({
+                "identity_model": "enrollment_authority",
+                "issuer_key_role": "identity_recovery",
+                "basis_ref": "ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "scope_ref": {
+                    "kind": "realm",
+                    "realm_id": "ak:realm:01904100-0000-7000-8000-000000000008"
+                },
+                "authority_set_ref": {
+                    "authority_set_id": "ak.authority_set.recovery.enrollment_authority.v1",
+                    "authority_set_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                },
+                "verification_method": "did:webvh:z6mkfixture:users.example:alice#identity-recovery-2",
+                "allowed_actions": ["ak.device.reanchor"]
+            })
+        };
+        value["publication_authority_context_digest"] = Value::String(
+            arkret_canonical::canonical_sha256(&value["publication_authority_context"]).unwrap(),
+        );
+    }
+
     #[test]
     fn recovery_session_state_enforces_model_specific_snapshot_presence() {
-        let enrollment = json!({
+        let mut enrollment = json!({
             "schema": "ak.schema.recovery_session.v1",
             "recovery_session_id": "ak:recovery_session:01904100-0000-7000-8000-000000000005",
             "principal_id": "did:webvh:z6mkfixture:users.example:alice",
@@ -1079,6 +1212,7 @@ mod recovery_completion_tests {
             "created_at": "2026-07-15T00:00:00.000Z",
             "updated_at": "2026-07-15T00:00:00.000Z"
         });
+        add_publication_authority_context(&mut enrollment, "enrollment_authority");
         let state: RecoverySessionState = serde_json::from_value(enrollment.clone()).unwrap();
         assert_eq!(
             state.identity_model,
@@ -1096,7 +1230,7 @@ mod recovery_completion_tests {
             .remove("accepted_seal_frontier");
         assert!(serde_json::from_value::<RecoverySessionState>(missing_frontier).is_err());
 
-        let cross_signing = json!({
+        let mut cross_signing = json!({
             "schema": "ak.schema.recovery_session.v1",
             "recovery_session_id": "ak:recovery_session:01904100-0000-7000-8000-000000000005",
             "principal_id": "did:webvh:z6mkfixture:users.example:alice",
@@ -1112,7 +1246,12 @@ mod recovery_completion_tests {
             "created_at": "2026-07-15T00:00:00.000Z",
             "updated_at": "2026-07-15T00:00:00.000Z"
         });
-        assert!(serde_json::from_value::<RecoverySessionState>(cross_signing).is_ok());
+        add_publication_authority_context(&mut cross_signing, "cross_signing");
+        assert!(serde_json::from_value::<RecoverySessionState>(cross_signing.clone()).is_ok());
+
+        cross_signing["publication_authority_context_digest"] =
+            json!("sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
+        assert!(serde_json::from_value::<RecoverySessionState>(cross_signing).is_err());
     }
 }
 

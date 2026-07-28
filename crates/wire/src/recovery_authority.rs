@@ -13,9 +13,12 @@ use serde_json::Value;
 
 use crate::error::{Error, Result};
 use crate::{
-    DeviceId, Did, EventId, GrantId, Hash, PolicyId, ReceiptId, RecoveryAuthorityTicketId,
-    RecoverySessionId, TransactionId, TypedTrustDomainId,
+    AuthoritySetRef, AuthorizationLease, CbaProofBundle, DeviceId, Did, Event, EventId, GrantId,
+    Hash, LeaseBasisRef, PolicyId, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId,
+    RiskTier, ScopeRef, TransactionId, TypedTrustDomainId,
 };
+
+const MAX_RECOVERY_PUBLICATION_CBA_BUNDLES: usize = 64;
 
 pub const RECOVERY_AUTHORITY_TICKET_SIGNED_FIELDS: [&str; 25] = [
     "schema",
@@ -106,7 +109,43 @@ pub struct ReplacementDevicePossessionProof {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorizeEventPublicationIntent {
+    pub event_id: EventId,
+    pub event_preimage_digest: Hash,
+    pub actor_id: Did,
+    pub device_id: DeviceId,
+    pub scope_ref: ScopeRef,
+    pub action: String,
+    pub risk_tier: RiskTier,
+    pub basis_ref: LeaseBasisRef,
+    pub authority_set_ref: AuthoritySetRef,
+    pub cba_proof_bundles: Vec<CbaProofBundle>,
+}
+
+impl AuthorizeEventPublicationIntent {
+    pub fn validate_structural(&self) -> Result<()> {
+        if self.action != "ak.device.authorize" || self.risk_tier != RiskTier::High {
+            return Err(Error::Protocol(
+                "recovery authorize publication intent must use ak.device.authorize at high risk"
+                    .to_owned(),
+            ));
+        }
+        if self.cba_proof_bundles.len() > MAX_RECOVERY_PUBLICATION_CBA_BUNDLES {
+            return Err(Error::Protocol(format!(
+                "recovery authorize publication intent exceeds {MAX_RECOVERY_PUBLICATION_CBA_BUNDLES} CBA bundles"
+            )));
+        }
+        for bundle in &self.cba_proof_bundles {
+            bundle.validate_structural()?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryAuthorizationPreimage {
     pub principal_id: Did,
@@ -140,12 +179,15 @@ pub struct RecoveryAuthorizationPreimage {
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub not_before: DateTime<Utc>,
     pub authorize_event_preimage: CanonicalPublicMaterial,
+    pub authorize_event_publication_intent: AuthorizeEventPublicationIntent,
     pub possession_proof: ReplacementDevicePossessionProof,
 }
 
 impl RecoveryAuthorizationPreimage {
     pub fn validate_structural(&self) -> Result<()> {
         self.authorize_event_preimage.validate_structural()?;
+        self.authorize_event_publication_intent
+            .validate_structural()?;
         self.did_entry_preimage.validate_structural()?;
         if self.did_entry_preimage.canonical_encoding != CanonicalEncoding::CanonicalJson
             || self.did_entry_preimage.digest != self.did_entry_digest
@@ -170,6 +212,30 @@ impl RecoveryAuthorizationPreimage {
         {
             return Err(Error::Protocol(
                 "recovery authorization preimage contains an empty required value".to_owned(),
+            ));
+        }
+        let event: Event = serde_json::from_value(self.authorize_event_preimage.value.clone())
+            .map_err(|error| {
+                Error::Protocol(format!(
+                    "authorize Event preimage is not a closed Event: {error}"
+                ))
+            })?;
+        let intent = &self.authorize_event_publication_intent;
+        if self.authorize_event_preimage.canonical_encoding != CanonicalEncoding::CanonicalJson
+            || !event.proofs.is_empty()
+            || event.event_id != self.authorize_event_id
+            || intent.event_id != self.authorize_event_id
+            || intent.event_preimage_digest != self.authorize_event_preimage.digest
+            || intent.actor_id != self.principal_id
+            || intent.device_id != self.replacement_device_id
+            || event.actor_id != intent.actor_id
+            || event.scope_ref != intent.scope_ref
+            || event.kind.as_str() != intent.action
+            || event.payload.get("device_id").and_then(Value::as_str)
+                != Some(intent.device_id.as_str())
+        {
+            return Err(Error::Protocol(
+                "authorize Event preimage and publication intent binding is invalid".to_owned(),
             ));
         }
         Ok(())
@@ -362,7 +428,7 @@ pub struct RecoveryAuthorityHolderProof {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorizeRecoveryDeviceRequest {
     pub ticket: RecoveryAuthorityTicket,
@@ -450,7 +516,7 @@ impl AuthorizeRecoveryDeviceRequest {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorizeRecoveryDeviceOutcome {
     pub ticket_id: RecoveryAuthorityTicketId,
@@ -458,9 +524,68 @@ pub struct AuthorizeRecoveryDeviceOutcome {
     pub authorize_event_id: EventId,
     pub authorized_event: Value,
     pub authorized_event_digest: Hash,
+    pub authorization_lease: AuthorizationLease,
+    pub cba_proof_bundles: Vec<CbaProofBundle>,
     pub authority_receipt_id: ReceiptId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
+}
+
+impl AuthorizeRecoveryDeviceOutcome {
+    pub fn validate_against_request(&self, request: &AuthorizeRecoveryDeviceRequest) -> Result<()> {
+        request.validate_structural()?;
+        let preimage = &request.authorization_preimage;
+        let intent = &preimage.authorize_event_publication_intent;
+        let event: Event =
+            serde_json::from_value(self.authorized_event.clone()).map_err(|error| {
+                Error::Protocol(format!(
+                    "authorized recovery Event is not a closed Event: {error}"
+                ))
+            })?;
+        event.validate_for_submit_structural()?;
+        if self.ticket_id != request.ticket.ticket_id
+            || self.transaction_id != request.ticket.transaction_id
+            || self.authorize_event_id != request.ticket.authorize_event_id
+            || event.event_id != self.authorize_event_id
+            || event.event_digest()? != self.authorized_event_digest.as_str()
+        {
+            return Err(Error::Protocol(
+                "recovery authority outcome disagrees with its ticket or signed Event".to_owned(),
+            ));
+        }
+
+        let mut proof_free_event = self.authorized_event.clone();
+        let proof_free_object = proof_free_event.as_object_mut().ok_or_else(|| {
+            Error::Protocol("authorized recovery Event must be a JSON object".to_owned())
+        })?;
+        proof_free_object.insert("proofs".to_owned(), Value::Array(Vec::new()));
+        if proof_free_event != preimage.authorize_event_preimage.value {
+            return Err(Error::Protocol(
+                "authorized recovery Event does not equal the ticket-bound proof-free preimage"
+                    .to_owned(),
+            ));
+        }
+
+        self.authorization_lease.validate_structural()?;
+        if self.authorization_lease.basis_ref != intent.basis_ref
+            || self.authorization_lease.actor_id != intent.actor_id
+            || self.authorization_lease.device_id != intent.device_id
+            || self.authorization_lease.scope_ref != intent.scope_ref
+            || self.authorization_lease.action != intent.action
+            || self.authorization_lease.risk_tier != intent.risk_tier
+            || self.authorization_lease.authority_set_ref != intent.authority_set_ref
+            || self.cba_proof_bundles != intent.cba_proof_bundles
+        {
+            return Err(Error::Protocol(
+                "recovery authority outcome publication evidence disagrees with the prepared intent"
+                    .to_owned(),
+            ));
+        }
+        for bundle in &self.cba_proof_bundles {
+            bundle.validate_structural()?;
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -640,6 +765,46 @@ mod tests {
 
     fn hash(byte: char) -> Hash {
         Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
+    }
+
+    fn publication_intent() -> AuthorizeEventPublicationIntent {
+        AuthorizeEventPublicationIntent {
+            event_id: EventId::new("ak:event:019a7360-0000-7000-8000-000000000017".to_owned())
+                .unwrap(),
+            event_preimage_digest: hash('1'),
+            actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            device_id: DeviceId::new("ak:device:019a7360-0000-7000-8000-000000000015".to_owned())
+                .unwrap(),
+            scope_ref: ScopeRef::Realm {
+                realm_id: crate::RealmId::new(
+                    "ak:realm:019a7360-0000-7000-8000-000000000018".to_owned(),
+                )
+                .unwrap(),
+            },
+            action: "ak.device.authorize".to_owned(),
+            risk_tier: RiskTier::High,
+            basis_ref: LeaseBasisRef::Seal(
+                crate::SealId::new(format!("ak:seal:{}", hash('2').as_str())).unwrap(),
+            ),
+            authority_set_ref: AuthoritySetRef {
+                authority_set_id: "ak.authority_set.recovery.enrollment_authority.v1".to_owned(),
+                authority_set_digest: hash('3'),
+            },
+            cba_proof_bundles: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn recovery_authorize_publication_intent_is_closed_to_high_risk_authorize() {
+        publication_intent().validate_structural().unwrap();
+
+        let mut lower_risk = publication_intent();
+        lower_risk.risk_tier = RiskTier::Medium;
+        assert!(lower_risk.validate_structural().is_err());
+
+        let mut substituted_action = publication_intent();
+        substituted_action.action = "ak.device.reanchor".to_owned();
+        assert!(substituted_action.validate_structural().is_err());
     }
 
     #[test]
