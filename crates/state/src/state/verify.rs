@@ -219,8 +219,10 @@ where
 /// function of the signed Event (`event-and-patch.md` §2.4.2): they read the
 /// pre-state so a producer cannot assert a prior state it never observed.
 /// Resolving them here — after `seal_basis` has pinned the frontier — is what
-/// makes the result identical on every receiver.
-fn resolve_projected_write(
+/// makes the result identical on every receiver. It is public for exactly that
+/// reason: a caller that needs the resolved writes outside `verify_control_move`
+/// must reuse this, because a second implementation is a second answer.
+pub fn resolve_projected_write(
     write: &ProjectedCellWrite,
     realm_id: &RealmId,
     pre_state: &BTreeMap<CellRef, CellState>,

@@ -39,5 +39,6 @@ pub use store::{
     SealedControlEventRecord, StoreError, StoreResult, control_event_digest,
 };
 pub use verify::{
-    ControlMoveReject, ControlMoveRejectMap, reject_to_error_code, verify_control_move,
+    ControlMoveReject, ControlMoveRejectMap, reject_to_error_code, resolve_projected_write,
+    verify_control_move,
 };
