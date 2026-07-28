@@ -176,6 +176,10 @@ struct SealBody<'a> {
 }
 
 impl Seal {
+    pub fn is_compaction(&self) -> bool {
+        !self.covered_event_digests.is_empty()
+    }
+
     /// Mint the single-leaf Control Move basis represented by this accepted
     /// Seal. Callers must only use the result after receiver acceptance.
     pub fn seal_basis(&self) -> crate::SealBasis {

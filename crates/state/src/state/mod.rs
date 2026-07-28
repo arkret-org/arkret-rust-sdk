@@ -35,8 +35,9 @@ pub use store::memory::{
     MemoryCellRegistry, MemoryCellStore, MemoryControlEventStore, MemorySealStore,
 };
 pub use store::{
-    BottomMode, CellLatticeBinding, CellRegistry, CellStore, ControlEventStore, SealStore,
-    SealedControlEventRecord, StoreError, StoreResult, control_event_digest,
+    BottomMode, CellLatticeBinding, CellRegistry, CellStore, ControlEventStore,
+    PendingControlEventRecord, SealStore, SealedControlEventRecord, StoreError, StoreResult,
+    control_event_digest,
 };
 pub use verify::{
     ControlMoveReject, ControlMoveRejectMap, reject_to_error_code, resolve_projected_write,

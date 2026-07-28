@@ -7,8 +7,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    CbaProofBundle, Did, Error, Event, EventFederationSubmission, EventId,
-    FederatedDeviceSigningKeyEvidence, Hash, Hlc, RealmId, Result, Seal, SealBasis, SealId,
+    CbaProofBundle, ControlProposalDecision, ControlProposalDecisionPolicy, ControlProposalReceipt,
+    Did, Error, Event, EventFederationSubmission, EventId, FederatedDeviceSigningKeyEvidence, Hash,
+    Hlc, RealmId, Result, Seal, SealBasis, SealId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -138,7 +139,7 @@ impl EventsFrontierSelector {
             (Self::RealmSeal { realm_id }, EventsFrontierView::RealmSeal(frontier))
                 if &frontier.realm_id == realm_id =>
             {
-                Ok(())
+                frontier.validate()
             }
             (Self::ActorAggregate { actor_id }, EventsFrontierView::ActorAggregate(frontier))
                 if &frontier.actor_id == actor_id =>
@@ -344,6 +345,206 @@ impl ActorAggregateFrontierView {
 /// Control Move basis (`leaves=[seal_id]`); `seal_id` alone is the DataEvent
 /// `seal_ref`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ControlGovernanceHealthStatus {
+    Healthy,
+    Degraded,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ControlProposalDecisionState {
+    Pending,
+    Deferred,
+    Overdue,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PendingControlProposal {
+    pub proposal_digest: Hash,
+    pub receipt: ControlProposalReceipt,
+    pub decisions: Vec<ControlProposalDecision>,
+    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
+    pub current_decision_due_at: DateTime<Utc>,
+    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
+    pub absolute_due_at: DateTime<Utc>,
+    pub defer_count: u8,
+    pub decision_state: ControlProposalDecisionState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fault_reason: Option<ControlProposalFaultReason>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ControlProposalFaultReason {
+    ControlProposalDecisionOverdue,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ControlGovernanceHealth {
+    pub status: ControlGovernanceHealthStatus,
+    pub pending_proposals: Vec<PendingControlProposal>,
+    pub retained_faults: Vec<RetainedControlProposalFault>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RetainedControlProposalFault {
+    pub proposal_digest: Hash,
+    pub receipt: ControlProposalReceipt,
+    pub decisions: Vec<ControlProposalDecision>,
+    pub accepted_seal_id: SealId,
+    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
+    pub accepted_at: DateTime<Utc>,
+    pub fault_reason: ControlProposalFaultReason,
+}
+
+impl ControlGovernanceHealth {
+    pub const MAX_PENDING_PROPOSALS: usize = 128;
+
+    pub fn healthy() -> Self {
+        Self {
+            status: ControlGovernanceHealthStatus::Healthy,
+            pending_proposals: Vec::new(),
+            retained_faults: Vec::new(),
+        }
+    }
+
+    pub fn validate(&self, policy: ControlProposalDecisionPolicy) -> Result<()> {
+        if self.pending_proposals.len() > Self::MAX_PENDING_PROPOSALS {
+            return Err(Error::Protocol(
+                "control governance health exceeds 128 pending proposals".to_owned(),
+            ));
+        }
+        if self.retained_faults.len() > Self::MAX_PENDING_PROPOSALS {
+            return Err(Error::Protocol(
+                "control governance health exceeds 128 retained faults".to_owned(),
+            ));
+        }
+        let mut previous_key: Option<(DateTime<Utc>, &str)> = None;
+        let mut has_overdue = false;
+        for pending in &self.pending_proposals {
+            pending.receipt.validate_structural(policy)?;
+            if pending.proposal_digest != pending.receipt.proposal_digest
+                || pending.absolute_due_at != pending.receipt.absolute_due_at
+                || usize::from(pending.defer_count) != pending.decisions.len()
+            {
+                return Err(Error::Protocol(
+                    "pending control proposal does not preserve receipt/decision binding"
+                        .to_owned(),
+                ));
+            }
+            let mut verified_defers = Vec::with_capacity(pending.decisions.len());
+            for decision in &pending.decisions {
+                if decision.is_reject() {
+                    return Err(Error::Protocol(
+                        "terminal signed_reject cannot remain pending".to_owned(),
+                    ));
+                }
+                decision.validate_chain(&pending.receipt, &verified_defers, policy)?;
+                verified_defers.push(decision.clone());
+            }
+            let expected_due_at = verified_defers
+                .last()
+                .map(ControlProposalDecision::decision_due_at)
+                .unwrap_or(pending.receipt.decision_due_at);
+            if pending.current_decision_due_at != expected_due_at {
+                return Err(Error::Protocol(
+                    "pending proposal current_decision_due_at does not match its decision chain"
+                        .to_owned(),
+                ));
+            }
+            let overdue = pending.decision_state == ControlProposalDecisionState::Overdue;
+            if overdue
+                != (pending.fault_reason
+                    == Some(ControlProposalFaultReason::ControlProposalDecisionOverdue))
+            {
+                return Err(Error::Protocol(
+                    "overdue proposal must carry the stable overdue fault reason".to_owned(),
+                ));
+            }
+            let expected_non_fault_state = if pending.decisions.is_empty() {
+                ControlProposalDecisionState::Pending
+            } else {
+                ControlProposalDecisionState::Deferred
+            };
+            if !overdue && pending.decision_state != expected_non_fault_state {
+                return Err(Error::Protocol(
+                    "pending proposal decision_state does not match its decision chain".to_owned(),
+                ));
+            }
+            has_overdue |= overdue;
+            let key = (pending.absolute_due_at, pending.proposal_digest.as_str());
+            if previous_key.is_some_and(|previous| previous >= key) {
+                return Err(Error::Protocol(
+                    "pending proposals are not in canonical deadline/digest order".to_owned(),
+                ));
+            }
+            previous_key = Some(key);
+        }
+        let mut previous_fault_key: Option<(DateTime<Utc>, &str)> = None;
+        for fault in &self.retained_faults {
+            fault.receipt.validate_structural(policy)?;
+            if fault.proposal_digest != fault.receipt.proposal_digest
+                || fault.fault_reason != ControlProposalFaultReason::ControlProposalDecisionOverdue
+            {
+                return Err(Error::Protocol(
+                    "retained control proposal fault does not preserve its receipt binding"
+                        .to_owned(),
+                ));
+            }
+            let mut verified_defers = Vec::with_capacity(fault.decisions.len());
+            let mut previous_due_at = fault.receipt.decision_due_at;
+            let mut missed_deadline = false;
+            for decision in &fault.decisions {
+                if decision.is_reject() {
+                    return Err(Error::Protocol(
+                        "signed_reject cannot precede an accepted Seal".to_owned(),
+                    ));
+                }
+                decision.validate_chain(&fault.receipt, &verified_defers, policy)?;
+                missed_deadline |= !decision.satisfied_current_deadline(previous_due_at);
+                previous_due_at = decision.decision_due_at();
+                verified_defers.push(decision.clone());
+            }
+            missed_deadline |= fault.accepted_at > previous_due_at;
+            if !missed_deadline {
+                return Err(Error::Protocol(
+                    "retained proposal fault has no missed signed deadline".to_owned(),
+                ));
+            }
+            let key = (fault.accepted_at, fault.proposal_digest.as_str());
+            if previous_fault_key.is_some_and(|previous| previous >= key) {
+                return Err(Error::Protocol(
+                    "retained proposal faults are not in canonical accepted-at/digest order"
+                        .to_owned(),
+                ));
+            }
+            previous_fault_key = Some(key);
+        }
+        let expected_status = if has_overdue || !self.retained_faults.is_empty() {
+            ControlGovernanceHealthStatus::Degraded
+        } else {
+            ControlGovernanceHealthStatus::Healthy
+        };
+        if self.status != expected_status {
+            return Err(Error::Protocol(
+                "control governance status does not match pending proposal faults".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmSealFrontierView {
@@ -352,6 +553,7 @@ pub struct RealmSealFrontierView {
     pub seal_id: SealId,
     pub control_event_set_root: Hash,
     pub state_root: Hash,
+    pub governance_health: ControlGovernanceHealth,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hlc: Option<Hlc>,
 }
@@ -362,6 +564,7 @@ impl RealmSealFrontierView {
         seal_id: SealId,
         control_event_set_root: Hash,
         state_root: Hash,
+        governance_health: ControlGovernanceHealth,
         hlc: Option<Hlc>,
     ) -> Self {
         Self {
@@ -370,6 +573,7 @@ impl RealmSealFrontierView {
             seal_id,
             control_event_set_root,
             state_root,
+            governance_health,
             hlc,
         }
     }
@@ -381,6 +585,11 @@ impl RealmSealFrontierView {
             control_event_set_root: self.control_event_set_root.clone(),
             state_root: self.state_root.clone(),
         }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.governance_health
+            .validate(ControlProposalDecisionPolicy::protocol_maximum())
     }
 }
 

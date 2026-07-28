@@ -13,11 +13,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Mutex;
 
 use arkret_wire::event_envelope::Event;
+use arkret_wire::{ControlProposalDecision, ControlProposalReceipt};
 use serde_json::{Value, json};
 
 use super::{
-    BottomMode, CellLatticeBinding, CellRegistry, CellStore, ControlEventStore, SealStore,
-    SealedControlEventRecord, StoreError, StoreResult, control_event_digest,
+    BottomMode, CellLatticeBinding, CellRegistry, CellStore, ControlEventStore,
+    PendingControlEventRecord, SealStore, SealedControlEventRecord, StoreError, StoreResult,
+    control_event_digest,
 };
 use crate::lattice::ordered_log::IssuedOp;
 use crate::lattice::{
@@ -39,24 +41,62 @@ struct MemoryControlEventStoreInner {
     sealed: BTreeMap<String, SealId>,
     /// Insertion order so list_pending is deterministic.
     insertion_order: Vec<String>,
+    proposal_receipts: BTreeMap<String, ControlProposalReceipt>,
+    proposal_decisions: BTreeMap<String, Vec<ControlProposalDecision>>,
+    decision_overdue: BTreeSet<String>,
 }
 
 impl ControlEventStore for MemoryControlEventStore {
-    fn put_pending(&self, event: &Event) -> StoreResult<()> {
+    fn put_pending_with_receipt(
+        &self,
+        event: &Event,
+        proposal_receipt: Option<&ControlProposalReceipt>,
+    ) -> StoreResult<()> {
         let digest = control_event_digest(event)?;
+        if let Some(receipt) = proposal_receipt
+            && (receipt.proposal_digest != digest || receipt.realm_id != event.realm_id)
+        {
+            return Err(StoreError::Conflict(
+                "proposal receipt does not bind the pending Control Move".to_owned(),
+            ));
+        }
+        if let Some(receipt) = proposal_receipt {
+            receipt
+                .validate_structural(arkret_wire::ControlProposalDecisionPolicy::protocol_maximum())
+                .map_err(|error| StoreError::Conflict(error.to_string()))?;
+        }
         let mut inner = self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let (Some(receipt), Some(stored)) = (
+            proposal_receipt,
+            inner.proposal_receipts.get(digest.as_str()),
+        ) && stored != receipt
+        {
+            return Err(StoreError::Conflict(
+                "pending Control Move already has a different proposal receipt".to_owned(),
+            ));
+        }
         let key = digest.as_str().to_owned();
         if !inner.events.contains_key(&key) {
             inner.insertion_order.push(key.clone());
         }
         inner.events.entry(key).or_insert_with(|| event.clone());
+        if let Some(receipt) = proposal_receipt {
+            match inner.proposal_receipts.get(digest.as_str()) {
+                Some(_) => {}
+                None => {
+                    inner
+                        .proposal_receipts
+                        .insert(digest.as_str().to_owned(), receipt.clone());
+                }
+            }
+        }
         Ok(())
     }
 
-    fn mark_sealed(&self, event_digest: &Hash, seal: &SealId) -> StoreResult<()> {
+    fn mark_sealed(&self, event_digest: &Hash, seal: &Seal) -> StoreResult<()> {
         let mut inner = self
             .inner
             .lock()
@@ -66,9 +106,41 @@ impl ControlEventStore for MemoryControlEventStore {
                 "control Event {event_digest} not in store"
             )));
         }
+        let mut overdue = false;
+        if let Some(stored_seal) = inner.sealed.get(event_digest.as_str()) {
+            if stored_seal == &seal.id {
+                return Ok(());
+            }
+            return Err(StoreError::Conflict(format!(
+                "control Event {event_digest} is already sealed by {stored_seal}"
+            )));
+        }
+        let decisions = inner
+            .proposal_decisions
+            .get(event_digest.as_str())
+            .cloned()
+            .unwrap_or_default();
+        if decisions.iter().any(ControlProposalDecision::is_reject) {
+            return Err(StoreError::Conflict(format!(
+                "signed-rejected control Event {event_digest} cannot be sealed"
+            )));
+        }
+        if let Some(receipt) = inner.proposal_receipts.get(event_digest.as_str()) {
+            let mut previous_due_at = receipt.decision_due_at;
+            for decision in &decisions {
+                overdue |= !decision.satisfied_current_deadline(previous_due_at);
+                previous_due_at = decision.decision_due_at();
+            }
+            overdue |= seal.sealed_at > previous_due_at;
+        }
+        if overdue {
+            inner
+                .decision_overdue
+                .insert(event_digest.as_str().to_owned());
+        }
         inner
             .sealed
-            .insert(event_digest.as_str().to_owned(), seal.clone());
+            .insert(event_digest.as_str().to_owned(), seal.id.clone());
         Ok(())
     }
 
@@ -80,6 +152,128 @@ impl ControlEventStore for MemoryControlEventStore {
             .events
             .get(event_digest.as_str())
             .cloned())
+    }
+
+    fn proposal_receipt(&self, event_digest: &Hash) -> StoreResult<Option<ControlProposalReceipt>> {
+        Ok(self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .proposal_receipts
+            .get(event_digest.as_str())
+            .cloned())
+    }
+
+    fn record_proposal_decision(
+        &self,
+        event_digest: &Hash,
+        decision: &ControlProposalDecision,
+    ) -> StoreResult<()> {
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if !inner.events.contains_key(event_digest.as_str()) {
+            return Err(StoreError::NotFound(format!(
+                "control Event {event_digest} not in store"
+            )));
+        }
+        if inner.sealed.contains_key(event_digest.as_str()) {
+            return Err(StoreError::Conflict(format!(
+                "sealed control Event {event_digest} cannot receive another proposal decision"
+            )));
+        }
+        let receipt = inner
+            .proposal_receipts
+            .get(event_digest.as_str())
+            .cloned()
+            .ok_or_else(|| {
+                StoreError::Conflict(format!(
+                    "control Event {event_digest} has no proposal receipt"
+                ))
+            })?;
+        let decisions = inner
+            .proposal_decisions
+            .entry(event_digest.as_str().to_owned())
+            .or_default();
+        if decisions.contains(decision) {
+            return Ok(());
+        }
+        if decisions.iter().any(ControlProposalDecision::is_reject) {
+            return Err(StoreError::Conflict(format!(
+                "control Event {event_digest} already has a terminal signed rejection"
+            )));
+        }
+        decision
+            .validate_chain(
+                &receipt,
+                decisions,
+                arkret_wire::ControlProposalDecisionPolicy::protocol_maximum(),
+            )
+            .map_err(|error| StoreError::Conflict(error.to_string()))?;
+        decisions.push(decision.clone());
+        Ok(())
+    }
+
+    fn list_pending_records(
+        &self,
+        realm_id: &RealmId,
+        limit: usize,
+    ) -> StoreResult<Vec<PendingControlEventRecord>> {
+        let inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        Ok(inner
+            .insertion_order
+            .iter()
+            .filter(|digest| !inner.sealed.contains_key(*digest))
+            .filter(|digest| {
+                !inner
+                    .proposal_decisions
+                    .get(*digest)
+                    .is_some_and(|decisions| {
+                        decisions.iter().any(ControlProposalDecision::is_reject)
+                    })
+            })
+            .filter_map(|digest| {
+                let event = inner.events.get(digest)?;
+                (event.realm_id == *realm_id).then(|| PendingControlEventRecord {
+                    event: event.clone(),
+                    proposal_receipt: inner.proposal_receipts.get(digest).cloned(),
+                    decisions: inner
+                        .proposal_decisions
+                        .get(digest)
+                        .cloned()
+                        .unwrap_or_default(),
+                })
+            })
+            .take(limit)
+            .collect())
+    }
+
+    fn list_pending_realms(&self, limit: usize) -> StoreResult<Vec<RealmId>> {
+        let inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut realms = BTreeSet::new();
+        for (digest, event) in &inner.events {
+            if !inner.sealed.contains_key(digest)
+                && !inner
+                    .proposal_decisions
+                    .get(digest)
+                    .is_some_and(|decisions| {
+                        decisions.iter().any(ControlProposalDecision::is_reject)
+                    })
+            {
+                realms.insert(event.realm_id.clone());
+                if realms.len() >= limit {
+                    break;
+                }
+            }
+        }
+        Ok(realms.into_iter().collect())
     }
 
     fn list_pending_for_notary(
@@ -105,6 +299,12 @@ impl ControlEventStore for MemoryControlEventStore {
             if let Some(event) = inner.events.get(digest)
                 && event.realm_id == *realm_id
                 && !inner.sealed.contains_key(digest)
+                && !inner
+                    .proposal_decisions
+                    .get(digest)
+                    .is_some_and(|decisions| {
+                        decisions.iter().any(ControlProposalDecision::is_reject)
+                    })
             {
                 out.push(event.clone());
                 if out.len() >= limit {
@@ -141,6 +341,13 @@ impl ControlEventStore for MemoryControlEventStore {
                 out.push(SealedControlEventRecord {
                     event: event.clone(),
                     seal: seal.clone(),
+                    proposal_receipt: inner.proposal_receipts.get(digest).cloned(),
+                    decisions: inner
+                        .proposal_decisions
+                        .get(digest)
+                        .cloned()
+                        .unwrap_or_default(),
+                    decision_overdue: inner.decision_overdue.contains(digest),
                 });
                 if out.len() >= limit {
                     break;
@@ -148,6 +355,19 @@ impl ControlEventStore for MemoryControlEventStore {
             }
         }
         Ok(out)
+    }
+
+    fn list_retained_faults(
+        &self,
+        realm_id: &RealmId,
+        limit: usize,
+    ) -> StoreResult<Vec<SealedControlEventRecord>> {
+        Ok(self
+            .list_sealed(realm_id, None, usize::MAX)?
+            .into_iter()
+            .filter(|record| record.decision_overdue)
+            .take(limit)
+            .collect())
     }
 }
 
@@ -164,6 +384,7 @@ struct MemorySealStoreInner {
     leaves: BTreeMap<String, Vec<SealId>>,
     /// realm_id → genesis seal (first put with empty predecessors)
     genesis: BTreeMap<String, SealId>,
+    signing_leases: BTreeMap<(String, String), (String, i64, u64)>,
 }
 
 impl MemorySealStoreInner {
@@ -199,6 +420,67 @@ impl MemorySealStoreInner {
 }
 
 impl SealStore for MemorySealStore {
+    fn try_claim_signing_lease(
+        &self,
+        realm_id: &RealmId,
+        signer_slot: &str,
+        holder: &str,
+        now_ms: i64,
+        until_ms: i64,
+    ) -> StoreResult<Option<u64>> {
+        if until_ms <= now_ms {
+            return Err(StoreError::Conflict(
+                "signing lease must end after its claim time".to_owned(),
+            ));
+        }
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let key = (realm_id.as_str().to_owned(), signer_slot.to_owned());
+        if let Some((current_holder, current_until, _)) = inner.signing_leases.get(&key)
+            && current_holder != holder
+            && *current_until > now_ms
+        {
+            return Ok(None);
+        }
+        let next_fence = inner
+            .signing_leases
+            .get(&key)
+            .map_or(1, |(_, _, fence)| fence.saturating_add(1));
+        inner
+            .signing_leases
+            .insert(key, (holder.to_owned(), until_ms, next_fence));
+        Ok(Some(next_fence))
+    }
+
+    fn release_signing_lease(
+        &self,
+        realm_id: &RealmId,
+        signer_slot: &str,
+        holder: &str,
+        fence: u64,
+    ) -> StoreResult<bool> {
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let key = (realm_id.as_str().to_owned(), signer_slot.to_owned());
+        let matches =
+            inner
+                .signing_leases
+                .get(&key)
+                .is_some_and(|(current_holder, _, current_fence)| {
+                    current_holder == holder && *current_fence == fence
+                });
+        if matches {
+            if let Some((_, lease_until, _)) = inner.signing_leases.get_mut(&key) {
+                *lease_until = i64::MIN;
+            }
+        }
+        Ok(matches)
+    }
+
     fn put(&self, seal: &Seal) -> StoreResult<()> {
         let mut inner = self
             .inner
@@ -883,24 +1165,76 @@ mod tests {
         }
     }
 
+    fn proposal_receipt(event: &Event) -> ControlProposalReceipt {
+        let received_at = Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap();
+        let mut receipt = ControlProposalReceipt {
+            kind: arkret_wire::ControlProposalReceiptKind::ProposalReceipt,
+            realm_id: event.realm_id.clone(),
+            proposal_digest: control_event_digest(event).unwrap(),
+            received_at,
+            decision_due_at: received_at + chrono::Duration::seconds(30),
+            absolute_due_at: received_at + chrono::Duration::seconds(90),
+            defer_count: 0,
+            authority_set_ref: hash(0x44),
+            signature: PayloadSignature {
+                alg: "EdDSA".to_owned(),
+                verification_method: "did:webvh:z6mkfixture:notary.example#k1".to_owned(),
+                payload_digest: hash(0),
+                created_at: received_at,
+                jws: "e30..c2ln".to_owned(),
+            },
+        };
+        receipt.signature.payload_digest = receipt.receipt_digest().unwrap();
+        receipt
+    }
+
     #[test]
     fn control_event_store_put_and_seal_idempotent() {
         let store = MemoryControlEventStore::default();
         let first = control_move(1);
         let digest = control_event_digest(&first).unwrap();
-        store.put_pending(&first).unwrap();
-        store.put_pending(&first).unwrap(); // idempotent
+        let receipt = proposal_receipt(&first);
+        store
+            .put_pending_with_receipt(&first, Some(&receipt))
+            .unwrap();
+        store
+            .put_pending_with_receipt(&first, Some(&receipt))
+            .unwrap(); // idempotent
         assert_eq!(
             store.get(&digest).unwrap().unwrap().event_id,
             first.event_id
         );
 
-        let seal = seal_id(0xaa);
+        let seal = dummy_seal(seal_id(0xaa), Vec::new(), vec![digest.clone()]);
         store.mark_sealed(&digest, &seal).unwrap();
         store.mark_sealed(&digest, &seal).unwrap(); // idempotent
         let sealed = store.list_sealed(&realm(), None, 10).unwrap();
         assert_eq!(sealed.len(), 1);
-        assert_eq!(sealed[0].seal, seal);
+        assert_eq!(sealed[0].seal, seal.id);
+    }
+
+    #[test]
+    fn signing_lease_fence_remains_monotonic_after_release() {
+        let store = MemorySealStore::default();
+        let first = store
+            .try_claim_signing_lease(&realm(), "single_chain", "holder-a", 10, 20)
+            .unwrap()
+            .unwrap();
+        assert!(
+            store
+                .release_signing_lease(&realm(), "single_chain", "holder-a", first)
+                .unwrap()
+        );
+        let second = store
+            .try_claim_signing_lease(&realm(), "single_chain", "holder-a", 21, 30)
+            .unwrap()
+            .unwrap();
+        assert!(second > first);
+        assert!(
+            !store
+                .release_signing_lease(&realm(), "single_chain", "holder-a", first)
+                .unwrap()
+        );
     }
 
     #[test]
@@ -908,7 +1242,9 @@ mod tests {
         let store = MemoryControlEventStore::default();
         let first = control_move(1);
         let second = control_move(2);
-        store.put_pending(&first).unwrap();
+        store
+            .put_pending_with_receipt(&first, Some(&proposal_receipt(&first)))
+            .unwrap();
         store.put_pending(&second).unwrap();
 
         let pending = store.list_pending_for_notary(&realm(), None, 10).unwrap();
@@ -916,8 +1252,12 @@ mod tests {
         assert_eq!(pending[0].event_id, first.event_id);
         assert_eq!(pending[1].event_id, second.event_id);
 
+        let first_digest = control_event_digest(&first).unwrap();
         store
-            .mark_sealed(&control_event_digest(&first).unwrap(), &seal_id(0xaa))
+            .mark_sealed(
+                &first_digest,
+                &dummy_seal(seal_id(0xaa), Vec::new(), vec![first_digest.clone()]),
+            )
             .unwrap();
         let pending = store.list_pending_for_notary(&realm(), None, 10).unwrap();
         assert_eq!(pending.len(), 1);

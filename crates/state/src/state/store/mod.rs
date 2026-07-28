@@ -15,6 +15,7 @@
 pub mod memory;
 
 use arkret_wire::event_envelope::Event;
+use arkret_wire::{ControlProposalDecision, ControlProposalReceipt};
 use thiserror::Error;
 
 use crate::lattice::ordered_log::IssuedOp;
@@ -56,6 +57,16 @@ pub fn control_event_digest(event: &Event) -> StoreResult<Hash> {
 pub struct SealedControlEventRecord {
     pub event: Event,
     pub seal: SealId,
+    pub proposal_receipt: Option<ControlProposalReceipt>,
+    pub decisions: Vec<ControlProposalDecision>,
+    pub decision_overdue: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PendingControlEventRecord {
+    pub event: Event,
+    pub proposal_receipt: Option<ControlProposalReceipt>,
+    pub decisions: Vec<ControlProposalDecision>,
 }
 
 /// Pending + sealed control-plane Event log.
@@ -66,13 +77,46 @@ pub struct SealedControlEventRecord {
 pub trait ControlEventStore: Send + Sync {
     /// Stash a control-plane Event that passed local format / proof
     /// pre-check. Re-`put_pending` of the same digest MUST be idempotent.
-    fn put_pending(&self, event: &Event) -> StoreResult<()>;
+    fn put_pending(&self, event: &Event) -> StoreResult<()> {
+        self.put_pending_with_receipt(event, None)
+    }
+
+    /// Atomically bind the first proposal receipt to the pending Event.
+    ///
+    /// Replays may omit the receipt or provide the byte-identical stored
+    /// value. A different receipt for the same digest is a conflict because it
+    /// would move the already-committed deadlines.
+    fn put_pending_with_receipt(
+        &self,
+        event: &Event,
+        proposal_receipt: Option<&ControlProposalReceipt>,
+    ) -> StoreResult<()>;
 
     /// Promote a previously-pending Event to sealed under `seal`.
     /// Re-anchoring the same Event under the same Seal id is idempotent.
-    fn mark_sealed(&self, event_digest: &Hash, seal: &SealId) -> StoreResult<()>;
+    fn mark_sealed(&self, event_digest: &Hash, seal: &Seal) -> StoreResult<()>;
 
     fn get(&self, event_digest: &Hash) -> StoreResult<Option<Event>>;
+
+    fn proposal_receipt(&self, event_digest: &Hash) -> StoreResult<Option<ControlProposalReceipt>>;
+
+    fn record_proposal_decision(
+        &self,
+        event_digest: &Hash,
+        decision: &ControlProposalDecision,
+    ) -> StoreResult<()>;
+
+    fn list_pending_records(
+        &self,
+        realm_id: &RealmId,
+        limit: usize,
+    ) -> StoreResult<Vec<PendingControlEventRecord>>;
+
+    /// Canonical Realm ids with at least one pending Control Move.
+    ///
+    /// This is the reconciliation source after process restart or a lost
+    /// in-memory wakeup. Results MUST be sorted and unique.
+    fn list_pending_realms(&self, limit: usize) -> StoreResult<Vec<RealmId>>;
 
     /// Pending control-plane Event list for the notary worker, oldest first.
     fn list_pending_for_notary(
@@ -89,10 +133,39 @@ pub trait ControlEventStore: Send + Sync {
         cursor: Option<&Hash>,
         limit: usize,
     ) -> StoreResult<Vec<SealedControlEventRecord>>;
+
+    fn list_retained_faults(
+        &self,
+        realm_id: &RealmId,
+        limit: usize,
+    ) -> StoreResult<Vec<SealedControlEventRecord>>;
 }
 
 /// Seal DAG.
 pub trait SealStore: Send + Sync {
+    /// Acquire a bounded, fenced signing lease for one `(Realm, signer slot)`.
+    ///
+    /// `single_did`, `threshold`, and mixed-primary coordinators use one
+    /// Realm-wide slot. `open_set` uses the signer DID as the slot so distinct
+    /// authorized signers can create concurrent leaves without racing
+    /// themselves across replicas.
+    fn try_claim_signing_lease(
+        &self,
+        realm_id: &RealmId,
+        signer_slot: &str,
+        holder: &str,
+        now_ms: i64,
+        until_ms: i64,
+    ) -> StoreResult<Option<u64>>;
+
+    fn release_signing_lease(
+        &self,
+        realm_id: &RealmId,
+        signer_slot: &str,
+        holder: &str,
+        fence: u64,
+    ) -> StoreResult<bool>;
+
     fn put(&self, a: &Seal) -> StoreResult<()>;
 
     /// Atomically insert `seal` only when the Realm's current leaf set is

@@ -114,6 +114,11 @@ where
     if !seals.predecessors_known(&seal.predecessor_refs)? {
         return Err(SealReject::UnknownPredecessor);
     }
+    if seal.predecessor_refs.is_empty() && seal.delta.is_empty() {
+        return Err(SealReject::Structural(
+            "the first Seal must cover the complete non-empty Realm anchor unit".to_owned(),
+        ));
+    }
 
     let pred_covered = union_predecessor_covered_events(&seal.predecessor_refs, seals)?;
     if seal.delta.iter().any(|m| pred_covered.contains(m)) {
@@ -213,7 +218,7 @@ where
 
     seals.put(seal)?;
     for (digest, ..) in &accepted {
-        events.mark_sealed(digest, &seal.id)?;
+        events.mark_sealed(digest, seal)?;
     }
 
     Ok(SealEffect {
@@ -1089,24 +1094,55 @@ mod tests {
         }])
     }
 
-    /// Genesis Seal over an empty covered set, plus the `seal_basis` a
-    /// Control Move built on it must declare.
-    fn genesis_and_basis() -> (Seal, SealBasis) {
-        let empty_control_root = control_event_set_root(&BTreeSet::new()).unwrap();
+    #[test]
+    fn apply_seal_rejects_an_empty_first_root() {
+        let seal = signed_seal(
+            Vec::new(),
+            Vec::new(),
+            control_event_set_root(&BTreeSet::new()).unwrap(),
+            compute_state_root(&BTreeMap::new()).unwrap(),
+            0,
+        );
+        let events = MemoryControlEventStore::default();
+        let seals = MemorySealStore::default();
+        let cells = MemoryCellStore::default();
+        let registry = MemoryCellRegistry::new();
+        let error = apply_seal(
+            &seal,
+            &events,
+            &seals,
+            &cells,
+            &registry,
+            ok_proofs,
+            join_transition_write,
+        )
+        .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("complete non-empty Realm anchor")
+        );
+    }
+
+    /// First Seal with a non-empty anchor digest, plus the `seal_basis` a
+    /// successor Control Move must declare.
+    fn genesis_and_basis() -> (Seal, SealBasis, Hash) {
+        let anchor = hash(0x01);
+        let control_root = control_event_set_root(&BTreeSet::from([anchor.clone()])).unwrap();
         let empty_state_root = compute_state_root(&BTreeMap::new()).unwrap();
         let genesis = signed_seal(
             Vec::new(),
-            Vec::new(),
-            empty_control_root.clone(),
+            vec![anchor.clone()],
+            control_root.clone(),
             empty_state_root.clone(),
-            1,
+            0,
         );
         let basis = SealBasis {
             leaves: vec![genesis.id.clone()],
-            control_event_set_root: empty_control_root,
+            control_event_set_root: control_root,
             state_root: empty_state_root,
         };
-        (genesis, basis)
+        (genesis, basis, anchor)
     }
 
     #[test]
@@ -1115,7 +1151,7 @@ mod tests {
         let cells = MemoryCellStore::default();
         let events = MemoryControlEventStore::default();
         let registry = MemoryCellRegistry::default();
-        let (genesis, basis) = genesis_and_basis();
+        let (genesis, basis, anchor) = genesis_and_basis();
         seals.put(&genesis).unwrap();
 
         // The Event names no cell and no lattice op anywhere: the projector is
@@ -1124,7 +1160,7 @@ mod tests {
         let digest = control_event_digest(&event).unwrap();
         events.put_pending(&event).unwrap();
 
-        let covered = BTreeSet::from([digest.clone()]);
+        let covered = BTreeSet::from([anchor, digest.clone()]);
         let post_state = BTreeMap::from([(member_cell(), CellState::Value(json!("join")))]);
         let seal = signed_seal(
             vec![genesis.id],
@@ -1163,13 +1199,13 @@ mod tests {
         let cells = MemoryCellStore::default();
         let events = MemoryControlEventStore::default();
         let registry = MemoryCellRegistry::default();
-        let (genesis, basis) = genesis_and_basis();
+        let (genesis, basis, anchor) = genesis_and_basis();
         seals.put(&genesis).unwrap();
         let event = control_move(1, basis, Vec::new(), Vec::new());
         let digest = control_event_digest(&event).unwrap();
         events.put_pending(&event).unwrap();
 
-        let covered = BTreeSet::from([digest.clone()]);
+        let covered = BTreeSet::from([anchor, digest.clone()]);
         let seal = signed_seal(
             vec![genesis.id],
             vec![digest],
@@ -1197,7 +1233,7 @@ mod tests {
         let cells = MemoryCellStore::default();
         let events = MemoryControlEventStore::default();
         let registry = MemoryCellRegistry::default();
-        let (genesis, mut basis) = genesis_and_basis();
+        let (genesis, mut basis, anchor) = genesis_and_basis();
         seals.put(&genesis).unwrap();
         // A concurrent Seal the receiving Seal does not descend from. Admitting
         // it would make acceptance depend on which leaves this receiver happens
@@ -1207,7 +1243,7 @@ mod tests {
         let digest = control_event_digest(&event).unwrap();
         events.put_pending(&event).unwrap();
 
-        let covered = BTreeSet::from([digest.clone()]);
+        let covered = BTreeSet::from([anchor, digest.clone()]);
         let seal = signed_seal(
             vec![genesis.id],
             vec![digest],
@@ -1235,14 +1271,14 @@ mod tests {
         let cells = MemoryCellStore::default();
         let events = MemoryControlEventStore::default();
         let registry = MemoryCellRegistry::default();
-        let (genesis, mut basis) = genesis_and_basis();
+        let (genesis, mut basis, anchor) = genesis_and_basis();
         seals.put(&genesis).unwrap();
         basis.state_root = hash(0xbe);
         let event = control_move(1, basis, Vec::new(), Vec::new());
         let digest = control_event_digest(&event).unwrap();
         events.put_pending(&event).unwrap();
 
-        let covered = BTreeSet::from([digest.clone()]);
+        let covered = BTreeSet::from([anchor, digest.clone()]);
         let seal = signed_seal(
             vec![genesis.id],
             vec![digest],

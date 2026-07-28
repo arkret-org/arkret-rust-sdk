@@ -30,6 +30,7 @@ pub mod cba_proof_bundle;
 pub mod cell;
 pub mod consent_scope;
 pub mod constants;
+pub mod control_proposal;
 pub mod cursor;
 pub mod error_codes;
 pub mod event_envelope;
@@ -75,6 +76,11 @@ pub use cell::{
 };
 pub use consent_scope::*;
 pub use constants::*;
+pub use control_proposal::{
+    ControlProposalDecision, ControlProposalDecisionPolicy, ControlProposalDeferReason,
+    ControlProposalReceipt, ControlProposalReceiptKind, ControlProposalRejectReason,
+    MAX_PROPOSAL_ABSOLUTE_HORIZON, MAX_PROPOSAL_DECISION_WINDOW, MAX_PROPOSAL_DEFERS,
+};
 pub use error::{Error, Result, WireError};
 pub use error_codes::*;
 pub use event_envelope::*;

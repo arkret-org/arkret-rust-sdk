@@ -124,7 +124,7 @@ impl CompactionPolicy {
     /// [`PruneEligibility::Eligible`] when the caller MAY proceed with
     /// the prune.
     pub fn is_eligible(&self, candidate: &PruneCandidate<'_>) -> PruneEligibility {
-        if candidate.candidate.kind.is_compaction() {
+        if candidate.candidate.is_compaction() {
             return PruneEligibility::CompactionItself;
         }
         if self.preserve_genesis && candidate.is_genesis {
@@ -178,7 +178,9 @@ mod tests {
             data_event_set_root: None,
             availability_root: None,
             coverage_scope: None,
-            covered_event_digests: Vec::new(),
+            covered_event_digests: matches!(kind, SealKind::Compaction)
+                .then(|| vec![Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap()])
+                .unwrap_or_default(),
             previous_state_root: None,
             previous_digest_algorithm: None,
             notary_signature: NotarySig::Single(sig),

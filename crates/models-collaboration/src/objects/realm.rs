@@ -5,10 +5,11 @@ use std::collections::BTreeMap;
 use arkret_wire::constants::{CORE_SCHEMA_PROFILE, REALM_SCHEMA_ID};
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    BlobRef, Did, Discoverability, EncryptionProfile, Error, FederationPolicy, HistoryVisibility,
-    JoinRule, PolicyId, RealmId, Result, SecurityClass, TypedTrustDomainId, canonical,
+    BlobRef, ControlProposalDecisionPolicy, Did, Discoverability, EncryptionProfile, Error,
+    FederationPolicy, HistoryVisibility, JoinRule, PolicyId, RealmId, Result, SecurityClass,
+    StrandId, TypedTrustDomainId, canonical,
 };
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -65,6 +66,11 @@ pub struct Realm {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub owning_organizations: Vec<Did>,
     pub schema_refs: Vec<String>,
+    /// Product/profile fields carried by `realm.schema.json`. Security
+    /// discriminators such as `purpose=principal_control` are validated by
+    /// the profile-specific admission path.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fields: BTreeMap<String, Value>,
     /// Per-relation_kind cardinality declarations enforced by the resolver.
     /// Empty means every relation kind is many-to-many.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -73,6 +79,8 @@ pub struct Realm {
     pub policy_id: Option<PolicyId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preview_policy_id: Option<PolicyId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_strand_id: Option<StrandId>,
     pub default_discoverability: Discoverability,
     pub default_join_rule: JoinRule,
     pub history_visibility: HistoryVisibility,
@@ -107,6 +115,10 @@ pub struct Realm {
     /// threshold / open-set / mixed deployment shape. This create-locked
     /// discriminator must match the genesis `notary` cell value.
     pub notary_profile: NotaryProfile,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub availability_policy: Option<RealmAvailabilityPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audit_policy: Option<RealmAuditPolicy>,
     #[serde(default)]
     pub digest_algorithm: canonical::DigestSuite,
     /// Initial notary cell value (data-structures.md §4). Reducers seed the
@@ -114,17 +126,24 @@ pub struct Realm {
     /// Subsequent notary changes strand through Move on the
     /// `ak:cell:ak.component.notary.v1:<realm_id>` cell.
     pub notary: NotaryValue,
-    /// Product/profile fields carried by `realm.schema.json`. Security
-    /// discriminators such as `purpose=principal_control` are validated by
-    /// the profile-specific admission path.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub fields: BTreeMap<String, Value>,
     /// Soft cap on how stale the latest Seal leaf may be before clients
     /// SHOULD warn / re-fetch. `None` means "implementation default" (spec
     /// suggests 30s for single-DID, longer for threshold). Reducer-derived
     /// field; passing a value at create time is a hint only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revocation_freshness_window_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_witness_freshness_window_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receipt_sla_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proposal_decision_window_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proposal_absolute_deadline_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_proposal_defers: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seal_compaction_max_interval_ms: Option<u64>,
     #[serde(default = "default_max_delegation_lifetime_ms")]
     pub max_delegation_lifetime_ms: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -183,7 +202,7 @@ pub struct DurabilityPolicy {
 /// Durability mode selector. `None` = no organizational recovery path (total
 /// member loss = permanent loss); `OrgRecoveryKey` = single org RRK;
 /// `Threshold` = k-of-n recovery recipients.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DurabilityMode {
     None,
@@ -193,7 +212,7 @@ pub enum DurabilityMode {
 
 /// k-of-n threshold parameters for `DurabilityMode::Threshold`. `k <= n` and
 /// `n` MUST equal `recovery_recipients.len()`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct DurabilityThreshold {
     pub k: u32,
     pub n: u32,
@@ -264,6 +283,48 @@ pub enum CoWritePolicy {
     CausalOnly,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AvailabilityHolderRole {
+    Notary,
+    IndependentWitness,
+    SyncMirror,
+    ArchiveNode,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AvailabilityEvidenceScope {
+    SealInclude,
+    Snapshot,
+    Backfill,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmAvailabilityPolicy {
+    pub min_holders: u8,
+    pub holder_roles: Vec<AvailabilityHolderRole>,
+    pub applies_to: Vec<AvailabilityEvidenceScope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub minimum_retention_ms: Option<u64>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuditWitnessIndependence {
+    DistinctDid,
+    DistinctControllingOrganization,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmAuditPolicy {
+    pub range_completeness_witnesses: Vec<Did>,
+    pub witnessed_min_attestations: u8,
+    pub witness_independence: AuditWitnessIndependence,
+}
+
 fn default_max_delegation_lifetime_ms() -> u64 {
     86_400_000
 }
@@ -291,9 +352,11 @@ impl Realm {
             trust_domain,
             owning_organizations: Vec::new(),
             schema_refs: vec![CORE_SCHEMA_PROFILE.to_owned()],
+            fields: BTreeMap::new(),
             relation_profiles: Vec::new(),
             policy_id: None,
             preview_policy_id: None,
+            default_strand_id: None,
             default_discoverability: Discoverability::InviteOnly,
             default_join_rule: JoinRule::Invite,
             history_visibility: HistoryVisibility::Joined,
@@ -306,10 +369,17 @@ impl Realm {
             federation_policy: None,
             sync_endpoints: Vec::new(),
             notary_profile,
+            availability_policy: None,
+            audit_policy: None,
             digest_algorithm: canonical::DigestSuite::Sha256,
             notary,
-            fields: BTreeMap::new(),
             revocation_freshness_window_ms: None,
+            recovery_witness_freshness_window_ms: None,
+            receipt_sla_ms: None,
+            proposal_decision_window_ms: None,
+            proposal_absolute_deadline_ms: None,
+            max_proposal_defers: None,
+            seal_compaction_max_interval_ms: None,
             max_delegation_lifetime_ms: default_max_delegation_lifetime_ms(),
             bottom_escalation_after_ms: None,
             cell_lattices: Vec::new(),
@@ -344,6 +414,27 @@ impl Realm {
     pub fn with_revocation_freshness_window(mut self, max_ms: u64) -> Self {
         self.revocation_freshness_window_ms = Some(max_ms);
         self
+    }
+
+    pub fn control_proposal_decision_policy(&self) -> Result<ControlProposalDecisionPolicy> {
+        let duration_from_ms = |value: u64, field: &str| {
+            i64::try_from(value)
+                .map(Duration::milliseconds)
+                .map_err(|_| Error::Protocol(format!("{field} exceeds the signed duration range")))
+        };
+        let policy = ControlProposalDecisionPolicy {
+            decision_window: duration_from_ms(
+                self.proposal_decision_window_ms.unwrap_or(30_000),
+                "proposal_decision_window_ms",
+            )?,
+            absolute_horizon: duration_from_ms(
+                self.proposal_absolute_deadline_ms.unwrap_or(90_000),
+                "proposal_absolute_deadline_ms",
+            )?,
+            max_defers: self.max_proposal_defers.unwrap_or(2),
+        };
+        policy.validate()?;
+        Ok(policy)
     }
 
     /// Builder: declare a per-cell-family lattice hint. Append-only; call
@@ -396,6 +487,99 @@ impl Realm {
                 "Realm notary_profile must match notary.kind".to_owned(),
             ));
         }
+        self.control_proposal_decision_policy()?;
+        if self
+            .recovery_witness_freshness_window_ms
+            .is_some_and(|value| value > 604_800_000)
+        {
+            return Err(Error::Protocol(
+                "recovery_witness_freshness_window_ms exceeds 7 days".to_owned(),
+            ));
+        }
+        if self
+            .seal_compaction_max_interval_ms
+            .is_some_and(|value| !(300_000..=604_800_000).contains(&value))
+        {
+            return Err(Error::Protocol(
+                "seal_compaction_max_interval_ms must be within 5 minutes..=7 days".to_owned(),
+            ));
+        }
+        if let Some(policy) = &self.availability_policy {
+            if !(1..=16).contains(&policy.min_holders)
+                || policy.holder_roles.is_empty()
+                || policy.applies_to.is_empty()
+                || policy
+                    .holder_roles
+                    .iter()
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .len()
+                    != policy.holder_roles.len()
+                || policy
+                    .applies_to
+                    .iter()
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .len()
+                    != policy.applies_to.len()
+            {
+                return Err(Error::Protocol(
+                    "Realm availability_policy violates its bounded unique-set contract".to_owned(),
+                ));
+            }
+        }
+        if let Some(policy) = &self.audit_policy {
+            let witness_count = policy.range_completeness_witnesses.len();
+            if !(1..=64).contains(&witness_count)
+                || !(1..=16).contains(&policy.witnessed_min_attestations)
+                || usize::from(policy.witnessed_min_attestations) > witness_count
+                || policy
+                    .range_completeness_witnesses
+                    .iter()
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .len()
+                    != witness_count
+            {
+                return Err(Error::Protocol(
+                    "Realm audit_policy violates its bounded witness contract".to_owned(),
+                ));
+            }
+        }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn realm() -> Realm {
+        let notary = Did::new("did:web:notary.example").unwrap();
+        Realm::new(
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            "Policy Realm",
+            notary.clone(),
+            TypedTrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
+            NotaryProfile::SingleDid,
+            NotaryValue::single_did(notary),
+        )
+    }
+
+    #[test]
+    fn proposal_policy_uses_realm_overrides_within_protocol_ceilings() {
+        let mut realm = realm();
+        realm.proposal_decision_window_ms = Some(3_600_000);
+        realm.proposal_absolute_deadline_ms = Some(7_200_000);
+        realm.max_proposal_defers = Some(1);
+        let policy = realm.control_proposal_decision_policy().unwrap();
+        assert_eq!(policy.decision_window, Duration::hours(1));
+        assert_eq!(policy.absolute_horizon, Duration::hours(2));
+        assert_eq!(policy.max_defers, 1);
+    }
+
+    #[test]
+    fn proposal_policy_rejects_an_absolute_window_shorter_than_the_first_window() {
+        let mut realm = realm();
+        realm.proposal_decision_window_ms = Some(60_000);
+        realm.proposal_absolute_deadline_ms = Some(30_000);
+        assert!(realm.control_proposal_decision_policy().is_err());
     }
 }
