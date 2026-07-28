@@ -16,7 +16,8 @@ use std::sync::OnceLock;
 /// Re-exported so this module and the wire layer cannot drift apart.
 pub use arkret_wire::NULL_SUBJECT as NULL_CELL_SUBJECT;
 use arkret_wire::{
-    CellRef, Event, LatticeOp, LatticeOpType, ObservedRemoveMatch, ProjectedCellWrite, ProjectedOp,
+    CellRef, Event, EventId, LatticeOp, LatticeOpType, ObservedRemoveMatch, ProjectedCellWrite,
+    ProjectedOp,
 };
 use serde_json::Value;
 use thiserror::Error;
@@ -465,6 +466,38 @@ fn derive_effect_ops(
             };
             Ok(vec![ProjectedOp::RemoveObserved { element_match }])
         }
+        "or_set_remove_dots" => {
+            require_lattice(kind, projection_kind, lattice, &["or_set"])?;
+            let dots = source("dots")?;
+            let dots = dots.as_array().ok_or_else(|| {
+                effect_set_error(kind, "or_set_remove_dots dots must be an array")
+            })?;
+            if dots.is_empty() {
+                return Err(effect_set_error(
+                    kind,
+                    "or_set_remove_dots dots must not be empty",
+                ));
+            }
+            let mut seen = BTreeMap::new();
+            dots.iter()
+                .map(|value| {
+                    let dot = value.as_str().ok_or_else(|| {
+                        effect_set_error(kind, "or_set_remove_dots dots must be strings")
+                    })?;
+                    validate_or_set_dot(dot).map_err(|message| effect_set_error(kind, &message))?;
+                    if seen.insert(dot, ()).is_some() {
+                        return Err(effect_set_error(
+                            kind,
+                            "or_set_remove_dots dots must be unique",
+                        ));
+                    }
+                    let mut op = LatticeOp::empty();
+                    op.op_type = LatticeOpType::Remove;
+                    op.tag = Some(dot.to_owned());
+                    Ok(ProjectedOp::Direct(op))
+                })
+                .collect()
+        }
         "or_set_batch_add" => {
             require_lattice(kind, projection_kind, lattice, &["or_set"])?;
             let tag_context = projection
@@ -564,6 +597,21 @@ fn derive_effect_ops(
             &format!("unknown effect_projection kind {other}"),
         )),
     }
+}
+
+fn validate_or_set_dot(dot: &str) -> Result<(), String> {
+    let (event_id, write_index) = dot
+        .rsplit_once(':')
+        .ok_or_else(|| "or_set_remove_dots contains a non-canonical dot".to_owned())?;
+    EventId::new(event_id.to_owned())
+        .map_err(|_| "or_set_remove_dots contains a non-canonical dot".to_owned())?;
+    let parsed = write_index
+        .parse::<usize>()
+        .map_err(|_| "or_set_remove_dots contains a non-canonical dot".to_owned())?;
+    if parsed.to_string() != write_index {
+        return Err("or_set_remove_dots contains a non-canonical dot".to_owned());
+    }
+    Ok(())
 }
 
 /// `dot = "ak:event:" + event_id + ":" + write_index`
@@ -1309,6 +1357,13 @@ mod tests {
         ProjectedOp::Direct(op)
     }
 
+    fn remove_op(tag: &str) -> ProjectedOp {
+        let mut op = LatticeOp::empty();
+        op.op_type = LatticeOpType::Remove;
+        op.tag = Some(tag.to_owned());
+        ProjectedOp::Direct(op)
+    }
+
     fn append_op(value: Value, issuer_seq: u64) -> ProjectedOp {
         let mut op = LatticeOp::empty();
         op.op_type = LatticeOpType::Append;
@@ -2010,6 +2065,81 @@ mod tests {
                         ProjectedOp::TransitionTo { to: json!("leave") },
                     ),
                 ]
+            );
+        }
+    }
+
+    fn consent_revoke_event(observed_dots: Value) -> Event {
+        serde_json::from_value(json!({
+            "event_id": "ak:event:019f9000-0000-7000-8000-000000000015",
+            "kind": EventKind::CONSENT_REVOKE,
+            "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002",
+            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9000-0000-7000-8000-000000000002"},
+            "actor_id": "did:webvh:z6mkfixture:alice.example",
+            "actor_seq": 6,
+            "created_at": "2026-07-26T00:00:00.000Z",
+            "hlc": "019f90000000-0000-aabbccdd",
+            "prev_refs": [],
+            "seal_basis": {
+                "leaves": ["ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+                "control_event_set_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "state_root": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            },
+            "payload": {
+                "consent_id": "ak:consent:019f9000-0000-7000-8000-000000000014",
+                "observed_dots": observed_dots,
+                "revoked_at": "2026-07-26T00:00:00.000Z"
+            },
+            "proofs": []
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn consent_revoke_projects_each_explicit_dot_in_payload_order() {
+        let first = "ak:event:019f9000-0000-7000-8000-000000000011:0";
+        let second = "ak:event:019f9000-0000-7000-8000-000000000012:3";
+        assert_eq!(
+            project(&consent_revoke_event(json!([first, second]))),
+            vec![
+                write(
+                    "ak:cell:ak.component.consent.grant.v1:ak:consent:019f9000-0000-7000-8000-000000000014",
+                    remove_op(first),
+                ),
+                write(
+                    "ak:cell:ak.component.consent.grant.v1:ak:consent:019f9000-0000-7000-8000-000000000014",
+                    remove_op(second),
+                ),
+            ],
+        );
+    }
+
+    #[test]
+    fn consent_revoke_rejects_empty_duplicate_and_noncanonical_dots() {
+        for (dots, expected) in [
+            (json!([]), "must not be empty"),
+            (
+                json!([
+                    "ak:event:019f9000-0000-7000-8000-000000000011:0",
+                    "ak:event:019f9000-0000-7000-8000-000000000011:0"
+                ]),
+                "must be unique",
+            ),
+            (
+                json!(["ak:event:019f9000-0000-7000-8000-000000000011:00"]),
+                "non-canonical dot",
+            ),
+            (json!(["not-a-dot"]), "non-canonical dot"),
+        ] {
+            let error = project_registered_cell_writes(
+                &consent_revoke_event(dots),
+                arkret_canonical::DigestSuite::Sha256,
+            )
+            .expect_err("invalid explicit dot arrays must fail closed");
+            assert_eq!(error.reason_code(), "effects_payload_mismatch");
+            assert!(
+                error.to_string().contains(expected),
+                "expected {expected}, got {error}"
             );
         }
     }
