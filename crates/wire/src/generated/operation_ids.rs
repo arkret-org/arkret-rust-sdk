@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-07-20;
-//! sha256=03eb4b6120102af9ad6bfc335d7b5dd471a3787b178e393902aac4cbc7c72a41 Entries: registered=211
+//! sha256=3fcd442d746116bc1ed4d658c2a03315fee5d94d8accdef6953c98f2c742f45f Entries: registered=211
 
 use serde::{Deserialize, Serialize};
 
@@ -2707,10 +2707,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsResolveRequestBody",
+            "schemas/service-operation-dtos.schema.json#/$defs/PeerEventsResolveRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsResolveOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/PeerEventsResolveOutcome",
         ),
         uncertain_outcome: None,
     },

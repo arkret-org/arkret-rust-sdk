@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=898aece6892a0ece7da7e2fd43d77fc029e1f3754641ff4709981db52b783189
+//! sha256=01b783fef34032c8abcf350f73efd91348b6db0f4ed8687260fe39d3d5295381
 //! Entries: reason_codes=445
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -136,6 +136,7 @@ pub enum ReasonCode {
     DeliveryBindingPolicyMismatch,
     DeliveryBindingStale,
     DeltaContainsDataEvent,
+    DependencyMissing,
     DeviceAuthorizedPrincipalControlRealmMismatch,
     DeviceEnrollmentAuthoritySnapshotMissing,
     DeviceGenerationFenced,
@@ -168,7 +169,6 @@ pub enum ReasonCode {
     ExpiredInviteToken,
     ExternalRateLimited,
     FederationAuthorityMismatch,
-    FederationDependenciesPending,
     FederationTrustDomainMismatch,
     FocusMismatch,
     FocusUnavailableForClient,
@@ -626,6 +626,7 @@ impl ReasonCode {
     pub const DELIVERY_BINDING_POLICY_MISMATCH: &'static str = "delivery_binding_policy_mismatch";
     pub const DELIVERY_BINDING_STALE: &'static str = "delivery_binding_stale";
     pub const DELTA_CONTAINS_DATA_EVENT: &'static str = "delta_contains_data_event";
+    pub const DEPENDENCY_MISSING: &'static str = "dependency_missing";
     pub const DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH: &'static str =
         "device_authorized_principal_control_realm_mismatch";
     pub const DEVICE_ENROLLMENT_AUTHORITY_SNAPSHOT_MISSING: &'static str =
@@ -672,7 +673,6 @@ impl ReasonCode {
     pub const EXPIRED_INVITE_TOKEN: &'static str = "expired_invite_token";
     pub const EXTERNAL_RATE_LIMITED: &'static str = "external_rate_limited";
     pub const FEDERATION_AUTHORITY_MISMATCH: &'static str = "federation_authority_mismatch";
-    pub const FEDERATION_DEPENDENCIES_PENDING: &'static str = "federation_dependencies_pending";
     pub const FEDERATION_TRUST_DOMAIN_MISMATCH: &'static str = "federation_trust_domain_mismatch";
     pub const FOCUS_MISMATCH: &'static str = "focus_mismatch";
     pub const FOCUS_UNAVAILABLE_FOR_CLIENT: &'static str = "focus_unavailable_for_client";
@@ -1151,6 +1151,7 @@ impl ReasonCode {
             Self::DeliveryBindingPolicyMismatch => "delivery_binding_policy_mismatch",
             Self::DeliveryBindingStale => "delivery_binding_stale",
             Self::DeltaContainsDataEvent => "delta_contains_data_event",
+            Self::DependencyMissing => "dependency_missing",
             Self::DeviceAuthorizedPrincipalControlRealmMismatch => {
                 "device_authorized_principal_control_realm_mismatch"
             }
@@ -1199,7 +1200,6 @@ impl ReasonCode {
             Self::ExpiredInviteToken => "expired_invite_token",
             Self::ExternalRateLimited => "external_rate_limited",
             Self::FederationAuthorityMismatch => "federation_authority_mismatch",
-            Self::FederationDependenciesPending => "federation_dependencies_pending",
             Self::FederationTrustDomainMismatch => "federation_trust_domain_mismatch",
             Self::FocusMismatch => "focus_mismatch",
             Self::FocusUnavailableForClient => "focus_unavailable_for_client",
@@ -1674,6 +1674,7 @@ impl ReasonCode {
             "delivery_binding_policy_mismatch" => Self::DeliveryBindingPolicyMismatch,
             "delivery_binding_stale" => Self::DeliveryBindingStale,
             "delta_contains_data_event" => Self::DeltaContainsDataEvent,
+            "dependency_missing" => Self::DependencyMissing,
             "device_authorized_principal_control_realm_mismatch" => {
                 Self::DeviceAuthorizedPrincipalControlRealmMismatch
             }
@@ -1722,7 +1723,6 @@ impl ReasonCode {
             "expired_invite_token" => Self::ExpiredInviteToken,
             "external_rate_limited" => Self::ExternalRateLimited,
             "federation_authority_mismatch" => Self::FederationAuthorityMismatch,
-            "federation_dependencies_pending" => Self::FederationDependenciesPending,
             "federation_trust_domain_mismatch" => Self::FederationTrustDomainMismatch,
             "focus_mismatch" => Self::FocusMismatch,
             "focus_unavailable_for_client" => Self::FocusUnavailableForClient,
@@ -2710,6 +2710,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A Seal delta contained a data-plane (DataEvent) digest. A Seal delta MUST carry newly sealed control-plane event digests only; including a DataEvent digest is a Seal validation failure and receivers MUST reject the Seal (rejected_seal). See models/event-and-patch.md and fixtures/cba-lattice-fixture.json.",
     },
     ReasonCodeDescriptor {
+        code: "dependency_missing",
+        applies_to: &["batch_item", "federation_transaction"],
+        description: "The item cannot yet be verified because an exact Event, Seal, predecessor, proof, or other signed dependency is absent. Federation submit items MUST include at least one non-empty typed missing set; independent complete items remain eligible for acceptance. Dual-registered with the top-level service code.",
+    },
+    ReasonCodeDescriptor {
         code: "device_authorized_principal_control_realm_mismatch",
         applies_to: &["auth_decision", "state_resolution"],
         description: "A non-bootstrap ak.device.authorize event was submitted outside the principal's bound principal_control Realm, or the Realm purpose/profile/created_by does not match the device owner and issuer principal. Reducer MUST fail closed. See zh/identity/key-management.md §5.0.3.",
@@ -2868,11 +2873,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "federation_authority_mismatch",
         applies_to: &["federation_transaction", "service_call"],
         description: "HTTP Message Signature @authority / target URI host does not match the resolved service endpoint for Destination-Service-ID, or the Destination-Service-ID is not authorized by Realm policy for the requested federation operation. Receiver MUST reject before processing events.",
-    },
-    ReasonCodeDescriptor {
-        code: "federation_dependencies_pending",
-        applies_to: &["batch_item", "federation_transaction"],
-        description: "The individual federation Event cannot yet be verified because a required Event or signed Seal closure element is absent. This is retryable after bounded dependency backfill; it is not a permanent authorization denial. Independent complete items in an ordinary batch remain eligible for acceptance. Dual-registered as a reason_code and a top-level service code (see codes[]).",
     },
     ReasonCodeDescriptor {
         code: "federation_trust_domain_mismatch",

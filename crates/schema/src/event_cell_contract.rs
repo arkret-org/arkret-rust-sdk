@@ -1607,18 +1607,10 @@ mod tests {
             ),
             "ak:organization:019f9e50-d787-74e0-8731-c9ad5eaa9182"
         );
-        assert_eq!(
-            registered_subject(
-                "ak.relation.create",
-                json!({
-                    "relation_id": "ak:relation:019f9e50-d787-74e0-8731-c9ad5eaa9182",
-                    "kind": "references",
-                    "from_ref": "ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9183",
-                    "to_ref": "ak:strand:019f9e50-d787-74e0-8731-c9ad5eaa9184"
-                })
-            ),
-            "ak:relation:019f9e50-d787-74e0-8731-c9ad5eaa9182"
-        );
+        // Only the object branch survives: arkret-spec 83341cc0 deleted the flat
+        // {relation_id, kind, from_ref, to_ref} form, whose subject was
+        // derivable but whose cell value was not — effect_projection is
+        // `set value = payload.relation`, and §2.4.2 forbids assembling one.
         assert_eq!(
             registered_subject(
                 "ak.relation.create",

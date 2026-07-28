@@ -305,8 +305,18 @@ where
         if event.realm_id != bundle.realm_id || event.scope_ref != bundle.effective_scope {
             return state_mismatch("frontier Event Realm or scope mismatch");
         }
-        if event.seal_ref.is_some() || event.seal_basis.is_none() {
-            return schema("frontier Event is not a Control Move");
+        // `encryption-and-audit.md` §2.5.1.1 step 6 is the closed per-Event
+        // list: recompute the producer digest, verify proofs, confirm digest
+        // inclusion, control-plane family, Realm and scope. A `seal_basis`
+        // presence test is not among them, and requiring one excluded every
+        // §5 anchor unit — `ak.realm.create` carries no CBA basis field at
+        // all, and it is the only membership-frontier Event a freshly
+        // bootstrapped Realm has, so no such Realm could produce a verifiable
+        // bundle. What the step does require is that the Event is
+        // control-plane, which a `seal_ref` disproves and which the projected
+        // cell family below confirms.
+        if event.seal_ref.is_some() {
+            return schema("frontier Event is a DataEvent, not a Control Move");
         }
         // The affected cells are receiver-projected from the registered
         // reducer contract; the Event itself never names them. The projector
@@ -590,7 +600,13 @@ mod tests {
 
     fn fixture() -> Fixture {
         let effective_scope = ScopeRef::Realm { realm_id: realm() };
-        let frontier_event = frontier_event(effective_scope.clone());
+        fixture_with_frontier(frontier_event(effective_scope.clone()), effective_scope)
+    }
+
+    /// Every digest in the bundle is derived from the frontier Event, so a
+    /// variant Event has to rebuild the whole fixture — mutating one in place
+    /// would trip digest inclusion before reaching the check under test.
+    fn fixture_with_frontier(frontier_event: Event, effective_scope: ScopeRef) -> Fixture {
         let frontier_digest = Hash::new(frontier_event.event_digest().unwrap()).unwrap();
         let covered_event_digests = vec![frontier_digest.clone()];
         let covered = BTreeSet::from([frontier_digest]);
@@ -950,6 +966,45 @@ mod tests {
         };
         let error = verify(&fixture).unwrap_err();
         assert!(error.to_string().contains(ErrorCode::STATE_MISMATCH));
+    }
+
+    #[test]
+    fn a_seal_basis_free_anchor_unit_is_a_valid_frontier_event() {
+        // `event-auth-state-resolution.md` §5 requires ak.realm.create to carry
+        // no CBA basis field at all, and it is the only membership-frontier
+        // Event a freshly bootstrapped Realm has. Requiring a seal_basis here
+        // meant no such Realm could ever produce a verifiable bundle.
+        // §2.5.1.1 step 6 does not list a basis presence test.
+        let effective_scope = ScopeRef::Realm { realm_id: realm() };
+        let mut anchor_unit = frontier_event(effective_scope.clone());
+        anchor_unit.seal_basis = None;
+        // seal_basis is inside the producer digest, so the pinned proof digest
+        // has to follow — otherwise the proof check fires first and this would
+        // pass for the wrong reason.
+        anchor_unit.proofs[0].event_digest =
+            Hash::new(anchor_unit.event_digest().unwrap()).unwrap();
+        let fixture = fixture_with_frontier(anchor_unit, effective_scope);
+
+        verify(&fixture).expect("an anchor unit must be an admissible frontier Event");
+    }
+
+    #[test]
+    fn a_data_event_is_still_not_a_valid_frontier_event() {
+        // The half of the old check that step 6 does require: the frontier is
+        // control-plane. A seal_ref disproves that regardless of basis.
+        let effective_scope = ScopeRef::Realm { realm_id: realm() };
+        let mut data_event = frontier_event(effective_scope.clone());
+        data_event.seal_basis = None;
+        data_event.seal_ref =
+            Some(SealId::new(format!("ak:seal:{}", hash(0xb1).as_str())).unwrap());
+        data_event.proofs[0].event_digest = Hash::new(data_event.event_digest().unwrap()).unwrap();
+        let fixture = fixture_with_frontier(data_event, effective_scope);
+
+        let error = verify(&fixture).unwrap_err();
+        assert!(
+            error.to_string().contains(ErrorCode::SCHEMA_VIOLATION),
+            "unexpected error: {error}"
+        );
     }
 
     #[test]
