@@ -857,8 +857,8 @@ mod tests {
         use arkret_wire::{
             AuthoritySetRef, AuthorizationLease, AuthorizationLeaseId, BlobRef, DeviceId, Did,
             Event, EventId, EventInitialSubmission, EventRequirements, Hash, Hlc, LeaseBasisRef,
-            MimiRoomUri, NonEmptyString, Proof, RealmId, RiskTier, ScopeRef, SealId, ServiceKind,
-            StrandId, proof_kind,
+            MimiRoomUri, NonEmptyString, PayloadProof, RealmId, RiskTier, ScopeRef, SealId,
+            ServiceKind, StrandId, proof_kind,
         };
         use serde_json::{Value, json};
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -939,11 +939,11 @@ mod tests {
                 proofs: Vec::new(),
             };
             let lease_digest = authorization_lease.lease_digest().unwrap();
-            authorization_lease.proofs = vec![Proof {
+            authorization_lease.proofs = vec![PayloadProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 alg: "EdDSA".to_owned(),
                 verification_method: "did:webvh:z6mkfixture:authority.example#key-1".to_owned(),
-                event_digest: lease_digest,
+                payload_digest: lease_digest,
                 created_at: issued_at,
                 domain: None,
                 audience: None,

@@ -18,7 +18,7 @@ use crate::cba::SealBasis;
 use crate::error::{Error, Result};
 use crate::event_envelope::ScopeRef;
 use crate::generated::ProofContextId;
-use crate::primitives::{Audience, Proof};
+use crate::primitives::{Audience, PayloadProof};
 use crate::{AuthorizationLeaseId, DeviceId, Did, Hash, ReceiptId, SealId, canonical};
 
 /// Maximum number of issuer proofs on a lease or receipt
@@ -100,7 +100,7 @@ pub struct AuthorizationLease {
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub authority_set_ref: AuthoritySetRef,
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<PayloadProof>,
 }
 
 /// Signed proof that a policy-accepted ingress received one Event digest
@@ -120,7 +120,7 @@ pub struct IngressReceipt {
     pub received_at: DateTime<Utc>,
     pub service_id: Did,
     pub authority_set_ref: AuthoritySetRef,
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<PayloadProof>,
 }
 
 fn digest_without_proofs<T: Serialize>(value: &T) -> Result<Hash> {
@@ -172,7 +172,7 @@ fn publication_binding_bytes(
     Ok(canonical::canonical_json_bytes(&Value::Object(object))?)
 }
 
-fn validate_proof_set(proofs: &[Proof], expected_digest: &Hash) -> Result<()> {
+fn validate_proof_set(proofs: &[PayloadProof], expected_digest: &Hash) -> Result<()> {
     if proofs.is_empty() || proofs.len() > MAX_PUBLICATION_PROOFS {
         return Err(Error::Protocol(format!(
             "publication evidence requires 1..={MAX_PUBLICATION_PROOFS} proofs"
@@ -180,7 +180,7 @@ fn validate_proof_set(proofs: &[Proof], expected_digest: &Hash) -> Result<()> {
     }
     for proof in proofs {
         proof.validate()?;
-        if proof.event_digest != *expected_digest {
+        if proof.payload_digest != *expected_digest {
             return Err(Error::Protocol(
                 "publication proof does not cover the object's canonical digest".to_owned(),
             ));
@@ -193,7 +193,7 @@ fn validate_proof_set(proofs: &[Proof], expected_digest: &Hash) -> Result<()> {
 ///
 /// Signature array length is not a quorum: a duplicated verification method
 /// counts once (`offline-publication.md` §1 / §2).
-pub fn distinct_issuer_count(proofs: &[Proof]) -> usize {
+pub fn distinct_issuer_count(proofs: &[PayloadProof]) -> usize {
     proofs
         .iter()
         .map(|proof| proof.verification_method.as_str())
@@ -208,7 +208,7 @@ impl AuthorizationLease {
     }
 
     /// Canonical bytes the issuer identified by `proof` must sign.
-    pub fn proof_binding_bytes(&self, proof: &Proof) -> Result<Vec<u8>> {
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
         publication_binding_bytes(
             ProofContextId::AUTHORIZATION_LEASE_PROOF_V1,
             &self.lease_digest()?,
@@ -267,7 +267,7 @@ impl IngressReceipt {
     }
 
     /// Canonical bytes the ingress identified by `proof` must sign.
-    pub fn proof_binding_bytes(&self, proof: &Proof) -> Result<Vec<u8>> {
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
         publication_binding_bytes(
             ProofContextId::INGRESS_RECEIPT_PROOF_V1,
             &self.receipt_digest()?,
@@ -372,11 +372,11 @@ mod tests {
             proofs: Vec::new(),
         };
         let digest = lease.lease_digest().unwrap();
-        lease.proofs = vec![Proof {
+        lease.proofs = vec![PayloadProof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
             alg: "EdDSA".to_owned(),
             verification_method: "did:webvh:z6mkfixture:authority.example#key-1".to_owned(),
-            event_digest: digest,
+            payload_digest: digest,
             created_at: lease.issued_at,
             domain: None,
             audience: None,
@@ -397,11 +397,11 @@ mod tests {
             proofs: Vec::new(),
         };
         let digest = receipt.receipt_digest().unwrap();
-        receipt.proofs = vec![Proof {
+        receipt.proofs = vec![PayloadProof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
             alg: "EdDSA".to_owned(),
             verification_method: "did:webvh:z6mkfixture:ingress.example#key-1".to_owned(),
-            event_digest: digest,
+            payload_digest: digest,
             created_at: received_at,
             domain: None,
             audience: None,

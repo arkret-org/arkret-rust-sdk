@@ -73,3 +73,18 @@
   cannot represent the wrong branch.
 - Prevention dimension: a protocol closed union should be enforced at construction and
   deserialization boundaries, not as a convention imposed on every downstream handler.
+
+## 2026-07-29 — publication evidence used the Event-only proof wire
+
+- Surface: `arkret-wire::AuthorizationLease` and `arkret-wire::IngressReceipt`.
+- Regression: both non-Event signed objects exposed `Proof`, whose digest member is
+  `event_digest`, although `offline-publication.schema.json` references the generic
+  non-Event proof shape with `payload_digest`. The helper then signed a non-Event context while
+  serializing an Event-only proof, producing wire that the normative schema rejects.
+- Detection: implementing the Account Authority recovery outcome lease and comparing the SDK
+  authoring path against the exact offline-publication schema.
+- Correction: use `PayloadProof` throughout publication evidence, validate
+  `payload_digest`, and migrate all SDK fixtures/helpers without aliases or dual decoding.
+- Prevention dimension: every signed object family must test its serialized proof member names
+  against its exact schema reference; Event proof helpers may never be reused by non-Event
+  objects.

@@ -1042,8 +1042,8 @@ impl EventsSubmitFederationRequestBody {
 mod tests {
     use arkret_wire::{
         AuthoritySetRef, AuthorizationLease, AuthorizationLeaseId, DeviceId, DidKey, Hash,
-        IngressReceipt, LeaseBasisRef, NotarySig, PayloadSignature, Proof, ReceiptId, RiskTier,
-        ScopeRef, SealKind,
+        IngressReceipt, LeaseBasisRef, NotarySig, PayloadProof, PayloadSignature, ReceiptId,
+        RiskTier, ScopeRef, SealKind,
     };
     use serde_json::json;
 
@@ -1231,12 +1231,12 @@ mod tests {
         verification_method: &str,
         payload_digest: Hash,
         created_at: DateTime<Utc>,
-    ) -> Proof {
-        Proof {
+    ) -> PayloadProof {
+        PayloadProof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
             verification_method: verification_method.to_owned(),
-            event_digest: payload_digest,
+            payload_digest,
             created_at,
             domain: None,
             audience: None,
