@@ -3,12 +3,12 @@
 //! Input: registry/id-kind-registry.json; version=2026-07-20;
 //! sha256=9468557bda241ab4c8a0bbd1d1cf0c19955ff59ba3caa35bf0f5aa1608995796 Input: registry/
 //! capability-action-registry.json; version=2026-07-20;
-//! sha256=1a6e23305bfa5690e79ed6632097783dc50038576ddced67a6bafd82a32054b0 Input: registry/
+//! sha256=449da095c4545f33ff8cc7f67f466c018ac9d3768e625e5f981c748448c6ef78 Input: registry/
 //! schema-registry.json; version=2026-07-20;
 //! sha256=f56ba43f39efebb061277700a96d4af274ceaed9d0d109ba92c1dfa901dba1a7 Input: registry/
 //! account-data-key-registry.json; version=2026-07-03;
 //! sha256=32b003a9e2bf2281ae93079070512566de7b19ba0fa003fe6cfd43dcfce614db Entries: id_kinds=51,
-//! special_forms=9, actions=154, schemas=141, account_data_patterns=22
+//! special_forms=9, actions=155, schemas=141, account_data_patterns=22
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -1664,6 +1664,15 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &["allowed_space_kinds"],
         target_event_kinds: &["ak.space.update"],
+        profile: None,
+        event_mapping_kind: "same_name",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::StateConflictRecovery,
+        category: "general",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        target_event_kinds: &["ak.state.conflict_recovery"],
         profile: None,
         event_mapping_kind: "same_name",
     },

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/capability-action-registry.json; version=2026-07-20;
-//! sha256=1a6e23305bfa5690e79ed6632097783dc50038576ddced67a6bafd82a32054b0 Entries: registered=154
+//! sha256=449da095c4545f33ff8cc7f67f466c018ac9d3768e625e5f981c748448c6ef78 Entries: registered=155
 
 use serde::{Deserialize, Serialize};
 
@@ -146,6 +146,7 @@ pub enum CapabilityActionId {
     SpaceRestore,
     SpaceTombstone,
     SpaceUpdate,
+    StateConflictRecovery,
     StrandAdmin,
     StrandArchive,
     StrandCreate,
@@ -304,6 +305,7 @@ impl CapabilityActionId {
         Self::SpaceRestore,
         Self::SpaceTombstone,
         Self::SpaceUpdate,
+        Self::StateConflictRecovery,
         Self::StrandAdmin,
         Self::StrandArchive,
         Self::StrandCreate,
@@ -466,6 +468,7 @@ impl CapabilityActionId {
     pub const SPACE_RESTORE: &'static str = "ak.space.restore";
     pub const SPACE_TOMBSTONE: &'static str = "ak.space.tombstone";
     pub const SPACE_UPDATE: &'static str = "ak.space.update";
+    pub const STATE_CONFLICT_RECOVERY: &'static str = "ak.state.conflict_recovery";
     pub const STRAND_ADMIN: &'static str = "ak.strand.admin";
     pub const STRAND_ARCHIVE: &'static str = "ak.strand.archive";
     pub const STRAND_CREATE: &'static str = "ak.strand.create";
@@ -625,6 +628,7 @@ impl CapabilityActionId {
             Self::SpaceRestore => "ak.space.restore",
             Self::SpaceTombstone => "ak.space.tombstone",
             Self::SpaceUpdate => "ak.space.update",
+            Self::StateConflictRecovery => "ak.state.conflict_recovery",
             Self::StrandAdmin => "ak.strand.admin",
             Self::StrandArchive => "ak.strand.archive",
             Self::StrandCreate => "ak.strand.create",
@@ -786,6 +790,7 @@ impl CapabilityActionId {
             "ak.space.restore" => Some(Self::SpaceRestore),
             "ak.space.tombstone" => Some(Self::SpaceTombstone),
             "ak.space.update" => Some(Self::SpaceUpdate),
+            "ak.state.conflict_recovery" => Some(Self::StateConflictRecovery),
             "ak.strand.admin" => Some(Self::StrandAdmin),
             "ak.strand.archive" => Some(Self::StrandArchive),
             "ak.strand.create" => Some(Self::StrandCreate),

@@ -231,10 +231,36 @@ pub fn resolve_projected_write(
     if let Some(direct) = write.as_direct() {
         return Ok(vec![direct]);
     }
+    // `event-auth-state-resolution.md` §9.5. A reset replaces the cell instead
+    // of joining into it, so it is resolved before `frozen_cell_value` — that
+    // helper rejects a `bottom=reject` cell in `⊥`, which is the only state a
+    // reset is allowed to see. The target MUST already be in `⊥`: permitting it
+    // on a live cell would turn recovery into a general overwrite channel that
+    // bypasses every lattice and every precondition.
+    if let ProjectedOp::Reset { value } = &write.op {
+        match pre_state.get(&write.cell) {
+            Some(CellState::Bottom(_)) => {}
+            _ => {
+                return Err(ControlMoveReject::FailedPrecondition {
+                    cell: write.cell.as_str().to_owned(),
+                    reason: "recovery_target_not_in_bottom".to_owned(),
+                });
+            }
+        }
+        let mut op = LatticeOp::empty();
+        op.op_type = LatticeOpType::Set;
+        op.value = Some(value.clone());
+        return Ok(vec![ProjectionEffect {
+            cell: write.cell.clone(),
+            op,
+        }]);
+    }
     let observed = frozen_cell_value(&write.cell, realm_id, pre_state, registry)?;
     match &write.op {
-        // Handled above; `as_direct` is the only accessor that yields it.
+        // Both handled above, before the pre-state is read: a direct write does
+        // not need it, and a reset is the one write allowed to see a cell in ⊥.
         ProjectedOp::Direct(_) => unreachable!("direct writes are resolved before the pre-state"),
+        ProjectedOp::Reset { .. } => unreachable!("a reset is resolved before the pre-state"),
         ProjectedOp::TransitionTo { to } => {
             let mut op = LatticeOp::empty();
             op.op_type = LatticeOpType::Transition;
@@ -1152,6 +1178,97 @@ mod tests {
                 expected_prestate,
             },
         }
+    }
+
+    fn reset_write(value: Value) -> ProjectedCellWrite {
+        ProjectedCellWrite {
+            cell: cell_realm_policy(),
+            op: ProjectedOp::Reset { value },
+        }
+    }
+
+    #[test]
+    fn a_reset_resolves_a_cell_that_is_in_bottom() {
+        let event = control_move(vec![], vec![]);
+        let mut pre_state = BTreeMap::new();
+        pre_state.insert(
+            cell_realm_policy(),
+            CellState::Bottom(crate::Bottom::new(
+                BottomKind::Conflict,
+                vec![cell_realm_policy()],
+            )),
+        );
+
+        let effects = verify_control_move(
+            &event,
+            &realm(),
+            &pre_state,
+            &MemoryCellRegistry::new(),
+            ok_proofs,
+            project(vec![reset_write(json!({"policy_revision": 8}))]),
+        )
+        .unwrap();
+
+        assert_eq!(effects.len(), 1);
+        assert_eq!(effects[0].op.op_type, LatticeOpType::Set);
+        assert_eq!(effects[0].op.value, Some(json!({"policy_revision": 8})));
+    }
+
+    #[test]
+    fn a_reset_on_a_live_cell_is_rejected() {
+        // The converse of the case above, and the load-bearing half: without it
+        // ak.state.conflict_recovery would be a general overwrite channel that
+        // bypasses every lattice and precondition
+        // (`event-auth-state-resolution.md` §9.5).
+        let event = control_move(vec![], vec![]);
+        let mut pre_state = BTreeMap::new();
+        pre_state.insert(cell_realm_policy(), CellState::Value(policy_prestate()));
+
+        let error = verify_control_move(
+            &event,
+            &realm(),
+            &pre_state,
+            &MemoryCellRegistry::new(),
+            ok_proofs,
+            project(vec![reset_write(json!({"policy_revision": 8}))]),
+        )
+        .expect_err("a reset must not apply to a cell that is not in bottom");
+
+        assert!(
+            matches!(
+                &error,
+                ControlMoveReject::FailedPrecondition { reason, .. }
+                    if reason == "recovery_target_not_in_bottom"
+            ),
+            "unexpected reject: {error:?}"
+        );
+    }
+
+    #[test]
+    fn a_reset_on_a_cell_with_no_prior_state_is_rejected() {
+        // An absent cell is not a cell in bottom. Treating "no entry" as
+        // recoverable would let a recovery mint a value for a cell that never
+        // conflicted.
+        let event = control_move(vec![], vec![]);
+
+        let error = verify_control_move(
+            &event,
+            &realm(),
+            &BTreeMap::new(),
+            &MemoryCellRegistry::new(),
+            ok_proofs,
+            project(vec![reset_write(json!({"policy_revision": 8}))]),
+        )
+        .expect_err("a reset must not apply to an absent cell");
+
+        assert!(
+            matches!(
+                &error,
+                ControlMoveReject::FailedPrecondition { reason, .. }
+                    if reason == "recovery_target_not_in_bottom"
+            ),
+            "unexpected reject: {error:?}"
+        );
     }
 
     #[test]

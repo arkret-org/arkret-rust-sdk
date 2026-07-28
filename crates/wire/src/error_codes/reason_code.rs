@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=0c4e04fa8b66a4e829422cf51f8eac630da80883bd315429f8691339edb474f6
-//! Entries: reason_codes=444
+//! sha256=898aece6892a0ece7da7e2fd43d77fc029e1f3754641ff4709981db52b783189
+//! Entries: reason_codes=445
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -347,6 +347,7 @@ pub enum ReasonCode {
     RecoveryProofKindUnknown,
     RecoverySessionChallengeMismatch,
     RecoverySessionTerminal,
+    RecoveryTargetNotInBottom,
     RecoveryWitnessInvalid,
     RecoveryWitnessMissing,
     RecoveryWitnessPostConflict,
@@ -884,6 +885,7 @@ impl ReasonCode {
     pub const RECOVERY_SESSION_CHALLENGE_MISMATCH: &'static str =
         "recovery_session_challenge_mismatch";
     pub const RECOVERY_SESSION_TERMINAL: &'static str = "recovery_session_terminal";
+    pub const RECOVERY_TARGET_NOT_IN_BOTTOM: &'static str = "recovery_target_not_in_bottom";
     pub const RECOVERY_WITNESS_INVALID: &'static str = "recovery_witness_invalid";
     pub const RECOVERY_WITNESS_MISSING: &'static str = "recovery_witness_missing";
     pub const RECOVERY_WITNESS_POST_CONFLICT: &'static str = "recovery_witness_post_conflict";
@@ -1404,6 +1406,7 @@ impl ReasonCode {
             Self::RecoveryProofKindUnknown => "recovery_proof_kind_unknown",
             Self::RecoverySessionChallengeMismatch => "recovery_session_challenge_mismatch",
             Self::RecoverySessionTerminal => "recovery_session_terminal",
+            Self::RecoveryTargetNotInBottom => "recovery_target_not_in_bottom",
             Self::RecoveryWitnessInvalid => "recovery_witness_invalid",
             Self::RecoveryWitnessMissing => "recovery_witness_missing",
             Self::RecoveryWitnessPostConflict => "recovery_witness_post_conflict",
@@ -1926,6 +1929,7 @@ impl ReasonCode {
             "recovery_proof_kind_unknown" => Self::RecoveryProofKindUnknown,
             "recovery_session_challenge_mismatch" => Self::RecoverySessionChallengeMismatch,
             "recovery_session_terminal" => Self::RecoverySessionTerminal,
+            "recovery_target_not_in_bottom" => Self::RecoveryTargetNotInBottom,
             "recovery_witness_invalid" => Self::RecoveryWitnessInvalid,
             "recovery_witness_missing" => Self::RecoveryWitnessMissing,
             "recovery_witness_post_conflict" => Self::RecoveryWitnessPostConflict,
@@ -3768,6 +3772,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "recovery_session_terminal",
         applies_to: &["device_recovery", "service_call"],
         description: "A recovery-session operation (submit_proof / complete) targeted a recovery session that is already in a terminal state (`completed` / `rejected` / `expired`). Terminal recovery sessions are immutable; servers MUST reject with top-level `failed_precondition` carrying this reason_code. See zh/crypto-media/device-lifecycle.md §15 and artifacts/schemas/recovery-session.schema.json.",
+    },
+    ReasonCodeDescriptor {
+        code: "recovery_target_not_in_bottom",
+        applies_to: &["state_resolution", "auth_decision"],
+        description: "An ak.state.conflict_recovery reset named a target_cell that is not in ⊥. The reset replaces a cell rather than joining into it, so allowing it on a live cell would make recovery a general overwrite channel that bypasses every lattice and every precondition. This is the converse of cell_in_bottom_state, which rejects an ordinary write against a cell that is in ⊥. See zh/authz/event-auth-state-resolution.md §9.5.",
     },
     ReasonCodeDescriptor {
         code: "recovery_witness_invalid",

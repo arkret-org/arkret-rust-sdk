@@ -86,6 +86,9 @@ pub enum EventProductClass {
     Sidecar,
     Sovereign,
     Space,
+    /// Governance state resolution — currently only the `⊥` conflict recovery
+    /// of `event-auth-state-resolution.md` §9.5.
+    State,
     View,
     Custom(String),
 }
@@ -101,6 +104,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
             EventProductClass::Account
         }
         EventKind::ActorDiscovery => EventProductClass::Actor,
+        EventKind::StateConflictRecovery => EventProductClass::State,
         EventKind::AgentActionApprove
         | EventKind::AgentActionReject
         | EventKind::AgentActionRequest

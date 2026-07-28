@@ -141,6 +141,46 @@ pub fn project_registered_cell_writes(
         if !condition_matches(event, write.get("condition"), &kind)? {
             continue;
         }
+        // `event-and-patch.md` §2.4.2: the one registered write whose target is
+        // not statically addressable. A conflict recovery names one cell of an
+        // arbitrary family, so the target is the signed `payload.target_cell`
+        // and the projection is a reset rather than a lattice op. The grammar is
+        // closed to `ak.state.conflict_recovery`; anything else declaring it is
+        // a registry error, not a shape to interpret.
+        if let Some(cell_ref_rule) = write.get("cell_ref") {
+            if kind != CONFLICT_RECOVERY_KIND {
+                return Err(effect_set_error(
+                    &kind,
+                    "cell_ref is reserved to ak.state.conflict_recovery",
+                ));
+            }
+            let cell = conflict_recovery_cell(event, cell_ref_rule, &kind)?;
+            let projection = write.get("effect_projection").ok_or_else(|| {
+                effect_set_error(&kind, "conflict recovery write omits effect_projection")
+            })?;
+            if projection.get("kind").and_then(Value::as_str) != Some("reset") {
+                return Err(effect_set_error(
+                    &kind,
+                    "conflict recovery effect_projection must be kind=reset",
+                ));
+            }
+            let source = projection
+                .get("value")
+                .ok_or_else(|| effect_set_error(&kind, "reset effect_projection omits value"))?;
+            let value = effect_source_value(
+                event,
+                write,
+                source,
+                &kind,
+                &dot_for(event, write_index),
+                digest_suite,
+            )?;
+            projected.push(ProjectedCellWrite {
+                cell,
+                op: ProjectedOp::Reset { value },
+            });
+            continue;
+        }
         let family = write
             .get("cell_family")
             .and_then(Value::as_str)
@@ -237,6 +277,43 @@ fn require_lattice(
         kind,
         &format!("effect_projection {projection_kind} is not valid for lattice {lattice}"),
     ))
+}
+
+/// The only kind whose registered write target is resolved from the payload.
+const CONFLICT_RECOVERY_KIND: &str = "ak.state.conflict_recovery";
+
+/// Canonical dot for the write at `write_index` of this Event.
+fn dot_for(event: &Event, write_index: usize) -> String {
+    or_set_dot(event.event_id.as_str(), write_index)
+}
+
+/// Resolve the recovery target from the signed payload.
+///
+/// The source is pinned to `payload.target_cell` rather than read from the
+/// registry rule, so a registry that named some other field cannot silently
+/// redirect which cell a recovery may reset.
+fn conflict_recovery_cell(
+    event: &Event,
+    cell_ref_rule: &Value,
+    kind: &str,
+) -> Result<CellRef, EventCellContractError> {
+    if cell_ref_rule.get("kind").and_then(Value::as_str) != Some("cell_ref")
+        || cell_ref_rule.get("field").and_then(Value::as_str) != Some("payload.target_cell")
+    {
+        return Err(effect_set_error(
+            kind,
+            "conflict recovery cell_ref must be {kind: cell_ref, field: payload.target_cell}",
+        ));
+    }
+    let raw = event
+        .payload
+        .get("target_cell")
+        .and_then(Value::as_str)
+        .ok_or_else(|| effect_set_error(kind, "payload.target_cell must be a cell id string"))?;
+    CellRef::new(raw.to_owned()).map_err(|error| EventCellContractError::InvalidCell {
+        kind: kind.to_owned(),
+        message: error.to_string(),
+    })
 }
 
 fn derive_effect_ops(
@@ -1238,6 +1315,70 @@ mod tests {
         op.value = Some(value);
         op.issuer_seq = Some(issuer_seq);
         ProjectedOp::Direct(op)
+    }
+
+    /// `event-auth-state-resolution.md` §9.5 recovery, built as a Control Move.
+    fn conflict_recovery_event(target_cell: &str, resolved: Value) -> Event {
+        serde_json::from_value(json!({
+            "event_id": "ak:event:019f9e50-d787-74e0-8731-c9ad5eaa9190",
+            "kind": "ak.state.conflict_recovery",
+            "realm_id": "ak:realm:019f9e50-d787-74e0-8731-c9ad5eaa9180",
+            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:019f9e50-d787-74e0-8731-c9ad5eaa9180"},
+            "actor_id": "did:webvh:z6mkfixture:alice.example",
+            "actor_seq": 9,
+            "created_at": "2026-07-26T01:00:00.000Z",
+            "hlc": "019f9e500000-0000-aabbccde",
+            "prev_refs": [],
+            "seal_basis": {
+                "leaves": ["ak:seal:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
+                "control_event_set_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "state_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "refs": [
+                {"role": "recovery_capability", "critical": true,
+                 "id": "ak:grant:019641d2-2000-7000-8000-000000000000"},
+                {"role": "state_witness", "critical": true,
+                 "id": "ak:seal:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}
+            ],
+            "payload": {"target_cell": target_cell, "resolved_value": resolved},
+            "proofs": []
+        }))
+        .expect("conflict recovery fixture must deserialize")
+    }
+
+    #[test]
+    fn conflict_recovery_resets_the_cell_named_by_the_signed_payload() {
+        // The target is not statically addressable: it comes from the payload,
+        // so the same kind recovers cells of different families.
+        for family in [
+            "ak.component.realm.policy.v1",
+            "ak.component.member.state.v1",
+        ] {
+            let cell = format!("ak:cell:{family}:null");
+            let event = conflict_recovery_event(&cell, json!({"policy_revision": 8}));
+            assert_eq!(
+                project(&event),
+                vec![write(
+                    &cell,
+                    ProjectedOp::Reset {
+                        value: json!({"policy_revision": 8}),
+                    },
+                )],
+            );
+        }
+    }
+
+    #[test]
+    fn conflict_recovery_without_a_target_cell_fails_closed() {
+        let mut event =
+            conflict_recovery_event("ak:cell:ak.component.realm.policy.v1:null", json!(1));
+        event.payload.remove("target_cell");
+        let error = project_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256)
+            .expect_err("a recovery with no target must not project a write");
+        assert!(
+            error.to_string().contains("target_cell"),
+            "unexpected error: {error}"
+        );
     }
 
     fn rsvp_event(occurrence: Value) -> Event {
