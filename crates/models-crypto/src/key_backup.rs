@@ -7,10 +7,10 @@ use arkret_canonical::{
     decode_multibase_base58btc, decode_multicodec_varint, encode_multibase_base58btc,
 };
 use arkret_wire::{
-    BackupId, BackupSeriesId, Base64UrlString, Cursor, DeviceId, Did, DidUrl, Error, EventId,
-    HPKE_SUITES, Hash, LeaseBasisRef, NonEmptyString, PolicyId, RealmId, ReceiptId,
-    RecoveryAuthorityTicketId, RecoverySessionId, Result, TransactionId, TypedTrustDomainId,
-    XExtensionMap,
+    AuthoritySetIssuer, AuthoritySetIssuerRole, BackupId, BackupSeriesId, Base64UrlString, Cursor,
+    DeviceId, Did, DidUrl, Error, EventId, HPKE_SUITES, Hash, LeaseBasisRef, NonEmptyString,
+    PolicyId, RealmId, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId, Result,
+    TransactionId, TypedTrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -967,6 +967,7 @@ pub struct RecoveryPolicy {
     pub supersedes: Option<PolicyId>,
     pub trust_domain: TypedTrustDomainId,
     pub allowed_proof_kinds: Vec<RecoveryProofKind>,
+    pub publication_authorization_rules: Vec<RecoveryPublicationAuthorizationRule>,
     /// Threshold-recovery config; required when `allowed_proof_kinds`
     /// contains `threshold_recovery`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1048,6 +1049,7 @@ impl RecoveryPolicy {
                 "revoked recovery policy requires expires_at".to_owned(),
             ));
         }
+        self.validate_publication_authorization_rules(&unique_proof_kinds)?;
         self.require_proof_configuration(
             RecoveryProofKind::ThresholdRecovery,
             self.threshold.is_some(),
@@ -1066,12 +1068,17 @@ impl RecoveryPolicy {
             "trusted_recovery_services",
         )?;
 
-        let unlock_enabled = unique_proof_kinds.contains(&RecoveryProofKind::RecoveryUnlock);
+        let recovery_signing_key_enabled = unique_proof_kinds.iter().any(|kind| {
+            matches!(
+                kind,
+                RecoveryProofKind::RecoveryUnlock | RecoveryProofKind::ThresholdRecovery
+            )
+        });
         let recovery_keys = self.recovery_keys.as_deref().unwrap_or_default();
         let agreements = self.recovery_key_agreements.as_deref().unwrap_or_default();
-        if unlock_enabled && (recovery_keys.is_empty() || agreements.is_empty()) {
+        if recovery_signing_key_enabled && (recovery_keys.is_empty() || agreements.is_empty()) {
             return Err(Error::Protocol(
-                "recovery_unlock requires recovery_keys and recovery_key_agreements".to_owned(),
+                "recovery_unlock and threshold_recovery require recovery_keys and recovery_key_agreements".to_owned(),
             ));
         }
         if !recovery_keys.is_empty() && agreements.is_empty() {
@@ -1126,6 +1133,7 @@ impl RecoveryPolicy {
             "supersedes",
             "trust_domain",
             "allowed_proof_kinds",
+            "publication_authorization_rules",
             "issued_at",
         ];
         if required_signed_fields
@@ -1157,6 +1165,136 @@ impl RecoveryPolicy {
                 return Err(Error::Protocol(format!(
                     "recovery policy auth_data must sign {field}"
                 )));
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_publication_authorization_rules(
+        &self,
+        allowed_proof_kinds: &BTreeSet<RecoveryProofKind>,
+    ) -> Result<()> {
+        if self.publication_authorization_rules.len() != allowed_proof_kinds.len() {
+            return Err(Error::Protocol(
+                "recovery policy requires exactly one publication authorization rule per proof kind"
+                    .to_owned(),
+            ));
+        }
+
+        let active_recovery_methods = self
+            .recovery_keys
+            .as_deref()
+            .unwrap_or_default()
+            .iter()
+            .filter(|entry| {
+                entry.not_before <= self.issued_at
+                    && self.issued_at <= entry.expires_at
+                    && entry
+                        .revoked_at
+                        .is_none_or(|revoked_at| self.issued_at < revoked_at)
+            })
+            .map(|entry| entry.verification_method.as_str())
+            .collect::<BTreeSet<_>>();
+        let trusted_service_methods = self
+            .trusted_recovery_services
+            .as_deref()
+            .unwrap_or_default()
+            .iter()
+            .map(|service| service.authorization_verification_method.as_str())
+            .collect::<BTreeSet<_>>();
+
+        let mut previous_rule_id: Option<&str> = None;
+        let mut seen_proof_kinds = BTreeSet::new();
+        for rule in &self.publication_authorization_rules {
+            if previous_rule_id.is_some_and(|previous| previous >= rule.rule_id.as_str()) {
+                return Err(Error::Protocol(
+                    "recovery publication authorization rules must be ordered by rule_id"
+                        .to_owned(),
+                ));
+            }
+            previous_rule_id = Some(&rule.rule_id);
+            if rule.rule_id != rule.proof_kind.as_wire_str()
+                || !allowed_proof_kinds.contains(&rule.proof_kind)
+                || !seen_proof_kinds.insert(rule.proof_kind)
+                || rule.issuer_role != AuthoritySetIssuerRole::IdentityRecovery
+                || rule.allowed_actions.as_slice() != ["ak.device.reanchor"]
+                || rule.issuers.is_empty()
+                || rule.issuers.len() > 32
+                || rule.threshold == 0
+                || usize::try_from(rule.threshold).unwrap_or(usize::MAX) > rule.issuers.len()
+                || rule.issuers.windows(2).any(|pair| {
+                    pair[0].verification_method.as_str() >= pair[1].verification_method.as_str()
+                })
+            {
+                return Err(Error::Protocol(
+                    "recovery publication authorization rule is not canonical".to_owned(),
+                ));
+            }
+
+            let issuer_methods = rule
+                .issuers
+                .iter()
+                .map(|issuer| issuer.verification_method.as_str())
+                .collect::<BTreeSet<_>>();
+            match rule.proof_kind {
+                RecoveryProofKind::PrincipalSigning => {
+                    if rule.threshold != 1
+                        || issuer_methods.len() != 1
+                        || !issuer_methods.contains(self.auth_data.verification_method.as_str())
+                    {
+                        return Err(Error::Protocol(
+                            "principal_signing publication rule must use the policy authority method at threshold 1"
+                                .to_owned(),
+                        ));
+                    }
+                }
+                RecoveryProofKind::RecoveryUnlock | RecoveryProofKind::ThresholdRecovery => {
+                    if rule.threshold != 1 || issuer_methods != active_recovery_methods {
+                        return Err(Error::Protocol(
+                            "recovery signing publication rule must use the active recovery key set at threshold 1"
+                                .to_owned(),
+                        ));
+                    }
+                }
+                RecoveryProofKind::DeviceQuorum => {
+                    let quorum = self.device_quorum.as_ref().ok_or_else(|| {
+                        Error::Protocol(
+                            "device_quorum publication rule requires device_quorum".to_owned(),
+                        )
+                    })?;
+                    let distinct_members = quorum.members.iter().collect::<BTreeSet<_>>();
+                    if quorum.k < 2
+                        || usize::try_from(quorum.k).unwrap_or(usize::MAX) > quorum.members.len()
+                        || distinct_members.len() != quorum.members.len()
+                        || rule.threshold != quorum.k
+                        || rule.issuers.len() != quorum.members.len()
+                    {
+                        return Err(Error::Protocol(
+                            "device_quorum publication rule does not match the device quorum"
+                                .to_owned(),
+                        ));
+                    }
+                }
+                RecoveryProofKind::TrustedRecoveryService => {
+                    let services = self
+                        .trusted_recovery_services
+                        .as_deref()
+                        .unwrap_or_default();
+                    if services.iter().any(|service| {
+                        service
+                            .authorization_verification_method
+                            .as_str()
+                            .split_once('#')
+                            .is_none_or(|(controller, _)| controller != service.service_id.as_str())
+                    }) || rule.threshold != 1
+                        || issuer_methods != trusted_service_methods
+                    {
+                        return Err(Error::Protocol(
+                            "trusted recovery service publication rule does not match the declared service methods"
+                                .to_owned(),
+                        ));
+                    }
+                }
             }
         }
         Ok(())
@@ -1340,12 +1478,29 @@ pub struct RecoveryDeviceQuorumConfig {
     pub members: Vec<DeviceId>,
 }
 
+/// Signed deterministic publication-rule projection carried by a recovery
+/// policy. `proof_kind` selects the recovery factor; the remaining fields
+/// project directly into an authority-set authorization rule after the
+/// acceptance basis rederives every verification method.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryPublicationAuthorizationRule {
+    pub rule_id: String,
+    pub proof_kind: RecoveryProofKind,
+    pub issuer_role: AuthoritySetIssuerRole,
+    pub allowed_actions: Vec<String>,
+    pub issuers: Vec<AuthoritySetIssuer>,
+    pub threshold: u32,
+}
+
 /// `recovery-policy.schema.json#/properties/trusted_recovery_services[]`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RecoveryTrustedService {
     pub service_id: Did,
     pub audience: String,
+    pub authorization_verification_method: DidUrl,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attestation_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2150,6 +2305,66 @@ mod encryption_validate_tests {
             }))
             .is_err()
         );
+    }
+
+    fn principal_signing_recovery_policy_value() -> Value {
+        serde_json::json!({
+            "schema": "ak.schema.recovery_policy.v1",
+            "policy_id": "ak:policy:019a7360-0000-7000-8000-000000000001",
+            "principal_id": "did:webvh:z6mkfixture:alice.example",
+            "version": 1,
+            "supersedes": null,
+            "trust_domain": "ak:trust_domain:example.local",
+            "allowed_proof_kinds": ["principal_signing"],
+            "publication_authorization_rules": [{
+                "rule_id": "principal_signing",
+                "proof_kind": "principal_signing",
+                "issuer_role": "identity_recovery",
+                "allowed_actions": ["ak.device.reanchor"],
+                "issuers": [{
+                    "verification_method": "did:webvh:z6mkfixture:alice.example#principal-signing"
+                }],
+                "threshold": 1
+            }],
+            "issued_at": "2026-07-29T00:00:00.000Z",
+            "auth_data": {
+                "verification_method": "did:webvh:z6mkfixture:alice.example#principal-signing",
+                "signature_algorithm": "Ed25519",
+                "signature": "c2ln",
+                "signed_fields": [
+                    "schema",
+                    "policy_id",
+                    "principal_id",
+                    "version",
+                    "supersedes",
+                    "trust_domain",
+                    "allowed_proof_kinds",
+                    "publication_authorization_rules",
+                    "issued_at"
+                ]
+            }
+        })
+    }
+
+    #[test]
+    fn recovery_policy_requires_exact_signed_publication_rule_projection() {
+        let policy: RecoveryPolicy =
+            serde_json::from_value(principal_signing_recovery_policy_value()).unwrap();
+        policy.validate().unwrap();
+
+        let mut substituted = principal_signing_recovery_policy_value();
+        substituted["publication_authorization_rules"][0]["issuers"][0]["verification_method"] =
+            serde_json::json!("did:webvh:z6mkfixture:attacker.example#principal-signing");
+        let substituted: RecoveryPolicy = serde_json::from_value(substituted).unwrap();
+        assert!(substituted.validate().is_err());
+
+        let mut unsigned = principal_signing_recovery_policy_value();
+        unsigned["auth_data"]["signed_fields"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|field| field != "publication_authorization_rules");
+        let unsigned: RecoveryPolicy = serde_json::from_value(unsigned).unwrap();
+        assert!(unsigned.validate().is_err());
     }
 
     fn recovery_receipt_value() -> Value {

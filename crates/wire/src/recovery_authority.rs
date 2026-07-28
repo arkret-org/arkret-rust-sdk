@@ -119,6 +119,7 @@ pub struct AuthorizeEventPublicationIntent {
     pub device_id: DeviceId,
     pub scope_ref: ScopeRef,
     pub action: String,
+    pub authorization_rule_id: String,
     pub risk_tier: RiskTier,
     pub basis_ref: LeaseBasisRef,
     pub authority_set_ref: AuthoritySetRef,
@@ -128,10 +129,12 @@ pub struct AuthorizeEventPublicationIntent {
 
 impl AuthorizeEventPublicationIntent {
     pub fn validate_structural(&self) -> Result<()> {
-        if self.action != "ak.device.authorize" || self.risk_tier != RiskTier::High {
+        if self.action != "ak.device.authorize"
+            || self.authorization_rule_id != "account_authority"
+            || self.risk_tier != RiskTier::High
+        {
             return Err(Error::Protocol(
-                "recovery authorize publication intent must use ak.device.authorize at high risk"
-                    .to_owned(),
+                "recovery authorize publication intent must select account_authority for ak.device.authorize at high risk".to_owned(),
             ));
         }
         if self.authority_set_ref.authority_set_id != RECOVERY_ACCOUNT_AUTHORITY_SET_ID {
@@ -143,6 +146,7 @@ impl AuthorizeEventPublicationIntent {
         self.authority_set_policy.validate_reference_and_action(
             &self.authority_set_ref,
             &self.scope_ref,
+            &self.authorization_rule_id,
             &self.action,
         )?;
         if self.cba_proof_bundles.len() > MAX_RECOVERY_PUBLICATION_CBA_BUNDLES {
@@ -821,6 +825,7 @@ mod tests {
                 .unwrap(),
             scope_ref,
             action: "ak.device.authorize".to_owned(),
+            authorization_rule_id: "account_authority".to_owned(),
             risk_tier: RiskTier::High,
             basis_ref: LeaseBasisRef::Seal(
                 crate::SealId::new(format!("ak:seal:{}", hash('2').as_str())).unwrap(),

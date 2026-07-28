@@ -5,7 +5,7 @@
 //! Conformance input version: 2026-07-13;
 //! sha256=ad6dfe7f899cdd308cb52b8f6d9beb5c0987f7b8e6d112ef363df7659d6cbc68; profiles=99.
 //! Reducer input version: 2026-07-16;
-//! sha256=ea2f5734fa88a99c3b507cc7c1745e7d147ebbac7ea176d0733724b4cacf02fe; active_profiles=5.
+//! sha256=ec71f51c5a09c77dd746ceadd49e071fcc5b6aa5c8f8ae0bbf806531b3bf121f; active_profiles=5.
 
 pub const PROFILE_IDS: &[&str] = &[
     "ak.profile.accountable_principals.strict_reject.v1",
@@ -117,7 +117,7 @@ pub fn is_profile_id(value: &str) -> bool {
 pub const REDUCER_PROFILE_DIGESTS: &[(&str, &str)] = &[
     (
         "ak.profile.chat_mvp.v1",
-        "sha256:9d0823712269d9dac5e295643a6ae03faa9ccbcea436f489e0036028b192a004",
+        "sha256:5d7ad78fd09809018fb2bf2edf2fee9ef1f4b2153dd6c9913faed5bfa0a71fa0",
     ),
     (
         "ak.profile.core_event_store.v1",
@@ -125,21 +125,21 @@ pub const REDUCER_PROFILE_DIGESTS: &[(&str, &str)] = &[
     ),
     (
         "ak.profile.federation_minimal.v1",
-        "sha256:c6112612f4d05c7c97403ececcd8f92c0d60fac6b561e4e7202dc19f3aafee5d",
+        "sha256:4a893c3fe8feaef9c5e3a3941dfa3584ec0eb4c5cad98c51c70aa6f2661ee8b6",
     ),
     (
         "ak.profile.kanban_mvp.v1",
-        "sha256:ece07b74c58cb09d147895ff220d8b78c4855bc5531a8c5ea1746254cf6c55f8",
+        "sha256:4d9f384eb22b7aba30cfe8909e8ca82d4e843a545f6945e7fdbd775bb11f9542",
     ),
     (
         "ak.profile.principal_server.v1",
-        "sha256:4c351ebe214771eba2ba5dff4dccf320562185a6a4e062680cc3eb73c49aaa76",
+        "sha256:fb7c82c97d79088f1775118e2bae250d83ca38c770d2e21adc667af6152b8350",
     ),
 ];
 
 /// Spec-generated digest for `ak.profile.federation_minimal.v1`.
 pub const FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST: &str =
-    "sha256:c6112612f4d05c7c97403ececcd8f92c0d60fac6b561e4e7202dc19f3aafee5d";
+    "sha256:4a893c3fe8feaef9c5e3a3941dfa3584ec0eb4c5cad98c51c70aa6f2661ee8b6";
 
 /// Returns the Spec-generated digest for an active reducer profile.
 pub fn reducer_profile_digest(profile_id: &str) -> Option<&'static str> {

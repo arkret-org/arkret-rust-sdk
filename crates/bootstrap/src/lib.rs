@@ -1356,6 +1356,7 @@ mod tests {
             device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
             scope_ref: event.scope_ref.clone(),
             action: "ak.realm.admin".to_owned(),
+            authorization_rule_id: "realm_admission".to_owned(),
             risk_tier: RiskTier::High,
             issued_at: event.created_at,
             expires_at: event.created_at + chrono::Duration::minutes(5),

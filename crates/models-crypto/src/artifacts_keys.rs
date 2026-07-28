@@ -669,17 +669,57 @@ impl RecoveryPublicationAuthorityContext {
                     .to_owned(),
             ));
         }
+        let allowed_action_names = self
+            .allowed_actions
+            .iter()
+            .map(|action| match action {
+                RecoveryPublicationAction::DeviceAuthorize => "ak.device.authorize",
+                RecoveryPublicationAction::DeviceListUpdate => "ak.device.list_update",
+                RecoveryPublicationAction::DeviceReanchor => "ak.device.reanchor",
+            })
+            .collect::<std::collections::BTreeSet<_>>();
+        if self
+            .authority_set_policy
+            .authorization_rules
+            .iter()
+            .flat_map(|rule| rule.allowed_actions.iter())
+            .any(|action| !allowed_action_names.contains(action.as_str()))
+        {
+            return Err(Error::Protocol(
+                "recovery publication authority context policy exceeds its allowed actions"
+                    .to_owned(),
+            ));
+        }
         for action in &self.allowed_actions {
             let action = match action {
                 RecoveryPublicationAction::DeviceAuthorize => "ak.device.authorize",
                 RecoveryPublicationAction::DeviceListUpdate => "ak.device.list_update",
                 RecoveryPublicationAction::DeviceReanchor => "ak.device.reanchor",
             };
-            self.authority_set_policy.validate_reference_and_action(
-                &self.authority_set_ref,
-                &self.scope_ref,
-                action,
-            )?;
+            let matching_rules = self
+                .authority_set_policy
+                .authorization_rules
+                .iter()
+                .filter(|rule| {
+                    rule.allowed_actions
+                        .iter()
+                        .any(|candidate| candidate == action)
+                })
+                .collect::<Vec<_>>();
+            if matching_rules.is_empty() {
+                return Err(Error::Protocol(
+                    "recovery publication authority context does not cover an allowed action"
+                        .to_owned(),
+                ));
+            }
+            for rule in matching_rules {
+                self.authority_set_policy.validate_reference_and_action(
+                    &self.authority_set_ref,
+                    &self.scope_ref,
+                    &rule.rule_id,
+                    action,
+                )?;
+            }
         }
         Ok(())
     }

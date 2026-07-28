@@ -196,6 +196,7 @@ impl AuthoritySetPolicy {
         &self,
         authority_set_ref: &AuthoritySetRef,
         scope_ref: &ScopeRef,
+        authorization_rule_id: &str,
         action: &str,
     ) -> Result<&AuthoritySetAuthorizationRule> {
         self.validate_structural()?;
@@ -207,17 +208,23 @@ impl AuthoritySetPolicy {
                 "authority-set policy ref, digest, or scope mismatch".to_owned(),
             ));
         }
-        let mut matching = self.authorization_rules.iter().filter(|rule| {
-            rule.allowed_actions
-                .iter()
-                .any(|candidate| candidate == action)
-        });
-        let rule = matching.next().ok_or_else(|| {
-            Error::Protocol("authority-set policy does not allow the requested action".to_owned())
-        })?;
-        if matching.next().is_some() {
+        let rule = self
+            .authorization_rules
+            .iter()
+            .find(|rule| rule.rule_id == authorization_rule_id)
+            .ok_or_else(|| {
+                Error::Protocol(
+                    "authority-set policy does not contain the selected authorization rule"
+                        .to_owned(),
+                )
+            })?;
+        if !rule
+            .allowed_actions
+            .iter()
+            .any(|candidate| candidate == action)
+        {
             return Err(Error::Protocol(
-                "authority-set action is covered by multiple authorization rules".to_owned(),
+                "selected authority-set rule does not allow the requested action".to_owned(),
             ));
         }
         Ok(rule)
@@ -263,6 +270,7 @@ pub struct AuthorizationLease {
     pub device_id: DeviceId,
     pub scope_ref: ScopeRef,
     pub action: String,
+    pub authorization_rule_id: String,
     pub risk_tier: RiskTier,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -421,6 +429,7 @@ impl AuthorizationLease {
         let rule = self.authority_set_policy.validate_reference_and_action(
             &self.authority_set_ref,
             &self.scope_ref,
+            &self.authorization_rule_id,
             &self.action,
         )?;
         let accepted_issuers = rule
@@ -579,6 +588,7 @@ mod tests {
             device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
             scope_ref: scope(),
             action: "ak.message.create".to_owned(),
+            authorization_rule_id: "realm_admission".to_owned(),
             risk_tier,
             issued_at: instant(0),
             expires_at,
@@ -686,7 +696,7 @@ mod tests {
     }
 
     #[test]
-    fn authority_policy_rejects_overlapping_action_rules() {
+    fn authority_policy_selects_overlapping_action_rules_explicitly() {
         let mut policy = authority_policy();
         let mut second = policy.authorization_rules[0].clone();
         second.rule_id = "realm_admission_second".to_owned();
@@ -695,10 +705,24 @@ mod tests {
             authority_set_id: policy.authority_set_id.clone(),
             authority_set_digest: policy.digest().unwrap(),
         };
+        let selected = policy
+            .validate_reference_and_action(
+                &authority_set_ref,
+                &scope(),
+                "realm_admission_second",
+                "ak.message.create",
+            )
+            .unwrap();
+        assert_eq!(selected.rule_id, "realm_admission_second");
         let error = policy
-            .validate_reference_and_action(&authority_set_ref, &scope(), "ak.message.create")
+            .validate_reference_and_action(
+                &authority_set_ref,
+                &scope(),
+                "unknown_rule",
+                "ak.message.create",
+            )
             .unwrap_err();
-        assert!(error.to_string().contains("multiple authorization rules"));
+        assert!(error.to_string().contains("selected authorization rule"));
     }
 
     #[test]
