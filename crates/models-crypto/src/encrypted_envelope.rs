@@ -8,6 +8,9 @@ use arkret_wire::{EncryptedPayloadScheme, Error, EventId, Hash, RealmId, Result}
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// AEAD purpose fixed by `encryption-and-audit.md` §2.10.2.
+pub const MLS_EXPORTER_AEAD_CONTENT_PURPOSE: &str = "mls_exporter_aead_content";
+
 /// Profile id whose Realms require the minimal-metadata MLS policy.
 pub const MINIMAL_METADATA_REALM_PROFILE: &str = "ak.profile.mls.minimal_metadata_realm.v1";
 
@@ -286,6 +289,48 @@ pub struct EncryptedPayload {
 pub struct KeyRefObject {
     pub algorithm: String,
     pub group_state_ref: String,
+}
+
+/// Closed pre-encryption immutable header for `mls_exporter_aead_v1`.
+///
+/// Its JCS bytes are the AEAD AAD.  Post-encryption fields such as
+/// `payload_digest`, ciphertext, tags and proofs deliberately cannot be
+/// represented here.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsExporterAeadHeader<'a> {
+    pub scheme: EncryptedPayloadScheme,
+    pub key_ref: &'a KeyRefObject,
+    pub epoch: u64,
+    pub nonce: String,
+    pub purpose: &'static str,
+    pub aead_profile: &'a str,
+    pub aad: &'a EncryptedEnvelopeAad,
+}
+
+impl<'a> MlsExporterAeadHeader<'a> {
+    pub fn new(
+        key_ref: &'a KeyRefObject,
+        epoch: u64,
+        nonce: &[u8],
+        aead_profile: &'a str,
+        aad: &'a EncryptedEnvelopeAad,
+    ) -> Self {
+        Self {
+            scheme: EncryptedPayloadScheme::MlsExporterAeadV1,
+            key_ref,
+            epoch,
+            nonce: arkret_canonical::base64url::base64url_encode(nonce),
+            purpose: MLS_EXPORTER_AEAD_CONTENT_PURPOSE,
+            aead_profile,
+            aad,
+        }
+    }
+
+    /// JCS bytes passed directly to AEAD seal/open.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
+        Ok(canonical::canonical_json_bytes(self)?)
+    }
 }
 
 impl KeyRefObject {

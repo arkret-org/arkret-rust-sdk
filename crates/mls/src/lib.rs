@@ -1375,28 +1375,51 @@ mod tests {
             .unwrap()
     }
 
+    fn exporter_aead_key_ref() -> arkret_models_crypto::KeyRefObject {
+        arkret_models_crypto::KeyRefObject {
+            algorithm: "MLS-EXPORTER-AEAD".to_owned(),
+            group_state_ref: "ak:event:01904100-0000-7000-8000-00000000ae01".to_owned(),
+        }
+    }
+
+    fn exporter_aead_aad() -> arkret_models_crypto::EncryptedEnvelopeAad {
+        arkret_models_crypto::EncryptedEnvelopeAad::hidden(
+            RealmId::new(HISTORY_REALM).unwrap(),
+            "ak.message.create",
+        )
+    }
+
     #[test]
     fn exporter_aead_content_round_trips_for_local_epoch() {
         let mut group = exporter_aead_founder();
-        let aad = b"event-binding-aad";
+        let key_ref = exporter_aead_key_ref();
+        let aad = exporter_aead_aad();
         let plaintext = b"hello encrypted history";
 
         let sealed = group
-            .encrypt_content_exporter_aead(HISTORY_REALM, aad, plaintext)
+            .encrypt_content_exporter_aead(HISTORY_REALM, &key_ref, &aad, plaintext)
             .unwrap();
         // The retained history_secret for the current epoch decrypts it.
         let history_secret = group
             .derive_and_retain_history_secret(HISTORY_REALM)
             .unwrap();
         let recovered = group
-            .decrypt_content_exporter_aead(&history_secret, HISTORY_REALM, &sealed, aad)
+            .decrypt_content_exporter_aead(&history_secret, &key_ref, group.epoch(), &sealed, &aad)
             .unwrap();
         assert_eq!(recovered, plaintext);
 
         // Wrong AAD fails the tag check.
+        let mut wrong_aad = aad;
+        wrong_aad.event_kind = "ak.message.revise".to_owned();
         assert!(
             group
-                .decrypt_content_exporter_aead(&history_secret, HISTORY_REALM, &sealed, b"other")
+                .decrypt_content_exporter_aead(
+                    &history_secret,
+                    &key_ref,
+                    group.epoch(),
+                    &sealed,
+                    &wrong_aad,
+                )
                 .is_err()
         );
     }
@@ -1404,16 +1427,14 @@ mod tests {
     #[test]
     fn encrypted_envelope_v1_binds_exporter_scheme_to_exporter_key_algorithm() {
         let mut group = exporter_aead_founder();
-        let envelope_aad = arkret_models_crypto::EncryptedEnvelopeAad::hidden(
-            RealmId::new(HISTORY_REALM).unwrap(),
-            "ak.message.create",
-        );
+        let envelope_aad = exporter_aead_aad();
+        let key_ref = exporter_aead_key_ref();
         let payload = group
             .encrypt_payload_exporter_aead(
                 "application/vnd.arkret.message+json",
                 HISTORY_REALM,
-                b"history-content-aad",
-                Some(envelope_aad.clone()),
+                key_ref,
+                envelope_aad.clone(),
                 b"hello encrypted history",
             )
             .unwrap();
@@ -1443,10 +1464,11 @@ mod tests {
         // Provider encrypts content at epoch N and retains history_secret[N].
         let mut provider = exporter_aead_founder();
         let epoch_n = provider.epoch();
-        let aad = b"history-share-aad";
+        let key_ref = exporter_aead_key_ref();
+        let aad = exporter_aead_aad();
         let plaintext = b"pre-join secret content";
         let sealed = provider
-            .encrypt_content_exporter_aead(HISTORY_REALM, aad, plaintext)
+            .encrypt_content_exporter_aead(HISTORY_REALM, &key_ref, &aad, plaintext)
             .unwrap();
 
         // Provider exports the retained secret range to seal for a joiner.
@@ -1480,7 +1502,7 @@ mod tests {
         // ratchet access to epoch N) decrypts purely from the shared secret.
         let receiver_group = exporter_aead_founder();
         let recovered = receiver_group
-            .decrypt_content_exporter_aead(history_secret_n, HISTORY_REALM, &sealed, aad)
+            .decrypt_content_exporter_aead(history_secret_n, &key_ref, epoch_n, &sealed, &aad)
             .unwrap();
         assert_eq!(recovered, plaintext);
     }

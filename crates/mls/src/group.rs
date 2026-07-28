@@ -4,10 +4,10 @@ use aes_gcm::aead::{Aead, Payload};
 use aes_gcm::{Aes128Gcm, KeyInit};
 use arkret_canonical::{base64url_decode, base64url_encode};
 use arkret_models_crypto::{
-    EncryptedPayload, MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsCommitEnvelope,
-    MlsGovernanceBindingExtension, MlsGovernanceBindingPayload,
-    MlsGovernanceBindingValidationContext, MlsGroupStateRecord, MlsGroupStateSink,
-    MlsKeyPackageRecord, MlsProposalEnvelope, MlsWelcomeEnvelope,
+    EncryptedEnvelopeAad, EncryptedPayload, KeyRefObject, MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
+    MlsCommitEnvelope, MlsExporterAeadHeader, MlsGovernanceBindingExtension,
+    MlsGovernanceBindingPayload, MlsGovernanceBindingValidationContext, MlsGroupStateRecord,
+    MlsGroupStateSink, MlsKeyPackageRecord, MlsProposalEnvelope, MlsWelcomeEnvelope,
     verify_mls_governance_binding_extension,
 };
 use arkret_wire::{
@@ -39,7 +39,8 @@ const ARKRET_OPENMLS_STATE_SNAPSHOT: &str = "arkret-openmls-provider-state-v1";
 /// `mls_exporter_aead_v1` content scheme id (spec encryption-and-audit §10.1).
 pub const MLS_EXPORTER_AEAD_CONTENT_SCHEME: &str = "mls_exporter_aead_v1";
 /// AAD / nonce-context `purpose` for the exporter-aead content scheme.
-pub const MLS_EXPORTER_AEAD_CONTENT_PURPOSE: &str = "mls_exporter_aead_content";
+pub const MLS_EXPORTER_AEAD_CONTENT_PURPOSE: &str =
+    arkret_models_crypto::MLS_EXPORTER_AEAD_CONTENT_PURPOSE;
 /// MLS exporter label for the per-epoch history secret.
 pub(crate) const HISTORY_SECRET_LABEL: &str = arkret_wire::ExporterLabelId::HISTORY_V1;
 /// HKDF-Expand label deriving the content key from the history secret.
@@ -501,12 +502,13 @@ impl ArkretMlsGroup {
     ///
     /// Side effects: derives + retains `history_secret[epoch]` (so the sender can
     /// later re-decrypt or share it) and advances the device nonce counter.
-    /// `aad_bytes` is bound verbatim into the AEAD AAD together with the key_ref,
-    /// ciphertext purpose and nonce per §10.1.
+    /// The typed routing `aad` is embedded in the closed immutable header with
+    /// scheme, key_ref, epoch, nonce, purpose and negotiated profile.
     pub fn encrypt_content_exporter_aead(
         &mut self,
         realm_id: &str,
-        aad_bytes: &[u8],
+        key_ref: &KeyRefObject,
+        aad: &EncryptedEnvelopeAad,
         plaintext: &[u8],
     ) -> Result<Vec<u8>> {
         // Resolved before any secret is derived: an unregistered or non-active
@@ -518,10 +520,10 @@ impl ArkretMlsGroup {
 
         let epoch = self.epoch();
         let counter = self.content_nonce_counter;
-        let nonce = self.content_aead_nonce(realm_id, epoch, suite, counter)?;
+        let nonce = self.content_aead_nonce(key_ref, epoch, suite, counter)?;
 
-        let aad = content_aead_aad(realm_id, &nonce, aad_bytes)?;
-        let ciphertext = suite.seal(&content_key, &nonce, &aad, plaintext)?;
+        let aead_aad = content_aead_aad(key_ref, epoch, &nonce, suite.canonical_id(), aad)?;
+        let ciphertext = suite.seal(&content_key, &nonce, &aead_aad, plaintext)?;
 
         self.content_nonce_counter = self
             .content_nonce_counter
@@ -537,8 +539,8 @@ impl ArkretMlsGroup {
     /// Decrypt content produced by [`Self::encrypt_content_exporter_aead`] using
     /// a supplied `history_secret` (e.g. one retained locally for the sender's
     /// own epoch, or unsealed from a `ak.realm_key.share`). `nonce_and_ct` is the
-    /// `nonce || ciphertext` blob; `aad_bytes` MUST be byte-identical to the AAD
-    /// passed at encrypt time. Takes `&self` — it does not touch ratchet state.
+    /// `nonce || ciphertext` blob; `key_ref`, `epoch` and `aad` MUST be the
+    /// verified envelope values. Takes `&self` — it does not touch ratchet state.
     ///
     /// The AEAD comes from the ciphersuite *this group* negotiated rather than
     /// from a caller-declared `aead_profile`: §10.1 makes the group at
@@ -549,16 +551,18 @@ impl ArkretMlsGroup {
     pub fn decrypt_content_exporter_aead(
         &self,
         history_secret: &[u8],
-        realm_id: &str,
+        key_ref: &KeyRefObject,
+        epoch: u64,
         nonce_and_ct: &[u8],
-        aad_bytes: &[u8],
+        aad: &EncryptedEnvelopeAad,
     ) -> Result<Vec<u8>> {
         decrypt_content_exporter_aead_standalone(
             history_secret,
-            realm_id,
+            key_ref,
+            epoch,
             self.group_ciphersuite_canonical_id()?,
             nonce_and_ct,
-            aad_bytes,
+            aad,
         )
     }
 
@@ -604,12 +608,12 @@ impl ArkretMlsGroup {
     /// purpose, followed by the big-endian counter.
     fn content_aead_nonce(
         &self,
-        realm_id: &str,
+        key_ref: &KeyRefObject,
         epoch: u64,
         suite: ExporterAeadSuite,
         counter: u64,
     ) -> Result<Vec<u8>> {
-        let context = self.content_nonce_context(realm_id, epoch)?;
+        let context = self.content_nonce_context(key_ref, epoch)?;
         let context_bytes = arkret_crypto::aead_sender_nonce_context_bytes(&context)?;
         // `encoding.md` §10.1 gives the exporter a label AND a Context, and the
         // Context is the canonical context bytes *alone*. Folding the label into
@@ -625,14 +629,12 @@ impl ArkretMlsGroup {
 
     fn content_nonce_context(
         &self,
-        realm_id: &str,
+        key_ref: &KeyRefObject,
         epoch: u64,
     ) -> Result<arkret_crypto::AeadNonceContext> {
         Ok(arkret_crypto::AeadNonceContext {
-            key_ref: serde_json::json!({
-                "algorithm": MLS_EXPORTER_AEAD_CONTENT_SCHEME,
-                "realm_id": realm_id,
-            }),
+            key_ref: serde_json::to_value(key_ref)
+                .map_err(|error| Error::Protocol(format!("key_ref encode: {error}")))?,
             epoch,
             device_id: self.identity.device_id.as_str().to_owned(),
             purpose: MLS_EXPORTER_AEAD_CONTENT_PURPOSE.to_owned(),
@@ -1283,7 +1285,7 @@ impl ArkretMlsGroup {
     pub fn encrypt_payload_with_aad(
         &mut self,
         content_type: impl Into<String>,
-        aad: Option<arkret_models_crypto::EncryptedEnvelopeAad>,
+        aad: Option<EncryptedEnvelopeAad>,
         plaintext: &[u8],
     ) -> Result<EncryptedPayload> {
         let content_type = content_type.into();
@@ -1312,10 +1314,7 @@ impl ArkretMlsGroup {
             // has no exporter AEAD and the schema forbids both members.
             purpose: None,
             aead_profile: None,
-            key_ref: Some(arkret_models_crypto::KeyRefObject::mls_rfc9420(
-                self.group_id(),
-                epoch,
-            )),
+            key_ref: Some(KeyRefObject::mls_rfc9420(self.group_id(), epoch)),
         })
     }
 
@@ -1323,29 +1322,26 @@ impl ArkretMlsGroup {
     /// and return the full [`EncryptedPayload`] (scheme / key_ref / digest set),
     /// so a late joiner granted the epoch's `history_secret` can decrypt it.
     ///
-    /// `aead_aad_bytes` is the history-binding AAD (e.g. the per-epoch
-    /// `history_content_aad_bytes(realm_id, epoch)`); it MUST be reconstructed
-    /// byte-identically on the decrypt side. `payload_aad` is the optional
-    /// routing AAD carried in the envelope (mirrors
-    /// [`Self::encrypt_payload_with_aad`]). Side effect: derives + retains this
+    /// `key_ref` and `payload_aad` are the exact envelope fields embedded in
+    /// the canonical immutable header. Side effect: derives + retains this
     /// epoch's `history_secret` (so the author can re-decrypt and later share it).
     pub fn encrypt_payload_exporter_aead(
         &mut self,
         content_type: impl Into<String>,
         realm_id: &str,
-        aead_aad_bytes: &[u8],
-        payload_aad: Option<arkret_models_crypto::EncryptedEnvelopeAad>,
+        key_ref: KeyRefObject,
+        payload_aad: EncryptedEnvelopeAad,
         plaintext: &[u8],
     ) -> Result<EncryptedPayload> {
         let nonce_and_ct =
-            self.encrypt_content_exporter_aead(realm_id, aead_aad_bytes, plaintext)?;
+            self.encrypt_content_exporter_aead(realm_id, &key_ref, &payload_aad, plaintext)?;
         let epoch = self.epoch();
         let content_type = content_type.into();
         let payload_digest = EncryptedPayload::payload_digest_for_scheme(
             EncryptedPayloadScheme::MlsExporterAeadV1,
             epoch,
             &content_type,
-            payload_aad.as_ref(),
+            Some(&payload_aad),
             &nonce_and_ct,
         )?;
         Ok(EncryptedPayload {
@@ -1354,7 +1350,7 @@ impl ArkretMlsGroup {
             epoch,
             content_type,
             ciphertext: encode(&nonce_and_ct),
-            aad: payload_aad,
+            aad: Some(payload_aad),
             payload_digest,
             // `encryption-and-audit.md` §2.10.2: both are required here, and
             // aead_profile is the ciphersuite this group negotiated — it is
@@ -1362,10 +1358,7 @@ impl ArkretMlsGroup {
             // group snapshot.
             purpose: Some(MLS_EXPORTER_AEAD_CONTENT_PURPOSE.to_owned()),
             aead_profile: Some(self.content_suite()?.canonical_id().to_owned()),
-            key_ref: Some(arkret_models_crypto::KeyRefObject::mls_exporter_aead(
-                self.group_id(),
-                epoch,
-            )),
+            key_ref: Some(key_ref),
         })
     }
 
@@ -1497,7 +1490,8 @@ impl ArkretMlsGroup {
 /// granted `history_secret` but has **no** local MLS group snapshot for the
 /// Realm (e.g. a member granted history before processing its own Welcome) can
 /// decrypt `mls_exporter_aead_v1` content with this. `nonce_and_ct` is
-/// `nonce || ciphertext`; `aad_bytes` MUST be byte-identical to encrypt time.
+/// `nonce || ciphertext`; `key_ref`, `epoch` and `aad` MUST be the verified
+/// envelope values used at encrypt time.
 ///
 /// `aead_profile` is a parameter here and not on the group method because this
 /// path has no group to ask: it is the envelope's declared `aead_profile`
@@ -1506,10 +1500,11 @@ impl ArkretMlsGroup {
 /// not-yet-active suite fails closed before any key material is derived.
 pub fn decrypt_content_exporter_aead_standalone(
     history_secret: &[u8],
-    realm_id: &str,
+    key_ref: &KeyRefObject,
+    epoch: u64,
     aead_profile: &str,
     nonce_and_ct: &[u8],
-    aad_bytes: &[u8],
+    aad: &EncryptedEnvelopeAad,
 ) -> Result<Vec<u8>> {
     let suite = ExporterAeadSuite::resolve(aead_profile)?;
     if nonce_and_ct.len() <= suite.nonce_len() {
@@ -1519,8 +1514,8 @@ pub fn decrypt_content_exporter_aead_standalone(
     }
     let (nonce, ciphertext) = nonce_and_ct.split_at(suite.nonce_len());
     let content_key = derive_content_key(history_secret, suite.key_len())?;
-    let aad = content_aead_aad(realm_id, nonce, aad_bytes)?;
-    suite.open(&content_key, nonce, &aad, ciphertext)
+    let aead_aad = content_aead_aad(key_ref, epoch, nonce, aead_profile, aad)?;
+    suite.open(&content_key, nonce, &aead_aad, ciphertext)
 }
 
 /// `K_content[N] = ExpandWithLabel(history_secret[N], "ak.content-v1", "", AEAD.Nk)`
@@ -1572,26 +1567,17 @@ fn encode_mls_varint(value: usize, output: &mut Vec<u8>) -> Result<()> {
     Ok(())
 }
 
-/// Canonical AAD for the exporter-aead content scheme (§10.1): binds the
-/// `key_ref` (scheme + realm), `purpose`, `nonce`, and the caller-supplied
-/// `aad_bytes` (e.g. an `EncryptedEnvelopeAad` digest). The `epoch` is **not**
-/// folded in here — it is not load-bearing for decryption (the content key is
-/// the history_secret) and is not recoverable on the decrypt side from the
-/// `nonce || ciphertext` blob alone. Any epoch binding the caller needs must be
-/// encoded into `aad_bytes`, which both sides reconstruct identically and which
-/// is the actual integrity anchor. The nonce already binds device + epoch +
-/// purpose via the MLS exporter prefix.
-fn content_aead_aad(realm_id: &str, nonce: &[u8], aad_bytes: &[u8]) -> Result<Vec<u8>> {
-    let map = serde_json::json!({
-        "purpose": MLS_EXPORTER_AEAD_CONTENT_PURPOSE,
-        "key_ref": {
-            "algorithm": MLS_EXPORTER_AEAD_CONTENT_SCHEME,
-            "realm_id": realm_id,
-        },
-        "nonce": base64url_encode(nonce),
-        "aad": base64url_encode(aad_bytes),
-    });
-    Ok(canonical::canonical_json_bytes(&map)?)
+/// Canonical closed header for the exporter-aead content scheme (§2.10.2).
+fn content_aead_aad(
+    key_ref: &KeyRefObject,
+    epoch: u64,
+    nonce: &[u8],
+    aead_profile: &str,
+    aad: &EncryptedEnvelopeAad,
+) -> Result<Vec<u8>> {
+    MlsExporterAeadHeader::new(key_ref, epoch, nonce, aead_profile, aad)
+        .canonical_bytes()
+        .map_err(|error| Error::Protocol(error.to_string()))
 }
 
 pub(super) fn snapshot_provider_storage(
@@ -1749,7 +1735,10 @@ mod content_scheme_anchor_tests {
         let profile = group.group_ciphersuite_canonical_id().unwrap();
         assert_eq!(profile, "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519");
         assert_eq!(
-            group.content_nonce_context(REALM, 3).unwrap().aead_profile,
+            group
+                .content_nonce_context(&KeyRefObject::mls_exporter_aead("group", 3), 3)
+                .unwrap()
+                .aead_profile,
             profile,
             "the nonce-derivation context MUST carry the negotiated canonical_id"
         );
@@ -1789,15 +1778,16 @@ mod content_scheme_anchor_tests {
         let group = founder();
         let epoch = group.epoch();
         let suite = group.content_suite().unwrap();
+        let key_ref = KeyRefObject::mls_exporter_aead("group", epoch);
         let context_bytes =
-            aead_sender_nonce_context_bytes(&group.content_nonce_context(REALM, epoch).unwrap())
+            aead_sender_nonce_context_bytes(&group.content_nonce_context(&key_ref, epoch).unwrap())
                 .unwrap();
 
         let expected_prefix = group
             .export_secret(AEAD_NONCE_EXPORTER_LABEL, &context_bytes, 4)
             .unwrap();
         let nonce = group
-            .content_aead_nonce(REALM, epoch, suite, 0x0102_0304_0506_0708)
+            .content_aead_nonce(&key_ref, epoch, suite, 0x0102_0304_0506_0708)
             .unwrap();
         assert_eq!(nonce.len(), 12);
         assert_eq!(&nonce[..4], &expected_prefix[..]);
@@ -1839,11 +1829,18 @@ mod content_scheme_anchor_tests {
         assert_eq!(nonce.len(), suite.nonce_len());
         assert_eq!(&nonce[4..], 7u64.to_be_bytes(), "counter suffix drifted");
 
-        let aad_bytes = b"anchor-aad";
-        let aad = content_aead_aad(REALM, &nonce, aad_bytes).unwrap();
+        let key_ref = KeyRefObject {
+            algorithm: "MLS-EXPORTER-AEAD".to_owned(),
+            group_state_ref: "ak:event:01964148-0000-7000-8000-000000000000".to_owned(),
+        };
+        let envelope_aad = EncryptedEnvelopeAad::hidden(
+            arkret_wire::RealmId::new(REALM).unwrap(),
+            "ak.message.create",
+        );
+        let aad = content_aead_aad(&key_ref, 42, &nonce, profile, &envelope_aad).unwrap();
         assert_eq!(
             std::str::from_utf8(&aad).unwrap(),
-            "{\"aad\":\"YW5jaG9yLWFhZA\",\"key_ref\":{\"algorithm\":\"mls_exporter_aead_v1\",\"realm_id\":\"ak:realm:01904100-0000-7000-8000-000000000042\"},\"nonce\":\"cUNyogAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\"}",
+            "{\"aad\":{\"event_kind\":\"ak.message.create\",\"realm_id\":\"ak:realm:01904100-0000-7000-8000-000000000042\"},\"aead_profile\":\"MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519\",\"epoch\":42,\"key_ref\":{\"algorithm\":\"MLS-EXPORTER-AEAD\",\"group_state_ref\":\"ak:event:01964148-0000-7000-8000-000000000000\"},\"nonce\":\"cUNyogAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\",\"scheme\":\"mls_exporter_aead_v1\"}",
             "canonical content AAD drifted"
         );
 
@@ -1851,7 +1848,7 @@ mod content_scheme_anchor_tests {
         let ciphertext = suite.seal(&content_key, &nonce, &aad, plaintext).unwrap();
         assert_eq!(
             hex(&ciphertext),
-            "e758b2f7d462d5170fe80aa7daee698cbdef6d5247cdd6cfc71e311632aa17dc3b7b6c92e1ba0dc86a8796392d9413",
+            "e758b2f7d462d5170fe80aa7daee698cbdef6d5247cdd6cfc71e311632aa1730d3e406aa948ab34a36dbc8953b1809",
             "exporter-aead ciphertext drifted"
         );
 
@@ -1860,10 +1857,11 @@ mod content_scheme_anchor_tests {
         nonce_and_ct.extend_from_slice(&ciphertext);
         let recovered = decrypt_content_exporter_aead_standalone(
             &history_secret,
-            REALM,
+            &key_ref,
+            42,
             profile,
             &nonce_and_ct,
-            aad_bytes,
+            &envelope_aad,
         )
         .unwrap();
         assert_eq!(recovered, plaintext);
@@ -1875,10 +1873,11 @@ mod content_scheme_anchor_tests {
         assert!(
             decrypt_content_exporter_aead_standalone(
                 &history_secret,
-                REALM,
+                &key_ref,
+                42,
                 profile,
                 &tampered,
-                aad_bytes
+                &envelope_aad
             )
             .is_err()
         );
