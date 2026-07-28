@@ -1,7 +1,6 @@
 #![cfg(feature = "backup")]
-//! Executable consumer for `ak.vector.key_backup.passphrase_kdf_kat.v1`
-//! (spec fixture `fixtures/key-backup-hardening-fixture.json`, case
-//! `passphrase_kdf_kat`).
+//! Executable consumers for the key-backup cryptographic transcripts in
+//! `fixtures/key-backup-hardening-fixture.json`.
 //!
 //! The vector pins the full passphrase_kdf byte chain from
 //! key-management.md §7.2: Argon2id (fixed params + salt) → HKDF-SHA256
@@ -17,12 +16,15 @@ use arkret_crypto::backup::{
 };
 use arkret_models_crypto::{BackupKind, KeyBackupDomainSeparationAad};
 use arkret_schema::embedded_json_artifact;
-use chrono::{DateTime, Utc};
-use serde_json::Value;
+use chacha20poly1305::ChaCha20Poly1305;
+use chacha20poly1305::aead::{Aead, KeyInit, Payload};
+use chrono::{DateTime, SecondsFormat, Utc};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 const FIXTURE_PATH: &str = "fixtures/key-backup-hardening-fixture.json";
-const VECTOR_ID: &str = "ak.vector.key_backup.passphrase_kdf_kat.v1";
+const PASSPHRASE_VECTOR_ID: &str = "ak.vector.key_backup.passphrase_kdf_kat.v1";
+const UNLOCK_VECTOR_ID: &str = "ak.vector.key_backup.unlock_proof.v1";
 
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
@@ -52,13 +54,101 @@ fn passphrase_kdf_kat_reproduces_fixture_bytes() {
         .iter()
         .find(|case| case["name"].as_str() == Some("passphrase_kdf_kat"))
         .expect("passphrase_kdf_kat case present");
-    assert_eq!(case["vector_id"].as_str(), Some(VECTOR_ID));
+    assert_eq!(case["vector_id"].as_str(), Some(PASSPHRASE_VECTOR_ID));
 
     let kat_cases = case["kat_cases"].as_array().expect("kat_cases array");
     assert_eq!(kat_cases.len(), 2, "KAT inventory pinned");
     for kat in kat_cases {
         run_kat(kat);
     }
+}
+
+#[test]
+fn unlock_proof_kat_opens_to_the_declared_canonical_plaintext() {
+    let fixture =
+        embedded_json_artifact(FIXTURE_PATH).expect("embedded key-backup hardening fixture");
+    let case = fixture["cases"]
+        .as_array()
+        .expect("fixture cases")
+        .iter()
+        .find(|case| case["name"].as_str() == Some("unlock_proof"))
+        .expect("unlock_proof case present");
+    assert_eq!(case["vector_id"].as_str(), Some(UNLOCK_VECTOR_ID));
+
+    let envelope = &case["envelope"];
+    let transcript = &case["crypto_transcript"];
+    let created_at = DateTime::parse_from_rfc3339(str_field(envelope, "created_at"))
+        .expect("envelope created_at parses")
+        .to_rfc3339_opts(SecondsFormat::Millis, true);
+    let aad_value = json!({
+        "actor_id": envelope["actor_id"],
+        "backup_id": envelope["backup_id"],
+        "backup_kind": envelope["backup_kind"],
+        "created_at": created_at,
+        "recipient_method": envelope["encryption"]["recipient_method"],
+        "schema": "ak.schema.key_backup.v1",
+        "series_id": envelope["series_id"],
+        "series_seq": envelope["series_seq"],
+    });
+    let aad = arkret_canonical::canonical_json_bytes(&aad_value).expect("AAD canonicalizes");
+    assert_eq!(
+        aad,
+        str_field(transcript, "aad_canonical_json").as_bytes(),
+        "unlock AAD must be the canonical envelope binding"
+    );
+
+    let plaintext = arkret_canonical::canonical_json_bytes(&case["plaintext"])
+        .expect("plaintext canonicalizes");
+    assert_eq!(
+        plaintext,
+        str_field(transcript, "plaintext_canonical_json").as_bytes(),
+        "declared plaintext transcript must be canonical"
+    );
+
+    let key =
+        arkret_canonical::base64url_decode(str_field(transcript, "key_b64u")).expect("key decodes");
+    let nonce: [u8; 12] = arkret_canonical::base64url_decode(str_field(transcript, "nonce_b64u"))
+        .expect("nonce decodes")
+        .try_into()
+        .expect("ChaCha20 nonce length");
+    let ciphertext = arkret_canonical::base64url_decode(str_field(transcript, "ciphertext_b64u"))
+        .expect("ciphertext decodes");
+    let tag =
+        arkret_canonical::base64url_decode(str_field(transcript, "tag_b64u")).expect("tag decodes");
+    assert_eq!(
+        ciphertext.len(),
+        plaintext.len(),
+        "ChaCha20 ciphertext and plaintext lengths must match"
+    );
+    assert_eq!(tag.len(), 16, "Poly1305 tag length");
+
+    let mut ciphertext_and_tag = ciphertext.clone();
+    ciphertext_and_tag.extend_from_slice(&tag);
+    assert_eq!(
+        arkret_canonical::base64url_encode(&ciphertext_and_tag),
+        str_field(transcript, "ciphertext_and_tag_b64u")
+    );
+    assert_eq!(
+        format!("sha256:{}", hex(&Sha256::digest(&ciphertext_and_tag))),
+        str_field(transcript, "ciphertext_digest")
+    );
+    assert_eq!(
+        envelope["ciphertext_digest"].as_str(),
+        transcript["ciphertext_digest"].as_str()
+    );
+
+    let nonce = nonce.into();
+    let opened = ChaCha20Poly1305::new_from_slice(&key)
+        .expect("ChaCha20 key length")
+        .decrypt(
+            &nonce,
+            Payload {
+                msg: &ciphertext_and_tag,
+                aad: &aad,
+            },
+        )
+        .expect("unlock transcript authenticates and opens");
+    assert_eq!(opened, plaintext);
 }
 
 fn run_kat(kat: &Value) {
