@@ -2,13 +2,13 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_wire::event_envelope::Event;
+use arkret_wire::event_envelope::{Event, EventSubmitContext};
 use serde_json::Value;
 use thiserror::Error;
 
 use super::state_root::{compute_state_root, seal_merkle_root_from_leaf_data};
 use super::store::{CellRegistry, CellStore, ControlEventStore, SealStore};
-use super::verify::verify_control_move;
+use super::verify::verify_control_move_in_context;
 use crate::lattice::ordered_log::IssuedOp;
 use crate::lattice::{CellState, SealedOp};
 use crate::{CellRef, Hash, ProjectedCellWrite, RealmId, Seal, SealId, canonical};
@@ -107,6 +107,43 @@ where
     VerifyProofs: Fn(&Event) -> Result<(), String> + Copy,
     ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
+    apply_seal_in_context(
+        seal,
+        events,
+        seals,
+        cells,
+        registry,
+        verify_proofs,
+        project_writes,
+        EventSubmitContext::Standard,
+    )
+}
+
+/// Apply a Seal under an explicit CBA envelope context.
+///
+/// `AnchorUnit` is only valid for a first Seal after the caller has validated
+/// the complete closed anchor unit. This layer cannot own that registry-backed
+/// whitelist, but it still requires an empty predecessor view and applies all
+/// other Seal and reducer checks.
+pub fn apply_seal_in_context<VerifyProofs, ProjectWrites>(
+    seal: &Seal,
+    events: &dyn ControlEventStore,
+    seals: &dyn SealStore,
+    cells: &dyn CellStore,
+    registry: &dyn CellRegistry,
+    verify_proofs: VerifyProofs,
+    project_writes: ProjectWrites,
+    context: EventSubmitContext,
+) -> Result<SealEffect, SealReject>
+where
+    VerifyProofs: Fn(&Event) -> Result<(), String> + Copy,
+    ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+{
+    if context == EventSubmitContext::AnchorUnit && !seal.predecessor_refs.is_empty() {
+        return Err(SealReject::Structural(
+            "anchor-unit context is only valid for the first Seal".to_owned(),
+        ));
+    }
     seal.validate_id()
         .map_err(|e| SealReject::Structural(format!("id: {e}")))?;
     seal.validate_structural()
@@ -162,22 +199,25 @@ where
     let mut accepted: Vec<(Hash, Event, Vec<crate::ProjectionEffect>)> =
         Vec::with_capacity(ordered.len());
     for (digest, event) in ordered {
-        verify_seal_basis(
-            &digest,
-            &event,
-            &pred_closure,
-            &seal.realm_id,
-            seals,
-            cells,
-            registry,
-        )?;
-        match verify_control_move(
+        if event.seal_basis.is_some() || context == EventSubmitContext::Standard {
+            verify_seal_basis(
+                &digest,
+                &event,
+                &pred_closure,
+                &seal.realm_id,
+                seals,
+                cells,
+                registry,
+            )?;
+        }
+        match verify_control_move_in_context(
             &event,
             &seal.realm_id,
             &pre_state,
             registry,
             verify_proofs,
             project_writes,
+            context,
         ) {
             Ok(effects) => accepted.push((digest, event, effects)),
             Err(reject) => {
@@ -1122,6 +1162,85 @@ mod tests {
                 .to_string()
                 .contains("complete non-empty Realm anchor")
         );
+    }
+
+    #[test]
+    fn first_anchor_unit_can_apply_basisless_events_only_in_explicit_context() {
+        let events = MemoryControlEventStore::default();
+        let seals = MemorySealStore::default();
+        let cells = MemoryCellStore::default();
+        let registry = MemoryCellRegistry::default();
+        let placeholder_basis = SealBasis {
+            leaves: vec![seal_id(0x01)],
+            control_event_set_root: hash(0x02),
+            state_root: hash(0x03),
+        };
+        let mut event = control_move(0, placeholder_basis, Vec::new(), Vec::new());
+        event.seal_basis = None;
+        event.proofs[0].event_digest = Hash::new(event.event_digest().unwrap()).unwrap();
+        let digest = control_event_digest(&event).unwrap();
+        events.put_pending(&event).unwrap();
+        let post_state = BTreeMap::from([(member_cell(), CellState::Value(json!("join")))]);
+        let seal = signed_seal(
+            Vec::new(),
+            vec![digest.clone()],
+            control_event_set_root(&BTreeSet::from([digest.clone()])).unwrap(),
+            compute_state_root(&post_state).unwrap(),
+            0,
+        );
+
+        let standard_error = apply_seal(
+            &seal,
+            &events,
+            &seals,
+            &cells,
+            &registry,
+            ok_proofs,
+            join_transition_write,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            standard_error,
+            SealReject::MissingSealBasis { .. } | SealReject::ControlMoveRejected { .. }
+        ));
+
+        let effect = apply_seal_in_context(
+            &seal,
+            &events,
+            &seals,
+            &cells,
+            &registry,
+            ok_proofs,
+            join_transition_write,
+            EventSubmitContext::AnchorUnit,
+        )
+        .unwrap();
+        assert_eq!(effect.accepted_event_digests, vec![digest]);
+        assert_eq!(effect.post_state_root, seal.state_root);
+    }
+
+    #[test]
+    fn anchor_unit_context_rejects_a_nonempty_predecessor_view() {
+        let (genesis, ..) = genesis_and_basis();
+        let seal = signed_seal(
+            vec![genesis.id],
+            Vec::new(),
+            genesis.control_event_set_root,
+            genesis.state_root,
+            1,
+        );
+        let error = apply_seal_in_context(
+            &seal,
+            &MemoryControlEventStore::default(),
+            &MemorySealStore::default(),
+            &MemoryCellStore::default(),
+            &MemoryCellRegistry::default(),
+            ok_proofs,
+            join_transition_write,
+            EventSubmitContext::AnchorUnit,
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("only valid for the first Seal"));
     }
 
     /// First Seal with a non-empty anchor digest, plus the `seal_basis` a

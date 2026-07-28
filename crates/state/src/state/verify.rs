@@ -26,7 +26,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::event_envelope::{EVENT_REF_ROLE_AUTHORIZED_BY, Event};
+use arkret_wire::event_envelope::{EVENT_REF_ROLE_AUTHORIZED_BY, Event, EventSubmitContext};
 use arkret_wire::patch::Patch;
 use serde::Deserialize;
 use serde_json::Value;
@@ -137,11 +137,41 @@ where
     VerifyProofs: Fn(&Event) -> Result<(), String>,
     ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String>,
 {
+    verify_control_move_in_context(
+        event,
+        realm_id,
+        pre_state,
+        registry,
+        verify_proofs,
+        project_writes,
+        EventSubmitContext::Standard,
+    )
+}
+
+/// Verify a Control Move under an explicit CBA envelope context.
+///
+/// `AnchorUnit` is only valid after the caller has validated one of the
+/// protocol's closed bootstrap/re-anchor units. It permits the unit's
+/// basis-less Events while preserving the remaining proof, capability,
+/// precondition, and reducer checks.
+pub fn verify_control_move_in_context<VerifyProofs, ProjectWrites>(
+    event: &Event,
+    realm_id: &RealmId,
+    pre_state: &BTreeMap<CellRef, CellState>,
+    registry: &dyn CellRegistry,
+    verify_proofs: VerifyProofs,
+    project_writes: ProjectWrites,
+    context: EventSubmitContext,
+) -> Result<Vec<ProjectionEffect>, ControlMoveReject>
+where
+    VerifyProofs: Fn(&Event) -> Result<(), String>,
+    ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String>,
+{
     // Step 1: structural. `validate_for_submit_structural` also enforces the
     // CBA envelope shape, so a DataEvent (`seal_ref` + `auth_context`) or an
     // Event with neither basis cannot reach the control-plane reducer here.
     event
-        .validate_for_submit_structural()
+        .validate_for_submit_structural_in_context(context)
         .map_err(|e| ControlMoveReject::SchemaViolation(e.to_string()))?;
     if event.realm_id != *realm_id {
         return Err(ControlMoveReject::SchemaViolation(format!(
@@ -149,7 +179,7 @@ where
             event.realm_id
         )));
     }
-    if event.seal_basis.is_none() {
+    if context == EventSubmitContext::Standard && event.seal_basis.is_none() {
         return Err(ControlMoveReject::SchemaViolation(
             "Control Move must carry seal_basis".to_owned(),
         ));

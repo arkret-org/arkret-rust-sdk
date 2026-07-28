@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::cba_proof_bundle::CbaProofBundle;
 use crate::error::{Error, Result};
-use crate::event_envelope::Event;
+use crate::event_envelope::{Event, EventSubmitContext};
 use crate::offline_publication::{AuthorizationLease, IngressReceipt};
 
 pub const MAX_SUBMISSION_CBA_BUNDLES: usize = 64;
@@ -69,7 +69,17 @@ impl EventInitialSubmission {
     /// Key material, accepted CBA basis and Realm issuer policy are checked by
     /// the caller; this covers only what the wrapper alone can decide.
     pub fn validate_structural(&self) -> Result<()> {
-        self.event.validate_for_submit_structural()?;
+        self.validate_structural_in_context(EventSubmitContext::Standard)
+    }
+
+    /// Structural validation under an explicit Event submit context.
+    ///
+    /// `AnchorUnit` is safe only after the caller has recognized and will
+    /// validate a complete closed anchor unit. It must never be selected from
+    /// one Event in isolation.
+    pub fn validate_structural_in_context(&self, context: EventSubmitContext) -> Result<()> {
+        self.event
+            .validate_for_submit_structural_in_context(context)?;
         self.authorization_lease.validate_structural()?;
         validate_lease_binds_event(&self.event, &self.authorization_lease)?;
         if self.cba_proof_bundles.len() > MAX_SUBMISSION_CBA_BUNDLES {
@@ -92,7 +102,13 @@ impl EventFederationSubmission {
     /// threshold and transparency evidence satisfy the *target* Realm policy
     /// is a separate decision the caller makes.
     pub fn validate_structural(&self) -> Result<()> {
-        self.event.validate_for_submit_structural()?;
+        self.validate_structural_in_context(EventSubmitContext::Standard)
+    }
+
+    /// Federation structural validation under a caller-proven anchor context.
+    pub fn validate_structural_in_context(&self, context: EventSubmitContext) -> Result<()> {
+        self.event
+            .validate_for_submit_structural_in_context(context)?;
         self.authorization_lease.validate_structural()?;
         validate_lease_binds_event(&self.event, &self.authorization_lease)?;
         if self.ingress_receipts.is_empty()

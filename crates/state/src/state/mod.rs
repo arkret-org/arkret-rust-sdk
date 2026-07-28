@@ -23,9 +23,10 @@ pub mod verify;
 pub use compaction::{CompactionPolicy, PruneCandidate, PruneEligibility};
 pub use seal::{
     EffectiveSealView, SealEffect, SealLeafUnionProof, SealReject, apply_seal,
-    control_event_completeness_root, control_event_set_root, deterministic_order,
-    effective_seal_view, effective_state_at, join_cell, join_cell_seal_batches, leaf_union_proof,
-    predecessor_seal_closure, union_predecessor_covered_events, verify_seal_basis, view_hash,
+    apply_seal_in_context, control_event_completeness_root, control_event_set_root,
+    deterministic_order, effective_seal_view, effective_state_at, join_cell,
+    join_cell_seal_batches, leaf_union_proof, predecessor_seal_closure,
+    union_predecessor_covered_events, verify_seal_basis, view_hash,
 };
 pub use state_root::{
     EMPTY_STATE_ROOT, StateInclusionProof, compute_state_root, leaf_hash, state_inclusion_proof,
@@ -41,5 +42,5 @@ pub use store::{
 };
 pub use verify::{
     ControlMoveReject, ControlMoveRejectMap, reject_to_error_code, resolve_projected_write,
-    verify_control_move,
+    verify_control_move, verify_control_move_in_context,
 };
