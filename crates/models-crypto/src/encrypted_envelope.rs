@@ -90,6 +90,19 @@ pub struct EncryptedEnvelope {
     pub aad_visibility_event_id: EncryptedEnvelopeAadVisibility,
     pub aad: EncryptedEnvelopeAad,
     pub key_ref: EncryptedEnvelopeKeyRef,
+    /// AEAD purpose. Required for `mls_exporter_aead_v1` and forbidden for
+    /// `mls_rfc9420`, per `encryption-and-audit.md` §2.10.2.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub purpose: Option<String>,
+    /// `canonical_id` of the ciphersuite the group at `key_ref.group_state_ref`
+    /// negotiated. Required for `mls_exporter_aead_v1` and forbidden for
+    /// `mls_rfc9420`.
+    ///
+    /// §2.10.2 closes by noting that every member of the AEAD header except
+    /// `aad` is already on the envelope, which is what lets a receiver rebuild
+    /// `aead_aad_bytes` — that only holds if this is carried.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aead_profile: Option<String>,
     pub payload_digest: Hash,
     pub aad_digest: Hash,
 }
@@ -126,6 +139,31 @@ impl EncryptedEnvelope {
             return Err(Error::Protocol(
                 "encrypted envelope key_ref.algorithm does not match scheme".to_owned(),
             ));
+        }
+        // `encryption-and-audit.md` §2.10.2. Both directions matter: without
+        // aead_profile a receiver cannot derive AEAD.Nk or N_AEAD and has to
+        // assume a suite, and carrying either member under mls_rfc9420 claims
+        // an exporter AEAD that scheme does not have.
+        match self.scheme {
+            EncryptedPayloadScheme::MlsExporterAeadV1 => {
+                if self.purpose.as_deref().unwrap_or_default().is_empty() {
+                    return Err(Error::Protocol(
+                        "mls_exporter_aead_v1 envelope requires purpose".to_owned(),
+                    ));
+                }
+                if self.aead_profile.as_deref().unwrap_or_default().is_empty() {
+                    return Err(Error::Protocol(
+                        "mls_exporter_aead_v1 envelope requires aead_profile".to_owned(),
+                    ));
+                }
+            }
+            EncryptedPayloadScheme::MlsRfc9420 => {
+                if self.purpose.is_some() || self.aead_profile.is_some() {
+                    return Err(Error::Protocol(
+                        "mls_rfc9420 envelope must not carry purpose or aead_profile".to_owned(),
+                    ));
+                }
+            }
         }
         if self.aad.causal_refs.is_some() && self.aad.causal_ref_digests.is_some() {
             return Err(Error::Protocol(
@@ -223,6 +261,23 @@ pub struct EncryptedPayload {
     /// Reference to the key material that decrypts `ciphertext`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key_ref: Option<KeyRefObject>,
+    /// AEAD purpose, present only for `mls_exporter_aead_v1`.
+    ///
+    /// A nonce-derivation and AAD input, so it separates a content nonce from
+    /// every other AEAD domain under the same key and epoch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub purpose: Option<String>,
+    /// `canonical_id` of an ACTIVE MLS ciphersuite, present only for
+    /// `mls_exporter_aead_v1`.
+    ///
+    /// `encryption-and-audit.md` §2.10.2 requires it to equal the ciphersuite
+    /// the group at `key_ref.group_state_ref` actually negotiated. It is what
+    /// fixes `AEAD.Nk` for the content key and `N_AEAD` for the nonce, so a
+    /// receiver that reads a payload without a local group snapshot cannot
+    /// derive either without it — which is why the standalone decrypt path
+    /// takes it rather than assuming a suite.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aead_profile: Option<String>,
 }
 
 /// Typed `key_ref` per `media-and-blob.md` §encrypted-payload (B-22).

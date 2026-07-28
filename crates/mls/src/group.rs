@@ -87,6 +87,17 @@ impl ExporterAeadSuite {
         }
     }
 
+    /// The `mls-ciphersuite-registry.json` `canonical_id` this suite is.
+    ///
+    /// The inverse of [`resolve`](Self::resolve). It exists so a producer writes
+    /// the registry id onto the wire rather than a local spelling —
+    /// `encoding.md` §10.1 forbids inventing a third layer of AEAD names.
+    pub const fn canonical_id(self) -> &'static str {
+        match self {
+            Self::Aes128Gcm => ARKRET_MLS_CIPHERSUITE_CANONICAL_ID,
+        }
+    }
+
     /// `N_AEAD - 8`: the exporter output length of the sender nonce prefix.
     pub const fn nonce_prefix_len(self) -> usize {
         self.nonce_len() - arkret_crypto::AEAD_NONCE_COUNTER_LEN
@@ -1297,6 +1308,10 @@ impl ArkretMlsGroup {
             ciphertext: encode(&message_bytes),
             aad,
             payload_digest,
+            // mls_rfc9420 derives message keys from the MLS secret tree, so it
+            // has no exporter AEAD and the schema forbids both members.
+            purpose: None,
+            aead_profile: None,
             key_ref: Some(arkret_models_crypto::KeyRefObject::mls_rfc9420(
                 self.group_id(),
                 epoch,
@@ -1341,6 +1356,12 @@ impl ArkretMlsGroup {
             ciphertext: encode(&nonce_and_ct),
             aad: payload_aad,
             payload_digest,
+            // `encryption-and-audit.md` §2.10.2: both are required here, and
+            // aead_profile is the ciphersuite this group negotiated — it is
+            // what lets a receiver derive AEAD.Nk and N_AEAD without a local
+            // group snapshot.
+            purpose: Some(MLS_EXPORTER_AEAD_CONTENT_PURPOSE.to_owned()),
+            aead_profile: Some(self.content_suite()?.canonical_id().to_owned()),
             key_ref: Some(arkret_models_crypto::KeyRefObject::mls_exporter_aead(
                 self.group_id(),
                 epoch,

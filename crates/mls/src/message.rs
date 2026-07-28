@@ -51,6 +51,11 @@ pub fn encrypted_envelope_from_payload(
             algorithm,
             group_state_ref,
         },
+        // Carried through rather than re-derived: the payload was produced by
+        // the group that knows its own ciphersuite, and re-deriving here would
+        // let the envelope disagree with the bytes it describes.
+        purpose: payload.purpose.clone(),
+        aead_profile: payload.aead_profile.clone(),
         payload_digest: payload.payload_digest.clone(),
     };
     envelope.validate()?;
@@ -66,6 +71,8 @@ pub fn encrypted_envelope_to_payload(envelope: &EncryptedEnvelope) -> Result<Enc
         content_type: envelope.content_type.clone(),
         ciphertext: envelope.ciphertext.clone(),
         aad: Some(envelope.aad.clone()),
+        purpose: envelope.purpose.clone(),
+        aead_profile: envelope.aead_profile.clone(),
         payload_digest: envelope.payload_digest.clone(),
         key_ref: Some(match &envelope.scheme {
             EncryptedPayloadScheme::MlsRfc9420 => arkret_models_crypto::KeyRefObject::mls_rfc9420(

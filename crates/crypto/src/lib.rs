@@ -134,6 +134,9 @@ mod tests {
             aad: None,
             payload_digest: Hash::new(sha256_prefixed(b"abc")).unwrap(),
             key_ref: None,
+            // mls_rfc9420 has no exporter AEAD, so the schema forbids both.
+            purpose: None,
+            aead_profile: None,
         };
         binding.record_unable_to_decrypt(UnableToDecryptRecord {
             event_id: EventId::new("ak:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap(),
@@ -441,6 +444,9 @@ mod tests {
             aad: None,
             payload_digest: Hash::new(sha256_prefixed(b"not-the-ciphertext")).unwrap(),
             key_ref: None,
+            // mls_rfc9420 has no exporter AEAD, so the schema forbids both.
+            purpose: None,
+            aead_profile: None,
         };
         let record = UnableToDecryptRecord {
             event_id: event_id.clone(),
