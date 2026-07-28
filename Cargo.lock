@@ -351,7 +351,6 @@ dependencies = [
  "arkret-schema",
  "arkret-signatures",
  "arkret-wire",
- "chacha20poly1305",
  "chrono",
  "ed25519-dalek",
  "hex",

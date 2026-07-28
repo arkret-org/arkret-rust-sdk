@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use aes_gcm::aead::{Aead, Payload};
+use aes_gcm::{Aes128Gcm, KeyInit};
 use arkret_canonical::{base64url_decode, base64url_encode};
 use arkret_models_crypto::{
     EncryptedPayload, MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsCommitEnvelope,
@@ -8,9 +10,9 @@ use arkret_models_crypto::{
     MlsKeyPackageRecord, MlsProposalEnvelope, MlsWelcomeEnvelope,
     verify_mls_governance_binding_extension,
 };
-use arkret_wire::{DeviceId, Did, EncryptedPayloadScheme, Hash, canonical};
-use chacha20poly1305::XChaCha20Poly1305;
-use chacha20poly1305::aead::{Aead, KeyInit, Payload};
+use arkret_wire::{
+    DeviceId, Did, EncryptedPayloadScheme, Hash, MLS_CIPHERSUITES, ReasonCode, canonical,
+};
 use chrono::Utc;
 use hkdf::Hkdf;
 use openmls::prelude::{
@@ -26,7 +28,10 @@ use sha2::Sha256;
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
 use zeroize::Zeroizing;
 
-use crate::identity::{ARKRET_MLS_CIPHERSUITE, ArkretMlsIdentity, decode_key_package};
+use crate::identity::{
+    ARKRET_MLS_CIPHERSUITE, ARKRET_MLS_CIPHERSUITE_CANONICAL_ID, ArkretMlsIdentity,
+    decode_key_package,
+};
 use crate::{MlsError as Error, Result};
 
 const ARKRET_OPENMLS_STATE_SNAPSHOT: &str = "arkret-openmls-provider-state-v1";
@@ -39,10 +44,141 @@ pub const MLS_EXPORTER_AEAD_CONTENT_PURPOSE: &str = "mls_exporter_aead_content";
 pub(crate) const HISTORY_SECRET_LABEL: &str = arkret_wire::ExporterLabelId::HISTORY_V1;
 /// HKDF-Expand label deriving the content key from the history secret.
 const CONTENT_KEY_LABEL: &str = arkret_wire::ExporterLabelId::CONTENT_V1;
-/// XChaCha20-Poly1305 key length, `AEAD.Nk`.
-const CONTENT_AEAD_KEY_LEN: usize = 32;
-/// XChaCha20-Poly1305 nonce length (24 bytes; §10.1 prefix || counter_be64).
-const CONTENT_AEAD_NONCE_LEN: usize = 24;
+
+/// AEAD parameters an `aead_profile` fixes, shared by both MLS-exporter-derived
+/// AEAD domains: `mls_exporter_aead_v1` content (this module) and
+/// `ak.signal_exporter_aead.v1` ([`crate::signal`]).
+///
+/// `encoding.md` §10.1 splits the `aead_profile` vocabulary by how the key was
+/// obtained, not by which envelope carries it: application-layer HPKE sealing
+/// surfaces take `hpke-suite-registry.json`, while every domain whose key comes
+/// out of the MLS exporter takes the `canonical_id` of the
+/// `mls-ciphersuite-registry.json` row the group at `key_ref.group_state_ref`
+/// actually negotiated. Content encryption is in the second set
+/// (`crypto-media/encryption-and-audit.md` §2.10.2 states it verbatim and
+/// forbids an HPKE suite name *or any local alias*), so both domains resolve
+/// their algorithm here rather than naming one.
+///
+/// `#[non_exhaustive]` and resolved through the generated registry so that
+/// activating a further ciphersuite is a new variant plus a new arm here — and
+/// nothing at all on the wire.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ExporterAeadSuite {
+    /// `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`: `AEAD.Nk` = 16,
+    /// `N_AEAD` = 12, leaving a 4-byte sender nonce prefix.
+    Aes128Gcm,
+}
+
+impl ExporterAeadSuite {
+    /// `AEAD.Nk` — the key length `ExpandWithLabel` is asked for
+    /// (`encryption-and-audit.md` §2.10.1 for content, the `ak.signal-v1`
+    /// registry row for the Signal rail).
+    pub const fn key_len(self) -> usize {
+        match self {
+            Self::Aes128Gcm => 16,
+        }
+    }
+
+    /// `N_AEAD`, the AEAD's nonce length.
+    pub const fn nonce_len(self) -> usize {
+        match self {
+            Self::Aes128Gcm => 12,
+        }
+    }
+
+    /// `N_AEAD - 8`: the exporter output length of the sender nonce prefix.
+    pub const fn nonce_prefix_len(self) -> usize {
+        self.nonce_len() - arkret_crypto::AEAD_NONCE_COUNTER_LEN
+    }
+
+    /// Resolve an `aead_profile` against `mls-ciphersuite-registry.json`.
+    ///
+    /// Two separate gates, both required by `encoding.md` §10.1: the row must
+    /// exist, and it must be `active`. A `reserved` row (the ChaCha20 and the
+    /// two PQ hybrid rows today) MUST NOT appear on the wire before its
+    /// activation requirements are met and the registry is released, so it is
+    /// rejected here rather than silently accepted because the underlying
+    /// library happens to implement it.
+    pub fn resolve(aead_profile: &str) -> Result<Self> {
+        let row = MLS_CIPHERSUITES
+            .iter()
+            .find(|row| row.canonical_id == aead_profile)
+            .ok_or_else(|| {
+                Error::Protocol(format!(
+                    "{}: aead_profile {aead_profile} is not a registered MLS ciphersuite",
+                    ReasonCode::UNSUPPORTED_AEAD_PROFILE
+                ))
+            })?;
+        if row.status != "active" {
+            return Err(Error::Protocol(format!(
+                "{}: MLS ciphersuite {aead_profile} is {} and MUST NOT appear on the wire",
+                ReasonCode::UNSUPPORTED_AEAD_PROFILE,
+                row.status
+            )));
+        }
+        if aead_profile == ARKRET_MLS_CIPHERSUITE_CANONICAL_ID {
+            return Ok(Self::Aes128Gcm);
+        }
+        // An active registry row this build has no AEAD implementation for.
+        // Fail closed rather than fall back to another suite's algorithm.
+        Err(Error::Protocol(format!(
+            "{}: no exporter AEAD implementation for active MLS ciphersuite {aead_profile}",
+            ReasonCode::UNSUPPORTED_AEAD_PROFILE
+        )))
+    }
+
+    pub(crate) fn seal(
+        self,
+        key: &[u8],
+        nonce: &[u8],
+        aad: &[u8],
+        plaintext: &[u8],
+    ) -> Result<Vec<u8>> {
+        match self {
+            Self::Aes128Gcm => aes128_gcm(key)?
+                .encrypt(
+                    &aes_gcm_nonce(nonce)?.into(),
+                    Payload {
+                        msg: plaintext,
+                        aad,
+                    },
+                )
+                .map_err(|_| Error::Crypto("exporter AEAD encryption failed".to_owned())),
+        }
+    }
+
+    pub(crate) fn open(
+        self,
+        key: &[u8],
+        nonce: &[u8],
+        aad: &[u8],
+        ciphertext: &[u8],
+    ) -> Result<Vec<u8>> {
+        match self {
+            Self::Aes128Gcm => aes128_gcm(key)?
+                .decrypt(
+                    &aes_gcm_nonce(nonce)?.into(),
+                    Payload {
+                        msg: ciphertext,
+                        aad,
+                    },
+                )
+                .map_err(|_| Error::Crypto("exporter AEAD tag check failed".to_owned())),
+        }
+    }
+}
+
+fn aes128_gcm(key: &[u8]) -> Result<Aes128Gcm> {
+    Aes128Gcm::new_from_slice(key)
+        .map_err(|_| Error::Crypto("invalid AES-128-GCM key length".to_owned()))
+}
+
+fn aes_gcm_nonce(nonce: &[u8]) -> Result<[u8; 12]> {
+    nonce
+        .try_into()
+        .map_err(|_| Error::Crypto("AES-GCM nonce must be 12 bytes".to_owned()))
+}
 
 pub struct ArkretMlsGroup {
     pub(super) identity: ArkretMlsIdentity,
@@ -58,9 +194,11 @@ pub struct ArkretMlsGroup {
     /// when the entry (or the whole group) is dropped.
     pub(super) history_secrets: BTreeMap<u64, Zeroizing<Vec<u8>>>,
     /// Monotonic per-device AEAD nonce counter for the `mls_exporter_aead_v1`
-    /// content scheme (`encoding §10.1`: `device_nonce_counter_be64`).
-    /// In-memory only; never reused within an epoch because the counter only
-    /// ever advances.
+    /// content scheme (`encoding §10.1`: `device_nonce_counter_be64`). Never
+    /// reused within an epoch because the counter only ever advances, and
+    /// carried through [`OpenMlsStateSnapshot`] because §10.1 makes persisting
+    /// it mandatory: a device that cannot recover the counter for its epoch
+    /// MUST commit to a new epoch rather than restart at 0.
     pub(super) content_nonce_counter: u64,
     /// Monotonic per-device AEAD nonce counter for the
     /// `ak.signal_exporter_aead.v1` Signal scheme (`encoding §10.1`). Kept
@@ -307,10 +445,13 @@ impl ArkretMlsGroup {
     //
     // The content key for epoch `N` is derived purely from the MLS exporter at
     // that epoch:
-    //   history_secret[N] = MLS-Exporter("ak.history-v1", realm_id, 32)
-    //   K_content[N]      = ExpandWithLabel(history_secret[N], "ak.content-v1", "", 32)
-    // Content is XChaCha20-Poly1305 over (nonce, aad, plaintext) with the §10.1
-    // nonce `sender_nonce_prefix || counter_be64`. Because `history_secret[N]`
+    //   history_secret[N] = MLS-Exporter("ak.history-v1", realm_id, KDF.Nh)
+    //   K_content[N]      = ExpandWithLabel(history_secret[N], "ak.content-v1", "", AEAD.Nk)
+    // `AEAD` is the one the group negotiated ([`ExporterAeadSuite`]) — §2.10.1
+    // takes its lengths and §2.10.2 its `aead_profile` from the MLS ciphersuite
+    // registry, never from a locally chosen algorithm. Content is sealed over
+    // (nonce, aad, plaintext) with the §10.1 nonce
+    // `sender_nonce_prefix || counter_be64`. Because `history_secret[N]`
     // is reproducible from `history_secret` alone (no ratchet state), a provider
     // can HPKE-seal a retained `history_secret[N]` to a joiner who can then
     // decrypt every epoch-`N` message — the basis of encrypted history sharing.
@@ -344,8 +485,8 @@ impl ArkretMlsGroup {
     }
 
     /// Encrypt `plaintext` for the current epoch under the `mls_exporter_aead_v1`
-    /// content scheme, returning `nonce || ciphertext` (the 24-byte XChaCha
-    /// nonce prepended so the receiver decrypt path is self-describing).
+    /// content scheme, returning `nonce || ciphertext` (the `N_AEAD`-byte nonce
+    /// prepended so the receiver decrypt path is self-describing).
     ///
     /// Side effects: derives + retains `history_secret[epoch]` (so the sender can
     /// later re-decrypt or share it) and advances the device nonce counter.
@@ -357,25 +498,19 @@ impl ArkretMlsGroup {
         aad_bytes: &[u8],
         plaintext: &[u8],
     ) -> Result<Vec<u8>> {
+        // Resolved before any secret is derived: an unregistered or non-active
+        // ciphersuite must fail closed rather than produce ciphertext under an
+        // algorithm no receiver is allowed to accept.
+        let suite = self.content_suite()?;
         let history_secret = self.derive_and_retain_history_secret(realm_id)?;
-        let content_key = derive_content_key(&history_secret)?;
+        let content_key = derive_content_key(&history_secret, suite.key_len())?;
 
         let epoch = self.epoch();
         let counter = self.content_nonce_counter;
-        let nonce = self.content_aead_nonce(realm_id, epoch, counter)?;
+        let nonce = self.content_aead_nonce(realm_id, epoch, suite, counter)?;
 
         let aad = content_aead_aad(realm_id, &nonce, aad_bytes)?;
-        let nonce_arr = content_nonce_array(&nonce)?;
-        let cipher = content_cipher(&content_key)?;
-        let ciphertext = cipher
-            .encrypt(
-                &nonce_arr.into(),
-                Payload {
-                    msg: plaintext,
-                    aad: &aad,
-                },
-            )
-            .map_err(|_| Error::Crypto("exporter-aead content encryption failed".to_owned()))?;
+        let ciphertext = suite.seal(&content_key, &nonce, &aad, plaintext)?;
 
         self.content_nonce_counter = self
             .content_nonce_counter
@@ -393,6 +528,13 @@ impl ArkretMlsGroup {
     /// own epoch, or unsealed from a `ak.realm_key.share`). `nonce_and_ct` is the
     /// `nonce || ciphertext` blob; `aad_bytes` MUST be byte-identical to the AAD
     /// passed at encrypt time. Takes `&self` — it does not touch ratchet state.
+    ///
+    /// The AEAD comes from the ciphersuite *this group* negotiated rather than
+    /// from a caller-declared `aead_profile`: §10.1 makes the group at
+    /// `key_ref.group_state_ref` the authority, so a caller holding the group
+    /// has nothing left to declare. The group-free
+    /// [`decrypt_content_exporter_aead_standalone`] is the path that must be
+    /// told.
     pub fn decrypt_content_exporter_aead(
         &self,
         history_secret: &[u8],
@@ -400,12 +542,13 @@ impl ArkretMlsGroup {
         nonce_and_ct: &[u8],
         aad_bytes: &[u8],
     ) -> Result<Vec<u8>> {
-        if nonce_and_ct.len() <= CONTENT_AEAD_NONCE_LEN {
-            return Err(Error::Protocol(
-                "exporter-aead content too short to contain nonce + ciphertext".to_owned(),
-            ));
-        }
-        decrypt_content_exporter_aead_standalone(history_secret, realm_id, nonce_and_ct, aad_bytes)
+        decrypt_content_exporter_aead_standalone(
+            history_secret,
+            realm_id,
+            self.group_ciphersuite_canonical_id()?,
+            nonce_and_ct,
+            aad_bytes,
+        )
     }
 
     /// Return the retained `history_secret[from_epoch..=to_epoch]` subset a
@@ -422,30 +565,59 @@ impl ArkretMlsGroup {
             .collect()
     }
 
+    /// The AEAD suite this group negotiated, resolved through
+    /// `mls-ciphersuite-registry.json`.
+    fn content_suite(&self) -> Result<ExporterAeadSuite> {
+        ExporterAeadSuite::resolve(self.group_ciphersuite_canonical_id()?)
+    }
+
+    /// `canonical_id` of the ciphersuite this group negotiated.
+    ///
+    /// The wire value comes from the registry constant, never from the
+    /// third-party `Ciphersuite` `Debug` form; the OpenMLS value is only
+    /// compared, so an unexpected suite fails closed instead of being
+    /// stringified onto the wire.
+    pub(crate) fn group_ciphersuite_canonical_id(&self) -> Result<&'static str> {
+        if self.group.ciphersuite() == ARKRET_MLS_CIPHERSUITE {
+            Ok(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID)
+        } else {
+            Err(Error::Protocol(format!(
+                "{}: MLS group negotiated a ciphersuite with no registered canonical_id",
+                ReasonCode::UNSUPPORTED_AEAD_PROFILE
+            )))
+        }
+    }
+
     /// Compose the §10.1 content nonce for `(epoch, counter)`: the sender prefix
     /// is taken from the MLS exporter so it is bound to this device + epoch +
     /// purpose, followed by the big-endian counter.
-    fn content_aead_nonce(&self, realm_id: &str, epoch: u64, counter: u64) -> Result<Vec<u8>> {
-        let context = self.content_nonce_context(realm_id, epoch);
+    fn content_aead_nonce(
+        &self,
+        realm_id: &str,
+        epoch: u64,
+        suite: ExporterAeadSuite,
+        counter: u64,
+    ) -> Result<Vec<u8>> {
+        let context = self.content_nonce_context(realm_id, epoch)?;
         let context_bytes = arkret_crypto::aead_sender_nonce_context_bytes(&context)?;
-        // Derive the sender_nonce_prefix from the MLS exporter (live MLS path),
-        // mirroring `crypto::derive_aead_sender_nonce_prefix`'s exporter input.
-        let mut info = Vec::with_capacity(
-            arkret_crypto::AEAD_NONCE_EXPORTER_LABEL.len() + 1 + context_bytes.len(),
-        );
-        info.extend_from_slice(arkret_crypto::AEAD_NONCE_EXPORTER_LABEL.as_bytes());
-        info.push(0x00);
-        info.extend_from_slice(&context_bytes);
+        // `encoding.md` §10.1 gives the exporter a label AND a Context, and the
+        // Context is the canonical context bytes *alone*. Folding the label into
+        // the Context as well would count it twice and produce a prefix no other
+        // implementation of the formula reproduces.
         let prefix = self.export_secret(
             arkret_crypto::AEAD_NONCE_EXPORTER_LABEL,
-            &info,
-            CONTENT_AEAD_NONCE_LEN - arkret_crypto::AEAD_NONCE_COUNTER_LEN,
+            &context_bytes,
+            suite.nonce_prefix_len(),
         )?;
         Ok(arkret_crypto::compose_aead_nonce(&prefix, counter))
     }
 
-    fn content_nonce_context(&self, realm_id: &str, epoch: u64) -> arkret_crypto::AeadNonceContext {
-        arkret_crypto::AeadNonceContext {
+    fn content_nonce_context(
+        &self,
+        realm_id: &str,
+        epoch: u64,
+    ) -> Result<arkret_crypto::AeadNonceContext> {
+        Ok(arkret_crypto::AeadNonceContext {
             key_ref: serde_json::json!({
                 "algorithm": MLS_EXPORTER_AEAD_CONTENT_SCHEME,
                 "realm_id": realm_id,
@@ -453,8 +625,12 @@ impl ArkretMlsGroup {
             epoch,
             device_id: self.identity.device_id.as_str().to_owned(),
             purpose: MLS_EXPORTER_AEAD_CONTENT_PURPOSE.to_owned(),
-            aead_profile: arkret_crypto::AEAD_PROFILE_XCHACHA20_POLY1305.to_owned(),
-        }
+            // §2.10.2: the active ciphersuite `canonical_id` of the group at
+            // `key_ref.group_state_ref`, never an HPKE suite name or a local
+            // alias — so the algorithm this nonce is scoped to is the one the
+            // group actually negotiated.
+            aead_profile: self.group_ciphersuite_canonical_id()?.to_owned(),
+        })
     }
 
     /// Snapshot the current MLS group's member principals as canonical IDs.
@@ -1295,49 +1471,49 @@ impl ArkretMlsGroup {
     }
 }
 
-/// `K_content = ExpandWithLabel(history_secret, "ak.content-v1", "", AEAD.Nk)`.
-///
-/// Per spec the history_secret already has full entropy (it is an MLS exporter
-/// output), so the history_secret is used directly as the HKDF PRK (Expand-only,
-/// no Extract step) — matching `ExpandWithLabel(history_secret, …)`.
 /// Standalone (group-free) variant of
 /// [`ArkretMlsGroup::decrypt_content_exporter_aead`]. A device that holds a
 /// granted `history_secret` but has **no** local MLS group snapshot for the
 /// Realm (e.g. a member granted history before processing its own Welcome) can
 /// decrypt `mls_exporter_aead_v1` content with this. `nonce_and_ct` is
 /// `nonce || ciphertext`; `aad_bytes` MUST be byte-identical to encrypt time.
+///
+/// `aead_profile` is a parameter here and not on the group method because this
+/// path has no group to ask: it is the envelope's declared `aead_profile`
+/// (§2.10.2), and it fixes both the key length and where the nonce ends. It is
+/// resolved through `mls-ciphersuite-registry.json`, so an unregistered or
+/// not-yet-active suite fails closed before any key material is derived.
 pub fn decrypt_content_exporter_aead_standalone(
     history_secret: &[u8],
     realm_id: &str,
+    aead_profile: &str,
     nonce_and_ct: &[u8],
     aad_bytes: &[u8],
 ) -> Result<Vec<u8>> {
-    if nonce_and_ct.len() <= CONTENT_AEAD_NONCE_LEN {
+    let suite = ExporterAeadSuite::resolve(aead_profile)?;
+    if nonce_and_ct.len() <= suite.nonce_len() {
         return Err(Error::Protocol(
             "exporter-aead content too short to contain nonce + ciphertext".to_owned(),
         ));
     }
-    let (nonce, ciphertext) = nonce_and_ct.split_at(CONTENT_AEAD_NONCE_LEN);
-    let content_key = derive_content_key(history_secret)?;
+    let (nonce, ciphertext) = nonce_and_ct.split_at(suite.nonce_len());
+    let content_key = derive_content_key(history_secret, suite.key_len())?;
     let aad = content_aead_aad(realm_id, nonce, aad_bytes)?;
-    let nonce_arr = content_nonce_array(nonce)?;
-    let cipher = content_cipher(&content_key)?;
-    cipher
-        .decrypt(
-            &nonce_arr.into(),
-            Payload {
-                msg: ciphertext,
-                aad: &aad,
-            },
-        )
-        .map_err(|_| Error::Crypto("exporter-aead content tag check failed".to_owned()))
+    suite.open(&content_key, nonce, &aad, ciphertext)
 }
 
-fn derive_content_key(history_secret: &[u8]) -> Result<Zeroizing<[u8; CONTENT_AEAD_KEY_LEN]>> {
+/// `K_content[N] = ExpandWithLabel(history_secret[N], "ak.content-v1", "", AEAD.Nk)`
+/// (§2.10.1). `key_len` is the negotiated suite's `AEAD.Nk` and is encoded into
+/// the `ExpandWithLabel` info, so two suites never derive a shared prefix.
+///
+/// Expand-only, no Extract: the `history_secret` is an MLS exporter output and
+/// already has full entropy, which is what `ExpandWithLabel` assumes of its
+/// Secret input.
+fn derive_content_key(history_secret: &[u8], key_len: usize) -> Result<Zeroizing<Vec<u8>>> {
     let hkdf = Hkdf::<Sha256>::from_prk(history_secret)
         .map_err(|_| Error::Crypto("history_secret too short for HKDF PRK".to_owned()))?;
-    let info = mls_kdf_label(CONTENT_AEAD_KEY_LEN, CONTENT_KEY_LABEL, &[])?;
-    let mut key = Zeroizing::new([0u8; CONTENT_AEAD_KEY_LEN]);
+    let info = mls_kdf_label(key_len, CONTENT_KEY_LABEL, &[])?;
+    let mut key = Zeroizing::new(vec![0u8; key_len]);
     hkdf.expand(&info, key.as_mut())
         .map_err(|_| Error::Crypto("content key derivation failed".to_owned()))?;
     Ok(key)
@@ -1373,17 +1549,6 @@ fn encode_mls_varint(value: usize, output: &mut Vec<u8>) -> Result<()> {
         }
     }
     Ok(())
-}
-
-fn content_cipher(content_key: &[u8; CONTENT_AEAD_KEY_LEN]) -> Result<XChaCha20Poly1305> {
-    XChaCha20Poly1305::new_from_slice(content_key)
-        .map_err(|_| Error::Crypto("invalid XChaCha20-Poly1305 content key length".to_owned()))
-}
-
-fn content_nonce_array(nonce: &[u8]) -> Result<[u8; CONTENT_AEAD_NONCE_LEN]> {
-    nonce
-        .try_into()
-        .map_err(|_| Error::Crypto("exporter-aead content nonce must be 24 bytes".to_owned()))
 }
 
 /// Canonical AAD for the exporter-aead content scheme (§10.1): binds the
@@ -1524,86 +1689,148 @@ impl arkret_crypto::sframe::MlsExporterSource for ArkretMlsGroup {
 #[cfg(test)]
 mod content_scheme_anchor_tests {
     use arkret_crypto::{
-        AEAD_PROFILE_XCHACHA20_POLY1305, AeadNonceContext, compose_aead_nonce,
-        derive_aead_sender_nonce_prefix,
+        AEAD_NONCE_EXPORTER_LABEL, aead_sender_nonce_context_bytes, compose_aead_nonce,
     };
-    use chacha20poly1305::aead::{Aead, Payload};
-    use serde_json::json;
 
-    use super::{
-        MLS_EXPORTER_AEAD_CONTENT_PURPOSE, MLS_EXPORTER_AEAD_CONTENT_SCHEME, content_aead_aad,
-        content_cipher, content_nonce_array, decrypt_content_exporter_aead_standalone,
-        derive_content_key, mls_kdf_label,
-    };
+    use super::*;
+    use crate::identity::ArkretMlsIdentity;
 
     fn hex(bytes: &[u8]) -> String {
         bytes.iter().map(|b| format!("{b:02x}")).collect()
     }
 
     const REALM: &str = "ak:realm:01904100-0000-7000-8000-000000000042";
+    const DEVICE: &str = "ak:device:01904100-0000-7000-8000-000000000007";
+
+    fn founder() -> ArkretMlsGroup {
+        ArkretMlsIdentity::new_basic(
+            Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
+            DeviceId::new(DEVICE.to_owned()).unwrap(),
+        )
+        .unwrap()
+        .create_group(REALM.as_bytes())
+        .unwrap()
+    }
+
+    /// Every wire-breaking AEAD parameter of the content scheme, checked
+    /// against the registry rather than against this module.
+    ///
+    /// `encryption-and-audit.md` §2.10.2 makes `aead_profile` the active
+    /// ciphersuite `canonical_id` of the group at `key_ref.group_state_ref`,
+    /// from `mls-ciphersuite-registry.json`, and forbids an HPKE suite name or
+    /// any local alias; §2.10.1 then takes `AEAD.Nk` and the nonce length from
+    /// that suite. The registry's only active row is AES-128-GCM, so the
+    /// content scheme is 16-byte keys and 12-byte nonces — no registered MLS
+    /// ciphersuite uses XChaCha20-Poly1305 at all.
+    #[test]
+    fn content_aead_parameters_come_from_the_mls_ciphersuite_registry() {
+        let group = founder();
+        let profile = group.group_ciphersuite_canonical_id().unwrap();
+        assert_eq!(profile, "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519");
+        assert_eq!(
+            group.content_nonce_context(REALM, 3).unwrap().aead_profile,
+            profile,
+            "the nonce-derivation context MUST carry the negotiated canonical_id"
+        );
+
+        let suite = group.content_suite().unwrap();
+        assert_eq!(suite, ExporterAeadSuite::Aes128Gcm);
+        assert_eq!(suite.key_len(), 16);
+        assert_eq!(suite.nonce_len(), 12);
+        assert_eq!(suite.nonce_prefix_len(), 4);
+
+        // The pre-fix local aliases are not registered MLS ciphersuites and
+        // MUST fail closed rather than select an algorithm.
+        for alias in [
+            "mls_exporter_aead_xchacha20poly1305",
+            "mls_exporter_aead_aes_256_gcm",
+            "ak.hpke_x25519_aead_chacha20poly1305.v1",
+            "",
+        ] {
+            let error = ExporterAeadSuite::resolve(alias).unwrap_err().to_string();
+            assert!(error.contains("unsupported_aead_profile"), "{error}");
+        }
+        // A registered-but-reserved row is equally forbidden on the wire.
+        let error =
+            ExporterAeadSuite::resolve("MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519")
+                .unwrap_err()
+                .to_string();
+        assert!(error.contains("reserved"), "{error}");
+    }
+
+    /// `encoding.md` §10.1 gives the exporter a label and a Context as two
+    /// separate parameters, and defines the Context as the canonical context
+    /// bytes alone. Folding `label || 0x00 || context` into the Context (while
+    /// still passing the label) yields a different prefix, so the deviation is
+    /// pinned as a negative here rather than left to review.
+    #[test]
+    fn content_nonce_prefix_is_the_exporter_over_the_canonical_context_alone() {
+        let group = founder();
+        let epoch = group.epoch();
+        let suite = group.content_suite().unwrap();
+        let context_bytes =
+            aead_sender_nonce_context_bytes(&group.content_nonce_context(REALM, epoch).unwrap())
+                .unwrap();
+
+        let expected_prefix = group
+            .export_secret(AEAD_NONCE_EXPORTER_LABEL, &context_bytes, 4)
+            .unwrap();
+        let nonce = group
+            .content_aead_nonce(REALM, epoch, suite, 0x0102_0304_0506_0708)
+            .unwrap();
+        assert_eq!(nonce.len(), 12);
+        assert_eq!(&nonce[..4], &expected_prefix[..]);
+        assert_eq!(&nonce[4..], &0x0102_0304_0506_0708u64.to_be_bytes());
+
+        let mut conflated = AEAD_NONCE_EXPORTER_LABEL.as_bytes().to_vec();
+        conflated.push(0x00);
+        conflated.extend_from_slice(&context_bytes);
+        let deviating = group
+            .export_secret(AEAD_NONCE_EXPORTER_LABEL, &conflated, 4)
+            .unwrap();
+        assert_ne!(
+            &nonce[..4],
+            &deviating[..],
+            "the exporter Context MUST be the canonical bytes alone, not label || 0x00 || context"
+        );
+    }
 
     /// Pins the byte-exact `mls_exporter_aead_v1` content-scheme chain from a
-    /// fixed history_secret — RFC 9420 ExpandWithLabel content key, exporter
-    /// nonce-prefix derivation (`arkret-aead-sender-nonce-prefix-v1` label +
-    /// canonical context bytes), canonical AAD construction, and the AEAD
-    /// ciphertext itself. Any silent change to a label, context field, AAD
-    /// shape or nonce composition breaks these bytes.
+    /// fixed history_secret — RFC 9420 ExpandWithLabel content key, canonical
+    /// AAD construction, and the AEAD ciphertext itself. Any silent change to
+    /// a label, key length, AAD shape or nonce composition breaks these bytes.
+    /// The sender nonce prefix is not anchored here: it comes from a live MLS
+    /// exporter, which has no fixed value outside a group (see
+    /// `content_nonce_prefix_is_the_exporter_over_the_canonical_context_alone`).
     #[test]
     fn exporter_aead_content_scheme_regression_anchor() {
         let history_secret = [0x42u8; 32];
-        let content_key = derive_content_key(&history_secret).unwrap();
+        let suite = ExporterAeadSuite::Aes128Gcm;
+        let profile = ARKRET_MLS_CIPHERSUITE_CANONICAL_ID;
+        let content_key = derive_content_key(&history_secret, suite.key_len()).unwrap();
         assert_eq!(
             hex(content_key.as_ref()),
-            "d5060a411113d876e41a0c68710882bdca7b8de490e3b3201668e860098ef9e0",
+            "76ab7dcbbbc1782052dc28c399e95bb5",
             "ak.content-v1 ExpandWithLabel content key drifted"
         );
 
-        // Exporter label/context binding: the deterministic mirror of the
-        // MLS exporter input (label || 0x00 || canonical context bytes).
-        let context = AeadNonceContext {
-            key_ref: json!({
-                "algorithm": MLS_EXPORTER_AEAD_CONTENT_SCHEME,
-                "realm_id": REALM,
-            }),
-            epoch: 3,
-            device_id: "ak:device:01904100-0000-7000-8000-000000000007".to_owned(),
-            purpose: MLS_EXPORTER_AEAD_CONTENT_PURPOSE.to_owned(),
-            aead_profile: AEAD_PROFILE_XCHACHA20_POLY1305.to_owned(),
-        };
-        let prefix = derive_aead_sender_nonce_prefix(&[0x24u8; 32], &context, 24).unwrap();
-        assert_eq!(
-            hex(&prefix),
-            "714372a22c94fec0491147a14ce42ae2",
-            "exporter label/context nonce-prefix derivation drifted"
-        );
-
-        let nonce = compose_aead_nonce(&prefix, 7);
-        assert_eq!(nonce.len(), 24);
-        assert_eq!(&nonce[16..], 7u64.to_be_bytes(), "counter suffix drifted");
+        let nonce = compose_aead_nonce(&[0x71, 0x43, 0x72, 0xa2], 7);
+        assert_eq!(nonce.len(), suite.nonce_len());
+        assert_eq!(&nonce[4..], 7u64.to_be_bytes(), "counter suffix drifted");
 
         let aad_bytes = b"anchor-aad";
         let aad = content_aead_aad(REALM, &nonce, aad_bytes).unwrap();
         assert_eq!(
             std::str::from_utf8(&aad).unwrap(),
-            "{\"aad\":\"YW5jaG9yLWFhZA\",\"key_ref\":{\"algorithm\":\"mls_exporter_aead_v1\",\"realm_id\":\"ak:realm:01904100-0000-7000-8000-000000000042\"},\"nonce\":\"cUNyoiyU_sBJEUehTOQq4gAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\"}",
+            "{\"aad\":\"YW5jaG9yLWFhZA\",\"key_ref\":{\"algorithm\":\"mls_exporter_aead_v1\",\"realm_id\":\"ak:realm:01904100-0000-7000-8000-000000000042\"},\"nonce\":\"cUNyogAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\"}",
             "canonical content AAD drifted"
         );
 
         let plaintext: &[u8] = b"exporter-aead regression anchor";
-        let cipher = content_cipher(&content_key).unwrap();
-        let nonce_arr = content_nonce_array(&nonce).unwrap();
-        let ciphertext = cipher
-            .encrypt(
-                &nonce_arr.into(),
-                Payload {
-                    msg: plaintext,
-                    aad: &aad,
-                },
-            )
-            .unwrap();
+        let ciphertext = suite.seal(&content_key, &nonce, &aad, plaintext).unwrap();
         assert_eq!(
             hex(&ciphertext),
-            "5632b8a810a20f0858791fdffc9e2cab4f895dbb64324321a52267ff0a499f57d41c1053d0af799378c226dc3c2eae",
+            "e758b2f7d462d5170fe80aa7daee698cbdef6d5247cdd6cfc71e311632aa17dc3b7b6c92e1ba0dc86a8796392d9413",
             "exporter-aead ciphertext drifted"
         );
 
@@ -1613,6 +1840,7 @@ mod content_scheme_anchor_tests {
         let recovered = decrypt_content_exporter_aead_standalone(
             &history_secret,
             REALM,
+            profile,
             &nonce_and_ct,
             aad_bytes,
         )
@@ -1624,11 +1852,31 @@ mod content_scheme_anchor_tests {
         let last = tampered.len() - 1;
         tampered[last] ^= 0x01;
         assert!(
-            decrypt_content_exporter_aead_standalone(&history_secret, REALM, &tampered, aad_bytes)
-                .is_err()
+            decrypt_content_exporter_aead_standalone(
+                &history_secret,
+                REALM,
+                profile,
+                &tampered,
+                aad_bytes
+            )
+            .is_err()
         );
     }
 
+    /// Reproduces the registered vector
+    /// `ak.vector.mls_exporter_aead.content_key_derivation.v1` verbatim.
+    ///
+    /// The vector used to declare `aead_nk: 32` under the case name
+    /// `..._sha256_aes256gcm`, which no registered MLS ciphersuite provides —
+    /// §2.10.1 takes the content key length from the negotiated suite's
+    /// `AEAD.Nk` and §2.10.2 forces `aead_profile` to an active
+    /// `mls-ciphersuite-registry.json` row, whose only active entry is
+    /// AES-128-GCM. arkret-spec `cb637541` moved the vector to that suite, so
+    /// the live path and the vector now agree and this asserts equality rather
+    /// than recording a disagreement.
+    ///
+    /// The length is bound into the `ExpandWithLabel` info, so this is a real
+    /// check: a key derived at any other length is not a prefix of this one.
     #[test]
     fn content_key_matches_registered_spec_vector() {
         let fixture =
@@ -1637,18 +1885,32 @@ mod content_scheme_anchor_tests {
         let case = &fixture["cases"][0];
         let history_secret =
             hex::decode(case["expected"]["history_secret_hex"].as_str().unwrap()).unwrap();
-        let expected_info = case["expected"]["content_expand_with_label_info_hex"]
-            .as_str()
-            .unwrap();
-        let expected_key = case["expected"]["content_key_hex"].as_str().unwrap();
+        let vector_key_len = usize::try_from(case["input"]["aead_nk"].as_u64().unwrap()).unwrap();
+
+        // The vector's declared length must be the one the live path derives,
+        // not merely a length the derivation happens to accept.
+        assert_eq!(vector_key_len, ExporterAeadSuite::Aes128Gcm.key_len());
+        assert_eq!(
+            case["input"]["aead_profile"].as_str().unwrap(),
+            ARKRET_MLS_CIPHERSUITE_CANONICAL_ID,
+        );
 
         assert_eq!(
-            hex(&mls_kdf_label(32, arkret_wire::ExporterLabelId::CONTENT_V1, &[]).unwrap(),),
-            expected_info
+            hex(&mls_kdf_label(
+                vector_key_len,
+                arkret_wire::ExporterLabelId::CONTENT_V1,
+                &[]
+            )
+            .unwrap()),
+            case["expected"]["content_expand_with_label_info_hex"]
+                .as_str()
+                .unwrap()
         );
         assert_eq!(
-            hex(derive_content_key(&history_secret).unwrap().as_ref()),
-            expected_key
+            hex(derive_content_key(&history_secret, vector_key_len)
+                .unwrap()
+                .as_ref()),
+            case["expected"]["content_key_hex"].as_str().unwrap()
         );
     }
 }

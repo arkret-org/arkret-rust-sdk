@@ -10,17 +10,16 @@
 //! | | content | signal |
 //! | --- | --- | --- |
 //! | key label | `ak.content-v1` | `ak.signal-v1` |
-//! | AEAD | XChaCha20-Poly1305 | whatever `aead_profile` names |
 //! | `purpose` | `mls_exporter_aead_content` | `ak.signal.v1` |
-//! | nonce | 24 B (16 B prefix) | 12 B for AES-GCM (4 B prefix) |
 //! | ciphertext framing | `nonce \|\| ciphertext` | separate `nonce` field |
 //!
-//! The algorithm deliberately lives in `aead_profile`, never in `scheme`: the
-//! Signal envelope's `scheme` is the fixed construction id, so activating a
-//! further MLS ciphersuite reaches this rail with no wire change. That is why
-//! [`SignalAeadSuite`] resolves the algorithm from the registry row at runtime
-//! rather than hardcoding one — today only the AES-128-GCM row is `active`, and
-//! every other row MUST fail closed until its activation requirements are met.
+//! The AEAD itself is *not* a difference: both domains take it from the
+//! group's negotiated ciphersuite via [`ExporterAeadSuite`]. The algorithm
+//! deliberately lives in `aead_profile`, never in `scheme`: the Signal
+//! envelope's `scheme` is the fixed construction id, so activating a further
+//! MLS ciphersuite reaches this rail with no wire change. Today only the
+//! AES-128-GCM row is `active`, and every other row MUST fail closed until its
+//! activation requirements are met.
 //!
 //! Derivation chain, all of it fixed by the registries:
 //!
@@ -34,23 +33,20 @@
 //! AAD               = JCS(pre-encryption immutable header)   // §10.2
 //! ```
 
-use aes_gcm::aead::{Aead, Payload};
-use aes_gcm::{Aes128Gcm, KeyInit};
 use arkret_canonical::{base64url_decode, base64url_encode};
 use arkret_crypto::{
     AEAD_NONCE_COUNTER_LEN, AEAD_NONCE_EXPORTER_LABEL, AeadNonceContext, AeadNonceReplayTracker,
     aead_sender_nonce_context_bytes, compose_aead_nonce,
 };
 use arkret_wire::{
-    Hash, MAX_SIGNAL_PLAINTEXT_BYTES, MLS_CIPHERSUITES, ReasonCode, SIGNAL_AEAD_PURPOSE,
-    SIGNAL_AEAD_SCHEME, SignalAeadBinding, SignalEncryptedPayload, SignalEnvelope, canonical,
+    Hash, MAX_SIGNAL_PLAINTEXT_BYTES, ReasonCode, SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME,
+    SignalAeadBinding, SignalEncryptedPayload, SignalEnvelope, canonical,
 };
 use hkdf::Hkdf;
 use sha2::Sha256;
 use zeroize::Zeroizing;
 
-use crate::group::{ArkretMlsGroup, mls_kdf_label};
-use crate::identity::ARKRET_MLS_CIPHERSUITE_CANONICAL_ID;
+use crate::group::{ArkretMlsGroup, ExporterAeadSuite, mls_kdf_label};
 use crate::{MlsError as Error, Result};
 
 /// `ExpandWithLabel` label deriving the per-epoch Signal key from the
@@ -58,111 +54,6 @@ use crate::{MlsError as Error, Result};
 /// `context_fields` — exactly like `ak.content-v1`, because the group already
 /// binds the Realm or Circle and the label is the only separator still needed.
 const SIGNAL_KEY_LABEL: &str = arkret_wire::ExporterLabelId::SIGNAL_V1;
-
-/// AEAD parameters an `aead_profile` fixes.
-///
-/// `#[non_exhaustive]` and resolved through the generated registry so that
-/// activating a further ciphersuite is a new variant plus a new arm here — and
-/// nothing at all on the wire.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum SignalAeadSuite {
-    /// `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`: `AEAD.Nk` = 16,
-    /// `N_AEAD` = 12, leaving a 4-byte sender nonce prefix.
-    Aes128Gcm,
-}
-
-impl SignalAeadSuite {
-    /// `AEAD.Nk` — the `output_bytes` the `ak.signal-v1` registry row asks for.
-    pub const fn key_len(self) -> usize {
-        match self {
-            Self::Aes128Gcm => 16,
-        }
-    }
-
-    /// `N_AEAD`. The Signal schema pins `nonce` to 16 base64url characters,
-    /// i.e. 12 bytes, which is this value for the active suite.
-    pub const fn nonce_len(self) -> usize {
-        match self {
-            Self::Aes128Gcm => 12,
-        }
-    }
-
-    /// `N_AEAD - 8`: the exporter output length of the sender nonce prefix.
-    pub const fn nonce_prefix_len(self) -> usize {
-        self.nonce_len() - AEAD_NONCE_COUNTER_LEN
-    }
-
-    /// Resolve an `aead_profile` against `mls-ciphersuite-registry.json`.
-    ///
-    /// Two separate gates, both required by `encoding.md` §10.1: the row must
-    /// exist, and it must be `active`. A `reserved` row (the ChaCha20 and the
-    /// two PQ hybrid rows today) MUST NOT appear on the wire before its
-    /// activation requirements are met and the registry is released, so it is
-    /// rejected here rather than silently accepted because the underlying
-    /// library happens to implement it.
-    pub fn resolve(aead_profile: &str) -> Result<Self> {
-        let row = MLS_CIPHERSUITES
-            .iter()
-            .find(|row| row.canonical_id == aead_profile)
-            .ok_or_else(|| {
-                Error::Protocol(format!(
-                    "{}: aead_profile {aead_profile} is not a registered MLS ciphersuite",
-                    ReasonCode::UNSUPPORTED_AEAD_PROFILE
-                ))
-            })?;
-        if row.status != "active" {
-            return Err(Error::Protocol(format!(
-                "{}: MLS ciphersuite {aead_profile} is {} and MUST NOT appear on the wire",
-                ReasonCode::UNSUPPORTED_AEAD_PROFILE,
-                row.status
-            )));
-        }
-        if aead_profile == ARKRET_MLS_CIPHERSUITE_CANONICAL_ID {
-            return Ok(Self::Aes128Gcm);
-        }
-        // An active registry row this build has no AEAD implementation for.
-        // Fail closed rather than fall back to another suite's algorithm.
-        Err(Error::Protocol(format!(
-            "{}: no Signal AEAD implementation for active MLS ciphersuite {aead_profile}",
-            ReasonCode::UNSUPPORTED_AEAD_PROFILE
-        )))
-    }
-
-    fn seal(self, key: &[u8], nonce: &[u8], aad: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
-        match self {
-            Self::Aes128Gcm => {
-                let cipher = aes128_gcm(key)?;
-                cipher
-                    .encrypt(
-                        &nonce_array(nonce)?.into(),
-                        Payload {
-                            msg: plaintext,
-                            aad,
-                        },
-                    )
-                    .map_err(|_| Error::Crypto("signal AEAD encryption failed".to_owned()))
-            }
-        }
-    }
-
-    fn open(self, key: &[u8], nonce: &[u8], aad: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>> {
-        match self {
-            Self::Aes128Gcm => {
-                let cipher = aes128_gcm(key)?;
-                cipher
-                    .decrypt(
-                        &nonce_array(nonce)?.into(),
-                        Payload {
-                            msg: ciphertext,
-                            aad,
-                        },
-                    )
-                    .map_err(|_| Error::Crypto("signal AEAD tag check failed".to_owned()))
-            }
-        }
-    }
-}
 
 /// A sealed Signal payload plus the nonce counter it consumed.
 ///
@@ -340,8 +231,8 @@ impl ArkretMlsGroup {
     /// enforced at the same time because both the Signal key and the sender
     /// nonce prefix come from the MLS exporter, which only ever evaluates
     /// against the group's current epoch.
-    fn signal_suite_for(&self, binding: &SignalAeadBinding<'_>) -> Result<SignalAeadSuite> {
-        let suite = SignalAeadSuite::resolve(binding.aead_profile)?;
+    fn signal_suite_for(&self, binding: &SignalAeadBinding<'_>) -> Result<ExporterAeadSuite> {
+        let suite = ExporterAeadSuite::resolve(binding.aead_profile)?;
         if self.group_ciphersuite_canonical_id()? != binding.aead_profile {
             return Err(Error::Protocol(format!(
                 "{}: signal aead_profile {} is not the ciphersuite this MLS group negotiated",
@@ -361,23 +252,6 @@ impl ArkretMlsGroup {
         Ok(suite)
     }
 
-    /// `canonical_id` of the ciphersuite this group negotiated.
-    ///
-    /// The wire value comes from the registry constant, never from the
-    /// third-party `Ciphersuite` `Debug` form; the OpenMLS value is only
-    /// compared, so an unexpected suite fails closed instead of being
-    /// stringified onto the wire.
-    fn group_ciphersuite_canonical_id(&self) -> Result<&'static str> {
-        if self.group.ciphersuite() == crate::identity::ARKRET_MLS_CIPHERSUITE {
-            Ok(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID)
-        } else {
-            Err(Error::Protocol(format!(
-                "{}: MLS group negotiated a ciphersuite with no registered canonical_id",
-                ReasonCode::UNSUPPORTED_AEAD_PROFILE
-            )))
-        }
-    }
-
     /// `K_signal[N] = ExpandWithLabel(history_secret[N], "ak.signal-v1", "", AEAD.Nk)`.
     ///
     /// The `history_secret` is derived without retaining it: a Signal is
@@ -385,7 +259,7 @@ impl ArkretMlsGroup {
     fn derive_signal_key(
         &self,
         binding: &SignalAeadBinding<'_>,
-        suite: SignalAeadSuite,
+        suite: ExporterAeadSuite,
     ) -> Result<Zeroizing<Vec<u8>>> {
         let history_secret = self.derive_history_secret(binding.realm_id.as_str())?;
         derive_signal_key(&history_secret, suite.key_len())
@@ -395,7 +269,7 @@ impl ArkretMlsGroup {
     fn signal_nonce(
         &self,
         binding: &SignalAeadBinding<'_>,
-        suite: SignalAeadSuite,
+        suite: ExporterAeadSuite,
         counter: u64,
     ) -> Result<Vec<u8>> {
         let prefix = self.signal_nonce_prefix(binding, suite)?;
@@ -412,7 +286,7 @@ impl ArkretMlsGroup {
     fn signal_nonce_prefix(
         &self,
         binding: &SignalAeadBinding<'_>,
-        suite: SignalAeadSuite,
+        suite: ExporterAeadSuite,
     ) -> Result<Zeroizing<Vec<u8>>> {
         let context_bytes = aead_sender_nonce_context_bytes(&signal_nonce_context(binding)?)?;
         self.export_secret(
@@ -450,17 +324,6 @@ fn derive_signal_key(history_secret: &[u8], key_len: usize) -> Result<Zeroizing<
     Ok(key)
 }
 
-fn aes128_gcm(key: &[u8]) -> Result<Aes128Gcm> {
-    Aes128Gcm::new_from_slice(key)
-        .map_err(|_| Error::Crypto("invalid AES-128-GCM signal key length".to_owned()))
-}
-
-fn nonce_array(nonce: &[u8]) -> Result<[u8; 12]> {
-    nonce
-        .try_into()
-        .map_err(|_| Error::Crypto("AES-GCM signal nonce must be 12 bytes".to_owned()))
-}
-
 #[cfg(test)]
 mod tests {
     use arkret_wire::{
@@ -470,7 +333,7 @@ mod tests {
     use chrono::{DateTime, Duration, TimeZone, Utc};
 
     use super::*;
-    use crate::identity::ArkretMlsIdentity;
+    use crate::identity::{ARKRET_MLS_CIPHERSUITE_CANONICAL_ID, ArkretMlsIdentity};
 
     const REALM: &str = "ak:realm:01904100-0000-7000-8000-000000000042";
     const GROUP_STATE_REF: &str = "ak:event:01904100-0000-7000-8000-cccccccccccc";
@@ -595,7 +458,7 @@ mod tests {
         assert_eq!(descriptor.primitive, Some("ExpandWithLabel"));
         assert!(descriptor.context_fields.is_empty());
 
-        let suite = SignalAeadSuite::resolve(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID).unwrap();
+        let suite = ExporterAeadSuite::resolve(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID).unwrap();
         assert_eq!(suite.key_len(), 16);
         assert_eq!(suite.nonce_len(), 12);
         assert_eq!(suite.nonce_prefix_len(), 4);
@@ -659,20 +522,22 @@ mod tests {
     /// closed, and activating a row is a change here with none on the wire.
     #[test]
     fn aead_profile_resolution_fails_closed_off_the_active_registry_row() {
-        SignalAeadSuite::resolve(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID).unwrap();
+        ExporterAeadSuite::resolve(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID).unwrap();
 
         for reserved in [
             "MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519",
             "MLS_128_MLKEM768X25519_AES128GCM_SHA256_Ed25519",
             "MLS_128_MLKEM768X25519_CHACHA20POLY1305_SHA384_MLDSA44",
         ] {
-            let error = SignalAeadSuite::resolve(reserved).unwrap_err().to_string();
+            let error = ExporterAeadSuite::resolve(reserved)
+                .unwrap_err()
+                .to_string();
             assert!(error.contains("unsupported_aead_profile"), "{error}");
             assert!(error.contains("reserved"), "{error}");
         }
 
         for unregistered in ["", "mls_exporter_aead_xchacha20poly1305", "AES-128-GCM"] {
-            let error = SignalAeadSuite::resolve(unregistered)
+            let error = ExporterAeadSuite::resolve(unregistered)
                 .unwrap_err()
                 .to_string();
             assert!(error.contains("unsupported_aead_profile"), "{error}");
@@ -688,7 +553,7 @@ mod tests {
         let epoch = alice_group.epoch();
         let alice_parts = BindingParts::new("did:webvh:z6mkfixture:alice.example", ALICE_DEVICE);
         let bob_parts = BindingParts::new("did:webvh:z6mkfixture:bob.example", BOB_DEVICE);
-        let suite = SignalAeadSuite::resolve(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID).unwrap();
+        let suite = ExporterAeadSuite::resolve(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID).unwrap();
 
         let nonce = alice_group
             .signal_nonce(&alice_parts.binding(epoch), suite, 0x0102_0304_0506_0708)

@@ -25,13 +25,23 @@ use crate::{Error, Result};
 pub const AEAD_NONCE_EXPORTER_LABEL: &str = ExporterLabelId::AEAD_SENDER_NONCE_PREFIX_V1;
 /// Length of the big-endian device nonce counter suffix.
 pub const AEAD_NONCE_COUNTER_LEN: usize = 8;
-/// Nonce length for the XChaCha20-Poly1305 exporter profile.
+/// `N_AEAD` for XChaCha20-Poly1305 (`encoding.md` §10.1).
 pub const AEAD_NONCE_XCHACHA20_POLY1305_LEN: usize = 24;
-/// Nonce length for the AES-256-GCM exporter profile.
+/// `N_AEAD` for AES-GCM (`encoding.md` §10.1).
 pub const AEAD_NONCE_AES_GCM_LEN: usize = 12;
-/// AEAD profile id for the XChaCha20-Poly1305 exporter content scheme.
+/// `alg` value of the XChaCha20-Poly1305 **blob** AEAD scheme
+/// (`blob.schema.json#/properties/encryption/properties/alg`,
+/// `crypto-media/media-and-blob.md` §3.1).
+///
+/// This is a blob/attachment algorithm id, NOT an `aead_profile`. §10.1 routes
+/// `aead_profile` by how the key was obtained, and the MLS-exporter-derived
+/// domains (`mls_exporter_aead_v1` content, ephemeral signal AEAD) take the
+/// `canonical_id` of the group's negotiated `mls-ciphersuite-registry.json`
+/// row — a value that MUST NOT be an HPKE suite name or a local alias such as
+/// this one.
 pub const AEAD_PROFILE_XCHACHA20_POLY1305: &str = "mls_exporter_aead_xchacha20poly1305";
-/// AEAD profile id for the AES-256-GCM exporter content scheme.
+/// `alg` value of the AES-256-GCM **blob** AEAD scheme. Same domain caveat as
+/// [`AEAD_PROFILE_XCHACHA20_POLY1305`].
 pub const AEAD_PROFILE_AES_256_GCM: &str = "mls_exporter_aead_aes_256_gcm";
 /// Domain-separation context prefix bound into canonical encrypted-envelope AAD.
 pub const ENCRYPTED_ENVELOPE_AAD_CONTEXT: &str = "arkret-encrypted-envelope-aad-v1";
@@ -177,12 +187,22 @@ pub fn aead_sender_nonce_context_bytes(context: &AeadNonceContext) -> Result<Vec
     Ok(canonical_json_bytes(context)?)
 }
 
-/// Derive the sender nonce prefix from a fixed exporter secret for tests and adapters.
+/// Derive a sender nonce prefix from a fixed secret, for tests and adapters
+/// that have no live MLS group.
 ///
-/// Live MLS integrations should call the MLS exporter with
-/// [`AEAD_NONCE_EXPORTER_LABEL`], [`aead_sender_nonce_context_bytes`] and
-/// `nonce_len - 8`. This helper mirrors that exporter input with HKDF-SHA256
-/// so conformance tests can pin deterministic bytes without a live MLS group.
+/// **This is not `MLS-Exporter` and its output is not the §10.1 prefix.** The
+/// §10.1 formula is `MLS-Exporter(label = "arkret-aead-sender-nonce-prefix-v1",
+/// context = <canonical context bytes>, length = N_AEAD - 8)`, where the label
+/// and the Context are two *separate* exporter parameters; a live integration
+/// MUST call the group's exporter that way (see
+/// `ArkretMlsGroup::content_aead_nonce` / `signal_nonce_prefix` in
+/// `arkret-mls`). This helper is a single-input HKDF-Expand stand-in that folds
+/// both into one `info` so a test can pin deterministic bytes off a fixed
+/// secret; a caller MUST NOT treat the two as interchangeable, and MUST NOT
+/// copy this `info` construction into an exporter call — passing
+/// `label || 0x00 || context` as the exporter Context while also passing the
+/// label counts the label twice and yields a prefix no conformant peer
+/// reproduces.
 pub fn derive_aead_sender_nonce_prefix(
     exporter_secret: &[u8],
     context: &AeadNonceContext,
@@ -223,6 +243,10 @@ pub fn verify_aead_nonce_derivation(expected_nonce: &[u8], supplied_nonce: &[u8]
 }
 
 /// Verify the sender prefix, parse the counter and optionally enforce replay.
+///
+/// Recomputes the prefix with [`derive_aead_sender_nonce_prefix`], so it is
+/// scoped to the same test/adapter setting: a live receiver recomputes the
+/// declared sender's prefix through its MLS group exporter instead.
 pub fn verify_aead_sender_nonce(
     exporter_secret: &[u8],
     context: &AeadNonceContext,
