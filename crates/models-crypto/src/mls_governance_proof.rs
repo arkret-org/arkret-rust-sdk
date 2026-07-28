@@ -11,7 +11,7 @@
 
 use arkret_wire::base64url::base64url_decode;
 use arkret_wire::cell::CellId;
-use arkret_wire::event_envelope::{EffectiveScope, Event};
+use arkret_wire::event_envelope::{Event, ScopeRef};
 use arkret_wire::{CellRef, Did, Error, Hash, RealmId, Result, Seal, SealId, canonical};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -51,7 +51,7 @@ const PLAINTEXT_VISIBLE_SERVICES_CELL: &str = "ak.component.realm.plaintext_visi
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceProofRequestBodyBody {
     pub realm_id: RealmId,
-    pub effective_scope: EffectiveScope,
+    pub effective_scope: ScopeRef,
     pub mls_group_id: String,
     pub previous_epoch: u64,
     pub next_epoch: u64,
@@ -110,7 +110,7 @@ impl MlsGovernanceProofRequestBodyBody {
         #[derive(Serialize)]
         struct Identity<'a> {
             realm_id: &'a RealmId,
-            effective_scope: &'a EffectiveScope,
+            effective_scope: &'a ScopeRef,
             mls_group_id: &'a str,
             previous_epoch: u64,
             next_epoch: u64,
@@ -334,7 +334,7 @@ pub struct MlsGovernanceProofBundle {
     pub bundle_digest: Hash,
     pub materialization_profile: String,
     pub realm_id: RealmId,
-    pub effective_scope: EffectiveScope,
+    pub effective_scope: ScopeRef,
     pub reducer_profile: String,
     pub governance_binding: MlsGovernanceBindingPayload,
     pub trusted_anchor_seal_id: SealId,
@@ -351,7 +351,7 @@ pub struct MaterializedMlsGovernanceProofBundle {
     pub bundle_digest: Hash,
     pub materialization_profile: String,
     pub realm_id: RealmId,
-    pub effective_scope: EffectiveScope,
+    pub effective_scope: ScopeRef,
     pub reducer_profile: String,
     pub governance_binding: MlsGovernanceBindingPayload,
     pub trusted_anchor_seal_id: SealId,
@@ -393,7 +393,7 @@ impl MlsGovernanceProofBundle {
             proof_request_digest: &'a Hash,
             materialization_profile: &'a str,
             realm_id: &'a RealmId,
-            effective_scope: &'a EffectiveScope,
+            effective_scope: &'a ScopeRef,
             reducer_profile: &'a str,
             governance_binding: &'a MlsGovernanceBindingPayload,
             trusted_anchor_seal_id: &'a SealId,

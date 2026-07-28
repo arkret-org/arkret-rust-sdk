@@ -1,8 +1,9 @@
-//! Store trait contracts for the Move/Seal/Lattice runtime.
+//! Store trait contracts for the control-plane Event / Seal / Lattice runtime.
 //!
 //! Four traits cleanly partitioned by what they own:
 //!
-//! - [`MoveStore`] — pending + sealed Move log, addressed by `MoveId`.
+//! - [`ControlEventStore`] — pending + sealed control-plane Event log, addressed by `Hash` (the
+//!   canonical `event_digest`).
 //! - [`SealStore`] — Seal DAG, addressed by `SealId`, plus leaf-set queries.
 //! - [`CellStore`] — per-cell sealed op log + per-view effective state cache.
 //! - [`CellRegistry`] — `cell_family` → `Lattice` instance + `bottom` mode mapping.
@@ -13,11 +14,12 @@
 
 pub mod memory;
 
+use arkret_wire::event_envelope::Event;
 use thiserror::Error;
 
 use crate::lattice::ordered_log::IssuedOp;
 use crate::lattice::{CellState, Lattice};
-use crate::{CellRef, Hash, Move, MoveId, RealmId, Seal, SealId};
+use crate::{CellRef, Hash, RealmId, Seal, SealId};
 
 pub type StoreResult<T> = Result<T, StoreError>;
 
@@ -33,42 +35,60 @@ pub enum StoreError {
     Conflict(String),
 }
 
-/// Sealed Move record: a Move that has been included in some
-/// Seal.frontier. Carries the Seal id back-reference for audit and
+/// The canonical `event_digest` of a control-plane Event.
+///
+/// This — not `event_id` — is the store key, because it is the value
+/// `Seal.delta[]` / `Seal.covered_event_digests[]` list and the value the
+/// Merkle roots commit to. Keying on `event_id` would let the two variants
+/// of an equivocated id share one slot, which is exactly the case
+/// `event-auth-state-resolution.md` §6.3.2 requires to stay distinguishable.
+pub fn control_event_digest(event: &Event) -> StoreResult<Hash> {
+    let digest = event
+        .event_digest()
+        .map_err(|error| StoreError::Backend(format!("event_digest: {error}")))?;
+    Hash::new(digest).map_err(|error| StoreError::Backend(format!("invalid event_digest: {error}")))
+}
+
+/// Sealed control-plane Event record: an Event that has been covered by
+/// some accepted Seal. Carries the Seal id back-reference for audit and
 /// deterministic ordering.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SealedMoveRecord {
-    pub move_value: Move,
+#[derive(Clone, Debug, PartialEq)]
+pub struct SealedControlEventRecord {
+    pub event: Event,
     pub seal: SealId,
 }
 
-/// Pending + sealed Move log.
-pub trait MoveStore: Send + Sync {
-    /// Stash a Move that passed local format / signature pre-check.
-    /// Re-`put_pending` of the same id MUST be idempotent.
-    fn put_pending(&self, m: &Move) -> StoreResult<()>;
+/// Pending + sealed control-plane Event log.
+///
+/// A Control Move is an [`Event`] carrying `seal_basis`
+/// (`event-auth-state-resolution.md` §5); there is no separate Move object,
+/// so this store holds Events and keys them by [`control_event_digest`].
+pub trait ControlEventStore: Send + Sync {
+    /// Stash a control-plane Event that passed local format / proof
+    /// pre-check. Re-`put_pending` of the same digest MUST be idempotent.
+    fn put_pending(&self, event: &Event) -> StoreResult<()>;
 
-    /// Promote a previously-pending Move to sealed under `seal`.
-    /// Re-anchoring the same Move under the same Seal id is idempotent.
-    fn mark_sealed(&self, id: &MoveId, seal: &SealId) -> StoreResult<()>;
+    /// Promote a previously-pending Event to sealed under `seal`.
+    /// Re-anchoring the same Event under the same Seal id is idempotent.
+    fn mark_sealed(&self, event_digest: &Hash, seal: &SealId) -> StoreResult<()>;
 
-    fn get(&self, id: &MoveId) -> StoreResult<Option<Move>>;
+    fn get(&self, event_digest: &Hash) -> StoreResult<Option<Event>>;
 
-    /// Pending Move list for the notary worker, oldest first.
+    /// Pending control-plane Event list for the notary worker, oldest first.
     fn list_pending_for_notary(
         &self,
         realm_id: &RealmId,
-        cursor: Option<&MoveId>,
+        cursor: Option<&Hash>,
         limit: usize,
-    ) -> StoreResult<Vec<Move>>;
+    ) -> StoreResult<Vec<Event>>;
 
-    /// Sealed Move list for federation backfill / audit replay.
+    /// Sealed control-plane Event list for federation backfill / audit replay.
     fn list_sealed(
         &self,
         realm_id: &RealmId,
-        cursor: Option<&MoveId>,
+        cursor: Option<&Hash>,
         limit: usize,
-    ) -> StoreResult<Vec<SealedMoveRecord>>;
+    ) -> StoreResult<Vec<SealedControlEventRecord>>;
 }
 
 /// Seal DAG.

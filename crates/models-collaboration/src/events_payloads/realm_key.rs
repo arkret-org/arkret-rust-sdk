@@ -6,7 +6,7 @@ use crate::internal_prelude::*;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmKeyScope {
-    pub effective_scope: EffectiveScope,
+    pub effective_scope: ScopeRef,
     pub policy_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub membership_frontier_digest: Option<Hash>,
@@ -28,7 +28,7 @@ pub struct RealmKeyScope {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmKeyRequestScope {
-    pub effective_scope: EffectiveScope,
+    pub effective_scope: ScopeRef,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub policy_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -385,7 +385,7 @@ mod realm_key_request_tests {
 
     fn request_scope() -> RealmKeyRequestScope {
         RealmKeyRequestScope {
-            effective_scope: EffectiveScope::Realm {
+            effective_scope: ScopeRef::Realm {
                 realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
             },
             policy_digest: None,

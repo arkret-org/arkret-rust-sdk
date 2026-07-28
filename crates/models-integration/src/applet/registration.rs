@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use arkret_models_identity::did_document::DidDocument;
 use arkret_wire::{
-    Did, Error, Hash, MoveSigner, Proof, Result, XExtensionMap, canonical, proof_kind,
+    Did, Error, Hash, PayloadSigner, Proof, Result, XExtensionMap, canonical, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -372,7 +372,7 @@ pub struct AppletRegistrationEpochDerivedRegistration {
     pub protocols: Vec<String>,
     pub namespaces: AppletWireNamespaces,
     pub receive_events: bool,
-    pub receive_ephemeral: bool,
+    pub receive_signals: bool,
     pub rate_limited: bool,
     pub requested_scopes: Vec<String>,
     #[serde(
@@ -411,7 +411,7 @@ pub struct WireAppletRegistration {
     #[serde(default)]
     pub receive_events: bool,
     #[serde(default)]
-    pub receive_ephemeral: bool,
+    pub receive_signals: bool,
     #[serde(default)]
     pub rate_limited: bool,
     #[serde(default)]
@@ -467,7 +467,7 @@ impl WireAppletRegistration {
             protocols,
             namespaces,
             receive_events: false,
-            receive_ephemeral: false,
+            receive_signals: false,
             rate_limited: false,
             requested_scopes: Vec::new(),
             registration_epoch,
@@ -490,8 +490,8 @@ impl WireAppletRegistration {
 
 /// Sign a [`WireAppletRegistration`] in-place: compute the canonical
 /// digest (with `proof` removed), sign it with the supplied
-/// [`MoveSigner`], and stamp `reg.proof`.
-pub fn sign_registration<S: MoveSigner + ?Sized>(
+/// [`PayloadSigner`], and stamp `reg.proof`.
+pub fn sign_registration<S: PayloadSigner + ?Sized>(
     reg: &mut WireAppletRegistration,
     signer: &S,
     verification_method: &str,
@@ -731,7 +731,7 @@ impl AppletRegistrationEpochTranscript {
                 protocols: package.protocols.clone(),
                 namespaces: package.namespaces.clone(),
                 receive_events: package.receive_events,
-                receive_ephemeral: package.receive_ephemeral,
+                receive_signals: package.receive_signals,
                 rate_limited: package.rate_limited,
                 requested_scopes: package.requested_scopes.clone(),
                 created_at: package.created_at,
@@ -1040,7 +1040,7 @@ pub struct AppletPackage {
     /// HTTP message signature key ref / accepted algorithms.
     pub webhook_auth: WebhookAuth,
     pub receive_events: bool,
-    pub receive_ephemeral: bool,
+    pub receive_signals: bool,
     pub rate_limited: bool,
     /// Max transaction events / payload bytes / rate-limit hint
     /// (`applet-package.schema.json#/$defs/limits`).
@@ -1120,7 +1120,7 @@ impl AppletPackage {
                 vec![WebhookSignatureAlg::EdDsa],
             ),
             receive_events: false,
-            receive_ephemeral: false,
+            receive_signals: false,
             rate_limited: true,
             limits: AppletLimits::default(),
             ghost_policy: AppletGhostPolicy::default(),
@@ -1201,7 +1201,7 @@ impl AppletPackage {
     /// Sign the canonical package (with `proof` removed) using the
     /// controller signer and stamp `proof`. Call [`seal`](Self::seal)
     /// first so the digest is part of the signed bytes.
-    pub fn sign<S: MoveSigner + ?Sized>(
+    pub fn sign<S: PayloadSigner + ?Sized>(
         &mut self,
         signer: &S,
         verification_method: &str,
@@ -1371,7 +1371,7 @@ impl AppletPackage {
             self.registration_epoch.clone(),
         );
         reg.receive_events = self.receive_events;
-        reg.receive_ephemeral = self.receive_ephemeral;
+        reg.receive_signals = self.receive_signals;
         reg.rate_limited = self.rate_limited;
         reg.requested_scopes = self.requested_scopes.clone();
         reg.webhook_auth = Some(self.webhook_auth.clone());

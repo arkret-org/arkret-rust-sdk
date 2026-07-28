@@ -5,7 +5,7 @@
 //! canonical-JSON + detached-JWS pipelines per Envelope. This module is
 //! the single one-shot entry point: compute the canonical event bytes
 //! (with `proofs` / `unsigned` removed), sign them with the supplied
-//! [`arkret_wire::MoveSigner`], and append a [`Proof`] to
+//! [`arkret_wire::PayloadSigner`], and append a [`Proof`] to
 //! `event.proofs`.
 //!
 //! Per spec `encoding.md` §6 / `event-and-patch.md` §3 the detached JWS
@@ -29,7 +29,7 @@
 //! object via [`arkret_wire::Proof::canonical_binding_bytes`].
 
 use arkret_canonical::canonical;
-use arkret_wire::{Audience, Event, Hash, MoveSigner, Proof, proof_kind};
+use arkret_wire::{Audience, Event, Hash, PayloadSigner, Proof, proof_kind};
 use chrono::{DateTime, Utc};
 
 use crate::{Error, Result};
@@ -87,7 +87,7 @@ impl SignEventOptions {
 /// envelope (or pop existing proofs) to re-sign. Calling `sign_event`
 /// again with the **same** signer is idempotent (replaces the existing
 /// proof).
-pub fn sign_event<S: MoveSigner + ?Sized>(
+pub fn sign_event<S: PayloadSigner + ?Sized>(
     event: &mut Event,
     signer: &S,
     verification_method: &str,
@@ -153,10 +153,9 @@ pub fn sign_event<S: MoveSigner + ?Sized>(
 mod tests {
     use std::collections::BTreeMap;
 
-    use arkret_wire::move_event::Move;
     use arkret_wire::{
-        Audience, Did, Event, EventId, EventRequirements, Hash, Hlc, MoveSignature, MoveSigner,
-        RealmId, Result as WireResult, UnsignedMove, canonical,
+        Audience, Did, Event, EventId, EventRequirements, Hash, Hlc, PayloadSignature,
+        PayloadSigner, RealmId, Result as WireResult, canonical,
     };
     use chrono::{DateTime, TimeZone, Utc};
     use serde_json::json;
@@ -184,15 +183,14 @@ mod tests {
             event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
             kind: "ak.message.create".into(),
             realm_id: realm(),
+            scope_ref: arkret_wire::ScopeRef::Realm { realm_id: realm() },
             actor_id: alice(),
             actor_seq: 1,
             created_at: Utc.with_ymd_and_hms(2026, 4, 26, 0, 0, 0).unwrap(),
             hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
             prev_refs: Vec::new(),
-            effective_scope: None,
             refs: Vec::new(),
             preconditions: Vec::new(),
-            effects: Vec::new(),
             seal_ref: None,
             auth_context: None,
             seal_basis: None,
@@ -206,7 +204,6 @@ mod tests {
             actor_kind: None,
             unsigned: BTreeMap::new(),
             causal_refs: Vec::new(),
-            conflict_keys_digest: None,
             proofs: Vec::new(),
         }
     }
@@ -215,12 +212,12 @@ mod tests {
     /// canonical bytes. Mirrors the production
     /// `Ed25519DetachedJwsSigner` shape, but lives in-crate so the
     /// `sign_event` tests don't pull the `signer` feature in.
-    struct StubMoveSigner {
+    struct StubPayloadSigner {
         did: Did,
         kid: String,
     }
 
-    impl StubMoveSigner {
+    impl StubPayloadSigner {
         fn new(did: Did, kid: impl Into<String>) -> Self {
             Self {
                 did,
@@ -229,11 +226,7 @@ mod tests {
         }
     }
 
-    impl MoveSigner for StubMoveSigner {
-        fn sign_move(&self, _unsigned: &UnsignedMove) -> WireResult<Move> {
-            unreachable!("sign_event helper only calls sign_payload");
-        }
-
+    impl PayloadSigner for StubPayloadSigner {
         fn signer_did(&self) -> &Did {
             &self.did
         }
@@ -242,12 +235,12 @@ mod tests {
             &self.kid
         }
 
-        fn sign_payload(&self, canonical_bytes: &[u8]) -> WireResult<MoveSignature> {
+        fn sign_payload(&self, canonical_bytes: &[u8]) -> WireResult<PayloadSignature> {
             let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes))?;
             // Deterministic "signature" — sufficient for transcript
             // coverage tests; no Ed25519 dep required.
             let stub_jws = format!("stub..{}", payload_digest.as_str());
-            Ok(MoveSignature {
+            Ok(PayloadSignature {
                 alg: "EdDSA".to_owned(),
                 verification_method: self.kid.clone(),
                 payload_digest,
@@ -260,7 +253,7 @@ mod tests {
     #[test]
     fn sign_event_attaches_one_proof_matching_digest() {
         let mut event = make_event();
-        let signer = StubMoveSigner::new(alice(), vm_alice());
+        let signer = StubPayloadSigner::new(alice(), vm_alice());
         sign_event(&mut event, &signer, vm_alice(), SignEventOptions::new()).unwrap();
         assert_eq!(event.proofs.len(), 1);
         let digest = event.event_digest().unwrap();
@@ -278,7 +271,7 @@ mod tests {
         let mut with = make_event();
         with.executed_by = Some(Did::new("did:web:applet.example").unwrap());
 
-        let signer = StubMoveSigner::new(alice(), vm_alice());
+        let signer = StubPayloadSigner::new(alice(), vm_alice());
         sign_event(&mut without, &signer, vm_alice(), SignEventOptions::new()).unwrap();
         sign_event(&mut with, &signer, vm_alice(), SignEventOptions::new()).unwrap();
 
@@ -297,7 +290,7 @@ mod tests {
         let mut with = make_event();
         with.authorization_ref = Some("ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned());
 
-        let signer = StubMoveSigner::new(alice(), vm_alice());
+        let signer = StubPayloadSigner::new(alice(), vm_alice());
         sign_event(&mut without, &signer, vm_alice(), SignEventOptions::new()).unwrap();
         sign_event(&mut with, &signer, vm_alice(), SignEventOptions::new()).unwrap();
 
@@ -310,7 +303,7 @@ mod tests {
     #[test]
     fn sign_event_with_options_binds_domain_and_audience() {
         let mut event = make_event();
-        let signer = StubMoveSigner::new(alice(), vm_alice());
+        let signer = StubPayloadSigner::new(alice(), vm_alice());
         let opts = SignEventOptions::new()
             .with_domain("api.example")
             .with_audience(Audience::Single("did:web:svc.example".to_owned()));
@@ -325,7 +318,7 @@ mod tests {
     #[test]
     fn sign_event_normalizes_proof_timestamp_to_canonical_milliseconds() {
         let mut event = make_event();
-        let signer = StubMoveSigner::new(alice(), vm_alice());
+        let signer = StubPayloadSigner::new(alice(), vm_alice());
         let subsecond = DateTime::parse_from_rfc3339("2026-05-26T12:00:00.987654Z")
             .unwrap()
             .with_timezone(&Utc);
@@ -346,7 +339,7 @@ mod tests {
     #[test]
     fn sign_event_idempotent_against_redundant_call() {
         let mut event = make_event();
-        let signer = StubMoveSigner::new(alice(), vm_alice());
+        let signer = StubPayloadSigner::new(alice(), vm_alice());
         let pinned_at = Utc.with_ymd_and_hms(2026, 5, 26, 12, 0, 0).unwrap();
         sign_event(
             &mut event,
@@ -372,7 +365,7 @@ mod tests {
     #[test]
     fn sign_event_rejects_when_proofs_already_populated_with_other_signer() {
         let mut event = make_event();
-        let alice_signer = StubMoveSigner::new(alice(), vm_alice());
+        let alice_signer = StubPayloadSigner::new(alice(), vm_alice());
         sign_event(
             &mut event,
             &alice_signer,
@@ -382,7 +375,7 @@ mod tests {
         .unwrap();
 
         let bob_kid = "did:web:bob.example#key-1";
-        let bob_signer = StubMoveSigner::new(bob(), bob_kid);
+        let bob_signer = StubPayloadSigner::new(bob(), bob_kid);
         let err = sign_event(&mut event, &bob_signer, bob_kid, SignEventOptions::new())
             .expect_err("re-signing under a different VM must be rejected");
         let msg = format!("{err}");
@@ -398,7 +391,7 @@ mod tests {
     #[test]
     fn tampered_event_fails_proof_binding_validation() {
         let mut event = make_event();
-        let signer = StubMoveSigner::new(alice(), vm_alice());
+        let signer = StubPayloadSigner::new(alice(), vm_alice());
         sign_event(&mut event, &signer, vm_alice(), SignEventOptions::new()).unwrap();
         event.validate_proof_bindings().unwrap();
 

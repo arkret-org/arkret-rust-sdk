@@ -2,11 +2,17 @@ use arkret_event_draft::{
     CausalRef, EventDraftKindRegistry, OperationEnvelope, OperationEnvelopeBuilder,
     event_draft_kind_conformance_vectors, required_fields_for_event_kind,
 };
-use arkret_wire::{Did, EventKind, Hash, Hlc, OperationId, Proof, RealmId};
+use arkret_wire::{Did, EventKind, Hash, Hlc, OperationId, Proof, RealmId, ScopeRef};
 use serde_json::json;
 
 fn realm_id() -> RealmId {
     RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+}
+
+fn scope_ref() -> ScopeRef {
+    ScopeRef::Realm {
+        realm_id: realm_id(),
+    }
 }
 
 #[test]
@@ -28,7 +34,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
     let envelope = OperationEnvelope {
         operation_id: OperationId::new("ak:operation:01904100-0000-7000-8000-0198d483044c")
             .unwrap(),
-        realm_id: realm_id(),
+        scope_ref: scope_ref(),
         actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         kind: "ak.message.create".to_owned(),
         target_ref: Some("ak:thread:general".to_owned()),
@@ -99,7 +105,7 @@ fn event_draft_kind_registry_drives_envelope_semantics() {
     let envelope = OperationEnvelope {
         operation_id: OperationId::new("ak:operation:01904100-0000-7000-8000-0198d483044c")
             .unwrap(),
-        realm_id: realm_id(),
+        scope_ref: scope_ref(),
         actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         kind: EventKind::MESSAGE_CREATE.to_owned(),
         target_ref: None,
@@ -127,14 +133,14 @@ fn event_draft_kind_registry_drives_envelope_semantics() {
 #[test]
 fn operation_envelope_builder_covers_every_registered_event_kind() {
     let registry = EventDraftKindRegistry::default();
-    let realm_id = realm_id();
+    let scope_ref = scope_ref();
     let actor_id = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
     let hlc = Hlc::new("01970e589d21-0004-a13f9c2e").unwrap();
 
     for (index, kind) in EventKind::ALL.iter().enumerate() {
         let mut builder = OperationEnvelopeBuilder::new(
             OperationId::new(format!("ak:operation:01904100-0000-7000-8000-{index:012x}")).unwrap(),
-            realm_id.clone(),
+            scope_ref.clone(),
             actor_id.clone(),
             kind.as_str(),
             index as u64 + 1,
@@ -154,7 +160,7 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
     let registry = EventDraftKindRegistry::default();
     let builder = OperationEnvelopeBuilder::new(
         OperationId::new("ak:operation:01904100-0000-7000-8000-76b2a3b35ad0").unwrap(),
-        realm_id(),
+        scope_ref(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         EventKind::MESSAGE_CREATE,
         1,
@@ -174,7 +180,7 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
 
     let unknown = OperationEnvelopeBuilder::new(
         OperationId::new("ak:operation:01904100-0000-7000-8000-e9d434a97fb1").unwrap(),
-        realm_id(),
+        scope_ref(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         "unknown",
         1,

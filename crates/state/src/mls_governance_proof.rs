@@ -4,12 +4,12 @@
 //! assemble commitment machinery live in
 //! `arkret_models_crypto::mls_governance_proof` (re-exported here). This
 //! module owns the verification and control-state root derivation that need
-//! `arkret-state` (Move/Seal state roots, `CellState`).
+//! `arkret-state` (Seal state roots, `CellState`).
 //!
 //! `verify_mls_governance_proof_bundle` is generic over the caller's error
-//! type `E` (with `E: From<WireError>`): the injected signature callbacks and
-//! the returned `Result` share `E`, so callers can use `WireError` directly or
-//! a boundary error that implements `From<WireError>`.
+//! type `E` (with `E: From<WireError>`): the injected signature and projection
+//! callbacks and the returned `Result` share `E`, so callers can use
+//! `WireError` directly or a boundary error that implements `From<WireError>`.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -17,9 +17,7 @@ pub use arkret_models_crypto::mls_governance_proof::*;
 use arkret_models_crypto::mls_payloads::MlsGovernanceBindingPayload;
 use arkret_wire::cell::CellId;
 use arkret_wire::event_envelope::Event;
-use arkret_wire::{
-    CellRef, Error, EventId, Hash, MoveId, NotarySig, Result, Seal, SealId, canonical,
-};
+use arkret_wire::{CellRef, Error, EventId, Hash, NotarySig, Result, Seal, SealId, canonical};
 
 use crate::{CellState, compute_state_root, control_event_set_root};
 
@@ -43,23 +41,31 @@ pub struct VerifiedMlsGovernanceProof {
 /// both callbacks return `Result<(), E>` and the function returns
 /// `Result<_, E>`. `E: From<WireError>` lets the internal fail-closed checks
 /// raise `WireError` and surface it as the caller's `E`.
-pub fn verify_mls_governance_proof_bundle<E, VerifySeal, VerifyEvent>(
+pub fn verify_mls_governance_proof_bundle<E, VerifySeal, VerifyEvent, ProjectCells>(
     bundle: &MaterializedMlsGovernanceProofBundle,
     expected_binding: &MlsGovernanceBindingPayload,
     trusted_anchor: &SealId,
     verify_seal_signature: VerifySeal,
     verify_event_signature: VerifyEvent,
+    project_cells: ProjectCells,
 ) -> std::result::Result<VerifiedMlsGovernanceProof, E>
 where
     E: From<Error>,
     VerifySeal: Fn(&Seal) -> std::result::Result<(), E>,
     VerifyEvent: Fn(&Event) -> std::result::Result<(), E>,
+    ProjectCells: Fn(&Event) -> std::result::Result<Vec<CellRef>, E>,
 {
     verify_bundle_header(bundle, expected_binding, trusted_anchor)?;
     let accepted_seal = verify_seal_path(bundle, verify_seal_signature)?;
     let covered = verify_covered_event_materialization(bundle, accepted_seal)?;
     let control_state = verify_control_state_materialization(bundle, accepted_seal)?;
-    verify_frontier_events(bundle, expected_binding, &covered, verify_event_signature)?;
+    verify_frontier_events(
+        bundle,
+        expected_binding,
+        &covered,
+        verify_event_signature,
+        project_cells,
+    )?;
 
     let policy_root = derive_mls_policy_root(&control_state)?;
     if &policy_root != expected_binding.policy_root() {
@@ -197,7 +203,7 @@ fn verify_seal_payload_digest(seal: &Seal) -> Result<()> {
 fn verify_covered_event_materialization(
     bundle: &MaterializedMlsGovernanceProofBundle,
     accepted_seal: &Seal,
-) -> Result<BTreeSet<MoveId>> {
+) -> Result<BTreeSet<Hash>> {
     ensure_canonical_order(
         "covered_event_digests",
         bundle
@@ -208,7 +214,7 @@ fn verify_covered_event_materialization(
     let covered = bundle
         .covered_event_digests
         .iter()
-        .map(|digest| MoveId::new(digest.as_str().to_owned()).map_err(Error::from))
+        .map(|digest| Hash::new(digest.as_str().to_owned()).map_err(Error::from))
         .collect::<Result<BTreeSet<_>>>()?;
     let recomputed = control_event_set_root(&covered)
         .map_err(|error| Error::Protocol(format!("control_event_set_root: {error}")))?;
@@ -256,15 +262,17 @@ fn verify_control_state_materialization(
     Ok(control_state)
 }
 
-fn verify_frontier_events<E, VerifyEvent>(
+fn verify_frontier_events<E, VerifyEvent, ProjectCells>(
     bundle: &MaterializedMlsGovernanceProofBundle,
     expected: &MlsGovernanceBindingPayload,
-    covered: &BTreeSet<MoveId>,
+    covered: &BTreeSet<Hash>,
     verify_event_signature: VerifyEvent,
+    project_cells: ProjectCells,
 ) -> std::result::Result<(), E>
 where
     E: From<Error>,
     VerifyEvent: Fn(&Event) -> std::result::Result<(), E>,
+    ProjectCells: Fn(&Event) -> std::result::Result<Vec<CellRef>, E>,
 {
     ensure_canonical_order(
         "membership_frontier",
@@ -294,16 +302,18 @@ where
     }
 
     for event in &bundle.frontier_events {
-        if event.realm_id != bundle.realm_id
-            || event.effective_scope.as_ref() != Some(&bundle.effective_scope)
-        {
-            return state_mismatch("frontier Event Realm or effective_scope mismatch");
+        if event.realm_id != bundle.realm_id || event.scope_ref != bundle.effective_scope {
+            return state_mismatch("frontier Event Realm or scope mismatch");
         }
-        if event.seal_ref.is_some() || event.effects.is_empty() {
+        if event.seal_ref.is_some() || event.seal_basis.is_none() {
             return schema("frontier Event is not a Control Move");
         }
-        if !event.effects.iter().any(|effect| {
-            CellId::from_ref(&effect.cell)
+        // The affected cells are receiver-projected from the registered
+        // reducer contract; the Event itself never names them. The projector
+        // is injected because the registry lives one layer above this crate.
+        let projected = project_cells(event)?;
+        if !projected.iter().any(|cell| {
+            CellId::from_ref(cell)
                 .map(|cell| is_mls_membership_frontier_component(cell.component()))
                 .unwrap_or(false)
         }) {
@@ -311,7 +321,7 @@ where
         }
         event.validate_proof_bindings()?;
         verify_event_signature(event)?;
-        let digest = MoveId::new(event.event_digest()?).map_err(Error::from)?;
+        let digest = Hash::new(event.event_digest()?).map_err(Error::from)?;
         if !covered.contains(&digest) {
             return state_mismatch("frontier Event digest is absent from the accepted covered set");
         }
@@ -401,11 +411,10 @@ mod tests {
         MLS_GOVERNANCE_BINDING_FULL_PROFILE, MlsGovernanceBindingPayload,
     };
     use arkret_wire::error_codes::{ErrorCode, ReasonCode};
-    use arkret_wire::event_envelope::{EffectiveScope, Event};
+    use arkret_wire::event_envelope::{Event, ScopeRef};
     use arkret_wire::{
-        CellRef, Did, Effect, Error, EventId, EventRequirements, Hash, Hlc, LatticeOp,
-        LatticeOpType, MoveId, MoveSignature, NotarySig, Proof, RealmId, Seal, SealId, SealKind,
-        canonical,
+        CellRef, Did, Error, EventId, EventRequirements, Hash, Hlc, NotarySig, PayloadSignature,
+        Proof, RealmId, Seal, SealBasis, SealId, SealKind, canonical,
     };
     use chrono::{TimeZone, Utc};
     use serde_json::json;
@@ -487,37 +496,31 @@ mod tests {
             .collect()
     }
 
-    fn frontier_event(scope: EffectiveScope) -> Event {
+    /// A membership Control Move: it carries `seal_basis` and no `seal_ref`,
+    /// and names no cell — the cells come back from the injected projector.
+    fn frontier_event(scope: ScopeRef) -> Event {
         let mut event = Event {
             event_id: event_id(),
             kind: "ak.member.state".into(),
             realm_id: realm(),
+            scope_ref: scope,
             actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             actor_seq: 1,
             created_at: Utc.with_ymd_and_hms(2026, 7, 14, 0, 0, 0).unwrap(),
             hlc: Some(Hlc::new("01980b44cc00-0000-aabbccdd").unwrap()),
             prev_refs: Vec::new(),
-            effective_scope: Some(scope),
             refs: Vec::new(),
             preconditions: Vec::new(),
-            effects: vec![Effect {
-                cell: cell("ak.component.member.state.v1", "did.web.alice.example"),
-                op: LatticeOp {
-                    op_type: LatticeOpType::Set,
-                    tag: None,
-                    value: Some(json!({"state": "joined"})),
-                    from: None,
-                    to: None,
-                    reason: None,
-                    issuer_seq: None,
-                },
-            }],
             seal_ref: None,
             auth_context: None,
-            seal_basis: None,
+            seal_basis: Some(SealBasis {
+                leaves: vec![SealId::new(format!("ak:seal:{}", hash(0xa1).as_str())).unwrap()],
+                control_event_set_root: hash(0xa2),
+                state_root: hash(0xa3),
+            }),
             requirements: EventRequirements::default(),
             redacts: None,
-            payload: BTreeMap::new(),
+            payload: BTreeMap::from([("state".to_owned(), json!("joined"))]),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -525,7 +528,6 @@ mod tests {
             actor_kind: None,
             unsigned: BTreeMap::new(),
             causal_refs: Vec::new(),
-            conflict_keys_digest: None,
             proofs: Vec::new(),
         };
         let digest = Hash::new(event.event_digest().unwrap()).unwrap();
@@ -545,7 +547,7 @@ mod tests {
 
     fn seal(
         state_root: Hash,
-        covered_event_digests: Vec<MoveId>,
+        covered_event_digests: Vec<Hash>,
         control_event_set_root: Hash,
     ) -> Seal {
         let mut seal = Seal {
@@ -564,7 +566,7 @@ mod tests {
             covered_event_digests,
             previous_state_root: None,
             previous_digest_algorithm: None,
-            notary_signature: NotarySig::Single(MoveSignature {
+            notary_signature: NotarySig::Single(PayloadSignature {
                 alg: "EdDSA".to_owned(),
                 verification_method: "did:webvh:z6mkfixture:notary.example#key-1".to_owned(),
                 payload_digest: hash(0),
@@ -587,9 +589,9 @@ mod tests {
     }
 
     fn fixture() -> Fixture {
-        let effective_scope = EffectiveScope::Realm { realm_id: realm() };
+        let effective_scope = ScopeRef::Realm { realm_id: realm() };
         let frontier_event = frontier_event(effective_scope.clone());
-        let frontier_digest = MoveId::new(frontier_event.event_digest().unwrap()).unwrap();
+        let frontier_digest = Hash::new(frontier_event.event_digest().unwrap()).unwrap();
         let covered_event_digests = vec![frontier_digest.clone()];
         let covered = BTreeSet::from([frontier_digest]);
         let control_state = control_state();
@@ -604,6 +606,7 @@ mod tests {
             0,
             1,
             vec![event_id()],
+            vec![SealId::new(format!("ak:seal:{}", hash(0xa1).as_str())).unwrap()],
             policy_root,
             capability_root,
             discussion_metadata_digest,
@@ -641,6 +644,16 @@ mod tests {
         }
     }
 
+    /// Stand-in for `arkret_schema::project_registered_cell_writes`: the
+    /// Event never names its cells, so the verifier depends entirely on what
+    /// the caller's projector returns.
+    fn project_member_cell(_: &Event) -> Result<Vec<CellRef>> {
+        Ok(vec![cell(
+            "ak.component.member.state.v1",
+            "did.web.alice.example",
+        )])
+    }
+
     fn verify(fixture: &Fixture) -> Result<VerifiedMlsGovernanceProof> {
         verify_mls_governance_proof_bundle(
             &fixture.bundle,
@@ -648,6 +661,7 @@ mod tests {
             &fixture.bundle.trusted_anchor_seal_id,
             |_| Ok(()),
             |_| Ok(()),
+            project_member_cell,
         )
     }
 
@@ -683,12 +697,13 @@ mod tests {
         let assembled = assemble_mls_governance_proof_chunks(&request, &chunks).unwrap();
         assert_eq!(assembled.seal_path, fixture.bundle.seal_path);
         assert_eq!(assembled.control_state, fixture.bundle.control_state);
-        verify_mls_governance_proof_bundle::<Error, _, _>(
+        verify_mls_governance_proof_bundle::<Error, _, _, _>(
             &assembled,
             &fixture.binding,
             &request.trusted_anchor_seal_id,
             |_| Ok(()),
             |_| Ok(()),
+            project_member_cell,
         )
         .unwrap();
     }
@@ -779,6 +794,7 @@ mod tests {
                 ))
             },
             |_| Ok(()),
+            project_member_cell,
         )
         .unwrap_err();
         assert!(
@@ -801,6 +817,7 @@ mod tests {
                     "fixture frontier Event signature rejected".to_owned(),
                 ))
             },
+            project_member_cell,
         )
         .unwrap_err();
         assert!(
@@ -825,7 +842,7 @@ mod tests {
     fn proof_request_rejects_epoch_skip() {
         let request = MlsGovernanceProofRequestBodyBody {
             realm_id: realm(),
-            effective_scope: EffectiveScope::Realm { realm_id: realm() },
+            effective_scope: ScopeRef::Realm { realm_id: realm() },
             mls_group_id: "YXJrcmV0LW1scy1maXh0dXJl".to_owned(),
             previous_epoch: 3,
             next_epoch: 5,
@@ -843,7 +860,7 @@ mod tests {
     fn proof_request_accepts_genesis_epoch() {
         let request = MlsGovernanceProofRequestBodyBody {
             realm_id: realm(),
-            effective_scope: EffectiveScope::Realm { realm_id: realm() },
+            effective_scope: ScopeRef::Realm { realm_id: realm() },
             mls_group_id: "YXJrcmV0LW1scy1maXh0dXJl".to_owned(),
             previous_epoch: 0,
             next_epoch: 0,
@@ -865,6 +882,7 @@ mod tests {
             1,
             2,
             vec![event_id()],
+            vec![SealId::new(format!("ak:seal:{}", hash(0xa1).as_str())).unwrap()],
             fixture.binding.policy_root().clone(),
             fixture.binding.capability_root().unwrap().clone(),
             fixture
@@ -883,7 +901,7 @@ mod tests {
     #[test]
     fn bundle_scope_tampering_is_rejected() {
         let mut fixture = fixture();
-        fixture.bundle.effective_scope = EffectiveScope::Realm {
+        fixture.bundle.effective_scope = ScopeRef::Realm {
             realm_id: RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014b").unwrap(),
         };
         let error = verify(&fixture).unwrap_err();
@@ -925,9 +943,30 @@ mod tests {
     #[test]
     fn cross_scope_frontier_event_is_rejected() {
         let mut fixture = fixture();
-        fixture.bundle.frontier_events[0].effective_scope = None;
+        fixture.bundle.frontier_events[0].scope_ref = ScopeRef::Circle {
+            realm_id: realm(),
+            circle_id: arkret_wire::CircleId::new("ak:circle:0196419b-0000-7000-8000-0000000000c1")
+                .unwrap(),
+        };
         let error = verify(&fixture).unwrap_err();
         assert!(error.to_string().contains(ErrorCode::STATE_MISMATCH));
+    }
+
+    #[test]
+    fn frontier_event_touching_no_membership_cell_is_rejected() {
+        // The Event carries no cell list, so "does this Move affect membership"
+        // is decided purely by the injected projector's answer.
+        let fixture = fixture();
+        let error = verify_mls_governance_proof_bundle::<Error, _, _, _>(
+            &fixture.bundle,
+            &fixture.binding,
+            &fixture.bundle.trusted_anchor_seal_id,
+            |_| Ok(()),
+            |_| Ok(()),
+            |_| Ok(vec![cell("ak.component.realm.title.v1", realm().as_str())]),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains(ErrorCode::SCHEMA_VIOLATION));
     }
 
     #[test]
@@ -939,6 +978,7 @@ mod tests {
             0,
             1,
             vec![event_id()],
+            vec![SealId::new(format!("ak:seal:{}", hash(0xa1).as_str())).unwrap()],
             fixture.binding.policy_root().clone(),
             fixture.binding.capability_root().unwrap().clone(),
             hash(0xee),
@@ -965,6 +1005,7 @@ mod tests {
             0,
             1,
             vec![event_id()],
+            vec![SealId::new(format!("ak:seal:{}", hash(0xa1).as_str())).unwrap()],
             hash(0xed),
             fixture.binding.capability_root().unwrap().clone(),
             fixture
@@ -995,6 +1036,7 @@ mod tests {
             0,
             1,
             vec![event_id()],
+            vec![SealId::new(format!("ak:seal:{}", hash(0xa1).as_str())).unwrap()],
             fixture.binding.policy_root().clone(),
             hash(0xec),
             fixture

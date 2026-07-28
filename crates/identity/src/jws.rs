@@ -19,7 +19,7 @@
 //! responses without string sniffing.
 
 use arkret_signatures::{Ed25519DetachedJwsVerifier, PublicKeyMaterial};
-use arkret_wire::{CellId, Hlc, Move};
+use arkret_wire::{CellId, Hlc, ProjectedCellWrite};
 use chrono::{DateTime, Duration, Utc};
 use ed25519_dalek::VerifyingKey;
 
@@ -276,53 +276,63 @@ pub fn verify_replay_window(hlc: &Hlc, window_seconds: u64) -> Result<(), Replay
     verify_replay_window_at(hlc, window_seconds, Utc::now())
 }
 
-/// Differentiated replay window for a Move based on the cell families
-/// its `effects[]` touch. Looks up each effect's `cell_family` segment
-/// in `per_family_overrides`; takes the **minimum** (tightest) override
-/// across all touched cells; falls back to `default_window` if no
-/// overrides apply. Returns the same shape as [`verify_replay_window`].
+/// Differentiated replay window for a reducer input, based on the cell
+/// families its **projected** writes touch. Looks up each write's
+/// `cell_family` segment in `per_family_overrides`; takes the **minimum**
+/// (tightest) override across all touched cells; falls back to
+/// `default_window` if no overrides apply. Returns the same shape as
+/// [`verify_replay_window`].
 ///
 /// Rationale: some authority cells (notary, mls.epoch) have much
 /// tighter freshness requirements than ordinary message events. Picking
-/// the min ensures a Move with effects on BOTH notary (60s) and an
-/// ordinary cell (300s) honors the tighter 60s window.
-pub fn verify_replay_window_for_move(
-    move_obj: &Move,
+/// the min ensures an Event touching BOTH notary (60s) and an ordinary
+/// cell (300s) honors the tighter 60s window.
+///
+/// The writes are passed in rather than read off the Event because v1 has no
+/// producer-written effect array: they are derived from `kind + payload`
+/// through the contract registry, which this crate does not hold by layering.
+/// Passing an empty slice therefore means "this Event projects no write", not
+/// "the projection is unknown" — resolve the projection before calling.
+pub fn verify_replay_window_for_projection(
+    hlc: &Hlc,
+    writes: &[ProjectedCellWrite],
     default_window_seconds: u64,
     per_family_overrides: &std::collections::BTreeMap<&'static str, u64>,
 ) -> Result<(), ReplayWindowError> {
-    verify_replay_window_for_move_at(
-        move_obj,
+    verify_replay_window_for_projection_at(
+        hlc,
+        writes,
         default_window_seconds,
         per_family_overrides,
         Utc::now(),
     )
 }
 
-/// Test-friendly variant of [`verify_replay_window_for_move`] with an
+/// Test-friendly variant of [`verify_replay_window_for_projection`] with an
 /// injectable wall-clock reference.
-pub fn verify_replay_window_for_move_at(
-    move_obj: &Move,
+pub fn verify_replay_window_for_projection_at(
+    hlc: &Hlc,
+    writes: &[ProjectedCellWrite],
     default_window_seconds: u64,
     per_family_overrides: &std::collections::BTreeMap<&'static str, u64>,
     now: DateTime<Utc>,
 ) -> Result<(), ReplayWindowError> {
     let effective =
-        effective_window_for_move(move_obj, default_window_seconds, per_family_overrides);
-    verify_replay_window_at(&move_obj.hlc, effective, now)
+        effective_window_for_projection(writes, default_window_seconds, per_family_overrides);
+    verify_replay_window_at(hlc, effective, now)
 }
 
-/// Compute the effective (most-restrictive) replay window for a Move's
-/// effects. `default` applies if no effect cell has an override.
-pub fn effective_window_for_move(
-    move_obj: &Move,
+/// Compute the effective (most-restrictive) replay window for a set of
+/// projected writes. `default` applies if no touched cell has an override.
+pub fn effective_window_for_projection(
+    writes: &[ProjectedCellWrite],
     default_window_seconds: u64,
     per_family_overrides: &std::collections::BTreeMap<&'static str, u64>,
 ) -> u64 {
     let mut effective = default_window_seconds;
-    for effect in &move_obj.effects {
+    for write in writes {
         // CellRef shape: `ak:cell:<family>:<subject>` — extract family.
-        let Ok(cell_id) = CellId::parse(effect.cell.as_str()) else {
+        let Ok(cell_id) = CellId::parse(write.cell.as_str()) else {
             continue;
         };
         let family = cell_id.component();
@@ -545,91 +555,67 @@ mod tests {
 
     // -- Per-family override tests --
 
-    fn build_test_move_touching(cell_id: &str, hlc_ms: u64) -> Move {
-        use arkret_wire::{
-            CellRef, Effect, Hash, LatticeOp, LatticeOpType, MoveId, MoveSignature, RealmId, SealId,
-        };
-        Move {
-            id: MoveId::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
-            issuer: Did::new("did:webvh:z6mkfixture:test").unwrap(),
-            realm_id: RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000000".to_owned())
-                .unwrap(),
-            preconditions: vec![],
-            effects: vec![Effect {
-                cell: CellRef::new(cell_id.to_owned()).unwrap(),
-                op: LatticeOp {
-                    op_type: LatticeOpType::Set,
-                    tag: None,
-                    value: Some(
-                        serde_json::json!({"shape": "single_did", "did": "did:webvh:z6mkfixture:foo"}),
-                    ),
-                    from: None,
-                    to: None,
-                    reason: None,
-                    issuer_seq: None,
-                },
-            }],
-            seal_basis: arkret_wire::SealBasis {
-                leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "00".repeat(32))).unwrap()],
-                control_event_set_root: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
-                state_root: Hash::new(format!("sha256:{}", "33".repeat(32))).unwrap(),
-            },
-            refs: vec![],
-            hlc: Hlc::new(format!("{hlc_ms:012x}-0000-aabbccdd")).unwrap(),
-            sig: MoveSignature {
-                alg: "EdDSA".to_owned(),
-                verification_method: "did:webvh:z6mkfixture:test#k1".to_owned(),
-                payload_digest: Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap(),
-                created_at: Utc::now(),
-                jws: "eyJhbGciOiJFZERTQSJ9..ZmFrZS1zaWctZm9yLXRlc3Rz".to_owned(),
-            },
-        }
+    fn writes_touching(cell_id: &str) -> Vec<ProjectedCellWrite> {
+        use arkret_wire::{CellRef, LatticeOp, LatticeOpType, ProjectedOp};
+        let mut op = LatticeOp::empty();
+        op.op_type = LatticeOpType::Set;
+        op.value =
+            Some(serde_json::json!({"shape": "single_did", "did": "did:webvh:z6mkfixture:foo"}));
+        vec![ProjectedCellWrite {
+            cell: CellRef::new(cell_id.to_owned()).unwrap(),
+            op: ProjectedOp::Direct(op),
+        }]
+    }
+
+    fn hlc_at(hlc_ms: u64) -> Hlc {
+        Hlc::new(format!("{hlc_ms:012x}-0000-aabbccdd")).unwrap()
     }
 
     #[test]
     fn effective_window_picks_default_when_no_overrides_apply() {
-        let m = build_test_move_touching("ak:cell:ak.component.message.create.v1:ak.event.foo", 0);
+        let w = writes_touching("ak:cell:ak.component.message.create.v1:ak.event.foo");
         let overrides = BTreeMap::new();
-        assert_eq!(effective_window_for_move(&m, 300, &overrides), 300);
+        assert_eq!(effective_window_for_projection(&w, 300, &overrides), 300);
     }
 
     #[test]
     fn effective_window_uses_notary_override_when_notary_cell_touched() {
-        let m = build_test_move_touching("ak:cell:ak.component.notary.v1:ak.realm.x", 0);
+        let w = writes_touching("ak:cell:ak.component.notary.v1:ak.realm.x");
         let mut overrides = BTreeMap::new();
         overrides.insert("ak.component.notary.v1", 60u64);
         // Default 300, notary override 60 -> effective 60.
-        assert_eq!(effective_window_for_move(&m, 300, &overrides), 60);
+        assert_eq!(effective_window_for_projection(&w, 300, &overrides), 60);
     }
 
     #[test]
     fn effective_window_takes_minimum_when_default_tighter_than_override() {
-        let m = build_test_move_touching("ak:cell:ak.component.notary.v1:ak.realm.x", 0);
+        let w = writes_touching("ak:cell:ak.component.notary.v1:ak.realm.x");
         let mut overrides = BTreeMap::new();
         overrides.insert("ak.component.notary.v1", 600u64); // looser than default
         // Default 300, notary override 600 -> min = 300 (default wins because tighter).
-        assert_eq!(effective_window_for_move(&m, 300, &overrides), 300);
+        assert_eq!(effective_window_for_projection(&w, 300, &overrides), 300);
     }
 
     #[test]
     fn effective_window_zero_default_with_override_uses_override() {
         // Test config has window=0 but spec-critical cells should still
         // be window-checked. The override "wins" in this case.
-        let m = build_test_move_touching("ak:cell:ak.component.notary.v1:ak.realm.x", 0);
+        let w = writes_touching("ak:cell:ak.component.notary.v1:ak.realm.x");
         let mut overrides = BTreeMap::new();
         overrides.insert("ak.component.notary.v1", 60u64);
-        assert_eq!(effective_window_for_move(&m, 0, &overrides), 60);
+        assert_eq!(effective_window_for_projection(&w, 0, &overrides), 60);
     }
 
     #[test]
     fn notary_cell_with_60s_override_rejects_2min_old_hlc() {
         let now = Utc::now();
         let two_min_ago_ms = (now - Duration::minutes(2)).timestamp_millis() as u64;
-        let m =
-            build_test_move_touching("ak:cell:ak.component.notary.v1:ak.realm.x", two_min_ago_ms);
+        let w = writes_touching("ak:cell:ak.component.notary.v1:ak.realm.x");
+        let hlc = hlc_at(two_min_ago_ms);
         let mut overrides = BTreeMap::new();
         overrides.insert("ak.component.notary.v1", 60u64);
-        let err = verify_replay_window_for_move_at(&m, 300, &overrides, now).unwrap_err();
+        let err =
+            verify_replay_window_for_projection_at(&hlc, &w, 300, &overrides, now).unwrap_err();
         assert!(
             matches!(err, ReplayWindowError::TooOld { .. }),
             "notary cell with 60s override should reject 2min-old hlc (got `{err}`)"
@@ -640,14 +626,12 @@ mod tests {
     fn message_cell_under_default_300s_accepts_2min_old_hlc() {
         let now = Utc::now();
         let two_min_ago_ms = (now - Duration::minutes(2)).timestamp_millis() as u64;
-        let m = build_test_move_touching(
-            "ak:cell:ak.component.message.create.v1:ak.event.foo",
-            two_min_ago_ms,
-        );
+        let w = writes_touching("ak:cell:ak.component.message.create.v1:ak.event.foo");
+        let hlc = hlc_at(two_min_ago_ms);
         // Default 300s, no override for message family -> 2min = 120s < 300s -> accept.
         let mut overrides = BTreeMap::new();
         overrides.insert("ak.component.notary.v1", 60u64);
-        verify_replay_window_for_move_at(&m, 300, &overrides, now).unwrap();
+        verify_replay_window_for_projection_at(&hlc, &w, 300, &overrides, now).unwrap();
     }
 
     // -- Sign / sign+verify round-trip tests --

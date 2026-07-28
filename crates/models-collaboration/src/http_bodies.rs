@@ -12,16 +12,16 @@ use arkret_models_crypto::{
     PeerKeyPackagesClaimRequestBody,
 };
 use arkret_wire::{
-    Base64UrlString, BlobRef, ConsentId, Cursor, DeviceId, Did, Error, Event, EventId, EventKind,
-    GrantId, Hash, MimiRoomUri, MlsGroupId, MorphId, MoveId, NonEmptyString, PayloadProof, Proof,
-    ProofContextId, RealmId, RelationId, ReportId, Result, SealId, SpaceId, StrandId, canonical,
+    Base64UrlString, BlobRef, ConsentId, Cursor, DeviceId, Did, Error, Event, EventId,
+    EventInitialSubmission, EventKind, GrantId, Hash, IngressReceipt, MimiRoomUri, MlsGroupId,
+    MorphId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId, RelationId, ReportId,
+    Result, SealId, SignalEnvelope, SpaceId, StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::event_sync::{RealmActorFrontierView, RealmSealFrontierView};
-use crate::events_payloads::ephemeral::EphemeralEnvelope;
 use crate::governance::agent_artifacts::{DeviceMetadata, GrantSnapshot, PublicKey};
 use crate::governance::authorization::GrantList;
 use crate::governance::peer_contact::ContactIntroductionEvidence;
@@ -141,41 +141,51 @@ pub enum EventsSubmitStatus {
     HistoricalOnly,
 }
 
+/// `ak.self.events.command.submit` request body: either one initial
+/// publication or a batch of them.
+///
+/// An Event never travels alone on this rail — the lease is what bounds the
+/// revocation window, so a body carrying a bare Event is not a valid request.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct EventsSubmitRequestBody {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub event: Option<Event>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub events: Vec<Event>,
+#[serde(untagged)]
+pub enum EventsSubmitRequestBody {
+    Single(EventInitialSubmission),
+    Batch(EventsSubmitBatchRequestBody),
 }
 
-/// Round 4 — batch `/events/submit` request. Multiple envelopes
-/// submitted in a single round trip. The receiver MUST process each
-/// envelope independently; partial-success returns the per-envelope
-/// rejected list.
+/// Batch `ak.self.events.command.submit` request used by account clients.
+///
+/// The receiver MUST process each submission independently; partial success
+/// returns the per-submission rejected list.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EventsSubmitBatchRequestBody {
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub events: Vec<Event>,
-    /// Optional idempotency key for the entire batch.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub idempotency_key: Option<String>,
+    pub events: Vec<EventInitialSubmission>,
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome`
-/// `rejected` array items: `{id, reason_code, detail?}`.
+/// `spec/v1/artifacts/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitRejectedItem`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct EventsSubmitRejectedItem {
+    /// 0-based position in the request `events[]`. It is the only way to report
+    /// an item whose `id` failed to parse, so it is present whenever the item
+    /// could be located positionally.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub index: Option<u32>,
     pub id: String,
     pub reason_code: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
+    /// Exact CBA shortfall, so the sender extends one bundle instead of
+    /// guessing. A bundle MAY be a bounded verifiable superset, so the receiver
+    /// never asks for a byte-minimal one.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing_seal_refs: Vec<SealId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing_event_digests: Vec<Hash>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -185,6 +195,14 @@ pub struct EventsSubmitOutcome {
     pub status: EventsSubmitStatus,
     #[serde(default)]
     pub accepted: Vec<EventId>,
+    /// Newly issued or byte-identical previously issued receipts for the
+    /// accepted and duplicate Event digests.
+    ///
+    /// A service MUST return the stored receipt for an idempotent duplicate;
+    /// minting one with a later `received_at` would silently extend a
+    /// revocation window that is already fixed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ingress_receipts: Vec<IngressReceipt>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub duplicate: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -205,9 +223,9 @@ pub struct EventsSubmitOutcome {
 }
 
 /// `ak.edge.applet.command.transaction` request body. Carries wire `Event`s
-/// plus the collaboration `EphemeralEnvelope` batch, so it lives here rather
-/// than with the other applet DTOs in `arkret-models-integration` (which does
-/// not depend on this crate).
+/// plus an optional `SignalEnvelope` batch, so it lives here rather than with
+/// the other applet DTOs in `arkret-models-integration` (which does not depend
+/// on this crate).
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AppletTransactionRequestBody {
@@ -216,8 +234,7 @@ pub struct AppletTransactionRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub ephemeral: Option<Vec<EphemeralEnvelope>>,
+    pub signals: Option<Vec<SignalEnvelope>>,
 }
 
 /// Result of `ak.self.events.command.submit_seal` after the receiver has
@@ -228,7 +245,7 @@ pub struct AppletTransactionRequestBody {
 pub struct EventSealSubmitOutcome {
     pub seal_id: SealId,
     #[serde(default)]
-    pub accepted_event_digests: Vec<MoveId>,
+    pub accepted_event_digests: Vec<Hash>,
     pub post_state_root: Hash,
 }
 
@@ -270,15 +287,20 @@ pub struct EventsResolveOutcome {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct EphemeralSubmitOutcome {
+#[serde(deny_unknown_fields)]
+pub struct SignalSubmitOutcome {
     pub accepted: bool,
-    pub kind: String,
     pub realm_id: RealmId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub dispatched_to: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Digest of the admitted complete encrypted envelope. It exists only for
+    /// short-lived replay suppression and local correlation: admitting a
+    /// Signal mints no Event id, advances no `actor_seq` and creates no
+    /// durable receipt.
+    pub envelope_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dispatched_recipient_count: Option<u64>,
     #[serde(
         default,
+        skip_serializing_if = "Option::is_none",
         serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
     )]

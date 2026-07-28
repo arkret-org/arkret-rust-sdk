@@ -1,6 +1,6 @@
 //! `ak.schema.applet_install_plan.v1` wire object.
 
-use arkret_wire::{AppletId, Did, EffectiveScope, Error, Hash, Result, canonical};
+use arkret_wire::{AppletId, Did, Error, Hash, Result, ScopeRef, canonical};
 use serde::{Deserialize, Serialize};
 
 use crate::artifacts_applet::{
@@ -25,7 +25,7 @@ pub struct AppletInstallPlan {
     pub applet_id: AppletInstallAppletId,
     pub package_digest: Hash,
     pub registration_epoch: Hash,
-    pub effective_scope: EffectiveScope,
+    pub effective_scope: ScopeRef,
     pub requested_scopes: Vec<String>,
     pub approved_scopes: Vec<ScopeGrant>,
     pub denied_scopes: Vec<DeniedScope>,

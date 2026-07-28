@@ -154,10 +154,10 @@ impl CompactionPolicy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Hash, Hlc, MoveId, MoveSignature, NotarySig, RealmId, SealId, SealKind};
+    use crate::{Hash, Hlc, NotarySig, PayloadSignature, RealmId, SealId, SealKind};
 
     fn seal(kind: SealKind) -> Seal {
-        let sig = MoveSignature {
+        let sig = PayloadSignature {
             alg: "EdDSA".to_owned(),
             verification_method: "did:webvh:z6mkfixture:a.example#k1".to_owned(),
             payload_digest: Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap(),
@@ -169,7 +169,7 @@ mod tests {
             realm_id: RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned())
                 .unwrap(),
             predecessor_refs: vec![],
-            delta: vec![MoveId::new(format!("sha256:{}", "11".repeat(32))).unwrap()],
+            delta: vec![Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap()],
             control_event_set_root: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
             state_root: Hash::new(format!("sha256:{}", "77".repeat(32))).unwrap(),
             completeness_root: Hash::new(format!("sha256:{}", "33".repeat(32))).unwrap(),

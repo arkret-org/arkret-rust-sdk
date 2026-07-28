@@ -7,6 +7,7 @@ use arkret_models_identity::ActorProfile;
 use arkret_models_integration::{AppletDelegatedEventAuthorization, GhostActorProfileFields};
 use arkret_wire::{
     ACTOR_PROFILE_SCHEMA, ActorKind, ActorProfileId, AppletId, BlobRef, Did, Event, Hlc, RealmId,
+    ScopeRef,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -156,14 +157,14 @@ impl GhostActorProfileRequest {
 
     pub fn profile_create_event(
         &self,
-        realm_id: RealmId,
+        scope_ref: ScopeRef,
         actor_seq: u64,
         hlc: Hlc,
         authorization: Option<&AppletDelegatedEventAuthorization>,
     ) -> Result<Event> {
         let mut event = Event::new(
             "ak.profile.create",
-            realm_id,
+            scope_ref,
             self.principal_id.clone(),
             actor_seq,
             hlc,
@@ -216,7 +217,10 @@ mod tests {
                 .with_accountable_principal_ids(vec![did("owner")]);
         let event = request
             .profile_create_event(
-                RealmId::new("ak:realm:01904100-0000-7000-8000-cccccccccccc").unwrap(),
+                ScopeRef::Realm {
+                    realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-cccccccccccc")
+                        .unwrap(),
+                },
                 1,
                 Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
                 None,

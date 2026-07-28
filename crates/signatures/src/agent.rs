@@ -679,7 +679,9 @@ mod tests {
         disclosure.proofs[0].event_digest = disclosure.payload_digest().unwrap();
         let authorize_event = Event::new(
             EventKind::AGENT_KEY_AUTHORIZE,
-            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            arkret_wire::ScopeRef::Realm {
+                realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            },
             agent_id.clone(),
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),

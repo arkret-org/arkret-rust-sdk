@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=c34ae42f2957a9b12fa9764e62cec82bf8128fabae75f0f82409c456411f1955
+//! sha256=0c4e04fa8b66a4e829422cf51f8eac630da80883bd315429f8691339edb474f6
 //! Entries: reason_codes=444
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -159,7 +159,6 @@ pub enum ReasonCode {
     E2eeRelaxedDisallowedInComplianceProfile,
     E2eeRelaxedFederationPolicyUnsupported,
     EffectiveScopeReducerManaged,
-    EffectsPayloadMismatch,
     EgressPolicyDenied,
     EpochUpdateRequired,
     ErasurePendingIsTerminal,
@@ -205,6 +204,7 @@ pub enum ReasonCode {
     InvalidCanonicalJson,
     InvalidCursor,
     InvalidEncoding,
+    InvalidGenesisSeal,
     InvalidMembershipTransition,
     InvalidRealmFoundingGrant,
     InvalidTaskFsmTransition,
@@ -285,8 +285,6 @@ pub enum ReasonCode {
     PatchAtomicConflict,
     PatchPathInvalid,
     PatchPathReducerManaged,
-    PatchSelectorAmbiguous,
-    PatchSelectorNoMatch,
     PatchUnsetRedactableField,
     PermissionDenied,
     PlaneCrossWrite,
@@ -354,6 +352,7 @@ pub enum ReasonCode {
     RecoveryWitnessPostConflict,
     RecoveryWitnessRevokeLagging,
     ReducerProfileMismatch,
+    ReducerProjectionFailed,
     RefsTooLarge,
     RelationAlreadyTerminal,
     RelationConflictFanoutExceeded,
@@ -372,10 +371,10 @@ pub enum ReasonCode {
     RsvpBasisNotCausal,
     RsvpOccurrenceNotCanonical,
     ScheduleFrontierTooLarge,
-    SchemaDerivationMismatch,
     ScopeExpansionForbidden,
     ScopeIncomparable,
     ScopeRebindForbidden,
+    ScopeRefMismatch,
     ScopeUnavailable,
     SegmentAeadFailed,
     SegmentBoundsInvalid,
@@ -397,6 +396,7 @@ pub enum ReasonCode {
     ShareCommitmentMismatch,
     SidecarCreateDenied,
     SidecarExposureAckRequired,
+    SignalPlaintextForbidden,
     SnapshotIssuerRevoked,
     SoftFailed,
     SpaceAlreadyTerminal,
@@ -661,7 +661,6 @@ impl ReasonCode {
     pub const E2EE_RELAXED_FEDERATION_POLICY_UNSUPPORTED: &'static str =
         "e2ee_relaxed_federation_policy_unsupported";
     pub const EFFECTIVE_SCOPE_REDUCER_MANAGED: &'static str = "effective_scope_reducer_managed";
-    pub const EFFECTS_PAYLOAD_MISMATCH: &'static str = "effects_payload_mismatch";
     pub const EGRESS_POLICY_DENIED: &'static str = "egress_policy_denied";
     pub const EPOCH_UPDATE_REQUIRED: &'static str = "epoch_update_required";
     pub const ERASURE_PENDING_IS_TERMINAL: &'static str = "erasure_pending_is_terminal";
@@ -714,6 +713,7 @@ impl ReasonCode {
     pub const INVALID_CANONICAL_JSON: &'static str = "invalid_canonical_json";
     pub const INVALID_CURSOR: &'static str = "invalid_cursor";
     pub const INVALID_ENCODING: &'static str = "invalid_encoding";
+    pub const INVALID_GENESIS_SEAL: &'static str = "invalid_genesis_seal";
     pub const INVALID_MEMBERSHIP_TRANSITION: &'static str = "invalid_membership_transition";
     pub const INVALID_REALM_FOUNDING_GRANT: &'static str = "invalid_realm_founding_grant";
     pub const INVALID_TASK_FSM_TRANSITION: &'static str = "invalid_task_fsm_transition";
@@ -810,8 +810,6 @@ impl ReasonCode {
     pub const PATCH_ATOMIC_CONFLICT: &'static str = "patch_atomic_conflict";
     pub const PATCH_PATH_INVALID: &'static str = "patch_path_invalid";
     pub const PATCH_PATH_REDUCER_MANAGED: &'static str = "patch_path_reducer_managed";
-    pub const PATCH_SELECTOR_AMBIGUOUS: &'static str = "patch_selector_ambiguous";
-    pub const PATCH_SELECTOR_NO_MATCH: &'static str = "patch_selector_no_match";
     pub const PATCH_UNSET_REDACTABLE_FIELD: &'static str = "patch_unset_redactable_field";
     pub const PERMISSION_DENIED: &'static str = "permission_denied";
     pub const PLANE_CROSS_WRITE: &'static str = "plane_cross_write";
@@ -891,6 +889,7 @@ impl ReasonCode {
     pub const RECOVERY_WITNESS_POST_CONFLICT: &'static str = "recovery_witness_post_conflict";
     pub const RECOVERY_WITNESS_REVOKE_LAGGING: &'static str = "recovery_witness_revoke_lagging";
     pub const REDUCER_PROFILE_MISMATCH: &'static str = "reducer_profile_mismatch";
+    pub const REDUCER_PROJECTION_FAILED: &'static str = "reducer_projection_failed";
     pub const REFS_TOO_LARGE: &'static str = "refs_too_large";
     pub const RELATION_ALREADY_TERMINAL: &'static str = "relation_already_terminal";
     pub const RELATION_CONFLICT_FANOUT_EXCEEDED: &'static str = "relation_conflict_fanout_exceeded";
@@ -911,10 +910,10 @@ impl ReasonCode {
     pub const RSVP_BASIS_NOT_CAUSAL: &'static str = "rsvp_basis_not_causal";
     pub const RSVP_OCCURRENCE_NOT_CANONICAL: &'static str = "rsvp_occurrence_not_canonical";
     pub const SCHEDULE_FRONTIER_TOO_LARGE: &'static str = "schedule_frontier_too_large";
-    pub const SCHEMA_DERIVATION_MISMATCH: &'static str = "schema_derivation_mismatch";
     pub const SCOPE_EXPANSION_FORBIDDEN: &'static str = "scope_expansion_forbidden";
     pub const SCOPE_INCOMPARABLE: &'static str = "scope_incomparable";
     pub const SCOPE_REBIND_FORBIDDEN: &'static str = "scope_rebind_forbidden";
+    pub const SCOPE_REF_MISMATCH: &'static str = "scope_ref_mismatch";
     pub const SCOPE_UNAVAILABLE: &'static str = "scope_unavailable";
     pub const SEGMENT_AEAD_FAILED: &'static str = "segment_aead_failed";
     pub const SEGMENT_BOUNDS_INVALID: &'static str = "segment_bounds_invalid";
@@ -937,6 +936,7 @@ impl ReasonCode {
     pub const SHARE_COMMITMENT_MISMATCH: &'static str = "share_commitment_mismatch";
     pub const SIDECAR_CREATE_DENIED: &'static str = "sidecar_create_denied";
     pub const SIDECAR_EXPOSURE_ACK_REQUIRED: &'static str = "sidecar_exposure_ack_required";
+    pub const SIGNAL_PLAINTEXT_FORBIDDEN: &'static str = "signal_plaintext_forbidden";
     pub const SNAPSHOT_ISSUER_REVOKED: &'static str = "snapshot_issuer_revoked";
     pub const SOFT_FAILED: &'static str = "soft_failed";
     pub const SPACE_ALREADY_TERMINAL: &'static str = "space_already_terminal";
@@ -1188,7 +1188,6 @@ impl ReasonCode {
                 "e2ee_relaxed_federation_policy_unsupported"
             }
             Self::EffectiveScopeReducerManaged => "effective_scope_reducer_managed",
-            Self::EffectsPayloadMismatch => "effects_payload_mismatch",
             Self::EgressPolicyDenied => "egress_policy_denied",
             Self::EpochUpdateRequired => "epoch_update_required",
             Self::ErasurePendingIsTerminal => "erasure_pending_is_terminal",
@@ -1240,6 +1239,7 @@ impl ReasonCode {
             Self::InvalidCanonicalJson => "invalid_canonical_json",
             Self::InvalidCursor => "invalid_cursor",
             Self::InvalidEncoding => "invalid_encoding",
+            Self::InvalidGenesisSeal => "invalid_genesis_seal",
             Self::InvalidMembershipTransition => "invalid_membership_transition",
             Self::InvalidRealmFoundingGrant => "invalid_realm_founding_grant",
             Self::InvalidTaskFsmTransition => "invalid_task_fsm_transition",
@@ -1334,8 +1334,6 @@ impl ReasonCode {
             Self::PatchAtomicConflict => "patch_atomic_conflict",
             Self::PatchPathInvalid => "patch_path_invalid",
             Self::PatchPathReducerManaged => "patch_path_reducer_managed",
-            Self::PatchSelectorAmbiguous => "patch_selector_ambiguous",
-            Self::PatchSelectorNoMatch => "patch_selector_no_match",
             Self::PatchUnsetRedactableField => "patch_unset_redactable_field",
             Self::PermissionDenied => "permission_denied",
             Self::PlaneCrossWrite => "plane_cross_write",
@@ -1411,6 +1409,7 @@ impl ReasonCode {
             Self::RecoveryWitnessPostConflict => "recovery_witness_post_conflict",
             Self::RecoveryWitnessRevokeLagging => "recovery_witness_revoke_lagging",
             Self::ReducerProfileMismatch => "reducer_profile_mismatch",
+            Self::ReducerProjectionFailed => "reducer_projection_failed",
             Self::RefsTooLarge => "refs_too_large",
             Self::RelationAlreadyTerminal => "relation_already_terminal",
             Self::RelationConflictFanoutExceeded => "relation_conflict_fanout_exceeded",
@@ -1431,10 +1430,10 @@ impl ReasonCode {
             Self::RsvpBasisNotCausal => "rsvp_basis_not_causal",
             Self::RsvpOccurrenceNotCanonical => "rsvp_occurrence_not_canonical",
             Self::ScheduleFrontierTooLarge => "schedule_frontier_too_large",
-            Self::SchemaDerivationMismatch => "schema_derivation_mismatch",
             Self::ScopeExpansionForbidden => "scope_expansion_forbidden",
             Self::ScopeIncomparable => "scope_incomparable",
             Self::ScopeRebindForbidden => "scope_rebind_forbidden",
+            Self::ScopeRefMismatch => "scope_ref_mismatch",
             Self::ScopeUnavailable => "scope_unavailable",
             Self::SegmentAeadFailed => "segment_aead_failed",
             Self::SegmentBoundsInvalid => "segment_bounds_invalid",
@@ -1456,6 +1455,7 @@ impl ReasonCode {
             Self::ShareCommitmentMismatch => "share_commitment_mismatch",
             Self::SidecarCreateDenied => "sidecar_create_denied",
             Self::SidecarExposureAckRequired => "sidecar_exposure_ack_required",
+            Self::SignalPlaintextForbidden => "signal_plaintext_forbidden",
             Self::SnapshotIssuerRevoked => "snapshot_issuer_revoked",
             Self::SoftFailed => "soft_failed",
             Self::SpaceAlreadyTerminal => "space_already_terminal",
@@ -1710,7 +1710,6 @@ impl ReasonCode {
                 Self::E2eeRelaxedFederationPolicyUnsupported
             }
             "effective_scope_reducer_managed" => Self::EffectiveScopeReducerManaged,
-            "effects_payload_mismatch" => Self::EffectsPayloadMismatch,
             "egress_policy_denied" => Self::EgressPolicyDenied,
             "epoch_update_required" => Self::EpochUpdateRequired,
             "erasure_pending_is_terminal" => Self::ErasurePendingIsTerminal,
@@ -1762,6 +1761,7 @@ impl ReasonCode {
             "invalid_canonical_json" => Self::InvalidCanonicalJson,
             "invalid_cursor" => Self::InvalidCursor,
             "invalid_encoding" => Self::InvalidEncoding,
+            "invalid_genesis_seal" => Self::InvalidGenesisSeal,
             "invalid_membership_transition" => Self::InvalidMembershipTransition,
             "invalid_realm_founding_grant" => Self::InvalidRealmFoundingGrant,
             "invalid_task_fsm_transition" => Self::InvalidTaskFsmTransition,
@@ -1856,8 +1856,6 @@ impl ReasonCode {
             "patch_atomic_conflict" => Self::PatchAtomicConflict,
             "patch_path_invalid" => Self::PatchPathInvalid,
             "patch_path_reducer_managed" => Self::PatchPathReducerManaged,
-            "patch_selector_ambiguous" => Self::PatchSelectorAmbiguous,
-            "patch_selector_no_match" => Self::PatchSelectorNoMatch,
             "patch_unset_redactable_field" => Self::PatchUnsetRedactableField,
             "permission_denied" => Self::PermissionDenied,
             "plane_cross_write" => Self::PlaneCrossWrite,
@@ -1933,6 +1931,7 @@ impl ReasonCode {
             "recovery_witness_post_conflict" => Self::RecoveryWitnessPostConflict,
             "recovery_witness_revoke_lagging" => Self::RecoveryWitnessRevokeLagging,
             "reducer_profile_mismatch" => Self::ReducerProfileMismatch,
+            "reducer_projection_failed" => Self::ReducerProjectionFailed,
             "refs_too_large" => Self::RefsTooLarge,
             "relation_already_terminal" => Self::RelationAlreadyTerminal,
             "relation_conflict_fanout_exceeded" => Self::RelationConflictFanoutExceeded,
@@ -1953,10 +1952,10 @@ impl ReasonCode {
             "rsvp_basis_not_causal" => Self::RsvpBasisNotCausal,
             "rsvp_occurrence_not_canonical" => Self::RsvpOccurrenceNotCanonical,
             "schedule_frontier_too_large" => Self::ScheduleFrontierTooLarge,
-            "schema_derivation_mismatch" => Self::SchemaDerivationMismatch,
             "scope_expansion_forbidden" => Self::ScopeExpansionForbidden,
             "scope_incomparable" => Self::ScopeIncomparable,
             "scope_rebind_forbidden" => Self::ScopeRebindForbidden,
+            "scope_ref_mismatch" => Self::ScopeRefMismatch,
             "scope_unavailable" => Self::ScopeUnavailable,
             "segment_aead_failed" => Self::SegmentAeadFailed,
             "segment_bounds_invalid" => Self::SegmentBoundsInvalid,
@@ -1978,6 +1977,7 @@ impl ReasonCode {
             "share_commitment_mismatch" => Self::ShareCommitmentMismatch,
             "sidecar_create_denied" => Self::SidecarCreateDenied,
             "sidecar_exposure_ack_required" => Self::SidecarExposureAckRequired,
+            "signal_plaintext_forbidden" => Self::SignalPlaintextForbidden,
             "snapshot_issuer_revoked" => Self::SnapshotIssuerRevoked,
             "soft_failed" => Self::SoftFailed,
             "space_already_terminal" => Self::SpaceAlreadyTerminal,
@@ -2818,12 +2818,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "effective_scope_reducer_managed",
         applies_to: &["schema_validation"],
-        description: "Sub-reason for schema_violation when actor-side submit payload illegally carries a top-level `effective_scope` field. `effective_scope` is the canonical reducer-output form (tagged {kind:realm|circle}); actors only supply `scope_circle_id` (id:circle | null). Reducer stamps the immutable tagged form on the Event envelope and materialized object cell. See zh/models/circle.md §6.2.",
-    },
-    ReasonCodeDescriptor {
-        code: "effects_payload_mismatch",
-        applies_to: &["event_envelope", "state_resolution"],
-        description: "Wire effects[] is not bytewise canonical-equivalent to derive_patch_effects(kind, target_ref, payload.patch, frozen_pre_state). Receiver MUST recompute and reject the entire Event; effects[] remains the CBA materialization input but cannot diverge from the signed patch instruction. See zh/models/event-and-patch.md §4.3.1.",
+        description: "Sub-reason for schema_violation when an object content payload illegally carries `effective_scope` where its schema reserves that name for a read-only materialized projection. The Event envelope instead requires producer-signed `scope_ref`; the receiver derives the scope from payload and frozen pre-state, verifies exact equality, and only then may copy it into the object's effective_scope projection. See zh/models/circle.md §6.2.",
     },
     ReasonCodeDescriptor {
         code: "egress_policy_denied",
@@ -3053,6 +3048,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "invalid_encoding",
         applies_to: &["encoding"],
         description: "Generic encoding violation (HLC format, UUIDv7 format, base64url alphabet, etc.) not otherwise classified.",
+    },
+    ReasonCodeDescriptor {
+        code: "invalid_genesis_seal",
+        applies_to: &["seal", "state_resolution"],
+        description: "The first Seal of a Realm did not atomically cover the complete founding anchor unit (Realm metadata, creator joined membership, founding authority/notary, founding grant, base policy, and for an MLS-backed scope the epoch-0 governance binding), or used an empty covered set or empty control_event_set_root. See zh/authz/cba-profiles.md section 3.",
     },
     ReasonCodeDescriptor {
         code: "invalid_membership_transition",
@@ -3455,16 +3455,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A `ak.patch.v1` patch path attempts to modify a reducer-managed field (`id` / `schema` / `realm_id` / `created_by` / `created_at` / `state` / `state_changed_at`). These fields are owned by their corresponding lifecycle events; patch MUST NOT touch them. See zh/models/event-and-patch.md §4.2.5.",
     },
     ReasonCodeDescriptor {
-        code: "patch_selector_ambiguous",
-        applies_to: &["event_envelope"],
-        description: "A `ak.patch.v1` selector segment matched multiple array items, indicating the underlying collection already violated its declared uniqueness constraint. Reducer fails closed. See zh/models/event-and-patch.md §4.2.3.",
-    },
-    ReasonCodeDescriptor {
-        code: "patch_selector_no_match",
-        applies_to: &["event_envelope"],
-        description: "A `ak.patch.v1` selector segment matched zero array items for a `set` or `add` operation. See zh/models/event-and-patch.md §4.2.3.",
-    },
-    ReasonCodeDescriptor {
         code: "patch_unset_redactable_field",
         applies_to: &["event_envelope"],
         description: "A `ak.patch.v1` `$op=\"unset\"` was used on a redactable content field (e.g. message.content, strand.metadata.summary, encrypted_content / encrypted_metadata). Redaction MUST go through `ak.<kind>.redact` or `ak.redaction` events to enforce redaction-specific capability checks and audit. See zh/models/event-and-patch.md §4.2.4.",
@@ -3477,7 +3467,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "plane_cross_write",
         applies_to: &["event_envelope", "schema_validation"],
-        description: "Sub-reason for schema_violation when a DataEvent's effects[] references a control-plane cell. Data-plane events MUST only write data-plane cell families; the receiver MUST reject the envelope instead of applying a cross-plane write. See zh/authz/event-auth-state-resolution.md §4.",
+        description: "Sub-reason for schema_violation when a DataEvent's registered reducer projection targets a control-plane cell. Data-plane events MUST only project writes to data-plane cell families; the receiver MUST reject the envelope instead of applying a cross-plane write. See zh/authz/event-auth-state-resolution.md §4.",
     },
     ReasonCodeDescriptor {
         code: "policy_denied",
@@ -3805,6 +3795,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Federation push / pull body's service_binding_ref.reducer_profile_digest differs from the receiver's reducer profile for the target Realm. Receiver MUST reject the entire batch (not partial-accept) because the same Event under different reducer profiles would produce divergent cell state, state_root and covered_seals_cell state — silently accepting would corrupt audit. Sender SHOULD reconcile reducer profile via Realm policy update or terminate federation for this Realm.",
     },
     ReasonCodeDescriptor {
+        code: "reducer_projection_failed",
+        applies_to: &["event_envelope", "state_resolution"],
+        description: "The reducer projection required by the registered contract cannot be derived uniquely from `kind`, signed envelope fields, schema-validated payload, and frozen pre-state. Receiver MUST reject the entire Event; projected writes are reducer output and never producer-selected Event fields. See zh/models/event-and-patch.md §4.3.1.",
+    },
+    ReasonCodeDescriptor {
         code: "refs_too_large",
         applies_to: &["schema_validation", "event_envelope"],
         description: "Event Envelope refs[] exceeds the v1 maximum of 128 semantic refs. Receiver MUST reject with schema_violation. See zh/conformance/scalability-constraints.md.",
@@ -3899,11 +3894,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "The observed Calendar schedule revision frontier exceeds the 128-entry bound shared with causal_refs, so entry.schedule_basis_refs cannot express it. The producer MUST converge the schedule before responding and MUST NOT truncate the basis. See zh/conformance/scalability-constraints.md. It is raised by the authoring client when the observed frontier itself exceeds the bound; a wire Event that actually carries more than 128 refs is instead rejected by schema maxItems as schema_violation.",
     },
     ReasonCodeDescriptor {
-        code: "schema_derivation_mismatch",
-        applies_to: &["event_envelope", "state_resolution"],
-        description: "Diagnostic: the optional `conflict_keys_digest` derived by the producer does not match the digest a verifier derives from `effects[]` under its own schema version, surfacing a two-sided schema-derivation divergence early. NOT a security boundary — verifiers MUST always derive the conflict domain from `effects[]` regardless of this field. See zh/authz/event-auth-state-resolution.md §88.",
-    },
-    ReasonCodeDescriptor {
         code: "scope_expansion_forbidden",
         applies_to: &["event_envelope", "auth_decision"],
         description: "A grant or delegation set `scope_expansion_allowed=true`. v1 does not permit a child to expand beyond the parent's resources/actions; the reducer MUST reject (schema_violation) because the field directly conflicts with the §10.1 `resources MUST ⊆ parent` invariant. See zh/authz/constraint-schema.md §7 / zh/authz/capabilities.md §10.1.",
@@ -3917,6 +3907,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "scope_rebind_forbidden",
         applies_to: &["state_resolution"],
         description: "Sub-reason for failed_precondition when scope_circle_id rebind is attempted without an explicitly profile-permitted audited-high-risk path. Default reducer rejects rebinds to prevent silent historical-discussion migration. See zh/models/circle.md §6.1.",
+    },
+    ReasonCodeDescriptor {
+        code: "scope_ref_mismatch",
+        applies_to: &["event_envelope", "auth_decision", "state_resolution"],
+        description: "The signed Event `scope_ref` does not equal the security scope deterministically resolved from the target or referenced accepted object state. Receiver MUST reject the Event and MUST NOT rewrite or reducer-stamp the signed scope. See zh/models/circle.md §6.1.",
     },
     ReasonCodeDescriptor {
         code: "scope_unavailable",
@@ -4022,6 +4017,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "sidecar_exposure_ack_required",
         applies_to: &["auth_decision", "state_resolution", "service_call"],
         description: "ak.self.agent.command.resume was rejected because the Agent entered the desired-exposure set of one or more Agent Sidecar objects while paused, and the controller has not supplied the matching sidecar_exposure_ack re-disclosure. The controller MUST re-read the disclosure and resubmit; effective access still waits for backing-scope and MLS reconciliation. See zh/identity/key-management.md §3.6.1.",
+    },
+    ReasonCodeDescriptor {
+        code: "signal_plaintext_forbidden",
+        applies_to: &["service_call", "client_sync"],
+        description: "Sub-reason for failed_precondition when any legacy plaintext broadcast envelope is submitted or received. Signal is encrypted-only in every scope; implementations MUST fail closed and MUST NOT advertise Signal for a scope unless they can verify its MLS basis, AAD, and proof. See zh/crypto-media/encryption-and-audit.md section 2.9.1.",
     },
     ReasonCodeDescriptor {
         code: "snapshot_issuer_revoked",

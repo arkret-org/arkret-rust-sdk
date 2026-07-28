@@ -1,4 +1,5 @@
 use arkret_wire::EventKind;
+use arkret_wire::event_envelope::ScopeRef;
 use serde_json::json;
 
 use super::*;
@@ -6,6 +7,12 @@ use crate::{EventRequirements, Hlc, RealmId};
 
 fn realm_id() -> RealmId {
     RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+}
+
+fn scope_ref() -> ScopeRef {
+    ScopeRef::Realm {
+        realm_id: realm_id(),
+    }
 }
 
 fn actor_id() -> Did {
@@ -17,15 +24,14 @@ fn event(kind: &str, seq: u64, content: Value) -> Event {
         event_id: EventId::new(format!("ak:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
         kind: kind.into(),
         realm_id: realm_id(),
+        scope_ref: scope_ref(),
         actor_id: actor_id(),
         actor_seq: seq,
         created_at: chrono::Utc::now(),
         hlc: Some(Hlc::new(format!("01970e589d22-{seq:04x}-11111111")).unwrap()),
         prev_refs: vec![],
-        effective_scope: None,
         refs: vec![],
         preconditions: vec![],
-        effects: vec![],
         seal_ref: None,
         auth_context: None,
         seal_basis: None,
@@ -39,7 +45,6 @@ fn event(kind: &str, seq: u64, content: Value) -> Event {
         actor_kind: None,
         unsigned: BTreeMap::new(),
         causal_refs: Vec::new(),
-        conflict_keys_digest: None,
         proofs: vec![],
     }
 }
@@ -590,7 +595,7 @@ fn strand_events_create_update_and_default_view_relation() {
 
     let create = Event::new(
         EventKind::STRAND_CREATE,
-        realm_id(),
+        scope_ref(),
         actor_id(),
         1,
         Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
@@ -612,7 +617,7 @@ fn strand_events_create_update_and_default_view_relation() {
     .unwrap();
     let mut update = Event::new(
         EventKind::STRAND_UPDATE,
-        realm_id(),
+        scope_ref(),
         actor_id(),
         2,
         Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
@@ -630,7 +635,7 @@ fn strand_events_create_update_and_default_view_relation() {
     update.prev_refs.push(create.event_id.clone());
     let mut relation = Event::new(
         EventKind::RELATION_CREATE,
-        realm_id(),
+        scope_ref(),
         actor_id(),
         3,
         Hlc::new("01970e589d21-0003-a13f9c2e").unwrap(),

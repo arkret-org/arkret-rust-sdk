@@ -19,8 +19,6 @@ pub struct AccountSubscribeFrame {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_data: Option<EventContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub presence: Option<EphemeralEventContainer>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notifications: Option<NotificationContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_signer_evidence_bundle:
@@ -101,7 +99,6 @@ impl AccountSubscribeFrame {
             || self.to_device.is_some()
             || self.device_lists.is_some()
             || self.account_data.is_some()
-            || self.presence.is_some()
             || self.notifications.is_some()
             || self.agent_signer_evidence_bundle.is_some()
             || self.partial.is_some()

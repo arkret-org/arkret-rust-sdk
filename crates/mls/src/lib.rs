@@ -49,7 +49,7 @@ mod tests {
         MlsCommitEnvelope, MlsCommitSource, MlsGovernanceBindingPayload,
         MlsGovernanceBindingValidationContext, MlsGroupStateRecord, MlsGroupStateSink,
     };
-    use arkret_wire::{DeviceId, Did, EncryptedPayloadScheme, EventId, Hash, RealmId};
+    use arkret_wire::{DeviceId, Did, EncryptedPayloadScheme, EventId, Hash, RealmId, SealId};
     use chrono::Utc;
 
     use super::*;
@@ -108,6 +108,10 @@ mod tests {
         EventId::new(format!("ak:event:01904100-0000-7000-8000-00000000f1c{n}")).unwrap()
     }
 
+    fn governance_seal(n: u8) -> SealId {
+        SealId::new(format!("ak:seal:sha256:{}", format!("{n:02x}").repeat(32))).unwrap()
+    }
+
     fn governance_hash(byte: char) -> Hash {
         Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
     }
@@ -124,6 +128,7 @@ mod tests {
             previous_epoch,
             next_epoch,
             vec![governance_event(1)],
+            vec![governance_seal(1)],
             policy_root,
             governance_hash('c'),
             governance_hash('d'),

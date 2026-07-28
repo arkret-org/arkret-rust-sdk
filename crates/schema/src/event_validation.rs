@@ -42,7 +42,7 @@ impl EventSchemaExt for Event {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{Did, EffectiveScope, Hlc, RealmId, ReasonCode};
+    use arkret_wire::{Did, EnvelopeActorKind, Hlc, RealmId, ReasonCode, ScopeRef};
     use serde_json::json;
 
     use super::*;
@@ -50,7 +50,9 @@ mod tests {
     fn event() -> Event {
         Event::new(
             "ak.message.create",
-            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            ScopeRef::Realm {
+                realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            },
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
@@ -71,13 +73,14 @@ mod tests {
 
     #[test]
     fn submit_gate_runs_structural_validation_before_schema_validation() {
+        // `actor_kind` is the reducer-stamped envelope field. A producer that
+        // supplies one is rejected structurally, before the payload ever
+        // reaches the registered schema.
         let mut event = event();
-        event.effective_scope = Some(EffectiveScope::Realm {
-            realm_id: event.realm_id.clone(),
-        });
+        event.actor_kind = Some(EnvelopeActorKind::Native);
 
         let error = event.validate_for_submit().unwrap_err().to_string();
 
-        assert!(error.contains(ReasonCode::EFFECTIVE_SCOPE_REDUCER_MANAGED));
+        assert!(error.contains(ReasonCode::ACTOR_KIND_REDUCER_MANAGED));
     }
 }

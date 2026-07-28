@@ -286,13 +286,6 @@ pub struct EventContainer {
     pub extra: BTreeMap<String, Value>,
 }
 
-/// Closed container for broadcast ephemeral envelopes carried by account sync.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EphemeralEventContainer {
-    pub events: Vec<EphemeralEnvelope>,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountSubscribeDeviceListChanges {
@@ -421,8 +414,6 @@ pub struct RealmSyncEntry {
     pub state: Option<EventContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state_after: Option<EventContainer>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ephemeral: Option<EphemeralEventContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_data: Option<EventContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

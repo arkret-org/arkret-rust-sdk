@@ -19,7 +19,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{CellRef, Hash, MoveId, SealId};
+use crate::{CellRef, Hash, SealId};
 
 /// Free-form structured details object for a Bottom diagnostic.
 ///
@@ -83,7 +83,7 @@ pub struct Bottom {
     /// this bottom. Empty for structural bottoms (e.g. notary cell
     /// schema_error) not tied to a specific Move.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub move_ids: Vec<MoveId>,
+    pub move_ids: Vec<Hash>,
     /// Seal view the bottom was observed under.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seal_view: Option<SealView>,
@@ -132,8 +132,8 @@ mod tests {
         CellRef::new(s.to_owned()).unwrap()
     }
 
-    fn move_id(hex: &str) -> MoveId {
-        MoveId::new(format!("sha256:{hex}")).unwrap()
+    fn move_id(hex: &str) -> Hash {
+        Hash::new(format!("sha256:{hex}")).unwrap()
     }
 
     fn seal_id(hex: &str) -> SealId {

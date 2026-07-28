@@ -7,7 +7,7 @@
 //!   a gap stay pending diagnostics and MUST NOT reach the cell value, the `state_root` leaf or any
 //!   authorization decision.
 //! - Candidates for one `(cell, actor_id, issuer_seq)` are compared by the **full canonical
-//!   `effect.op` JSON bytes** — not by `op.value` alone and not by any open "covers at least these
+//!   projected-op JSON bytes** — not by `op.value` alone and not by any open "covers at least these
 //!   fields" profile. Identical bytes are an idempotent duplicate; differing bytes are issuer
 //!   equivocation.
 //! - Equivocation resolves through the protocol-wide tie-break in `conformance/encoding.md` §4.2:
@@ -18,10 +18,11 @@
 //!   implementation-private id.
 //!
 //! Since the slot key includes the issuer DID, this Lattice requires the
-//! SealedOp to expose the Move's `issuer`. Move preconditions / capability
-//! checks (which look at the issuer) live at the Move verifier; the lattice
-//! receives the joined ops post-verify. [`SealedOp::move_id`] carries the
-//! enclosing Event's canonical `event_digest`, which is what §4.2 compares.
+//! SealedOp to travel with its Control Move's `actor_id`. Preconditions and
+//! capability checks (which look at the actor) live at the Control Move
+//! verifier; the lattice receives the joined ops post-verify.
+//! [`SealedOp::move_id`] carries the enclosing Event's canonical
+//! `event_digest`, which is what §4.2 compares.
 
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
@@ -30,8 +31,8 @@ use serde_json::{Value, json};
 
 use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
 use crate::{
-    Bottom, BottomKind, CellRef, Did, Effect, LatticeOp, LatticeOpType, MoveId, bottom_details,
-    canonical,
+    Bottom, BottomKind, CellRef, Did, Hash, LatticeOp, LatticeOpType, ProjectionEffect,
+    bottom_details, canonical,
 };
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -97,19 +98,21 @@ pub struct OrderedLogSlotConflict {
     pub issuer_seq: u64,
 }
 
-/// Reject an Event that claims one ordered-log slot twice.
+/// Reject an Event whose derived writes claim one ordered-log slot twice.
 ///
-/// `effects[].uniqueItems` only rules out byte-identical effects, so a single
-/// Event can still carry two effects on the same `(cell, issuer_seq)` with
-/// different `op`. Both candidates would then share one `event_digest`, so
-/// `encoding.md` §4.2 cannot disambiguate them — and this is *not* a hash
-/// collision between two Events. The Event is malformed and MUST be rejected
-/// with `schema_violation` before any of it reaches the lattice; picking by
-/// `effects[]` order or splitting it into two candidates are both forbidden.
+/// A multi-target reducer contract can project two writes onto the same
+/// `(cell, issuer_seq)` with different `op`. Both candidates would then share
+/// one `event_digest`, so `encoding.md` §4.2 cannot disambiguate them — and
+/// this is *not* a hash collision between two Events. The Event is malformed
+/// and MUST be rejected with `schema_violation` before any of it reaches the
+/// lattice; picking by projection order or splitting it into two candidates
+/// are both forbidden.
 ///
-/// `issuer_seq` is only carried by ordered-log appends, so effects without it
+/// `issuer_seq` is only carried by ordered-log appends, so writes without it
 /// are not in scope here.
-pub fn ensure_unique_ordered_log_slots(effects: &[Effect]) -> Result<(), OrderedLogSlotConflict> {
+pub fn ensure_unique_ordered_log_slots(
+    effects: &[ProjectionEffect],
+) -> Result<(), OrderedLogSlotConflict> {
     let mut seen: BTreeSet<(&str, u64)> = BTreeSet::new();
     for effect in effects {
         let Some(seq) = effect.op.issuer_seq else {
@@ -143,7 +146,7 @@ impl DigestKey {
     /// Parse a typed digest. Returns `None` for anything this receiver cannot
     /// order, so the caller fails the slot closed instead of silently dropping
     /// a candidate an attacker could then make disappear.
-    fn parse(move_id: &MoveId) -> Option<Self> {
+    fn parse(move_id: &Hash) -> Option<Self> {
         Self::parse_str(move_id.as_str())
     }
 
@@ -476,7 +479,7 @@ impl Lattice for OrderedLog {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LatticeOp, MoveId};
+    use crate::{Hash, LatticeOp};
 
     fn cell() -> CellRef {
         CellRef::new(
@@ -485,11 +488,11 @@ mod tests {
         .unwrap()
     }
 
-    fn suited_move_id(suite: &str, byte: u8) -> MoveId {
-        MoveId::new(format!("{suite}:{}", format!("{byte:02x}").repeat(32))).unwrap()
+    fn suited_move_id(suite: &str, byte: u8) -> Hash {
+        Hash::new(format!("{suite}:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
-    fn move_id(byte: u8) -> MoveId {
+    fn move_id(byte: u8) -> Hash {
         suited_move_id("sha256", byte)
     }
 
@@ -901,11 +904,11 @@ mod tests {
     fn same_event_claiming_one_slot_twice_is_rejected() {
         let cell_ref = cell();
         let effects = vec![
-            Effect {
+            ProjectionEffect {
                 cell: cell_ref.clone(),
                 op: append(0, json!("one")),
             },
-            Effect {
+            ProjectionEffect {
                 cell: cell_ref,
                 op: append(0, json!("other")),
             },
@@ -919,11 +922,11 @@ mod tests {
     fn distinct_slots_in_one_event_are_accepted() {
         let cell_ref = cell();
         let effects = vec![
-            Effect {
+            ProjectionEffect {
                 cell: cell_ref.clone(),
                 op: append(0, json!("one")),
             },
-            Effect {
+            ProjectionEffect {
                 cell: cell_ref,
                 op: append(1, json!("two")),
             },

@@ -2,12 +2,20 @@ use arkret_event_draft::{
     EventDraftKindRegistry, Operation, OperationEnvelopeBuilder, OperationEventConversion,
 };
 use arkret_identifiers::{Did, Hlc, OperationId, RealmId};
-use arkret_wire::{Audience, EventKind, Hash, OPERATION_SCHEMA, Proof, ProofBindingRequirements};
+use arkret_wire::{
+    Audience, EventKind, Hash, OPERATION_SCHEMA, Proof, ProofBindingRequirements, ScopeRef,
+};
 use chrono::Utc;
 use serde_json::json;
 
 fn test_realm_id() -> RealmId {
     RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+}
+
+fn test_scope() -> ScopeRef {
+    ScopeRef::Realm {
+        realm_id: test_realm_id(),
+    }
 }
 
 #[test]
@@ -38,7 +46,7 @@ fn operation_serializes_protocol_field_names() {
 fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding() {
     let mut operation = OperationEnvelopeBuilder::new(
         OperationId::new("ak:operation:01904100-0000-7000-8000-9c5aa4740640").unwrap(),
-        test_realm_id(),
+        test_scope(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         EventKind::MESSAGE_CREATE,
         7,
@@ -85,7 +93,7 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
 fn operation_draft_explicitly_materializes_event_envelope_without_signed_operation_id() {
     let operation = OperationEnvelopeBuilder::new(
         OperationId::new("ak:operation:01904100-0000-7000-8000-9c5aa474063f").unwrap(),
-        test_realm_id(),
+        test_scope(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         EventKind::MESSAGE_CREATE,
         7,

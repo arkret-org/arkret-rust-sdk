@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-07-20;
-//! sha256=86fc8f3cadecc4d0ec18ee832171fb6eb7362a829b39b8a2cf2433d4c9136ba3 Entries: registered=207
+//! sha256=03eb4b6120102af9ad6bfc335d7b5dd471a3787b178e393902aac4cbc7c72a41 Entries: registered=211
 
 use serde::{Deserialize, Serialize};
 
@@ -154,7 +154,6 @@ pub enum ServiceOperationId {
     SelfDeviceMessagesCommandSend,
     SelfDeviceMessagesQueryList,
     SelfDirectConversationCommandResolve,
-    SelfEphemeralCommandSend,
     SelfEventsCommandSubmit,
     SelfEventsCommandSubmitSeal,
     SelfEventsQueryDescribe,
@@ -210,6 +209,11 @@ pub enum ServiceOperationId {
     SelfRealmPolicyServerResourceDelete,
     SelfRealmPolicyServerResourceGet,
     SelfRealmPolicyServerResourceReplace,
+    SelfSecurityTransactionCommandContinue,
+    SelfSecurityTransactionCommandCreate,
+    SelfSecurityTransactionResourceGet,
+    SelfSignalCommandSend,
+    SelfSignalStreamSubscribe,
     SelfSnapshotQueryManifestHead,
     SelfSpaceQueryList,
     SelfStrandQueryList,
@@ -364,7 +368,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.self.device_messages.command.send",
     "ak.self.device_messages.query.list",
     "ak.self.direct_conversation.command.resolve",
-    "ak.self.ephemeral.command.send",
     "ak.self.events.command.submit",
     "ak.self.events.command.submit_seal",
     "ak.self.events.query.describe",
@@ -420,6 +423,11 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.self.realm_policy_server.resource.delete",
     "ak.self.realm_policy_server.resource.get",
     "ak.self.realm_policy_server.resource.replace",
+    "ak.self.security_transaction.command.continue",
+    "ak.self.security_transaction.command.create",
+    "ak.self.security_transaction.resource.get",
+    "ak.self.signal.command.send",
+    "ak.self.signal.stream.subscribe",
     "ak.self.snapshot.query.manifest_head",
     "ak.self.space.query.list",
     "ak.self.strand.query.list",
@@ -590,7 +598,6 @@ impl ServiceOperationId {
         Self::SelfDeviceMessagesCommandSend,
         Self::SelfDeviceMessagesQueryList,
         Self::SelfDirectConversationCommandResolve,
-        Self::SelfEphemeralCommandSend,
         Self::SelfEventsCommandSubmit,
         Self::SelfEventsCommandSubmitSeal,
         Self::SelfEventsQueryDescribe,
@@ -646,6 +653,11 @@ impl ServiceOperationId {
         Self::SelfRealmPolicyServerResourceDelete,
         Self::SelfRealmPolicyServerResourceGet,
         Self::SelfRealmPolicyServerResourceReplace,
+        Self::SelfSecurityTransactionCommandContinue,
+        Self::SelfSecurityTransactionCommandCreate,
+        Self::SelfSecurityTransactionResourceGet,
+        Self::SelfSignalCommandSend,
+        Self::SelfSignalStreamSubscribe,
         Self::SelfSnapshotQueryManifestHead,
         Self::SelfSpaceQueryList,
         Self::SelfStrandQueryList,
@@ -880,7 +892,6 @@ impl ServiceOperationId {
     pub const SELF_DEVICE_MESSAGES_QUERY_LIST: &'static str = "ak.self.device_messages.query.list";
     pub const SELF_DIRECT_CONVERSATION_COMMAND_RESOLVE: &'static str =
         "ak.self.direct_conversation.command.resolve";
-    pub const SELF_EPHEMERAL_COMMAND_SEND: &'static str = "ak.self.ephemeral.command.send";
     pub const SELF_EVENTS_COMMAND_SUBMIT: &'static str = "ak.self.events.command.submit";
     pub const SELF_EVENTS_COMMAND_SUBMIT_SEAL: &'static str = "ak.self.events.command.submit_seal";
     pub const SELF_EVENTS_QUERY_DESCRIBE: &'static str = "ak.self.events.query.describe";
@@ -963,6 +974,14 @@ impl ServiceOperationId {
         "ak.self.realm_policy_server.resource.get";
     pub const SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE: &'static str =
         "ak.self.realm_policy_server.resource.replace";
+    pub const SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE: &'static str =
+        "ak.self.security_transaction.command.continue";
+    pub const SELF_SECURITY_TRANSACTION_COMMAND_CREATE: &'static str =
+        "ak.self.security_transaction.command.create";
+    pub const SELF_SECURITY_TRANSACTION_RESOURCE_GET: &'static str =
+        "ak.self.security_transaction.resource.get";
+    pub const SELF_SIGNAL_COMMAND_SEND: &'static str = "ak.self.signal.command.send";
+    pub const SELF_SIGNAL_STREAM_SUBSCRIBE: &'static str = "ak.self.signal.stream.subscribe";
     pub const SELF_SNAPSHOT_QUERY_MANIFEST_HEAD: &'static str =
         "ak.self.snapshot.query.manifest_head";
     pub const SELF_SPACE_QUERY_LIST: &'static str = "ak.self.space.query.list";
@@ -1181,7 +1200,6 @@ impl ServiceOperationId {
             Self::SelfDirectConversationCommandResolve => {
                 "ak.self.direct_conversation.command.resolve"
             }
-            Self::SelfEphemeralCommandSend => "ak.self.ephemeral.command.send",
             Self::SelfEventsCommandSubmit => "ak.self.events.command.submit",
             Self::SelfEventsCommandSubmitSeal => "ak.self.events.command.submit_seal",
             Self::SelfEventsQueryDescribe => "ak.self.events.query.describe",
@@ -1259,6 +1277,15 @@ impl ServiceOperationId {
             Self::SelfRealmPolicyServerResourceReplace => {
                 "ak.self.realm_policy_server.resource.replace"
             }
+            Self::SelfSecurityTransactionCommandContinue => {
+                "ak.self.security_transaction.command.continue"
+            }
+            Self::SelfSecurityTransactionCommandCreate => {
+                "ak.self.security_transaction.command.create"
+            }
+            Self::SelfSecurityTransactionResourceGet => "ak.self.security_transaction.resource.get",
+            Self::SelfSignalCommandSend => "ak.self.signal.command.send",
+            Self::SelfSignalStreamSubscribe => "ak.self.signal.stream.subscribe",
             Self::SelfSnapshotQueryManifestHead => "ak.self.snapshot.query.manifest_head",
             Self::SelfSpaceQueryList => "ak.self.space.query.list",
             Self::SelfStrandQueryList => "ak.self.strand.query.list",
@@ -1491,7 +1518,6 @@ impl ServiceOperationId {
             "ak.self.direct_conversation.command.resolve" => {
                 Some(Self::SelfDirectConversationCommandResolve)
             }
-            "ak.self.ephemeral.command.send" => Some(Self::SelfEphemeralCommandSend),
             "ak.self.events.command.submit" => Some(Self::SelfEventsCommandSubmit),
             "ak.self.events.command.submit_seal" => Some(Self::SelfEventsCommandSubmitSeal),
             "ak.self.events.query.describe" => Some(Self::SelfEventsQueryDescribe),
@@ -1581,6 +1607,17 @@ impl ServiceOperationId {
             "ak.self.realm_policy_server.resource.replace" => {
                 Some(Self::SelfRealmPolicyServerResourceReplace)
             }
+            "ak.self.security_transaction.command.continue" => {
+                Some(Self::SelfSecurityTransactionCommandContinue)
+            }
+            "ak.self.security_transaction.command.create" => {
+                Some(Self::SelfSecurityTransactionCommandCreate)
+            }
+            "ak.self.security_transaction.resource.get" => {
+                Some(Self::SelfSecurityTransactionResourceGet)
+            }
+            "ak.self.signal.command.send" => Some(Self::SelfSignalCommandSend),
+            "ak.self.signal.stream.subscribe" => Some(Self::SelfSignalStreamSubscribe),
             "ak.self.snapshot.query.manifest_head" => Some(Self::SelfSnapshotQueryManifestHead),
             "ak.self.space.query.list" => Some(Self::SelfSpaceQueryList),
             "ak.self.strand.query.list" => Some(Self::SelfStrandQueryList),
@@ -4023,21 +4060,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfEphemeralCommandSend,
-        http_method: "POST",
-        http_path: "/_arkret/self/ephemeral",
-        grpc: Some("SelfEphemeral/Send"),
-        mq: Some("self.ephemeral.command.send"),
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
-        request_schema_ref: Some("schemas/ephemeral-envelope.schema.json"),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EphemeralSubmitOutcome",
-        ),
-        uncertain_outcome: Some("{\"strategy\":\"drop_unconfirmed\"}"),
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfEventsCommandSubmit,
         http_method: "POST",
         http_path: "/_arkret/self/events",
@@ -4910,6 +4932,75 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         response_schema_ref: Some(
             "schemas/realm-policy-server-operations.schema.json#/$defs/realm_policy_server_view",
         ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSecurityTransactionCommandContinue,
+        http_method: "POST",
+        http_path: "/_arkret/self/security-transactions/{transaction_id}/continue",
+        grpc: Some("SelfSecurityTransactions/Continue"),
+        mq: Some("self.security_transaction.command.continue"),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("protocol_sequence"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/security-transaction.schema.json#/$defs/continue_request",
+        ),
+        response_schema_ref: Some("schemas/security-transaction.schema.json"),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSecurityTransactionCommandCreate,
+        http_method: "POST",
+        http_path: "/_arkret/self/security-transactions",
+        grpc: Some("SelfSecurityTransactions/Create"),
+        mq: Some("self.security_transaction.command.create"),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("protocol_sequence"),
+        retry_safe: Some(true),
+        request_schema_ref: Some("schemas/security-transaction.schema.json#/$defs/create_request"),
+        response_schema_ref: Some("schemas/security-transaction.schema.json"),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSecurityTransactionResourceGet,
+        http_method: "GET",
+        http_path: "/_arkret/self/security-transactions/{transaction_id}",
+        grpc: Some("SelfSecurityTransactions/Get"),
+        mq: Some("self.security_transaction.resource.get"),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: Some("schemas/security-transaction.schema.json"),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSignalCommandSend,
+        http_method: "POST",
+        http_path: "/_arkret/self/signal",
+        grpc: Some("SelfSignal/Send"),
+        mq: Some("self.signal.command.send"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("none"),
+        retry_safe: Some(false),
+        request_schema_ref: Some("schemas/signal-envelope.schema.json"),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/SignalSubmitOutcome",
+        ),
+        uncertain_outcome: Some("{\"strategy\":\"drop_unconfirmed\"}"),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSignalStreamSubscribe,
+        http_method: "GET",
+        http_path: "/_arkret/self/signal/subscribe",
+        grpc: Some("SelfSignal/Subscribe"),
+        mq: Some("self.signal.stream.subscribe"),
+        success_shape_kind: "event_stream",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: None,
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {

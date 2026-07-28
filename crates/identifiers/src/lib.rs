@@ -108,7 +108,7 @@ macro_rules! id_type {
 ///   never pulls diesel.
 ///
 /// Hash-bearing or hybrid kinds (`OperationId`, `BlobRef`, `SealId`,
-/// `MoveId`, `Hash`), DIDs, cursors and `trust_domain` MUST stay on plain
+/// `Hash`, `Hash`), DIDs, cursors and `trust_domain` MUST stay on plain
 /// [`id_type!`] — they have no bare-uuid form.
 macro_rules! uuid_id_type {
     ($name:ident, $prefix:literal) => {
@@ -458,6 +458,7 @@ uuid_id_type!(GrantId, "ak:grant:");
 uuid_id_type!(InviteId, "ak:invite:");
 uuid_id_type!(InviteLocatorId, "ak:invite_locator:");
 uuid_id_type!(KeyEventId, "ak:key_event:");
+uuid_id_type!(AuthorizationLeaseId, "ak:authorization_lease:");
 uuid_id_type!(DeviceId, "ak:device:");
 uuid_id_type!(NotificationId, "ak:notification:");
 uuid_id_type!(PolicyId, "ak:policy:");
@@ -473,7 +474,6 @@ uuid_id_type!(TransactionId, "ak:transaction:");
 // BlobRef is hybrid (hash or `ak:blob:` typed) — stays text.
 id_type!(BlobRef, is_blob_ref);
 uuid_id_type!(ViewId, "ak:view:");
-id_type!(Hash, is_hash);
 id_type!(Cursor, has_prefix("ak:cursor:"));
 
 fn is_blob_ref(value: &str) -> bool {
@@ -487,10 +487,10 @@ fn is_content_addressed<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
     move |value| value.strip_prefix(prefix).is_some_and(is_hash)
 }
 
-// Seal frontier items are bare `<algo>:<hex>` hashes equal to the
-// reducer-input event's `proof.payload_digest` (spec field name
-// `event_digest`).
-id_type!(MoveId, is_hash);
+// Bare `<algo>:<hex>` digest, e.g. an Event's `proof.event_digest`, a Seal
+// root, or a control-plane `Seal.delta[]` entry. `ak:seal:` prefixes the
+// content-addressed Seal identifier itself.
+id_type!(Hash, is_hash);
 id_type!(SealId, is_content_addressed("ak:seal:"));
 id_type!(CellRef, is_cell_ref);
 
@@ -737,6 +737,7 @@ mod tests {
         assert_id!(MessageId, "ak:message:");
         assert_id!(ModerationQueueItemId, "ak:moderation_queue_item:");
         assert_id!(MorphId, "ak:morph:");
+        assert_id!(AuthorizationLeaseId, "ak:authorization_lease:");
         assert_id!(NotificationId, "ak:notification:");
         assert_id!(RealmId, "ak:realm:");
         assert_id!(SpaceId, "ak:space:");
@@ -763,10 +764,6 @@ mod tests {
         assert!(Hash::new(format!("sha3_256:{digest64}")).is_err());
         assert!(Hash::new(format!("sha512:{digest128}")).is_err());
         assert!(BlobRef::new(format!("ak:blob:sha3_256:{digest64}")).is_err());
-        // event_digest (C47 / spec e10b6ad): bare hash, no `ak:move:` prefix.
-        assert!(MoveId::new(format!("blake3:{digest64}")).is_ok());
-        assert!(MoveId::new(format!("sha256:{digest64}")).is_ok());
-        assert!(MoveId::new(format!("sha512:{digest128}")).is_err());
         assert!(SealId::new(format!("ak:seal:blake3:{digest64}")).is_ok());
         assert!(SealId::new(format!("ak:seal:sha512:{digest128}")).is_err());
     }

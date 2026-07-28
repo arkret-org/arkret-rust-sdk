@@ -243,7 +243,7 @@ impl ArkretMlsGroup {
     }
 
     /// Content hash of the group's current key schedule, suitable for use as
-    /// the `key_schedule_hash` field in `ak.component.key_schedule.v1` cell
+    /// the `key_schedule_hash` field in `ak.component.mls.key_schedule.v1` cell
     /// values and in `ak.profile.mls_governance_binding.full.v1` binding
     /// payloads. Derived deterministically from the OpenMLS
     /// `epoch_authenticator()` — a value the spec binds to the current

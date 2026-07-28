@@ -5,7 +5,7 @@
 pub mod signer;
 
 #[cfg(any(feature = "signer", test))]
-pub use signer::Ed25519MoveSigner;
+pub use signer::Ed25519PayloadSigner;
 
 // Unified Event Envelope proof builder/verifier pipeline. Available without
 // the `signer` feature (canonical bytes + traits + dev-proof gating); the
@@ -78,8 +78,12 @@ pub use jwt::{
     JsonWebTokenClaims, JsonWebTokenHeader, JwtAlgorithm, JwtAudience, JwtType,
     JwtVerificationError, JwtVerificationPolicy, VerifiedJwt, verify_eddsa_jwt_with_jwks,
 };
-#[cfg(feature = "collaboration")]
-pub use proof::verify_eddsa_detached_jws_ephemeral_proof;
+// `proof` is an unconditional module, so gating its re-export on
+// `collaboration` only made the crate root disagree with itself: a dependent
+// that did not happen to have that feature unified on saw the items vanish even
+// though they were compiled. arkret-identity depends on this crate with
+// `["webvh"]` alone and uses four of these, so it built only by accident of
+// feature unification.
 pub use proof::{
     Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier, EventProofBuilder, EventSigner,
     EventVerifier, ProductionVerifier, ProofType, PublicKeyMaterial, SignedPayload, SignerError,

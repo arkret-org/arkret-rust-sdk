@@ -155,15 +155,15 @@ impl Lattice for Fsm {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LatticeOp, MoveId};
+    use crate::{Hash, LatticeOp};
 
     fn cell() -> CellRef {
         CellRef::new("ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned())
             .unwrap()
     }
 
-    fn move_id(byte: u8) -> MoveId {
-        MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+    fn move_id(byte: u8) -> Hash {
+        Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     fn membership_fsm() -> Fsm {

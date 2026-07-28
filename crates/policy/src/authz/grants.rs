@@ -1275,7 +1275,8 @@ fn parse_iso8601_duration(value: &str) -> Result<ConstraintDuration> {
 /// expressed via [`CapabilityGrantBuilder::with_delegation_control`].
 #[derive(Clone, Debug)]
 pub struct CapabilityGrantBuilder {
-    realm_id: RealmId,
+    /// Producer-signed security scope of the Envelope this builder emits.
+    scope_ref: arkret_wire::ScopeRef,
     /// The Envelope `actor_id` (signer / issuer of the grant).
     actor_id: Did,
     grant: arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
@@ -1286,12 +1287,12 @@ impl CapabilityGrantBuilder {
     /// `grant.issuer` MUST equal `actor_id`; the builder enforces this
     /// at `build` time.
     pub fn new(
-        realm_id: RealmId,
+        scope_ref: arkret_wire::ScopeRef,
         actor_id: Did,
         grant: arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
     ) -> Self {
         Self {
-            realm_id,
+            scope_ref,
             actor_id,
             grant,
         }
@@ -1411,7 +1412,7 @@ impl CapabilityGrantBuilder {
         });
         crate::Event::new(
             arkret_wire::EventKind::CAPABILITY_GRANT,
-            self.realm_id,
+            self.scope_ref,
             self.actor_id,
             actor_seq,
             hlc,
@@ -1428,6 +1429,10 @@ mod capability_grant_builder_tests {
 
     fn realm() -> RealmId {
         RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+    }
+
+    fn scope() -> arkret_wire::ScopeRef {
+        arkret_wire::ScopeRef::Realm { realm_id: realm() }
     }
 
     fn alice() -> Did {
@@ -1481,7 +1486,7 @@ mod capability_grant_builder_tests {
 
     #[test]
     fn capability_grant_builder_emits_spec_wire_form() {
-        let event = CapabilityGrantBuilder::new(realm(), alice(), base_grant())
+        let event = CapabilityGrantBuilder::new(scope(), alice(), base_grant())
             .build(1, hlc())
             .unwrap();
         assert_eq!(event.kind, arkret_wire::EventKind::CAPABILITY_GRANT);
@@ -1531,7 +1536,7 @@ mod capability_grant_builder_tests {
 
     #[test]
     fn capability_grant_builder_rejects_issuer_actor_mismatch() {
-        let err = CapabilityGrantBuilder::new(realm(), bob(), base_grant())
+        let err = CapabilityGrantBuilder::new(scope(), bob(), base_grant())
             .build(1, hlc())
             .expect_err("issuer / actor mismatch must be rejected");
         assert!(format!("{err}").contains("does not match"));
@@ -1541,7 +1546,7 @@ mod capability_grant_builder_tests {
     fn capability_grant_builder_rejects_missing_proofs() {
         let mut grant = base_grant();
         grant.proofs.clear();
-        let err = CapabilityGrantBuilder::new(realm(), alice(), grant)
+        let err = CapabilityGrantBuilder::new(scope(), alice(), grant)
             .build(1, hlc())
             .expect_err("proof-less grant must be rejected");
         assert!(format!("{err}").contains("schema_violation"));
@@ -1551,7 +1556,7 @@ mod capability_grant_builder_tests {
     fn capability_grant_builder_rejects_wrong_schema() {
         let mut grant = base_grant();
         grant.schema = "ak.schema.capability.v0".to_owned();
-        let err = CapabilityGrantBuilder::new(realm(), alice(), grant)
+        let err = CapabilityGrantBuilder::new(scope(), alice(), grant)
             .build(1, hlc())
             .expect_err("wrong schema constant must be rejected");
         assert!(format!("{err}").contains("schema_violation"));
@@ -1561,7 +1566,7 @@ mod capability_grant_builder_tests {
     fn aggregate_admin_grant_requires_registry_digest() {
         let mut grant = base_grant();
         grant.actions = vec!["ak.realm.admin".to_owned()];
-        let err = CapabilityGrantBuilder::new(realm(), alice(), grant)
+        let err = CapabilityGrantBuilder::new(scope(), alice(), grant)
             .build(1, hlc())
             .expect_err("aggregate admin without registry basis must fail closed");
         assert!(format!("{err}").contains("capability_registry_basis_unavailable"));
@@ -1572,7 +1577,7 @@ mod capability_grant_builder_tests {
         let digest = current_capability_action_registry_digest().unwrap();
         let mut grant = base_grant();
         grant.actions = vec!["ak.realm.admin".to_owned()];
-        let event = CapabilityGrantBuilder::new(realm(), alice(), grant)
+        let event = CapabilityGrantBuilder::new(scope(), alice(), grant)
             .with_capability_action_registry_digest(digest.clone())
             .build(1, hlc())
             .unwrap();
@@ -1588,7 +1593,7 @@ mod capability_grant_builder_tests {
         grant.actions = vec!["ak.realm.admin".to_owned()];
         grant.capability_action_registry_digest =
             Some(Hash::new(format!("sha256:{}", "f".repeat(64))).unwrap());
-        let err = CapabilityGrantBuilder::new(realm(), alice(), grant)
+        let err = CapabilityGrantBuilder::new(scope(), alice(), grant)
             .build(1, hlc())
             .expect_err("unknown registry basis must fail closed");
         assert!(format!("{err}").contains("capability_registry_basis_unavailable"));
@@ -1596,7 +1601,7 @@ mod capability_grant_builder_tests {
 
     #[test]
     fn capability_grant_builder_encodes_delegation_control_constraint() {
-        let event = CapabilityGrantBuilder::new(realm(), alice(), base_grant())
+        let event = CapabilityGrantBuilder::new(scope(), alice(), base_grant())
             .with_delegation_control(2, false)
             .build(1, hlc())
             .unwrap();

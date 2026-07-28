@@ -7,8 +7,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    Did, Error, Event, EventId, FederatedDeviceSigningKeyEvidence, Hash, Hlc, MoveId, RealmId,
-    Result, Seal, SealBasis, SealId,
+    CbaProofBundle, Did, Error, Event, EventFederationSubmission, EventId,
+    FederatedDeviceSigningKeyEvidence, Hash, Hlc, RealmId, Result, Seal, SealBasis, SealId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -483,17 +483,18 @@ pub const MAX_FEDERATED_EVENTS: usize = 500;
 #[serde(deny_unknown_fields)]
 pub struct EventsSubmitFederationRequestBody {
     pub service_binding_ref: FederationServiceBindingRef,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub events: Vec<Event>,
-    /// Signed Seal ancestry required to verify DataEvent `seal_ref` and
-    /// Control Event `seal_basis.leaves`.
+    /// Each transported Event travels with the lease and the original ingress
+    /// receipts that authorized its first publication.
+    pub events: Vec<EventFederationSubmission>,
+    /// Receiver-relative CBA dependency bundles rooted at the transported
+    /// Events' `seal_ref` or `seal_basis` leaves.
     ///
     /// These are transport prerequisites, not Events and not an alternate
-    /// federation write rail. Receivers independently verify and project each
+    /// federation write rail. A bundle MAY be a bounded verifiable superset;
+    /// receivers independently verify every embedded object and project a
     /// Seal only after its covered Control Events are accepted.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub seals: Vec<Seal>,
+    pub cba_proof_bundles: Vec<CbaProofBundle>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub signer_key_evidence: Vec<FederatedDeviceSigningKeyEvidence>,
@@ -503,6 +504,30 @@ pub struct EventsSubmitFederationRequestBody {
 }
 
 impl EventsSubmitFederationRequestBody {
+    /// The transported Events, without their publication evidence.
+    pub fn transported_events(&self) -> impl Iterator<Item = &Event> {
+        self.events.iter().map(|submission| &submission.event)
+    }
+
+    /// Every Seal disclosed by the request's CBA proof bundles.
+    ///
+    /// Bundles are receiver-relative and MAY overlap, so the same Seal may be
+    /// listed by more than one bundle. It is disclosed once here; the
+    /// duplicate-id check below then applies to the deduplicated set.
+    fn transported_seals(&self) -> Result<Vec<&Seal>> {
+        let mut seen = BTreeSet::new();
+        let mut seals = Vec::new();
+        for bundle in &self.cba_proof_bundles {
+            bundle.validate_structural()?;
+            for seal in &bundle.seals {
+                if seen.insert(seal.id.clone()) {
+                    seals.push(seal);
+                }
+            }
+        }
+        Ok(seals)
+    }
+
     /// Validate the request-level federation transport contract.
     ///
     /// This is intentionally independent of receiver-local persistence. A
@@ -514,8 +539,12 @@ impl EventsSubmitFederationRequestBody {
                 "federation events must contain between 1 and 500 items".to_owned(),
             ));
         }
+        for submission in &self.events {
+            submission.validate_structural()?;
+        }
+        let seals = self.transported_seals()?;
         let mut saw_data_event = false;
-        for event in &self.events {
+        for event in self.transported_events() {
             if event.realm_id != self.service_binding_ref.realm_id {
                 return Err(Error::Protocol(
                     "federation Event belongs to another Realm".to_owned(),
@@ -542,14 +571,14 @@ impl EventsSubmitFederationRequestBody {
             }
         }
 
-        if self.seals.len() > MAX_FEDERATED_SEAL_PREREQUISITES {
+        if seals.len() > MAX_FEDERATED_SEAL_PREREQUISITES {
             return Err(Error::Protocol(
-                "federation seals exceeds the v1 limit".to_owned(),
+                "federation CBA proof bundle seals exceed the v1 limit".to_owned(),
             ));
         }
         let mut seal_ids = BTreeSet::new();
         let mut previous_order: Option<(u64, &str)> = None;
-        for seal in &self.seals {
+        for seal in &seals {
             let order = (seal.notary_seq, seal.id.as_str());
             if previous_order.is_some_and(|previous| previous >= order) {
                 return Err(Error::Protocol(
@@ -559,7 +588,7 @@ impl EventsSubmitFederationRequestBody {
             previous_order = Some(order);
             if !seal_ids.insert(seal.id.clone()) {
                 return Err(Error::Protocol(
-                    "federation seals contains a duplicate Seal id".to_owned(),
+                    "federation CBA proof bundles contain a duplicate Seal id".to_owned(),
                 ));
             }
             seal.validate_id()?;
@@ -574,13 +603,12 @@ impl EventsSubmitFederationRequestBody {
         // Reject disclosure that is not reachable from a transported
         // DataEvent seal_ref or Control Event seal_basis leaf. Receiver-local
         // predecessors may be omitted.
-        let transported_by_id = self
-            .seals
+        let transported_by_id = seals
             .iter()
-            .map(|seal| (seal.id.clone(), seal))
+            .map(|seal| (seal.id.clone(), *seal))
             .collect::<BTreeMap<_, _>>();
         let mut pending = Vec::new();
-        for event in &self.events {
+        for event in self.transported_events() {
             if let Some(seal_ref) = &event.seal_ref
                 && transported_by_id.contains_key(seal_ref)
             {
@@ -610,9 +638,10 @@ impl EventsSubmitFederationRequestBody {
                 );
             }
         }
-        if reachable.len() != self.seals.len() {
+        if reachable.len() != seals.len() {
             return Err(Error::Protocol(
-                "federation seals contains material unrelated to transported Events".to_owned(),
+                "federation CBA proof bundles contain Seals unrelated to transported Events"
+                    .to_owned(),
             ));
         }
 
@@ -623,20 +652,16 @@ impl EventsSubmitFederationRequestBody {
         // permanent schema violation, including cycles longer than the direct
         // Event -> Seal -> same Event case.
         let event_nodes_by_digest = self
-            .events
-            .iter()
+            .transported_events()
             .map(|event| {
-                let digest = event.event_digest()?;
-                let move_id = MoveId::new(digest).map_err(|error| {
-                    Error::Protocol(format!(
-                        "federation Event digest is not a canonical Move id: {error}"
-                    ))
+                let digest = Hash::new(event.event_digest()?).map_err(|error| {
+                    Error::Protocol(format!("federation Event digest is not canonical: {error}"))
                 })?;
-                Ok((move_id, format!("event:{}", event.event_id)))
+                Ok((digest, format!("event:{}", event.event_id)))
             })
             .collect::<Result<BTreeMap<_, _>>>()?;
         let mut dependencies = BTreeMap::<String, BTreeSet<String>>::new();
-        for event in &self.events {
+        for event in self.transported_events() {
             let node = format!("event:{}", event.event_id);
             let event_dependencies = dependencies.entry(node).or_default();
             if let Some(seal_ref) = &event.seal_ref
@@ -654,7 +679,7 @@ impl EventsSubmitFederationRequestBody {
                 );
             }
         }
-        for seal in &self.seals {
+        for seal in &seals {
             let node = format!("seal:{}", seal.id);
             let seal_dependencies = dependencies.entry(node).or_default();
             seal_dependencies.extend(
@@ -715,8 +740,7 @@ impl EventsSubmitFederationRequestBody {
         for evidence in &self.signer_key_evidence {
             evidence.validate_shape()?;
             if !self
-                .events
-                .iter()
+                .transported_events()
                 .any(|event| evidence.matches_event_proof(event, &evidence.verification_method))
             {
                 return Err(Error::Protocol(
@@ -735,7 +759,7 @@ impl EventsSubmitFederationRequestBody {
             }
             for evidence in &bundle.evidence {
                 let binding = &evidence.signing_key_binding;
-                let matches_event = self.events.iter().any(|event| {
+                let matches_event = self.transported_events().any(|event| {
                     if event.applet_id.is_some() {
                         return false;
                     }
@@ -785,7 +809,11 @@ impl EventsSubmitFederationRequestBody {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{DeviceId, DidKey, MoveId, MoveSignature, NotarySig, SealKind};
+    use arkret_wire::{
+        AuthoritySetRef, AuthorizationLease, AuthorizationLeaseId, DeviceId, DidKey, Hash,
+        IngressReceipt, LeaseBasisRef, NotarySig, PayloadSignature, Proof, ReceiptId, RiskTier,
+        ScopeRef, SealKind,
+    };
     use serde_json::json;
 
     use super::*;
@@ -836,16 +864,30 @@ mod tests {
         );
     }
 
+    /// A well-formed reducer-input DataEvent: `ak.message.create` is registered
+    /// on the data plane, so the envelope must carry `seal_ref` + `auth_context`
+    /// and no `seal_basis`.
     fn event_with_device_proof() -> Event {
         serde_json::from_value(json!({
             "event_id": "ak:event:01904100-0000-7000-8000-000000000001",
             "kind": "ak.message.create",
             "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+            "scope_ref": {
+                "kind": "realm",
+                "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001"
+            },
             "actor_id": "did:web:alice.example",
             "actor_seq": 1,
             "created_at": "2026-07-21T08:00:00.000Z",
             "hlc": "01970e589d21-0001-a13f9c2e",
             "prev_refs": [],
+            "seal_ref": format!("ak:seal:sha256:{}", "e".repeat(64)),
+            "auth_context": {
+                "did": "did:web:alice.example",
+                "key_id": "ak:device:01904100-0000-7000-8000-000000000002",
+                "key_epoch": 1,
+                "capability_refs": []
+            },
             "payload": {},
             "proofs": [{
                 "kind": "detached_jws",
@@ -864,6 +906,10 @@ mod tests {
             "event_id": "ak:event:01904100-0000-7000-8000-000000000004",
             "kind": "ak.device.authorize",
             "realm_id": "ak:realm:01904100-0000-7000-8000-000000000004",
+            "scope_ref": {
+                "kind": "realm",
+                "realm_id": "ak:realm:01904100-0000-7000-8000-000000000004"
+            },
             "actor_id": "did:web:alice.example",
             "actor_seq": 1,
             "created_at": "2026-07-21T07:00:00.000Z",
@@ -936,12 +982,90 @@ mod tests {
                 destination_service_kind: "principal_server".to_owned(),
                 reducer_profile_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
             },
-            events: vec![event],
-            seals: Vec::new(),
+            events: vec![federation_submission(event)],
+            cba_proof_bundles: Vec::new(),
             signer_key_evidence: vec![unrelated],
             agent_signer_evidence_bundle: None,
         };
         assert!(request.validate_signer_key_evidence().is_err());
+    }
+
+    fn publication_authority_set(id: &str) -> AuthoritySetRef {
+        AuthoritySetRef {
+            authority_set_id: id.to_owned(),
+            authority_set_digest: Hash::new(format!("sha256:{}", "e".repeat(64))).unwrap(),
+        }
+    }
+
+    fn publication_proof(
+        verification_method: &str,
+        payload_digest: Hash,
+        created_at: DateTime<Utc>,
+    ) -> Proof {
+        Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: verification_method.to_owned(),
+            event_digest: payload_digest,
+            created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "a..b".to_owned(),
+        }
+    }
+
+    /// Wrap a transported Event in the publication evidence the federation rail
+    /// now requires: the basis-bound lease that authorized it and the ingress
+    /// receipt that recorded its first publication inside the lease window.
+    fn federation_submission(event: Event) -> EventFederationSubmission {
+        let issued_at: DateTime<Utc> = "2026-07-21T08:00:00.000Z".parse().unwrap();
+        let mut authorization_lease = AuthorizationLease {
+            authorization_lease_id: AuthorizationLeaseId::new(
+                "ak:authorization_lease:01904100-0000-7000-8000-aaaaaaaaaaaa",
+            )
+            .unwrap(),
+            basis_ref: LeaseBasisRef::Seal(
+                SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
+            ),
+            actor_id: event.actor_id.clone(),
+            device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002").unwrap(),
+            scope_ref: event.scope_ref.clone(),
+            action: event.kind.as_str().to_owned(),
+            risk_tier: RiskTier::Low,
+            issued_at,
+            expires_at: issued_at + chrono::Duration::hours(1),
+            authority_set_ref: publication_authority_set("ak.authority_set.realm_admission.v1"),
+            proofs: Vec::new(),
+        };
+        let lease_digest = authorization_lease.lease_digest().unwrap();
+        authorization_lease.proofs = vec![publication_proof(
+            "did:web:authority.example#key-1",
+            lease_digest,
+            issued_at,
+        )];
+
+        let mut receipt = IngressReceipt {
+            receipt_id: ReceiptId::new("ak:receipt:01904100-0000-7000-8000-cccccccccccc").unwrap(),
+            event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
+            authorization_lease_id: authorization_lease.authorization_lease_id.clone(),
+            received_at: issued_at,
+            service_id: Did::new("did:web:ingress.example").unwrap(),
+            authority_set_ref: publication_authority_set("ak.authority_set.realm_ingress.v1"),
+            proofs: Vec::new(),
+        };
+        let receipt_digest = receipt.receipt_digest().unwrap();
+        receipt.proofs = vec![publication_proof(
+            "did:web:ingress.example#key-1",
+            receipt_digest,
+            issued_at,
+        )];
+
+        EventFederationSubmission {
+            event,
+            authorization_lease,
+            ingress_receipts: vec![receipt],
+        }
     }
 
     fn federation_request(events: Vec<Event>) -> EventsSubmitFederationRequestBody {
@@ -955,11 +1079,22 @@ mod tests {
                 destination_service_kind: "principal_server".to_owned(),
                 reducer_profile_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
             },
-            events,
-            seals: Vec::new(),
+            events: events.into_iter().map(federation_submission).collect(),
+            cba_proof_bundles: Vec::new(),
             signer_key_evidence: Vec::new(),
             agent_signer_evidence_bundle: None,
         }
+    }
+
+    /// Turn the DataEvent fixture into a Control Move: registered control-plane
+    /// kinds carry `seal_basis` and MUST NOT carry `seal_ref`/`auth_context`.
+    fn control_move_over(basis_seal: &Seal) -> Event {
+        let mut control = event_with_device_proof();
+        control.kind = "ak.capability.grant".into();
+        control.seal_ref = None;
+        control.auth_context = None;
+        control.seal_basis = Some(basis_seal.seal_basis());
+        control
     }
 
     fn federation_prerequisite_seal() -> Seal {
@@ -969,7 +1104,7 @@ mod tests {
             id: SealId::new(format!("ak:seal:sha256:{}", "0".repeat(64))).unwrap(),
             realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
             predecessor_refs: Vec::new(),
-            delta: vec![MoveId::new(format!("sha256:{}", "1".repeat(64))).unwrap()],
+            delta: vec![Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap()],
             control_event_set_root: hash('2'),
             state_root: hash('3'),
             completeness_root: hash('4'),
@@ -981,7 +1116,7 @@ mod tests {
             covered_event_digests: Vec::new(),
             previous_state_root: None,
             previous_digest_algorithm: None,
-            notary_signature: NotarySig::Single(MoveSignature {
+            notary_signature: NotarySig::Single(PayloadSignature {
                 alg: "EdDSA".to_owned(),
                 verification_method: "did:web:notary.example#key-1".to_owned(),
                 payload_digest: hash('5'),
@@ -1000,16 +1135,21 @@ mod tests {
     fn federation_transport_is_single_realm_and_control_first() {
         let data = event_with_device_proof();
         let mut other_realm = data.clone();
-        other_realm.realm_id =
-            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000099").unwrap();
+        let foreign_realm = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000099").unwrap();
+        other_realm.realm_id = foreign_realm.clone();
+        // The signed scope has to move with the envelope Realm, otherwise the
+        // envelope is rejected for an inconsistent scope before the transport
+        // single-Realm rule is ever reached.
+        other_realm.scope_ref = ScopeRef::Realm {
+            realm_id: foreign_realm,
+        };
         assert!(
             federation_request(vec![data.clone(), other_realm])
                 .validate_federation_transport()
                 .is_err()
         );
 
-        let mut control = data.clone();
-        control.kind = "ak.capability.grant".into();
+        let control = control_move_over(&federation_prerequisite_seal());
         assert!(
             federation_request(vec![data, control])
                 .validate_federation_transport()
@@ -1042,15 +1182,70 @@ mod tests {
 
     #[test]
     fn federation_transport_seal_closure_is_rooted_at_control_basis_leaves() {
+        // The federation body no longer carries a bare `seals[]`: CBA
+        // prerequisites travel inside `cba_proof_bundles`, and the closure rule
+        // is unchanged — every disclosed Seal must be reachable from a
+        // transported DataEvent `seal_ref` or Control Move `seal_basis` leaf.
         let seal = federation_prerequisite_seal();
-        let mut control = event_with_device_proof();
-        control.kind = "ak.capability.grant".into();
-        control.seal_basis = Some(seal.seal_basis());
+        let control = control_move_over(&seal);
 
         let mut request = federation_request(vec![control]);
-        request.seals = vec![seal];
+        request.cba_proof_bundles = vec![CbaProofBundle {
+            target_seal_ref: seal.id.clone(),
+            seals: vec![seal],
+            control_moves: Vec::new(),
+            inclusion_proofs: Vec::new(),
+            availability_proofs: Vec::new(),
+        }];
         request
             .validate_federation_transport()
             .expect("a Control Event may transport its non-local Seal basis");
+    }
+
+    #[test]
+    fn federation_transport_rejects_a_seal_no_transported_event_roots() {
+        // Same closure rule, negative direction: a bundle whose Seal is not
+        // reachable from any transported Event is unrelated disclosure.
+        let seal = federation_prerequisite_seal();
+        let mut request = federation_request(vec![event_with_device_proof()]);
+        request.cba_proof_bundles = vec![CbaProofBundle {
+            target_seal_ref: seal.id.clone(),
+            seals: vec![seal],
+            control_moves: Vec::new(),
+            inclusion_proofs: Vec::new(),
+            availability_proofs: Vec::new(),
+        }];
+        let error = request.validate_federation_transport().unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("unrelated to transported Events"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn federation_transport_requires_publication_evidence_bound_to_each_event() {
+        // `events[]` is no longer a bare Event array. Each transported Event
+        // travels with the lease that authorized it and at least one ingress
+        // receipt binding that exact Event digest inside the lease window.
+        let request = federation_request(vec![event_with_device_proof()]);
+        request
+            .validate_federation_transport()
+            .expect("an Event with its lease and ingress receipt is transportable");
+
+        let mut without_receipt = request.clone();
+        without_receipt.events[0].ingress_receipts.clear();
+        assert!(without_receipt.validate_federation_transport().is_err());
+
+        let mut foreign_digest = request.clone();
+        foreign_digest.events[0].ingress_receipts[0].event_digest =
+            Hash::new(format!("sha256:{}", "f".repeat(64))).unwrap();
+        assert!(foreign_digest.validate_federation_transport().is_err());
+
+        let mut foreign_actor = request;
+        foreign_actor.events[0].authorization_lease.actor_id =
+            Did::new("did:web:mallory.example").unwrap();
+        assert!(foreign_actor.validate_federation_transport().is_err());
     }
 }

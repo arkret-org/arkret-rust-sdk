@@ -163,14 +163,16 @@ impl GhostActorProfileFields {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::Hlc;
+    use arkret_wire::{Hlc, ScopeRef};
 
     use super::*;
 
     fn event(kind: &str, actor: &str, suffix: &str) -> Event {
         Event::new(
             kind,
-            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            ScopeRef::Realm {
+                realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            },
             Did::new(actor).unwrap(),
             0,
             Hlc::new(format!("019041000000-0000-{suffix}")).unwrap(),
@@ -183,7 +185,9 @@ mod tests {
     fn applet_delegation_applies_all_signed_envelope_fields() {
         let mut event = Event::new(
             "ak.profile.create",
-            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            ScopeRef::Realm {
+                realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            },
             Did::new("did:web:ghost.example").unwrap(),
             1,
             Hlc::new("019041000000-0000-00000000").unwrap(),

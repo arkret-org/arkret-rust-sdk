@@ -1,9 +1,3 @@
-use std::collections::BTreeMap;
-
-use arkret_models_collaboration::events_payloads::ephemeral::{
-    CallSignalSeqKey, CallSignalState, EPHEMERAL_ABSOLUTE_HARD_CEILING_MS, EphemeralEnvelope,
-    validate_signal_seq,
-};
 use arkret_models_collaboration::governance::audit::{AccessKind, AuditPolicyAccessPayload};
 use arkret_models_collaboration::governance::moderation_appeal::{
     AppealDecisionPayload, AppealVerdict, ModerationAppealPayload,
@@ -13,11 +7,14 @@ use arkret_models_collaboration::governance::third_party_invite::{
     ThirdPartyInvite, ThirdPartyInviteOobKind,
 };
 use arkret_models_collaboration::governance_payloads::ConsentRevokePayload;
+use arkret_models_collaboration::http_bodies::AppletTransactionRequestBody;
 use arkret_models_collaboration::object_lifecycle::{
     strand_tracks_patch_cell_subject, strand_update_cell_subject,
 };
+use arkret_wire::signal::{SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME};
 use arkret_wire::{
-    CallId, ConsentId, DeviceId, Did, EventId, Hash, Proof, RealmId, StrandId, TypedAppealId,
+    ConsentId, DeviceId, Did, EventId, Hash, RealmId, ScopeRef, SealId, SignalClass,
+    SignalEncryptedPayload, SignalEnvelope, SignalKeyRef, SignalProof, StrandId, TypedAppealId,
     TypedTrustDomainId,
 };
 use chrono::{DateTime, Duration, Utc};
@@ -35,115 +32,129 @@ fn device_id() -> DeviceId {
     DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap()
 }
 
-fn ephemeral_payload() -> BTreeMap<String, Value> {
-    BTreeMap::from([("status".to_owned(), Value::String("online".to_owned()))])
+// The plaintext `EphemeralEnvelope` this file used to cover no longer exists in
+// v1: `signal-envelope.schema.json` defines a single encrypted-only rail, and
+// `zh/sync/signal.md` states there is no plaintext branch. The ephemeral lane of
+// this crate's applet transaction body is now `Option<Vec<SignalEnvelope>>`, so
+// the old TTL-ceiling / required-device_id / unknown-field assertions are
+// restated below against that lane. The per-class TTL ceiling, the AAD binding
+// and the proof transcript themselves are owned and tested by `arkret-wire`
+// (`crates/wire/src/signal.rs`).
+
+fn signal_envelope(signal_class: SignalClass, ttl_seconds: i64) -> SignalEnvelope {
+    let sent_at: DateTime<Utc> = "2026-07-28T12:00:00.000Z".parse().unwrap();
+    let mut envelope = SignalEnvelope {
+        realm_id: realm(),
+        scope_ref: ScopeRef::Realm { realm_id: realm() },
+        sender_actor_id: did(),
+        sender_device_id: device_id(),
+        seal_ref: SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
+        signal_class,
+        sent_at,
+        expires_at: sent_at + Duration::seconds(ttl_seconds),
+        encrypted_payload: SignalEncryptedPayload {
+            scheme: SIGNAL_AEAD_SCHEME.to_owned(),
+            key_ref: SignalKeyRef {
+                algorithm: "MLS-EXPORTER-AEAD".to_owned(),
+                group_state_ref: "ak:event:01904100-0000-7000-8000-000000000006".to_owned(),
+            },
+            purpose: SIGNAL_AEAD_PURPOSE.to_owned(),
+            aead_profile: "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519".to_owned(),
+            epoch: 7,
+            nonce: "AAAAAAAAAAAAAAAA".to_owned(),
+            ciphertext: "Q2lwaGVydGV4dFBsYWNlaG9sZGVy".to_owned(),
+            aad_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+        },
+        proof: SignalProof {
+            kind: "detached_jws".to_owned(),
+            verification_method: format!("{}#{}", did(), device_id()),
+            alg: "EdDSA".to_owned(),
+            envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+            created_at: sent_at,
+            domain: None,
+            audience: None,
+            jws: "header..signature".to_owned(),
+        },
+    };
+    envelope.encrypted_payload.aad_digest = envelope.expected_aad_digest().unwrap();
+    envelope.proof.envelope_digest = envelope.envelope_digest().unwrap();
+    envelope
 }
 
-fn ephemeral_proof(created_at: DateTime<Utc>) -> Proof {
-    Proof {
-        kind: "detached_jws".to_owned(),
-        alg: "EdDSA".to_owned(),
-        verification_method: format!("{}#{}", did(), device_id()),
-        event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-        created_at,
-        domain: None,
-        audience: None,
-        proof_purpose: None,
-        jws: "header..signature".to_owned(),
+fn applet_transaction(signal: SignalEnvelope) -> AppletTransactionRequestBody {
+    AppletTransactionRequestBody {
+        source_service_id: Did::new("did:webvh:z6mkfixture:applet.example").unwrap(),
+        events: Vec::new(),
+        signals: Some(vec![signal]),
     }
 }
 
 #[test]
-fn ephemeral_envelope_rejects_window_over_ceiling() {
-    let now = Utc::now();
-    let bad = EphemeralEnvelope::new(
-        "ak.presence",
-        realm(),
-        did(),
-        device_id(),
-        now,
-        now + Duration::milliseconds(EPHEMERAL_ABSOLUTE_HARD_CEILING_MS as i64 + 1),
-        ephemeral_payload(),
-        ephemeral_proof(now),
-    );
-    assert!(bad.is_err());
-}
+fn applet_transaction_signal_lane_enforces_the_class_ttl_ceiling() {
+    let at_ceiling = applet_transaction(signal_envelope(SignalClass::Session, 30));
+    at_ceiling.signals.as_ref().unwrap()[0]
+        .validate_structural()
+        .expect("a 30s session signal is at the class ceiling");
 
-#[test]
-fn ephemeral_envelope_accepts_window_at_ceiling() {
-    let now = Utc::now();
-    let ok = EphemeralEnvelope::new(
-        "ak.presence",
-        realm(),
-        did(),
-        device_id(),
-        now,
-        now + Duration::milliseconds(EPHEMERAL_ABSOLUTE_HARD_CEILING_MS as i64),
-        ephemeral_payload(),
-        ephemeral_proof(now),
-    );
-    assert!(ok.is_ok());
-}
-
-#[test]
-fn ephemeral_envelope_rejects_non_ephemeral_kind() {
-    let now = Utc::now();
+    let over_ceiling = applet_transaction(signal_envelope(SignalClass::Session, 31));
     assert!(
-        EphemeralEnvelope::new(
-            "ak.message.create",
-            realm(),
-            did(),
-            device_id(),
-            now,
-            now + Duration::seconds(30),
-            BTreeMap::new(),
-            ephemeral_proof(now),
-        )
-        .is_err()
+        over_ceiling.signals.as_ref().unwrap()[0]
+            .validate_structural()
+            .is_err()
     );
 }
 
 #[test]
-fn ephemeral_envelope_deserialization_requires_device_id() {
-    let now = Utc::now();
-    let envelope = EphemeralEnvelope::new(
-        "ak.presence",
-        realm(),
-        did(),
-        device_id(),
-        now,
-        now + Duration::seconds(30),
-        ephemeral_payload(),
-        ephemeral_proof(now),
-    )
-    .unwrap();
-    let mut value = serde_json::to_value(envelope).unwrap();
-    value.as_object_mut().unwrap().remove("device_id");
+fn applet_transaction_signal_lane_requires_the_sending_device_and_rejects_unknown_fields() {
+    let body = applet_transaction(signal_envelope(SignalClass::Session, 30));
+    let value = serde_json::to_value(&body).unwrap();
+    assert_eq!(
+        serde_json::from_value::<AppletTransactionRequestBody>(value.clone()).unwrap(),
+        body
+    );
 
-    assert!(serde_json::from_value::<EphemeralEnvelope>(value).is_err());
-}
+    let mut without_device = value.clone();
+    without_device["signals"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("sender_device_id");
+    assert!(serde_json::from_value::<AppletTransactionRequestBody>(without_device).is_err());
 
-#[test]
-fn ephemeral_envelope_deserialization_rejects_unknown_fields() {
-    let now = Utc::now();
-    let envelope = EphemeralEnvelope::new(
-        "ak.presence",
-        realm(),
-        did(),
-        device_id(),
-        now,
-        now + Duration::seconds(30),
-        ephemeral_payload(),
-        ephemeral_proof(now),
-    )
-    .unwrap();
-    let mut value = serde_json::to_value(envelope).unwrap();
-    value
+    let mut unknown_member = value;
+    unknown_member["signals"][0]
         .as_object_mut()
         .unwrap()
         .insert("unexpected".to_owned(), Value::Bool(true));
+    assert!(serde_json::from_value::<AppletTransactionRequestBody>(unknown_member).is_err());
+}
 
-    assert!(serde_json::from_value::<EphemeralEnvelope>(value).is_err());
+#[test]
+fn applet_transaction_signal_lane_rejects_a_plaintext_ephemeral_envelope() {
+    // The removed rail put `kind` and a cleartext `payload` on the wire. Both
+    // are now inside `encrypted_payload`, so the legacy shape must not parse
+    // and must not be reconstructible from the outer header.
+    let legacy = json!({
+        "source_service_id": "did:webvh:z6mkfixture:applet.example",
+        "events": [],
+        "signals": [{
+            "kind": "ak.presence",
+            "realm_id": realm().as_str(),
+            "actor_id": did().as_str(),
+            "device_id": device_id().as_str(),
+            "sent_at": "2026-07-28T12:00:00.000Z",
+            "expires_at": "2026-07-28T12:00:30.000Z",
+            "payload": {"status": "online"}
+        }]
+    });
+    assert!(serde_json::from_value::<AppletTransactionRequestBody>(legacy).is_err());
+
+    let encrypted = serde_json::to_value(signal_envelope(SignalClass::Session, 30)).unwrap();
+    for leaked in ["kind", "signal_kind", "payload", "call_id", "strand_id"] {
+        assert!(
+            encrypted.get(leaked).is_none(),
+            "{leaked} leaked on the outer header"
+        );
+    }
 }
 
 #[test]
@@ -223,29 +234,12 @@ fn third_party_invite_rejects_mode_mismatch() {
     assert!(lookup_bad.validate_minimal().is_err());
 }
 
-#[test]
-fn validate_signal_seq_enforces_monotonicity() {
-    assert!(validate_signal_seq(None, 0).is_ok());
-    assert!(validate_signal_seq(Some(0), 1).is_ok());
-    assert!(validate_signal_seq(Some(5), 6).is_ok());
-    assert!(validate_signal_seq(Some(5), 5).is_err());
-    assert!(validate_signal_seq(Some(5), 4).is_err());
-}
-
-#[test]
-fn call_signal_state_tracks_per_key_seq() {
-    let mut state = CallSignalState::new();
-    let key = CallSignalSeqKey::new(
-        realm(),
-        CallId::new("ak:call:01904100-0000-7000-8000-000000000002").unwrap(),
-        did(),
-        DeviceId::new("ak:device:01904100-0000-7000-8000-000000000003").unwrap(),
-    );
-    assert!(state.observe(&key, 1).is_ok());
-    assert!(state.observe(&key, 2).is_ok());
-    assert!(state.observe(&key, 2).is_err());
-    assert!(state.observe(&key, 5).is_ok());
-}
+// `validate_signal_seq` / `CallSignalState` had no v1 successor to restate them
+// against: `signal-envelope.schema.json` places the sender sequence inside
+// `encrypted_payload`, reachable only after a recipient decrypts. There is no
+// wire-visible per-(realm, call, actor, device) sequence left for a wire
+// invariant test in this crate to assert, and the outer header deliberately
+// carries no `call_id` — the coverage above asserts exactly that absence.
 
 #[test]
 fn audit_policy_access_payload_validates_late_recovery_pairing() {

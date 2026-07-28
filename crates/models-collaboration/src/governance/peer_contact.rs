@@ -208,6 +208,10 @@ mod tests {
             "event_id": "ak:event:01904100-0000-7000-8000-79a90338768b",
             "kind": kind,
             "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+            "scope_ref": {
+                "kind": "realm",
+                "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001"
+            },
             "actor_id": "did:webvh:z6mkfixture:alice.example",
             "actor_seq": 1,
             "created_at": "2026-06-07T10:00:00.000Z",

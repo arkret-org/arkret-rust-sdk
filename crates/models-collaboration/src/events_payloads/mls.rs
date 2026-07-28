@@ -191,7 +191,7 @@ pub struct MlsEpochRange {
 #[serde(deny_unknown_fields)]
 pub struct MlsGenesisPayload {
     pub mls_group_id: MlsGroupId,
-    pub effective_scope: EffectiveScope,
+    pub effective_scope: ScopeRef,
     pub epoch: MlsGenesisEpoch,
     pub creator_principal_id: Did,
     pub creator_device_id: DeviceId,
@@ -215,7 +215,7 @@ pub struct MlsGenesisPayload {
 #[serde(deny_unknown_fields)]
 struct MlsGenesisPayloadWire {
     mls_group_id: MlsGroupId,
-    effective_scope: EffectiveScope,
+    effective_scope: ScopeRef,
     epoch: MlsGenesisEpoch,
     creator_principal_id: Did,
     creator_device_id: DeviceId,
@@ -1016,6 +1016,9 @@ mod tests {
             "next_epoch": 1,
             "membership_frontier": [
                 "ak:event:01904100-0000-7000-8000-000000000001"
+            ],
+            "covered_seal_refs": [
+                "ak:seal:sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
             ],
             "policy_root":
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

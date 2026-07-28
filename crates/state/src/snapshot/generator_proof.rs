@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::merkle::sha256_digest;
-use crate::{Did, Error, Hash, MoveSignature, RealmId, Result};
+use crate::{Did, Error, Hash, PayloadSignature, RealmId, Result};
 
 /// Signed commitment from the snapshot generator. Receivers verify this
 /// proof against the generator DID before trusting any chunks. Once
@@ -31,7 +31,7 @@ pub struct GeneratorProof {
     /// Signature over the canonical bytes of all the body fields above
     /// (everything except `signature`). The body is hashed via
     /// `proof.body_digest()`.
-    pub signature: MoveSignature,
+    pub signature: PayloadSignature,
 }
 
 #[derive(Serialize)]

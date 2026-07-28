@@ -774,7 +774,7 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
 
     let event = Event::new(
         "ak.test.event",
-        realm(),
+        arkret_wire::ScopeRef::Realm { realm_id: realm() },
         actor,
         1,
         hlc(),
@@ -821,7 +821,7 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
 
     let mut event = Event::new(
         "ak.test.event",
-        realm(),
+        arkret_wire::ScopeRef::Realm { realm_id: realm() },
         controller,
         1,
         hlc(),

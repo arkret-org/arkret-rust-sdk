@@ -93,7 +93,7 @@ impl Lattice for OrSet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LatticeOp, MoveId};
+    use crate::{Hash, LatticeOp};
 
     fn cell() -> CellRef {
         CellRef::new(
@@ -102,8 +102,8 @@ mod tests {
         .unwrap()
     }
 
-    fn move_id(byte: u8) -> MoveId {
-        MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+    fn move_id(byte: u8) -> Hash {
+        Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     fn add_op(tag: &str, value: Option<Value>) -> LatticeOp {

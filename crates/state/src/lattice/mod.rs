@@ -47,20 +47,21 @@ pub use ordered_log::OrderedLog;
 use serde_json::Value;
 pub use traits::{Lattice, LatticeKind, OpError};
 
-use crate::{Bottom, BottomKind, CellRef, LatticeOp, MoveId};
+use crate::{Bottom, BottomKind, CellRef, Hash, LatticeOp};
 
 /// A single sealed op input to [`Lattice::join`].
 ///
-/// Each SealedOp carries the underlying [`LatticeOp`] plus the Move id
-/// it came from (used to populate `Bottom::move_ids` on conflict).
+/// Each SealedOp carries the underlying [`LatticeOp`] plus the `event_digest`
+/// of the Control Move it was derived from (used to populate
+/// `Bottom::move_ids` on conflict, whose wire name this field mirrors).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SealedOp {
-    pub move_id: MoveId,
+    pub move_id: Hash,
     pub op: LatticeOp,
 }
 
 impl SealedOp {
-    pub fn new(move_id: MoveId, op: LatticeOp) -> Self {
+    pub fn new(move_id: Hash, op: LatticeOp) -> Self {
         Self { move_id, op }
     }
 }

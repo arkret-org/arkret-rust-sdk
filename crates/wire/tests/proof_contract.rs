@@ -285,7 +285,9 @@ fn proof_validate_binding_rejects_excessive_time_drift() {
 fn event_validate_proof_bindings_checks_digest_match() {
     let event = Event::new(
         "ak.message.create",
-        test_realm_id(),
+        arkret_wire::ScopeRef::Realm {
+            realm_id: test_realm_id(),
+        },
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
@@ -315,7 +317,9 @@ fn event_validate_proof_bindings_checks_digest_match() {
 fn event_validate_proof_bindings_rejects_mismatched_digest() {
     let event = Event::new(
         "ak.message.create",
-        test_realm_id(),
+        arkret_wire::ScopeRef::Realm {
+            realm_id: test_realm_id(),
+        },
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
@@ -347,7 +351,9 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
 fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
     let event = Event::new(
         "ak.message.create",
-        test_realm_id(),
+        arkret_wire::ScopeRef::Realm {
+            realm_id: test_realm_id(),
+        },
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
@@ -402,7 +408,9 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
 fn event_digest_includes_profile_refs_features_and_critical_extensions() {
     let mut event = Event::new(
         "ak.message.create",
-        test_realm_id(),
+        arkret_wire::ScopeRef::Realm {
+            realm_id: test_realm_id(),
+        },
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),

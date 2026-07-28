@@ -1,8 +1,9 @@
 //! Arkret Seal typed model.
 //!
 //! A Seal is the notary-signed commitment for control-plane finality.
-//! `delta[]` contains only the control Move digests newly accepted by this
-//! Seal. Cumulative coverage is derived recursively from `predecessor_refs[]`.
+//! `delta[]` contains only the control-plane `event_digest` values newly
+//! accepted by this Seal. Cumulative coverage is derived recursively from
+//! `predecessor_refs[]`.
 
 use std::collections::BTreeMap;
 
@@ -10,8 +11,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::move_event::MoveSignature;
-use crate::{Did, Error, Hash, Hlc, MoveId, RealmId, Result, SealId, canonical};
+use crate::{Did, Error, Hash, Hlc, RealmId, Result, SealId, canonical};
 
 pub const SEAL_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ML-DSA-65"];
 pub const MAX_SEAL_PREDECESSOR_REFS: usize = 128;
@@ -25,11 +25,30 @@ pub fn compute_seal_id(canonical_bytes: &[u8]) -> Result<SealId> {
     Seal::id_from_canonical_bytes(canonical_bytes)
 }
 
+/// Detached signature over the canonical bytes of a non-Event protocol object.
+///
+/// Seal is not an Event Envelope, so its signature uses the generic
+/// `payload_digest` member rather than the Event-only `event_digest`
+/// (`seal.schema.json` `$defs.signature`).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PayloadSignature {
+    pub alg: String,
+    pub verification_method: String,
+    pub payload_digest: Hash,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
+    pub created_at: DateTime<Utc>,
+    pub jws: String,
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum NotarySig {
-    Single(MoveSignature),
+    Single(PayloadSignature),
     Multi(MultiSignature),
     Threshold(ThresholdSignature),
 }
@@ -38,7 +57,7 @@ pub enum NotarySig {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MultiSignature {
     pub kind: MultiSigKind,
-    pub signatures: Vec<MoveSignature>,
+    pub signatures: Vec<PayloadSignature>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -85,7 +104,7 @@ pub struct Seal {
     pub id: SealId,
     pub realm_id: RealmId,
     pub predecessor_refs: Vec<SealId>,
-    pub delta: Vec<MoveId>,
+    pub delta: Vec<Hash>,
     pub control_event_set_root: Hash,
     pub state_root: Hash,
     pub completeness_root: Hash,
@@ -103,7 +122,7 @@ pub struct Seal {
     )]
     pub coverage_scope: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub covered_event_digests: Vec<MoveId>,
+    pub covered_event_digests: Vec<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_state_root: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -132,7 +151,7 @@ where
 struct SealBody<'a> {
     realm_id: &'a RealmId,
     predecessor_refs: &'a [SealId],
-    delta: &'a [MoveId],
+    delta: &'a [Hash],
     control_event_set_root: &'a Hash,
     state_root: &'a Hash,
     completeness_root: &'a Hash,
@@ -146,7 +165,7 @@ struct SealBody<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     coverage_scope: &'a Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "move_slice_is_empty")]
-    covered_event_digests: &'a [MoveId],
+    covered_event_digests: &'a [Hash],
     #[serde(skip_serializing_if = "Option::is_none")]
     previous_state_root: &'a Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -295,7 +314,7 @@ where
     Ok(())
 }
 
-fn move_slice_is_empty(values: &&[MoveId]) -> bool {
+fn move_slice_is_empty(values: &&[Hash]) -> bool {
     values.is_empty()
 }
 
@@ -318,16 +337,16 @@ mod tests {
         .unwrap()
     }
 
-    fn move_id(byte: u8) -> MoveId {
-        MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+    fn move_id(byte: u8) -> Hash {
+        Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     fn hash(byte: u8) -> Hash {
         Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
-    fn sig() -> MoveSignature {
-        MoveSignature {
+    fn sig() -> PayloadSignature {
+        PayloadSignature {
             alg: "EdDSA".to_owned(),
             verification_method: "did:webvh:z6mkfixture:notary.example#k1".to_owned(),
             payload_digest: hash(0xaa),

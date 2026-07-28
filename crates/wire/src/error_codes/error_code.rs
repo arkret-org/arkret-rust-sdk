@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=c34ae42f2957a9b12fa9764e62cec82bf8128fabae75f0f82409c456411f1955 Entries: error_codes=269
+//! sha256=0c4e04fa8b66a4e829422cf51f8eac630da80883bd315429f8691339edb474f6 Entries: error_codes=270
 
 use serde::{Deserialize, Serialize};
 
@@ -100,9 +100,6 @@ pub enum ErrorCode {
     E2eeRequired,
     EnclaveNoUpstreamProxyForExternal,
     EnclaveNotTrusted,
-    EphemeralChannelUnavailable,
-    EphemeralKindNotPermitted,
-    EphemeralTtlOutOfRange,
     EpochMismatch,
     ExternalInviteActorMismatch,
     ExternalUserNoMainAccess,
@@ -133,6 +130,7 @@ pub enum ErrorCode {
     InternalError,
     InvalidAvatarBlobRef,
     InvalidAvatarUrl,
+    InvalidGenesisSeal,
     InvalidParam,
     InvalidResponse,
     InvalidSignature,
@@ -237,6 +235,9 @@ pub enum ErrorCode {
     SessionLoggedOut,
     SessionRevokeSelectorConflict,
     SfuNotAllowed,
+    SignalClassNotPermitted,
+    SignalRailUnavailable,
+    SignalTtlOutOfRange,
     SignatureInvalid,
     SignatureStale,
     SignatureWindowInvalid,
@@ -382,9 +383,6 @@ impl ErrorCode {
         Self::E2eeRequired,
         Self::EnclaveNoUpstreamProxyForExternal,
         Self::EnclaveNotTrusted,
-        Self::EphemeralChannelUnavailable,
-        Self::EphemeralKindNotPermitted,
-        Self::EphemeralTtlOutOfRange,
         Self::EpochMismatch,
         Self::ExternalInviteActorMismatch,
         Self::ExternalUserNoMainAccess,
@@ -415,6 +413,7 @@ impl ErrorCode {
         Self::InternalError,
         Self::InvalidAvatarBlobRef,
         Self::InvalidAvatarUrl,
+        Self::InvalidGenesisSeal,
         Self::InvalidParam,
         Self::InvalidResponse,
         Self::InvalidSignature,
@@ -519,6 +518,9 @@ impl ErrorCode {
         Self::SessionLoggedOut,
         Self::SessionRevokeSelectorConflict,
         Self::SfuNotAllowed,
+        Self::SignalClassNotPermitted,
+        Self::SignalRailUnavailable,
+        Self::SignalTtlOutOfRange,
         Self::SignatureInvalid,
         Self::SignatureStale,
         Self::SignatureWindowInvalid,
@@ -662,9 +664,6 @@ impl ErrorCode {
     pub const ENCLAVE_NO_UPSTREAM_PROXY_FOR_EXTERNAL: &'static str =
         "enclave_no_upstream_proxy_for_external";
     pub const ENCLAVE_NOT_TRUSTED: &'static str = "enclave_not_trusted";
-    pub const EPHEMERAL_CHANNEL_UNAVAILABLE: &'static str = "ephemeral_channel_unavailable";
-    pub const EPHEMERAL_KIND_NOT_PERMITTED: &'static str = "ephemeral_kind_not_permitted";
-    pub const EPHEMERAL_TTL_OUT_OF_RANGE: &'static str = "ephemeral_ttl_out_of_range";
     pub const EPOCH_MISMATCH: &'static str = "epoch_mismatch";
     pub const EXTERNAL_INVITE_ACTOR_MISMATCH: &'static str = "external_invite_actor_mismatch";
     pub const EXTERNAL_USER_NO_MAIN_ACCESS: &'static str = "external_user_no_main_access";
@@ -696,6 +695,7 @@ impl ErrorCode {
     pub const INTERNAL_ERROR: &'static str = "internal_error";
     pub const INVALID_AVATAR_BLOB_REF: &'static str = "invalid_avatar_blob_ref";
     pub const INVALID_AVATAR_URL: &'static str = "invalid_avatar_url";
+    pub const INVALID_GENESIS_SEAL: &'static str = "invalid_genesis_seal";
     pub const INVALID_PARAM: &'static str = "invalid_param";
     pub const INVALID_RESPONSE: &'static str = "invalid_response";
     pub const INVALID_SIGNATURE: &'static str = "invalid_signature";
@@ -818,6 +818,9 @@ impl ErrorCode {
     pub const SESSION_LOGGED_OUT: &'static str = "session_logged_out";
     pub const SESSION_REVOKE_SELECTOR_CONFLICT: &'static str = "session_revoke_selector_conflict";
     pub const SFU_NOT_ALLOWED: &'static str = "sfu_not_allowed";
+    pub const SIGNAL_CLASS_NOT_PERMITTED: &'static str = "signal_class_not_permitted";
+    pub const SIGNAL_RAIL_UNAVAILABLE: &'static str = "signal_rail_unavailable";
+    pub const SIGNAL_TTL_OUT_OF_RANGE: &'static str = "signal_ttl_out_of_range";
     pub const SIGNATURE_INVALID: &'static str = "signature_invalid";
     pub const SIGNATURE_STALE: &'static str = "signature_stale";
     pub const SIGNATURE_WINDOW_INVALID: &'static str = "signature_window_invalid";
@@ -961,9 +964,6 @@ impl ErrorCode {
             Self::E2eeRequired => "e2ee_required",
             Self::EnclaveNoUpstreamProxyForExternal => "enclave_no_upstream_proxy_for_external",
             Self::EnclaveNotTrusted => "enclave_not_trusted",
-            Self::EphemeralChannelUnavailable => "ephemeral_channel_unavailable",
-            Self::EphemeralKindNotPermitted => "ephemeral_kind_not_permitted",
-            Self::EphemeralTtlOutOfRange => "ephemeral_ttl_out_of_range",
             Self::EpochMismatch => "epoch_mismatch",
             Self::ExternalInviteActorMismatch => "external_invite_actor_mismatch",
             Self::ExternalUserNoMainAccess => "external_user_no_main_access",
@@ -994,6 +994,7 @@ impl ErrorCode {
             Self::InternalError => "internal_error",
             Self::InvalidAvatarBlobRef => "invalid_avatar_blob_ref",
             Self::InvalidAvatarUrl => "invalid_avatar_url",
+            Self::InvalidGenesisSeal => "invalid_genesis_seal",
             Self::InvalidParam => "invalid_param",
             Self::InvalidResponse => "invalid_response",
             Self::InvalidSignature => "invalid_signature",
@@ -1108,6 +1109,9 @@ impl ErrorCode {
             Self::SessionLoggedOut => "session_logged_out",
             Self::SessionRevokeSelectorConflict => "session_revoke_selector_conflict",
             Self::SfuNotAllowed => "sfu_not_allowed",
+            Self::SignalClassNotPermitted => "signal_class_not_permitted",
+            Self::SignalRailUnavailable => "signal_rail_unavailable",
+            Self::SignalTtlOutOfRange => "signal_ttl_out_of_range",
             Self::SignatureInvalid => "signature_invalid",
             Self::SignatureStale => "signature_stale",
             Self::SignatureWindowInvalid => "signature_window_invalid",
@@ -1257,9 +1261,6 @@ impl ErrorCode {
                 Some(Self::EnclaveNoUpstreamProxyForExternal)
             }
             "enclave_not_trusted" => Some(Self::EnclaveNotTrusted),
-            "ephemeral_channel_unavailable" => Some(Self::EphemeralChannelUnavailable),
-            "ephemeral_kind_not_permitted" => Some(Self::EphemeralKindNotPermitted),
-            "ephemeral_ttl_out_of_range" => Some(Self::EphemeralTtlOutOfRange),
             "epoch_mismatch" => Some(Self::EpochMismatch),
             "external_invite_actor_mismatch" => Some(Self::ExternalInviteActorMismatch),
             "external_user_no_main_access" => Some(Self::ExternalUserNoMainAccess),
@@ -1292,6 +1293,7 @@ impl ErrorCode {
             "internal_error" => Some(Self::InternalError),
             "invalid_avatar_blob_ref" => Some(Self::InvalidAvatarBlobRef),
             "invalid_avatar_url" => Some(Self::InvalidAvatarUrl),
+            "invalid_genesis_seal" => Some(Self::InvalidGenesisSeal),
             "invalid_param" => Some(Self::InvalidParam),
             "invalid_response" => Some(Self::InvalidResponse),
             "invalid_signature" => Some(Self::InvalidSignature),
@@ -1420,6 +1422,9 @@ impl ErrorCode {
             "session_logged_out" => Some(Self::SessionLoggedOut),
             "session_revoke_selector_conflict" => Some(Self::SessionRevokeSelectorConflict),
             "sfu_not_allowed" => Some(Self::SfuNotAllowed),
+            "signal_class_not_permitted" => Some(Self::SignalClassNotPermitted),
+            "signal_rail_unavailable" => Some(Self::SignalRailUnavailable),
+            "signal_ttl_out_of_range" => Some(Self::SignalTtlOutOfRange),
             "signature_invalid" => Some(Self::SignatureInvalid),
             "signature_stale" => Some(Self::SignatureStale),
             "signature_window_invalid" => Some(Self::SignatureWindowInvalid),
@@ -2119,27 +2124,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The enclave is not trusted for the requested operation.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::EphemeralChannelUnavailable,
-        http_status: 503,
-        scope: "service_call",
-        applies_to: &[],
-        description: "ak.self.ephemeral.command.send could not enqueue or fan out the transient signal because the ephemeral channel is temporarily unavailable; durable Event history is not affected.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::EphemeralKindNotPermitted,
-        http_status: 403,
-        scope: "service_call",
-        applies_to: &[],
-        description: "ak.self.ephemeral.command.send rejected the envelope because the actor lacks the kind-specific broadcast capability or Realm policy disables that ephemeral kind.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::EphemeralTtlOutOfRange,
-        http_status: 400,
-        scope: "service_call",
-        applies_to: &[],
-        description: "ak.self.ephemeral.command.send rejected ttl_ms because it is absent when required or outside the service's advertised kind-specific range.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::EpochMismatch,
         http_status: 409,
         scope: "both",
@@ -2165,14 +2149,14 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         scope: "both",
         applies_to: &[],
-        description: "CBA lattice join produced bottom (irreconcilable state) for the event's effects. Terminal failure state per zh/authz/event-auth-state-resolution.md §13; MUST NOT be reported as cas_conflict.",
+        description: "CBA lattice join produced bottom (irreconcilable state) while applying the reducer-projected writes. Terminal failure state per zh/authz/event-auth-state-resolution.md §13; MUST NOT be reported as cas_conflict.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FailedPlane,
         http_status: 412,
         scope: "both",
         applies_to: &[],
-        description: "CBA plane invariant failed: a Control Move's effects[] wrote a data-plane cell, or an Event violated a hard data-schema plane invariant. Terminal failure state; the write MUST NOT be bypassed as cas_conflict. See zh/authz/event-auth-state-resolution.md §13 and zh/sync/service-http-binding.md (write outcomes).",
+        description: "CBA plane invariant failed: the registered reducer projection for a Control Move targeted a data-plane cell, or a DataEvent targeted a control-plane cell. Terminal failure state; the write MUST NOT be bypassed as cas_conflict. See zh/authz/event-auth-state-resolution.md §13 and zh/sync/service-http-binding.md (write outcomes).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FailedPrecondition,
@@ -2348,6 +2332,13 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "The provided avatar URL is invalid.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::InvalidGenesisSeal,
+        http_status: 422,
+        scope: "both",
+        applies_to: &[],
+        description: "The first Seal of a Realm did not atomically cover and materialize the complete founding anchor unit, or it declared an empty covered set or an empty control_event_set_root. Distinct from seal_incomplete (a backfill gap in an otherwise valid chain) and from rejected_seal (a Seal whose covered Control Moves failed reducer validation): a genesis Seal that omits a required cell is never repairable by later Seals, because accepting an empty Seal first and adding the authority afterwards is exactly what this code forbids. See zh/authz/cba-profiles.md section 3.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::InvalidParam,
@@ -3076,6 +3067,27 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "service_call",
         applies_to: &[],
         description: "Requested SFU or media focus is not allowed by Realm policy or media service binding.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::SignalClassNotPermitted,
+        http_status: 403,
+        scope: "service_call",
+        applies_to: &[],
+        description: "ak.self.signal.command.send rejected the envelope because the actor lacks the kind-specific broadcast capability or Realm policy disables that signal kind.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::SignalRailUnavailable,
+        http_status: 503,
+        scope: "service_call",
+        applies_to: &[],
+        description: "ak.self.signal.command.send could not enqueue or fan out the transient signal because the signal channel is temporarily unavailable; durable Event history is not affected.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::SignalTtlOutOfRange,
+        http_status: 400,
+        scope: "service_call",
+        applies_to: &[],
+        description: "ak.self.signal.command.send rejected ttl_ms because it is absent when required or outside the service's advertised kind-specific range.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SignatureInvalid,

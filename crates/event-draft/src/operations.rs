@@ -598,12 +598,18 @@ pub mod protocol {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{Did, GrantId, Hlc, RealmId};
+    use arkret_wire::{Did, GrantId, Hlc, RealmId, ScopeRef};
     use serde_json::json;
 
     use super::*;
     use crate::OperationEnvelopeBuilder;
     use crate::registry::EventDraftKindRegistry;
+
+    fn scope() -> ScopeRef {
+        ScopeRef::Realm {
+            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-6b91994c774d").unwrap(),
+        }
+    }
 
     fn envelope(id: &str, deps: Vec<&str>) -> OperationEnvelope {
         envelope_for(id, EventKind::REALM_CREATE, json!({}), deps, false)
@@ -618,7 +624,7 @@ mod tests {
     ) -> OperationEnvelope {
         let mut builder = OperationEnvelopeBuilder::new(
             OperationId::new(id).unwrap(),
-            RealmId::new("ak:realm:01904100-0000-7000-8000-6b91994c774d").unwrap(),
+            scope(),
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             kind,
             1,
@@ -755,7 +761,7 @@ mod tests {
     fn registry_requires_semantic_content_fields() {
         let result = OperationEnvelopeBuilder::new(
             OperationId::new("ak:operation:01904100-0000-7000-8000-e0d2820b21e0").unwrap(),
-            RealmId::new("ak:realm:01904100-0000-7000-8000-6b91994c774d").unwrap(),
+            scope(),
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             EventKind::SPACE_CREATE,
             1,

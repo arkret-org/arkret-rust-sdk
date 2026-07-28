@@ -329,7 +329,7 @@ impl DeviceReanchorPayload {
 pub fn validate_device_reanchor_recovery_first_seal(
     payload: &DeviceReanchorPayload,
     predecessor_refs: &[SealId],
-    delta: &[MoveId],
+    delta: &[Hash],
     reanchor_digest: &Hash,
 ) -> Result<()> {
     if payload.pre_fence_basis.is_some() {
@@ -894,9 +894,9 @@ mod tests {
         assert_eq!(payload.did_version_number(), 2);
         let reanchor_digest = Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap();
         let delta = vec![
-            MoveId::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-            MoveId::new(reanchor_digest.as_str().to_owned()).unwrap(),
-            MoveId::new(payload.replacement_authorize_digest.as_str().to_owned()).unwrap(),
+            Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+            Hash::new(reanchor_digest.as_str().to_owned()).unwrap(),
+            Hash::new(payload.replacement_authorize_digest.as_str().to_owned()).unwrap(),
         ];
         assert!(
             validate_device_reanchor_recovery_first_seal(&payload, &[], &delta, &reanchor_digest)

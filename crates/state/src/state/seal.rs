@@ -2,21 +2,22 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use arkret_wire::event_envelope::Event;
 use serde_json::Value;
 use thiserror::Error;
 
 use super::state_root::{compute_state_root, seal_merkle_root_from_leaf_data};
-use super::store::{CellRegistry, CellStore, MoveStore, SealStore};
-use super::verify::verify_move;
+use super::store::{CellRegistry, CellStore, ControlEventStore, SealStore};
+use super::verify::verify_control_move;
 use crate::lattice::ordered_log::IssuedOp;
 use crate::lattice::{CellState, SealedOp};
-use crate::{CellRef, Hash, Move, MoveId, RealmId, Seal, SealId, canonical};
+use crate::{CellRef, Hash, ProjectedCellWrite, RealmId, Seal, SealId, canonical};
 
 #[derive(Clone, Debug)]
 pub struct SealEffect {
     pub seal: SealId,
-    pub accepted_move_ids: Vec<MoveId>,
-    pub rejected_moves: Vec<(MoveId, String)>,
+    pub accepted_event_digests: Vec<Hash>,
+    pub rejected_events: Vec<(Hash, String)>,
     pub post_state_root: Hash,
 }
 
@@ -31,11 +32,34 @@ pub enum SealReject {
     #[error("Seal.delta contains an event already covered by a predecessor")]
     DeltaAlreadyCovered,
 
-    #[error("Move {move_id} referenced in delta but not in store")]
-    MissingMove { move_id: String },
+    #[error("Control Event {event_digest} referenced in delta but not in store")]
+    MissingControlEvent { event_digest: String },
 
-    #[error("Move {move_id} referenced in delta failed verification: {reason}")]
-    MoveRejected { move_id: String, reason: String },
+    #[error("Control Move {event_digest} referenced in delta failed verification: {reason}")]
+    ControlMoveRejected {
+        event_digest: String,
+        reason: String,
+    },
+
+    #[error("Control Move {event_digest} carries no seal_basis")]
+    MissingSealBasis { event_digest: String },
+
+    #[error(
+        "Control Move {event_digest} seal_basis leaf {leaf} is outside the receiving Seal's \
+         predecessor closure"
+    )]
+    SealBasisOutsideClosure { event_digest: String, leaf: String },
+
+    #[error(
+        "Control Move {event_digest} declared seal_basis.{field} {declared} does not match the \
+         leaves view {recomputed}"
+    )]
+    SealBasisRootMismatch {
+        event_digest: String,
+        field: &'static str,
+        declared: String,
+        recomputed: String,
+    },
 
     #[error("declared control_event_set_root {declared} does not match recomputed {recomputed}")]
     ControlEventSetRootMismatch {
@@ -62,16 +86,26 @@ impl From<super::store::StoreError> for SealReject {
     }
 }
 
-pub fn apply_seal<F>(
+/// Apply one Seal per `event-auth-state-resolution.md` §6.3.
+///
+/// `verify_proofs` and `project_writes` are injected for the same reasons
+/// [`verify_control_move`] takes them: signature verification lives in
+/// `arkret-signatures`, and the registry-driven projection evaluator lives in
+/// `arkret-schema`, which this crate may not depend on. `project_writes` is
+/// the *only* source of cell targets and lattice operations — step 10's
+/// "atomically apply the reducer writes derived from kind + payload".
+pub fn apply_seal<VerifyProofs, ProjectWrites>(
     seal: &Seal,
-    moves: &dyn MoveStore,
+    events: &dyn ControlEventStore,
     seals: &dyn SealStore,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
-    verify_jws: F,
+    verify_proofs: VerifyProofs,
+    project_writes: ProjectWrites,
 ) -> Result<SealEffect, SealReject>
 where
-    F: Fn(&[u8], &str, &str, &str) -> Result<(), String> + Copy,
+    VerifyProofs: Fn(&Event) -> Result<(), String> + Copy,
+    ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
     seal.validate_id()
         .map_err(|e| SealReject::Structural(format!("id: {e}")))?;
@@ -89,7 +123,7 @@ where
     let mut covered = pred_covered.clone();
     covered.extend(seal.delta.iter().cloned());
     if !seal.covered_event_digests.is_empty() {
-        let declared: BTreeSet<MoveId> = seal.covered_event_digests.iter().cloned().collect();
+        let declared: BTreeSet<Hash> = seal.covered_event_digests.iter().cloned().collect();
         if declared != covered {
             return Err(SealReject::CoveredSetMismatch);
         }
@@ -102,25 +136,48 @@ where
         });
     }
 
+    // The baseline every Control Move in this batch is evaluated against is
+    // frozen at the predecessor view: same-batch writes MUST NOT advance a
+    // later Move's precondition basis (§6.3.1 frozen-predecessor rule).
     let pre_state =
         effective_state_for_covered_events(&pred_covered, &seal.realm_id, cells, registry)?;
+    let pred_closure = predecessor_seal_closure(&seal.predecessor_refs, seals)?;
 
-    let mut new_moves: Vec<Move> = Vec::with_capacity(seal.delta.len());
-    for mid in &seal.delta {
-        let m = moves.get(mid)?.ok_or_else(|| SealReject::MissingMove {
-            move_id: mid.as_str().to_owned(),
-        })?;
-        new_moves.push(m);
+    let mut new_events: Vec<(Hash, Event)> = Vec::with_capacity(seal.delta.len());
+    for digest in &seal.delta {
+        let event = events
+            .get(digest)?
+            .ok_or_else(|| SealReject::MissingControlEvent {
+                event_digest: digest.as_str().to_owned(),
+            })?;
+        new_events.push((digest.clone(), event));
     }
-    let ordered = deterministic_order(new_moves);
+    let ordered = deterministic_order(new_events);
 
-    let mut accepted: Vec<Move> = Vec::with_capacity(ordered.len());
-    for m in ordered {
-        match verify_move(&m, &pre_state, registry, verify_jws) {
-            Ok(()) => accepted.push(m),
+    let mut accepted: Vec<(Hash, Event, Vec<crate::ProjectionEffect>)> =
+        Vec::with_capacity(ordered.len());
+    for (digest, event) in ordered {
+        verify_seal_basis(
+            &digest,
+            &event,
+            &pred_closure,
+            &seal.realm_id,
+            seals,
+            cells,
+            registry,
+        )?;
+        match verify_control_move(
+            &event,
+            &seal.realm_id,
+            &pre_state,
+            registry,
+            verify_proofs,
+            project_writes,
+        ) {
+            Ok(effects) => accepted.push((digest, event, effects)),
             Err(reject) => {
-                return Err(SealReject::MoveRejected {
-                    move_id: m.id.as_str().to_owned(),
+                return Err(SealReject::ControlMoveRejected {
+                    event_digest: digest.as_str().to_owned(),
                     reason: reject.to_string(),
                 });
             }
@@ -128,15 +185,15 @@ where
     }
 
     let mut new_ops: Vec<(CellRef, IssuedOp)> = Vec::new();
-    for m in &accepted {
-        for effect in &m.effects {
-            // The issuer travels with the op so ordered-log slots stay keyed by
+    for (digest, event, effects) in &accepted {
+        for effect in effects {
+            // The actor travels with the op so ordered-log slots stay keyed by
             // the real actor rather than a synthetic one (9.3.1).
             new_ops.push((
                 effect.cell.clone(),
                 IssuedOp {
-                    issuer: m.issuer.clone(),
-                    op: SealedOp::new(m.id.clone(), effect.op.clone()),
+                    issuer: event.actor_id.clone(),
+                    op: SealedOp::new(digest.clone(), effect.op.clone()),
                 },
             ));
         }
@@ -155,16 +212,90 @@ where
     }
 
     seals.put(seal)?;
-    for m in &accepted {
-        moves.mark_sealed(&m.id, &seal.id)?;
+    for (digest, ..) in &accepted {
+        events.mark_sealed(digest, &seal.id)?;
     }
 
     Ok(SealEffect {
         seal: seal.id.clone(),
-        accepted_move_ids: accepted.iter().map(|m| m.id.clone()).collect(),
-        rejected_moves: Vec::new(),
+        accepted_event_digests: accepted.iter().map(|(digest, ..)| digest.clone()).collect(),
+        rejected_events: Vec::new(),
         post_state_root: recomputed_state,
     })
+}
+
+/// §5.1 steps 2-4: the Control Move's `seal_basis` must name only Seals
+/// inside the receiving Seal's predecessor closure, and its two declared
+/// roots must equal the roots the receiver recomputes over that leaf view.
+///
+/// This is split out of [`verify_control_move`] because it is the only part
+/// of §5.1 that needs the Seal DAG; the rest is a pure function of the Event
+/// and the frozen pre-state.
+pub fn verify_seal_basis(
+    event_digest: &Hash,
+    event: &Event,
+    predecessor_closure: &BTreeSet<SealId>,
+    realm_id: &RealmId,
+    seals: &dyn SealStore,
+    cells: &dyn CellStore,
+    registry: &dyn CellRegistry,
+) -> Result<(), SealReject> {
+    let basis = event
+        .seal_basis
+        .as_ref()
+        .ok_or_else(|| SealReject::MissingSealBasis {
+            event_digest: event_digest.as_str().to_owned(),
+        })?;
+    for leaf in &basis.leaves {
+        if !predecessor_closure.contains(leaf) {
+            return Err(SealReject::SealBasisOutsideClosure {
+                event_digest: event_digest.as_str().to_owned(),
+                leaf: leaf.as_str().to_owned(),
+            });
+        }
+    }
+    let view = effective_seal_view(&basis.leaves, realm_id, seals, cells, registry)?;
+    if view.control_event_set_root != basis.control_event_set_root {
+        return Err(SealReject::SealBasisRootMismatch {
+            event_digest: event_digest.as_str().to_owned(),
+            field: "control_event_set_root",
+            declared: basis.control_event_set_root.as_str().to_owned(),
+            recomputed: view.control_event_set_root.as_str().to_owned(),
+        });
+    }
+    if view.state_root != basis.state_root {
+        return Err(SealReject::SealBasisRootMismatch {
+            event_digest: event_digest.as_str().to_owned(),
+            field: "state_root",
+            declared: basis.state_root.as_str().to_owned(),
+            recomputed: view.state_root.as_str().to_owned(),
+        });
+    }
+    Ok(())
+}
+
+/// Every Seal reachable from `predecessor_refs`, the roots included.
+///
+/// §6.3 step 5 scopes "already sealed" and §5.1 step 2 scopes an admissible
+/// `seal_basis` leaf to exactly this set — never to the receiver's own global
+/// accepted-Seal set, which would make acceptance depend on leaf arrival
+/// order.
+pub fn predecessor_seal_closure(
+    predecessor_refs: &[SealId],
+    seals: &dyn SealStore,
+) -> Result<BTreeSet<SealId>, SealReject> {
+    let mut out = BTreeSet::new();
+    let mut queue: Vec<SealId> = predecessor_refs.to_vec();
+    while let Some(id) = queue.pop() {
+        if !out.insert(id.clone()) {
+            continue;
+        }
+        let seal = seals
+            .get(&id)?
+            .ok_or_else(|| SealReject::Store(format!("predecessor {id} not in store")))?;
+        queue.extend(seal.predecessor_refs);
+    }
+    Ok(out)
 }
 
 pub fn effective_seal_view(
@@ -178,7 +309,7 @@ pub fn effective_seal_view(
     sorted.sort_by(|a, b| a.as_str().cmp(b.as_str()));
     let union_proof = leaf_union_proof(&sorted, seals)?;
     let covered = union_covered_from_proof(&union_proof);
-    let covered_event_digests: Vec<MoveId> = covered.iter().cloned().collect();
+    let covered_event_digests: Vec<Hash> = covered.iter().cloned().collect();
     let control_event_set_root = control_event_set_root(&covered)?;
     let post_state = effective_state_at(&sorted, realm_id, seals, cells, registry)?;
     let state_root = compute_state_root(&post_state)
@@ -203,7 +334,7 @@ pub fn effective_seal_view(
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EffectiveSealView {
     pub predecessor_refs: Vec<SealId>,
-    pub covered_event_digests: Vec<MoveId>,
+    pub covered_event_digests: Vec<Hash>,
     pub control_event_set_root: Hash,
     pub state_root: Hash,
     pub union_proof: Vec<SealLeafUnionProof>,
@@ -213,14 +344,14 @@ pub struct EffectiveSealView {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SealLeafUnionProof {
     pub leaf: SealId,
-    pub covered_event_digests: Vec<MoveId>,
+    pub covered_event_digests: Vec<Hash>,
     pub control_event_set_root: Hash,
 }
 
 pub fn union_predecessor_covered_events(
     predecessor_refs: &[SealId],
     seals: &dyn SealStore,
-) -> Result<BTreeSet<MoveId>, SealReject> {
+) -> Result<BTreeSet<Hash>, SealReject> {
     let mut out = BTreeSet::new();
     for predecessor in predecessor_refs {
         collect_covered_events(predecessor, seals, &mut out)?;
@@ -239,7 +370,7 @@ pub fn leaf_union_proof(
         .map(|leaf| {
             let mut covered = BTreeSet::new();
             collect_covered_events(&leaf, seals, &mut covered)?;
-            let covered_event_digests: Vec<MoveId> = covered.iter().cloned().collect();
+            let covered_event_digests: Vec<Hash> = covered.iter().cloned().collect();
             let control_event_set_root = control_event_set_root(&covered)?;
             Ok(SealLeafUnionProof {
                 leaf,
@@ -250,7 +381,7 @@ pub fn leaf_union_proof(
         .collect()
 }
 
-fn union_covered_from_proof(proof: &[SealLeafUnionProof]) -> BTreeSet<MoveId> {
+fn union_covered_from_proof(proof: &[SealLeafUnionProof]) -> BTreeSet<Hash> {
     proof
         .iter()
         .flat_map(|leaf| leaf.covered_event_digests.iter().cloned())
@@ -260,7 +391,7 @@ fn union_covered_from_proof(proof: &[SealLeafUnionProof]) -> BTreeSet<MoveId> {
 fn collect_covered_events(
     seal_id: &SealId,
     seals: &dyn SealStore,
-    out: &mut BTreeSet<MoveId>,
+    out: &mut BTreeSet<Hash>,
 ) -> Result<(), SealReject> {
     let seal = seals
         .get(seal_id)?
@@ -276,7 +407,7 @@ fn collect_covered_events(
     Ok(())
 }
 
-pub fn control_event_set_root(covered: &BTreeSet<MoveId>) -> Result<Hash, SealReject> {
+pub fn control_event_set_root(covered: &BTreeSet<Hash>) -> Result<Hash, SealReject> {
     let leaves: Result<Vec<Vec<u8>>, SealReject> = covered
         .iter()
         .map(|m| {
@@ -297,7 +428,7 @@ struct CompletenessLeaf<'a> {
     actor_id: &'a arkret_wire::Did,
     from_seq: u64,
     to_seq: u64,
-    event_digests: Vec<&'a MoveId>,
+    event_digests: Vec<&'a Hash>,
 }
 
 /// Compute the Seal `completeness_root` from the listed Control Events.
@@ -305,13 +436,13 @@ struct CompletenessLeaf<'a> {
 /// The caller supplies the exact cumulative covered set. Every covered digest
 /// must resolve to exactly one Event; extra Events are ignored.
 pub fn control_event_completeness_root(
-    events: &[arkret_wire::Event],
-    covered: &BTreeSet<MoveId>,
+    events: &[Event],
+    covered: &BTreeSet<Hash>,
 ) -> Result<Hash, SealReject> {
-    let mut by_actor = BTreeMap::<arkret_wire::Did, Vec<(u64, MoveId)>>::new();
+    let mut by_actor = BTreeMap::<arkret_wire::Did, Vec<(u64, Hash)>>::new();
     let mut resolved = BTreeSet::new();
     for event in events {
-        let digest = MoveId::new(event.event_digest().map_err(|error| {
+        let digest = Hash::new(event.event_digest().map_err(|error| {
             SealReject::Structural(format!("Control Event digest failed: {error}"))
         })?)
         .map_err(|error| {
@@ -375,7 +506,7 @@ pub fn effective_state_at(
 }
 
 fn effective_state_for_covered_events(
-    covered: &BTreeSet<MoveId>,
+    covered: &BTreeSet<Hash>,
     realm_id: &RealmId,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
@@ -399,58 +530,77 @@ fn effective_state_for_covered_events(
     Ok(out)
 }
 
-pub fn deterministic_order(mut moves: Vec<Move>) -> Vec<Move> {
-    let mut out = Vec::with_capacity(moves.len());
-    while !moves.is_empty() {
+/// Linearize one Seal's `delta[]` per §6.3.1 steps 2-3.
+///
+/// Each entry is a Control Move paired with the `event_digest` that
+/// `Seal.delta[]` listed it under. Causally ordered Moves come first in
+/// causal order; mutually unreachable ones are broken by the canonical
+/// `event_digest`-greatest total order. That order fixes the *application*
+/// sequence only — it never advances a precondition baseline, which is why
+/// `apply_seal` evaluates every Move against one frozen pre-state.
+pub fn deterministic_order(mut events: Vec<(Hash, Event)>) -> Vec<(Hash, Event)> {
+    let mut out = Vec::with_capacity(events.len());
+    while !events.is_empty() {
         let mut ready = Vec::new();
-        let remaining_ids: BTreeSet<String> =
-            moves.iter().map(|m| m.id.as_str().to_owned()).collect();
+        // Dependencies are named by `event_id`, not by digest: `refs[].id`
+        // cites the referenced Event's id, while the batch is keyed by digest.
+        let remaining_ids: BTreeSet<String> = events
+            .iter()
+            .map(|(_, event)| event.event_id.as_str().to_owned())
+            .collect();
         let mut blocked = Vec::new();
-        for m in moves {
-            if move_causal_dependencies(&m)
+        for entry in events {
+            if causal_dependencies(&entry.1)
                 .iter()
                 .any(|dep| remaining_ids.contains(dep))
             {
-                blocked.push(m);
+                blocked.push(entry);
             } else {
-                ready.push(m);
+                ready.push(entry);
             }
         }
         if ready.is_empty() {
-            blocked.sort_by(concurrent_move_order);
+            blocked.sort_by(concurrent_control_move_order);
             out.extend(blocked);
             break;
         }
-        ready.sort_by(concurrent_move_order);
+        ready.sort_by(concurrent_control_move_order);
         out.extend(ready);
-        moves = blocked;
+        events = blocked;
     }
     out
 }
 
-fn concurrent_move_order(a: &Move, b: &Move) -> std::cmp::Ordering {
-    b.id.as_str()
-        .cmp(a.id.as_str())
-        .then_with(|| a.hlc.as_str().cmp(b.hlc.as_str()))
-        .then_with(|| a.issuer.as_str().cmp(b.issuer.as_str()))
+fn concurrent_control_move_order(a: &(Hash, Event), b: &(Hash, Event)) -> std::cmp::Ordering {
+    b.0.as_str()
+        .cmp(a.0.as_str())
+        .then_with(|| a.1.hlc.cmp(&b.1.hlc))
+        .then_with(|| a.1.actor_id.as_str().cmp(b.1.actor_id.as_str()))
 }
 
-fn move_causal_dependencies(m: &Move) -> Vec<String> {
-    m.refs
+fn causal_dependencies(event: &Event) -> Vec<String> {
+    event
+        .prev_refs
         .iter()
-        .filter(|reference| {
-            matches!(
-                reference.role.as_str(),
-                "after" | "parent_move" | "recovery_capability"
-            )
-        })
-        .map(|reference| reference.id.clone())
+        .map(|id| id.as_str().to_owned())
+        .chain(
+            event
+                .refs
+                .iter()
+                .filter(|reference| {
+                    matches!(
+                        reference.role.as_str(),
+                        "after" | "parent_event" | "recovery_capability"
+                    )
+                })
+                .map(|reference| reference.id.clone()),
+        )
         .collect()
 }
 
 fn joined_control_view_hash(
     leaves: &[SealId],
-    covered_event_digests: &[MoveId],
+    covered_event_digests: &[Hash],
     control_event_set_root: &Hash,
     state_root: &Hash,
 ) -> Result<Hash, SealReject> {
@@ -490,16 +640,20 @@ mod tests {
         }
     }
 
+    use arkret_wire::Proof;
+    use arkret_wire::event_envelope::{EventRef, ScopeRef};
     use chrono::{TimeZone, Utc};
     use serde_json::json;
 
     use super::*;
     use crate::lattice::SealedOp;
-    use crate::state::store::memory::{MemoryCellRegistry, MemoryCellStore, MemorySealStore};
-    use crate::state::store::{CellStore, SealStore};
+    use crate::state::store::memory::{
+        MemoryCellRegistry, MemoryCellStore, MemoryControlEventStore, MemorySealStore,
+    };
+    use crate::state::store::{CellStore, ControlEventStore, SealStore, control_event_digest};
     use crate::{
-        Did, Event, Hlc, LatticeOp, LatticeOpType, MoveSignature, NotarySig, SealBasis, SealKind,
-        SemanticRef,
+        Did, Event, EventId, EventRequirements, Hlc, LatticeOp, LatticeOpType, NotarySig,
+        PayloadSignature, ProjectedOp, SealBasis, SealKind,
     };
 
     fn realm() -> RealmId {
@@ -514,8 +668,63 @@ mod tests {
         .unwrap()
     }
 
-    fn move_id(byte: u8) -> MoveId {
-        MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+    fn move_id(byte: u8) -> Hash {
+        Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+    }
+
+    fn member_cell() -> CellRef {
+        CellRef::new("ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned())
+            .unwrap()
+    }
+
+    /// A Control Move Event. `actor_seq` keeps siblings distinct so each one
+    /// hashes to its own `event_digest`.
+    fn control_move(
+        actor_seq: u64,
+        basis: SealBasis,
+        prev_refs: Vec<EventId>,
+        refs: Vec<EventRef>,
+    ) -> Event {
+        let mut event = Event {
+            event_id: EventId::new(format!("ak:event:0196419b-0000-7000-8000-{actor_seq:012}"))
+                .unwrap(),
+            kind: "ak.member.state".into(),
+            realm_id: realm(),
+            scope_ref: ScopeRef::Realm { realm_id: realm() },
+            actor_id: Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
+            executed_by: None,
+            authorization_ref: None,
+            applet_id: None,
+            external_ref: None,
+            actor_kind: None,
+            actor_seq,
+            created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
+            hlc: Some(Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap()),
+            prev_refs,
+            refs,
+            causal_refs: Vec::new(),
+            preconditions: Vec::new(),
+            seal_ref: None,
+            auth_context: None,
+            seal_basis: Some(basis),
+            payload: BTreeMap::from([("state".to_owned(), json!("join"))]),
+            redacts: None,
+            unsigned: BTreeMap::new(),
+            proofs: Vec::new(),
+            requirements: EventRequirements::default(),
+        };
+        event.proofs.push(Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:alice.example#k1".to_owned(),
+            event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
+            created_at: event.created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "AAAA.BBBB.CCCC".to_owned(),
+        });
+        event
     }
 
     fn hash(byte: u8) -> Hash {
@@ -542,8 +751,8 @@ mod tests {
         }
     }
 
-    fn dummy_signature() -> MoveSignature {
-        MoveSignature {
+    fn dummy_signature() -> PayloadSignature {
+        PayloadSignature {
             alg: "EdDSA".to_owned(),
             verification_method: "did:webvh:z6mkfixture:notary.example#k1".to_owned(),
             payload_digest: hash(0xff),
@@ -552,7 +761,7 @@ mod tests {
         }
     }
 
-    fn materialized_seal(id: SealId, covered: Vec<MoveId>) -> Seal {
+    fn materialized_seal(id: SealId, covered: Vec<Hash>) -> Seal {
         Seal {
             id,
             realm_id: realm(),
@@ -606,6 +815,7 @@ mod tests {
             "event_id": event_id,
             "kind": "ak.capability.grant",
             "realm_id": realm(),
+            "scope_ref": {"kind": "realm", "realm_id": realm()},
             "actor_id": actor_id,
             "actor_seq": actor_seq,
             "created_at": "2026-07-26T00:00:00.000Z",
@@ -637,7 +847,7 @@ mod tests {
         );
         let covered = [&alice, &bob]
             .into_iter()
-            .map(|event| MoveId::new(event.event_digest().unwrap()).unwrap())
+            .map(|event| Hash::new(event.event_digest().unwrap()).unwrap())
             .collect::<BTreeSet<_>>();
         let forward =
             control_event_completeness_root(&[alice.clone(), bob.clone()], &covered).unwrap();
@@ -646,24 +856,6 @@ mod tests {
         assert_eq!(forward, reverse);
         assert_ne!(forward, control_event_set_root(&covered).unwrap());
         assert!(control_event_completeness_root(&[alice], &covered).is_err());
-    }
-
-    fn move_for_order(byte: u8, refs: Vec<SemanticRef>) -> Move {
-        Move {
-            id: move_id(byte),
-            issuer: Did::new("did:webvh:z6mkfixture:issuer.example".to_owned()).unwrap(),
-            realm_id: realm(),
-            preconditions: Vec::new(),
-            effects: Vec::new(),
-            seal_basis: SealBasis {
-                leaves: vec![seal_id(0x11)],
-                control_event_set_root: hash(0x22),
-                state_root: hash(0x33),
-            },
-            refs,
-            hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
-            sig: dummy_signature(),
-        }
     }
 
     #[test]
@@ -775,27 +967,323 @@ mod tests {
 
     #[test]
     fn deterministic_order_respects_causality_then_digest_desc() {
-        let low = move_for_order(0x10, Vec::new());
-        let mid = move_for_order(0x20, Vec::new());
-        let high_depends_on_low = move_for_order(
-            0xf0,
-            vec![SemanticRef {
-                id: low.id.as_str().to_owned(),
-                role: "after".to_owned(),
-                critical: true,
-            }],
+        // Digests are content-derived, so the fixture picks the causal edge and
+        // then asserts against the digests the Events actually hash to.
+        let basis = SealBasis {
+            leaves: vec![seal_id(0x11)],
+            control_event_set_root: hash(0x22),
+            state_root: hash(0x33),
+        };
+        let first = control_move(1, basis.clone(), Vec::new(), Vec::new());
+        let second = control_move(2, basis.clone(), Vec::new(), Vec::new());
+        let dependent = control_move(
+            3,
+            basis,
+            Vec::new(),
+            vec![EventRef::new(first.event_id.as_str(), "after")],
+        );
+        let entry = |event: &Event| (control_event_digest(event).unwrap(), event.clone());
+
+        let ordered = deterministic_order(vec![entry(&dependent), entry(&second), entry(&first)]);
+        let ids: Vec<&str> = ordered
+            .iter()
+            .map(|(_, event)| event.event_id.as_str())
+            .collect();
+
+        // `dependent` cites `first`, so it can only appear once `first` has been
+        // emitted; the two independent Moves are ordered by greatest digest.
+        assert_eq!(ids[2], dependent.event_id.as_str());
+        let (independent_first, independent_second) =
+            if entry(&first).0.as_str() > entry(&second).0.as_str() {
+                (first.event_id.as_str(), second.event_id.as_str())
+            } else {
+                (second.event_id.as_str(), first.event_id.as_str())
+            };
+        assert_eq!(ids[0], independent_first);
+        assert_eq!(ids[1], independent_second);
+    }
+
+    #[test]
+    fn deterministic_order_is_input_permutation_independent() {
+        let basis = SealBasis {
+            leaves: vec![seal_id(0x11)],
+            control_event_set_root: hash(0x22),
+            state_root: hash(0x33),
+        };
+        let entries: Vec<(Hash, Event)> = (1..=3)
+            .map(|seq| {
+                let event = control_move(seq, basis.clone(), Vec::new(), Vec::new());
+                (control_event_digest(&event).unwrap(), event)
+            })
+            .collect();
+        let mut reversed = entries.clone();
+        reversed.reverse();
+        assert_eq!(
+            deterministic_order(entries)
+                .iter()
+                .map(|(digest, _)| digest.clone())
+                .collect::<Vec<_>>(),
+            deterministic_order(reversed)
+                .iter()
+                .map(|(digest, _)| digest.clone())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// A Seal whose `id` is the hash of its own canonical bytes, so
+    /// `apply_seal`'s `validate_id` gate passes.
+    fn signed_seal(
+        predecessor_refs: Vec<SealId>,
+        delta: Vec<Hash>,
+        control_event_set_root: Hash,
+        state_root: Hash,
+        notary_seq: u64,
+    ) -> Seal {
+        let mut seal = Seal {
+            id: seal_id(0x00),
+            realm_id: realm(),
+            predecessor_refs,
+            delta,
+            control_event_set_root,
+            state_root,
+            completeness_root: hash(0x33),
+            notary_seq,
+            data_view_root: None,
+            data_event_set_root: None,
+            availability_root: None,
+            coverage_scope: None,
+            covered_event_digests: Vec::new(),
+            previous_state_root: None,
+            previous_digest_algorithm: None,
+            notary_signature: NotarySig::Single(dummy_signature()),
+            sealed_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
+            hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
+            kind: SealKind::Normal,
+        };
+        seal.id = seal.derive_id().unwrap();
+        seal
+    }
+
+    fn ok_proofs(_: &Event) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn join_transition_write(_: &Event) -> Result<Vec<ProjectedCellWrite>, String> {
+        let mut op = LatticeOp::empty();
+        op.op_type = LatticeOpType::Transition;
+        op.from = Some(json!("invited"));
+        op.to = Some(json!("join"));
+        Ok(vec![ProjectedCellWrite {
+            cell: member_cell(),
+            op: ProjectedOp::Direct(op),
+        }])
+    }
+
+    /// Genesis Seal over an empty covered set, plus the `seal_basis` a
+    /// Control Move built on it must declare.
+    fn genesis_and_basis() -> (Seal, SealBasis) {
+        let empty_control_root = control_event_set_root(&BTreeSet::new()).unwrap();
+        let empty_state_root = compute_state_root(&BTreeMap::new()).unwrap();
+        let genesis = signed_seal(
+            Vec::new(),
+            Vec::new(),
+            empty_control_root.clone(),
+            empty_state_root.clone(),
+            1,
+        );
+        let basis = SealBasis {
+            leaves: vec![genesis.id.clone()],
+            control_event_set_root: empty_control_root,
+            state_root: empty_state_root,
+        };
+        (genesis, basis)
+    }
+
+    #[test]
+    fn apply_seal_applies_only_projector_derived_writes() {
+        let seals = MemorySealStore::default();
+        let cells = MemoryCellStore::default();
+        let events = MemoryControlEventStore::default();
+        let registry = MemoryCellRegistry::default();
+        let (genesis, basis) = genesis_and_basis();
+        seals.put(&genesis).unwrap();
+
+        // The Event names no cell and no lattice op anywhere: the projector is
+        // the sole source of the `invited -> join` write applied below.
+        let event = control_move(1, basis, Vec::new(), Vec::new());
+        let digest = control_event_digest(&event).unwrap();
+        events.put_pending(&event).unwrap();
+
+        let covered = BTreeSet::from([digest.clone()]);
+        let post_state = BTreeMap::from([(member_cell(), CellState::Value(json!("join")))]);
+        let seal = signed_seal(
+            vec![genesis.id],
+            vec![digest.clone()],
+            control_event_set_root(&covered).unwrap(),
+            compute_state_root(&post_state).unwrap(),
+            2,
         );
 
-        let ordered =
-            deterministic_order(vec![high_depends_on_low.clone(), mid.clone(), low.clone()]);
-        let ids = ordered
-            .iter()
-            .map(|m| m.id.as_str().to_owned())
-            .collect::<Vec<_>>();
+        let effect = apply_seal(
+            &seal,
+            &events,
+            &seals,
+            &cells,
+            &registry,
+            ok_proofs,
+            join_transition_write,
+        )
+        .unwrap();
+        assert_eq!(effect.accepted_event_digests, vec![digest.clone()]);
+        assert_eq!(effect.post_state_root, seal.state_root);
 
-        assert_eq!(ids[0], mid.id.as_str());
-        assert_eq!(ids[1], low.id.as_str());
-        assert_eq!(ids[2], high_depends_on_low.id.as_str());
+        let ops = cells.sealed_ops_for_cell(&realm(), &member_cell()).unwrap();
+        assert_eq!(ops.len(), 1);
+        assert_eq!(ops[0].op.move_id, digest);
+        assert_eq!(ops[0].issuer, event.actor_id);
+        assert_eq!(
+            events.list_sealed(&realm(), None, 10).unwrap()[0].seal,
+            seal.id
+        );
+    }
+
+    #[test]
+    fn apply_seal_rejects_a_projection_the_receiver_cannot_evaluate() {
+        let seals = MemorySealStore::default();
+        let cells = MemoryCellStore::default();
+        let events = MemoryControlEventStore::default();
+        let registry = MemoryCellRegistry::default();
+        let (genesis, basis) = genesis_and_basis();
+        seals.put(&genesis).unwrap();
+        let event = control_move(1, basis, Vec::new(), Vec::new());
+        let digest = control_event_digest(&event).unwrap();
+        events.put_pending(&event).unwrap();
+
+        let covered = BTreeSet::from([digest.clone()]);
+        let seal = signed_seal(
+            vec![genesis.id],
+            vec![digest],
+            control_event_set_root(&covered).unwrap(),
+            compute_state_root(&BTreeMap::new()).unwrap(),
+            2,
+        );
+
+        let error = apply_seal(
+            &seal,
+            &events,
+            &seals,
+            &cells,
+            &registry,
+            ok_proofs,
+            |_: &Event| Err("registry declares no contract for this kind".to_owned()),
+        )
+        .unwrap_err();
+        assert!(matches!(error, SealReject::ControlMoveRejected { .. }));
+    }
+
+    #[test]
+    fn seal_basis_leaf_outside_the_predecessor_closure_rejects() {
+        let seals = MemorySealStore::default();
+        let cells = MemoryCellStore::default();
+        let events = MemoryControlEventStore::default();
+        let registry = MemoryCellRegistry::default();
+        let (genesis, mut basis) = genesis_and_basis();
+        seals.put(&genesis).unwrap();
+        // A concurrent Seal the receiving Seal does not descend from. Admitting
+        // it would make acceptance depend on which leaves this receiver happens
+        // to hold (§6.3 concurrent-leaf rule).
+        basis.leaves = vec![seal_id(0xee)];
+        let event = control_move(1, basis, Vec::new(), Vec::new());
+        let digest = control_event_digest(&event).unwrap();
+        events.put_pending(&event).unwrap();
+
+        let covered = BTreeSet::from([digest.clone()]);
+        let seal = signed_seal(
+            vec![genesis.id],
+            vec![digest],
+            control_event_set_root(&covered).unwrap(),
+            compute_state_root(&BTreeMap::new()).unwrap(),
+            2,
+        );
+
+        let error = apply_seal(
+            &seal,
+            &events,
+            &seals,
+            &cells,
+            &registry,
+            ok_proofs,
+            join_transition_write,
+        )
+        .unwrap_err();
+        assert!(matches!(error, SealReject::SealBasisOutsideClosure { .. }));
+    }
+
+    #[test]
+    fn seal_basis_state_root_mismatch_rejects() {
+        let seals = MemorySealStore::default();
+        let cells = MemoryCellStore::default();
+        let events = MemoryControlEventStore::default();
+        let registry = MemoryCellRegistry::default();
+        let (genesis, mut basis) = genesis_and_basis();
+        seals.put(&genesis).unwrap();
+        basis.state_root = hash(0xbe);
+        let event = control_move(1, basis, Vec::new(), Vec::new());
+        let digest = control_event_digest(&event).unwrap();
+        events.put_pending(&event).unwrap();
+
+        let covered = BTreeSet::from([digest.clone()]);
+        let seal = signed_seal(
+            vec![genesis.id],
+            vec![digest],
+            control_event_set_root(&covered).unwrap(),
+            compute_state_root(&BTreeMap::new()).unwrap(),
+            2,
+        );
+
+        let error = apply_seal(
+            &seal,
+            &events,
+            &seals,
+            &cells,
+            &registry,
+            ok_proofs,
+            join_transition_write,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            SealReject::SealBasisRootMismatch {
+                field: "state_root",
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn predecessor_seal_closure_is_transitive() {
+        let seals = MemorySealStore::default();
+        let empty_control_root = control_event_set_root(&BTreeSet::new()).unwrap();
+        let empty_state_root = compute_state_root(&BTreeMap::new()).unwrap();
+        let genesis = signed_seal(
+            Vec::new(),
+            Vec::new(),
+            empty_control_root.clone(),
+            empty_state_root.clone(),
+            1,
+        );
+        let middle = signed_seal(
+            vec![genesis.id.clone()],
+            Vec::new(),
+            empty_control_root,
+            empty_state_root,
+            2,
+        );
+        seals.put(&genesis).unwrap();
+        seals.put(&middle).unwrap();
+
+        let closure = predecessor_seal_closure(std::slice::from_ref(&middle.id), &seals).unwrap();
+        assert_eq!(closure, BTreeSet::from([genesis.id, middle.id]));
     }
 
     #[test]

@@ -10,7 +10,9 @@ use arkret_models_collaboration::governance::accountability::{
     AccountabilityScopeKind,
 };
 use arkret_models_collaboration::governance::circle::EncryptionFloor;
-use arkret_models_collaboration::http_bodies::EventsSubmitRequestBody;
+use arkret_models_collaboration::http_bodies::{
+    EventsSubmitBatchRequestBody, EventsSubmitRequestBody,
+};
 use arkret_models_collaboration::objects::realm::{NotaryProfile, Realm};
 #[cfg(test)]
 use arkret_models_identity::artifacts_device_identity::{
@@ -24,16 +26,17 @@ use arkret_state::{
     CellRegistry, CellState, LatticeKind, SealedOp, compute_state_root, control_event_set_root,
 };
 use arkret_wire::{
-    AGENT_SELECTOR_CLAIM_SCHEMA, CellRef, Did, Discoverability, Effect, EncryptionProfile, Error,
-    Event, EventId, EventKind, EventRef, EventRequirements, Hash, HistoryVisibility, Hlc, JoinRule,
-    LatticeOp, LatticeOpType, MoveId, MoveSignature, MoveSigner, NotarySig, NotaryValue,
-    PayloadProof, REALM_SCHEMA_ID, RealmId, Result, Seal, SealId, SealKind, SecurityClass,
-    TypedTrustDomainId, composite_subject, proof_kind,
+    AGENT_SELECTOR_CLAIM_SCHEMA, CellRef, Did, Discoverability, EncryptionProfile, Error, Event,
+    EventId, EventInitialSubmission, EventKind, EventRef, EventRequirements, Hash,
+    HistoryVisibility, Hlc, JoinRule, NotarySig, NotaryValue, PayloadProof, PayloadSignature,
+    PayloadSigner, ProjectedCellWrite, ProjectionEffect, REALM_SCHEMA_ID, RealmId, Result,
+    ScopeRef, Seal, SealId, SealKind, SecurityClass, TypedTrustDomainId, composite_subject,
+    proof_kind,
 };
 #[cfg(test)]
 use arkret_wire::{
-    DeviceId, Move, NonEmptyString, Proof, SemanticRefProof, SemanticRefProofKind, UnsignedMove,
-    WireError,
+    AuthoritySetRef, AuthorizationLease, AuthorizationLeaseId, DeviceId, LeaseBasisRef,
+    NonEmptyString, Proof, RiskTier, SemanticRefProof, SemanticRefProofKind, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -50,90 +53,88 @@ const PRINCIPAL_CONTROL_PURPOSE: &str = "principal_control";
 // genesis singleton into a deployment-wide shared key.
 pub use arkret_wire::{REALM_CREATE_CELL, REALM_METADATA_CELL, REALM_NOTARY_CELL};
 
-/// Derive the complete canonical four-effect set of an `ak.realm.create`.
+/// Registry projection evaluator supplied by the caller, normally
+/// `arkret_schema::project_registered_cell_writes`.
 ///
-/// The protocol deliberately makes every bootstrap branch use the same
-/// explicit effect set. Keeping this derivation shared prevents self PCR,
-/// managed Agent PCR, ordinary Realm and Direct Conversation producers from
-/// silently constructing different genesis `state_root` leaf sets.
-pub fn realm_create_effects(event: &Event) -> Result<Vec<Effect>> {
+/// The frozen crate layering keeps `arkret-bootstrap` below `arkret-schema`,
+/// so the single evaluator is injected rather than linked — the same shape
+/// `arkret_state::verify_control_move` uses. Routing every derivation through
+/// one evaluator is also what stops a bootstrap branch from re-growing a
+/// private table of what an Event writes: v1 deleted the producer-supplied
+/// effect array precisely so that only the reducer contract answers that
+/// question (`models/event-and-patch.md` section 2.4.2).
+pub type CellWriteProjector<'a> =
+    &'a dyn Fn(&Event) -> std::result::Result<Vec<ProjectedCellWrite>, String>;
+
+/// Project `event` and require every derived write to be directly applicable.
+///
+/// `transition_to`, `apply_patch` and `remove_observed` resolve their operand
+/// against the frozen pre-state. No bootstrap Event kind registers one, and a
+/// genesis unit has no accepted pre-state to read, so meeting one here means
+/// the registry moved under this crate: fail closed rather than invent an
+/// operand.
+fn direct_projection(
+    event: &Event,
+    project: CellWriteProjector<'_>,
+) -> Result<Vec<ProjectionEffect>> {
+    project(event)
+        .map_err(|error| {
+            Error::Protocol(format!(
+                "bootstrap cell write projection failed for {}: {error}",
+                event.kind.as_str()
+            ))
+        })?
+        .iter()
+        .map(|write| {
+            write.as_direct().ok_or_else(|| {
+                Error::Protocol(format!(
+                    "bootstrap cell {} needs a frozen pre-state this path cannot supply",
+                    write.cell
+                ))
+            })
+        })
+        .collect()
+}
+
+/// Assert that an `ak.realm.create` projection lands on the canonical genesis
+/// leaf set.
+///
+/// Self PCR, managed Agent PCR and ordinary Realm producers all reach the
+/// receiver through the same contract, so a branch whose payload drifts far
+/// enough to move a target would notarize a different genesis `state_root`
+/// leaf set for the same Realm. Only the targets are asserted: the lattice ops
+/// come from the registered `effect_projection` and restating them here would
+/// rebuild the producer-side effect table v1 removed.
+fn validate_realm_create_projection(event: &Event, effects: &[ProjectionEffect]) -> Result<()> {
     if event.kind != EventKind::REALM_CREATE {
         return Err(Error::Protocol(
-            "realm create effects require ak.realm.create".to_owned(),
+            "realm create projection requires ak.realm.create".to_owned(),
         ));
     }
-    let object = event
-        .payload
-        .get("object")
-        .and_then(Value::as_object)
-        .ok_or_else(|| Error::Protocol("Realm create payload.object is missing".to_owned()))?;
-    let created_by = object
-        .get("created_by")
-        .and_then(Value::as_str)
-        .ok_or_else(|| Error::Protocol("Realm create object.created_by is missing".to_owned()))?;
-    if created_by != event.actor_id.as_str() {
+    let expected = [
+        REALM_METADATA_CELL.to_owned(),
+        // Callers pin `payload.object.created_by == actor_id` before reaching
+        // here, so the member cell derived from the payload must be the
+        // actor's; a mismatch means the two checks disagree.
+        format!(
+            "ak:cell:ak.component.member.state.v1:{}",
+            event.actor_id.as_str()
+        ),
+        REALM_CREATE_CELL.to_owned(),
+        REALM_NOTARY_CELL.to_owned(),
+    ]
+    .into_iter()
+    .collect::<BTreeSet<_>>();
+    let derived = effects
+        .iter()
+        .map(|effect| effect.cell.as_str().to_owned())
+        .collect::<BTreeSet<_>>();
+    if effects.len() != expected.len() || derived != expected {
         return Err(Error::Protocol(
-            "Realm create object.created_by differs from actor_id".to_owned(),
+            "Realm create does not derive the canonical four genesis cells".to_owned(),
         ));
     }
-    let notary = object
-        .get("notary")
-        .cloned()
-        .ok_or_else(|| Error::Protocol("Realm create object.notary is missing".to_owned()))?;
-
-    Ok(vec![
-        Effect {
-            cell: CellRef::new(REALM_METADATA_CELL)?,
-            op: LatticeOp {
-                op_type: LatticeOpType::Set,
-                tag: None,
-                value: Some(Value::Object(object.clone())),
-                from: None,
-                to: None,
-                reason: None,
-                issuer_seq: None,
-            },
-        },
-        Effect {
-            cell: CellRef::new(format!("ak:cell:ak.component.member.state.v1:{created_by}"))?,
-            op: LatticeOp {
-                op_type: LatticeOpType::Transition,
-                tag: None,
-                value: None,
-                from: Some(Value::String("leave".to_owned())),
-                to: Some(Value::String("join".to_owned())),
-                reason: None,
-                issuer_seq: None,
-            },
-        },
-        Effect {
-            cell: CellRef::new(REALM_CREATE_CELL)?,
-            op: LatticeOp {
-                op_type: LatticeOpType::Append,
-                tag: None,
-                value: Some(Value::String(event.realm_id.to_string())),
-                from: None,
-                to: None,
-                reason: None,
-                // The sequence is scoped to the create-log cell and issuer,
-                // not to the Event actor chain. Realm genesis always owns slot
-                // zero even if a malformed caller supplied another actor_seq.
-                issuer_seq: Some(0),
-            },
-        },
-        Effect {
-            cell: CellRef::new(REALM_NOTARY_CELL)?,
-            op: LatticeOp {
-                op_type: LatticeOpType::Set,
-                tag: None,
-                value: Some(notary),
-                from: None,
-                to: None,
-                reason: None,
-                issuer_seq: None,
-            },
-        },
-    ])
+    Ok(())
 }
 
 /// Envelope stamps supplied before the submit pipeline signs each Event envelope.
@@ -146,43 +147,8 @@ pub struct AgentProvisionEventDraftOptions {
     pub selector_hlc: Hlc,
 }
 
-fn provision_set_effect(cell_family: &str, subject_parts: &[&str], value: Value) -> Result<Effect> {
-    let subject = composite_subject(subject_parts)?;
-    Ok(Effect {
-        cell: CellRef::new(format!("ak:cell:{cell_family}:{subject}"))?,
-        op: LatticeOp {
-            op_type: LatticeOpType::Set,
-            tag: None,
-            value: Some(value),
-            from: None,
-            to: None,
-            reason: None,
-            issuer_seq: None,
-        },
-    })
-}
-
-fn provision_set_effect_for_subject(
-    cell_family: &str,
-    subject: &str,
-    value: Value,
-) -> Result<Effect> {
-    Ok(Effect {
-        cell: CellRef::new(format!("ak:cell:{cell_family}:{subject}"))?,
-        op: LatticeOp {
-            op_type: LatticeOpType::Set,
-            tag: None,
-            value: Some(value),
-            from: None,
-            to: None,
-            reason: None,
-            issuer_seq: None,
-        },
-    })
-}
-
 /// Build the closed controller-owned managed-agent provisioning Event pair.
-pub fn build_agent_provision_event_drafts<S: MoveSigner + ?Sized>(
+pub fn build_agent_provision_event_drafts<S: PayloadSigner + ?Sized>(
     controller_id: &Did,
     controller_realm_id: &RealmId,
     agent_id: &Did,
@@ -236,20 +202,21 @@ pub fn build_agent_provision_event_drafts<S: MoveSigner + ?Sized>(
     accountability_payload.proof.jws = signature.jws;
 
     let accountability_value = serde_json::to_value(&accountability_payload)?;
+    // Provisioning happens inside the controller's own Realm scope; neither
+    // slot is Circle-scoped, and `scope_ref` is now what fixes the envelope
+    // `realm_id`, so the two can no longer be stamped independently.
+    let controller_scope = ScopeRef::Realm {
+        realm_id: controller_realm_id.clone(),
+    };
     let mut accountability_grant = Event::new_at(
         EventKind::IDENTITY_ACCOUNTABILITY_GRANT,
-        controller_realm_id.clone(),
+        controller_scope.clone(),
         controller_id.clone(),
         options.accountability_actor_seq,
         options.accountability_hlc,
-        accountability_value.clone(),
+        accountability_value,
         created_at,
     )?;
-    accountability_grant.effects = vec![provision_set_effect_for_subject(
-        "ak.component.identity.accountability.v1",
-        &accountability_payload.cell_subject()?,
-        accountability_value,
-    )?];
     accountability_grant.requirements.schema_profile_refs =
         vec![ACCOUNTABILITY_GRANT_SCHEMA.to_owned()];
 
@@ -300,18 +267,13 @@ pub fn build_agent_provision_event_drafts<S: MoveSigner + ?Sized>(
     let selector_value = serde_json::to_value(&selector_payload)?;
     let mut selector_claim = Event::new_at(
         "ak.agent.selector_claim",
-        controller_realm_id.clone(),
+        controller_scope,
         controller_id.clone(),
         options.selector_actor_seq,
         options.selector_hlc,
-        selector_value.clone(),
+        selector_value,
         created_at,
     )?;
-    selector_claim.effects = vec![provision_set_effect(
-        "ak.component.agent.selector_claim.v1",
-        &[controller_id.as_str(), agent_slug],
-        selector_value,
-    )?];
     selector_claim.requirements.schema_profile_refs = vec![AGENT_SELECTOR_CLAIM_SCHEMA.to_owned()];
 
     Ok(AgentProvisionEvents {
@@ -335,7 +297,10 @@ pub struct SelfPrincipalPcrCreateInput {
 
 /// Construct the only unsigned `ak.realm.create` shape that an identity root
 /// may sign. Signing material remains entirely with the caller.
-pub fn build_self_principal_pcr_create(input: SelfPrincipalPcrCreateInput) -> Result<Event> {
+pub fn build_self_principal_pcr_create(
+    input: SelfPrincipalPcrCreateInput,
+    project: CellWriteProjector<'_>,
+) -> Result<Event> {
     let created_at = arkret_canonical::canonical::normalize_timestamp_canonical(input.created_at);
     let expected_realm_id = RealmId::new(principal_control_realm_id(&input.principal_id))?;
     if input.realm_id != expected_realm_id {
@@ -384,7 +349,11 @@ pub fn build_self_principal_pcr_create(input: SelfPrincipalPcrCreateInput) -> Re
     let mut event = Event::new_with_id_at(
         input.event_id,
         EventKind::REALM_CREATE,
-        input.realm_id,
+        // A Principal Control Realm has no Circles, so its genesis scope is
+        // always the Realm itself.
+        ScopeRef::Realm {
+            realm_id: input.realm_id,
+        },
         input.principal_id,
         0,
         input.hlc,
@@ -392,44 +361,62 @@ pub fn build_self_principal_pcr_create(input: SelfPrincipalPcrCreateInput) -> Re
         created_at,
     )?;
     event.refs = vec![input.did_inception_ref];
-    event.effects = realm_create_effects(&event)?;
     event.requirements = EventRequirements::default();
-    validate_self_principal_pcr_create(&event, false)?;
+    validate_self_principal_pcr_create(&event, false, project)?;
     Ok(event)
 }
 
 /// Validate and package the closed two-slot self-principal bootstrap batch.
 /// The receiver still verifies both cryptographic proofs and entry-0 history.
+///
+/// Each slot travels as an [`EventInitialSubmission`]: the authorization lease
+/// bounds the revocation window and is not part of the signed Event, so it
+/// cannot be derived here and must be supplied by the caller.
 pub fn self_principal_bootstrap_submit_request(
-    create: Event,
-    authorize: Event,
+    create: EventInitialSubmission,
+    authorize: EventInitialSubmission,
+    project: CellWriteProjector<'_>,
 ) -> Result<EventsSubmitRequestBody> {
-    validate_self_principal_bootstrap_unit(&create, &authorize)?;
-    Ok(EventsSubmitRequestBody {
-        event: None,
-        events: vec![create, authorize],
-    })
+    validate_self_principal_bootstrap_unit(&create.event, &authorize.event, project)?;
+    for submission in [&create, &authorize] {
+        // The full ingress gate (`EventInitialSubmission::validate_structural`)
+        // demands a CBA basis every reducer-input Event carries except the
+        // genesis pair, so only the lease-to-Event bindings are checked here.
+        if submission.authorization_lease.actor_id != submission.event.actor_id
+            || submission.authorization_lease.scope_ref != submission.event.scope_ref
+        {
+            return Err(Error::Protocol(
+                "bootstrap authorization lease does not bind its Event actor and scope".to_owned(),
+            ));
+        }
+    }
+    Ok(EventsSubmitRequestBody::Batch(
+        EventsSubmitBatchRequestBody {
+            events: vec![create, authorize],
+        },
+    ))
 }
 
 /// Build and sign the first principal-control Seal after the closed bootstrap
 /// unit has been accepted. The Seal is rooted (no predecessors), covers both
 /// bootstrap Event digests, and reproduces the receiver's derived Realm
 /// create/member/notary cell state before the authorized device signs it.
-pub fn build_self_principal_bootstrap_seal<S: MoveSigner + ?Sized>(
+pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
     create: &Event,
     authorize: &Event,
     hlc: Hlc,
     signer: &S,
+    project: CellWriteProjector<'_>,
 ) -> Result<Seal> {
-    validate_self_principal_bootstrap_unit(create, authorize)?;
+    validate_self_principal_bootstrap_unit(create, authorize, project)?;
     if signer.signer_did() != &create.actor_id {
         return Err(Error::Protocol(
             "bootstrap Seal signer DID must equal the principal DID".to_owned(),
         ));
     }
 
-    let create_digest = MoveId::new(create.event_digest()?)?;
-    let authorize_digest = MoveId::new(authorize.event_digest()?)?;
+    let create_digest = Hash::new(create.event_digest()?)?;
+    let authorize_digest = Hash::new(authorize.event_digest()?)?;
     let covered = [create_digest, authorize_digest]
         .into_iter()
         .collect::<BTreeSet<_>>();
@@ -439,7 +426,7 @@ pub fn build_self_principal_bootstrap_seal<S: MoveSigner + ?Sized>(
         ));
     }
     let delta = covered.iter().cloned().collect::<Vec<_>>();
-    let state_root = self_principal_bootstrap_state_root(create, authorize)?;
+    let state_root = self_principal_bootstrap_state_root(create, authorize, project)?;
     let control_root = control_event_set_root(&covered)
         .map_err(|error| Error::Protocol(format!("bootstrap Seal coverage root: {error}")))?;
     let completeness_root = arkret_state::control_event_completeness_root(
@@ -454,7 +441,7 @@ pub fn build_self_principal_bootstrap_seal<S: MoveSigner + ?Sized>(
         realm_id: create.realm_id.clone(),
         predecessor_refs: Vec::new(),
         delta: delta.clone(),
-        control_event_set_root: control_root.clone(),
+        control_event_set_root: control_root,
         state_root,
         completeness_root,
         notary_seq: 0,
@@ -465,7 +452,7 @@ pub fn build_self_principal_bootstrap_seal<S: MoveSigner + ?Sized>(
         covered_event_digests: delta,
         previous_state_root: None,
         previous_digest_algorithm: None,
-        notary_signature: NotarySig::Single(MoveSignature {
+        notary_signature: NotarySig::Single(PayloadSignature {
             alg: "EdDSA".to_owned(),
             verification_method: signer.verification_method_id().to_owned(),
             payload_digest: zero_hash,
@@ -492,7 +479,7 @@ pub struct ManagedAgentPcrControlMaterial {
     pub agent_id: Did,
     pub controller_id: Did,
     pub authorization_ref: String,
-    pub covered_event_digests: Vec<MoveId>,
+    pub covered_event_digests: Vec<Hash>,
     pub state_root: Hash,
     pub joined: BTreeMap<CellRef, CellState>,
     /// Sealed effects with their issuer attached, ready for a store that
@@ -502,36 +489,35 @@ pub struct ManagedAgentPcrControlMaterial {
 
 /// Materialize the canonical control state of a managed Agent PCR.
 ///
-/// The delegated create Event carries the same explicit four-effect set as
+/// The delegated create Event derives the same canonical genesis leaf set as
 /// every other Realm bootstrap branch. Every later managed PCR Event likewise
-/// contributes only its signed effects. Keeping this materialization in the
-/// SDK gives the controller-side Seal builder and receiver admission one
-/// byte-identical state-root implementation.
+/// contributes exactly what its registered contract projects. Keeping this
+/// materialization in the SDK gives the controller-side Seal builder and
+/// receiver admission one byte-identical state-root implementation.
 pub fn materialize_managed_agent_pcr_control(
     events: &[Event],
+    project: CellWriteProjector<'_>,
 ) -> Result<ManagedAgentPcrControlMaterial> {
     let managed_cell = CellRef::new(REALM_CREATE_CELL)?;
-    let creates = events
-        .iter()
-        .filter(|event| {
-            event.kind == EventKind::REALM_CREATE
-                && event
-                    .effects
-                    .iter()
-                    .any(|effect| effect.cell == managed_cell)
-        })
-        .collect::<Vec<_>>();
+    // The create-log cell is a derived target now, so "is this the canonical
+    // genesis Event" is a question only the reducer contract can answer.
+    let mut creates = Vec::new();
+    for event in events {
+        if event.kind != EventKind::REALM_CREATE {
+            continue;
+        }
+        let effects = direct_projection(event, project)?;
+        if effects.iter().any(|effect| effect.cell == managed_cell) {
+            creates.push((event, effects));
+        }
+    }
     if creates.len() != 1 {
         return Err(Error::Protocol(
             "managed Agent PCR material requires exactly one canonical create Event".to_owned(),
         ));
     }
-    let create = creates[0];
-    if create.effects != realm_create_effects(create)? {
-        return Err(Error::Protocol(
-            "managed Agent PCR create Event has an invalid Realm create effect set".to_owned(),
-        ));
-    }
+    let (create, create_effects) = &creates[0];
+    let create = *create;
     let controller_id = create.executed_by.clone().ok_or_else(|| {
         Error::Protocol("managed Agent PCR create Event omits executed_by".to_owned())
     })?;
@@ -561,13 +547,14 @@ pub fn materialize_managed_agent_pcr_control(
         .get("notary")
         .cloned()
         .ok_or_else(|| Error::Protocol("managed Agent PCR create omits notary".to_owned()))?;
-    let notary_value: NotaryValue = serde_json::from_value(notary.clone())?;
+    let notary_value: NotaryValue = serde_json::from_value(notary)?;
     notary_value.validate()?;
     if !notary_value.includes_signer_as_primary(&create.actor_id) {
         return Err(Error::Protocol(
             "managed Agent PCR notary must be the Agent DID".to_owned(),
         ));
     }
+    validate_realm_create_projection(create, create_effects)?;
 
     // A managed PCR is itself a control-only Realm. Effectless protocol
     // anchors such as `ak.mls.genesis` still belong to the notarized history:
@@ -590,30 +577,28 @@ pub fn materialize_managed_agent_pcr_control(
     let mut ops_by_cell = BTreeMap::<CellRef, Vec<SealedOp>>::new();
     let mut event_ops = Vec::new();
     for event in included {
-        let move_id = MoveId::new(event.event_digest()?)?;
+        let move_id = Hash::new(event.event_digest()?)?;
         if !covered.insert(move_id.clone()) {
             return Err(Error::Protocol(
                 "managed Agent PCR Event material contains duplicate digests".to_owned(),
             ));
         }
-        // One Event may claim an ordered-log slot at most once: two effects on
+        // Every covered Event -- the create included -- contributes exactly
+        // what its registered contract projects over the signed envelope and
+        // payload. That is what the receiver applies, so deriving anything else
+        // here would fork the root the Seal is compared against.
+        let effects = direct_projection(event, project)?;
+        // One Event may claim an ordered-log slot at most once: two writes on
         // the same `(cell, issuer_seq)` would share this Event's digest, so the
         // §4.2 tie-break could not disambiguate them and it is not a collision
         // between two Events either. Reject before anything reaches a lattice.
-        if let Err(conflict) = ensure_unique_ordered_log_slots(&event.effects) {
+        if let Err(conflict) = ensure_unique_ordered_log_slots(&effects) {
             return Err(Error::Protocol(format!(
                 "managed Agent PCR Event claims ordered-log slot {}#{} twice",
                 conflict.cell, conflict.issuer_seq
             )));
         }
-        // Every covered Event -- the create included -- contributes exactly its
-        // declared `effects[]`. `state_root` recognises explicit effects only
-        // (`authz/event-auth-state-resolution.md` 6.2.1): re-deriving the create
-        // cells from its payload here would fork the root against any receiver
-        // that simply applies the signed effects, which is what `apply_seal`
-        // step 10 does.
-        let ops = event
-            .effects
+        let ops = effects
             .iter()
             .map(|effect| {
                 (
@@ -692,13 +677,14 @@ pub fn materialize_managed_agent_pcr_control(
 
 /// Build and sign a managed Agent PCR Seal with the controller device named
 /// by the accepted Agent DID delegation.
-pub fn build_managed_agent_pcr_event_seal<S: MoveSigner + ?Sized>(
+pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
     events: &[Event],
     predecessor: Option<&Seal>,
     hlc: Hlc,
     signer: &S,
+    project: CellWriteProjector<'_>,
 ) -> Result<Seal> {
-    let material = materialize_managed_agent_pcr_control(events)?;
+    let material = materialize_managed_agent_pcr_control(events, project)?;
     if signer.signer_did() != &material.controller_id {
         return Err(Error::Protocol(
             "managed Agent PCR Seal signer must be the delegated controller".to_owned(),
@@ -756,7 +742,7 @@ pub fn build_managed_agent_pcr_event_seal<S: MoveSigner + ?Sized>(
         realm_id: material.realm_id,
         predecessor_refs,
         delta,
-        control_event_set_root: control_root.clone(),
+        control_event_set_root: control_root,
         state_root: material.state_root,
         completeness_root,
         notary_seq,
@@ -767,7 +753,7 @@ pub fn build_managed_agent_pcr_event_seal<S: MoveSigner + ?Sized>(
         covered_event_digests: material.covered_event_digests,
         previous_state_root: None,
         previous_digest_algorithm: None,
-        notary_signature: NotarySig::Single(MoveSignature {
+        notary_signature: NotarySig::Single(PayloadSignature {
             alg: "EdDSA".to_owned(),
             verification_method: signer.verification_method_id().to_owned(),
             payload_digest: zero_hash,
@@ -786,28 +772,33 @@ pub fn build_managed_agent_pcr_event_seal<S: MoveSigner + ?Sized>(
     Ok(seal)
 }
 
-/// Join every covered Event's declared `effects[]` and compute the governance
+/// Join every covered Event's derived cell writes and compute the governance
 /// `state_root`.
 ///
-/// `state_root` recognises **explicit effects only**: state a reducer derives
-/// privately, without it appearing in some `effects[]`, MUST NOT enter the root
-/// (`authz/event-auth-state-resolution.md` 6.2.1). That makes this the single
-/// implementation for producer-side Seal building and receiver-side
-/// recomputation: both consume the same signed bytes.
-fn state_root_from_effects(realm_id: &RealmId, covered: &[(&Event, MoveId)]) -> Result<Hash> {
+/// Producer-side Seal building and receiver-side recomputation must agree, and
+/// under v1 the only statement of what an Event writes is the registered
+/// reducer contract evaluated over its signed `kind + payload`. So both sides
+/// run the same projection over the same signed bytes; nothing a producer could
+/// have written down participates.
+fn state_root_from_projection(
+    realm_id: &RealmId,
+    covered: &[(&Event, Hash)],
+    project: CellWriteProjector<'_>,
+) -> Result<Hash> {
     let mut ops_by_cell = BTreeMap::<CellRef, Vec<IssuedOp>>::new();
     for (event, move_id) in covered {
-        // One Event may claim an ordered-log slot at most once: two effects on
+        let effects = direct_projection(event, project)?;
+        // One Event may claim an ordered-log slot at most once: two writes on
         // the same `(cell, issuer_seq)` would share this Event's digest, so the
         // 4.2 tie-break cannot disambiguate them and it is not a collision
         // between two Events either. Reject before anything reaches a lattice.
-        if let Err(conflict) = ensure_unique_ordered_log_slots(&event.effects) {
+        if let Err(conflict) = ensure_unique_ordered_log_slots(&effects) {
             return Err(Error::Protocol(format!(
                 "bootstrap Event claims ordered-log slot {}#{} twice",
                 conflict.cell, conflict.issuer_seq
             )));
         }
-        for effect in &event.effects {
+        for effect in &effects {
             ops_by_cell
                 .entry(effect.cell.clone())
                 .or_default()
@@ -856,9 +847,13 @@ fn state_root_from_effects(realm_id: &RealmId, covered: &[(&Event, MoveId)]) -> 
         .map_err(|error| Error::Protocol(format!("bootstrap state root: {error}")))
 }
 
-fn self_principal_bootstrap_state_root(create: &Event, authorize: &Event) -> Result<Hash> {
-    let create_digest = MoveId::new(create.event_digest()?)?;
-    let authorize_digest = MoveId::new(authorize.event_digest()?)?;
+fn self_principal_bootstrap_state_root(
+    create: &Event,
+    authorize: &Event,
+    project: CellWriteProjector<'_>,
+) -> Result<Hash> {
+    let create_digest = Hash::new(create.event_digest()?)?;
+    let authorize_digest = Hash::new(authorize.event_digest()?)?;
     if create_digest == authorize_digest {
         return Err(Error::Protocol(
             "bootstrap Event digests must be distinct".to_owned(),
@@ -885,16 +880,21 @@ fn self_principal_bootstrap_state_root(create: &Event, authorize: &Event) -> Res
     }
 
     // Both bootstrap Events are in the Seal `delta`, so both contribute their
-    // effects. Omitting the authorize Event would leave the device
+    // derived writes. Omitting the authorize Event would leave the device
     // authorization cell out of the root that `apply_seal` step 11 compares
     // byte-for-byte.
-    state_root_from_effects(
+    state_root_from_projection(
         &create.realm_id,
         &[(create, create_digest), (authorize, authorize_digest)],
+        project,
     )
 }
-pub fn validate_self_principal_bootstrap_unit(create: &Event, authorize: &Event) -> Result<()> {
-    validate_self_principal_pcr_create(create, true)?;
+pub fn validate_self_principal_bootstrap_unit(
+    create: &Event,
+    authorize: &Event,
+    project: CellWriteProjector<'_>,
+) -> Result<()> {
+    validate_self_principal_pcr_create(create, true, project)?;
     if authorize.kind != EventKind::DEVICE_AUTHORIZE
         || authorize.realm_id != create.realm_id
         || authorize.actor_id != create.actor_id
@@ -905,7 +905,6 @@ pub fn validate_self_principal_bootstrap_unit(create: &Event, authorize: &Event)
         || authorize.auth_context.is_some()
         || authorize.seal_basis.is_some()
         || !authorize.preconditions.is_empty()
-        || !authorize.effects.is_empty()
         || authorize.executed_by.is_none()
         || authorize.authorization_ref.is_none()
         || authorize.applet_id.is_some()
@@ -957,10 +956,30 @@ pub fn validate_self_principal_bootstrap_unit(create: &Event, authorize: &Event)
             "bootstrap authorize proof does not belong to its enrollment authority".to_owned(),
         ));
     }
+    // The second slot used to be pinned by requiring an empty producer-written
+    // effect array. v1 has no such array, so the equivalent statement is that
+    // the registered contract derives exactly the one device-authorization
+    // cell for this principal and device -- an authoritative claim the old
+    // emptiness check could never make.
+    let authorize_effects = direct_projection(authorize, project)?;
+    let device_cell = CellRef::new(format!(
+        "ak:cell:ak.component.device.authorization.v1:{}",
+        composite_subject(&[payload.principal_id.as_str(), payload.device_id.as_str()])?
+    ))?;
+    if authorize_effects.len() != 1 || authorize_effects[0].cell != device_cell {
+        return Err(Error::Protocol(
+            "bootstrap device authorize does not derive its single device authorization cell"
+                .to_owned(),
+        ));
+    }
     Ok(())
 }
 
-fn validate_self_principal_pcr_create(event: &Event, require_proof: bool) -> Result<()> {
+fn validate_self_principal_pcr_create(
+    event: &Event,
+    require_proof: bool,
+    project: CellWriteProjector<'_>,
+) -> Result<()> {
     let expected_realm_id = RealmId::new(principal_control_realm_id(&event.actor_id))?;
     if event.kind != EventKind::REALM_CREATE
         || event.realm_id != expected_realm_id
@@ -971,7 +990,6 @@ fn validate_self_principal_pcr_create(event: &Event, require_proof: bool) -> Res
         || !event.refs[0].critical
         || event.refs[0].proof.is_some()
         || !event.preconditions.is_empty()
-        || event.effects.len() != 4
         || event.seal_ref.is_some()
         || event.auth_context.is_some()
         || event.seal_basis.is_some()
@@ -1001,12 +1019,7 @@ fn validate_self_principal_pcr_create(event: &Event, require_proof: bool) -> Res
     }
 
     validate_principal_control_realm_payload(event)?;
-    if event.effects != realm_create_effects(event)? {
-        return Err(Error::Protocol(
-            "self principal PCR genesis has an invalid Realm create effect set".to_owned(),
-        ));
-    }
-    Ok(())
+    validate_realm_create_projection(event, &direct_projection(event, project)?)
 }
 
 fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
@@ -1090,11 +1103,17 @@ mod tests {
         verification_method: String,
     }
 
-    impl MoveSigner for FixtureSigner {
-        fn sign_move(&self, _unsigned: &UnsignedMove) -> std::result::Result<Move, WireError> {
-            unreachable!("bootstrap Seal test does not sign Moves")
-        }
+    /// The real evaluator, wired in through the crate's injected projector.
+    ///
+    /// Stubbing it would only prove that this crate agrees with itself; the
+    /// point of these assertions is that the event-kind registry derives the
+    /// genesis leaf sets the bootstrap branches name.
+    fn registry_projection(event: &Event) -> std::result::Result<Vec<ProjectedCellWrite>, String> {
+        arkret_schema::project_registered_cell_writes(event, arkret_canonical::DigestSuite::Sha256)
+            .map_err(|error| error.to_string())
+    }
 
+    impl PayloadSigner for FixtureSigner {
         fn signer_did(&self) -> &Did {
             &self.did
         }
@@ -1106,8 +1125,8 @@ mod tests {
         fn sign_payload(
             &self,
             canonical_bytes: &[u8],
-        ) -> std::result::Result<MoveSignature, WireError> {
-            Ok(MoveSignature {
+        ) -> std::result::Result<PayloadSignature, WireError> {
+            Ok(PayloadSignature {
                 alg: "EdDSA".to_owned(),
                 verification_method: self.verification_method.clone(),
                 payload_digest: Hash::new(arkret_canonical::canonical::sha256_digest(
@@ -1135,7 +1154,7 @@ mod tests {
     }
 
     fn bootstrap_unit() -> (Event, Event) {
-        let mut create = build_self_principal_pcr_create(input()).unwrap();
+        let mut create = build_self_principal_pcr_create(input(), &registry_projection).unwrap();
         attach_fixture_proof(
             &mut create,
             "did:key:z6MkvMW3tjuvW6PqYiX8dLRNwZWyGhxe3biRDjA4ZPiBaFaJ#z6MkvMW3tjuvW6PqYiX8dLRNwZWyGhxe3biRDjA4ZPiBaFaJ",
@@ -1170,7 +1189,7 @@ mod tests {
         };
         let mut authorize = Event::new(
             EventKind::DEVICE_AUTHORIZE,
-            create.realm_id.clone(),
+            create.scope_ref.clone(),
             create.actor_id.clone(),
             1,
             Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
@@ -1207,7 +1226,7 @@ mod tests {
 
     #[test]
     fn builder_emits_only_the_closed_unsigned_root_shape() {
-        let event = build_self_principal_pcr_create(input()).unwrap();
+        let event = build_self_principal_pcr_create(input(), &registry_projection).unwrap();
 
         assert_eq!(event.kind, EventKind::REALM_CREATE);
         assert_eq!(event.actor_seq, 0);
@@ -1215,9 +1234,29 @@ mod tests {
         assert!(event.proofs.is_empty());
         assert_eq!(event.refs.len(), 1);
         assert_eq!(event.refs[0].role, DID_INCEPTION_REF_ROLE);
-        assert_eq!(event.effects, realm_create_effects(&event).unwrap());
-        assert_eq!(event.effects.len(), 4);
-        validate_self_principal_pcr_create(&event, false).unwrap();
+        assert_eq!(event.scope_ref.realm_id(), &event.realm_id);
+        assert!(event.scope_ref.circle_id().is_none());
+        // Nothing on the wire says what this Event writes; the registry
+        // contract does, and it must land on exactly the genesis leaf set.
+        let effects = direct_projection(&event, &registry_projection).unwrap();
+        assert_eq!(
+            effects
+                .iter()
+                .map(|effect| effect.cell.as_str().to_owned())
+                .collect::<BTreeSet<_>>(),
+            [
+                REALM_METADATA_CELL.to_owned(),
+                format!(
+                    "ak:cell:ak.component.member.state.v1:{}",
+                    event.actor_id.as_str()
+                ),
+                REALM_CREATE_CELL.to_owned(),
+                REALM_NOTARY_CELL.to_owned(),
+            ]
+            .into_iter()
+            .collect::<BTreeSet<_>>()
+        );
+        validate_self_principal_pcr_create(&event, false, &registry_projection).unwrap();
     }
 
     #[test]
@@ -1225,7 +1264,7 @@ mod tests {
         let mut wrong_realm = input();
         wrong_realm.realm_id =
             RealmId::new("ak:realm:01904100-0000-7000-8000-000000000002").unwrap();
-        assert!(build_self_principal_pcr_create(wrong_realm).is_err());
+        assert!(build_self_principal_pcr_create(wrong_realm, &registry_projection).is_err());
 
         let mut indirect = input();
         indirect.did_inception_ref.proof = Some(SemanticRefProof {
@@ -1238,28 +1277,71 @@ mod tests {
             leaf_index: 0,
             leaf_count: 1,
         });
-        assert!(build_self_principal_pcr_create(indirect).is_err());
+        assert!(build_self_principal_pcr_create(indirect, &registry_projection).is_err());
     }
 
     #[test]
     fn bootstrap_authorize_must_continue_the_genesis_actor_chain_exactly() {
         let (create, authorize) = bootstrap_unit();
-        validate_self_principal_bootstrap_unit(&create, &authorize).unwrap();
-        let request =
-            self_principal_bootstrap_submit_request(create.clone(), authorize.clone()).unwrap();
-        assert!(request.event.is_none());
-        assert_eq!(request.events.len(), 2);
+        validate_self_principal_bootstrap_unit(&create, &authorize, &registry_projection).unwrap();
+        let request = self_principal_bootstrap_submit_request(
+            submission(create.clone()),
+            submission(authorize.clone()),
+            &registry_projection,
+        )
+        .unwrap();
+        let EventsSubmitRequestBody::Batch(batch) = request else {
+            panic!("the bootstrap unit is always a two-slot batch")
+        };
+        assert_eq!(batch.events.len(), 2);
 
         let mut missing = authorize.clone();
         missing.prev_refs.clear();
-        assert!(validate_self_principal_bootstrap_unit(&create, &missing).is_err());
+        assert!(
+            validate_self_principal_bootstrap_unit(&create, &missing, &registry_projection)
+                .is_err()
+        );
 
         let mut unrelated = authorize;
         unrelated.prev_refs = vec![
             create.event_id.clone(),
             EventId::new("ak:event:01904100-0000-7000-8000-000000000099").unwrap(),
         ];
-        assert!(validate_self_principal_bootstrap_unit(&create, &unrelated).is_err());
+        assert!(
+            validate_self_principal_bootstrap_unit(&create, &unrelated, &registry_projection)
+                .is_err()
+        );
+    }
+
+    /// A lease bound to the Event it travels with. The bootstrap helper only
+    /// checks the actor/scope binding, so the remaining members are fixtures.
+    fn submission(event: Event) -> EventInitialSubmission {
+        let lease = AuthorizationLease {
+            authorization_lease_id: AuthorizationLeaseId::new(
+                "ak:authorization_lease:01904100-0000-7000-8000-0000000000f1",
+            )
+            .unwrap(),
+            basis_ref: LeaseBasisRef::Seal(
+                SealId::new(format!("ak:seal:sha256:{}", "11".repeat(32))).unwrap(),
+            ),
+            actor_id: event.actor_id.clone(),
+            device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
+            scope_ref: event.scope_ref.clone(),
+            action: "ak.realm.admin".to_owned(),
+            risk_tier: RiskTier::High,
+            issued_at: event.created_at,
+            expires_at: event.created_at + chrono::Duration::minutes(5),
+            authority_set_ref: AuthoritySetRef {
+                authority_set_id: "ak:authority_set:bootstrap".to_owned(),
+                authority_set_digest: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
+            },
+            proofs: Vec::new(),
+        };
+        EventInitialSubmission {
+            event,
+            authorization_lease: lease,
+            cba_proof_bundles: Vec::new(),
+        }
     }
 
     #[test]
@@ -1275,6 +1357,7 @@ mod tests {
             &authorize,
             Hlc::new("01970e589d21-0006-a13f9c2e").unwrap(),
             &signer,
+            &registry_projection,
         )
         .unwrap();
 
@@ -1297,15 +1380,15 @@ mod tests {
         assert_eq!(signature.verification_method, signer.verification_method);
     }
 
-    #[test]
-    fn managed_agent_seal_covers_effectless_mls_genesis_with_controller_signature() {
+    fn managed_agent_pcr_create() -> Event {
         let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-0000000000a1").unwrap();
         let agent = Did::new("did:web:agent.example").unwrap();
         let controller = Did::new("did:web:controller.example").unwrap();
-        let authorization_ref = format!("{agent}#managed-controller");
         let mut create = Event::new(
             EventKind::REALM_CREATE,
-            realm_id.clone(),
+            ScopeRef::Realm {
+                realm_id: realm_id.clone(),
+            },
             agent.clone(),
             0,
             Hlc::new("01970e589d21-0007-a13f9c2e").unwrap(),
@@ -1320,30 +1403,80 @@ mod tests {
         )
         .unwrap();
         create.event_id = EventId::new("ak:event:01904100-0000-7000-8000-0000000000a1").unwrap();
-        create.executed_by = Some(controller.clone());
-        create.authorization_ref = Some(authorization_ref.clone());
-        create.effects = realm_create_effects(&create).unwrap();
+        create.authorization_ref = Some(format!("{agent}#managed-controller"));
+        create.executed_by = Some(controller);
+        create
+    }
 
-        let mut genesis = Event::new(
+    #[test]
+    fn managed_agent_material_derives_the_genesis_leaf_set_from_the_registry() {
+        let create = managed_agent_pcr_create();
+        let material = materialize_managed_agent_pcr_control(
+            std::slice::from_ref(&create),
+            &registry_projection,
+        )
+        .unwrap();
+
+        assert_eq!(material.agent_id, create.actor_id);
+        assert_eq!(
+            material
+                .joined
+                .keys()
+                .map(CellRef::as_str)
+                .collect::<Vec<_>>(),
+            vec![
+                "ak:cell:ak.component.member.state.v1:did:web:agent.example",
+                REALM_NOTARY_CELL,
+                REALM_CREATE_CELL,
+                REALM_METADATA_CELL,
+            ]
+        );
+
+        // Nothing the producer sends can move a target any more, so the
+        // remaining way to break the genesis leaf set is a payload the
+        // contract cannot evaluate.
+        let mut no_notary = create;
+        no_notary
+            .payload
+            .get_mut("object")
+            .and_then(Value::as_object_mut)
+            .unwrap()
+            .remove("notary");
+        assert!(
+            materialize_managed_agent_pcr_control(&[no_notary], &registry_projection).is_err(),
+            "a Realm create whose notary source is missing must fail closed"
+        );
+    }
+
+    #[test]
+    fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
+        let create = managed_agent_pcr_create();
+        let controller = create.executed_by.clone().unwrap();
+        let mut anchor = Event::new(
             EventKind::MLS_GENESIS,
-            create.realm_id.clone(),
+            create.scope_ref.clone(),
             create.actor_id.clone(),
             1,
             Hlc::new("01970e589d21-0008-a13f9c2e").unwrap(),
             serde_json::json!({}),
         )
         .unwrap();
-        genesis.event_id = EventId::new("ak:event:01904100-0000-7000-8000-0000000000a2").unwrap();
-        genesis.executed_by = Some(controller.clone());
-        genesis.authorization_ref = Some(authorization_ref);
-        assert!(genesis.effects.is_empty());
+        anchor.event_id = EventId::new("ak:event:01904100-0000-7000-8000-0000000000a2").unwrap();
+        anchor.executed_by = Some(controller.clone());
+        anchor.authorization_ref = create.authorization_ref.clone();
 
-        let mut malformed_create = create.clone();
-        malformed_create.effects[0].op.value = Some(serde_json::json!({}));
-        assert!(
-            materialize_managed_agent_pcr_control(&[malformed_create]).is_err(),
-            "managed PCR materialization must reject a non-canonical Realm create effect value"
-        );
+        // The subject here is this crate's Seal arithmetic, not the registry:
+        // a covered Event that derives no cell write must still move the
+        // coverage root while leaving the state root alone. The projector is
+        // the injected boundary, so it is stubbed for the anchor slot -- the
+        // real `ak.mls.genesis` contract registers three writes in v1.
+        let anchor_id = anchor.event_id.clone();
+        let project = |event: &Event| {
+            if event.event_id == anchor_id {
+                return Ok(Vec::new());
+            }
+            registry_projection(event)
+        };
 
         let signer = FixtureSigner {
             did: controller.clone(),
@@ -1352,24 +1485,26 @@ mod tests {
             ),
         };
         let first = build_managed_agent_pcr_event_seal(
-            &[create.clone()],
+            std::slice::from_ref(&create),
             None,
             Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
             &signer,
+            &project,
         )
         .unwrap();
         let successor = build_managed_agent_pcr_event_seal(
-            &[create, genesis.clone()],
+            &[create, anchor.clone()],
             Some(&first),
             Hlc::new("01970e589d21-000a-a13f9c2e").unwrap(),
             &signer,
+            &project,
         )
         .unwrap();
 
         assert_eq!(successor.predecessor_refs, vec![first.id.clone()]);
         assert_eq!(successor.notary_seq, 1);
         assert_eq!(successor.delta.len(), 1);
-        assert_eq!(successor.delta[0].as_str(), genesis.event_digest().unwrap());
+        assert_eq!(successor.delta[0].as_str(), anchor.event_digest().unwrap());
         assert_eq!(successor.covered_event_digests.len(), 2);
         assert_eq!(successor.state_root, first.state_root);
         assert_ne!(
@@ -1418,6 +1553,41 @@ mod tests {
             events.selector_claim.payload["source_refs"][0],
             events.accountability_grant.event_id.as_str()
         );
+
+        // The drafts used to carry hand-stamped effect arrays. They now carry
+        // nothing, so the check that matters is that each signed payload still
+        // derives the cell its provisioning slot is supposed to write.
+        let grant_effects =
+            direct_projection(&events.accountability_grant, &registry_projection).unwrap();
+        assert_eq!(
+            grant_effects
+                .iter()
+                .map(|effect| effect.cell.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                format!(
+                    "ak:cell:ak.component.identity.accountability.v1:{}",
+                    payload.cell_subject().unwrap()
+                )
+                .as_str()
+            ]
+        );
+        let selector_effects =
+            direct_projection(&events.selector_claim, &registry_projection).unwrap();
+        assert_eq!(
+            selector_effects
+                .iter()
+                .map(|effect| effect.cell.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                format!(
+                    "ak:cell:ak.component.agent.selector_claim.v1:{}",
+                    composite_subject(&[controller.as_str(), "summary"]).unwrap()
+                )
+                .as_str()
+            ]
+        );
+
         assert_eq!(
             serde_json::to_value(events).unwrap()["accountability_grant"]["created_at"],
             "2026-07-18T01:02:03.000Z"

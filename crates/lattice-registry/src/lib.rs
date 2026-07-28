@@ -42,7 +42,7 @@ pub use types::*;
 mod tests {
     use arkret_state::lattice::LatticeKind as SdkLatticeKind;
     use arkret_state::{BottomMode, CellRegistry, CellState, SealedOp};
-    use arkret_wire::{CellRef, LatticeOp, LatticeOpType, MoveId, RealmId, composite_subject};
+    use arkret_wire::{CellRef, Hash, LatticeOp, LatticeOpType, RealmId, composite_subject};
     use serde_json::json;
 
     use super::*;
@@ -132,7 +132,7 @@ mod tests {
                 .unwrap();
         let binding = registry.resolve(&realm_id, &cell).unwrap();
         let invite = SealedOp::new(
-            MoveId::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
+            Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
             LatticeOp {
                 op_type: LatticeOpType::Transition,
                 tag: None,
@@ -175,7 +175,7 @@ mod tests {
         .unwrap();
         let binding = sdk_registry.resolve(&realm_id, &cell).unwrap();
         let pending = SealedOp::new(
-            MoveId::new(format!("sha256:{}", "12".repeat(32))).unwrap(),
+            Hash::new(format!("sha256:{}", "12".repeat(32))).unwrap(),
             LatticeOp {
                 op_type: LatticeOpType::Transition,
                 tag: None,
@@ -187,7 +187,7 @@ mod tests {
             },
         );
         let accepted = SealedOp::new(
-            MoveId::new(format!("sha256:{}", "13".repeat(32))).unwrap(),
+            Hash::new(format!("sha256:{}", "13".repeat(32))).unwrap(),
             LatticeOp {
                 op_type: LatticeOpType::Transition,
                 tag: None,

@@ -1,102 +1,62 @@
-use arkret_identifiers::{CellRef, Did, Hlc, RealmId};
+use arkret_identifiers::{Did, Hlc};
 use arkret_models_collaboration::events_payloads::device_identity::DeviceAuthorizePayload;
 use arkret_models_identity::CrossSigningPublish;
-use arkret_wire::{Effect, Event, LatticeOp, LatticeOpType, composite_subject};
+use arkret_wire::{Event, ScopeRef};
 use chrono::{DateTime, Utc};
 
 use crate::Result;
 
-const CROSS_SIGNING_PUBLISH_CELL_FAMILY: &str = "ak.component.cross_signing.publish.v1";
-const DEVICE_AUTHORIZATION_CELL_FAMILY: &str = "ak.component.device.authorization.v1";
-
-/// Author a canonical `ak.cross_signing.publish` control Event, including the
-/// spec-owned CAS-register effect. Consumers only provide live coordinates;
-/// Event defaults, wire time and cell subject construction remain in the
-/// event-draft owner.
+/// Author a canonical `ak.cross_signing.publish` control Event.
+///
+/// The reducer target and lattice operation are derived by the receiver from
+/// the registered contract, so the draft carries only the signed envelope and
+/// payload.
 pub fn build_cross_signing_publish_event_at(
-    realm_id: RealmId,
+    scope_ref: ScopeRef,
     actor_id: Did,
     actor_seq: u64,
     hlc: Hlc,
     payload: CrossSigningPublish,
     created_at: DateTime<Utc>,
 ) -> Result<Event> {
-    let expected_previous_generation = payload.expected_previous_generation.to_string();
-    let subject = composite_subject(&[
-        payload.principal_id.as_str(),
-        expected_previous_generation.as_str(),
-    ])?;
     let payload_value = serde_json::to_value(&payload)?;
-    let mut event = Event::new_at(
+    let event = Event::new_at(
         arkret_wire::events::EventKind::CROSS_SIGNING_PUBLISH,
-        realm_id,
+        scope_ref,
         actor_id,
         actor_seq,
         hlc,
-        payload_value.clone(),
+        payload_value,
         created_at,
     )?;
-    event.effects = vec![Effect {
-        cell: CellRef::new(format!(
-            "ak:cell:{CROSS_SIGNING_PUBLISH_CELL_FAMILY}:{subject}"
-        ))?,
-        op: LatticeOp {
-            op_type: LatticeOpType::Set,
-            tag: None,
-            value: Some(payload_value),
-            from: None,
-            to: None,
-            reason: None,
-            // CAS registers have no ordered-log issuer slot.
-            issuer_seq: None,
-        },
-    }];
     Ok(event)
 }
 
-/// Author a canonical `ak.device.authorize` control Event, including the
-/// spec-owned principal/device composite OR-set effect.
+/// Author a canonical `ak.device.authorize` control Event.
 pub fn build_device_authorize_event_at(
-    realm_id: RealmId,
+    scope_ref: ScopeRef,
     actor_id: Did,
     actor_seq: u64,
     hlc: Hlc,
     payload: DeviceAuthorizePayload,
     created_at: DateTime<Utc>,
 ) -> Result<Event> {
-    let subject = composite_subject(&[payload.principal_id.as_str(), payload.device_id.as_str()])?;
-    let tag = payload.device_id.to_string();
     let payload_value = serde_json::to_value(&payload)?;
-    let mut event = Event::new_at(
+    let event = Event::new_at(
         arkret_wire::events::EventKind::DEVICE_AUTHORIZE,
-        realm_id,
+        scope_ref,
         actor_id,
         actor_seq,
         hlc,
-        payload_value.clone(),
+        payload_value,
         created_at,
     )?;
-    event.effects = vec![Effect {
-        cell: CellRef::new(format!(
-            "ak:cell:{DEVICE_AUTHORIZATION_CELL_FAMILY}:{subject}"
-        ))?,
-        op: LatticeOp {
-            op_type: LatticeOpType::Add,
-            tag: Some(tag),
-            value: Some(payload_value),
-            from: None,
-            to: None,
-            reason: None,
-            // OR-set identity is carried by `tag`, not `issuer_seq`.
-            issuer_seq: None,
-        },
-    }];
     Ok(event)
 }
 
 #[cfg(test)]
 mod tests {
-    use arkret_identifiers::{DeviceId, TypedTrustDomainId};
+    use arkret_identifiers::{DeviceId, RealmId, TypedTrustDomainId};
     use arkret_models_collaboration::events_payloads::SignatureMaterial;
     use arkret_models_collaboration::events_payloads::device_identity::{
         DeviceCrossSigningBinding, DeviceOrPrincipalRef,
@@ -104,12 +64,35 @@ mod tests {
     use arkret_models_identity::{
         KeyFormat, PublishedKey, SubordinateSignedKey, SubordinateSignedKeyBinding,
     };
-    use arkret_wire::{Base64UrlString, DidUrl, NonEmptyString};
+    use arkret_schema::{or_set_dot, project_registered_cell_writes};
+    use arkret_wire::cell::composite_subject;
+    use arkret_wire::{
+        Base64UrlString, CellRef, DidUrl, LatticeOp, LatticeOpType, NonEmptyString,
+        ProjectedCellWrite, ProjectedOp,
+    };
+    use serde_json::{Value, json};
 
     use super::*;
 
     fn did(value: &str) -> Did {
         Did::new(value.to_owned()).unwrap()
+    }
+
+    fn scope() -> ScopeRef {
+        ScopeRef::Realm {
+            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+        }
+    }
+
+    /// Every cell write the registry derives for `event`; a v1 producer writes
+    /// no reducer instruction of its own.
+    fn project(event: &Event) -> Vec<ProjectedCellWrite> {
+        project_registered_cell_writes(event, arkret_canonical::DigestSuite::Sha256)
+            .expect("the registered contract must be evaluable")
+    }
+
+    fn payload_object(event: &Event) -> Value {
+        Value::Object(event.payload.clone().into_iter().collect())
     }
 
     fn published_key(kid: &str) -> PublishedKey {
@@ -138,9 +121,8 @@ mod tests {
     }
 
     #[test]
-    fn device_control_event_authoring_owns_effects_and_millis_time() {
+    fn device_control_events_project_registered_writes_and_keep_millis_time() {
         let principal = did("did:web:alice.example");
-        let realm = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
         let created_at = DateTime::parse_from_rfc3339("2026-07-18T01:02:03.987654Z")
             .unwrap()
             .with_timezone(&Utc);
@@ -155,7 +137,7 @@ mod tests {
             issued_at: created_at,
         };
         let publish_event = build_cross_signing_publish_event_at(
-            realm.clone(),
+            scope(),
             principal.clone(),
             7,
             Hlc::new("019b00000000-0001-a13f9c2e").unwrap(),
@@ -163,14 +145,22 @@ mod tests {
             created_at,
         )
         .unwrap();
-        assert_eq!(publish_event.effects.len(), 1);
-        assert_eq!(publish_event.effects[0].op.op_type, LatticeOpType::Set);
-        assert_eq!(publish_event.effects[0].op.issuer_seq, None);
-        assert!(
-            publish_event.effects[0]
-                .cell
-                .as_str()
-                .starts_with("ak:cell:ak.component.cross_signing.publish.v1:")
+        // `cas_register` + `set(payload)`: the registry derives the whole signed
+        // payload as the register value, and the tuple subject is
+        // `(principal_id, expected_previous_generation)`.
+        let mut publish_op = LatticeOp::empty();
+        publish_op.op_type = LatticeOpType::Set;
+        publish_op.value = Some(payload_object(&publish_event));
+        let publish_subject = composite_subject(&[json!(principal.as_str()), json!(0)]).unwrap();
+        assert_eq!(
+            project(&publish_event),
+            vec![ProjectedCellWrite {
+                cell: CellRef::new(format!(
+                    "ak:cell:ak.component.cross_signing.publish.v1:{publish_subject}"
+                ))
+                .unwrap(),
+                op: ProjectedOp::Direct(publish_op),
+            }]
         );
         assert_eq!(publish_event.created_at.timestamp_subsec_millis(), 987);
 
@@ -204,26 +194,33 @@ mod tests {
             recovery_session_id: None,
         };
         let authorize_event = build_device_authorize_event_at(
-            realm,
-            principal,
+            scope(),
+            principal.clone(),
             8,
             Hlc::new("019b00000000-0002-a13f9c2e").unwrap(),
             authorize,
             created_at,
         )
         .unwrap();
-        assert_eq!(authorize_event.effects.len(), 1);
-        assert_eq!(authorize_event.effects[0].op.op_type, LatticeOpType::Add);
-        assert_eq!(authorize_event.effects[0].op.issuer_seq, None);
+        let mut authorize_op = LatticeOp::empty();
+        authorize_op.op_type = LatticeOpType::Add;
+        // The or_set tag is the write's canonical dot, not the device id:
+        // `event-and-patch.md` §2.4.2 fixes it to
+        // `"ak:event:" + event_id + ":" + write_index`, and this contract's
+        // single write sits at index 0.
+        authorize_op.tag = Some(or_set_dot(authorize_event.event_id.as_str(), 0));
+        authorize_op.value = Some(payload_object(&authorize_event));
+        let authorize_subject =
+            composite_subject(&[principal.as_str(), device_id.as_str()]).unwrap();
         assert_eq!(
-            authorize_event.effects[0].op.tag.as_deref(),
-            Some(device_id.as_str())
-        );
-        assert!(
-            authorize_event.effects[0]
-                .cell
-                .as_str()
-                .starts_with("ak:cell:ak.component.device.authorization.v1:")
+            project(&authorize_event),
+            vec![ProjectedCellWrite {
+                cell: CellRef::new(format!(
+                    "ak:cell:ak.component.device.authorization.v1:{authorize_subject}"
+                ))
+                .unwrap(),
+                op: ProjectedOp::Direct(authorize_op),
+            }]
         );
     }
 }

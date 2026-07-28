@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::{
     AppletIdentifier, AuditBindingId, AuditReleaseId, AuditSessionId, CellRef, Did, DidUrl,
-    EffectiveScope, EventId, Hash, NonEmptyJsonObject, NonEmptyString, RealmId,
+    EventId, Hash, NonEmptyJsonObject, NonEmptyString, RealmId, ScopeRef,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -119,7 +119,7 @@ impl AuditBindingStatus {
 pub struct AuditAppletBindingPayload {
     pub binding_id: AuditBindingId,
     pub realm_id: RealmId,
-    pub effective_scope: EffectiveScope,
+    pub effective_scope: ScopeRef,
     pub applet_id: AppletIdentifier,
     pub service_id: Did,
     pub status: AuditBindingStatus,
@@ -186,7 +186,7 @@ pub struct AuditReleasePayload {
     pub session_id: AuditSessionId,
     pub binding_id: AuditBindingId,
     pub realm_id: RealmId,
-    pub effective_scope: EffectiveScope,
+    pub effective_scope: ScopeRef,
     pub applet_id: AppletIdentifier,
     pub service_id: Did,
     pub release_mode: AuditReleaseMode,
@@ -244,7 +244,7 @@ pub struct AuditSessionPayload {
     pub session_id: AuditSessionId,
     pub binding_id: AuditBindingId,
     pub realm_id: RealmId,
-    pub effective_scope: EffectiveScope,
+    pub effective_scope: ScopeRef,
     pub session_state: AuditSessionStage,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applet_id: Option<AppletIdentifier>,

@@ -76,13 +76,17 @@ event_payload_accessors! {
 mod tests {
     use std::collections::BTreeMap;
 
-    use arkret_wire::{Did, EventId, EventRequirements, Hlc, RealmId};
+    use arkret_wire::{Did, EventId, EventRequirements, Hlc, RealmId, ScopeRef};
     use serde_json::json;
 
     use super::*;
 
     fn realm() -> RealmId {
         RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+    }
+
+    fn scope() -> ScopeRef {
+        ScopeRef::Realm { realm_id: realm() }
     }
 
     fn alice() -> Did {
@@ -94,15 +98,14 @@ mod tests {
             event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
             kind: EventKind::MESSAGE_CREATE.into(),
             realm_id: realm(),
+            scope_ref: scope(),
             actor_id: alice(),
             actor_seq: 1,
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
             prev_refs: Vec::new(),
-            effective_scope: None,
             refs: Vec::new(),
             preconditions: Vec::new(),
-            effects: Vec::new(),
             seal_ref: None,
             auth_context: None,
             seal_basis: None,
@@ -121,7 +124,6 @@ mod tests {
             actor_kind: None,
             unsigned: BTreeMap::new(),
             causal_refs: Vec::new(),
-            conflict_keys_digest: None,
             proofs: Vec::new(),
         }
     }

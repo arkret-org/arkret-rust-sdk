@@ -9,19 +9,13 @@
 //! exercise the reject paths (bit flip, truncated key, alg gate, non-empty
 //! payload segment).
 //!
-//! Known profile divergence (reported, deliberately NOT painted over): the
-//! fixture's proof transcript signs a binding object of
-//! `{actor_id, created_at, domain, verification_method, event_digest,
-//! payload_digest}` under a protected header
-//! `{"alg":"EdDSA","kid":...,"typ":"JOSE"}`, while the SDK event-proof
-//! profile (`Proof::canonical_binding_bytes` +
-//! `verify_eddsa_detached_jws_proof`) signs
-//! `{event_digest, actor_id, verification_method, created_at, domain?,
-//! audience?}` under `{"alg":"EdDSA"}` and rejects `typ`/unknown header
-//! members. The SDK therefore cannot verify this vector through its
-//! high-level event-proof verifier; this file pins everything below that
-//! divergence so the canonicalizer / digest / raw-signature layers carry
-//! spec anchors while the transcript question is adjudicated.
+//! The profile divergence this file used to report is gone. The v1 fixture
+//! signs `{context, event_digest, actor_id, verification_method, created_at,
+//! domain}` under `{"alg":"EdDSA"}`, which is the SDK event-proof profile
+//! (`Proof::canonical_binding_bytes` + `verify_eddsa_detached_jws_proof`):
+//! the duplicate `payload_digest` and the `typ`/`kid` header members were
+//! removed by the kernel restructure. So the vector is verified end to end
+//! here, not only below the transcript layer.
 
 use arkret_canonical::{base64url_decode, base64url_encode, canonical};
 use arkret_schema::embedded_json_artifact;
@@ -81,11 +75,6 @@ fn assert_canonical_chain(vector: &Value) {
         canonical::sha256_digest(&event_bytes),
         s(vector, "event_digest"),
         "{name}: event digest drifted"
-    );
-    assert_eq!(
-        canonical::sha256_digest(&event_bytes),
-        s(vector, "payload_digest"),
-        "{name}: payload digest drifted"
     );
 
     let binding_bytes = canonical::canonical_json_bytes(&vector["binding_object"]).unwrap();

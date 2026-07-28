@@ -66,7 +66,7 @@ pub struct AppletRegistrationPayload {
     pub protocols: Vec<String>,
     pub namespaces: BTreeMap<String, Value>,
     pub receive_events: bool,
-    pub receive_ephemeral: bool,
+    pub receive_signals: bool,
     pub rate_limited: bool,
     pub requested_scopes: Vec<String>,
     pub registration_epoch: Hash,
@@ -110,7 +110,7 @@ impl AppletRegistrationPayload {
             protocols: Vec::new(),
             namespaces: BTreeMap::new(),
             receive_events: false,
-            receive_ephemeral: false,
+            receive_signals: false,
             rate_limited: false,
             requested_scopes: Vec::new(),
             registration_epoch,
@@ -141,8 +141,8 @@ impl AppletRegistrationPayload {
         self
     }
 
-    pub fn with_receive_ephemeral(mut self, receive_ephemeral: bool) -> Self {
-        self.receive_ephemeral = receive_ephemeral;
+    pub fn with_receive_signals(mut self, receive_signals: bool) -> Self {
+        self.receive_signals = receive_signals;
         self
     }
 

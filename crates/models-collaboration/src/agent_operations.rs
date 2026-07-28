@@ -1638,7 +1638,7 @@ impl AgentSidecarExchangeControl {
     /// A delivered response set is never a failure: any terminal action with
     /// responses folds to `complete`; empty-response terminals fold to
     /// `failed` with the action-derived failure code.
-    pub fn terminal_outcome(&self) -> Result<Option<AgentSidecarExchangeTerminalOutcome>> {
+    pub fn terminal_result(&self) -> Result<Option<AgentSidecarExchangeTerminalOutcome>> {
         self.validate()?;
         if !self.action.is_terminal() {
             return Ok(None);
@@ -2381,7 +2381,7 @@ mod tests {
             expected_coordinator_agent_id: None,
             coordinator_agent_id: None,
         };
-        let outcome = base.terminal_outcome().unwrap().unwrap();
+        let outcome = base.terminal_result().unwrap().unwrap();
         assert_eq!(outcome.status, AgentSidecarExchangeStatus::Complete);
         assert!(
             outcome.failure_reason_code.is_none(),
@@ -2391,7 +2391,7 @@ mod tests {
         let mut empty_close = base.clone();
         empty_close.action = AgentSidecarExchangeControlAction::Close;
         empty_close.response_event_ids = Some(vec![]);
-        let outcome = empty_close.terminal_outcome().unwrap().unwrap();
+        let outcome = empty_close.terminal_result().unwrap().unwrap();
         assert_eq!(outcome.status, AgentSidecarExchangeStatus::Failed);
         assert_eq!(
             outcome.failure_reason_code.as_deref(),
@@ -2400,7 +2400,7 @@ mod tests {
 
         let mut empty_cancel = base.clone();
         empty_cancel.response_event_ids = Some(vec![]);
-        let outcome = empty_cancel.terminal_outcome().unwrap().unwrap();
+        let outcome = empty_cancel.terminal_result().unwrap().unwrap();
         assert_eq!(
             outcome.failure_reason_code.as_deref(),
             Some(AGENT_SIDECAR_EXCHANGE_FAILURE_CONTROLLER_CANCELLED)
@@ -2414,7 +2414,7 @@ mod tests {
             "fail requires failure_reason_code"
         );
         fail.failure_reason_code = Some(NonEmptyString::new("agent_deactivated").unwrap());
-        let outcome = fail.terminal_outcome().unwrap().unwrap();
+        let outcome = fail.terminal_result().unwrap().unwrap();
         assert_eq!(
             outcome.failure_reason_code.as_deref(),
             Some("agent_deactivated")
@@ -2426,7 +2426,7 @@ mod tests {
         reassign.expected_coordinator_agent_id = Some(fixture_agent());
         reassign.coordinator_agent_id =
             Some(Did::new("did:webvh:z6mkfixture:reviewer.agents.example").unwrap());
-        assert!(reassign.terminal_outcome().unwrap().is_none());
+        assert!(reassign.terminal_result().unwrap().is_none());
         let mut identity_reassign = reassign;
         identity_reassign.coordinator_agent_id = Some(fixture_agent());
         assert!(identity_reassign.validate().is_err());

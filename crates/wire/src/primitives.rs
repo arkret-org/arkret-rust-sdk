@@ -1028,9 +1028,6 @@ impl PayloadProof {
 /// snapshot witnesses, handle claims, which carry their own context values).
 pub const EVENT_PROOF_BINDING_CONTEXT: &str = ProofContextId::EVENT_PROOF_V1;
 
-/// Fixed signing-context domain tag for ephemeral broadcast proof bindings.
-pub const EPHEMERAL_PROOF_BINDING_CONTEXT: &str = ProofContextId::EPHEMERAL_PROOF_V1;
-
 /// Canonical proof kind constants.
 pub mod proof_kind {
     /// Standard actor / device / service detached JWS. Per `encoding.md` §6
@@ -1113,11 +1110,6 @@ impl Proof {
     /// and transcript contain the same byte-identical timestamp string.
     pub fn canonical_binding_bytes(&self, actor_id: &Did) -> Result<Vec<u8>> {
         self.canonical_binding_bytes_with_context(actor_id, EVENT_PROOF_BINDING_CONTEXT)
-    }
-
-    /// Build canonical proof binding bytes for an ephemeral broadcast.
-    pub fn canonical_ephemeral_binding_bytes(&self, actor_id: &Did) -> Result<Vec<u8>> {
-        self.canonical_binding_bytes_with_context(actor_id, EPHEMERAL_PROOF_BINDING_CONTEXT)
     }
 
     fn canonical_binding_bytes_with_context(

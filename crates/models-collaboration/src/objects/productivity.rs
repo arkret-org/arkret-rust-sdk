@@ -9,8 +9,8 @@ use arkret_wire::constants::{
     ACCOUNT_DATA_KEY_SNOOZE, FILE_TRANSFER_SCHEMA,
 };
 use arkret_wire::{
-    BlobId, CallId, CircleId, DeviceId, Did, EffectiveScope, Error, Hash, Hlc, MessageId, RealmId,
-    Result, SpaceId, StrandId, canonical,
+    BlobId, CallId, CircleId, DeviceId, Did, Error, Hash, Hlc, MessageId, RealmId, Result,
+    ScopeRef, SpaceId, StrandId, canonical,
 };
 use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use chrono_tz::Tz;
@@ -1386,7 +1386,7 @@ pub enum FileTransferStatus {
 #[serde(deny_unknown_fields)]
 pub struct BlindIndexQuery {
     pub realm_id: RealmId,
-    pub effective_scope: EffectiveScope,
+    pub effective_scope: ScopeRef,
     pub epoch_id: u64,
     pub index_generation: u64,
     pub blind_tokens: Vec<String>,
@@ -1975,7 +1975,7 @@ pub fn search_index_shard_key(
 pub fn blind_index_token(
     index_key: &[u8],
     realm_id: &RealmId,
-    effective_scope: &EffectiveScope,
+    effective_scope: &ScopeRef,
     epoch_id: u64,
     index_generation: u64,
     term: &str,
@@ -2004,7 +2004,7 @@ pub fn blind_index_token(
 pub fn build_blind_index_query<I, S>(
     index_key: &[u8],
     realm_id: RealmId,
-    effective_scope: EffectiveScope,
+    effective_scope: ScopeRef,
     epoch_id: u64,
     index_generation: u64,
     terms: I,
@@ -3006,10 +3006,10 @@ mod tests {
         let index_key = b"realm local search index key";
         let realm_a = test_realm_id("000000000401");
         let realm_b = test_realm_id("000000000402");
-        let scope_a = EffectiveScope::Realm {
+        let scope_a = ScopeRef::Realm {
             realm_id: realm_a.clone(),
         };
-        let scope_b = EffectiveScope::Realm {
+        let scope_b = ScopeRef::Realm {
             realm_id: realm_b.clone(),
         };
         let token_a =
@@ -3026,7 +3026,7 @@ mod tests {
             blind_index_token(index_key, &realm_a, &scope_a, 7, 12, "Release Plan").unwrap()
         );
 
-        let circle_scope = EffectiveScope::Circle {
+        let circle_scope = ScopeRef::Circle {
             realm_id: realm_a.clone(),
             circle_id: test_circle_id("000000000501"),
         };
@@ -3043,7 +3043,7 @@ mod tests {
         let query = build_blind_index_query(
             b"query search index key",
             realm_id.clone(),
-            EffectiveScope::Realm {
+            ScopeRef::Realm {
                 realm_id: realm_id.clone(),
             },
             42,
@@ -3060,7 +3060,7 @@ mod tests {
         let duplicate = build_blind_index_query(
             b"query search index key",
             realm_id.clone(),
-            EffectiveScope::Realm { realm_id },
+            ScopeRef::Realm { realm_id },
             42,
             3,
             ["alpha", "alpha"],

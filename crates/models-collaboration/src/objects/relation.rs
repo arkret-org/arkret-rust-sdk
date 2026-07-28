@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    CircleId, Did, EffectiveScope, Error, RealmId, ReasonCode, RelationId, RelationKind,
-    RelationState, RelationTruthSourceClass, Result, standard_relation_kind_metadata,
+    CircleId, Did, Error, RealmId, ReasonCode, RelationId, RelationKind, RelationState,
+    RelationTruthSourceClass, Result, ScopeRef, standard_relation_kind_metadata,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -22,7 +22,7 @@ pub struct Relation {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope_circle_id: Option<CircleId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_scope: Option<EffectiveScope>,
+    pub effective_scope: Option<ScopeRef>,
     pub relation_kind: RelationKind,
     pub from_ref: String,
     pub to_ref: String,

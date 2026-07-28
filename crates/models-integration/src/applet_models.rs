@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 
 pub use arkret_wire::AppletIdentifier;
-use arkret_wire::{BlobRef, Did, EffectiveScope, EventId, GrantId, Hash, RealmId};
+use arkret_wire::{BlobRef, Did, EventId, GrantId, Hash, RealmId, ScopeRef};
 use serde::{Deserialize, Serialize};
 
 use crate::applet::AppletPackage;
@@ -173,7 +173,7 @@ pub struct AppletProtocolMetadata {
 #[serde(deny_unknown_fields)]
 pub struct AppletInstallPreviewRequestBody {
     pub applet_package: AppletPackage,
-    pub effective_scope: EffectiveScope,
+    pub effective_scope: ScopeRef,
     pub approval_request: AppletApprovalRequest,
 }
 
@@ -183,7 +183,7 @@ pub struct AppletInstallPreviewRequestBody {
 pub struct AppletInstallRequestBody {
     pub plan_digest: Hash,
     pub applet_package: AppletPackage,
-    pub effective_scope: EffectiveScope,
+    pub effective_scope: ScopeRef,
     pub approved_scopes: Vec<ScopeGrant>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actor_policy: Option<AppletActorPolicy>,

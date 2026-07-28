@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use arkret_models_integration::{
     AppletBridgeErrorClass, AppletBridgeErrorPayload, AppletBridgeVisibilityScope, AppletIdentifier,
 };
-use arkret_wire::{Did, Event, EventKind, Hlc, NonEmptyString, RealmId};
+use arkret_wire::{Did, Event, EventKind, Hlc, NonEmptyString, RealmId, ScopeRef};
 use serde_json::Value;
 
 use crate::{EventDraftError, Result};
@@ -93,7 +93,9 @@ impl AppletBridgeErrorBuilder {
         };
         Ok(Event::new(
             EventKind::APPLET_BRIDGE_ERROR,
-            self.realm_id,
+            ScopeRef::Realm {
+                realm_id: self.realm_id,
+            },
             self.actor_id,
             actor_seq,
             hlc,

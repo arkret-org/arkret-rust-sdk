@@ -13,8 +13,8 @@
 //!   is the validation layer's decision (`schema_violation`), not the parser's.
 //!
 //! - **Closed-set wire enums hard-reject unknown values** (e.g. [`EnvelopeActorKind`],
-//!   [`EffectiveScope`], cursor purpose, subscribe frame kinds): no `#[serde(other)]` catch-all, so
-//!   an unrecognised value fails deserialisation of the surrounding object. These enums gate
+//!   [`ScopeRef`], cursor purpose, subscribe frame kinds): no `#[serde(other)]` catch-all, so an
+//!   unrecognised value fails deserialisation of the surrounding object. These enums gate
 //!   authorization, scope and stream-control decisions; silently mapping an unknown value to a
 //!   default could *widen* what the message is allowed to do. `conformance-profiles.md` requires
 //!   implementations to reject illegal enum values — hard failure is the fail-closed behaviour, and
@@ -37,10 +37,10 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::cba::{Precondition, SealBasis};
 use crate::error::{Error, Result};
 use crate::error_codes::ReasonCode;
 use crate::events::kinds::EventKind;
-use crate::move_event::{Effect, Precondition, SealBasis};
 use crate::primitives::{
     Audience, CriticalExtension, Proof, ProofBindingRequirements, SignatureBindingPayload,
 };
@@ -348,8 +348,13 @@ pub struct Event {
     pub event_id: EventId,
     pub kind: EventKind,
     pub realm_id: RealmId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_scope: Option<EffectiveScope>,
+    /// Producer-declared and producer-signed security scope of this Event.
+    ///
+    /// It is part of the canonical digest transcript: rewriting it invalidates
+    /// every proof. Receivers MUST additionally recompute the scope from the
+    /// payload and accepted references and reject a signed-but-wrong scope
+    /// (`conformance/encoding.md` §6).
+    pub scope_ref: ScopeRef,
     pub actor_id: Did,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub executed_by: Option<Did>,
@@ -373,12 +378,8 @@ pub struct Event {
     pub causal_refs: Vec<Hash>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub preconditions: Vec<Precondition>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub effects: Vec<Effect>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seal_ref: Option<SealId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub conflict_keys_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth_context: Option<AuthContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -474,8 +475,7 @@ struct EventWire {
     pub event_id: EventId,
     pub kind: String,
     pub realm_id: RealmId,
-    #[serde(default)]
-    pub effective_scope: Option<EffectiveScope>,
+    pub scope_ref: ScopeRef,
     pub actor_id: Did,
     #[serde(default)]
     pub executed_by: Option<Did>,
@@ -500,11 +500,7 @@ struct EventWire {
     #[serde(default)]
     pub preconditions: Vec<Precondition>,
     #[serde(default)]
-    pub effects: Vec<Effect>,
-    #[serde(default)]
     pub seal_ref: Option<SealId>,
-    #[serde(default)]
-    pub conflict_keys_digest: Option<Hash>,
     #[serde(default)]
     pub auth_context: Option<AuthContext>,
     #[serde(default)]
@@ -527,7 +523,7 @@ impl TryFrom<EventWire> for Event {
             event_id: wire.event_id,
             kind: EventKind::from_wire(&wire.kind),
             realm_id: wire.realm_id,
-            effective_scope: wire.effective_scope,
+            scope_ref: wire.scope_ref,
             actor_id: wire.actor_id,
             executed_by: wire.executed_by,
             authorization_ref: wire.authorization_ref,
@@ -541,9 +537,7 @@ impl TryFrom<EventWire> for Event {
             refs: wire.refs,
             causal_refs: wire.causal_refs,
             preconditions: wire.preconditions,
-            effects: wire.effects,
             seal_ref: wire.seal_ref,
-            conflict_keys_digest: wire.conflict_keys_digest,
             auth_context: wire.auth_context,
             seal_basis: wire.seal_basis,
             payload: wire.payload,
@@ -562,9 +556,14 @@ impl TryFrom<EventWire> for Event {
     }
 }
 
-/// AKP-0007 (spec b7d35be, schemas/event-envelope.schema.json
-/// `$defs.effective_scope`) reducer-stamped immutable scope binding on
-/// an [`Event`].
+/// Security scope binding used by the protocol wherever a Realm-or-Circle
+/// scope is named (`schemas/event-envelope.schema.json` `$defs.scope_ref` and
+/// the byte-identical `effective_scope` definitions of the object schemas).
+///
+/// On an [`Event`] the value is producer-declared, producer-signed and part of
+/// the canonical digest transcript. On a materialized object projection the
+/// same value is reducer-written and read-only; the shape is identical, so one
+/// type serves both roles and they cannot drift apart.
 ///
 /// The wire form is an internally-tagged JSON object on `kind`:
 /// - `{ "kind": "realm", "realm_id": "ak:realm:..." }`
@@ -575,21 +574,26 @@ impl TryFrom<EventWire> for Event {
 /// fail-closed semantics (treat an unrecognised scope as out-of-scope /
 /// denied, never as Realm-wide). Deserialisation itself stays closed-set: an
 /// unknown `kind` still fails the parse.
+///
+/// `#[serde(deny_unknown_fields)]` is deliberate: the schema declares
+/// `additionalProperties: false` on both variants, and a signed scope that
+/// silently absorbs an unrecognised member would let a producer smuggle
+/// unverified routing data through the digest.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[non_exhaustive]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum EffectiveScope {
-    /// Event was emitted under Realm-default encryption scope.
+pub enum ScopeRef {
+    /// Realm-default security scope.
     Realm { realm_id: RealmId },
-    /// Event was emitted under the named Circle's encryption scope.
+    /// The named Circle's security scope inside `realm_id`.
     Circle {
         realm_id: RealmId,
         circle_id: CircleId,
     },
 }
 
-impl EffectiveScope {
+impl ScopeRef {
     /// The parent Realm of this scope, regardless of variant.
     pub fn realm_id(&self) -> &RealmId {
         match self {
@@ -604,6 +608,19 @@ impl EffectiveScope {
             Self::Circle { circle_id, .. } => Some(circle_id),
         }
     }
+}
+
+/// CBA context a structural submit check runs under.
+///
+/// `Standard` is the fail-closed default: every reducer-input Event must be a
+/// DataEvent or a Control Move. `AnchorUnit` additionally admits the two closed
+/// `seal_basis`-exempt units of `event-auth-state-resolution.md` §5 and MUST NOT
+/// be used for anything else.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum EventSubmitContext {
+    #[default]
+    Standard,
+    AnchorUnit,
 }
 
 impl Event {
@@ -645,10 +662,10 @@ impl Event {
     /// input (otherwise a federated peer independently recomputing the
     /// digest would mismatch the producer's `proof.event_digest`).
     ///
-    /// Kept in lockstep with `conformance/encoding.md` §2 / §6 (v1 set:
-    /// `effective_scope`, `actor_kind`).
-    pub const REDUCER_STAMPED_TOP_LEVEL_FIELDS: [&'static str; 2] =
-        ["effective_scope", "actor_kind"];
+    /// Kept in lockstep with `conformance/encoding.md` §2 / §6. v1 has exactly
+    /// one such field: `actor_kind`. `scope_ref` is producer-signed and MUST
+    /// stay inside the transcript.
+    pub const REDUCER_STAMPED_TOP_LEVEL_FIELDS: [&'static str; 1] = ["actor_kind"];
 
     pub fn digest_payload(&self) -> Result<Value> {
         let mut value = serde_json::to_value(self)?;
@@ -678,9 +695,30 @@ impl Event {
     /// deserialization path) is what prevents an arkret-schema dependency
     /// cycle; do not reintroduce it here.
     pub fn validate_for_submit_structural(&self) -> Result<()> {
-        if self.effective_scope.is_some() {
+        self.validate_for_submit_structural_in_context(EventSubmitContext::Standard)
+    }
+
+    /// [`Event::validate_for_submit_structural`] under an explicit CBA context.
+    ///
+    /// Use [`EventSubmitContext::AnchorUnit`] only for the two closed
+    /// `seal_basis`-exempt anchor units of `event-auth-state-resolution.md` §5:
+    /// the `ak.realm.create` bootstrap with its closed follow-up whitelist, and
+    /// the B-model `ak.device.reanchor` + replacement-authorize unit, which
+    /// fixes its frontier in the payload's `pre_fence_basis` instead.
+    ///
+    /// Deciding whether an Event *is* one of those needs the closed kind
+    /// whitelist, which lives in the registry; this crate does not hold it by
+    /// layering. So the context is a claim by the caller, and the caller owes
+    /// the whitelist check — `arkret_policy::validate_realm_bootstrap_unit` is
+    /// the one that owns it for the ordinary Realm branch. Passing
+    /// `AnchorUnit` for anything else opens a hole this crate cannot see.
+    pub fn validate_for_submit_structural_in_context(
+        &self,
+        context: EventSubmitContext,
+    ) -> Result<()> {
+        if self.scope_ref.realm_id() != &self.realm_id {
             return Err(Error::Protocol(
-                ReasonCode::EFFECTIVE_SCOPE_REDUCER_MANAGED.to_owned(),
+                "event scope_ref.realm_id must equal the envelope realm_id".to_owned(),
             ));
         }
         if self.actor_kind.is_some() {
@@ -706,18 +744,23 @@ impl Event {
             ));
         }
         if self.kind.is_reducer_input() {
-            if self.effects.is_empty() {
-                return Err(Error::Protocol(
-                    "reducer-input events must carry at least one effect".to_owned(),
-                ));
-            }
             let is_data_event = self.seal_ref.is_some()
                 && self.auth_context.is_some()
                 && self.seal_basis.is_none()
                 && self.preconditions.is_empty();
             let is_control_move =
                 self.seal_ref.is_none() && self.auth_context.is_none() && self.seal_basis.is_some();
-            if !is_data_event && !is_control_move {
+            // The §5 anchor units carry no basis field at all: bootstrap has no
+            // accepted Seal to point at, and the B-model re-anchor fixes its
+            // frontier in the payload's `pre_fence_basis`. They are still
+            // required to be empty rather than partially filled, so a malformed
+            // Event cannot smuggle a half-basis through the exemption.
+            let is_anchor_unit = context == EventSubmitContext::AnchorUnit
+                && self.seal_ref.is_none()
+                && self.auth_context.is_none()
+                && self.seal_basis.is_none()
+                && self.preconditions.is_empty();
+            if !is_data_event && !is_control_move && !is_anchor_unit {
                 return Err(Error::Protocol(
                     "reducer-input events must be either DataEvent(seal_ref+auth_context) or Control Move(seal_basis)"
                         .to_owned(),
@@ -727,7 +770,6 @@ impl Event {
             || self.auth_context.is_some()
             || self.seal_basis.is_some()
             || !self.preconditions.is_empty()
-            || !self.effects.is_empty()
         {
             return Err(Error::Protocol(
                 "non-reducer events must not carry CBA reducer fields".to_owned(),
@@ -795,9 +837,13 @@ impl Event {
         Ok(())
     }
 
+    /// Construct an Event in the given signed security scope.
+    ///
+    /// `realm_id` is taken from `scope_ref` so the envelope cannot be built
+    /// with a Realm that disagrees with its own signed scope.
     pub fn new(
         kind: impl Into<String>,
-        realm_id: RealmId,
+        scope_ref: ScopeRef,
         actor_id: Did,
         actor_seq: u64,
         hlc: Hlc,
@@ -805,7 +851,7 @@ impl Event {
     ) -> Result<Self> {
         Self::new_at(
             kind,
-            realm_id,
+            scope_ref,
             actor_id,
             actor_seq,
             hlc,
@@ -822,7 +868,7 @@ impl Event {
     /// object timestamp and its containing Event to share one exact instant.
     pub fn new_at(
         kind: impl Into<String>,
-        realm_id: RealmId,
+        scope_ref: ScopeRef,
         actor_id: Did,
         actor_seq: u64,
         hlc: Hlc,
@@ -832,7 +878,7 @@ impl Event {
         Self::new_with_id_at(
             EventId::new(new_prefixed_uuid7("ak:event:"))?,
             kind,
-            realm_id,
+            scope_ref,
             actor_id,
             actor_seq,
             hlc,
@@ -850,7 +896,7 @@ impl Event {
     pub fn new_with_id_at(
         event_id: EventId,
         kind: impl Into<String>,
-        realm_id: RealmId,
+        scope_ref: ScopeRef,
         actor_id: Did,
         actor_seq: u64,
         hlc: Hlc,
@@ -865,19 +911,17 @@ impl Event {
         Ok(Self {
             event_id,
             kind: EventKind::from_wire(&kind.into()),
-            realm_id,
+            realm_id: scope_ref.realm_id().clone(),
+            scope_ref,
             actor_id,
             actor_seq,
             created_at: canonical::normalize_timestamp_canonical(created_at),
             hlc: Some(hlc),
             prev_refs: Vec::new(),
-            effective_scope: None,
             refs: Vec::new(),
             causal_refs: Vec::new(),
             preconditions: Vec::new(),
-            effects: Vec::new(),
             seal_ref: None,
-            conflict_keys_digest: None,
             auth_context: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
@@ -906,6 +950,10 @@ mod event_wire_surface_tests {
         RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
     }
 
+    fn realm_scope() -> ScopeRef {
+        ScopeRef::Realm { realm_id: realm() }
+    }
+
     fn alice() -> Did {
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
     }
@@ -915,18 +963,16 @@ mod event_wire_surface_tests {
             event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
             kind: "ak.message.create".into(),
             realm_id: realm(),
+            scope_ref: realm_scope(),
             actor_id: alice(),
             actor_seq: 1,
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
             prev_refs: Vec::new(),
-            effective_scope: None,
             refs: Vec::new(),
             causal_refs: Vec::new(),
             preconditions: Vec::new(),
-            effects: Vec::new(),
             seal_ref: None,
-            conflict_keys_digest: None,
             auth_context: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
@@ -951,7 +997,7 @@ mod event_wire_surface_tests {
     fn event_new_serializes_created_at_in_canonical_utc_millisecond_form() {
         let mut event = Event::new(
             "ak.message.create",
-            realm(),
+            realm_scope(),
             alice(),
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
@@ -993,7 +1039,7 @@ mod event_wire_surface_tests {
         let created_at = "2026-06-03T12:34:56.987654Z".parse().unwrap();
         let event = Event::new_at(
             "ak.message.create",
-            realm(),
+            realm_scope(),
             alice(),
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
@@ -1018,7 +1064,7 @@ mod event_wire_surface_tests {
         let event = Event::new_with_id_at(
             event_id.clone(),
             "ak.message.create",
-            realm(),
+            realm_scope(),
             alice(),
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
@@ -1118,23 +1164,60 @@ mod event_wire_surface_tests {
     }
 
     #[test]
-    fn reducer_stamped_fields_do_not_affect_event_digest() {
-        // A reducer-stamped `effective_scope` / `actor_kind` MUST NOT change
-        // the `event_digest`, so a producer signature computed before stamping
-        // still validates on the accepted envelope (and matches a federated
-        // peer's independent recomputation). See `encoding.md` §2 / §6.
+    fn actor_kind_is_the_only_field_outside_the_signed_transcript() {
+        // `actor_kind` is stamped by the reducer AFTER the producer signs, so
+        // it MUST NOT change the `event_digest`; a federated peer recomputing
+        // the digest from the accepted envelope must reach the same value.
+        // See `encoding.md` §2 / §6.
         let event = base_event();
         let baseline = event.event_digest().unwrap();
 
-        let mut stamped = event;
-        stamped.effective_scope = Some(EffectiveScope::Realm { realm_id: realm() });
+        let mut stamped = event.clone();
         stamped.actor_kind = Some(EnvelopeActorKind::Agent);
 
         assert_eq!(baseline, stamped.event_digest().unwrap());
-        // The stamped fields are absent from the digest payload entirely.
         let digest_payload = stamped.digest_payload().unwrap();
-        assert!(digest_payload.get("effective_scope").is_none());
         assert!(digest_payload.get("actor_kind").is_none());
+        assert!(digest_payload.get("proofs").is_none());
+        assert!(digest_payload.get("unsigned").is_none());
+    }
+
+    #[test]
+    fn signed_scope_ref_is_covered_by_the_event_digest() {
+        let event = base_event();
+        let baseline = event.event_digest().unwrap();
+        assert!(event.digest_payload().unwrap().get("scope_ref").is_some());
+
+        let mut rescoped = event;
+        rescoped.scope_ref = ScopeRef::Circle {
+            realm_id: realm(),
+            circle_id: CircleId::new("ak:circle:01904100-0000-7000-8000-1c1c1c1c1c1c").unwrap(),
+        };
+
+        assert_ne!(baseline, rescoped.event_digest().unwrap());
+    }
+
+    #[test]
+    fn event_wire_rejects_a_missing_scope_ref() {
+        let mut value = serde_json::to_value(base_event()).unwrap();
+        value.as_object_mut().unwrap().remove("scope_ref");
+
+        let err = serde_json::from_value::<Event>(value).unwrap_err();
+        assert!(err.to_string().contains("scope_ref"), "{err}");
+    }
+
+    #[test]
+    fn event_wire_rejects_the_deleted_producer_reducer_instruction_fields() {
+        for field in ["effects", "conflict_keys_digest", "effective_scope"] {
+            let mut value = serde_json::to_value(base_event()).unwrap();
+            value
+                .as_object_mut()
+                .unwrap()
+                .insert(field.to_owned(), json!([]));
+            let err = serde_json::from_value::<Event>(value)
+                .expect_err("removed wire field must fail deserialization");
+            assert!(err.to_string().contains(field), "{field}: {err}");
+        }
     }
 
     #[test]
@@ -1183,14 +1266,15 @@ mod event_wire_surface_tests {
     }
 
     #[test]
-    fn submit_rejects_actor_supplied_effective_scope_with_reason() {
+    fn submit_rejects_a_scope_ref_that_disagrees_with_the_envelope_realm() {
         let mut event = base_event();
-        event.effective_scope = Some(EffectiveScope::Realm { realm_id: realm() });
+        event.scope_ref = ScopeRef::Realm {
+            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-0000000000ff").unwrap(),
+        };
 
         let err = event.validate_for_submit_structural().unwrap_err();
         assert!(
-            err.to_string()
-                .contains(ReasonCode::EFFECTIVE_SCOPE_REDUCER_MANAGED),
+            err.to_string().contains("scope_ref.realm_id"),
             "unexpected error: {err}"
         );
     }

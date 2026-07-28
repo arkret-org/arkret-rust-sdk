@@ -1,7 +1,7 @@
 //! In-memory implementations of the four store traits.
 //!
 //! These are the test backbone: they let SDK unit tests exercise
-//! `verify_move` / `apply_seal` / `state_root` end-to-end without a
+//! `verify_control_move` / `apply_seal` / `state_root` end-to-end without a
 //! database. Production servers (soland) implement durable backends
 //! against the same trait surface.
 
@@ -12,76 +12,82 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Mutex;
 
+use arkret_wire::event_envelope::Event;
 use serde_json::{Value, json};
 
 use super::{
-    BottomMode, CellLatticeBinding, CellRegistry, CellStore, MoveStore, SealStore,
-    SealedMoveRecord, StoreError, StoreResult,
+    BottomMode, CellLatticeBinding, CellRegistry, CellStore, ControlEventStore, SealStore,
+    SealedControlEventRecord, StoreError, StoreResult, control_event_digest,
 };
 use crate::lattice::ordered_log::IssuedOp;
 use crate::lattice::{
     CasRegister, CellState, Counter, Fsm, Lattice, LatticeKind, MvRegister, OrSet, OrderedLog,
 };
-use crate::{CellRef, Hash, Move, MoveId, RealmId, Seal, SealId};
+use crate::{CellRef, Hash, RealmId, Seal, SealId};
 
-/// In-memory `MoveStore`.
+/// In-memory `ControlEventStore`.
 #[derive(Default)]
-pub struct MemoryMoveStore {
-    inner: Mutex<MemoryMoveStoreInner>,
+pub struct MemoryControlEventStore {
+    inner: Mutex<MemoryControlEventStoreInner>,
 }
 
 #[derive(Default)]
-struct MemoryMoveStoreInner {
-    /// All known Moves keyed by id.
-    moves: BTreeMap<String, Move>,
-    /// Seal membership: move_id → seal id (None means pending).
+struct MemoryControlEventStoreInner {
+    /// All known control-plane Events keyed by their `event_digest`.
+    events: BTreeMap<String, Event>,
+    /// Seal membership: event_digest → seal id (absent means pending).
     sealed: BTreeMap<String, SealId>,
     /// Insertion order so list_pending is deterministic.
     insertion_order: Vec<String>,
 }
 
-impl MoveStore for MemoryMoveStore {
-    fn put_pending(&self, m: &Move) -> StoreResult<()> {
+impl ControlEventStore for MemoryControlEventStore {
+    fn put_pending(&self, event: &Event) -> StoreResult<()> {
+        let digest = control_event_digest(event)?;
         let mut inner = self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let id = m.id.as_str().to_owned();
-        if !inner.moves.contains_key(&id) {
-            inner.insertion_order.push(id.clone());
+        let key = digest.as_str().to_owned();
+        if !inner.events.contains_key(&key) {
+            inner.insertion_order.push(key.clone());
         }
-        inner.moves.entry(id).or_insert_with(|| m.clone());
+        inner.events.entry(key).or_insert_with(|| event.clone());
         Ok(())
     }
 
-    fn mark_sealed(&self, id: &MoveId, seal: &SealId) -> StoreResult<()> {
+    fn mark_sealed(&self, event_digest: &Hash, seal: &SealId) -> StoreResult<()> {
         let mut inner = self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if !inner.moves.contains_key(id.as_str()) {
-            return Err(StoreError::NotFound(format!("Move {id} not in store")));
+        if !inner.events.contains_key(event_digest.as_str()) {
+            return Err(StoreError::NotFound(format!(
+                "control Event {event_digest} not in store"
+            )));
         }
-        inner.sealed.insert(id.as_str().to_owned(), seal.clone());
+        inner
+            .sealed
+            .insert(event_digest.as_str().to_owned(), seal.clone());
         Ok(())
     }
 
-    fn get(&self, id: &MoveId) -> StoreResult<Option<Move>> {
+    fn get(&self, event_digest: &Hash) -> StoreResult<Option<Event>> {
         Ok(self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .moves
-            .get(id.as_str())
+            .events
+            .get(event_digest.as_str())
             .cloned())
     }
 
     fn list_pending_for_notary(
         &self,
         realm_id: &RealmId,
-        cursor: Option<&MoveId>,
+        cursor: Option<&Hash>,
         limit: usize,
-    ) -> StoreResult<Vec<Move>> {
+    ) -> StoreResult<Vec<Event>> {
         let inner = self
             .inner
             .lock()
@@ -89,18 +95,18 @@ impl MoveStore for MemoryMoveStore {
         let cursor_str = cursor.map(|c| c.as_str().to_owned());
         let mut started = cursor_str.is_none();
         let mut out = Vec::new();
-        for id in &inner.insertion_order {
+        for digest in &inner.insertion_order {
             if !started {
-                if Some(id.as_str()) == cursor_str.as_deref() {
+                if Some(digest.as_str()) == cursor_str.as_deref() {
                     started = true;
                 }
                 continue;
             }
-            if let Some(m) = inner.moves.get(id)
-                && m.realm_id == *realm_id
-                && !inner.sealed.contains_key(id)
+            if let Some(event) = inner.events.get(digest)
+                && event.realm_id == *realm_id
+                && !inner.sealed.contains_key(digest)
             {
-                out.push(m.clone());
+                out.push(event.clone());
                 if out.len() >= limit {
                     break;
                 }
@@ -112,9 +118,9 @@ impl MoveStore for MemoryMoveStore {
     fn list_sealed(
         &self,
         realm_id: &RealmId,
-        cursor: Option<&MoveId>,
+        cursor: Option<&Hash>,
         limit: usize,
-    ) -> StoreResult<Vec<SealedMoveRecord>> {
+    ) -> StoreResult<Vec<SealedControlEventRecord>> {
         let inner = self
             .inner
             .lock()
@@ -122,19 +128,19 @@ impl MoveStore for MemoryMoveStore {
         let cursor_str = cursor.map(|c| c.as_str().to_owned());
         let mut started = cursor_str.is_none();
         let mut out = Vec::new();
-        for id in &inner.insertion_order {
+        for digest in &inner.insertion_order {
             if !started {
-                if Some(id.as_str()) == cursor_str.as_deref() {
+                if Some(digest.as_str()) == cursor_str.as_deref() {
                     started = true;
                 }
                 continue;
             }
-            if let (Some(m), Some(a)) = (inner.moves.get(id), inner.sealed.get(id))
-                && m.realm_id == *realm_id
+            if let (Some(event), Some(seal)) = (inner.events.get(digest), inner.sealed.get(digest))
+                && event.realm_id == *realm_id
             {
-                out.push(SealedMoveRecord {
-                    move_value: m.clone(),
-                    seal: a.clone(),
+                out.push(SealedControlEventRecord {
+                    event: event.clone(),
+                    seal: seal.clone(),
                 });
                 if out.len() >= limit {
                     break;
@@ -616,7 +622,7 @@ impl Default for MemoryCellRegistry {
         // MLS commit Move target cells (spec §10).
         // mls_epoch: cas-register, bottom=reject (racing commits fail closed).
         bindings.insert(
-            "ak.component.mls_epoch.v1".to_owned(),
+            "ak.component.mls.epoch.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
                 bottom_mode: BottomMode::Reject,
@@ -626,7 +632,7 @@ impl Default for MemoryCellRegistry {
         );
         // key_schedule: cas-register, bottom=reject (one schedule per epoch).
         bindings.insert(
-            "ak.component.key_schedule.v1".to_owned(),
+            "ak.component.mls.key_schedule.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
                 bottom_mode: BottomMode::Reject,
@@ -730,24 +736,25 @@ mod tests {
 
     fn issued(op: SealedOp) -> IssuedOp {
         IssuedOp {
-            issuer: crate::Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
+            issuer: Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
             op,
         }
     }
 
     use std::sync::{Arc, Barrier};
 
+    use arkret_wire::Proof;
+    use arkret_wire::event_envelope::ScopeRef;
     use chrono::{TimeZone, Utc};
 
     use super::*;
-    use crate::{Hlc, LatticeOp, LatticeOpType, MoveSignature, NotarySig};
+    use crate::{
+        Did, EventId, EventRequirements, Hlc, LatticeOp, LatticeOpType, NotarySig,
+        PayloadSignature, SealBasis,
+    };
 
     fn realm() -> RealmId {
         RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
-    }
-
-    fn move_id(byte: u8) -> MoveId {
-        MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     fn seal_id(byte: u8) -> SealId {
@@ -767,42 +774,58 @@ mod tests {
             .unwrap()
     }
 
-    fn dummy_move(id: MoveId) -> Move {
-        let body = serde_json::json!({
-            "issuer": "did:webvh:z6mkfixture:admin.example",
-            "realm_id": realm().as_str(),
-            "preconditions": [],
-            "effects": [{
-                "cell": cell_member().as_str(),
-                "op": { "kind": "transition", "from": "invited", "to": "join" }
-            }],
-            "seal_basis": {
-                "leaves": [format!("ak:seal:sha256:{}", "aa".repeat(32))],
-                "control_event_set_root": format!("sha256:{}", "22".repeat(32)),
-                "state_root": format!("sha256:{}", "33".repeat(32))
-            },
-            "refs": [],
-            "hlc": "0189c4d2af00-0000-aabbccdd"
-        });
-        let body_bytes = crate::canonical::canonical_json_bytes(&body).unwrap();
-        let payload_digest = crate::canonical::sha256_digest(&body_bytes);
-        let mut full = body.as_object().unwrap().clone();
-        full.insert("id".into(), Value::String(id.as_str().to_owned()));
-        full.insert(
-            "sig".into(),
-            serde_json::json!({
-                "alg": "EdDSA",
-                "verification_method": "did:webvh:z6mkfixture:admin.example#k1",
-                "payload_digest": payload_digest,
-                "created_at": "2026-05-08T00:00:00.000Z",
-                "jws": "AAAA.BBBB.CCCC"
+    /// A Control Move: an Event carrying `seal_basis`, distinguished from
+    /// its siblings by `actor_seq` so each one hashes to a different
+    /// `event_digest` (the store key).
+    fn control_move(actor_seq: u64) -> Event {
+        let mut event = Event {
+            event_id: EventId::new(format!("ak:event:0196419b-0000-7000-8000-{actor_seq:012}"))
+                .unwrap(),
+            kind: "ak.member.state".into(),
+            realm_id: realm(),
+            scope_ref: ScopeRef::Realm { realm_id: realm() },
+            actor_id: Did::new("did:webvh:z6mkfixture:admin.example".to_owned()).unwrap(),
+            executed_by: None,
+            authorization_ref: None,
+            applet_id: None,
+            external_ref: None,
+            actor_kind: None,
+            actor_seq,
+            created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
+            hlc: Some(Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap()),
+            prev_refs: Vec::new(),
+            refs: Vec::new(),
+            causal_refs: Vec::new(),
+            preconditions: Vec::new(),
+            seal_ref: None,
+            auth_context: None,
+            seal_basis: Some(SealBasis {
+                leaves: vec![seal_id(0xaa)],
+                control_event_set_root: hash(0x22),
+                state_root: hash(0x33),
             }),
-        );
-        serde_json::from_value(Value::Object(full)).unwrap()
+            payload: BTreeMap::from([("state".to_owned(), Value::String("join".to_owned()))]),
+            redacts: None,
+            unsigned: BTreeMap::new(),
+            proofs: Vec::new(),
+            requirements: EventRequirements::default(),
+        };
+        event.proofs.push(Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:admin.example#k1".to_owned(),
+            event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
+            created_at: event.created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "AAAA.BBBB.CCCC".to_owned(),
+        });
+        event
     }
 
-    fn dummy_seal(id: SealId, predecessors: Vec<SealId>, delta: Vec<MoveId>) -> Seal {
-        let sig = MoveSignature {
+    fn dummy_seal(id: SealId, predecessors: Vec<SealId>, delta: Vec<Hash>) -> Seal {
+        let sig = PayloadSignature {
             alg: "EdDSA".to_owned(),
             verification_method: "did:webvh:z6mkfixture:notary.example#k1".to_owned(),
             payload_digest: hash(0xff),
@@ -833,46 +856,81 @@ mod tests {
     }
 
     #[test]
-    fn move_store_put_and_seal_idempotent() {
-        let store = MemoryMoveStore::default();
-        let m1 = dummy_move(move_id(0x01));
-        store.put_pending(&m1).unwrap();
-        store.put_pending(&m1).unwrap(); // idempotent
-        assert_eq!(store.get(&m1.id).unwrap().unwrap().id, m1.id);
+    fn control_event_store_put_and_seal_idempotent() {
+        let store = MemoryControlEventStore::default();
+        let first = control_move(1);
+        let digest = control_event_digest(&first).unwrap();
+        store.put_pending(&first).unwrap();
+        store.put_pending(&first).unwrap(); // idempotent
+        assert_eq!(
+            store.get(&digest).unwrap().unwrap().event_id,
+            first.event_id
+        );
 
         let seal = seal_id(0xaa);
-        store.mark_sealed(&m1.id, &seal).unwrap();
-        store.mark_sealed(&m1.id, &seal).unwrap(); // idempotent
+        store.mark_sealed(&digest, &seal).unwrap();
+        store.mark_sealed(&digest, &seal).unwrap(); // idempotent
+        let sealed = store.list_sealed(&realm(), None, 10).unwrap();
+        assert_eq!(sealed.len(), 1);
+        assert_eq!(sealed[0].seal, seal);
     }
 
     #[test]
-    fn move_store_lists_pending_by_insertion_order() {
-        let store = MemoryMoveStore::default();
-        let m1 = dummy_move(move_id(0x01));
-        let m2 = dummy_move(move_id(0x02));
-        store.put_pending(&m1).unwrap();
-        store.put_pending(&m2).unwrap();
+    fn control_event_store_lists_pending_by_insertion_order() {
+        let store = MemoryControlEventStore::default();
+        let first = control_move(1);
+        let second = control_move(2);
+        store.put_pending(&first).unwrap();
+        store.put_pending(&second).unwrap();
 
         let pending = store.list_pending_for_notary(&realm(), None, 10).unwrap();
         assert_eq!(pending.len(), 2);
-        assert_eq!(pending[0].id, m1.id);
-        assert_eq!(pending[1].id, m2.id);
+        assert_eq!(pending[0].event_id, first.event_id);
+        assert_eq!(pending[1].event_id, second.event_id);
 
-        store.mark_sealed(&m1.id, &seal_id(0xaa)).unwrap();
+        store
+            .mark_sealed(&control_event_digest(&first).unwrap(), &seal_id(0xaa))
+            .unwrap();
         let pending = store.list_pending_for_notary(&realm(), None, 10).unwrap();
         assert_eq!(pending.len(), 1);
-        assert_eq!(pending[0].id, m2.id);
+        assert_eq!(pending[0].event_id, second.event_id);
+    }
+
+    #[test]
+    fn control_event_store_keys_on_digest_not_event_id() {
+        // Two variants of one `event_id` are exactly the §6.3.2 fork case: a
+        // store keyed on `event_id` would collapse them into one slot and lose
+        // the evidence the quarantine rule needs.
+        let store = MemoryControlEventStore::default();
+        let original = control_move(1);
+        let mut variant = original.clone();
+        variant.created_at = Utc.with_ymd_and_hms(2026, 5, 9, 0, 0, 0).unwrap();
+        assert_eq!(variant.event_id, original.event_id);
+
+        store.put_pending(&original).unwrap();
+        store.put_pending(&variant).unwrap();
+        assert_ne!(
+            control_event_digest(&original).unwrap(),
+            control_event_digest(&variant).unwrap()
+        );
+        assert_eq!(
+            store
+                .list_pending_for_notary(&realm(), None, 10)
+                .unwrap()
+                .len(),
+            2
+        );
     }
 
     #[test]
     fn seal_store_tracks_genesis_and_leaves() {
         let store = MemorySealStore::default();
-        let g = dummy_seal(seal_id(0xa0), vec![], vec![move_id(0x01)]);
+        let g = dummy_seal(seal_id(0xa0), vec![], vec![hash(0x01)]);
         store.put(&g).unwrap();
         assert_eq!(store.genesis(&realm()).unwrap().unwrap(), g.id);
         assert_eq!(store.list_leaves(&realm()).unwrap(), vec![g.id.clone()]);
 
-        let child = dummy_seal(seal_id(0xa1), vec![g.id], vec![move_id(0x02)]);
+        let child = dummy_seal(seal_id(0xa1), vec![g.id], vec![hash(0x02)]);
         store.put(&child).unwrap();
         assert_eq!(store.list_leaves(&realm()).unwrap(), vec![child.id]);
     }
@@ -880,18 +938,18 @@ mod tests {
     #[test]
     fn seal_store_put_if_frontier_accepts_exact_set() {
         let store = MemorySealStore::default();
-        let genesis = dummy_seal(seal_id(0xe0), vec![], vec![move_id(0x01)]);
+        let genesis = dummy_seal(seal_id(0xe0), vec![], vec![hash(0x01)]);
         assert!(store.put_if_frontier(&genesis, &[]).unwrap());
 
-        let left = dummy_seal(seal_id(0xe1), vec![genesis.id.clone()], vec![move_id(0x02)]);
+        let left = dummy_seal(seal_id(0xe1), vec![genesis.id.clone()], vec![hash(0x02)]);
         store.put(&left).unwrap();
-        let right = dummy_seal(seal_id(0xe2), vec![genesis.id], vec![move_id(0x03)]);
+        let right = dummy_seal(seal_id(0xe2), vec![genesis.id], vec![hash(0x03)]);
         store.put(&right).unwrap();
 
         let joined = dummy_seal(
             seal_id(0xe3),
             vec![left.id.clone(), right.id.clone()],
-            vec![move_id(0x04)],
+            vec![hash(0x04)],
         );
         assert!(
             store
@@ -904,9 +962,9 @@ mod tests {
     #[test]
     fn seal_store_put_if_frontier_rejects_stale_set_without_mutation() {
         let store = MemorySealStore::default();
-        let genesis = dummy_seal(seal_id(0xf0), vec![], vec![move_id(0x01)]);
+        let genesis = dummy_seal(seal_id(0xf0), vec![], vec![hash(0x01)]);
         store.put(&genesis).unwrap();
-        let stale = dummy_seal(seal_id(0xf1), vec![genesis.id.clone()], vec![move_id(0x02)]);
+        let stale = dummy_seal(seal_id(0xf1), vec![genesis.id.clone()], vec![hash(0x02)]);
 
         assert!(!store.put_if_frontier(&stale, &[seal_id(0xff)]).unwrap());
         assert!(store.get(&stale.id).unwrap().is_none());
@@ -916,13 +974,13 @@ mod tests {
     #[test]
     fn seal_store_put_if_frontier_allows_only_one_concurrent_writer() {
         let store = Arc::new(MemorySealStore::default());
-        let genesis = dummy_seal(seal_id(0x90), vec![], vec![move_id(0x01)]);
+        let genesis = dummy_seal(seal_id(0x90), vec![], vec![hash(0x01)]);
         store.put(&genesis).unwrap();
         let barrier = Arc::new(Barrier::new(3));
 
         let writers: Vec<_> = [
-            dummy_seal(seal_id(0x91), vec![genesis.id.clone()], vec![move_id(0x02)]),
-            dummy_seal(seal_id(0x92), vec![genesis.id.clone()], vec![move_id(0x03)]),
+            dummy_seal(seal_id(0x91), vec![genesis.id.clone()], vec![hash(0x02)]),
+            dummy_seal(seal_id(0x92), vec![genesis.id.clone()], vec![hash(0x03)]),
         ]
         .into_iter()
         .map(|candidate| {
@@ -962,10 +1020,10 @@ mod tests {
         //          ▲
         // genesis ─┴► child_b
         let store = MemorySealStore::default();
-        let g = dummy_seal(seal_id(0xa0), vec![], vec![move_id(0x01)]);
-        let child_a = dummy_seal(seal_id(0xa1), vec![g.id.clone()], vec![move_id(0x02)]);
-        let child_b = dummy_seal(seal_id(0xa2), vec![g.id.clone()], vec![move_id(0x03)]);
-        let leaf_x = dummy_seal(seal_id(0xa3), vec![child_a.id.clone()], vec![move_id(0x04)]);
+        let g = dummy_seal(seal_id(0xa0), vec![], vec![hash(0x01)]);
+        let child_a = dummy_seal(seal_id(0xa1), vec![g.id.clone()], vec![hash(0x02)]);
+        let child_b = dummy_seal(seal_id(0xa2), vec![g.id.clone()], vec![hash(0x03)]);
+        let leaf_x = dummy_seal(seal_id(0xa3), vec![child_a.id.clone()], vec![hash(0x04)]);
         store.put(&g).unwrap();
         store.put(&child_a).unwrap();
         store.put(&child_b).unwrap();
@@ -985,9 +1043,9 @@ mod tests {
     fn seal_store_prune_predecessor_rewires_through() {
         // g ─► a ─► b (leaf). Pruning `a` rewires b's predecessor to g.
         let store = MemorySealStore::default();
-        let g = dummy_seal(seal_id(0xb0), vec![], vec![move_id(0x01)]);
-        let a = dummy_seal(seal_id(0xb1), vec![g.id.clone()], vec![move_id(0x02)]);
-        let b = dummy_seal(seal_id(0xb2), vec![a.id.clone()], vec![move_id(0x03)]);
+        let g = dummy_seal(seal_id(0xb0), vec![], vec![hash(0x01)]);
+        let a = dummy_seal(seal_id(0xb1), vec![g.id.clone()], vec![hash(0x02)]);
+        let b = dummy_seal(seal_id(0xb2), vec![a.id.clone()], vec![hash(0x03)]);
         store.put(&g).unwrap();
         store.put(&a).unwrap();
         store.put(&b).unwrap();
@@ -1005,7 +1063,7 @@ mod tests {
     #[test]
     fn seal_store_prune_predecessor_rejects_leaf() {
         let store = MemorySealStore::default();
-        let g = dummy_seal(seal_id(0xc0), vec![], vec![move_id(0x01)]);
+        let g = dummy_seal(seal_id(0xc0), vec![], vec![hash(0x01)]);
         store.put(&g).unwrap();
         // g is a leaf — can't prune.
         let err = store.prune_predecessor(&realm(), &g.id).unwrap_err();
@@ -1016,12 +1074,12 @@ mod tests {
     fn seal_store_prune_predecessor_dedups_when_grandparent_already_referenced() {
         // diamond: g ─► a ─► c; g ─► c. Pruning `a` shouldn't double-add g.
         let store = MemorySealStore::default();
-        let g = dummy_seal(seal_id(0xd0), vec![], vec![move_id(0x01)]);
-        let a = dummy_seal(seal_id(0xd1), vec![g.id.clone()], vec![move_id(0x02)]);
+        let g = dummy_seal(seal_id(0xd0), vec![], vec![hash(0x01)]);
+        let a = dummy_seal(seal_id(0xd1), vec![g.id.clone()], vec![hash(0x02)]);
         let c = dummy_seal(
             seal_id(0xd2),
             vec![g.id.clone(), a.id.clone()],
-            vec![move_id(0x03)],
+            vec![hash(0x03)],
         );
         store.put(&g).unwrap();
         store.put(&a).unwrap();
@@ -1047,7 +1105,7 @@ mod tests {
     fn cell_store_append_and_list() {
         let store = MemoryCellStore::default();
         let op = SealedOp::new(
-            move_id(0x01),
+            hash(0x01),
             LatticeOp {
                 op_type: LatticeOpType::Transition,
                 tag: None,
@@ -1077,7 +1135,7 @@ mod tests {
     fn cell_store_rollback_undoes_append() {
         let store = MemoryCellStore::default();
         let op = SealedOp::new(
-            move_id(0x01),
+            hash(0x01),
             LatticeOp {
                 op_type: LatticeOpType::Transition,
                 tag: None,
@@ -1120,7 +1178,7 @@ mod tests {
         );
         // append should invalidate cache.
         let op = SealedOp::new(
-            move_id(0x05),
+            hash(0x05),
             LatticeOp {
                 op_type: LatticeOpType::Transition,
                 tag: None,

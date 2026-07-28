@@ -6,10 +6,9 @@ use arkret_models_integration::{
     AppletPackage, AppletRegistrationEpochEvidence, AppletWireNamespaces, E2eeEffect, WebhookAuth,
     WebhookSignatureAlg, WidgetEffect, WireAppletRegistration, sign_registration,
 };
-use arkret_wire::move_event::Move;
 use arkret_wire::{
-    AppletId, Did, EffectiveScope, Hash, MoveSignature, MoveSigner, Proof, RealmId,
-    Result as WireResult, UnsignedMove,
+    AppletId, Did, Hash, PayloadSignature, PayloadSigner, Proof, RealmId, Result as WireResult,
+    ScopeRef,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -221,7 +220,7 @@ fn install_plan_digest_excludes_itself_and_scope_round_trips() {
         ),
         package_digest: sample_epoch(),
         registration_epoch: sample_epoch(),
-        effective_scope: EffectiveScope::Realm { realm_id: realm() },
+        effective_scope: ScopeRef::Realm { realm_id: realm() },
         requested_scopes: vec!["ak.message.create".to_owned()],
         approved_scopes: vec![],
         denied_scopes: vec![],
@@ -257,11 +256,7 @@ fn sign_registration_attaches_matching_payload_digest() {
         verification_method: String,
     }
 
-    impl MoveSigner for StubSigner {
-        fn sign_move(&self, _: &UnsignedMove) -> WireResult<Move> {
-            unreachable!()
-        }
-
+    impl PayloadSigner for StubSigner {
         fn signer_did(&self) -> &Did {
             &self.did
         }
@@ -270,9 +265,9 @@ fn sign_registration_attaches_matching_payload_digest() {
             &self.verification_method
         }
 
-        fn sign_payload(&self, canonical_bytes: &[u8]) -> WireResult<MoveSignature> {
+        fn sign_payload(&self, canonical_bytes: &[u8]) -> WireResult<PayloadSignature> {
             let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes))?;
-            Ok(MoveSignature {
+            Ok(PayloadSignature {
                 alg: "EdDSA".to_owned(),
                 verification_method: self.verification_method.clone(),
                 payload_digest: payload_digest.clone(),

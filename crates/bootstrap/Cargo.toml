@@ -22,5 +22,14 @@ chrono = {workspace = true,features = ["serde"]}
 serde = {workspace = true}
 serde_json = {workspace = true}
 
+# `arkret-schema` is deliberately NOT a normal dependency: the frozen layering
+# in tools/check-layering.py does not allow bootstrap -> schema, which is why
+# the projection evaluator is injected through `CellWriteProjector`. The tests
+# wire in the real evaluator so the asserted genesis leaf sets are the ones the
+# event-kind registry actually produces, not a stub's opinion — the same
+# dev-only arrangement arkret-state and arkret-models-collaboration use.
+[dev-dependencies]
+arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
+
 [lints]
 workspace = true

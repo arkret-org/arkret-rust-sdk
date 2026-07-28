@@ -638,8 +638,6 @@ pub struct SyncUpdates {
     pub to_device_lost: bool,
     /// Device list changes
     pub device_lists: AccountSubscribeDeviceListChanges,
-    /// Broadcast presence signals from the dedicated ephemeral channel.
-    pub presence: Vec<EphemeralEnvelope>,
     /// Account data
     pub account_data: Vec<Event>,
     /// Notification deltas
@@ -848,7 +846,9 @@ mod tests {
         let actor = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
         let mut newer_hlc = Event::new(
             "ak.message.create",
-            realm_id.clone(),
+            ScopeRef::Realm {
+                realm_id: realm_id.clone(),
+            },
             actor.clone(),
             2,
             Hlc::new("01970e589d22-0000-a13f9c2e").unwrap(),
@@ -858,7 +858,7 @@ mod tests {
         newer_hlc.event_id = EventId::new("ak:event:01904100-0000-7000-8000-233457bf6148").unwrap();
         let mut deeper = Event::new(
             "ak.message.create",
-            realm_id,
+            ScopeRef::Realm { realm_id },
             actor,
             1,
             Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
@@ -908,7 +908,9 @@ mod tests {
         let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let event = Event::new(
             "ak.message.create",
-            realm_id.clone(),
+            ScopeRef::Realm {
+                realm_id: realm_id.clone(),
+            },
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             1,
             Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),

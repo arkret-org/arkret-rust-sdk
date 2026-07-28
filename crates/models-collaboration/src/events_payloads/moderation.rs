@@ -330,7 +330,7 @@ pub struct ModerationDecisionPayload {
 pub struct ModerationReportPayload {
     pub realm_id: RealmId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_scope: Option<EffectiveScope>,
+    pub effective_scope: Option<ScopeRef>,
     pub target_ref: ObjectRef,
     pub report_reason_code: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -807,6 +807,82 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     );
                 }
             }
+            "or_set_dot_and_batch_tag" => {
+                let event_id = vector["event_id"].as_str().unwrap();
+                for case in vector["dot_cases"].as_array().unwrap() {
+                    let name = case["name"].as_str().unwrap();
+                    let write_index = case["write_index"].as_u64().unwrap() as usize;
+                    assert_eq!(
+                        arkret_schema::or_set_dot(event_id, write_index),
+                        case["dot"].as_str().unwrap(),
+                        "{vector_id}/{name}: or_set dot drifted"
+                    );
+                }
+
+                let batch = &vector["batch_add"];
+                let tag_context = batch["tag_context"].as_str().unwrap();
+                let dot = batch["dot"].as_str().unwrap();
+                // The vector's sorted_values are the canonical value order the
+                // projection sorts into; the numbered cases must follow it.
+                let sorted_values = batch["sorted_values"].as_array().unwrap();
+                for case in batch["cases"].as_array().unwrap() {
+                    let index = case["index"].as_u64().unwrap() as usize;
+                    let value = &case["value"];
+                    assert_eq!(
+                        &sorted_values[index], value,
+                        "{vector_id}: batch case {index} is out of canonical value order"
+                    );
+                    let preimage = format!(
+                        "{tag_context}\n{dot}\n{}",
+                        std::str::from_utf8(
+                            &arkret_canonical::canonical_json_bytes(value).unwrap()
+                        )
+                        .unwrap()
+                    );
+                    assert_eq!(
+                        preimage,
+                        case["tag_preimage_utf8"].as_str().unwrap(),
+                        "{vector_id}: batch tag preimage {index} drifted"
+                    );
+                    let tag =
+                        arkret_schema::batch_add_tag(tag_context, dot, value, "ak.mls.commit")
+                            .unwrap_or_else(|error| panic!("{vector_id}: {error}"));
+                    assert_eq!(
+                        tag,
+                        case["batch_tag"].as_str().unwrap(),
+                        "{vector_id}: batch tag {index} drifted"
+                    );
+                }
+
+                for case in vector["negative_cases"].as_array().unwrap() {
+                    let name = case["name"].as_str().unwrap();
+                    assert_eq!(
+                        case["reason"], "reducer_projection_failed",
+                        "{vector_id}/{name}: negative case has the wrong reason"
+                    );
+                    let tag = case["tag"].as_str().unwrap();
+                    match name {
+                        // A bare event_id carries no write index, so it cannot
+                        // identify an element when one Event writes several
+                        // or_set targets.
+                        "bare_event_id_as_tag" => assert_ne!(
+                            tag,
+                            arkret_schema::or_set_dot(event_id, 0),
+                            "{vector_id}/{name}: a bare event_id must not equal a dot"
+                        ),
+                        // Textually indistinguishable from a valid dot, which is
+                        // exactly why the contract pins the provenance: the
+                        // registry `cell_writes[]` index, never a payload index.
+                        "wire_array_index_as_third_segment" => {
+                            assert_eq!(tag, arkret_schema::or_set_dot(event_id, 0));
+                            assert_eq!(case["derived_from"], "payload array index");
+                        }
+                        other => {
+                            panic!("{vector_id}: unknown negative case {other}; extend this driver")
+                        }
+                    }
+                }
+            }
             other => {
                 panic!("encoding vector {vector_id} has unknown kind {other}; extend this driver")
             }

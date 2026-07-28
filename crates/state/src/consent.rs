@@ -1,20 +1,21 @@
 //! Holder-private **consent** as an or-set Lattice cell.
 //!
 //! Per [`identity/consent-model.md`](https://arkret.org/spec/v1/zh/identity/consent-model.md)
-//! §3, consent is a Move on the holder's principal-control-Space cell
+//! §3, consent lives on the holder's principal-control-Space cell
 //! `ak:cell:ak.component.consent.grant.v1:<consent_id>` (or-set lattice).
 //!
-//! - `grant` = `add(tag, value)`, where `tag = "grant:<consent_id>:<peer>:<scope>"` (deterministic
-//!   so identical intents idempotently dedupe), and `value` carries the typed
-//!   [`ConsentGrantValue`].
-//! - `revoke` = `remove(tag, reason)` on the same tag. Spec §3.3 also requires a `contains`
-//!   precondition on the cell's current join — the builder produces it for you.
+//! This module is receiver-side only. `ak.consent.grant` / `ak.consent.revoke`
+//! are Control Moves whose or-set add / remove operations the receiver derives
+//! from the registered reducer contract; a producer cannot supply them and
+//! cannot name the element tags, which are canonical dots
+//! (`event-and-patch.md` §2.4.2). What stays here is the cell-subject
+//! derivation, the typed element value, and the query-time evaluation.
 //!
 //! Effective consent is derived by walking the cell's join value (a JSON
-//! array of `{tag, value}` items) and asking whether any tag's value
+//! array of `{tag, value}` items) and asking whether any element's value
 //! covers the requested `(peer, scope)` at the query time. There is no
-//! per-cell "winner" — concurrent grants on different tags coexist;
-//! revokes remove their target tag.
+//! per-cell "winner" — concurrent grants on different dots coexist; revokes
+//! remove their target dots.
 //!
 //! Capability and invite are orthogonal: capability says "this actor MAY
 //! do X to that resource"; consent says "I, as the contacted party,
@@ -22,12 +23,9 @@
 
 use arkret_identifiers::{CellRef, ConsentId, Did};
 use arkret_models_collaboration::governance::grant_constraint::GrantConstraint;
-use arkret_wire::{
-    Effect, LatticeOp, LatticeOpType, Precondition, Predicate, PredicateOp, WireError,
-};
+use arkret_wire::WireError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::lattice::CellState;
 
@@ -85,26 +83,8 @@ pub fn consent_cell_id(consent_id: &ConsentId) -> Result<CellRef, WireError> {
         .map_err(|e| WireError::Protocol(format!("invalid consent cell id: {e}")))
 }
 
-/// Deterministic tag for a `(consent_id, peer, scope)` grant.
-///
-/// Spec §3.2: same `(consent_id, peer, scope)` triple MUST produce the
-/// same tag so duplicate grants idempotently dedupe in the or-set.
-pub fn consent_tag(consent_id: &ConsentId, peer: &Did, scope: Scope) -> String {
-    format!("grant:{consent_id}:{}:{}", peer.as_str(), scope.as_wire())
-}
-
-/// Optional fields for a consent grant.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct ConsentGrantOptions {
-    pub not_before: Option<DateTime<Utc>>,
-    pub expires_at: Option<DateTime<Utc>>,
-    pub evidence_ref: Option<String>,
-    pub reason: Option<String>,
-    pub constraints: Vec<GrantConstraint>,
-}
-
-/// Typed shape of the JSON `value` payload carried inside the or-set
-/// `add` op. Mirrors the spec §3.2 `value` field.
+/// Typed shape of the JSON `value` the reducer stores on an or-set element.
+/// Mirrors the spec §3.2 `value` field.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ConsentGrantValue {
     pub consent_id: ConsentId,
@@ -128,101 +108,6 @@ pub struct ConsentGrantValue {
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub constraints: Vec<GrantConstraint>,
-}
-
-/// Typed shape of the JSON `value` payload carried inside the or-set
-/// `remove` op. Mirrors the spec §3.3 `value` field.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ConsentRevokeValue {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
-    pub revoked_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-}
-
-/// Build the [`Effect`] that a consent.grant Move writes.
-///
-/// Spec §3.2: cell = `ak:cell:ak.component.consent.grant.v1:<consent_id>`,
-/// op = `add(tag, value)`, tag = `grant:<consent_id>:<peer>:<scope>`,
-/// value = [`ConsentGrantValue`].
-pub fn grant_effect(
-    consent_id: &ConsentId,
-    peer: Did,
-    scope: Scope,
-    options: &ConsentGrantOptions,
-) -> Result<Effect, WireError> {
-    let cell = consent_cell_id(consent_id)?;
-    let tag = consent_tag(consent_id, &peer, scope);
-    let value = ConsentGrantValue {
-        consent_id: consent_id.to_owned(),
-        peer,
-        scope,
-        not_before: options.not_before,
-        expires_at: options.expires_at,
-        evidence_ref: options.evidence_ref.clone(),
-        reason: options.reason.clone(),
-        constraints: options.constraints.clone(),
-    };
-    let value_json = serde_json::to_value(&value)?;
-    Ok(Effect {
-        cell,
-        op: LatticeOp {
-            op_type: LatticeOpType::Add,
-            tag: Some(tag),
-            value: Some(value_json),
-            from: None,
-            to: None,
-            reason: None,
-            issuer_seq: None,
-        },
-    })
-}
-
-/// Build the [`Effect`] + [`Precondition`] that a consent.revoke Move
-/// writes.
-///
-/// Per spec §3.3, the Move SHOULD also include a `contains` precondition
-/// on the same tag for diagnostics (so a revoke targeting a never-granted
-/// tag fails closed rather than silently no-ops). The first return value
-/// is the precondition, the second is the effect.
-pub fn revoke_effect_with_precondition(
-    consent_id: &ConsentId,
-    peer: &Did,
-    scope: Scope,
-    revoke_value: ConsentRevokeValue,
-) -> Result<(Precondition, Effect), WireError> {
-    let cell = consent_cell_id(consent_id)?;
-    let tag = consent_tag(consent_id, peer, scope);
-
-    let pre = Precondition {
-        cell: cell.clone(),
-        predicate: Predicate {
-            op: PredicateOp::Contains,
-            value: Some(Value::String(tag.clone())),
-            values: None,
-            predicate_id: None,
-        },
-    };
-
-    let reason_for_op = revoke_value.reason.clone();
-    let value_json = serde_json::to_value(&revoke_value)?;
-    let eff = Effect {
-        cell,
-        op: LatticeOp {
-            op_type: LatticeOpType::Remove,
-            tag: Some(tag),
-            value: Some(value_json),
-            from: None,
-            to: None,
-            reason: reason_for_op,
-            issuer_seq: None,
-        },
-    };
-    Ok((pre, eff))
 }
 
 /// Walk the consent cell's or-set join value and decide whether
@@ -271,29 +156,9 @@ pub fn evaluate_consent(
     })
 }
 
-/// Helper: build a query-time `contains` precondition that asserts the
-/// holder's consent cell still carries the `(consent_id, peer, scope)`
-/// tag. Use this in invite / DM / call-init Moves to gate on consent
-/// without re-deriving the tag at the call site.
-pub fn require_consent_precondition(
-    consent_id: &ConsentId,
-    peer: &Did,
-    scope: Scope,
-) -> Result<Precondition, WireError> {
-    let cell = consent_cell_id(consent_id)?;
-    Ok(Precondition {
-        cell,
-        predicate: Predicate {
-            op: PredicateOp::Contains,
-            value: Some(Value::String(consent_tag(consent_id, peer, scope))),
-            values: None,
-            predicate_id: None,
-        },
-    })
-}
-
 #[cfg(test)]
 mod tests {
+    use arkret_wire::{LatticeOp, LatticeOpType};
     use chrono::TimeZone;
 
     use super::*;
@@ -315,9 +180,52 @@ mod tests {
         ConsentId::new("ak:consent:01904100-0000-7000-8000-000000000001").unwrap()
     }
 
-    fn move_id(byte: u8) -> arkret_identifiers::MoveId {
-        arkret_identifiers::MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32)))
+    fn event_digest(byte: u8) -> arkret_identifiers::Hash {
+        arkret_identifiers::Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32)))
             .unwrap()
+    }
+
+    /// The or-set `add` the registered `ak.consent.grant` contract projects:
+    /// `tag` is the canonical dot, `value` is the grant payload. Producers
+    /// cannot author either, so these fixtures stand in for the reducer.
+    fn grant_op(
+        dot: &str,
+        peer: Did,
+        scope: Scope,
+        not_before: Option<DateTime<Utc>>,
+        expires_at: Option<DateTime<Utc>>,
+    ) -> LatticeOp {
+        let value = ConsentGrantValue {
+            consent_id: consent_id(),
+            peer,
+            scope,
+            not_before,
+            expires_at,
+            evidence_ref: None,
+            reason: None,
+            constraints: vec![],
+        };
+        LatticeOp {
+            op_type: LatticeOpType::Add,
+            tag: Some(dot.to_owned()),
+            value: Some(serde_json::to_value(&value).unwrap()),
+            from: None,
+            to: None,
+            reason: None,
+            issuer_seq: None,
+        }
+    }
+
+    fn revoke_op(dot: &str) -> LatticeOp {
+        LatticeOp {
+            op_type: LatticeOpType::Remove,
+            tag: Some(dot.to_owned()),
+            value: None,
+            from: None,
+            to: None,
+            reason: None,
+            issuer_seq: None,
+        }
     }
 
     #[test]
@@ -336,78 +244,10 @@ mod tests {
     }
 
     #[test]
-    fn tag_is_deterministic() {
-        let t1 = consent_tag(&consent_id(), &bob(), Scope::Invite);
-        let t2 = consent_tag(&consent_id(), &bob(), Scope::Invite);
-        assert_eq!(t1, t2);
-        assert_eq!(
-            t1,
-            "grant:ak:consent:01904100-0000-7000-8000-000000000001:did:webvh:z6mkfixture:bob.example:invite"
-        );
-    }
-
-    #[test]
-    fn tag_distinguishes_scope() {
-        assert_ne!(
-            consent_tag(&consent_id(), &bob(), Scope::Invite),
-            consent_tag(&consent_id(), &bob(), Scope::VoiceCall)
-        );
-    }
-
-    #[test]
-    fn grant_effect_produces_or_set_add() {
-        let opts = ConsentGrantOptions {
-            expires_at: Some(ts(2026, 12, 31)),
-            evidence_ref: Some("ak:event:01904100-0000-7000-8000-4ad9d5ef0089".to_owned()),
-            ..Default::default()
-        };
-        let eff = grant_effect(&consent_id(), bob(), Scope::Invite, &opts).unwrap();
-        assert_eq!(eff.op.op_type, LatticeOpType::Add);
-        assert_eq!(
-            eff.op.tag.as_deref(),
-            Some(
-                "grant:ak:consent:01904100-0000-7000-8000-000000000001:did:webvh:z6mkfixture:bob.example:invite"
-            )
-        );
-        let value = eff.op.value.as_ref().unwrap();
-        assert_eq!(value.get("consent_id").unwrap(), consent_id().as_str());
-        assert_eq!(value.get("scope").unwrap(), "invite");
-        assert_eq!(
-            value.get("peer").unwrap(),
-            "did:webvh:z6mkfixture:bob.example"
-        );
-        assert!(value.get("expires_at").is_some());
-    }
-
-    #[test]
-    fn revoke_effect_includes_contains_precondition() {
-        let revoke = ConsentRevokeValue {
-            revoked_at: Some(ts(2026, 6, 15)),
-            reason: Some("incident".to_owned()),
-        };
-        let (pre, eff) =
-            revoke_effect_with_precondition(&consent_id(), &bob(), Scope::Invite, revoke).unwrap();
-        assert_eq!(pre.predicate.op, PredicateOp::Contains);
-        assert_eq!(
-            pre.predicate.value.as_ref().unwrap(),
-            "grant:ak:consent:01904100-0000-7000-8000-000000000001:did:webvh:z6mkfixture:bob.example:invite"
-        );
-        assert_eq!(eff.op.op_type, LatticeOpType::Remove);
-        assert_eq!(
-            eff.op.tag.as_deref(),
-            Some(
-                "grant:ak:consent:01904100-0000-7000-8000-000000000001:did:webvh:z6mkfixture:bob.example:invite"
-            )
-        );
-        assert_eq!(eff.op.reason.as_deref(), Some("incident"));
-    }
-
-    #[test]
     fn evaluate_consent_grants_with_no_window_active() {
         // Build a consent or-set state by joining a single grant op.
-        let opts = ConsentGrantOptions::default();
-        let grant = grant_effect(&consent_id(), bob(), Scope::Invite, &opts).unwrap();
-        let aop = SealedOp::new(move_id(0x11), grant.op);
+        let op = grant_op("ak:event:e1:0", bob(), Scope::Invite, None, None);
+        let aop = SealedOp::new(event_digest(0x11), op);
         let state = OrSet.join(&consent_cell_id(&consent_id()).unwrap(), &[aop]);
         assert!(evaluate_consent(
             &state,
@@ -433,13 +273,14 @@ mod tests {
 
     #[test]
     fn evaluate_consent_respects_window() {
-        let opts = ConsentGrantOptions {
-            not_before: Some(ts(2026, 1, 1)),
-            expires_at: Some(ts(2026, 12, 31)),
-            ..Default::default()
-        };
-        let grant = grant_effect(&consent_id(), bob(), Scope::Invite, &opts).unwrap();
-        let aop = SealedOp::new(move_id(0x11), grant.op);
+        let op = grant_op(
+            "ak:event:e1:0",
+            bob(),
+            Scope::Invite,
+            Some(ts(2026, 1, 1)),
+            Some(ts(2026, 12, 31)),
+        );
+        let aop = SealedOp::new(event_digest(0x11), op);
         let state = OrSet.join(&consent_cell_id(&consent_id()).unwrap(), &[aop]);
         assert!(evaluate_consent(
             &state,
@@ -465,19 +306,15 @@ mod tests {
 
     #[test]
     fn revoke_after_grant_removes_consent() {
-        let opts = ConsentGrantOptions::default();
-        let grant = grant_effect(&consent_id(), bob(), Scope::Invite, &opts).unwrap();
-        let (_pre, revoke) = revoke_effect_with_precondition(
-            &consent_id(),
-            &bob(),
-            Scope::Invite,
-            ConsentRevokeValue::default(),
-        )
-        .unwrap();
+        // `ak.consent.revoke` removes the producer-named dots from
+        // `payload.observed_dots`, so the revoke targets the grant's own dot.
         let cell = consent_cell_id(&consent_id()).unwrap();
         let aops = vec![
-            SealedOp::new(move_id(0x11), grant.op),
-            SealedOp::new(move_id(0x22), revoke.op),
+            SealedOp::new(
+                event_digest(0x11),
+                grant_op("ak:event:e1:0", bob(), Scope::Invite, None, None),
+            ),
+            SealedOp::new(event_digest(0x22), revoke_op("ak:event:e1:0")),
         ];
         let state = OrSet.join(&cell, &aops);
         assert!(!evaluate_consent(
@@ -489,10 +326,34 @@ mod tests {
     }
 
     #[test]
+    fn revoking_one_dot_leaves_a_concurrent_grant_standing() {
+        // consent-model §3.3: a revoke MUST NOT be generalized from one dot to
+        // the others under the same `(consent_id, peer, scope)`.
+        let cell = consent_cell_id(&consent_id()).unwrap();
+        let aops = vec![
+            SealedOp::new(
+                event_digest(0x11),
+                grant_op("ak:event:e1:0", bob(), Scope::Invite, None, None),
+            ),
+            SealedOp::new(
+                event_digest(0x22),
+                grant_op("ak:event:e2:0", bob(), Scope::Invite, None, None),
+            ),
+            SealedOp::new(event_digest(0x33), revoke_op("ak:event:e1:0")),
+        ];
+        let state = OrSet.join(&cell, &aops);
+        assert!(evaluate_consent(
+            &state,
+            &bob(),
+            Scope::Invite,
+            ts(2026, 6, 1)
+        ));
+    }
+
+    #[test]
     fn scope_any_grants_every_concrete_scope() {
-        let opts = ConsentGrantOptions::default();
-        let grant = grant_effect(&consent_id(), bob(), Scope::Any, &opts).unwrap();
-        let aop = SealedOp::new(move_id(0x11), grant.op);
+        let op = grant_op("ak:event:e1:0", bob(), Scope::Any, None, None);
+        let aop = SealedOp::new(event_digest(0x11), op);
         let state = OrSet.join(&consent_cell_id(&consent_id()).unwrap(), &[aop]);
         assert!(evaluate_consent(
             &state,
@@ -512,42 +373,6 @@ mod tests {
             Scope::DirectMessage,
             ts(2026, 6, 1)
         ));
-    }
-
-    #[test]
-    fn idempotent_grant_dedupes_via_tag() {
-        // Two identical grants with the same (consent_id, peer, scope)
-        // produce the same tag → or-set sees them as duplicates after join.
-        let opts = ConsentGrantOptions::default();
-        let g1 = grant_effect(&consent_id(), bob(), Scope::Invite, &opts).unwrap();
-        let g2 = grant_effect(&consent_id(), bob(), Scope::Invite, &opts).unwrap();
-        assert_eq!(g1.op.tag, g2.op.tag);
-        let cell = consent_cell_id(&consent_id()).unwrap();
-        let aops = vec![
-            SealedOp::new(move_id(0x11), g1.op),
-            SealedOp::new(move_id(0x22), g2.op),
-        ];
-        let state = OrSet.join(&cell, &aops);
-        // Join produced exactly one tag.
-        let CellState::Value(v) = state else {
-            panic!("expected value")
-        };
-        let arr = v.as_array().unwrap();
-        assert_eq!(arr.len(), 1);
-    }
-
-    #[test]
-    fn require_consent_precondition_round_trip() {
-        let pre = require_consent_precondition(&consent_id(), &bob(), Scope::Invite).unwrap();
-        assert_eq!(
-            pre.cell.as_str(),
-            "ak:cell:ak.component.consent.grant.v1:ak:consent:01904100-0000-7000-8000-000000000001"
-        );
-        assert_eq!(pre.predicate.op, PredicateOp::Contains);
-        assert_eq!(
-            pre.predicate.value.as_ref().unwrap(),
-            "grant:ak:consent:01904100-0000-7000-8000-000000000001:did:webvh:z6mkfixture:bob.example:invite"
-        );
     }
 
     #[test]

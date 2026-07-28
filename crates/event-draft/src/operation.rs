@@ -7,7 +7,7 @@ use arkret_models_crypto::mls_envelopes::{
 use arkret_wire::{
     Audience, CriticalExtension, DeviceMessageId, Did, Event, EventId, EventRef, EventRequirements,
     GrantId, Hash, Hlc, OPERATION_SCHEMA, OperationId, OperationKind, Proof,
-    ProofBindingRequirements, ProtocolKind, RealmId, SignatureBindingPayload, canonical,
+    ProofBindingRequirements, ProtocolKind, RealmId, ScopeRef, SignatureBindingPayload, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -115,7 +115,7 @@ impl Operation {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OperationEnvelope {
     pub operation_id: OperationId,
-    pub realm_id: RealmId,
+    pub scope_ref: ScopeRef,
     pub actor_id: Did,
     pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -200,7 +200,7 @@ impl OperationEnvelope {
     pub fn into_event_envelope(self, conversion: OperationEventConversion) -> Result<Event> {
         let mut event = Event::new(
             self.kind.clone(),
-            self.realm_id,
+            self.scope_ref,
             self.actor_id,
             self.causal.actor_seq,
             self.causal.hlc,
@@ -273,7 +273,7 @@ impl OperationEventConversion {
 #[derive(Clone, Debug)]
 pub struct OperationEnvelopeBuilder {
     operation_id: OperationId,
-    realm_id: RealmId,
+    scope_ref: ScopeRef,
     actor_id: Did,
     kind: String,
     target_ref: Option<String>,
@@ -289,7 +289,7 @@ impl OperationEnvelopeBuilder {
     /// Create a builder for one registered operation kind.
     pub fn new(
         operation_id: OperationId,
-        realm_id: RealmId,
+        scope_ref: ScopeRef,
         actor_id: Did,
         kind: impl Into<String>,
         actor_seq: u64,
@@ -297,7 +297,7 @@ impl OperationEnvelopeBuilder {
     ) -> Self {
         Self {
             operation_id,
-            realm_id,
+            scope_ref,
             actor_id,
             kind: kind.into(),
             target_ref: None,
@@ -356,7 +356,7 @@ impl OperationEnvelopeBuilder {
         let validation = registry.canonicalize(&self.kind)?;
         let envelope = OperationEnvelope {
             operation_id: self.operation_id,
-            realm_id: self.realm_id,
+            scope_ref: self.scope_ref,
             actor_id: self.actor_id,
             kind: validation.canonical_kind,
             target_ref: self.target_ref,

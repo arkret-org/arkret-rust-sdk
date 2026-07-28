@@ -1,11 +1,13 @@
-//! Move / Seal signer trait + builder helpers.
+//! Seal signer trait + builder helpers.
 //!
-//! Round 21 (2026-05-09): the protocol's content-addressed Move/Seal objects
-//! must be signed at the issuer / notary boundary. The SDK exposes a tiny
-//! signer trait so downstream code (coauth pending Move sealing, soland
-//! seal reconfig + bottom repair, inkson real-key signing) can plug
+//! The protocol's content-addressed Seal objects must be signed at the notary
+//! boundary. The SDK exposes a tiny signer trait so downstream code (soland
+//! seal reconfiguration, notary services, conformance harnesses) can plug
 //! production keys in without re-implementing canonical bytes / id / payload
 //! hash plumbing.
+//!
+//! There is no Move signer: v1 has no standalone Move object, and a Control
+//! Move is an ordinary signed Event.
 //!
 //! The trait deliberately stays in the wire owner crate (with no crypto deps): an
 //! Ed25519 implementation lives in `arkret-signatures` behind the `signer`
@@ -16,144 +18,35 @@ use std::collections::BTreeSet;
 
 use chrono::Utc;
 
-use crate::move_event::{Effect, Move, MoveSignature, Precondition, SealBasis, SemanticRef};
 use crate::{
-    Did, Error, Hash, Hlc, MoveId, MultiSigKind, MultiSignature, NotarySig, RealmId, Result, Seal,
-    SealId, ThresholdSigKind, ThresholdSignature, canonical,
+    Did, Error, Hash, Hlc, MultiSigKind, MultiSignature, NotarySig, PayloadSignature, RealmId,
+    Result, Seal, SealId, ThresholdSigKind, ThresholdSignature, canonical,
 };
 
-/// Builder view of a Move that has not yet been hashed / signed.
-///
-/// Constructed via `UnsignedMove::new(...)`; `sign(signer)` (or `MoveSigner::sign_move`)
-/// turns it into a fully-signed [`Move`] whose `id` is the canonical-bytes
-/// hash and whose `sig.payload_digest` matches the same canonical bytes.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct UnsignedMove {
-    pub issuer: Did,
-    pub realm_id: RealmId,
-    pub preconditions: Vec<Precondition>,
-    pub effects: Vec<Effect>,
-    pub seal_basis: SealBasis,
-    pub refs: Vec<SemanticRef>,
-    pub hlc: Hlc,
-}
-
-impl UnsignedMove {
-    pub fn new(
-        issuer: Did,
-        realm_id: RealmId,
-        seal_basis: SealBasis,
-        effects: Vec<Effect>,
-        hlc: Hlc,
-    ) -> Self {
-        Self {
-            issuer,
-            realm_id,
-            preconditions: Vec::new(),
-            effects,
-            seal_basis,
-            refs: Vec::new(),
-            hlc,
-        }
-    }
-
-    pub fn with_preconditions(mut self, preconditions: Vec<Precondition>) -> Self {
-        self.preconditions = preconditions;
-        self
-    }
-
-    pub fn with_refs(mut self, refs: Vec<SemanticRef>) -> Self {
-        self.refs = refs;
-        self
-    }
-
-    /// Compute canonical bytes for this unsigned body (exactly the bytes
-    /// the issuer signs, exactly the bytes whose sha256 becomes `Move.id`).
-    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
-        // Build a placeholder `Move` with empty sig, then re-use
-        // `Move::canonical_bytes_for_id` (which excludes both id and sig).
-        // The id and sig fields are not part of the canonical bytes so any
-        // value will do.
-        let placeholder = self.placeholder_move()?;
-        placeholder.canonical_bytes_for_id()
-    }
-
-    fn placeholder_move(&self) -> Result<Move> {
-        let placeholder_id =
-            MoveId::new("sha256:0000000000000000000000000000000000000000000000000000000000000000")
-                .map_err(|err| Error::Protocol(format!("placeholder move id invalid: {err}")))?;
-        let placeholder_sig = MoveSignature {
-            alg: "EdDSA".to_owned(),
-            verification_method: String::new(),
-            payload_digest: Hash::new(
-                "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-            )
-            .map_err(|err| Error::Protocol(format!("placeholder hash invalid: {err}")))?,
-            created_at: Utc::now(),
-            jws: String::new(),
-        };
-        Ok(Move {
-            id: placeholder_id,
-            issuer: self.issuer.clone(),
-            realm_id: self.realm_id.clone(),
-            preconditions: self.preconditions.clone(),
-            effects: self.effects.clone(),
-            seal_basis: self.seal_basis.clone(),
-            refs: self.refs.clone(),
-            hlc: self.hlc.clone(),
-            sig: placeholder_sig,
-        })
-    }
-}
-
-/// Trait implemented by Move/Seal signers (Ed25519 keypair, HSM, threshold
-/// scheme, etc.).
-///
-/// `sign_move` MUST:
-/// 1. Compute canonical bytes via `unsigned.canonical_bytes()`.
-/// 2. Produce a JWS over those bytes using the signer's keypair.
-/// 3. Return a [`Move`] whose `id` = `derive_id` of the canonical bytes and whose
-///    `sig.payload_digest` = sha256 of the canonical bytes.
-pub trait MoveSigner {
-    /// Sign an unsigned Move and return the fully-formed wire object.
-    fn sign_move(&self, unsigned: &UnsignedMove) -> Result<Move>;
-
-    /// DID of the signing identity. MUST match `unsigned.issuer` when used
-    /// to sign Moves; for Seals this is one of the notary-set members.
+/// Trait implemented by Seal / notary signers (Ed25519 keypair, HSM,
+/// threshold scheme, etc.).
+pub trait PayloadSigner {
+    /// DID of the signing identity. For Seals this is one of the notary-set
+    /// members.
     fn signer_did(&self) -> &Did;
 
     /// The verification method id (e.g. `did:webvh:z6mkfixture:alice.example#key-1`)
-    /// the signer will publish as `MoveSignature.verification_method`.
+    /// the signer will publish as `PayloadSignature.verification_method`.
     fn verification_method_id(&self) -> &str;
 
     /// Sign arbitrary canonical bytes with the signer's key, producing a
-    /// detached JWS string. Implementations of `sign_move` typically use
-    /// this internally; helpers like [`Seal::sign_single`] also reuse
-    /// it for the Seal body.
-    fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<MoveSignature>;
-}
-
-impl Move {
-    /// Sign an unsigned Move via the supplied signer.
-    pub fn sign<S: MoveSigner + ?Sized>(unsigned: &UnsignedMove, signer: &S) -> Result<Move> {
-        if unsigned.issuer != *signer.signer_did() {
-            return Err(Error::Protocol(format!(
-                "Move issuer {} does not match signer DID {}",
-                unsigned.issuer,
-                signer.signer_did()
-            )));
-        }
-        signer.sign_move(unsigned)
-    }
+    /// detached JWS plus the matching `payload_digest`. Helpers such as
+    /// [`Seal::sign_single`] build the canonical body bytes and delegate here.
+    fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<PayloadSignature>;
 }
 
 impl Seal {
     /// Build + single-sign a normal Seal (delta-accepting). Delegates to
     /// [`Seal::sign_single_kind`] with `kind=Normal`.
-    pub fn sign_single<S: MoveSigner + ?Sized>(
+    pub fn sign_single<S: PayloadSigner + ?Sized>(
         realm_id: RealmId,
         predecessor_refs: Vec<SealId>,
-        delta: Vec<MoveId>,
+        delta: Vec<Hash>,
         state_root: Hash,
         hlc: Hlc,
         signer: &S,
@@ -188,10 +81,10 @@ impl Seal {
     ///
     /// [av]: https://docs.rs/arkret-state
     #[allow(clippy::too_many_arguments)]
-    pub fn sign_single_kind<S: MoveSigner + ?Sized>(
+    pub fn sign_single_kind<S: PayloadSigner + ?Sized>(
         realm_id: RealmId,
         predecessor_refs: Vec<SealId>,
-        delta: Vec<MoveId>,
+        delta: Vec<Hash>,
         state_root: Hash,
         hlc: Hlc,
         kind: crate::SealKind,
@@ -214,16 +107,16 @@ impl Seal {
     /// is supplied by the caller.
     ///
     /// This is the form to use whenever the Seal has predecessors that
-    /// already cover Moves: pass the root the notary computes over
+    /// already cover control-plane Events: pass the root the notary computes over
     /// predecessor coverage ∪ delta (an effective seal view exposes it
     /// directly), because that is what a verifier recomputes. The
     /// delta-only shorthand [`Seal::sign_single_kind`] silently produces a
     /// root that a verifier rejects in exactly that case.
     #[allow(clippy::too_many_arguments)]
-    pub fn sign_single_kind_with_control_root<S: MoveSigner + ?Sized>(
+    pub fn sign_single_kind_with_control_root<S: PayloadSigner + ?Sized>(
         realm_id: RealmId,
         predecessor_refs: Vec<SealId>,
-        delta: Vec<MoveId>,
+        delta: Vec<Hash>,
         control_event_set_root: Hash,
         state_root: Hash,
         hlc: Hlc,
@@ -280,7 +173,7 @@ impl Seal {
     pub fn sign_threshold(
         realm_id: RealmId,
         predecessor_refs: Vec<SealId>,
-        delta: Vec<MoveId>,
+        delta: Vec<Hash>,
         state_root: Hash,
         hlc: Hlc,
         threshold: u32,
@@ -307,7 +200,7 @@ impl Seal {
     pub fn sign_threshold_kind(
         realm_id: RealmId,
         predecessor_refs: Vec<SealId>,
-        delta: Vec<MoveId>,
+        delta: Vec<Hash>,
         state_root: Hash,
         hlc: Hlc,
         kind: crate::SealKind,
@@ -371,13 +264,13 @@ impl Seal {
     pub fn sign_multi<S>(
         realm_id: RealmId,
         predecessor_refs: Vec<SealId>,
-        delta: Vec<MoveId>,
+        delta: Vec<Hash>,
         state_root: Hash,
         hlc: Hlc,
         signers: &[&S],
     ) -> Result<Seal>
     where
-        S: MoveSigner + ?Sized,
+        S: PayloadSigner + ?Sized,
     {
         Self::sign_multi_kind(
             realm_id,
@@ -397,14 +290,14 @@ impl Seal {
     pub fn sign_multi_kind<S>(
         realm_id: RealmId,
         predecessor_refs: Vec<SealId>,
-        delta: Vec<MoveId>,
+        delta: Vec<Hash>,
         state_root: Hash,
         hlc: Hlc,
         kind: crate::SealKind,
         signers: &[&S],
     ) -> Result<Seal>
     where
-        S: MoveSigner + ?Sized,
+        S: PayloadSigner + ?Sized,
     {
         if signers.is_empty() {
             return Err(Error::Protocol(
@@ -464,18 +357,21 @@ impl Seal {
     }
 }
 
-fn delta_control_root(delta: &[MoveId]) -> Result<Hash> {
-    let covered: BTreeSet<MoveId> = delta.iter().cloned().collect();
+fn delta_control_root(delta: &[Hash]) -> Result<Hash> {
+    let covered: BTreeSet<Hash> = delta.iter().cloned().collect();
     let mut leaves: Vec<[u8; 32]> = covered
         .iter()
-        .map(|move_id| {
-            let digest = move_id
+        .map(|event_digest| {
+            let digest = event_digest
                 .as_str()
                 .strip_prefix("sha256:")
-                .ok_or_else(|| Error::Protocol("Move ID must use sha256".to_owned()))?;
+                .ok_or_else(|| {
+                    Error::Protocol("control-plane event_digest must use sha256".to_owned())
+                })?;
             let mut bytes = [0_u8; 32];
-            hex::decode_to_slice(digest, &mut bytes)
-                .map_err(|error| Error::Protocol(format!("invalid Move ID digest: {error}")))?;
+            hex::decode_to_slice(digest, &mut bytes).map_err(|error| {
+                Error::Protocol(format!("invalid control-plane event_digest: {error}"))
+            })?;
             Ok(bytes)
         })
         .collect::<Result<_>>()?;
@@ -636,7 +532,7 @@ impl ThresholdAggregator {
     /// Returns an error if any individual verification fails or threshold
     /// not met.
     ///
-    /// The resulting [`MultiSignature`] has one [`MoveSignature`] per
+    /// The resulting [`MultiSignature`] has one [`PayloadSignature`] per
     /// partial, with `payload_digest` = the supplied canonical-bytes hash and
     /// `jws` = the partial's raw signature base64-encoded so the wire shape
     /// is uniform regardless of the underlying scheme.
@@ -660,7 +556,7 @@ impl ThresholdAggregator {
             // wire shape stays uniform; receivers re-decode and re-verify
             // via the same scheme verifier.
             let encoded_sig = crate::base64url::base64url_encode(&partial.signature);
-            signatures.push(MoveSignature {
+            signatures.push(PayloadSignature {
                 alg: "EdDSA".to_owned(),
                 verification_method: partial.kid.clone(),
                 payload_digest: payload_digest.clone(),
@@ -719,7 +615,7 @@ impl Seal {
     pub fn sign_threshold_partial(
         realm_id: RealmId,
         predecessor_refs: Vec<SealId>,
-        delta: Vec<MoveId>,
+        delta: Vec<Hash>,
         state_root: Hash,
         hlc: Hlc,
         aggregator: &ThresholdAggregator,
@@ -752,7 +648,7 @@ impl Seal {
 struct SealBodyView<'a> {
     realm_id: &'a RealmId,
     predecessor_refs: &'a [SealId],
-    delta: &'a [MoveId],
+    delta: &'a [Hash],
     control_event_set_root: &'a Hash,
     state_root: &'a Hash,
     completeness_root: &'a Hash,
@@ -769,11 +665,8 @@ struct SealBodyView<'a> {
 #[cfg(test)]
 mod tests {
     use chrono::{TimeZone, Utc};
-    use serde_json::json;
 
     use super::*;
-    use crate::CellRef;
-    use crate::move_event::{LatticeOp, LatticeOpType};
 
     fn realm() -> RealmId {
         RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
@@ -791,20 +684,8 @@ mod tests {
         .unwrap()
     }
 
-    fn move_id(byte: u8) -> MoveId {
-        MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
-    }
-
     fn hash(byte: u8) -> Hash {
         Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
-    }
-
-    fn seal_basis(byte: u8) -> SealBasis {
-        SealBasis {
-            leaves: vec![seal_id(byte)],
-            control_event_set_root: hash(0x33),
-            state_root: hash(0x44),
-        }
     }
 
     fn hlc() -> Hlc {
@@ -819,24 +700,7 @@ mod tests {
         kid: String,
     }
 
-    impl MoveSigner for StubSigner {
-        fn sign_move(&self, unsigned: &UnsignedMove) -> Result<Move> {
-            let bytes = unsigned.canonical_bytes()?;
-            let id = Move::id_from_canonical_bytes(&bytes)?;
-            let sig = self.sign_payload(&bytes)?;
-            Ok(Move {
-                id,
-                issuer: unsigned.issuer.clone(),
-                realm_id: unsigned.realm_id.clone(),
-                preconditions: unsigned.preconditions.clone(),
-                effects: unsigned.effects.clone(),
-                seal_basis: unsigned.seal_basis.clone(),
-                refs: unsigned.refs.clone(),
-                hlc: unsigned.hlc.clone(),
-                sig,
-            })
-        }
-
+    impl PayloadSigner for StubSigner {
         fn signer_did(&self) -> &Did {
             &self.did
         }
@@ -845,9 +709,9 @@ mod tests {
             &self.kid
         }
 
-        fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<MoveSignature> {
+        fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<PayloadSignature> {
             let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes)).unwrap();
-            Ok(MoveSignature {
+            Ok(PayloadSignature {
                 alg: "EdDSA".to_owned(),
                 verification_method: self.kid.clone(),
                 payload_digest,
@@ -864,60 +728,13 @@ mod tests {
         }
     }
 
-    fn unsigned_move() -> UnsignedMove {
-        UnsignedMove::new(
-            alice(),
-            realm(),
-            seal_basis(0xaa),
-            vec![Effect {
-                cell: CellRef::new(
-                    "ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned(),
-                )
-                .unwrap(),
-                op: LatticeOp {
-                    op_type: LatticeOpType::Set,
-                    tag: None,
-                    value: Some(json!("active")),
-                    from: None,
-                    to: None,
-                    reason: None,
-                    issuer_seq: None,
-                },
-            }],
-            hlc(),
-        )
-    }
-
-    #[test]
-    fn move_sign_round_trip_validates_id_and_payload_digest() {
-        let s = signer();
-        let m = Move::sign(&unsigned_move(), &s).unwrap();
-        m.validate_id().unwrap();
-        m.validate_structural().unwrap();
-        assert_eq!(m.issuer, alice());
-        assert_eq!(
-            m.sig.verification_method,
-            "did:webvh:z6mkfixture:alice.example#key-1"
-        );
-    }
-
-    #[test]
-    fn move_sign_rejects_issuer_mismatch() {
-        let other = StubSigner {
-            did: Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
-            kid: "did:webvh:z6mkfixture:bob.example#key-1".to_owned(),
-        };
-        let err = Move::sign(&unsigned_move(), &other).unwrap_err();
-        assert!(format!("{err}").contains("does not match signer DID"));
-    }
-
     #[test]
     fn seal_sign_single_validates_id_and_structural() {
         let s = signer();
         let a = Seal::sign_single(
             realm(),
             vec![seal_id(0xaa)],
-            vec![move_id(0x11)],
+            vec![hash(0x11)],
             hash(0x77),
             hlc(),
             &s,
@@ -936,7 +753,7 @@ mod tests {
         let a = Seal::sign_threshold(
             realm(),
             vec![seal_id(0xaa)],
-            vec![move_id(0x11)],
+            vec![hash(0x11)],
             hash(0x77),
             hlc(),
             2,
@@ -964,7 +781,7 @@ mod tests {
         let err = Seal::sign_threshold(
             realm(),
             vec![seal_id(0xaa)],
-            vec![move_id(0x11)],
+            vec![hash(0x11)],
             hash(0x77),
             hlc(),
             5,
@@ -982,11 +799,11 @@ mod tests {
             did: Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
             kid: "did:webvh:z6mkfixture:bob.example#key-1".to_owned(),
         };
-        let signers: &[&dyn MoveSigner] = &[&alice, &bob];
+        let signers: &[&dyn PayloadSigner] = &[&alice, &bob];
         let a = Seal::sign_multi(
             realm(),
             vec![seal_id(0xaa)],
-            vec![move_id(0x11)],
+            vec![hash(0x11)],
             hash(0x77),
             hlc(),
             signers,
@@ -1000,26 +817,16 @@ mod tests {
 
     #[test]
     fn seal_sign_multi_rejects_empty_signer_set() {
-        let err = Seal::sign_multi::<dyn MoveSigner>(
+        let err = Seal::sign_multi::<dyn PayloadSigner>(
             realm(),
             vec![seal_id(0xaa)],
-            vec![move_id(0x11)],
+            vec![hash(0x11)],
             hash(0x77),
             hlc(),
             &[],
         )
         .unwrap_err();
         assert!(format!("{err}").contains("requires at least one signer"));
-    }
-
-    #[test]
-    fn unsigned_move_canonical_bytes_match_signed_move_canonical_bytes() {
-        let s = signer();
-        let u = unsigned_move();
-        let unsigned_bytes = u.canonical_bytes().unwrap();
-        let m = Move::sign(&u, &s).unwrap();
-        let signed_bytes = m.canonical_bytes_for_id().unwrap();
-        assert_eq!(unsigned_bytes, signed_bytes);
     }
 
     // -------------------------------------------------------------------
@@ -1144,7 +951,7 @@ mod tests {
         let a = Seal::sign_threshold_partial(
             realm(),
             vec![seal_id(0xaa)],
-            vec![move_id(0x11)],
+            vec![hash(0x11)],
             hash(0x77),
             hlc(),
             &agg,
@@ -1173,7 +980,7 @@ mod tests {
         let err = Seal::sign_threshold_partial(
             realm(),
             vec![seal_id(0xaa)],
-            vec![move_id(0x11)],
+            vec![hash(0x11)],
             hash(0x77),
             hlc(),
             &agg,

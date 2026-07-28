@@ -42,7 +42,7 @@ info:
 
     `EventsResolveRequestBody` / `EventsResolveOutcome`, `EventsQueryOutcome`,
 
-    `EventsFrontierState`, `EphemeralSubmitOutcome`,
+    `EventsFrontierState`, `SignalSubmitOutcome`,
 
     `IdentityResolveOutcome` / `IdentityDocumentView`,
     `DidOperationSubmitRequestBody` / `DidOperationSubmitOutcome`,
@@ -1058,8 +1058,6 @@ components:
         stale:
           type: boolean
       additionalProperties: false
-    EphemeralSubmitOutcome:
-      $ref: ../schemas/service-operation-dtos.schema.json#/$defs/EphemeralSubmitOutcome
     ErrorEnvelope:
       type: object
       required:
@@ -1235,6 +1233,7 @@ components:
               - unsupported_digest_algorithm
               - unsupported_signature_alg
               - unsupported_hpke_suite
+              - invalid_genesis_seal
               - seal_incomplete
               - franking_proof_unavailable
               - turn_credential_expired
@@ -1336,38 +1335,9 @@ components:
     EventsResolveRequestBody:
       $ref: ../schemas/service-operation-dtos.schema.json#/$defs/EventsResolveRequestBody
     EventsSubmitBatchRequestBody:
-      type: object
-      description: Batch ak.self.events.command.submit request used by account clients.
-      required:
-      - events
-      properties:
-        events:
-          type: array
-          minItems: 1
-          items:
-            $ref: '#/components/schemas/EventSubmitEnvelope'
-      additionalProperties: false
+      $ref: ../schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitBatchRequestBody
     EventsSubmitFederationRequestBody:
-      type: object
-      description: Federation service-to-service ak.peer.events.command.submit request body.
-      required:
-      - service_binding_ref
-      - events
-      properties:
-        service_binding_ref:
-          $ref: '#/components/schemas/FederationServiceBindingRef'
-        events:
-          type: array
-          minItems: 1
-          items:
-            $ref: '#/components/schemas/EventSubmitEnvelope'
-        signer_key_evidence:
-          type: array
-          maxItems: 64
-          items:
-            $ref: '#/components/schemas/FederatedDeviceSigningKeyEvidence'
-          description: Source-Principal-Server attestation of active participant device keys needed to verify original Event proofs. Transport-only and covered by the outer HTTP Message Signature.
-      additionalProperties: false
+      $ref: ../schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitFederationRequestBody
     EventsSubmitOutcome:
       $ref: ../schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome
     EventsSubscribeFrame:
@@ -1561,20 +1531,7 @@ components:
           $ref: '#/components/schemas/BottomDiagnostic'
       additionalProperties: false
     EventSubmitEnvelope:
-      allOf:
-      - $ref: ../schemas/event-envelope.schema.json
-      - type: object
-        not:
-          anyOf:
-          - required:
-            - actor_kind
-          - required:
-            - effective_scope
-        description: |
-          Actor-supplied ak.self.events.command.submit input envelope. It reuses the base Event
-          shape for actor intent fields but forbids reducer-managed accepted-output
-          projections such as actor_kind and effective_scope. Services stamp those
-          fields only after accept and expose them on read/query/sync envelopes.
+      $ref: ../schemas/service-operation-dtos.schema.json#/$defs/EventSubmitEnvelope
     EventView:
       $ref: ../schemas/service-operation-dtos.schema.json#/$defs/EventView
     FacetName:
@@ -2950,6 +2907,8 @@ components:
       $ref: ../schemas/account-operations.schema.json#/$defs/session_revoke_outcome
     SessionRevokeRequestBody:
       $ref: ../schemas/account-operations.schema.json#/$defs/session_revoke_request_body
+    SignalSubmitOutcome:
+      $ref: ../schemas/service-operation-dtos.schema.json#/$defs/SignalSubmitOutcome
     SnapshotBootstrap:
       type: object
       description: Optional ak.peer.events.query.scan acceleration hint for federation pull / backfill. snapshot_ref is an external pointer and MUST equal the Snapshot manifest id. Verifier MUST validate signature, state_digest, snapshot_frontier, chunk digests, created_by, created_at, and authority_binding before use (manifest fields are bound by the manifest signature transcript — see schemas/snapshot.schema.json).
@@ -3910,6 +3869,77 @@ paths:
             application/json:
               schema:
                 $ref: ../schemas/recovery-session.schema.json#/$defs/recovery_session_complete_outcome
+  /_arkret/self/security-transactions:
+    post:
+      operationId: ak.self.security_transaction.command.create
+      security:
+      - bearerAuth: []
+      - httpMessageSignature: []
+        sourceServiceId: []
+        destinationServiceId: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/security-transaction.schema.json#/$defs/create_request
+      responses:
+        '200':
+          description: Durable security transaction created or replayed byte-identically.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/security-transaction.schema.json
+  /_arkret/self/security-transactions/{transaction_id}:
+    get:
+      operationId: ak.self.security_transaction.resource.get
+      security:
+      - bearerAuth: []
+      - httpMessageSignature: []
+        sourceServiceId: []
+        destinationServiceId: []
+      parameters:
+      - name: transaction_id
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^ak:transaction:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+      responses:
+        '200':
+          description: Authoritative durable security transaction state.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/security-transaction.schema.json
+  /_arkret/self/security-transactions/{transaction_id}/continue:
+    post:
+      operationId: ak.self.security_transaction.command.continue
+      security:
+      - bearerAuth: []
+      - httpMessageSignature: []
+        sourceServiceId: []
+        destinationServiceId: []
+      parameters:
+      - name: transaction_id
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^ak:transaction:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/security-transaction.schema.json#/$defs/continue_request
+      responses:
+        '200':
+          description: Stored next security transaction action continued or replayed.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/security-transaction.schema.json
   /_arkret/self/events:
     post:
       operationId: ak.self.events.command.submit
@@ -4656,45 +4686,69 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PeerKeyPackagesClaimQueryOutcome'
-  /_arkret/self/ephemeral:
+  /_arkret/self/signal:
     post:
-      operationId: ak.self.ephemeral.command.send
+      operationId: ak.self.signal.command.send
       security:
       - bearerAuth: []
       - httpMessageSignature: []
         sourceServiceId: []
         destinationServiceId: []
         contentDigest: []
-      summary: Send a broadcast ephemeral signal.
+      summary: Send an encrypted Signal Extension envelope.
       description: |
-        Sends a `ak.schema.ephemeral_envelope.v1` broadcast signal (`ak.presence`,
-        `ak.typing`, `ak.receipt.read`, or `ak.call.signal`) into the Sync
-        Service fanout path. This endpoint never persists the signal as a
-        durable Event and never advances actor_seq, Seal state, or Realm
-        frontier. Point-to-point device verification signals use
-        `ak.self.device_messages.command.send` instead.
+        Sends a `ak.schema.signal_envelope.v1` encrypted envelope. Exact
+        payload type and product target remain inside ciphertext. This endpoint
+        never persists the envelope as a durable Event and never advances
+        actor_seq, Seal state, or Realm frontier. Point-to-point device
+        verification and secret distribution use the to-device queue instead.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: ../schemas/ephemeral-envelope.schema.json
+              $ref: ../schemas/signal-envelope.schema.json
       responses:
         '200':
-          description: Ephemeral signal accepted into fanout.
+          description: Encrypted signal envelope accepted into the live rail.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EphemeralSubmitOutcome'
+                $ref: '#/components/schemas/SignalSubmitOutcome'
         '400':
           description: |
-            `invalid_param` or `schema_violation` — malformed envelope, unsupported
-            kind, expired signal, or TTL above the hard ceiling.
+            `invalid_param` or `schema_violation` — malformed envelope, expired
+            signal, or TTL/body above the hard ceiling.
         '403':
           description: |
-            `capability_denied` or `policy_violation` — caller cannot broadcast
-            this signal in the Realm, or the effective read-receipt policy
-            disables `ak.receipt.read`.
+            `capability_denied` or `policy_violation` — caller cannot send the
+            declared signal_class in the signed scope.
+  /_arkret/self/signal/subscribe:
+    get:
+      operationId: ak.self.signal.stream.subscribe
+      security:
+      - bearerAuth: []
+      - httpMessageSignature: []
+        sourceServiceId: []
+        destinationServiceId: []
+      summary: Subscribe to encrypted Signal Extension envelopes.
+      description: |
+        Opens the optional authenticated live receive rail. Each data line is
+        the same `ak.schema.signal_envelope.v1` accepted by the send rail;
+        bounded transport control frames may also be emitted. This stream has
+        no catch-up, persistence, ordering, or delivery guarantee. Exact signal
+        type and product target remain inside ciphertext.
+      responses:
+        '200':
+          description: Encrypted signal NDJSON live stream.
+          content:
+            application/x-ndjson:
+              schema:
+                $ref: ../schemas/signal-envelope.schema.json
+        '403':
+          description: |
+            `capability_denied` or `policy_violation` — the authenticated device
+            has no eligible encrypted Signal scope.
   /_arkret/self/rtc/token:
     post:
       operationId: ak.self.call.media.exchange.issue_token
@@ -4800,8 +4854,8 @@ paths:
         rebuild / initial account sync. `dropped` / `resync_required` may
         carry `reconnect_after_ms`, a minimum server-directed delay before
         opening another subscription for the same principal/device/filter
-        scope. Presence changes are submitted with ak.self.ephemeral.command.send,
-        not this read-only streaming subscription.
+        scope. Signal envelopes use the Signal Extension live rail, not
+        this account-aggregate subscription.
       parameters:
       - in: header
         name: X-Arkret-Wait-For

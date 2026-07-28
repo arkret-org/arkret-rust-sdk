@@ -19,7 +19,7 @@ use arkret_models_crypto::{
 };
 use arkret_models_discovery::ServiceDescribe;
 use arkret_state::SnapshotManifest;
-use arkret_wire::{Event, Seal};
+use arkret_wire::{EventInitialSubmission, Seal};
 use reqwest::{Method, Response};
 
 use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment};
@@ -406,11 +406,21 @@ impl Client {
         )?)
     }
 
-    /// Submit a single signed Event Envelope via `ak.self.events.command.submit`
-    /// (`POST /_arkret/self/events`). Wire body is the bare envelope per the OpenAPI
-    /// `oneOf` first arm (`event-envelope.schema.json`).
-    pub async fn events_submit(&self, event: &Event) -> Result<EventsSubmitOutcome> {
-        self.post("/_arkret/self/events", event).await
+    /// Submit one initial Event publication via `ak.self.events.command.submit`
+    /// (`POST /_arkret/self/events`). Wire body is the first `oneOf` arm of
+    /// `EventsSubmitRequestBody`, i.e. `EventInitialSubmission` — the signed
+    /// Event plus the publication evidence that bounds it. A bare Event
+    /// Envelope is no longer a valid body.
+    ///
+    /// The caller owns `authorization_lease`. Minting one requires the issuer
+    /// signing keys and the authority-set identity of the party that granted
+    /// the capability, neither of which this client holds, so the SDK never
+    /// fabricates a lease on the caller's behalf.
+    pub async fn events_submit(
+        &self,
+        submission: &EventInitialSubmission,
+    ) -> Result<EventsSubmitOutcome> {
+        self.post("/_arkret/self/events", submission).await
     }
 
     /// [`events_submit`](Self::events_submit) with per-request options.
@@ -419,20 +429,26 @@ impl Client {
     /// [`ClientRequestOptions::idempotency_key`] makes this POST eligible
     /// for the transparent 5xx/timeout retry gate (the server dedupes on
     /// `event_id` + canonical bytes per operations-sync.md §events.submit,
-    /// so a resend is an idempotent no-op returning `duplicate[]`).
+    /// so a resend is an idempotent no-op returning `duplicate[]`). The key
+    /// travels only in the header — it is not a request-body field.
     pub async fn events_submit_with_options(
         &self,
-        event: &Event,
+        submission: &EventInitialSubmission,
         options: &ClientRequestOptions,
     ) -> Result<EventsSubmitOutcome> {
-        self.post_with_options("/_arkret/self/events", event, options)
+        self.post_with_options("/_arkret/self/events", submission, options)
             .await
     }
 
-    /// Submit a batch of signed Event Envelopes via `ak.self.events.command.submit`
-    /// (`POST /_arkret/self/events`) using the `EventsSubmitBatchRequestBody` body shape.
-    pub async fn events_submit_batch(&self, events: &[Event]) -> Result<EventsSubmitOutcome> {
-        self.events_submit_batch_with_options(events, &ClientRequestOptions::default())
+    /// Submit a batch of initial Event publications via
+    /// `ak.self.events.command.submit` (`POST /_arkret/self/events`) using the
+    /// `EventsSubmitBatchRequestBody` body shape. Each element carries its own
+    /// caller-minted lease; see [`events_submit`](Self::events_submit).
+    pub async fn events_submit_batch(
+        &self,
+        submissions: &[EventInitialSubmission],
+    ) -> Result<EventsSubmitOutcome> {
+        self.events_submit_batch_with_options(submissions, &ClientRequestOptions::default())
             .await
     }
 
@@ -441,12 +457,11 @@ impl Client {
     /// for the retry semantics of an attached `Idempotency-Key`.
     pub async fn events_submit_batch_with_options(
         &self,
-        events: &[Event],
+        submissions: &[EventInitialSubmission],
         options: &ClientRequestOptions,
     ) -> Result<EventsSubmitOutcome> {
         let body = EventsSubmitBatchRequestBody {
-            events: events.to_vec(),
-            idempotency_key: options.idempotency_key.clone(),
+            events: submissions.to_vec(),
         };
         self.post_with_options("/_arkret/self/events", &body, options)
             .await

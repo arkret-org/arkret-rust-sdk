@@ -97,11 +97,9 @@ pub fn is_standard_event_kind(kind: &str) -> bool {
 /// Classify a protocol event kind without deserializing its content.
 pub fn event_product_class(kind: &EventKind) -> EventProductClass {
     match kind {
-        EventKind::AccountBlocklist
-        | EventKind::AccountStatus
-        | EventKind::AccountDataSet
-        | EventKind::Presence
-        | EventKind::Typing => EventProductClass::Account,
+        EventKind::AccountBlocklist | EventKind::AccountStatus | EventKind::AccountDataSet => {
+            EventProductClass::Account
+        }
         EventKind::ActorDiscovery => EventProductClass::Actor,
         EventKind::AgentActionApprove
         | EventKind::AgentActionReject
@@ -134,10 +132,9 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::CapabilityGrant
         | EventKind::CapabilityRevoke
         | EventKind::SessionGrant => EventProductClass::Authz,
-        EventKind::CallRecordingStart
-        | EventKind::CallSignal
-        | EventKind::CallState
-        | EventKind::CallSummary => EventProductClass::Call,
+        EventKind::CallRecordingStart | EventKind::CallState | EventKind::CallSummary => {
+            EventProductClass::Call
+        }
         EventKind::CircleCreate
         | EventKind::CircleUpdate
         | EventKind::CircleArchive
@@ -158,24 +155,13 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::DevicePushRoute
         | EventKind::DeviceReanchor
         | EventKind::DeviceRevoke
-        | EventKind::KeyBackupActiveSeries
-        | EventKind::KeyVerificationAccept
-        | EventKind::KeyVerificationCancel
-        | EventKind::KeyVerificationDone
-        | EventKind::KeyVerificationKey
-        | EventKind::KeyVerificationMac
-        | EventKind::KeyVerificationReady
-        | EventKind::KeyVerificationRequest
-        | EventKind::KeyVerificationStart
-        | EventKind::SecretRequest
-        | EventKind::SecretSend => EventProductClass::Device,
+        | EventKind::KeyBackupActiveSeries => EventProductClass::Device,
         EventKind::MlsCommit
         | EventKind::MlsCommitFailed
         | EventKind::MlsGenesis
         | EventKind::MlsKeypackage
         | EventKind::MlsProposal
         | EventKind::MlsWelcome
-        | EventKind::RealmKeyRequest
         | EventKind::RealmKeyShare
         | EventKind::RealmKeyShareAudit
         | EventKind::RealmKeyWithheld => EventProductClass::E2ee,
@@ -233,7 +219,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         EventKind::ProfileCreate | EventKind::ProfileRealmOverride | EventKind::ProfileUpdate => {
             EventProductClass::Profile
         }
-        EventKind::ReadCursorAdvance | EventKind::ReceiptRead => EventProductClass::Read,
+        EventKind::ReadCursorAdvance => EventProductClass::Read,
         EventKind::RealmArchive
         | EventKind::RealmAssetPrivacyPolicy
         | EventKind::RealmCreate
@@ -379,7 +365,7 @@ mod tests {
         assert!(is_morph_lifecycle_kind(EventKind::MORPH_ARCHIVE));
         assert!(is_strand_tracks_kind(EventKind::STRAND_TRACKS_UPDATE));
         assert_eq!(
-            EventKind::CallSignal.product_class(),
+            EventKind::CallState.product_class(),
             EventProductClass::Call
         );
         assert_eq!(

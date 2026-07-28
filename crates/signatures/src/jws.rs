@@ -18,7 +18,10 @@
 
 use ed25519_dalek::SigningKey;
 
-use crate::sign_eddsa_detached_jws;
+// Reach the function at its defining module rather than through the crate-root
+// re-export: that re-export is gated on `collaboration`, while this module is
+// not, so importing it from the root breaks any build without that feature.
+use crate::proof::sign_eddsa_detached_jws;
 
 /// Produce a detached Ed25519 JWS over `canonical_bytes`.
 ///

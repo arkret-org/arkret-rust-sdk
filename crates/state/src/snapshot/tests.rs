@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde_json::Value;
 
 use super::{merkle, *};
-use crate::{Did, EventId, Hash, Hlc, MoveSignature, RealmId, SnapshotId};
+use crate::{Did, EventId, Hash, Hlc, PayloadSignature, RealmId, SnapshotId};
 
 fn did() -> Did {
     Did::new("did:webvh:z6mkfixture:generator.example".to_owned()).unwrap()
@@ -327,8 +327,8 @@ fn merkle_verify_rejects_mismatched_leaf_count() {
 
 // ── GeneratorProof ─────────────────────────────────────────────────
 
-fn move_sig(payload_digest: Hash) -> MoveSignature {
-    MoveSignature {
+fn move_sig(payload_digest: Hash) -> PayloadSignature {
+    PayloadSignature {
         alg: "EdDSA".to_owned(),
         verification_method: "did:webvh:z6mkfixture:generator.example#k1".to_owned(),
         payload_digest,

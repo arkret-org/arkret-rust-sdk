@@ -3,7 +3,7 @@
 
 use arkret_schema::embedded_json_artifact;
 use arkret_state::lattice::{CellState, Lattice, MvRegister, SealedOp};
-use arkret_wire::{CellRef, LatticeOp, LatticeOpType, MoveId};
+use arkret_wire::{CellRef, Hash, LatticeOp, LatticeOpType};
 use serde_json::{Value, json};
 
 const VECTOR_ID: &str = "ak.vector.calendar.rsvp_composite_subject.v1";
@@ -29,7 +29,7 @@ fn cell() -> CellRef {
 
 fn set_status(move_byte: u8, status: &str) -> SealedOp {
     SealedOp::new(
-        MoveId::new(format!("sha256:{}", format!("{move_byte:02x}").repeat(32))).unwrap(),
+        Hash::new(format!("sha256:{}", format!("{move_byte:02x}").repeat(32))).unwrap(),
         LatticeOp {
             op_type: LatticeOpType::Set,
             tag: None,

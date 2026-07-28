@@ -852,8 +852,10 @@ mod tests {
             DirectoryPrivateContactDiscoveryOutcome, DirectoryPrivateContactDiscoveryRequestBody,
         };
         use arkret_wire::{
-            BlobRef, Did, EffectiveScope, Event, EventId, EventRequirements, Hash, Hlc,
-            MimiRoomUri, NonEmptyString, RealmId, ServiceKind, StrandId,
+            AuthoritySetRef, AuthorizationLease, AuthorizationLeaseId, BlobRef, DeviceId, Did,
+            Event, EventId, EventInitialSubmission, EventRequirements, Hash, Hlc, LeaseBasisRef,
+            MimiRoomUri, NonEmptyString, Proof, RealmId, RiskTier, ScopeRef, SealId, ServiceKind,
+            StrandId, proof_kind,
         };
         use serde_json::{Value, json};
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -867,19 +869,19 @@ mod tests {
         /// envelope into the request body. The fixture is deliberately
         /// stripped down so the serialised body is easy to assert against.
         fn fixture_event(content_body: &str) -> Event {
+            let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap();
             Event {
                 event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
                 kind: "ak.message.create".into(),
-                realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+                realm_id: realm_id.clone(),
+                scope_ref: ScopeRef::Realm { realm_id },
                 actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
                 actor_seq: 1,
                 created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
                 hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
                 prev_refs: Vec::new(),
-                effective_scope: None,
                 refs: Vec::new(),
                 preconditions: Vec::new(),
-                effects: Vec::new(),
                 seal_ref: None,
                 auth_context: None,
                 seal_basis: None,
@@ -893,8 +895,65 @@ mod tests {
                 actor_kind: None,
                 unsigned: BTreeMap::new(),
                 causal_refs: Vec::new(),
-                conflict_keys_digest: None,
                 proofs: Vec::new(),
+            }
+        }
+
+        /// Wrap a fixture Event in the publication evidence the v1 submit rail
+        /// requires. An Event never travels alone here: the lease is what
+        /// bounds the revocation window, and only the caller can mint it.
+        ///
+        /// The lease must bind to the Event it authorizes — same `actor_id`,
+        /// same signed `scope_ref` — and its `expires_at - issued_at` must
+        /// stay inside the [`RiskTier::Low`] ceiling of 24h. Each proof covers
+        /// the lease digest (computed with `proofs` removed, so a proof commits
+        /// to every other member) and carries `created_at == issued_at`. The
+        /// JWS is a placeholder: these tests assert wire shape, and the SDK
+        /// methods under test do not verify signatures.
+        fn fixture_submission(content_body: &str) -> EventInitialSubmission {
+            let event = fixture_event(content_body);
+            let issued_at: chrono::DateTime<chrono::Utc> =
+                "2026-04-26T00:00:00.000Z".parse().unwrap();
+            let mut authorization_lease = AuthorizationLease {
+                authorization_lease_id: AuthorizationLeaseId::new(
+                    "ak:authorization_lease:01904100-0000-7000-8000-aaaaaaaaaaaa",
+                )
+                .unwrap(),
+                basis_ref: LeaseBasisRef::Seal(
+                    SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
+                ),
+                actor_id: event.actor_id.clone(),
+                device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002").unwrap(),
+                scope_ref: event.scope_ref.clone(),
+                action: event.kind.as_str().to_owned(),
+                risk_tier: RiskTier::Low,
+                issued_at,
+                expires_at: issued_at + chrono::Duration::hours(1),
+                authority_set_ref: AuthoritySetRef {
+                    authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
+                    authority_set_digest: Hash::new(format!("sha256:{}", "e".repeat(64))).unwrap(),
+                },
+                proofs: Vec::new(),
+            };
+            let lease_digest = authorization_lease.lease_digest().unwrap();
+            authorization_lease.proofs = vec![Proof {
+                kind: proof_kind::DETACHED_JWS.to_owned(),
+                alg: "EdDSA".to_owned(),
+                verification_method: "did:webvh:z6mkfixture:authority.example#key-1".to_owned(),
+                event_digest: lease_digest,
+                created_at: issued_at,
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "a..b".to_owned(),
+            }];
+
+            EventInitialSubmission {
+                event,
+                authorization_lease,
+                // Optional receiver-relative dependency evidence; the fixture
+                // Event cites no seal_ref / seal_basis, so it needs none.
+                cba_proof_bundles: Vec::new(),
             }
         }
 
@@ -992,12 +1051,12 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn events_submit_single_event_posts_envelope() {
+        async fn events_submit_single_posts_initial_submission() {
             let canned = r#"{"status":"accepted","accepted":["ak:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
             let (client, capture) = spawn_capture_server(canned).await;
 
-            let event = fixture_event("hello");
-            let response = client.events_submit(&event).await.unwrap();
+            let submission = fixture_submission("hello");
+            let response = client.events_submit(&submission).await.unwrap();
 
             assert!(matches!(
                 response.status,
@@ -1012,15 +1071,30 @@ mod tests {
                 "unexpected request line: {request_line}",
             );
             let parsed: Value = serde_json::from_slice(&body).unwrap();
-            // The wire body is the bare envelope, not wrapped in `{"event":..}`
-            // or `{"events":[..]}`.
+            // The wire body is the single `EventInitialSubmission` arm: the
+            // Event under `event`, its lease beside it, and no `events[]`
+            // batch wrapper.
             assert!(
                 parsed.get("events").is_none(),
-                "single-event POST must not wrap in events[]: {parsed}"
+                "single submission POST must not wrap in events[]: {parsed}"
             );
-            assert_eq!(parsed["kind"], "ak.message.create");
-            assert_eq!(parsed["payload"]["body"], "hello");
-            assert_eq!(parsed["actor_id"], "did:webvh:z6mkfixture:alice.example");
+            assert_eq!(parsed["event"]["kind"], "ak.message.create");
+            assert_eq!(parsed["event"]["payload"]["body"], "hello");
+            assert_eq!(
+                parsed["event"]["actor_id"],
+                "did:webvh:z6mkfixture:alice.example"
+            );
+            // The lease is publication evidence, not an Event field: it sits
+            // next to the envelope and never inside it.
+            assert!(parsed["event"].get("authorization_lease").is_none());
+            assert_eq!(
+                parsed["authorization_lease"]["actor_id"],
+                "did:webvh:z6mkfixture:alice.example"
+            );
+            assert_eq!(
+                parsed["authorization_lease"]["scope_ref"],
+                parsed["event"]["scope_ref"]
+            );
         }
 
         #[tokio::test]
@@ -1029,7 +1103,7 @@ mod tests {
             let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap();
             let request = MlsGovernanceProofRequestBodyBody {
                 realm_id: realm_id.clone(),
-                effective_scope: EffectiveScope::Realm {
+                effective_scope: ScopeRef::Realm {
                     realm_id: realm_id.clone(),
                 },
                 mls_group_id: "Z3JvdXA".to_owned(),
@@ -1037,7 +1111,7 @@ mod tests {
                 next_epoch: 0,
                 binding_profile: MLS_GOVERNANCE_BINDING_FULL_PROFILE.to_owned(),
                 reducer_profile: "ak.reducer.v1".to_owned(),
-                trusted_anchor_seal_id: arkret_wire::SealId::new(
+                trusted_anchor_seal_id: SealId::new(
                     "ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )
                 .unwrap(),
@@ -1177,8 +1251,8 @@ mod tests {
                 spawn_capture_server_with(canned, |builder| builder.http_message_signer(signer))
                     .await;
 
-            let event = fixture_event("signed");
-            client.events_submit(&event).await.unwrap();
+            let submission = fixture_submission("signed");
+            client.events_submit(&submission).await.unwrap();
 
             let raw = capture.await.unwrap();
             let (_request_line, headers, body) = split_request(&raw);
@@ -1343,8 +1417,8 @@ mod tests {
             let canned = r#"{"status":"accepted","accepted":["ak:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
             let (client, capture) = spawn_capture_server(canned).await;
 
-            let events = vec![fixture_event("first"), fixture_event("second")];
-            let response = client.events_submit_batch(&events).await.unwrap();
+            let submissions = vec![fixture_submission("first"), fixture_submission("second")];
+            let response = client.events_submit_batch(&submissions).await.unwrap();
             assert!(matches!(
                 response.status,
                 arkret_models_collaboration::http_bodies::EventsSubmitStatus::Accepted
@@ -1359,8 +1433,17 @@ mod tests {
                 .expect("batch body must carry events[]");
             let arr = events_value.as_array().expect("events must be an array");
             assert_eq!(arr.len(), 2);
-            assert_eq!(arr[0]["payload"]["body"], "first");
-            assert_eq!(arr[1]["payload"]["body"], "second");
+            assert_eq!(arr[0]["event"]["payload"]["body"], "first");
+            assert_eq!(arr[1]["event"]["payload"]["body"], "second");
+            // Every element is a full submission: each Event carries its own
+            // lease rather than sharing one for the batch.
+            assert!(arr[0].get("authorization_lease").is_some());
+            assert!(arr[1].get("authorization_lease").is_some());
+            // Idempotency is a header concern; the batch body has no such field.
+            assert!(
+                parsed.get("idempotency_key").is_none(),
+                "batch body must not carry idempotency_key: {parsed}"
+            );
         }
 
         #[tokio::test]
@@ -1646,7 +1729,7 @@ mod tests {
             let (client, _capture) = spawn_capture_server(canned).await;
 
             let response = client
-                .events_submit_batch(&[fixture_event("a"), fixture_event("b")])
+                .events_submit_batch(&[fixture_submission("a"), fixture_submission("b")])
                 .await
                 .unwrap();
 
@@ -1901,7 +1984,7 @@ mod tests {
 
             let options = ClientRequestOptions::new().idempotency_key("evt-idem-1");
             client
-                .events_submit_with_options(&fixture_event("hello"), &options)
+                .events_submit_with_options(&fixture_submission("hello"), &options)
                 .await
                 .unwrap();
 

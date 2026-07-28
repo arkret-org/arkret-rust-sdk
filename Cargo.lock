@@ -153,6 +153,7 @@ dependencies = [
  "arkret-lattice-registry",
  "arkret-models-collaboration",
  "arkret-models-identity",
+ "arkret-schema",
  "arkret-state",
  "arkret-wire",
  "chrono",

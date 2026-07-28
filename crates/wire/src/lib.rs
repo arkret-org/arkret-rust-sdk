@@ -25,6 +25,8 @@ pub mod serde_helpers {
 
 pub mod applet_revoke_mode;
 pub mod bottom;
+pub mod cba;
+pub mod cba_proof_bundle;
 pub mod cell;
 pub mod consent_scope;
 pub mod constants;
@@ -32,12 +34,14 @@ pub mod cursor;
 pub mod error_codes;
 pub mod event_envelope;
 pub mod event_receipt;
+pub mod event_submission;
 pub mod events;
+pub mod extension_manifest;
 pub mod generated;
 pub mod http_signature;
-pub mod move_event;
 pub mod notary;
 pub mod object_address;
+pub mod offline_publication;
 pub mod patch;
 pub mod plaintext;
 pub mod platform;
@@ -47,8 +51,10 @@ pub mod query_auth;
 pub mod receive_policy;
 pub mod resource_selector;
 pub mod seal;
+pub mod security_transaction;
 pub mod self_contact_paths;
 pub mod service_kind;
+pub mod signal;
 pub mod signer;
 pub mod string_profiles;
 pub mod wire_strings;
@@ -56,6 +62,11 @@ pub mod wire_strings;
 pub use applet_revoke_mode::AppletRevokeMode;
 pub use arkret_identifiers::*;
 pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
+pub use cba::{
+    LatticeOp, LatticeOpType, ObservedRemoveMatch, Precondition, Predicate, PredicateOp,
+    ProjectedCellWrite, ProjectedOp, ProjectionEffect, SealBasis,
+};
+pub use cba_proof_bundle::{AvailabilityReceipt, CbaProofBundle};
 pub use cell::{
     CellId, CompositeSubjectComponent, NULL_SUBJECT, REALM_CREATE_CELL, REALM_METADATA_CELL,
     REALM_NOTARY_CELL, composite_subject, composite_subject_pipe, null_subject_cell,
@@ -67,7 +78,12 @@ pub use error::{Error, Result, WireError};
 pub use error_codes::*;
 pub use event_envelope::*;
 pub use event_receipt::*;
+pub use event_submission::{EventFederationSubmission, EventInitialSubmission};
 pub use events::*;
+pub use extension_manifest::{
+    ConcurrencyClass, ConfidentialityClass, ExtensionManifest, ManifestResourceLimits,
+    ProtocolLayerKind, ReducerContractRef, RegistryContentRef,
+};
 pub use extension_map::XExtensionMap;
 pub use generated::{
     AlgorithmSuiteDescriptor, CapabilityActionId, DIGEST_SUITES, EVENT_KIND_COUNT, EXPORTER_LABELS,
@@ -77,12 +93,12 @@ pub use generated::{
     SIGNATURE_ALGORITHMS, ServiceKindDescriptor, ServiceOperationDescriptor, ServiceOperationId,
 };
 pub use http_signature::HttpMessageSignature;
-pub use move_event::{
-    Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,
-    Predicate, PredicateOp, SealBasis, SemanticRef,
-};
 pub use notary::{ForensicAttribution, NotaryValue};
 pub use object_address::*;
+pub use offline_publication::{
+    AuthoritySetRef, AuthorizationLease, IngressReceipt, LeaseBasisRef, RiskTier,
+    distinct_issuer_count,
+};
 pub use patch::*;
 pub use plaintext::PlaintextDataClassKind;
 pub use platform::{WasmHttpRequestBody, WasmHttpResponseBody};
@@ -94,11 +110,19 @@ pub use query_auth::{
 pub use receive_policy::*;
 pub use resource_selector::{ResourceMatchScope, ResourceSelectorKind, WireResourceSelector};
 pub use seal::{
-    MultiSigKind, MultiSignature, NotarySig, SEAL_SIGNATURE_ALGS, Seal, SealKind, ThresholdSigKind,
-    ThresholdSignature, compute_seal_id, seal_canonical_bytes,
+    MultiSigKind, MultiSignature, NotarySig, PayloadSignature, SEAL_SIGNATURE_ALGS, Seal, SealKind,
+    ThresholdSigKind, ThresholdSignature, compute_seal_id, seal_canonical_bytes,
+};
+pub use security_transaction::{
+    AcceptedStep, ClientStepAttestation, RecoveryBinding, RecoveryIntent, SecurityRotationBinding,
+    SecurityRotationIntent, SecurityTransaction, SecurityTransactionBinding,
+    SecurityTransactionContinueRequest, SecurityTransactionCreateRequest,
+    SecurityTransactionIntent, SecurityTransactionKind, SecurityTransactionResultKind,
+    SecurityTransactionState, SecurityTransactionStep, SecurityTransactionTerminalResult,
 };
 pub use self_contact_paths::*;
 pub use service_kind::{EvaluationClass, ServiceKind};
-pub use signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};
+pub use signal::{SignalClass, SignalEncryptedPayload, SignalEnvelope, SignalKeyRef, SignalProof};
+pub use signer::{PartialSignature, PayloadSigner, ThresholdAggregator};
 pub use string_profiles::*;
 pub use wire_strings::*;

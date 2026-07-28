@@ -32,9 +32,9 @@ use arkret_models_identity::{
     IdentityBindingChallengeOutcome, IdentityBindingChallengeRequestBody, SessionGrantProofKind,
 };
 use arkret_wire::{
-    DeviceId, Did, Hash, MoveSigner, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
+    DeviceId, Did, Hash, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
     PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
-    PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE,
+    PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, PayloadSigner,
 };
 use chrono::{Duration, Utc};
 #[cfg(not(target_arch = "wasm32"))]
@@ -66,7 +66,7 @@ pub async fn login_did_proof<S>(
     audience: Did,
 ) -> Result<SessionGrantOutcome>
 where
-    S: MoveSigner + ?Sized,
+    S: PayloadSigner + ?Sized,
 {
     if challenge.len() < 16 {
         return Err(Error::Protocol(

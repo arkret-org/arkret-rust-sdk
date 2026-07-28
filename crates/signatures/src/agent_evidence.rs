@@ -823,7 +823,7 @@ mod tests {
 
     fn fixture_seal(state_root: Hash, hlc: &str, predecessor_refs: Vec<SealId>) -> Seal {
         let notary_id = did("did:webvh:z6mkservice:service.example");
-        let signer = crate::Ed25519MoveSigner::from_did_key_seed(
+        let signer = crate::Ed25519PayloadSigner::from_did_key_seed(
             [24; 32],
             notary_id.clone(),
             format!("{notary_id}#notary-key"),
@@ -1107,7 +1107,9 @@ mod tests {
         let signer = did("did:webvh:z6mkagent:agent.example");
         let mut event = Event::new(
             arkret_wire::EventKind::MESSAGE_CREATE,
-            RealmId::new("ak:realm:01964137-0000-7000-8000-000000000009").unwrap(),
+            arkret_wire::ScopeRef::Realm {
+                realm_id: RealmId::new("ak:realm:01964137-0000-7000-8000-000000000009").unwrap(),
+            },
             actor.clone(),
             1,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),

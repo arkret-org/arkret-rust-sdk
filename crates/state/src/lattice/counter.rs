@@ -120,14 +120,14 @@ impl Lattice for Counter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LatticeOp, MoveId};
+    use crate::{Hash, LatticeOp};
 
     fn cell() -> CellRef {
         CellRef::new("ak:cell:ak.component.metric.counter.v1:ak.metric.signups".to_owned()).unwrap()
     }
 
-    fn move_id(byte: u8) -> MoveId {
-        MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+    fn move_id(byte: u8) -> Hash {
+        Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     fn inc(value: i64) -> LatticeOp {

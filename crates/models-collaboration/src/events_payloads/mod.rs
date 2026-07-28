@@ -15,7 +15,6 @@ pub mod consent;
 pub mod contact;
 pub mod container;
 pub mod device_identity;
-pub mod ephemeral;
 pub mod event_wire;
 pub mod history_sharing;
 pub mod join_policy;

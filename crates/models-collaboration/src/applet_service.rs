@@ -1,9 +1,7 @@
 //! Applet service transaction envelope.
 //!
-//! Migrated from the `arkret` umbrella (`applet::service`). The envelope embeds
-//! [`AppletTransactionRequestBody`], whose `ephemeral` member is the
-//! collaboration-owned `EphemeralEnvelope`, so it belongs alongside that
-//! body in `arkret-models-collaboration`.
+//! The envelope embeds [`AppletTransactionRequestBody`], which carries wire
+//! `Event`s alongside an optional `SignalEnvelope` batch.
 
 use arkret_wire::{Did, Event};
 use serde::{Deserialize, Serialize};
@@ -51,7 +49,7 @@ impl AppletServiceIntent {
             request: AppletTransactionRequestBody {
                 source_service_id: self.service_id.clone(),
                 events,
-                ephemeral: None,
+                signals: None,
             },
         }
     }

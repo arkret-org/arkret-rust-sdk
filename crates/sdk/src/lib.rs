@@ -12,14 +12,16 @@
 //! ```rust
 //! use arkret::{
 //!     Did, Hlc, OperationEnvelopeBuilder, OperationEventConversion, OperationId,
-//!     EventDraftKindRegistry, RealmId, events::EventKind,
+//!     EventDraftKindRegistry, RealmId, ScopeRef, events::EventKind,
 //! };
 //! use serde_json::json;
 //!
 //! # fn main() -> arkret::Result<()> {
 //! let draft = OperationEnvelopeBuilder::new(
 //!     OperationId::new("ak:operation:01904100-0000-7000-8000-57d7d85564c5")?,
-//!     RealmId::new("ak:realm:01904100-0000-7000-8000-668e2181b41d")?,
+//!     ScopeRef::Realm {
+//!         realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-668e2181b41d")?,
+//!     },
 //!     Did::new("did:webvh:z6mkfixture:alice.example")?,
 //!     EventKind::MESSAGE_CREATE,
 //!     1,
@@ -83,10 +85,10 @@ pub use arkret_identifiers::{
     AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
     CapabilityId, CellRef, ChunkId, CircleId, ClaimId, ConsentId, DeviceId, DeviceMessageId, Did,
     EventId, FilterId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, InviteLocatorId,
-    KeyEventId, MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId, OperationId,
-    PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId,
-    ReportId, RequestId, RtcParticipantId, SealId, SidecarId, SnapshotId, SpaceId, StrandId,
-    SubscriptionId, TransactionId, TypedAppealId, TypedTrustDomainId, ViewId, new_prefixed_uuid7,
+    KeyEventId, MessageId, ModerationQueueItemId, MorphId, NotificationId, OperationId, PolicyId,
+    PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId,
+    RequestId, RtcParticipantId, SealId, SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId,
+    TransactionId, TypedAppealId, TypedTrustDomainId, ViewId, new_prefixed_uuid7,
 };
 pub use arkret_identity as identity;
 pub use arkret_identity::jws;
@@ -112,7 +114,6 @@ pub use arkret_models_collaboration::events_payloads::agent::*;
 pub use arkret_models_collaboration::events_payloads::audit::*;
 pub use arkret_models_collaboration::events_payloads::call::*;
 pub use arkret_models_collaboration::events_payloads::device_identity::*;
-pub use arkret_models_collaboration::events_payloads::ephemeral::*;
 pub use arkret_models_collaboration::events_payloads::event_wire::*;
 pub use arkret_models_collaboration::events_payloads::mention::*;
 pub use arkret_models_collaboration::events_payloads::*;
@@ -292,7 +293,7 @@ pub use arkret_schema::protocol::*;
 pub use arkret_server as server;
 pub use arkret_signatures as signatures;
 #[cfg(feature = "signer")]
-pub use arkret_signatures::Ed25519MoveSigner;
+pub use arkret_signatures::Ed25519PayloadSigner;
 pub use arkret_signatures::federation::*;
 pub use arkret_signatures::keypackages::{
     KeyPackageSignatureError, KeyPackageSignatureResult, keypackage_signature_from_bytes,
@@ -310,15 +311,15 @@ pub use arkret_signatures::{
 pub use arkret_state::mls_governance_proof::*;
 pub use arkret_state::{lattice, snapshot, state, *};
 pub use arkret_wire::bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
+pub use arkret_wire::cba::{
+    LatticeOp, LatticeOpType, ObservedRemoveMatch, Precondition, Predicate, PredicateOp,
+    ProjectedCellWrite, ProjectedOp, ProjectionEffect, SealBasis,
+};
 pub use arkret_wire::cell::{CellId, composite_subject, composite_subject_pipe};
 pub use arkret_wire::constants::*;
 pub use arkret_wire::error_codes::*;
 pub use arkret_wire::event_envelope::*;
 pub use arkret_wire::http_signature::HttpMessageSignature;
-pub use arkret_wire::move_event::{
-    Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,
-    Predicate, PredicateOp, SealBasis, SemanticRef,
-};
 pub use arkret_wire::notary::{ForensicAttribution, NotaryValue};
 pub use arkret_wire::object_address::*;
 pub use arkret_wire::patch::*;
@@ -333,7 +334,7 @@ pub use arkret_wire::seal::{
     ThresholdSignature, compute_seal_id, seal_canonical_bytes,
 };
 pub use arkret_wire::self_contact_paths::*;
-pub use arkret_wire::signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};
+pub use arkret_wire::signer::{PartialSignature, PayloadSigner, ThresholdAggregator};
 pub use arkret_wire::string_profiles::*;
 pub use arkret_wire::wire_strings::*;
 pub use arkret_wire::{
@@ -495,19 +496,21 @@ pub use server::{
 /// Calendar RSVP authoring.
 ///
 /// [`arkret_event_draft::RsvpAuthoring`] builds the validated payload; this
-/// module adds the half that needs the event-kind registry — deriving the
-/// `ak.component.calendar.rsvp.v1` cell effect from
-/// `effect_projection = set(payload.entry)` and re-checking the result through
-/// the same contract a receiver runs. Clients MUST author RSVPs through
-/// [`calendar::build_rsvp_set_event`] and MUST NOT hand-assemble the effect: an
-/// effect-less or mismatched RSVP is rejected with `effects_payload_mismatch`
-/// and never converges into the CBA cell.
+/// module adds the half that needs the event-kind registry — running the
+/// `ak.component.calendar.rsvp.v1` contract's `effect_projection =
+/// set(payload.entry)` over the finished Event, which is the same projection a
+/// receiver runs. A producer states no writes in v1, so this is a self-check,
+/// not a stamping step: a payload the contract cannot project fails here
+/// instead of reaching the wire and being rejected with
+/// `effects_payload_mismatch`. It deliberately checks the projection only, not
+/// the DataEvent-vs-Control-Move plane routing — the draft has no `seal_ref`
+/// yet, so that check belongs to the submit gate, not to authoring.
 pub mod calendar {
     use arkret_event_draft::RsvpAuthoring;
     use arkret_models_collaboration::objects::productivity::CalendarEventFields;
-    use arkret_schema::{materialize_registered_cell_writes, validate_registered_cell_writes};
+    use arkret_schema::project_registered_cell_writes;
     use arkret_wire::generated::event_kinds::EventKind;
-    use arkret_wire::{Did, Error, Event, EventId, Hash, Hlc, RealmId, Result};
+    use arkret_wire::{Did, Error, Event, EventId, Hash, Hlc, Result, ScopeRef};
 
     /// Builds a complete, self-verified `ak.rsvp.set` Event.
     ///
@@ -520,7 +523,7 @@ pub mod calendar {
         calendar: &CalendarEventFields,
         schedule: &crate::CalendarScheduleProjection,
         event_id: EventId,
-        realm_id: RealmId,
+        scope_ref: ScopeRef,
         actor_id: Did,
         actor_seq: u64,
         hlc: Hlc,
@@ -540,7 +543,7 @@ pub mod calendar {
         }
         let mut event = Event::new(
             EventKind::RSVP_SET,
-            realm_id,
+            scope_ref,
             actor_id,
             actor_seq,
             hlc,
@@ -548,10 +551,12 @@ pub mod calendar {
         )?;
         event.event_id = event_id;
         event.causal_refs = causal_refs;
-        materialize_registered_cell_writes(&mut event).map_err(|error| {
-            Error::Protocol(format!("rsvp cell materialization failed: {error}"))
-        })?;
-        validate_registered_cell_writes(&event)
+        // No materialization step: v1 has no producer-written effect array, so
+        // there is nothing for the builder to stamp. The check below is the
+        // producer running the same registry projection a receiver will run,
+        // which is what makes an unprojectable payload fail here instead of on
+        // the wire.
+        project_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256)
             .map_err(|error| Error::Protocol(format!("rsvp cell contract failed: {error}")))?;
         Ok(event)
     }

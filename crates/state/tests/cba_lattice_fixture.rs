@@ -23,7 +23,7 @@ use arkret_state::lattice::ordered_log::IssuedOp;
 use arkret_state::lattice::{
     CasRegister, CellState, Counter, Fsm, Lattice, MvRegister, OrderedLog, SealedOp,
 };
-use arkret_wire::{CellRef, Did, LatticeOp, LatticeOpType, MoveId, RealmId, ReasonCode};
+use arkret_wire::{CellRef, Did, Hash, LatticeOp, LatticeOpType, RealmId, ReasonCode};
 use serde_json::{Value, json};
 
 const FIXTURE_PATH: &str = "fixtures/cba-lattice-fixture.json";
@@ -37,9 +37,9 @@ fn cell() -> CellRef {
         .expect("fixture cell id must be valid")
 }
 
-fn move_id(suffix: &str) -> MoveId {
+fn move_id(suffix: &str) -> Hash {
     let padding = 64usize.saturating_sub(suffix.len());
-    MoveId::new(format!("sha256:{suffix}{}", "0".repeat(padding)))
+    Hash::new(format!("sha256:{suffix}{}", "0".repeat(padding)))
         .expect("fixture move id must be valid")
 }
 
@@ -249,7 +249,7 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
             assert_eq!(report.pending_gaps[0].missing_seq, 0);
             assert_eq!(report.pending_gaps[0].pending_seq, 3);
         }
-        ("ordered_log", "byte_identical_effect_op_is_idempotent") => {
+        ("ordered_log", "byte_identical_projected_op_is_idempotent") => {
             let ops = vec![
                 issued(
                     "did:webvh:z6mkfixture:alice.example",
@@ -350,14 +350,14 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
                 IssuedOp {
                     issuer: alice.clone(),
                     op: SealedOp::new(
-                        MoveId::new(format!("blake3:{}", "ff".repeat(32))).unwrap(),
+                        Hash::new(format!("blake3:{}", "ff".repeat(32))).unwrap(),
                         op_append(json!("greatest-octets"), 0),
                     ),
                 },
                 IssuedOp {
                     issuer: alice,
                     op: SealedOp::new(
-                        MoveId::new(format!("sha256:{}", "00".repeat(32))).unwrap(),
+                        Hash::new(format!("sha256:{}", "00".repeat(32))).unwrap(),
                         op_append(json!("greatest-wire-string"), 0),
                     ),
                 },
@@ -758,12 +758,13 @@ fn dual_plane_vector_inventory_is_pinned() {
             vector_id.starts_with("ak.vector.cba_lattice.")
                 || vector_id == "ak.vector.actor_chain.realm_scope.v1"
                 || vector_id == "ak.vector.seal.same_batch_bottom_reject_serialization.v1"
-                // Genesis state_root closure: ak.realm.create carries all four
-                // registered effects explicitly, and every cell_subject: null
-                // family uses the literal `null` wire segment. Both land in the
-                // CBA lattice fixture because they are state_root leaf-set
-                // invariants, not per-domain reducer behaviour.
-                || vector_id == "ak.vector.event_kind.realm_create_effects_closure.v1"
+                // Genesis state_root closure: the receiver projects all four
+                // registered ak.realm.create writes from its payload, and every
+                // cell_subject: null family uses the literal `null` wire
+                // segment. Both land in the CBA lattice fixture because they are
+                // state_root leaf-set invariants, not per-domain reducer
+                // behaviour.
+                || vector_id == "ak.vector.event_kind.realm_create_projection_closure.v1"
                 || vector_id == "ak.vector.event_kind.null_cell_subject_wire_form.v1",
             "unexpected vector id {vector_id}"
         );

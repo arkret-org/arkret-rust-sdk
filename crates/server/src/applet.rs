@@ -352,7 +352,7 @@ mod tests {
         AppletTransactionRequestBody {
             source_service_id: Did::new("did:webvh:QmSrc:source.example").unwrap(),
             events: Vec::new(),
-            ephemeral: None,
+            signals: None,
         }
     }
 

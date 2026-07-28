@@ -253,6 +253,78 @@ impl Patch {
         self.entries.iter()
     }
 
+    /// Apply the patch to `prestate` and return the complete post-state.
+    ///
+    /// This is the document half of the normative pure function
+    /// `reduce_patch(kind, target_ref, patch, pre_state)`
+    /// (`event-and-patch.md` §4.3.1). The caller supplies the frozen
+    /// pre-state; the result is the **whole** post-state value that an
+    /// `apply_patch` projection turns into a single `set` on the target
+    /// `mv_register` / `cas_register` cell — never a partial patch
+    /// (§4.3.1 step 3). `prestate` is never mutated: everything happens on a
+    /// clone that is discarded on the first failure, which is how §4.4's
+    /// "every path succeeds or none applies" atomicity is met.
+    ///
+    /// Application order is the **canonical patch-path order**: ascending
+    /// bytewise over the wire path strings, which is what [`Patch`]'s
+    /// `BTreeMap` already stores, so it does not depend on the order the
+    /// paths arrived in on the wire nor on any hash-map iteration order.
+    /// §4.4 permits exactly this and nothing more: canonical path order is
+    /// for signing and diagnostics only and MUST NOT become an "apply A then
+    /// B" business escape hatch, so any patch whose result could depend on it (a path
+    /// that is a prefix of another, or two paths that decode to the same
+    /// field) is rejected as `patch_atomic_conflict` before a single op is
+    /// applied. After that rejection the remaining paths are pairwise
+    /// disjoint object locations and the result is order-independent by
+    /// construction. Patch paths are pure ASCII under the §4.2.1 ABNF, so
+    /// bytewise order and RFC 8785's UTF-16 code-unit order coincide.
+    ///
+    /// Op semantics, all fail-closed (§4.4: any single failure fails the whole
+    /// patch, with no partial application of the paths that did pass):
+    ///
+    /// - `set` — replaces or creates the leaf. Missing **intermediate** object segments are
+    ///   created, which `strand-and-message.md` §4.6/§4.8 requires (a `discussion` track that does
+    ///   not exist yet is created by `tracks.discussion.enabled` + `tracks.discussion.is_primary`
+    ///   in one patch). An intermediate that exists but is not a JSON object is a type mismatch and
+    ///   fails.
+    /// - `unset` — removes an **existing** leaf. Nothing is auto-created and an absent path fails
+    ///   rather than becoming a silent no-op.
+    /// - `add` / `remove` — the target MUST already exist and be a JSON array (the "collection"
+    ///   these ops are defined against; §4.3.1 step 3 maps them onto `or_set` add/remove, i.e. set
+    ///   semantics). `add` rejects a value already present, `remove` rejects a value that is absent
+    ///   or present more than once. None of the three degenerates into a no-op.
+    ///
+    /// Selector segments (`field[key="value"]`) are refused; see
+    /// [`parse_object_path`].
+    ///
+    /// Redactable-field and reducer-managed-field protection run first, per
+    /// §4.3.1 step 1: a path hitting either set is rejected immediately.
+    pub fn apply(&self, prestate: &Value) -> Result<Value> {
+        validate_patch_semantic_safety(self)?;
+
+        let mut parsed: Vec<(&str, Vec<String>, &PatchOp)> = Vec::with_capacity(self.entries.len());
+        for (path, op) in &self.entries {
+            parsed.push((path.as_str(), parse_object_path(path)?, op));
+        }
+        for (index, (path, segments, _)) in parsed.iter().enumerate() {
+            for (other_path, other_segments, _) in &parsed[index + 1..] {
+                if segments_overlap(segments, other_segments) {
+                    return Err(Error::Protocol(format!(
+                        "{}: patch paths '{path}' and '{other_path}' write the same field or a \
+                         parent/child pair; split them into separate Events",
+                        ReasonCode::PATCH_ATOMIC_CONFLICT
+                    )));
+                }
+            }
+        }
+
+        let mut post = prestate.clone();
+        for (path, segments, op) in &parsed {
+            apply_one(&mut post, path, segments, op)?;
+        }
+        Ok(post)
+    }
+
     /// Validate that the patch satisfies the spec's wire-level
     /// constraints (`minProperties: 1` and path syntax).
     pub fn validate(&self) -> Result<()> {
@@ -292,6 +364,250 @@ pub fn validate_path(path: &str) -> Result<()> {
         )));
     }
     Ok(())
+}
+
+/// Parse a patch path into its decoded object keys.
+///
+/// Implements the §4.2.1 ABNF for the two segment forms this crate can
+/// resolve against a JSON document: `identifier` (`^[a-z][a-z0-9_]{0,63}$`)
+/// and `quoted-identifier` (backtick-quoted printable ASCII, a literal
+/// backtick doubled). The parser is deterministic and takes no fallback path,
+/// per §4.2.2 — the first byte that does not fit the grammar ends the parse.
+///
+/// **`selector-segment` is refused.** It is not part of `ak.patch.v1`: §4.2.1
+/// states the form MUST be rejected, and §4.2.3 gives the alternatives (rebuild
+/// the collection as a map, use a profile-registered move/update event, or an
+/// explicit API field). A selector segment fails closed with
+/// `patch_path_invalid`.
+fn parse_object_path(path: &str) -> Result<Vec<String>> {
+    validate_path(path)?;
+    let bytes = path.as_bytes();
+    let mut segments: Vec<String> = Vec::new();
+    let mut cursor = 0usize;
+    loop {
+        if cursor >= bytes.len() {
+            return Err(patch_path_invalid(path, "has an empty trailing segment"));
+        }
+        if bytes[cursor] == b'`' {
+            cursor += 1;
+            let mut decoded = String::new();
+            loop {
+                let Some(&byte) = bytes.get(cursor) else {
+                    return Err(patch_path_invalid(
+                        path,
+                        "has an unterminated backtick-quoted segment",
+                    ));
+                };
+                if byte == b'`' {
+                    // A literal backtick is escaped as two backticks.
+                    if bytes.get(cursor + 1) == Some(&b'`') {
+                        decoded.push('`');
+                        cursor += 2;
+                        continue;
+                    }
+                    cursor += 1;
+                    break;
+                }
+                if !(0x20..=0x7f).contains(&byte) {
+                    return Err(patch_path_invalid(
+                        path,
+                        "has a quoted segment with a byte outside quoted-char (%x20-5F / %x61-7F)",
+                    ));
+                }
+                decoded.push(byte as char);
+                cursor += 1;
+            }
+            if decoded.is_empty() {
+                return Err(patch_path_invalid(path, "has an empty quoted segment"));
+            }
+            segments.push(decoded);
+        } else {
+            let start = cursor;
+            while cursor < bytes.len() && bytes[cursor] != b'.' {
+                cursor += 1;
+            }
+            let raw = &path[start..cursor];
+            if raw.contains('[') || raw.contains(']') {
+                return Err(patch_path_invalid(
+                    path,
+                    "uses a stable-key selector segment, which this applier refuses: the ABNF and \
+                     the registered patch_path pattern disagree on the selector-value form and the \
+                     key's uniqueness is only knowable from the item schema",
+                ));
+            }
+            if !is_patch_identifier(raw) {
+                return Err(patch_path_invalid(
+                    path,
+                    "has a segment that is not a ^[a-z][a-z0-9_]{0,63}$ identifier",
+                ));
+            }
+            segments.push(raw.to_owned());
+        }
+        if cursor == bytes.len() {
+            break;
+        }
+        if bytes[cursor] != b'.' {
+            return Err(patch_path_invalid(
+                path,
+                "has a malformed segment separator",
+            ));
+        }
+        cursor += 1;
+    }
+    Ok(segments)
+}
+
+fn is_patch_identifier(segment: &str) -> bool {
+    let mut chars = segment.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    segment.len() <= 64
+        && first.is_ascii_lowercase()
+        && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+}
+
+/// Whether two decoded paths address the same field or a parent/child pair.
+fn segments_overlap(left: &[String], right: &[String]) -> bool {
+    left.iter().zip(right).all(|(a, b)| a == b)
+}
+
+fn apply_one(root: &mut Value, path: &str, segments: &[String], op: &PatchOp) -> Result<()> {
+    let (leaf, parents) = segments
+        .split_last()
+        .ok_or_else(|| patch_path_invalid(path, "decodes to no segments"))?;
+    match op.op() {
+        PatchOpKind::Set => {
+            let value = required_value(path, op)?;
+            let parent = descend_mut(root, path, parents, true)?;
+            let object = expect_object_mut(parent, path, leaf)?;
+            object.insert(leaf.clone(), value.clone());
+        }
+        PatchOpKind::Unset => {
+            let parent = descend_mut(root, path, parents, false)?;
+            let object = expect_object_mut(parent, path, leaf)?;
+            if object.remove(leaf).is_none() {
+                return Err(patch_apply_failed(
+                    path,
+                    "the field does not exist in the pre-state",
+                ));
+            }
+        }
+        PatchOpKind::Add => {
+            let value = required_value(path, op)?;
+            let target = descend_mut(root, path, segments, false)?;
+            let items = expect_array_mut(target, path)?;
+            if items.iter().any(|item| item == value) {
+                return Err(patch_apply_failed(
+                    path,
+                    "the collection already contains this value",
+                ));
+            }
+            items.push(value.clone());
+        }
+        PatchOpKind::Remove => {
+            let value = required_value(path, op)?;
+            let target = descend_mut(root, path, segments, false)?;
+            let items = expect_array_mut(target, path)?;
+            let hits: Vec<usize> = items
+                .iter()
+                .enumerate()
+                .filter(|(_, item)| *item == value)
+                .map(|(index, _)| index)
+                .collect();
+            match hits.as_slice() {
+                [] => {
+                    return Err(patch_apply_failed(
+                        path,
+                        "the collection does not contain this value",
+                    ));
+                }
+                [index] => {
+                    items.remove(*index);
+                }
+                _ => {
+                    return Err(patch_apply_failed(
+                        path,
+                        "the collection contains this value more than once",
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Walk `segments` from `root`. `create_missing` is only ever true for `set`,
+/// where §4.6/§4.8 of `strand-and-message.md` require a missing intermediate
+/// object to be created; every other op must find the path already there.
+fn descend_mut<'a>(
+    root: &'a mut Value,
+    path: &str,
+    segments: &[String],
+    create_missing: bool,
+) -> Result<&'a mut Value> {
+    let mut current = root;
+    for segment in segments {
+        let object = match current {
+            Value::Object(object) => object,
+            _ => return Err(not_an_object(path, segment)),
+        };
+        if !object.contains_key(segment) {
+            if !create_missing {
+                return Err(patch_apply_failed(
+                    path,
+                    &format!("segment '{segment}' does not exist in the pre-state"),
+                ));
+            }
+            object.insert(segment.clone(), Value::Object(serde_json::Map::new()));
+        }
+        current = object
+            .get_mut(segment)
+            .expect("segment was just verified or inserted");
+    }
+    Ok(current)
+}
+
+fn expect_object_mut<'a>(
+    value: &'a mut Value,
+    path: &str,
+    leaf: &str,
+) -> Result<&'a mut serde_json::Map<String, Value>> {
+    value
+        .as_object_mut()
+        .ok_or_else(|| not_an_object(path, leaf))
+}
+
+fn expect_array_mut<'a>(value: &'a mut Value, path: &str) -> Result<&'a mut Vec<Value>> {
+    value.as_array_mut().ok_or_else(|| {
+        patch_apply_failed(
+            path,
+            "add/remove need a JSON array but the field is not one",
+        )
+    })
+}
+
+fn required_value<'a>(path: &str, op: &'a PatchOp) -> Result<&'a Value> {
+    op.value()
+        .ok_or_else(|| patch_apply_failed(path, "op requires a `value` but carries none"))
+}
+
+fn not_an_object(path: &str, segment: &str) -> Error {
+    patch_apply_failed(
+        path,
+        &format!("the value enclosing '{segment}' is not a JSON object"),
+    )
+}
+
+fn patch_path_invalid(path: &str, detail: &str) -> Error {
+    Error::Protocol(format!(
+        "{}: patch path '{path}' {detail}",
+        ReasonCode::PATCH_PATH_INVALID
+    ))
+}
+
+fn patch_apply_failed(path: &str, detail: &str) -> Error {
+    Error::Protocol(format!("patch path '{path}' cannot be applied: {detail}"))
 }
 
 /// Validate the cross-object patch safety rules that do not require reducer
@@ -519,5 +835,328 @@ mod tests {
         patch.insert_op("metadata.title", PatchOp::unset()).unwrap();
 
         validate_patch_semantic_safety(&patch).unwrap();
+    }
+
+    fn patch_of(entries: &[(&str, PatchOp)]) -> Patch {
+        let mut patch = Patch::new();
+        for (path, op) in entries {
+            patch.insert_op(*path, op.clone()).unwrap();
+        }
+        patch
+    }
+
+    #[test]
+    fn apply_set_matches_the_prestate_binding_fixture() {
+        // `ak.vector.patch.projection_prestate_binding.v1` in
+        // state-reducer-hardening-fixture.json: the derived effect is the whole
+        // post-state, not the partial patch.
+        let prestate = json!({"metadata": {"fields": {"review_status": "pending"}}});
+        let patch = patch_of(&[(
+            "metadata.fields.review_status",
+            PatchOp::set(json!("approved")),
+        )]);
+
+        let post = patch.apply(&prestate).unwrap();
+
+        assert_eq!(
+            post,
+            json!({"metadata": {"fields": {"review_status": "approved"}}})
+        );
+        // The pre-state is left untouched.
+        assert_eq!(
+            prestate,
+            json!({"metadata": {"fields": {"review_status": "pending"}}})
+        );
+    }
+
+    #[test]
+    fn apply_direct_value_sugars_to_set() {
+        let mut patch = Patch::new();
+        patch.insert("title", "renamed").unwrap();
+
+        let post = patch.apply(&json!({"title": "old"})).unwrap();
+
+        assert_eq!(post, json!({"title": "renamed"}));
+    }
+
+    #[test]
+    fn apply_set_creates_missing_intermediate_objects() {
+        // strand-and-message.md §4.6/§4.8: switching to a `discussion` track
+        // that does not exist yet writes `enabled` + `is_primary` in one patch.
+        let prestate = json!({"tracks": {"synthesis": {"is_primary": true}}});
+        let patch = patch_of(&[
+            ("tracks.discussion.enabled", PatchOp::set(json!(true))),
+            ("tracks.discussion.is_primary", PatchOp::set(json!(true))),
+            ("tracks.synthesis.is_primary", PatchOp::set(json!(false))),
+        ]);
+
+        let post = patch.apply(&prestate).unwrap();
+
+        assert_eq!(
+            post,
+            json!({
+                "tracks": {
+                    "synthesis": {"is_primary": false},
+                    "discussion": {"enabled": true, "is_primary": true}
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn apply_is_independent_of_wire_entry_order() {
+        let prestate = json!({"tracks": {"synthesis": {"is_primary": true}}});
+        let forward: Patch = serde_json::from_str(
+            r#"{"tracks.discussion.is_primary":{"$op":"set","value":true},
+                "tracks.synthesis.is_primary":{"$op":"set","value":false}}"#,
+        )
+        .unwrap();
+        let reversed: Patch = serde_json::from_str(
+            r#"{"tracks.synthesis.is_primary":{"$op":"set","value":false},
+                "tracks.discussion.is_primary":{"$op":"set","value":true}}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            forward.apply(&prestate).unwrap(),
+            reversed.apply(&prestate).unwrap()
+        );
+    }
+
+    #[test]
+    fn apply_set_on_a_non_object_intermediate_fails_closed() {
+        let patch = patch_of(&[("metadata.title", PatchOp::set(json!("x")))]);
+
+        let err = patch
+            .apply(&json!({"metadata": "not-an-object"}))
+            .unwrap_err();
+
+        assert!(err.to_string().contains("not a JSON object"));
+    }
+
+    #[test]
+    fn apply_on_a_non_object_root_fails_closed() {
+        let patch = patch_of(&[("title", PatchOp::set(json!("x")))]);
+
+        let err = patch.apply(&json!("scalar")).unwrap_err();
+
+        assert!(err.to_string().contains("not a JSON object"));
+    }
+
+    #[test]
+    fn apply_unset_removes_an_existing_field() {
+        let patch = patch_of(&[("metadata.draft_note", PatchOp::unset())]);
+
+        let post = patch
+            .apply(&json!({"metadata": {"draft_note": "x", "keep": 1}}))
+            .unwrap();
+
+        assert_eq!(post, json!({"metadata": {"keep": 1}}));
+    }
+
+    #[test]
+    fn apply_unset_on_a_missing_field_fails_closed() {
+        let patch = patch_of(&[("metadata.draft_note", PatchOp::unset())]);
+
+        let err = patch.apply(&json!({"metadata": {"keep": 1}})).unwrap_err();
+
+        assert!(err.to_string().contains("does not exist"));
+    }
+
+    #[test]
+    fn apply_unset_on_a_missing_parent_fails_closed() {
+        let patch = patch_of(&[("metadata.draft_note", PatchOp::unset())]);
+
+        let err = patch.apply(&json!({})).unwrap_err();
+
+        assert!(err.to_string().contains("does not exist"));
+    }
+
+    #[test]
+    fn apply_add_appends_to_an_existing_array() {
+        let patch = patch_of(&[("labels", PatchOp::add(json!("urgent")))]);
+
+        let post = patch.apply(&json!({"labels": ["draft"]})).unwrap();
+
+        assert_eq!(post, json!({"labels": ["draft", "urgent"]}));
+    }
+
+    #[test]
+    fn apply_add_of_a_present_value_fails_closed() {
+        let patch = patch_of(&[("labels", PatchOp::add(json!("draft")))]);
+
+        let err = patch.apply(&json!({"labels": ["draft"]})).unwrap_err();
+
+        assert!(err.to_string().contains("already contains"));
+    }
+
+    #[test]
+    fn apply_add_against_a_non_array_fails_closed() {
+        let patch = patch_of(&[("labels", PatchOp::add(json!("urgent")))]);
+
+        let err = patch.apply(&json!({"labels": "draft"})).unwrap_err();
+
+        assert!(err.to_string().contains("need a JSON array"));
+    }
+
+    #[test]
+    fn apply_add_on_a_missing_field_fails_closed() {
+        let patch = patch_of(&[("labels", PatchOp::add(json!("urgent")))]);
+
+        let err = patch.apply(&json!({})).unwrap_err();
+
+        assert!(err.to_string().contains("does not exist"));
+    }
+
+    #[test]
+    fn apply_remove_drops_the_matching_element() {
+        let patch = patch_of(&[("labels", PatchOp::remove(json!("draft")))]);
+
+        let post = patch
+            .apply(&json!({"labels": ["draft", "urgent"]}))
+            .unwrap();
+
+        assert_eq!(post, json!({"labels": ["urgent"]}));
+    }
+
+    #[test]
+    fn apply_remove_of_an_absent_value_fails_closed() {
+        let patch = patch_of(&[("labels", PatchOp::remove(json!("draft")))]);
+
+        let err = patch.apply(&json!({"labels": ["urgent"]})).unwrap_err();
+
+        assert!(err.to_string().contains("does not contain"));
+    }
+
+    #[test]
+    fn apply_remove_of_a_duplicated_value_fails_closed() {
+        let patch = patch_of(&[("labels", PatchOp::remove(json!("draft")))]);
+
+        let err = patch
+            .apply(&json!({"labels": ["draft", "draft"]}))
+            .unwrap_err();
+
+        assert!(err.to_string().contains("more than once"));
+    }
+
+    #[test]
+    fn apply_rejects_parent_child_path_conflicts() {
+        let patch = patch_of(&[
+            ("metadata", PatchOp::set(json!({"title": "a"}))),
+            ("metadata.title", PatchOp::set(json!("b"))),
+        ]);
+
+        let err = patch
+            .apply(&json!({"metadata": {"title": "x"}}))
+            .unwrap_err();
+
+        assert!(err.to_string().contains(ReasonCode::PATCH_ATOMIC_CONFLICT));
+    }
+
+    #[test]
+    fn apply_rejects_two_spellings_of_the_same_field() {
+        // `title` and `` `title` `` decode to the same object key, so canonical
+        // path order would silently pick a winner.
+        let patch = patch_of(&[
+            ("title", PatchOp::set(json!("a"))),
+            ("`title`", PatchOp::set(json!("b"))),
+        ]);
+
+        let err = patch.apply(&json!({"title": "x"})).unwrap_err();
+
+        assert!(err.to_string().contains(ReasonCode::PATCH_ATOMIC_CONFLICT));
+    }
+
+    #[test]
+    fn apply_supports_backtick_quoted_segments() {
+        let patch = patch_of(&[("metadata.`Odd Key`", PatchOp::set(json!(1)))]);
+
+        let post = patch.apply(&json!({"metadata": {}})).unwrap();
+
+        assert_eq!(post, json!({"metadata": {"Odd Key": 1}}));
+    }
+
+    #[test]
+    fn apply_decodes_a_doubled_backtick_as_a_literal_one() {
+        let patch = patch_of(&[("`a``b`", PatchOp::set(json!(1)))]);
+
+        let post = patch.apply(&json!({})).unwrap();
+
+        assert_eq!(post, json!({"a`b": 1}));
+    }
+
+    #[test]
+    fn apply_fails_closed_on_selector_segments() {
+        let patch = patch_of(&[(r#"items[id="x"].name"#, PatchOp::set(json!("y")))]);
+
+        let err = patch
+            .apply(&json!({"items": [{"id": "x", "name": "old"}]}))
+            .unwrap_err();
+
+        let message = err.to_string();
+        assert!(message.contains(ReasonCode::PATCH_PATH_INVALID));
+        assert!(message.contains("stable-key selector"));
+    }
+
+    #[test]
+    fn apply_rejects_non_identifier_segments() {
+        for path in ["Title", "_title", "ti-tle", "métadonnées"] {
+            let patch = patch_of(&[(path, PatchOp::set(json!(1)))]);
+            let err = patch.apply(&json!({})).unwrap_err();
+            assert!(
+                err.to_string().contains(ReasonCode::PATCH_PATH_INVALID),
+                "{path} must be rejected as patch_path_invalid"
+            );
+        }
+    }
+
+    #[test]
+    fn apply_rejects_malformed_quoted_segments() {
+        for path in ["`unterminated", "``", "`ok`x"] {
+            let patch = patch_of(&[(path, PatchOp::set(json!(1)))]);
+            let err = patch.apply(&json!({})).unwrap_err();
+            assert!(
+                err.to_string().contains(ReasonCode::PATCH_PATH_INVALID),
+                "{path} must be rejected as patch_path_invalid"
+            );
+        }
+    }
+
+    #[test]
+    fn apply_rejects_reducer_managed_and_redactable_paths_before_touching_the_prestate() {
+        let managed = patch_of(&[("state", PatchOp::set(json!("archived")))]);
+        assert!(
+            managed
+                .apply(&json!({"state": "active"}))
+                .unwrap_err()
+                .to_string()
+                .contains(ReasonCode::PATCH_PATH_REDUCER_MANAGED)
+        );
+
+        let redactable = patch_of(&[("encrypted_content", PatchOp::unset())]);
+        assert!(
+            redactable
+                .apply(&json!({"encrypted_content": "x"}))
+                .unwrap_err()
+                .to_string()
+                .contains(ReasonCode::PATCH_UNSET_REDACTABLE_FIELD)
+        );
+    }
+
+    #[test]
+    fn apply_rejects_an_empty_patch() {
+        assert!(Patch::new().apply(&json!({})).is_err());
+    }
+
+    #[test]
+    fn apply_leaves_the_prestate_untouched_when_one_path_fails() {
+        let prestate = json!({"metadata": {"keep": 1}});
+        let patch = patch_of(&[
+            ("metadata.added", PatchOp::set(json!(true))),
+            ("metadata.missing", PatchOp::unset()),
+        ]);
+
+        assert!(patch.apply(&prestate).is_err());
+        assert_eq!(prestate, json!({"metadata": {"keep": 1}}));
     }
 }

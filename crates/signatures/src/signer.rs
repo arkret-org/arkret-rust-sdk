@@ -1,4 +1,4 @@
-//! Ed25519 backend for the [`MoveSigner`] trait.
+//! Ed25519 backend for the [`PayloadSigner`] trait.
 //!
 //! Round 21 (2026-05-09): production Move/Seal signer. Wraps an
 //! `ed25519_dalek::SigningKey` and produces detached JWS strings whose
@@ -6,12 +6,12 @@
 //! behind the `signer` feature.
 //!
 //! ```
-//! use arkret_signatures::Ed25519MoveSigner;
-//! use arkret_wire::{Did, MoveSigner};
+//! use arkret_signatures::Ed25519PayloadSigner;
+//! use arkret_wire::{Did, PayloadSigner};
 //!
 //! let seed = [0u8; 32];
 //! let did = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
-//! let signer = Ed25519MoveSigner::from_did_key_seed(
+//! let signer = Ed25519PayloadSigner::from_did_key_seed(
 //!     seed,
 //!     did,
 //!     "did:webvh:z6mkfixture:alice.example#key-1",
@@ -24,26 +24,27 @@
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical;
-use arkret_wire::move_event::{Move, MoveSignature};
-use arkret_wire::{Did, Error as WireError, Hash, MoveSigner, Result as WireResult, UnsignedMove};
+use arkret_wire::{
+    Did, Error as WireError, Hash, PayloadSignature, PayloadSigner, Result as WireResult,
+};
 use chrono::Utc;
 use ed25519_dalek::{Signer as _, SigningKey};
 
 use crate::{Error, Result};
 
-/// Ed25519 [`MoveSigner`] backend.
+/// Ed25519 [`PayloadSigner`] backend.
 ///
 /// `signing_key` holds the raw 32-byte ed25519 secret; `did` is the issuer
 /// DID published as `Move.issuer` (or one of the notary set members);
 /// `kid` is the verification method id (`<did>#<fragment>`) that goes into
-/// `MoveSignature.verification_method`.
-pub struct Ed25519MoveSigner {
+/// `PayloadSignature.verification_method`.
+pub struct Ed25519PayloadSigner {
     signing_key: SigningKey,
     did: Did,
     kid: String,
 }
 
-impl Ed25519MoveSigner {
+impl Ed25519PayloadSigner {
     /// Wrap an existing `ed25519_dalek::SigningKey`.
     pub fn new(
         signing_key: SigningKey,
@@ -74,30 +75,7 @@ impl Ed25519MoveSigner {
     }
 }
 
-impl MoveSigner for Ed25519MoveSigner {
-    fn sign_move(&self, unsigned: &UnsignedMove) -> WireResult<Move> {
-        if unsigned.issuer != self.did {
-            return Err(WireError::Protocol(format!(
-                "Move issuer {} does not match Ed25519MoveSigner DID {}",
-                unsigned.issuer, self.did
-            )));
-        }
-        let bytes = unsigned.canonical_bytes()?;
-        let id = Move::id_from_canonical_bytes(&bytes)?;
-        let sig = self.sign_payload(&bytes)?;
-        Ok(Move {
-            id,
-            issuer: unsigned.issuer.clone(),
-            realm_id: unsigned.realm_id.clone(),
-            preconditions: unsigned.preconditions.clone(),
-            effects: unsigned.effects.clone(),
-            seal_basis: unsigned.seal_basis.clone(),
-            refs: unsigned.refs.clone(),
-            hlc: unsigned.hlc.clone(),
-            sig,
-        })
-    }
-
+impl PayloadSigner for Ed25519PayloadSigner {
     fn signer_did(&self) -> &Did {
         &self.did
     }
@@ -106,7 +84,7 @@ impl MoveSigner for Ed25519MoveSigner {
         &self.kid
     }
 
-    fn sign_payload(&self, canonical_bytes: &[u8]) -> WireResult<MoveSignature> {
+    fn sign_payload(&self, canonical_bytes: &[u8]) -> WireResult<PayloadSignature> {
         // Detached JWS over canonical bytes: SDK-canonical header
         // `{"alg":"EdDSA"}` (no `typ`, matching spec §6 / soland / cotest /
         // teabay), then base64url-no-pad(header) + "." + "" (detached
@@ -123,7 +101,7 @@ impl MoveSigner for Ed25519MoveSigner {
         let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes))
             .map_err(|err| WireError::Protocol(format!("invalid canonical hash: {err}")))?;
 
-        Ok(MoveSignature {
+        Ok(PayloadSignature {
             alg: "EdDSA".to_owned(),
             verification_method: self.kid.clone(),
             payload_digest,
@@ -133,15 +111,15 @@ impl MoveSigner for Ed25519MoveSigner {
     }
 }
 
-/// Best-effort verification of a Move signature produced by an
-/// [`Ed25519MoveSigner`]. Useful for tests and round-trip vectors.
+/// Best-effort verification of a [`PayloadSignature`] produced by an
+/// [`Ed25519PayloadSigner`]. Useful for tests and round-trip vectors.
 ///
 /// Returns `Ok(())` on success, `Err(Error::Protocol(...))` if the canonical
 /// bytes don't match the declared `payload_digest` or the signature fails to
 /// verify against the supplied public key.
-pub fn verify_ed25519_move_signature(
+pub fn verify_ed25519_payload_signature(
     canonical_bytes: &[u8],
-    sig: &MoveSignature,
+    sig: &PayloadSignature,
     verifying_key: &ed25519_dalek::VerifyingKey,
 ) -> Result<()> {
     let expected = canonical::sha256_digest(canonical_bytes);
@@ -179,12 +157,12 @@ pub fn verify_ed25519_move_signature(
         .map_err(|err| Error::Protocol(format!("invalid protected header: {err}")))?;
     if sig.alg != "EdDSA" || header.alg != sig.alg {
         return Err(Error::Protocol(
-            "Move signature and protected header alg must both be EdDSA".to_owned(),
+            "payload signature and protected header alg must both be EdDSA".to_owned(),
         ));
     }
     if header.typ.is_some() || header.crit.is_some() {
         return Err(Error::Protocol(
-            "Move detached JWS does not support typ or crit headers".to_owned(),
+            "detached JWS does not support typ or crit headers".to_owned(),
         ));
     }
     let sig_bytes = base64url_decode(sig_b64)
@@ -209,9 +187,7 @@ pub fn verify_ed25519_move_signature(
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::move_event::{Effect, LatticeOp, LatticeOpType};
-    use arkret_wire::{CellRef, Hlc, MoveId, NotarySig, RealmId, Seal, SealId};
-    use serde_json::json;
+    use arkret_wire::{Hash, Hlc, NotarySig, RealmId, Seal, SealId};
 
     use super::*;
 
@@ -231,8 +207,8 @@ mod tests {
         .unwrap()
     }
 
-    fn move_id(byte: u8) -> MoveId {
-        MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+    fn move_id(byte: u8) -> Hash {
+        Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     fn hash(byte: u8) -> Hash {
@@ -243,67 +219,54 @@ mod tests {
         Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap()
     }
 
-    fn seal_basis(byte: u8) -> arkret_wire::SealBasis {
-        arkret_wire::SealBasis {
-            leaves: vec![seal_id(byte)],
-            control_event_set_root: hash(0xbb),
-            state_root: hash(0xcc),
-        }
-    }
-
-    fn sample_unsigned() -> UnsignedMove {
-        UnsignedMove::new(
-            alice(),
-            space(),
-            seal_basis(0xaa),
-            vec![Effect {
-                cell: CellRef::new(
-                    "ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned(),
-                )
-                .unwrap(),
-                op: LatticeOp {
-                    op_type: LatticeOpType::Set,
-                    tag: None,
-                    value: Some(json!("active")),
-                    from: None,
-                    to: None,
-                    reason: None,
-                    issuer_seq: None,
-                },
-            }],
-            hlc(),
-        )
+    /// Canonical bytes standing in for whatever body a caller signs. The
+    /// signer is body-agnostic — it signs bytes — so the round-trip property
+    /// does not need a particular envelope type.
+    fn sample_canonical_bytes() -> Vec<u8> {
+        br#"{"actor_id":"did:webvh:z6mkfixture:alice.example","kind":"ak.member.state"}"#.to_vec()
     }
 
     #[test]
-    fn ed25519_signer_produces_self_consistent_move() {
-        let signer = Ed25519MoveSigner::from_did_key_seed(
+    fn ed25519_signer_produces_a_self_consistent_payload_signature() {
+        let signer = Ed25519PayloadSigner::from_did_key_seed(
             [7u8; 32],
             alice(),
             "did:webvh:z6mkfixture:alice.example#key-1",
         );
-        let m = signer.sign_move(&sample_unsigned()).unwrap();
-        m.validate_id().unwrap();
-        m.validate_structural().unwrap();
-        // Round-trip verify against verifying key.
-        let bytes = m.canonical_bytes_for_id().unwrap();
-        verify_ed25519_move_signature(&bytes, &m.sig, &signer.verifying_key()).unwrap();
+        let bytes = sample_canonical_bytes();
+        let sig = signer.sign_payload(&bytes).unwrap();
+        assert_eq!(sig.alg, "EdDSA");
+        assert_eq!(sig.verification_method, signer.verification_method_id());
+        verify_ed25519_payload_signature(&bytes, &sig, &signer.verifying_key()).unwrap();
     }
 
     #[test]
-    fn ed25519_signer_rejects_issuer_mismatch() {
-        let signer = Ed25519MoveSigner::from_did_key_seed(
+    fn a_payload_signature_does_not_verify_over_different_bytes() {
+        let signer = Ed25519PayloadSigner::from_did_key_seed(
             [7u8; 32],
-            Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
-            "did:webvh:z6mkfixture:bob.example#key-1",
+            alice(),
+            "did:webvh:z6mkfixture:alice.example#key-1",
         );
-        let err = signer.sign_move(&sample_unsigned()).unwrap_err();
-        assert!(format!("{err}").contains("does not match Ed25519MoveSigner DID"));
+        let sig = signer.sign_payload(&sample_canonical_bytes()).unwrap();
+        // The issuer-mismatch check this replaces lived in the deleted
+        // sign_move; sign_payload signs bytes and makes no claim about who the
+        // body names. What still has to hold is that the signature is bound to
+        // the exact bytes.
+        let err = verify_ed25519_payload_signature(
+            br#"{"actor_id":"did:webvh:z6mkfixture:bob.example","kind":"ak.member.state"}"#,
+            &sig,
+            &signer.verifying_key(),
+        )
+        .unwrap_err();
+        assert!(
+            format!("{err}").contains("does not match canonical bytes hash"),
+            "unexpected error: {err}"
+        );
     }
 
     #[test]
     fn ed25519_signer_signs_anchor_single() {
-        let signer = Ed25519MoveSigner::from_did_key_seed(
+        let signer = Ed25519PayloadSigner::from_did_key_seed(
             [9u8; 32],
             alice(),
             "did:webvh:z6mkfixture:alice.example#key-1",
@@ -323,7 +286,7 @@ mod tests {
             NotarySig::Single(sig) => {
                 assert_eq!(sig.alg, "EdDSA");
                 let bytes = a.canonical_bytes_for_id().unwrap();
-                verify_ed25519_move_signature(&bytes, sig, &signer.verifying_key()).unwrap();
+                verify_ed25519_payload_signature(&bytes, sig, &signer.verifying_key()).unwrap();
             }
             other => panic!("expected single sig, got {other:?}"),
         }
@@ -332,12 +295,12 @@ mod tests {
     #[test]
     fn ed25519_signer_deterministic_for_same_seed() {
         let seed = [42u8; 32];
-        let s1 = Ed25519MoveSigner::from_did_key_seed(
+        let s1 = Ed25519PayloadSigner::from_did_key_seed(
             seed,
             alice(),
             "did:webvh:z6mkfixture:alice.example#key-1",
         );
-        let s2 = Ed25519MoveSigner::from_did_key_seed(
+        let s2 = Ed25519PayloadSigner::from_did_key_seed(
             seed,
             alice(),
             "did:webvh:z6mkfixture:alice.example#key-1",
@@ -347,32 +310,32 @@ mod tests {
 
     #[test]
     fn verify_ed25519_rejects_tampered_payload() {
-        let signer = Ed25519MoveSigner::from_did_key_seed(
+        let signer = Ed25519PayloadSigner::from_did_key_seed(
             [3u8; 32],
             alice(),
             "did:webvh:z6mkfixture:alice.example#key-1",
         );
-        let m = signer.sign_move(&sample_unsigned()).unwrap();
-        let mut bytes = m.canonical_bytes_for_id().unwrap();
+        let mut bytes = sample_canonical_bytes();
+        let sig = signer.sign_payload(&bytes).unwrap();
         bytes.push(b'X'); // tamper
         let err =
-            verify_ed25519_move_signature(&bytes, &m.sig, &signer.verifying_key()).unwrap_err();
+            verify_ed25519_payload_signature(&bytes, &sig, &signer.verifying_key()).unwrap_err();
         assert!(format!("{err}").contains("payload_digest"));
     }
 
     #[test]
     fn verify_ed25519_rejects_non_eddsa_protected_header() {
-        let signer = Ed25519MoveSigner::from_did_key_seed(
+        let signer = Ed25519PayloadSigner::from_did_key_seed(
             [3u8; 32],
             alice(),
             "did:webvh:z6mkfixture:alice.example#key-1",
         );
-        let mut signed = signer.sign_move(&sample_unsigned()).unwrap();
-        let signature = signed.sig.jws.rsplit('.').next().unwrap().to_owned();
-        signed.sig.jws = format!("{}..{signature}", base64url_encode(br#"{"alg":"none"}"#));
-        let bytes = signed.canonical_bytes_for_id().unwrap();
-        let error = verify_ed25519_move_signature(&bytes, &signed.sig, &signer.verifying_key())
-            .unwrap_err();
+        let bytes = sample_canonical_bytes();
+        let mut sig = signer.sign_payload(&bytes).unwrap();
+        let signature = sig.jws.rsplit('.').next().unwrap().to_owned();
+        sig.jws = format!("{}..{signature}", base64url_encode(br#"{"alg":"none"}"#));
+        let error =
+            verify_ed25519_payload_signature(&bytes, &sig, &signer.verifying_key()).unwrap_err();
         assert!(error.to_string().contains("must both be EdDSA"));
     }
 }

@@ -141,7 +141,7 @@ pub struct Message {
     pub strand_id: StrandId,
     pub track_name: MessageTrackName,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_scope: Option<EffectiveScope>,
+    pub effective_scope: Option<ScopeRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content: Option<ContentBlock>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -1,8 +1,12 @@
 //! Arkret v1 state-resolution and snapshot runtime.
 //!
 //! Wire models and canonical encoding live in leaf crates. This crate owns
-//! mutable Move/Seal reducers, in-memory stores, compaction, and snapshot
-//! construction and verification.
+//! the mutable Control Move / Seal reducers, in-memory stores, compaction, and
+//! snapshot construction and verification.
+//!
+//! The registry-driven projection that turns an Event's `kind + payload` into
+//! cell writes lives in `arkret-schema`, one layer above; every reducer entry
+//! point here takes it as an injected callback rather than importing it.
 
 // Object-model and reducer-payload vocabulary the state resolver reduces
 // over. These are pure data types owned by `arkret-models-collaboration`

@@ -122,7 +122,7 @@ pub fn validate_realm_bootstrap_unit(
         if descriptor.is_some_and(|descriptor| {
             descriptor.reducer_input && descriptor.lattice == Some("cas_register")
         }) {
-            arkret_schema::validate_single_target_set_event_contract_in_context(
+            arkret_schema::validate_registered_cell_writes_in_context(
                 followup,
                 arkret_schema::EventCellContractContext::OrdinaryRealmBootstrap,
             )
@@ -232,7 +232,7 @@ fn validate_founding_grant_payload(
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{Did, Hlc, RealmId};
+    use arkret_wire::{Did, Hlc, RealmId, ScopeRef};
     use serde_json::json;
 
     use super::*;
@@ -243,7 +243,9 @@ mod tests {
     fn event(kind: &str, payload: serde_json::Value) -> Event {
         Event::new_at(
             kind,
-            RealmId::new(REALM).unwrap(),
+            ScopeRef::Realm {
+                realm_id: RealmId::new(REALM).unwrap(),
+            },
             Did::new(ACTOR).unwrap(),
             1,
             Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
@@ -287,17 +289,15 @@ mod tests {
     }
 
     fn history_sharing_followup() -> Event {
-        let value = json!({"version": 1});
-        let mut event = event(
+        // The producer no longer states its writes: this kind's registry
+        // contract projects the set onto
+        // ak:cell:ak.component.realm.history_sharing_policy.v1:null from the
+        // payload alone, which is exactly what
+        // validate_realm_bootstrap_unit re-derives for cas_register follow-ups.
+        event(
             EventKind::REALM_HISTORY_SHARING_POLICY,
-            json!({"value": value}),
-        );
-        event.effects = serde_json::from_value(json!([{
-            "cell": "ak:cell:ak.component.realm.history_sharing_policy.v1:null",
-            "op": {"kind": "set", "value": value}
-        }]))
-        .unwrap();
-        event
+            json!({"value": {"version": 1}}),
+        )
     }
 
     #[test]

@@ -35,9 +35,7 @@ use std::fmt;
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical;
-#[cfg(feature = "collaboration")]
-use arkret_models_collaboration::events_payloads::ephemeral::EphemeralEnvelope;
-use arkret_wire::{Hash, Proof, proof_kind};
+use arkret_wire::{Hash, Proof, SignalEnvelope, proof_kind};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
@@ -161,44 +159,52 @@ pub fn verify_eddsa_detached_jws_proof(
     actor_id: &arkret_wire::Did,
     public_key: &PublicKeyMaterial,
 ) -> std::result::Result<(), VerifierError> {
-    verify_eddsa_detached_jws_proof_with_context(
-        proof,
-        canonical_bytes,
-        actor_id,
-        public_key,
-        false,
-    )
+    verify_eddsa_detached_jws_proof_inner(proof, canonical_bytes, actor_id, public_key)
 }
 
-/// Verify an ephemeral broadcast envelope against an authorized device key.
-/// The envelope's digest excludes `proof`, while its detached JWS uses the
-/// `ak.ephemeral-proof-v1` binding context mandated by the wire schema.
-#[cfg(feature = "collaboration")]
-pub fn verify_eddsa_detached_jws_ephemeral_proof(
-    envelope: &EphemeralEnvelope,
+/// Verify a [`SignalEnvelope`] against the sending device's key.
+///
+/// A Signal proof is not an Event proof: its transcript names the sending
+/// device and commits to `envelope_digest` (the envelope with `proof` removed),
+/// so it cannot be verified by the Event path and a signature from one rail can
+/// never be replayed on the other.
+///
+/// This checks the signature and the envelope's self-consistency only. The
+/// caller still owes the admission checks that need accepted state: that
+/// `verification_method` resolves, at `seal_ref`, to the active device signing
+/// method authorized for `sender_device_id` under `sender_actor_id`; that the
+/// device may send into this scope; and, for `moderation`, the corresponding
+/// moderation action. `signal.md` §3 requires all four. In particular, no
+/// fragment-to-device-id string equality may stand in for that lookup.
+pub fn verify_eddsa_signal_proof(
+    envelope: &SignalEnvelope,
     public_key: &PublicKeyMaterial,
 ) -> std::result::Result<(), VerifierError> {
     envelope
-        .validate()
+        .validate_structural()
         .map_err(|error| VerifierError::Binding(error.to_string()))?;
-    let canonical_bytes = envelope
-        .canonical_bytes_without_proof()
-        .map_err(|error| VerifierError::Encoding(error.to_string()))?;
-    verify_eddsa_detached_jws_proof_with_context(
-        &envelope.proof,
-        &canonical_bytes,
-        &envelope.actor_id,
+    if envelope.proof.alg != "EdDSA" {
+        return Err(VerifierError::Backend(format!(
+            "Ed25519 verifier received non-EdDSA alg '{}'",
+            envelope.proof.alg
+        )));
+    }
+    let binding_bytes = envelope
+        .proof_binding_bytes()
+        .map_err(|err| VerifierError::Encoding(format!("signal proof binding object: {err}")))?;
+    verify_detached_jws_over(
+        &envelope.proof.jws,
+        &envelope.proof.alg,
+        &binding_bytes,
         public_key,
-        true,
     )
 }
 
-fn verify_eddsa_detached_jws_proof_with_context(
+fn verify_eddsa_detached_jws_proof_inner(
     proof: &Proof,
     canonical_bytes: &[u8],
     actor_id: &arkret_wire::Did,
     public_key: &PublicKeyMaterial,
-    ephemeral_context: bool,
 ) -> std::result::Result<(), VerifierError> {
     if canonical_bytes.is_empty() {
         return Err(VerifierError::Encoding(
@@ -225,14 +231,23 @@ fn verify_eddsa_detached_jws_proof_with_context(
             proof.event_digest, expected
         )));
     }
-    let binding_bytes = if ephemeral_context {
-        proof.canonical_ephemeral_binding_bytes(actor_id)
-    } else {
-        proof.canonical_binding_bytes(actor_id)
-    }
-    .map_err(|err| VerifierError::Encoding(format!("proof binding object: {err}")))?;
+    let binding_bytes = proof
+        .canonical_binding_bytes(actor_id)
+        .map_err(|err| VerifierError::Encoding(format!("proof binding object: {err}")))?;
 
-    let parts: Vec<&str> = proof.jws.split('.').collect();
+    verify_detached_jws_over(&proof.jws, &proof.alg, &binding_bytes, public_key)
+}
+
+/// Shared detached-JWS tail: parse the protected header, reject every
+/// extension this profile does not accept, and verify the signature over
+/// `header.base64url(binding_bytes)`.
+fn verify_detached_jws_over(
+    jws: &str,
+    declared_alg: &str,
+    binding_bytes: &[u8],
+    public_key: &PublicKeyMaterial,
+) -> std::result::Result<(), VerifierError> {
+    let parts: Vec<&str> = jws.split('.').collect();
     if parts.len() != 3 || !parts[1].is_empty() {
         return Err(VerifierError::Encoding(
             "detached JWS must be header..signature with empty payload segment".to_owned(),
@@ -242,10 +257,10 @@ fn verify_eddsa_detached_jws_proof_with_context(
         .map_err(|err| VerifierError::Encoding(format!("invalid header base64: {err}")))?;
     let header: DetachedJwsProtectedHeader = canonical::from_canonical_json_slice(&header_bytes)
         .map_err(|err| VerifierError::Encoding(format!("invalid protected header: {err}")))?;
-    if header.alg != proof.alg {
+    if header.alg != declared_alg {
         return Err(VerifierError::Binding(format!(
-            "protected header alg '{}' does not match proof alg '{}'",
-            header.alg, proof.alg
+            "protected header alg '{header}' does not match proof alg '{declared_alg}'",
+            header = header.alg
         )));
     }
     if header.alg != "EdDSA" {
@@ -266,7 +281,7 @@ fn verify_eddsa_detached_jws_proof_with_context(
     }
     let sig_bytes = base64url_decode(parts[2])
         .map_err(|err| VerifierError::Encoding(format!("invalid sig base64: {err}")))?;
-    let signing_input = format!("{}.{}", parts[0], base64url_encode(&binding_bytes));
+    let signing_input = format!("{}.{}", parts[0], base64url_encode(binding_bytes));
     verify_eddsa_signing_input(&signing_input, &sig_bytes, public_key)
 }
 

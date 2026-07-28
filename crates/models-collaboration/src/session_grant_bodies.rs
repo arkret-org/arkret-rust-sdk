@@ -6,8 +6,8 @@
 
 use arkret_models_identity::SessionGrantProofKind;
 use arkret_wire::{
-    DeviceId, Did, EffectiveScope, Error, FreshnessState, GrantId, Hash, NonEmptyString, RealmId,
-    Result, StrandId, canonical,
+    DeviceId, Did, Error, FreshnessState, GrantId, Hash, NonEmptyString, RealmId, Result, ScopeRef,
+    StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -73,7 +73,7 @@ pub struct SessionGrantAgentScopeRequest {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantAppletDelegation {
     pub applet_id: String,
-    pub effective_scope: EffectiveScope,
+    pub effective_scope: ScopeRef,
     pub registration_epoch: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_id: Option<Did>,

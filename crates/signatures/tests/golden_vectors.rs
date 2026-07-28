@@ -6,8 +6,8 @@
 //! 1. The detached-JWS protected header is exactly `{"alg":"EdDSA"}` across the ecosystem
 //!    (base64url `eyJhbGciOiJFZERTQSJ9`), matching spec §6, soland `move_seal_wire`, cotest and
 //!    teabay `sdk::jws`.
-//! 2. `Ed25519MoveSigner` (Move/Seal signing) and the generic detached-JWS signer produce the same
-//!    signing input and same 64-byte signature for identical canonical bytes, proving the
+//! 2. `Ed25519PayloadSigner` (Move/Seal signing) and the generic detached-JWS signer produce the
+//!    same signing input and same 64-byte signature for identical canonical bytes, proving the
 //!    historical JWS forks have converged.
 //! 3. base58btc (`arkret-canonical`, `bs58` backend) stays stable for the did:key Ed25519
 //!    multiencoding stack.
@@ -33,63 +33,42 @@ fn detached_jws_protected_header_is_alg_eddsa_only() {
 
 #[cfg(feature = "signer")]
 #[test]
-fn move_signer_and_generic_detached_jws_signer_share_one_header_and_signature() {
-    use arkret_identifiers::{CellRef, Did, Hash, Hlc, RealmId, SealId};
-    use arkret_signatures::Ed25519MoveSigner;
+fn payload_signer_and_generic_detached_jws_signer_share_one_header_and_signature() {
+    use arkret_identifiers::Did;
+    use arkret_signatures::Ed25519PayloadSigner;
     use arkret_signatures::proof::{Ed25519DetachedJwsSigner, EventSigner};
-    use arkret_wire::move_event::{Effect, LatticeOp, LatticeOpType, SealBasis};
-    use arkret_wire::signer::{MoveSigner, UnsignedMove};
+    use arkret_wire::signer::PayloadSigner;
 
     let seed = [7u8; 32];
     let did = Did::new("did:web:alice.example".to_owned()).unwrap();
     let vm = "did:web:alice.example#key-1";
 
-    // Build a Move and grab its canonical bytes + the Move signature JWS.
-    let move_signer = Ed25519MoveSigner::from_did_key_seed(seed, did.clone(), vm);
-    let unsigned = UnsignedMove::new(
-        did,
-        RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap(),
-        SealBasis {
-            leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "aa".repeat(32))).unwrap()],
-            control_event_set_root: Hash::new(format!("sha256:{}", "33".repeat(32))).unwrap(),
-            state_root: Hash::new(format!("sha256:{}", "44".repeat(32))).unwrap(),
-        },
-        vec![Effect {
-            cell: CellRef::new(
-                "ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned(),
-            )
-            .unwrap(),
-            op: LatticeOp {
-                op_type: LatticeOpType::Set,
-                tag: None,
-                value: Some(serde_json::json!("active")),
-                from: None,
-                to: None,
-                reason: None,
-                issuer_seq: None,
-            },
-        }],
-        Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
-    );
-    let signed_move = move_signer.sign_move(&unsigned).unwrap();
-    let move_bytes = signed_move.canonical_bytes_for_id().unwrap();
+    // The property is that both signing paths share one signing input, so the
+    // body only has to be some fixed canonical byte string. It used to be a
+    // Move's canonical bytes; v1 deleted Move, and the signer was never
+    // body-specific anyway - it signs bytes.
+    let canonical_bytes =
+        br#"{"actor_id":"did:web:alice.example","kind":"ak.member.state"}"#.to_vec();
 
-    // The Move JWS header segment MUST be the canonical alg=EdDSA header.
-    let move_header_seg = signed_move.sig.jws.split('.').next().unwrap();
+    let payload_signer = Ed25519PayloadSigner::from_did_key_seed(seed, did, vm);
+    let signature = payload_signer.sign_payload(&canonical_bytes).unwrap();
+
+    // The JWS header segment MUST be the canonical alg=EdDSA header.
+    let header_seg = signature.jws.split('.').next().unwrap();
     assert_eq!(
-        move_header_seg, PROTECTED_HEADER_B64URL,
-        "Move JWS header drift"
+        header_seg, PROTECTED_HEADER_B64URL,
+        "payload JWS header drift"
     );
 
     // The generic signer over the SAME bytes must produce the SAME raw
     // 64-byte signature (proving a single signing input across both paths).
     let detached_signer = Ed25519DetachedJwsSigner::from_seed(seed, vm);
-    let detached_sig = detached_signer.sign(&move_bytes).unwrap();
-    let move_sig_seg = signed_move.sig.jws.rsplit('.').next().unwrap();
+    let detached_sig = detached_signer.sign(&canonical_bytes).unwrap();
+    let sig_seg = signature.jws.rsplit('.').next().unwrap();
     assert_eq!(
         base64url_encode(&detached_sig),
-        move_sig_seg,
-        "Move/generic detached signature bytes diverge"
+        sig_seg,
+        "payload/generic detached signature bytes diverge"
     );
 }
 

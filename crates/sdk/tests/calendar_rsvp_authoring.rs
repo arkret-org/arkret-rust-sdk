@@ -56,7 +56,9 @@ fn build(basis: Vec<Hash>, causal_refs: Vec<Hash>) -> arkret_wire::Result<arkret
         &calendar(),
         &projection,
         EventId::new("ak:event:0196419b-0000-7000-8000-000000000301").unwrap(),
-        RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000101").unwrap(),
+        arkret::ScopeRef::Realm {
+            realm_id: RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000101").unwrap(),
+        },
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
         Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
@@ -65,15 +67,21 @@ fn build(basis: Vec<Hash>, causal_refs: Vec<Hash>) -> arkret_wire::Result<arkret
 }
 
 #[test]
-fn authored_rsvp_carries_the_registry_derived_cell_effect() {
+fn authored_rsvp_projects_onto_the_registered_cell() {
     let basis = Hash::new(BASIS_A).unwrap();
     let event = build(vec![basis.clone()], vec![basis]).unwrap();
 
-    // Exactly one effect, addressed to the registered cell family. An
-    // effect-less RSVP was the concrete client defect this helper removes.
-    assert_eq!(event.effects.len(), 1);
+    // The Event states no writes; they are derived from kind + payload through
+    // the registry, so this asserts the projection a receiver computes rather
+    // than an array the producer stamped.
+    let writes = arkret_schema::project_registered_cell_writes(
+        &event,
+        arkret_canonical::DigestSuite::Sha256,
+    )
+    .unwrap();
+    assert_eq!(writes.len(), 1);
     assert!(
-        event.effects[0]
+        writes[0]
             .cell
             .as_str()
             .starts_with("ak:cell:ak.component.calendar.rsvp.v1:")
@@ -81,7 +89,8 @@ fn authored_rsvp_carries_the_registry_derived_cell_effect() {
 
     // effect_projection = set(payload.entry): the op value is the whole entry,
     // not just the status.
-    let value = event.effects[0].op.value.as_ref().unwrap();
+    let effect = writes[0].as_direct().expect("rsvp projects a direct set");
+    let value = effect.op.value.as_ref().expect("a set carries its value");
     assert_eq!(value, &event.payload["entry"]);
     assert!(value.get("schedule_basis_refs").is_some());
     assert_eq!(value["response"]["status"], "accepted");

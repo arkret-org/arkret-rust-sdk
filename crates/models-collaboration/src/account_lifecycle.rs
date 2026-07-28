@@ -2,7 +2,7 @@
 //! wire models relocated from the `arkret` umbrella.
 //!
 //! These shapes bind cross-domain types: consent cells (`ConsentScope`,
-//! `arkret-wire`), session-grant selectors (`EffectiveScope`, `arkret-wire`),
+//! `arkret-wire`), session-grant selectors (`ScopeRef`, `arkret-wire`),
 //! profile patches (`ProfilePatch` = `arkret_wire::patch::Patch`), account
 //! status rollups (`AccountStatus`), handle claims (`HandleClaim`,
 //! `arkret-models-identity`), and the identity-face registration evidence /
@@ -17,7 +17,7 @@ use arkret_models_identity::account::{
 use arkret_models_identity::actor_profile::ActorProfile;
 use arkret_wire::patch::Patch;
 use arkret_wire::{
-    AppletId, AppletRevokeMode, ConsentScope, DeviceId, Did, EffectiveScope, GrantId, Hash, Result,
+    AppletId, AppletRevokeMode, ConsentScope, DeviceId, Did, GrantId, Hash, Result, ScopeRef,
     ServiceOperationId, canonical,
 };
 use chrono::{DateTime, Utc};
@@ -138,7 +138,7 @@ pub const SESSION_REVOKE_LIFECYCLE_PROOF_KIND: &str =
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionGrantAppletSelector {
     pub applet_id: String,
-    pub effective_scope: EffectiveScope,
+    pub effective_scope: ScopeRef,
     pub registration_epoch: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_id: Option<Did>,
@@ -276,7 +276,7 @@ pub struct SessionRevokeRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applet_id: Option<AppletId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_scope: Option<EffectiveScope>,
+    pub effective_scope: Option<ScopeRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub registration_epoch: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -303,7 +303,7 @@ pub struct SessionRevokeOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletRevokeRequestBody {
-    pub effective_scope: EffectiveScope,
+    pub effective_scope: ScopeRef,
     pub reason_code: String,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub revoke_mode: AppletRevokeMode,

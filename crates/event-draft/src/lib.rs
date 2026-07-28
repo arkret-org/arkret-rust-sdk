@@ -26,9 +26,8 @@ mod registry;
 
 pub use accountability::accountability_grant_event;
 pub use agent::{
-    agent_key_authorize_effects, agent_key_revoke_effects, build_agent_deactivate_event,
-    build_agent_key_authorize_event, build_agent_key_revoke_event, build_agent_pause_event,
-    build_agent_resume_event,
+    build_agent_deactivate_event, build_agent_key_authorize_event, build_agent_key_revoke_event,
+    build_agent_pause_event, build_agent_resume_event,
 };
 pub use applet::AppletBridgeErrorBuilder;
 pub use calendar::{RsvpAuthoring, RsvpResponseBranch};

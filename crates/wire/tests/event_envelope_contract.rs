@@ -4,10 +4,10 @@ use arkret_wire::{
     Did, Event, EventId, EventRequirements, Hlc, MAX_ACTOR_SEQ_SIBLINGS, MAX_AUTHORIZED_BY_REFS,
     MAX_DELEGATION_CHAIN_DEPTH, MAX_DELEGATION_CONTROL_DEPTH, MAX_EVENT_ENVELOPE_BYTES,
     MAX_EVENT_PREV_REFS, MAX_EVENT_REFS, MAX_EVENT_RESOLVE, MAX_EVENT_SUBMIT_BATCH, RealmId,
-    prev_frontier_digest, validate_actor_seq_sibling_count, validate_authorized_by_ref_count,
-    validate_delegation_chain_depth, validate_delegation_control_depth,
-    validate_event_envelope_byte_len, validate_event_prev_refs, validate_event_ref_count,
-    validate_event_submit_batch_count,
+    ScopeRef, prev_frontier_digest, validate_actor_seq_sibling_count,
+    validate_authorized_by_ref_count, validate_delegation_chain_depth,
+    validate_delegation_control_depth, validate_event_envelope_byte_len, validate_event_prev_refs,
+    validate_event_ref_count, validate_event_submit_batch_count,
 };
 use serde_json::json;
 
@@ -19,7 +19,9 @@ fn realm_id() -> RealmId {
 fn event_new_sets_required_event_id() {
     let event = Event::new(
         "ak.message.create",
-        realm_id(),
+        ScopeRef::Realm {
+            realm_id: realm_id(),
+        },
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
@@ -36,15 +38,16 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
         kind: "ak.message.create".into(),
         realm_id: realm_id(),
+        scope_ref: ScopeRef::Realm {
+            realm_id: realm_id(),
+        },
         actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         actor_seq: 1,
         created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
         hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
         prev_refs: Vec::new(),
-        effective_scope: None,
         refs: Vec::new(),
         preconditions: Vec::new(),
-        effects: Vec::new(),
         seal_ref: None,
         auth_context: None,
         seal_basis: None,
@@ -58,13 +61,16 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         actor_kind: None,
         unsigned: BTreeMap::from([("local_receive_time".to_owned(), json!("ignored"))]),
         causal_refs: Vec::new(),
-        conflict_keys_digest: None,
         proofs: Vec::new(),
     };
 
+    // Pinned after `scope_ref` became a producer-signed transcript member and
+    // `effective_scope` / `effects` / `conflict_keys_digest` left the wire
+    // (`conformance/encoding.md` section 2). Every v1 Event digest changed once,
+    // deliberately; this value must only move again with the spec.
     assert_eq!(
         event.event_digest().unwrap(),
-        "sha256:e900abc168bc630f073e1ae104af45f0b534feb86e9671f4ed91f38e51d3dd21"
+        "sha256:26fc7b974a46ea08739a3b43bbdabddff749aa4cd045fbd69a3f148b286a322b"
     );
     let value = serde_json::to_value(&event).unwrap();
     assert_eq!(value["payload"]["body"], "hello");

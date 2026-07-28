@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/id-kind-registry.json; version=2026-07-20;
-//! sha256=d819c17d998ca95455441dbce72fc060dc64f4c382af1aa07d95568cfd8a4714 Input: registry/
+//! sha256=9468557bda241ab4c8a0bbd1d1cf0c19955ff59ba3caa35bf0f5aa1608995796 Input: registry/
 //! capability-action-registry.json; version=2026-07-20;
 //! sha256=1a6e23305bfa5690e79ed6632097783dc50038576ddced67a6bafd82a32054b0 Input: registry/
 //! schema-registry.json; version=2026-07-20;
-//! sha256=b8623dded94750ad7f270c7d1eb732247c3cb9910eeedf81434ab4ff0250994f Input: registry/
+//! sha256=f56ba43f39efebb061277700a96d4af274ceaed9d0d109ba92c1dfa901dba1a7 Input: registry/
 //! account-data-key-registry.json; version=2026-07-03;
-//! sha256=f0f567769bfb523fc2d62dadce5fdd8ebade4de62daa6d36b60c8a321ef6ca56 Entries: id_kinds=50,
-//! special_forms=9, actions=154, schemas=137, account_data_patterns=22
+//! sha256=32b003a9e2bf2281ae93079070512566de7b19ba0fa003fe6cfd43dcfce614db Entries: id_kinds=51,
+//! special_forms=9, actions=154, schemas=141, account_data_patterns=22
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -110,6 +110,11 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "audit_session",
         category: "audit",
         wire_form: "ak:audit_session:<uuid>",
+    },
+    IdKindDescriptor {
+        kind: "authorization_lease",
+        category: "authz",
+        wire_form: "ak:authorization_lease:<uuid>",
     },
     IdKindDescriptor {
         kind: "backup",
@@ -313,7 +318,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     },
     IdKindDescriptor {
         kind: "transaction",
-        category: "transport",
+        category: "security",
         wire_form: "ak:transaction:<uuid>",
     },
     IdKindDescriptor {
@@ -1962,6 +1967,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/capability-grant.schema.json",
     },
     SchemaDescriptor {
+        schema_id: "ak.schema.cba_proof_bundle.v1",
+        file: "schemas/cba-proof-bundle.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: "ak.schema.circle.v1",
         file: "schemas/circle.schema.json",
     },
@@ -2046,10 +2055,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/encrypted-envelope.schema.json",
     },
     SchemaDescriptor {
-        schema_id: "ak.schema.ephemeral_envelope.v1",
-        file: "schemas/ephemeral-envelope.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: "ak.schema.erasure_receipt.v1",
         file: "schemas/erasure-receipt.schema.json",
     },
@@ -2068,6 +2073,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: "ak.schema.event_payload.v1",
         file: "schemas/event-payload.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.extension_manifest.v1",
+        file: "schemas/extension-manifest.schema.json",
     },
     SchemaDescriptor {
         schema_id: "ak.schema.federated_device_signing_key_evidence.v1",
@@ -2210,6 +2219,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/object-addressing.schema.json",
     },
     SchemaDescriptor {
+        schema_id: "ak.schema.offline_publication.v1",
+        file: "schemas/offline-publication.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: "ak.schema.patch.v1",
         file: "schemas/patch.schema.json",
     },
@@ -2326,12 +2339,20 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/search-service.schema.json",
     },
     SchemaDescriptor {
+        schema_id: "ak.schema.security_transaction.v1",
+        file: "schemas/security-transaction.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: "ak.schema.service_describe.v1",
         file: "schemas/service-describe.schema.json",
     },
     SchemaDescriptor {
         schema_id: "ak.schema.service_operation_dtos.v1",
         file: "schemas/service-operation-dtos.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.signal_envelope.v1",
+        file: "schemas/signal-envelope.schema.json",
     },
     SchemaDescriptor {
         schema_id: "ak.schema.snapshot.v1",

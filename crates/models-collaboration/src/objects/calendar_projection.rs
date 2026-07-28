@@ -285,15 +285,6 @@ mod tests {
         Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
-    fn frontier(heads: &[Hash]) -> CalendarScheduleProjection {
-        CalendarScheduleProjection::from_heads(
-            &heads
-                .iter()
-                .map(|head| (head.clone(), Some(b"schedule".to_vec())))
-                .collect::<Vec<_>>(),
-        )
-    }
-
     fn head(digest_byte: u8, basis: Vec<Hash>, status: RsvpStatus) -> CalendarRsvpHead {
         CalendarRsvpHead {
             source_event_digest: digest(digest_byte),

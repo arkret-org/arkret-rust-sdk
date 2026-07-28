@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::constants::MODERATION_REPORT_SCHEMA;
-use arkret_wire::{Did, EffectiveScope, Hash, RealmId};
+use arkret_wire::{Did, Hash, RealmId, ScopeRef};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -62,7 +62,7 @@ pub enum ModerationAction {
 pub struct ModerationReportRequestBody {
     pub realm_id: RealmId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_scope: Option<EffectiveScope>,
+    pub effective_scope: Option<ScopeRef>,
     pub target_ref: String,
     pub report_reason_code: String,
     #[serde(skip_serializing_if = "Option::is_none")]
