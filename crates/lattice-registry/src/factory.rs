@@ -18,6 +18,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
 
     // OrSet
     registry.register(ConsentGrant);
+    registry.register(ModerationState);
     registry.register(CapabilityGrant);
     registry.register(CapabilityDelegate);
     registry.register(CapabilityDerived);
@@ -122,6 +123,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
     const FAMILIES: &[&str] = &[
         // OrSet
         "ak.component.consent.grant.v1",
+        "ak.component.moderation_state.v1",
         "ak.component.capability.grant.v1",
         "ak.component.capability.delegate.v1",
         "ak.component.capability.derived.v1",

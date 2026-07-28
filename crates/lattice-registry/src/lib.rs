@@ -65,7 +65,7 @@ mod tests {
         // registry. New spec cell families must be added here before their
         // contracts are consumed by Move/Seal state resolution.
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 82);
+        assert_eq!(registry.len(), 83);
     }
 
     #[test]
@@ -77,6 +77,26 @@ mod tests {
         let payload = json!({"consent_id": "cnt:01HXYZ"});
         let subject = kind.subject_for_effect(&payload).unwrap();
         assert_eq!(subject.as_deref(), Some("cnt:01HXYZ"));
+    }
+
+    #[test]
+    fn moderation_state_has_or_set_lattice_and_target_ref_subject() {
+        let registry = default_lattice_registry();
+        let kind = registry
+            .lookup("ak.component.moderation_state.v1")
+            .expect("moderation state must be registered");
+        assert_eq!(kind.lattice(), SdkLatticeKind::OrSet);
+        assert_eq!(kind.bottom_policy(), BottomPolicy::Expose);
+        assert_eq!(
+            kind.subject_for_effect(&json!({"target_ref": "ak:event:target"}))
+                .unwrap()
+                .as_deref(),
+            Some("ak:event:target")
+        );
+        assert_eq!(
+            kind.event_kinds(),
+            &["ak.moderation.decision", "ak.moderation.decision.lift"]
+        );
     }
 
     #[test]

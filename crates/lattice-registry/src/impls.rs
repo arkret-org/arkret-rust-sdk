@@ -134,6 +134,16 @@ per_subject_lattice!(
 );
 
 per_subject_lattice!(
+    ModerationState,
+    "ak.component.moderation_state.v1",
+    SdkLatticeKind::OrSet,
+    BottomPolicy::Expose,
+    Criticality::Required,
+    "target_ref",
+    &["ak.moderation.decision", "ak.moderation.decision.lift"]
+);
+
+per_subject_lattice!(
     CapabilityGrant,
     "ak.component.capability.grant.v1",
     SdkLatticeKind::OrSet,
