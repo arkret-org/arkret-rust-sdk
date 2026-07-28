@@ -57,6 +57,12 @@ pub const MAX_SIGNAL_RELAY_ITEMS: usize = 128;
 /// Canonical JSON bound for one peer relay request.
 pub const MAX_SIGNAL_RELAY_CANONICAL_BODY_BYTES: usize = 1024 * 1024;
 
+/// Maximum reconnect hint accepted on a Signal drain frame.
+pub const MAX_SIGNAL_STREAM_RECONNECT_AFTER_MS: u64 = 300_000;
+
+/// Maximum Unicode scalar count for a Signal stream control-frame reason.
+pub const MAX_SIGNAL_STREAM_REASON_CHARS: usize = 128;
+
 /// AEAD plaintext bound before encryption.
 pub const MAX_SIGNAL_PLAINTEXT_BYTES: usize = 48 * 1024;
 
@@ -449,6 +455,66 @@ impl SignalEnvelope {
     }
 }
 
+/// Closed frame union for `ak.self.signal.stream.subscribe`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum SignalStreamFrame {
+    Signal {
+        envelope: SignalEnvelope,
+    },
+    Heartbeat,
+    Drain {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        reconnect_after_ms: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        reason: Option<String>,
+    },
+    Unauthorized {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        reason: Option<String>,
+    },
+}
+
+impl SignalStreamFrame {
+    pub fn signal(envelope: SignalEnvelope) -> Self {
+        Self::Signal { envelope }
+    }
+
+    pub const HEARTBEAT: Self = Self::Heartbeat;
+
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::Signal { envelope } => envelope.validate_structural(),
+            Self::Heartbeat => Ok(()),
+            Self::Drain {
+                reconnect_after_ms,
+                reason,
+            } => {
+                if reconnect_after_ms
+                    .is_some_and(|value| value > MAX_SIGNAL_STREAM_RECONNECT_AFTER_MS)
+                {
+                    return Err(Error::Protocol(format!(
+                        "Signal drain reconnect_after_ms exceeds \
+                         {MAX_SIGNAL_STREAM_RECONNECT_AFTER_MS}"
+                    )));
+                }
+                validate_signal_stream_reason(reason.as_deref())
+            }
+            Self::Unauthorized { reason } => validate_signal_stream_reason(reason.as_deref()),
+        }
+    }
+}
+
+fn validate_signal_stream_reason(reason: Option<&str>) -> Result<()> {
+    if reason.is_some_and(|value| value.chars().count() > MAX_SIGNAL_STREAM_REASON_CHARS) {
+        return Err(Error::Protocol(format!(
+            "Signal stream reason exceeds {MAX_SIGNAL_STREAM_REASON_CHARS} characters"
+        )));
+    }
+    Ok(())
+}
+
 /// Closed request body for `ak.peer.signal.command.relay`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -677,5 +743,34 @@ mod tests {
         let bytes = String::from_utf8(envelope.proof_binding_bytes().unwrap()).unwrap();
         assert!(bytes.contains("ak.signal-proof-v1"));
         assert!(bytes.contains("sender_device_id"));
+    }
+
+    #[test]
+    fn stream_frames_are_closed_and_bounded() {
+        let signal = SignalStreamFrame::signal(envelope(SignalClass::Session, 30));
+        signal.validate().unwrap();
+        assert_eq!(
+            serde_json::to_value(signal).unwrap()["kind"],
+            serde_json::json!("signal")
+        );
+        assert_eq!(
+            serde_json::to_value(SignalStreamFrame::HEARTBEAT).unwrap(),
+            serde_json::json!({"kind": "heartbeat"})
+        );
+        assert!(
+            SignalStreamFrame::Drain {
+                reconnect_after_ms: Some(MAX_SIGNAL_STREAM_RECONNECT_AFTER_MS + 1),
+                reason: None,
+            }
+            .validate()
+            .is_err()
+        );
+        assert!(
+            SignalStreamFrame::Unauthorized {
+                reason: Some("x".repeat(MAX_SIGNAL_STREAM_REASON_CHARS + 1)),
+            }
+            .validate()
+            .is_err()
+        );
     }
 }
