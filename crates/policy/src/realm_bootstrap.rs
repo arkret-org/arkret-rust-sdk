@@ -10,11 +10,12 @@ use std::collections::BTreeSet;
 use arkret_wire::{Event, EventKind};
 
 /// The only actions carried by an ordinary Realm founding grant.
-pub const REALM_FOUNDING_GRANT_ACTIONS: [&str; 4] = [
+pub const REALM_FOUNDING_GRANT_ACTIONS: [&str; 5] = [
     "ak.realm.admin",
     "ak.capability.grant",
     "ak.capability.revoke",
     "ak.realm_key.share",
+    "ak.message.create",
 ];
 
 /// Closed set of initial Realm facets that may follow the founding grant.
@@ -305,6 +306,30 @@ mod tests {
         let events = vec![create(), founding(ACTOR), history_sharing_followup()];
         let result = validate_realm_bootstrap_unit(&events);
         assert!(result.is_ok(), "unexpected bootstrap rejection: {result:?}");
+    }
+
+    #[test]
+    fn rejects_legacy_four_action_founding_grant() {
+        let mut legacy = founding(ACTOR);
+        legacy
+            .payload
+            .get_mut("grant")
+            .and_then(serde_json::Value::as_object_mut)
+            .expect("founding grant payload")
+            .insert(
+                "actions".to_owned(),
+                json!([
+                    "ak.realm.admin",
+                    "ak.capability.grant",
+                    "ak.capability.revoke",
+                    "ak.realm_key.share"
+                ]),
+            );
+        let result = validate_realm_bootstrap_unit(&[create(), legacy]);
+        assert_eq!(
+            result,
+            Err(RealmBootstrapValidationError::InvalidRealmFoundingGrant)
+        );
     }
 
     #[test]
