@@ -165,6 +165,7 @@ pub use arkret_models_collaboration::objects::account_status::{
 };
 pub use arkret_models_collaboration::objects::blob::*;
 pub use arkret_models_collaboration::objects::calendar_projection::*;
+pub use arkret_models_collaboration::objects::calendar_recurrence::*;
 pub use arkret_models_collaboration::objects::direct_conversation::*;
 pub use arkret_models_collaboration::objects::interop::*;
 pub use arkret_models_collaboration::objects::media::*;

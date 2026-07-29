@@ -109,6 +109,10 @@ pub struct ServiceDescribe {
     pub supported_operations: Vec<String>,
     pub supported_bindings: Vec<SupportedBinding>,
     pub supported_features: Vec<String>,
+    /// Exact IANA TZDB releases this service can execute for Calendar
+    /// schedules. Required whenever a Calendar profile is claimed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub calendar_tzdb_versions: Vec<String>,
     pub auth_metadata: AuthMetadata,
     pub limits: ServerLimits,
     /// Plaintext visibility advertisement. Receivers MUST
@@ -269,6 +273,7 @@ impl ServiceDescribe {
             supported_operations: Vec::new(),
             supported_bindings: Vec::new(),
             supported_features: Vec::new(),
+            calendar_tzdb_versions: Vec::new(),
             auth_metadata: AuthMetadata::minimal("development"),
             limits: ServerLimits::default(),
             plaintext_visibility: PlaintextVisibility::none(),
@@ -328,6 +333,42 @@ impl ServiceDescribe {
             return Err(Error::Protocol(format!(
                 "ServiceDescribe: development_mode=true forbids non-empty verified_profiles \
                  ({})",
+                ErrorCode::SCHEMA_VIOLATION
+            )));
+        }
+        let claims_calendar = self.supported_profiles.iter().any(|profile| {
+            matches!(
+                profile.as_str(),
+                "ak.profile.calendar_event.v1" | "ak.profile.calendar_notification_dispatch.v1"
+            )
+        }) || self.claimed_profiles.iter().any(|claim| {
+            matches!(
+                claim.profile_id.as_str(),
+                "ak.profile.calendar_event.v1" | "ak.profile.calendar_notification_dispatch.v1"
+            )
+        });
+        let valid_tzdb_version = |version: &str| {
+            let bytes = version.as_bytes();
+            bytes.len() == 5
+                && bytes[..4].iter().all(u8::is_ascii_digit)
+                && bytes[4].is_ascii_lowercase()
+        };
+        let unique_tzdb_versions = self
+            .calendar_tzdb_versions
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len()
+            == self.calendar_tzdb_versions.len();
+        if (claims_calendar && self.calendar_tzdb_versions.is_empty())
+            || !unique_tzdb_versions
+            || self
+                .calendar_tzdb_versions
+                .iter()
+                .any(|version| !valid_tzdb_version(version))
+        {
+            return Err(Error::Protocol(format!(
+                "ServiceDescribe: Calendar profile claims require a non-empty, unique \
+                 calendar_tzdb_versions release set ({})",
                 ErrorCode::SCHEMA_VIOLATION
             )));
         }
@@ -504,6 +545,7 @@ mod tests {
             supported_operations: vec!["ak.find.directory.query.describe".to_owned()],
             supported_bindings: vec![],
             supported_features: vec![],
+            calendar_tzdb_versions: vec![],
             auth_metadata: AuthMetadata::minimal("development"),
             limits: ServerLimits::default(),
             plaintext_visibility: PlaintextVisibility::none(),
@@ -591,6 +633,27 @@ mod tests {
             ]
             .map(ToOwned::to_owned),
         );
+        assert!(description.validate().is_ok());
+    }
+
+    #[test]
+    fn calendar_profile_claim_requires_an_executable_tzdb_release() {
+        let mut description = ServiceDescribe::development(
+            Did::new("did:webvh:z6mkfixture:service.example").unwrap(),
+            TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            ServiceKind::PrincipalServer,
+        );
+        description
+            .supported_profiles
+            .push("ak.profile.calendar_notification_dispatch.v1".to_owned());
+        description
+            .claimed_profiles
+            .push(ClaimedProfileEntry::self_claimed(
+                "ak.profile.calendar_notification_dispatch.v1",
+            ));
+        assert!(description.validate().is_err());
+
+        description.calendar_tzdb_versions = vec!["2025b".to_owned()];
         assert!(description.validate().is_ok());
     }
 

@@ -150,6 +150,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                         supported_profiles: vec![],
                         profile_bindings: Default::default(),
                         supported_features: vec![],
+                        calendar_tzdb_versions: vec![],
                         supported_operations: service_routes()
                             .iter()
                             .map(|route| route.operation_id.to_owned())

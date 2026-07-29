@@ -2350,13 +2350,13 @@ fn looks_derived_key(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
-fn parse_calendar_timezone(value: &str) -> Result<Tz> {
+pub(crate) fn parse_calendar_timezone(value: &str) -> Result<Tz> {
     value
         .parse::<Tz>()
         .map_err(|_| Error::Protocol("calendar timezone must be an IANA timezone name".to_owned()))
 }
 
-fn parse_calendar_date(value: &str, field: &str) -> Result<NaiveDate> {
+pub(crate) fn parse_calendar_date(value: &str, field: &str) -> Result<NaiveDate> {
     NaiveDate::parse_from_str(value, "%Y-%m-%d")
         .map_err(|_| Error::Protocol(format!("{field} must be YYYY-MM-DD")))
 }
@@ -2367,7 +2367,7 @@ fn parse_calendar_date(value: &str, field: &str) -> Result<NaiveDate> {
 /// rejected: the schedule never carries an absolute instant, and accepting a
 /// second spelling would let two producers sign different bytes for the same
 /// wall-clock time.
-fn parse_calendar_local_date_time(value: &str, field: &str) -> Result<NaiveDateTime> {
+pub(crate) fn parse_calendar_local_date_time(value: &str, field: &str) -> Result<NaiveDateTime> {
     if value.len() != 19 || value.as_bytes()[10] != b'T' {
         return Err(Error::Protocol(format!(
             "{field} must be a whole-second local date-time YYYY-MM-DDTHH:mm:ss"
@@ -2419,7 +2419,10 @@ fn split_bracketed_occurrence(value: &str) -> Result<(NaiveDateTime, String)> {
 /// discontinuity rule: both the gap and the fold take the offset in effect
 /// *before* the transition, so a fixed local meeting time never drifts and an
 /// ambiguous time yields exactly one occurrence.
-fn resolve_local_to_instant(local: NaiveDateTime, timezone: Tz) -> Result<DateTime<Utc>> {
+pub(crate) fn resolve_local_to_instant(
+    local: NaiveDateTime,
+    timezone: Tz,
+) -> Result<DateTime<Utc>> {
     use chrono::LocalResult;
     match timezone.from_local_datetime(&local) {
         LocalResult::Single(instant) => Ok(instant.with_timezone(&Utc)),
