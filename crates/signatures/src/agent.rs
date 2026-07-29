@@ -463,8 +463,8 @@ pub fn agent_key_pair_proof_request_binding_digest(
 mod tests {
     use arkret_models_collaboration::events_payloads::agent::AgentKeyScope;
     use arkret_wire::{
-        AUTHORITY_SET_POLICY_SCHEMA, AuthoritySetAuthorizationRule, AuthoritySetId,
-        AuthoritySetIssuer, AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind,
+        AUTHORITY_SET_POLICY_SCHEMA, AuthoritySetAuthorizationRule, AuthoritySetIssuer,
+        AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind,
         AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease,
         AuthorizationLeaseId, DeviceId, EventId, Hlc, LeaseBasisRef, Proof, RealmId, RequestId,
         RiskTier, SealId,
@@ -477,7 +477,7 @@ mod tests {
     fn initial_submission(event: Event) -> EventInitialSubmission {
         let policy = AuthoritySetPolicy {
             schema: AUTHORITY_SET_POLICY_SCHEMA.to_owned(),
-            authority_set_id: AuthoritySetId::new("ak.authority_set.realm_admission.v1").unwrap(),
+            authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
             policy_kind: AuthoritySetPolicyKind::RealmAdmission,
             scope_ref: event.scope_ref.clone(),
             source: AuthoritySetPolicySource {
