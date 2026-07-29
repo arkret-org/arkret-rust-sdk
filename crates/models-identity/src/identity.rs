@@ -4,7 +4,7 @@ use arkret_wire::{Did, Error, Hash, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::artifacts_device_identity::IdentityReceipt;
+use crate::artifacts_device_identity::{IdentityReceipt, IdentityReceiptEvidence};
 use crate::identity_key_log::DidKeyLogEntry;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -115,7 +115,7 @@ pub struct IdentityReceiptListOutcome {
         feature = "openapi",
         salvo(schema(value_type = Vec<serde_json::Value>))
     )]
-    pub receipts: Vec<IdentityReceipt>,
+    pub receipts: Vec<IdentityReceiptEvidence>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub threshold_met: Option<bool>,
 }

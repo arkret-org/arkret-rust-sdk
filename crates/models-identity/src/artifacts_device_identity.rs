@@ -145,6 +145,241 @@ impl IdentityReceipt {
     }
 }
 
+/// Arkret observation of one independently verified did:webvh method witness.
+///
+/// This object never replaces validation of `did.jsonl`, the controller
+/// proof, or the separate `did-witness.json` proof set.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DidWebvhWitnessReceipt {
+    pub schema: String,
+    pub receipt_id: String,
+    pub did: Did,
+    pub version_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub log_head_digest: Option<Hash>,
+    pub witness_did: Did,
+    pub witness_verification_method: String,
+    pub controlling_organization: Did,
+    #[serde(
+        serialize_with = "arkret_wire::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_wire::serde_helpers::deserialize_canonical_timestamp"
+    )]
+    pub observed_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    pub issuer_service_id: Did,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trust_domain: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audience: Option<String>,
+    #[serde(
+        serialize_with = "arkret_wire::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_wire::serde_helpers::deserialize_canonical_timestamp"
+    )]
+    pub expires_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "arkret_wire::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_wire::serde_helpers::deserialize_canonical_timestamp"
+    )]
+    pub created_at: DateTime<Utc>,
+    pub signature: PayloadProof,
+}
+
+impl DidWebvhWitnessReceipt {
+    pub const SCHEMA: &'static str = "ak.schema.did_webvh_witness_receipt.v1";
+    pub const PROOF_BINDING_CONTEXT: &'static str =
+        ProofContextId::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1;
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .expect("DidWebvhWitnessReceipt serializes to an object")
+            .remove("signature");
+        Ok(Hash::new(canonical::sha256_digest(
+            canonical::canonical_json_bytes(&value)?,
+        ))?)
+    }
+
+    pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
+        let mut object = serde_json::Map::new();
+        object.insert(
+            "context".to_owned(),
+            Value::String(Self::PROOF_BINDING_CONTEXT.to_owned()),
+        );
+        object.insert(
+            "payload_digest".to_owned(),
+            Value::String(self.signature.payload_digest.as_str().to_owned()),
+        );
+        object.insert(
+            "issuer_service_id".to_owned(),
+            Value::String(self.issuer_service_id.as_str().to_owned()),
+        );
+        object.insert(
+            "did".to_owned(),
+            Value::String(self.did.as_str().to_owned()),
+        );
+        object.insert(
+            "version_id".to_owned(),
+            Value::String(self.version_id.clone()),
+        );
+        object.insert(
+            "witness_did".to_owned(),
+            Value::String(self.witness_did.as_str().to_owned()),
+        );
+        object.insert(
+            "verification_method".to_owned(),
+            Value::String(self.signature.verification_method.clone()),
+        );
+        object.insert(
+            "created_at".to_owned(),
+            Value::String(canonical::format_timestamp_canonical(
+                self.signature.created_at,
+            )),
+        );
+        if let Some(domain) = &self.signature.domain {
+            object.insert("domain".to_owned(), Value::String(domain.clone()));
+        }
+        if let Some(audience) = &self.signature.audience {
+            object.insert("audience".to_owned(), serde_json::to_value(audience)?);
+        }
+        canonical::canonical_json_bytes(&Value::Object(object)).map_err(Into::into)
+    }
+
+    pub fn validate_proof_binding(&self) -> Result<()> {
+        if self.schema != Self::SCHEMA {
+            return Err(Error::Protocol(format!(
+                "did:webvh witness receipt schema '{}' is not {}",
+                self.schema,
+                Self::SCHEMA
+            )));
+        }
+        ReceiptId::new(self.receipt_id.clone())?;
+        if self.did.method() != "webvh" {
+            return Err(Error::Protocol(
+                "did:webvh witness receipt subject must use did:webvh".to_owned(),
+            ));
+        }
+        if self.version_id.trim().is_empty() {
+            return Err(Error::Protocol(
+                "did:webvh witness receipt version_id must not be empty".to_owned(),
+            ));
+        }
+        if self.witness_did.method() != "key" {
+            return Err(Error::Protocol(
+                "did:webvh witness receipt witness_did must use did:key".to_owned(),
+            ));
+        }
+        let witness_key = self
+            .witness_did
+            .as_str()
+            .strip_prefix("did:key:")
+            .expect("did:key method was checked above");
+        if self.witness_verification_method != format!("{}#{witness_key}", self.witness_did) {
+            return Err(Error::Protocol(
+                "did:webvh witness receipt witness_verification_method must be the canonical did:key verification method".to_owned(),
+            ));
+        }
+        if self.observed_at > self.created_at {
+            return Err(Error::Protocol(
+                "did:webvh witness receipt observed_at must not be later than created_at"
+                    .to_owned(),
+            ));
+        }
+        if let Some(source) = &self.source {
+            url::Url::parse(source).map_err(|error| {
+                Error::Protocol(format!(
+                    "did:webvh witness receipt source must be an absolute URI: {error}"
+                ))
+            })?;
+        }
+        if let Some(trust_domain) = &self.trust_domain {
+            TypedTrustDomainId::new(trust_domain.clone())?;
+        }
+        if self.expires_at <= self.created_at {
+            return Err(Error::Protocol(
+                "did:webvh witness receipt expires_at must be later than created_at".to_owned(),
+            ));
+        }
+        self.signature.validate()?;
+        if self.signature.created_at != self.created_at {
+            return Err(Error::Protocol(
+                "did:webvh witness receipt proof created_at must equal receipt created_at"
+                    .to_owned(),
+            ));
+        }
+        let expected_issuer_method_prefix = format!("{}#", self.issuer_service_id);
+        if !self
+            .signature
+            .verification_method
+            .starts_with(&expected_issuer_method_prefix)
+        {
+            return Err(Error::Protocol(
+                "did:webvh witness receipt proof must be controlled by issuer_service_id"
+                    .to_owned(),
+            ));
+        }
+        match (&self.audience, &self.signature.audience) {
+            (None, None) => {}
+            (Some(expected), Some(Audience::Single(actual))) if expected == actual => {}
+            _ => {
+                return Err(Error::Protocol(
+                    "did:webvh witness receipt and proof audience must be the same single value"
+                        .to_owned(),
+                ));
+            }
+        }
+        if self.payload_digest()? != self.signature.payload_digest {
+            return Err(Error::Protocol(
+                "did:webvh witness receipt payload_digest does not match canonical receipt bytes"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Closed discriminator for `ak.root.identity.receipts.query.list`.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum IdentityReceiptEvidence {
+    Registry(IdentityReceipt),
+    DidWebvhWitness(DidWebvhWitnessReceipt),
+}
+
+impl IdentityReceiptEvidence {
+    pub fn validate_proof_binding(&self) -> Result<()> {
+        match self {
+            Self::Registry(receipt) => receipt.validate_proof_binding(),
+            Self::DidWebvhWitness(receipt) => receipt.validate_proof_binding(),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for IdentityReceiptEvidence {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        match value.get("schema").and_then(Value::as_str) {
+            Some(IdentityReceipt::SCHEMA) => serde_json::from_value(value)
+                .map(Self::Registry)
+                .map_err(serde::de::Error::custom),
+            Some(DidWebvhWitnessReceipt::SCHEMA) => serde_json::from_value(value)
+                .map(Self::DidWebvhWitness)
+                .map_err(serde::de::Error::custom),
+            Some(schema) => Err(serde::de::Error::custom(format!(
+                "unsupported identity receipt schema '{schema}'"
+            ))),
+            None => Err(serde::de::Error::custom(
+                "identity receipt evidence is missing schema discriminator",
+            )),
+        }
+    }
+}
+
 /// Counterpart for `spec/v1/artifacts/schemas/cross-signing-publish.schema.json`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -444,9 +679,66 @@ pub enum CrossSigningResetProof {
 
 #[cfg(test)]
 mod tests {
+    use chrono::TimeZone;
     use serde_json::json;
 
     use super::*;
+
+    fn witness_receipt() -> DidWebvhWitnessReceipt {
+        let created_at = Utc.with_ymd_and_hms(2026, 7, 29, 0, 0, 0).unwrap();
+        let mut receipt = DidWebvhWitnessReceipt {
+            schema: DidWebvhWitnessReceipt::SCHEMA.to_owned(),
+            receipt_id: "ak:receipt:01984e00-0000-7000-8000-000000000001".to_owned(),
+            did: Did::new("did:webvh:z6mkfixture:subject.example").unwrap(),
+            version_id: "1-QmFixtureVersion".to_owned(),
+            log_head_digest: Some(
+                Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            ),
+            witness_did: Did::new(
+                "did:key:z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L",
+            )
+            .unwrap(),
+            witness_verification_method: "did:key:z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L#z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L".to_owned(),
+            controlling_organization: Did::new("did:web:org.example").unwrap(),
+            observed_at: created_at,
+            source: Some("https://subject.example/.well-known/did-witness.json".to_owned()),
+            issuer_service_id: Did::new("did:webvh:z6mkfixture:starid.example").unwrap(),
+            trust_domain: Some("ak:trust_domain:example".to_owned()),
+            audience: None,
+            expires_at: created_at + chrono::Duration::hours(24),
+            created_at,
+            signature: PayloadProof {
+                kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
+                alg: "EdDSA".to_owned(),
+                verification_method:
+                    "did:webvh:z6mkfixture:starid.example#service-key".to_owned(),
+                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                created_at,
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "e30..c2ln".to_owned(),
+            },
+        };
+        receipt.signature.payload_digest = receipt.payload_digest().unwrap();
+        receipt
+    }
+
+    #[test]
+    fn witness_receipt_is_a_closed_distinct_receipt_family() {
+        let receipt = witness_receipt();
+        receipt.validate_proof_binding().unwrap();
+        let evidence: IdentityReceiptEvidence =
+            serde_json::from_value(serde_json::to_value(&receipt).unwrap()).unwrap();
+        assert!(matches!(
+            evidence,
+            IdentityReceiptEvidence::DidWebvhWitness(_)
+        ));
+
+        let mut unknown = serde_json::to_value(receipt).unwrap();
+        unknown["schema"] = json!("ak.schema.unregistered_receipt.v1");
+        assert!(serde_json::from_value::<IdentityReceiptEvidence>(unknown).is_err());
+    }
 
     fn publish_value() -> Value {
         json!({
