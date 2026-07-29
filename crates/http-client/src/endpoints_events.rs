@@ -134,18 +134,11 @@ impl Client {
         request: &arkret_wire::AuthorizationLeaseIssueRequest,
         options: &ClientRequestOptions,
     ) -> Result<arkret_wire::AuthorizationLeaseIssueOutcome> {
+        request.validate_structural()?;
         let outcome: arkret_wire::AuthorizationLeaseIssueOutcome = self
             .post_with_options("/_arkret/self/authorization-leases", request, options)
             .await?;
-        let expected = request.events.len() + request.intents.len();
-        if expected == 0 || outcome.authorization_leases.len() != expected {
-            return Err(Error::Protocol(
-                "authorization lease outcome cardinality changed".to_owned(),
-            ));
-        }
-        for lease in &outcome.authorization_leases {
-            lease.validate_structural()?;
-        }
+        outcome.validate_against_request(request)?;
         Ok(outcome)
     }
 
