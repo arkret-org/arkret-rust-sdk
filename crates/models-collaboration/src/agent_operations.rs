@@ -606,10 +606,10 @@ pub struct AgentView {
 pub struct AgentPauseRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-    /// Closed Agent-PCR lifecycle Event authored by the Agent principal and
-    /// executed/signed by its controller delegation.
+    /// Initial publication of the closed Agent-PCR lifecycle Event authored by
+    /// the Agent principal and executed/signed by its controller delegation.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub lifecycle_event: Event,
+    pub lifecycle_event: EventInitialSubmission,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -617,10 +617,10 @@ pub struct AgentPauseRequestBody {
 pub struct AgentResumeRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sidecar_exposure_ack: Option<AgentSidecarExposureAck>,
-    /// Closed Agent-PCR lifecycle Event authored by the Agent principal and
-    /// executed/signed by its controller delegation.
+    /// Initial publication of the closed Agent-PCR lifecycle Event authored by
+    /// the Agent principal and executed/signed by its controller delegation.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub lifecycle_event: Event,
+    pub lifecycle_event: EventInitialSubmission,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -631,20 +631,20 @@ pub struct AgentDeactivateRequestBody {
     /// Closed Agent-PCR terminal lifecycle Event authored by the Agent
     /// principal and executed/signed by its controller delegation.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub lifecycle_event: Event,
+    pub lifecycle_event: EventInitialSubmission,
     /// Closed `ak.agent.key.revoke` Events covering every active Agent key.
     #[cfg_attr(
         feature = "openapi",
         salvo(schema(value_type = Vec<serde_json::Value>))
     )]
-    pub key_revocation_events: Vec<Event>,
+    pub key_revocation_events: Vec<EventInitialSubmission>,
     /// Closed controller-authored `ak.capability.revoke` Events covering every
     /// unrevoked grant held by the Agent in its owning Realm.
     #[cfg_attr(
         feature = "openapi",
         salvo(schema(value_type = Vec<serde_json::Value>))
     )]
-    pub capability_revocation_events: Vec<Event>,
+    pub capability_revocation_events: Vec<EventInitialSubmission>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
