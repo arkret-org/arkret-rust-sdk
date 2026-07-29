@@ -1072,7 +1072,7 @@ mod tests {
         AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease,
         AuthorizationLeaseId, ControlProposalReceiptKind, DeviceId, DidKey, DidUrl, Hash,
         IngressReceipt, LeaseBasisRef, NotarySig, PayloadProof, PayloadSignature, ReceiptId,
-        RiskTier, ScopeRef, SealKind,
+        ProposalMemberReceipt, RiskTier, ScopeRef, SealKind,
     };
     use serde_json::json;
 
@@ -1357,28 +1357,33 @@ mod tests {
         authority_set_ref: &AuthoritySetRef,
         received_at: DateTime<Utc>,
     ) -> ControlProposalReceipt {
-        let coordinator = Did::new("did:web:authority.example").unwrap();
-        let mut receipt = ControlProposalReceipt {
-            kind: ControlProposalReceiptKind::ProposalReceipt,
+        let mut member_receipt = ProposalMemberReceipt {
             realm_id: event.realm_id.clone(),
             proposal_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
             received_at,
             decision_due_at: received_at + chrono::Duration::seconds(30),
             absolute_due_at: received_at + chrono::Duration::seconds(90),
-            defer_count: 0,
-            authority_set_ref: authority_set_ref.clone(),
-            receipt_coordinator: coordinator,
-            signatures: Vec::new(),
+            authority_set_ref: authority_set_ref.authority_set_digest.clone(),
+            signature: PayloadSignature {
+                alg: "EdDSA".to_owned(),
+                verification_method: "did:web:authority.example#key-1".to_owned(),
+                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                created_at: received_at,
+                jws: "a..b".to_owned(),
+            },
         };
-        let payload_digest = receipt.receipt_digest().unwrap();
-        receipt.signatures = vec![PayloadSignature {
-            alg: "EdDSA".to_owned(),
-            verification_method: "did:web:authority.example#key-1".to_owned(),
-            payload_digest,
-            created_at: received_at,
-            jws: "a..b".to_owned(),
-        }];
-        receipt
+        member_receipt.signature.payload_digest = member_receipt.member_digest().unwrap();
+        ControlProposalReceipt {
+            kind: ControlProposalReceiptKind::ProposalReceipt,
+            realm_id: member_receipt.realm_id.clone(),
+            proposal_digest: member_receipt.proposal_digest.clone(),
+            received_at: member_receipt.received_at,
+            decision_due_at: member_receipt.decision_due_at,
+            absolute_due_at: member_receipt.absolute_due_at,
+            defer_count: 0,
+            authority_set_ref: member_receipt.authority_set_ref.clone(),
+            member_receipts: vec![member_receipt],
+        }
     }
 
     fn federation_request(events: Vec<Event>) -> EventsSubmitFederationRequestBody {

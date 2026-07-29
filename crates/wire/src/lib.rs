@@ -79,7 +79,8 @@ pub use constants::*;
 pub use control_proposal::{
     ControlProposalDecision, ControlProposalDecisionPolicy, ControlProposalDeferReason,
     ControlProposalReceipt, ControlProposalReceiptKind, ControlProposalRejectReason,
-    MAX_PROPOSAL_ABSOLUTE_HORIZON, MAX_PROPOSAL_DECISION_WINDOW, MAX_PROPOSAL_DEFERS,
+    ProposalMemberReceipt, MAX_PROPOSAL_ABSOLUTE_HORIZON, MAX_PROPOSAL_DECISION_WINDOW,
+    MAX_PROPOSAL_DEFERS, MAX_PROPOSAL_RECEIPT_MEMBERS,
 };
 pub use error::{Error, Result, WireError};
 pub use error_codes::*;
@@ -87,7 +88,7 @@ pub use event_envelope::*;
 pub use event_receipt::*;
 pub use event_submission::{
     AuthorizationLeaseIssueOutcome, AuthorizationLeaseIssueRequest,
-    ControlProposalReceiptSignOutcome, ControlProposalReceiptSignRequestBody,
+    ControlProposalReceiptIssueOutcome, ControlProposalReceiptIssueRequestBody,
     EventFederationSubmission, EventInitialSubmission, EventsSubmitBatchRequestBody,
     validate_anchor_unit_lease_bindings,
 };

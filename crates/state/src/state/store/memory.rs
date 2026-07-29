@@ -1167,29 +1167,33 @@ mod tests {
 
     fn proposal_receipt(event: &Event) -> ControlProposalReceipt {
         let received_at = Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap();
-        let mut receipt = ControlProposalReceipt {
-            kind: arkret_wire::ControlProposalReceiptKind::ProposalReceipt,
+        let mut member_receipt = arkret_wire::ProposalMemberReceipt {
             realm_id: event.realm_id.clone(),
             proposal_digest: control_event_digest(event).unwrap(),
             received_at,
             decision_due_at: received_at + chrono::Duration::seconds(30),
             absolute_due_at: received_at + chrono::Duration::seconds(90),
-            defer_count: 0,
-            authority_set_ref: arkret_wire::AuthoritySetRef {
-                authority_set_id: "ak.authority_set.fixture.v1".to_owned(),
-                authority_set_digest: hash(0x44),
-            },
-            receipt_coordinator: Did::new("did:webvh:z6mkfixture:notary.example").unwrap(),
-            signatures: vec![PayloadSignature {
+            authority_set_ref: hash(0x44),
+            signature: PayloadSignature {
                 alg: "EdDSA".to_owned(),
                 verification_method: "did:webvh:z6mkfixture:notary.example#k1".to_owned(),
                 payload_digest: hash(0),
                 created_at: received_at,
                 jws: "e30..c2ln".to_owned(),
-            }],
+            },
         };
-        receipt.signatures[0].payload_digest = receipt.receipt_digest().unwrap();
-        receipt
+        member_receipt.signature.payload_digest = member_receipt.member_digest().unwrap();
+        ControlProposalReceipt {
+            kind: arkret_wire::ControlProposalReceiptKind::ProposalReceipt,
+            realm_id: member_receipt.realm_id.clone(),
+            proposal_digest: member_receipt.proposal_digest.clone(),
+            received_at: member_receipt.received_at,
+            decision_due_at: member_receipt.decision_due_at,
+            absolute_due_at: member_receipt.absolute_due_at,
+            defer_count: 0,
+            authority_set_ref: member_receipt.authority_set_ref.clone(),
+            member_receipts: vec![member_receipt],
+        }
     }
 
     #[test]

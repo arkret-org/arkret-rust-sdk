@@ -423,6 +423,10 @@ impl Realm {
                 .map_err(|_| Error::Protocol(format!("{field} exceeds the signed duration range")))
         };
         let policy = ControlProposalDecisionPolicy {
+            receipt_sla: Some(duration_from_ms(
+                self.receipt_sla_ms.unwrap_or(86_400_000),
+                "receipt_sla_ms",
+            )?),
             decision_window: duration_from_ms(
                 self.proposal_decision_window_ms.unwrap_or(30_000),
                 "proposal_decision_window_ms",
