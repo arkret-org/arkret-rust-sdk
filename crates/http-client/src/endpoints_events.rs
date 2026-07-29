@@ -21,9 +21,9 @@ use arkret_models_discovery::ServiceDescribe;
 use arkret_state::SnapshotManifest;
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    AuthorizationLeaseIssueRequest, ControlProposalDecisionPolicy, ControlProposalReceipt, Event,
-    EventInitialSubmission, EventSubmitContext, Hash, ProposalReceiptIssueOutcome,
-    ProposalReceiptIssueRequest, Seal,
+    AuthorizationLease, AuthorizationLeaseIssueRequest, ControlProposalDecisionPolicy,
+    ControlProposalReceipt, Event, EventInitialSubmission, EventSubmitContext, Hash,
+    ProposalReceiptIssueOutcome, ProposalReceiptIssueRequest, Seal,
 };
 use reqwest::{Method, Response};
 
@@ -158,6 +158,58 @@ impl Client {
     ) -> Result<Vec<EventInitialSubmission>> {
         self.prepare_initial_submissions_with_collector(events, None)
             .await
+    }
+
+    pub async fn prepare_initial_submissions_with_local_proposal_authority<F>(
+        &self,
+        events: &[Event],
+        mut issue_receipt: F,
+    ) -> Result<Vec<EventInitialSubmission>>
+    where
+        F: FnMut(&Event, &AuthorizationLease) -> Result<ControlProposalReceipt>,
+    {
+        let has_anchor_event = events
+            .iter()
+            .any(|event| event.seal_ref.is_none() && event.seal_basis.is_none());
+        let anchor_unit = !events.is_empty()
+            && events
+                .iter()
+                .all(|event| event.seal_ref.is_none() && event.seal_basis.is_none());
+        if has_anchor_event && !anchor_unit {
+            return Err(Error::Protocol(
+                "anchor Events must be authorized as one complete ordered unit".to_owned(),
+            ));
+        }
+        let request = AuthorizationLeaseIssueRequest {
+            events: events.to_vec(),
+            intents: Vec::new(),
+        };
+        let request_key = arkret_wire::new_prefixed_uuid7("lease-");
+        let options = ClientRequestOptions::new()
+            .request_id(request_key.clone())
+            .idempotency_key(request_key);
+        let outcome = self.issue_authorization_leases(&request, &options).await?;
+        let mut submissions = Vec::with_capacity(events.len());
+        for (event, lease) in events.iter().zip(outcome.authorization_leases) {
+            let control_proposal_receipt = if !anchor_unit && event.seal_basis.is_some() {
+                Some(issue_receipt(event, &lease)?)
+            } else {
+                None
+            };
+            let submission = EventInitialSubmission {
+                event: event.clone(),
+                authorization_lease: lease,
+                cba_proof_bundles: Vec::new(),
+                control_proposal_receipt,
+            };
+            submission.validate_structural_in_context(if anchor_unit {
+                EventSubmitContext::AnchorUnit
+            } else {
+                EventSubmitContext::Standard
+            })?;
+            submissions.push(submission);
+        }
+        Ok(submissions)
     }
 
     /// Prepare an ordered Event unit while collecting one immutable member
