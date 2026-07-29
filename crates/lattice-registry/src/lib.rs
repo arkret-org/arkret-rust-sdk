@@ -65,7 +65,7 @@ mod tests {
         // registry. New spec cell families must be added here before their
         // contracts are consumed by Move/Seal state resolution.
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 83);
+        assert_eq!(registry.len(), 84);
     }
 
     #[test]
@@ -425,6 +425,25 @@ mod tests {
         assert_eq!(kind.lattice(), SdkLatticeKind::CasRegister);
         let subject = kind.subject_for_effect(&json!({})).unwrap();
         assert!(subject.is_none());
+    }
+
+    #[test]
+    fn policy_definition_is_per_policy_cas_register() {
+        let registry = default_lattice_registry();
+        let kind = registry
+            .lookup("ak.component.policy.definition.v1")
+            .unwrap();
+        assert_eq!(kind.lattice(), SdkLatticeKind::CasRegister);
+        assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
+        assert_eq!(
+            kind.subject_for_effect(&json!({
+                "policy_id": "ak:policy:01904100-0000-7000-8000-000000000001"
+            }))
+            .unwrap()
+            .as_deref(),
+            Some("ak:policy:01904100-0000-7000-8000-000000000001")
+        );
+        assert_eq!(kind.event_kinds(), &["ak.policy.set"]);
     }
 
     #[test]

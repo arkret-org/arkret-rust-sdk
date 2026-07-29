@@ -48,6 +48,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(CallRecordingResult);
     registry.register(CallTranscriptResult);
     registry.register(CallMuteOverride);
+    registry.register(PolicyDefinition);
 
     // Fsm
     registry.register(MemberState);
@@ -152,6 +153,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ak.component.call.recording_result.v1",
         "ak.component.call.transcript_result.v1",
         "ak.component.call.mute_override.v1",
+        "ak.component.policy.definition.v1",
         // Fsm
         "ak.component.member.state.v1",
         "ak.component.invite.lifecycle.v1",
