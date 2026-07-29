@@ -7,10 +7,11 @@ use arkret_canonical::{
     decode_multibase_base58btc, decode_multicodec_varint, encode_multibase_base58btc,
 };
 use arkret_wire::{
-    AuthoritySetIssuer, AuthoritySetIssuerRole, BackupId, BackupSeriesId, Base64UrlString, Cursor,
-    DeviceId, Did, DidUrl, Error, EventId, HPKE_SUITES, Hash, LeaseBasisRef, NonEmptyString,
-    PolicyId, RealmId, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId, Result,
-    TransactionId, TypedTrustDomainId, XExtensionMap,
+    AuthoritySetIssuer, AuthoritySetIssuerRole, AuthorizationLease, BackupId, BackupSeriesId,
+    Base64UrlString, CbaProofBundle, Cursor, DeviceId, Did, DidUrl, Error, Event, EventId,
+    EventInitialSubmission, EventKind, HPKE_SUITES, Hash, LeaseBasisRef, NonEmptyString, PolicyId,
+    RealmId, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId, Result, TransactionId,
+    TypedTrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -1387,6 +1388,89 @@ pub struct RecoveryPolicyActiveOutcome {
     pub control_frontier: Option<RecoveryControlFrontier>,
 }
 
+/// Canonical `ak.policy.set` payload used by recovery-policy publication.
+///
+/// The generic policy reducer also supports state-only updates, but recovery
+/// policy publication deliberately exposes only a complete policy value. This
+/// keeps the signed Event as the sole publication fact without admitting an
+/// alternate raw-policy HTTP shape.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryPolicySetPayload {
+    pub policy_id: PolicyId,
+    pub value: RecoveryPolicy,
+}
+
+impl RecoveryPolicySetPayload {
+    pub fn validate(&self) -> Result<()> {
+        if self.policy_id != self.value.policy_id {
+            return Err(Error::Protocol(
+                "recovery policy payload policy_id must equal value.policy_id".to_owned(),
+            ));
+        }
+        self.value.validate()
+    }
+}
+
+/// Request for `ak.root.identity.recovery_policy.command.publish`.
+///
+/// This has the same transport members as [`EventInitialSubmission`], while
+/// its validation narrows the Event kind and payload to the recovery-policy
+/// contract.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryPolicyPublishRequest {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub event: Event,
+    pub authorization_lease: AuthorizationLease,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cba_proof_bundles: Vec<CbaProofBundle>,
+}
+
+impl RecoveryPolicyPublishRequest {
+    pub fn policy_payload(&self) -> Result<RecoveryPolicySetPayload> {
+        if self.event.kind.as_str() != EventKind::POLICY_SET {
+            return Err(Error::Protocol(
+                "recovery policy publication Event kind must be ak.policy.set".to_owned(),
+            ));
+        }
+        let payload = serde_json::from_value(
+            serde_json::to_value(&self.event.payload)
+                .map_err(|error| Error::Protocol(error.to_string()))?,
+        )
+        .map_err(|error| Error::Protocol(format!("invalid recovery policy payload: {error}")))?;
+        RecoveryPolicySetPayload::validate(&payload)?;
+        Ok(payload)
+    }
+
+    pub fn validate_structural(&self) -> Result<()> {
+        EventInitialSubmission::from(self.clone()).validate_structural()?;
+        self.policy_payload().map(|_| ())
+    }
+}
+
+impl From<RecoveryPolicyPublishRequest> for EventInitialSubmission {
+    fn from(value: RecoveryPolicyPublishRequest) -> Self {
+        Self {
+            event: value.event,
+            authorization_lease: value.authorization_lease,
+            cba_proof_bundles: value.cba_proof_bundles,
+        }
+    }
+}
+
+impl From<EventInitialSubmission> for RecoveryPolicyPublishRequest {
+    fn from(value: EventInitialSubmission) -> Self {
+        Self {
+            event: value.event,
+            authorization_lease: value.authorization_lease,
+            cba_proof_bundles: value.cba_proof_bundles,
+        }
+    }
+}
+
 /// Response for `ak.root.identity.recovery_policy.command.publish`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2365,6 +2449,35 @@ mod encryption_validate_tests {
             .retain(|field| field != "publication_authorization_rules");
         let unsigned: RecoveryPolicy = serde_json::from_value(unsigned).unwrap();
         assert!(unsigned.validate().is_err());
+    }
+
+    #[test]
+    fn recovery_policy_set_payload_binds_outer_and_inner_policy_ids() {
+        let policy_id = "ak:policy:019a7360-0000-7000-8000-000000000001";
+        let payload: RecoveryPolicySetPayload = serde_json::from_value(serde_json::json!({
+            "policy_id": policy_id,
+            "value": principal_signing_recovery_policy_value()
+        }))
+        .unwrap();
+        payload.validate().unwrap();
+
+        let mut mismatched = serde_json::to_value(payload).unwrap();
+        mismatched["policy_id"] =
+            serde_json::json!("ak:policy:019a7360-0000-7000-8000-000000000002");
+        let mismatched: RecoveryPolicySetPayload = serde_json::from_value(mismatched).unwrap();
+        assert!(mismatched.validate().is_err());
+    }
+
+    #[test]
+    fn recovery_policy_set_payload_rejects_generic_state_updates() {
+        assert!(
+            serde_json::from_value::<RecoveryPolicySetPayload>(serde_json::json!({
+                "policy_id": "ak:policy:019a7360-0000-7000-8000-000000000001",
+                "value": principal_signing_recovery_policy_value(),
+                "state": "active"
+            }))
+            .is_err()
+        );
     }
 
     fn recovery_receipt_value() -> Value {
