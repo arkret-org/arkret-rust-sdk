@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-07-20;
-//! sha256=05119afe622246dd3e238ba5fc62638d233a1deab0918a8c7efac03b90f4cf10 Entries: registered=214
+//! sha256=d468188a65fe7ebe52afffd636774676ee117ec2e4d69db94f1b2df6ad8f6d43 Entries: registered=215
 
 use serde::{Deserialize, Serialize};
 
@@ -126,6 +126,7 @@ pub enum ServiceOperationId {
     SelfAppletCommandRevoke,
     SelfAppletGhostCommandProvision,
     SelfAppletInstallCommandPreview,
+    SelfAuthorizationLeasesCommandIssue,
     SelfAuthzGrantsQueryEffective,
     SelfAuthzInvitesQueryList,
     SelfAuthzQueryCheck,
@@ -343,6 +344,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.self.applet.command.revoke",
     "ak.self.applet.ghost.command.provision",
     "ak.self.applet.install.command.preview",
+    "ak.self.authorization_leases.command.issue",
     "ak.self.authz.grants.query.effective",
     "ak.self.authz.invites.query.list",
     "ak.self.authz.query.check",
@@ -576,6 +578,7 @@ impl ServiceOperationId {
         Self::SelfAppletCommandRevoke,
         Self::SelfAppletGhostCommandProvision,
         Self::SelfAppletInstallCommandPreview,
+        Self::SelfAuthorizationLeasesCommandIssue,
         Self::SelfAuthzGrantsQueryEffective,
         Self::SelfAuthzInvitesQueryList,
         Self::SelfAuthzQueryCheck,
@@ -867,6 +870,8 @@ impl ServiceOperationId {
         "ak.self.applet.ghost.command.provision";
     pub const SELF_APPLET_INSTALL_COMMAND_PREVIEW: &'static str =
         "ak.self.applet.install.command.preview";
+    pub const SELF_AUTHORIZATION_LEASES_COMMAND_ISSUE: &'static str =
+        "ak.self.authorization_leases.command.issue";
     pub const SELF_AUTHZ_GRANTS_QUERY_EFFECTIVE: &'static str =
         "ak.self.authz.grants.query.effective";
     pub const SELF_AUTHZ_INVITES_QUERY_LIST: &'static str = "ak.self.authz.invites.query.list";
@@ -1186,6 +1191,9 @@ impl ServiceOperationId {
             Self::SelfAppletCommandRevoke => "ak.self.applet.command.revoke",
             Self::SelfAppletGhostCommandProvision => "ak.self.applet.ghost.command.provision",
             Self::SelfAppletInstallCommandPreview => "ak.self.applet.install.command.preview",
+            Self::SelfAuthorizationLeasesCommandIssue => {
+                "ak.self.authorization_leases.command.issue"
+            }
             Self::SelfAuthzGrantsQueryEffective => "ak.self.authz.grants.query.effective",
             Self::SelfAuthzInvitesQueryList => "ak.self.authz.invites.query.list",
             Self::SelfAuthzQueryCheck => "ak.self.authz.query.check",
@@ -1509,6 +1517,9 @@ impl ServiceOperationId {
             "ak.self.applet.command.revoke" => Some(Self::SelfAppletCommandRevoke),
             "ak.self.applet.ghost.command.provision" => Some(Self::SelfAppletGhostCommandProvision),
             "ak.self.applet.install.command.preview" => Some(Self::SelfAppletInstallCommandPreview),
+            "ak.self.authorization_leases.command.issue" => {
+                Some(Self::SelfAuthorizationLeasesCommandIssue)
+            }
             "ak.self.authz.grants.query.effective" => Some(Self::SelfAuthzGrantsQueryEffective),
             "ak.self.authz.invites.query.list" => Some(Self::SelfAuthzInvitesQueryList),
             "ak.self.authz.query.check" => Some(Self::SelfAuthzQueryCheck),
@@ -3625,6 +3636,23 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-install-operations.schema.json#/$defs/applet_install_preview_request_body",
         ),
         response_schema_ref: Some("schemas/applet-install-plan.schema.json"),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfAuthorizationLeasesCommandIssue,
+        http_method: "POST",
+        http_path: "/_arkret/self/authorization-leases",
+        grpc: Some("SelfAuthorizationLeases/Issue"),
+        mq: Some("self.authorization_leases.command.issue"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/AuthorizationLeaseIssueRequest",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/AuthorizationLeaseIssueOutcome",
+        ),
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {

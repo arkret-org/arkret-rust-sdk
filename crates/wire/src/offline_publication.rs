@@ -19,7 +19,9 @@ use crate::error::{Error, Result};
 use crate::event_envelope::ScopeRef;
 use crate::generated::ProofContextId;
 use crate::primitives::{Audience, PayloadProof};
-use crate::{AuthorizationLeaseId, DeviceId, Did, DidUrl, Hash, ReceiptId, SealId, canonical};
+use crate::{
+    AuthorizationLeaseId, DeviceId, Did, DidUrl, Hash, RealmId, ReceiptId, SealId, canonical,
+};
 
 /// Maximum number of issuer proofs on a lease or receipt
 /// (`offline-publication.schema.json`).
@@ -242,17 +244,43 @@ fn strictly_ordered_unique<'a>(values: impl Iterator<Item = &'a str>) -> bool {
     true
 }
 
+/// Exact digest commitment for one registered, closed genesis anchor unit.
+///
+/// A Realm has no accepted Seal before its founding unit, so a Seal-only lease
+/// basis would make the first Seal circular. This basis is deliberately narrow:
+/// callers may select it only after recognizing and validating a complete
+/// ordinary-Realm or self-principal PCR bootstrap unit.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AnchorUnitLeaseBasis {
+    pub realm_id: RealmId,
+    pub event_digests: Vec<Hash>,
+    pub unit_digest: Hash,
+}
+
+/// Object wrapper that keeps the untagged [`LeaseBasisRef`] variants
+/// unambiguous on the wire.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AnchorUnitLeaseBasisRef {
+    pub anchor_unit: AnchorUnitLeaseBasis,
+}
+
 /// Accepted authorization basis a lease narrows.
 ///
 /// Single-chain finality profiles cite one accepted Seal; `open_set` MUST
 /// carry the complete signed multi-leaf basis, because no single leaf can
-/// stand in for the joined view.
+/// stand in for the joined view. The object-form anchor-unit commitment is
+/// permitted only for a caller-validated registered genesis unit.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum LeaseBasisRef {
     Seal(SealId),
     Joined(SealBasis),
+    AnchorUnit(AnchorUnitLeaseBasisRef),
 }
 
 /// Basis-bound, expiring permission to publish one action offline.
@@ -402,6 +430,14 @@ impl AuthorizationLease {
     /// policy. Accepted-basis/CBA source rederivation and cryptographic
     /// signature verification remain caller responsibilities.
     pub fn validate_structural(&self) -> Result<()> {
+        if let LeaseBasisRef::AnchorUnit(reference) = &self.basis_ref {
+            reference.anchor_unit.validate_structural()?;
+            if self.scope_ref.realm_id() != &reference.anchor_unit.realm_id {
+                return Err(Error::Protocol(
+                    "anchor-unit lease basis realm_id does not match lease scope_ref".to_owned(),
+                ));
+            }
+        }
         if self.expires_at <= self.issued_at {
             return Err(Error::Protocol(
                 "lease expires_at must be strictly after issued_at".to_owned(),
@@ -455,6 +491,43 @@ impl AuthorizationLease {
     /// Whether this lease still authorizes a first publication at `instant`.
     pub fn covers_instant(&self, instant: DateTime<Utc>) -> bool {
         self.issued_at <= instant && instant <= self.expires_at
+    }
+}
+
+impl AnchorUnitLeaseBasis {
+    /// `sha256(canonical_json({realm_id,event_digests}))`.
+    pub fn expected_unit_digest(&self) -> Result<Hash> {
+        Ok(Hash::new(canonical::canonical_sha256(
+            &serde_json::json!({
+                "realm_id": self.realm_id,
+                "event_digests": self.event_digests,
+            }),
+        )?)?)
+    }
+
+    pub fn validate_structural(&self) -> Result<()> {
+        if self.event_digests.is_empty() || self.event_digests.len() > 500 {
+            return Err(Error::Protocol(
+                "anchor-unit lease basis requires 1..=500 event digests".to_owned(),
+            ));
+        }
+        if self
+            .event_digests
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len()
+            != self.event_digests.len()
+        {
+            return Err(Error::Protocol(
+                "anchor-unit lease basis event_digests must be unique".to_owned(),
+            ));
+        }
+        if self.unit_digest != self.expected_unit_digest()? {
+            return Err(Error::Protocol(
+                "anchor-unit lease basis unit_digest mismatch".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -535,7 +608,7 @@ mod tests {
 
     fn scope() -> ScopeRef {
         ScopeRef::Realm {
-            realm_id: crate::RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
         }
     }
 
@@ -663,6 +736,45 @@ mod tests {
             .validate_structural()
             .unwrap_err();
         assert!(err.to_string().contains("risk-tier ceiling"), "{err}");
+    }
+
+    #[test]
+    fn anchor_unit_basis_binds_ordered_event_digests_and_scope() {
+        let realm_id = scope().realm_id().clone();
+        let mut anchor = AnchorUnitLeaseBasis {
+            realm_id,
+            event_digests: vec![
+                Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
+                Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
+            ],
+            unit_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+        };
+        anchor.unit_digest = anchor.expected_unit_digest().unwrap();
+        anchor.validate_structural().unwrap();
+
+        let mut lease = lease_with(RiskTier::High, instant(1));
+        lease.basis_ref = LeaseBasisRef::AnchorUnit(AnchorUnitLeaseBasisRef {
+            anchor_unit: anchor.clone(),
+        });
+        let digest = lease.lease_digest().unwrap();
+        lease.proofs[0].payload_digest = digest;
+        lease.validate_structural().unwrap();
+
+        anchor.event_digests.reverse();
+        assert_ne!(anchor.unit_digest, anchor.expected_unit_digest().unwrap());
+        let mut wrong_order = lease;
+        wrong_order.basis_ref = LeaseBasisRef::AnchorUnit(AnchorUnitLeaseBasisRef {
+            anchor_unit: anchor,
+        });
+        let digest = wrong_order.lease_digest().unwrap();
+        wrong_order.proofs[0].payload_digest = digest;
+        assert!(
+            wrong_order
+                .validate_structural()
+                .unwrap_err()
+                .to_string()
+                .contains("unit_digest mismatch")
+        );
     }
 
     #[test]

@@ -12,7 +12,9 @@ use serde::{Deserialize, Serialize};
 use crate::cba_proof_bundle::CbaProofBundle;
 use crate::error::{Error, Result};
 use crate::event_envelope::{Event, EventSubmitContext};
-use crate::offline_publication::{AuthorizationLease, IngressReceipt};
+use crate::offline_publication::{
+    AnchorUnitLeaseBasis, AuthorizationLease, IngressReceipt, LeaseBasisRef,
+};
 
 pub const MAX_SUBMISSION_CBA_BUNDLES: usize = 64;
 
@@ -23,7 +25,77 @@ pub const MAX_SUBMISSION_CBA_BUNDLES: usize = 64;
 pub struct EventsSubmitBatchRequestBody {
     pub events: Vec<EventInitialSubmission>,
 }
+
+/// Signed Events presented to the actor's Principal Server for publication
+/// lease issuance. Issuance validates but does not commit these Events.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorizationLeaseIssueRequest {
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
+    pub events: Vec<Event>,
+}
+
+/// One authority-issued lease per requested Event, preserving request order.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorizationLeaseIssueOutcome {
+    pub authorization_leases: Vec<AuthorizationLease>,
+}
 pub const MAX_FEDERATION_INGRESS_RECEIPTS: usize = 32;
+
+/// Bind every lease in a caller-recognized closed genesis request to the
+/// complete ordered Event unit. Selecting anchor context is the caller's
+/// responsibility; this function only makes that selection non-replayable.
+pub fn validate_anchor_unit_lease_bindings(
+    events: &[Event],
+    leases: &[AuthorizationLease],
+) -> Result<()> {
+    if events.is_empty() || events.len() != leases.len() {
+        return Err(Error::Protocol(
+            "anchor-unit Event and lease cardinality must match and be non-empty".to_owned(),
+        ));
+    }
+    let realm_id = events[0].realm_id.clone();
+    if events.iter().any(|event| event.realm_id != realm_id) {
+        return Err(Error::Protocol(
+            "anchor-unit Events must share one realm_id".to_owned(),
+        ));
+    }
+    let event_digests = events
+        .iter()
+        .map(|event| {
+            let digest = event.event_digest()?;
+            crate::Hash::new(digest).map_err(|error| {
+                Error::Protocol(format!("anchor Event digest is invalid: {error}"))
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let mut expected = AnchorUnitLeaseBasis {
+        realm_id,
+        event_digests,
+        unit_digest: crate::Hash::new(format!("sha256:{}", "0".repeat(64)))?,
+    };
+    expected.unit_digest = expected.expected_unit_digest()?;
+    for lease in leases {
+        let LeaseBasisRef::AnchorUnit(reference) = &lease.basis_ref else {
+            return Err(Error::Protocol(
+                "closed anchor-unit submission requires an anchor_unit lease basis".to_owned(),
+            ));
+        };
+        if reference.anchor_unit != expected {
+            return Err(Error::Protocol(
+                "authorization lease anchor_unit does not match the submitted Event unit"
+                    .to_owned(),
+            ));
+        }
+    }
+    Ok(())
+}
 
 /// First durable publication of an Event.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

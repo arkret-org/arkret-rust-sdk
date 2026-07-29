@@ -747,8 +747,34 @@ impl EventsSubmitFederationRequestBody {
                 "federation events must contain between 1 and 500 items".to_owned(),
             ));
         }
-        for submission in &self.events {
-            submission.validate_structural()?;
+        let is_anchor_unit = self.events.first().is_some_and(|submission| {
+            submission.event.kind.as_str() == arkret_wire::events::EventKind::REALM_CREATE
+        }) && self.events.iter().all(|submission| {
+            matches!(
+                &submission.authorization_lease.basis_ref,
+                arkret_wire::LeaseBasisRef::AnchorUnit(_)
+            )
+        });
+        if is_anchor_unit {
+            let events = self
+                .events
+                .iter()
+                .map(|submission| submission.event.clone())
+                .collect::<Vec<_>>();
+            let leases = self
+                .events
+                .iter()
+                .map(|submission| submission.authorization_lease.clone())
+                .collect::<Vec<_>>();
+            arkret_wire::validate_anchor_unit_lease_bindings(&events, &leases)?;
+            for submission in &self.events {
+                submission
+                    .validate_structural_in_context(arkret_wire::EventSubmitContext::AnchorUnit)?;
+            }
+        } else {
+            for submission in &self.events {
+                submission.validate_structural()?;
+            }
         }
         if self.cba_proof_bundles.len() > arkret_wire::event_submission::MAX_SUBMISSION_CBA_BUNDLES
         {

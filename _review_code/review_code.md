@@ -1,5 +1,24 @@
 # Regression review log
 
+## 2026-07-29 — anchor-unit validation rejected valid CAS preconditions
+
+- Surface: `arkret-wire::Event::validate_for_submit_structural_in_context` and Soland's durable
+  control-seal coordinator.
+- Regression: `EventSubmitContext::AnchorUnit` required `preconditions[]` to be empty in addition
+  to omitting `seal_ref`, `auth_context`, and `seal_basis`. The v1 spec exempts the closed anchor
+  unit from a basis because no accepted Seal exists, but does not remove Control Move
+  preconditions. Soland accepted Realm bootstrap batches and later rejected the same Events while
+  constructing the genesis Seal, leaving the Realm permanently pending.
+- Detection: `cotest` joint-full run `20260729-043955`; 34 direct
+  `quorum_unreachable` failures plus dependent `frontier_unavailable` failures. Soland logs showed
+  the coordinator rejecting accepted bootstrap Events as neither Data Events nor Control Moves.
+- Required correction: allow preconditions in the closed `AnchorUnit` context, retain the
+  fail-closed prohibition on all three CBA basis fields, and cover both standard-context rejection
+  and anchor-context acceptance.
+- Prevention dimension: every alternate Event submit context must be exercised at both initial
+  admission and delayed/restarted Seal materialization; the same accepted bytes cannot be
+  reinterpreted under a stricter structural gate.
+
 ## 2026-07-27 — stale operation discriminator assertion
 
 - Surface: `arkret-event-draft/tests/operation_contract.rs`

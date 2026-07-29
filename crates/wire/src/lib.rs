@@ -86,7 +86,8 @@ pub use error_codes::*;
 pub use event_envelope::*;
 pub use event_receipt::*;
 pub use event_submission::{
-    EventFederationSubmission, EventInitialSubmission, EventsSubmitBatchRequestBody,
+    AuthorizationLeaseIssueOutcome, AuthorizationLeaseIssueRequest, EventFederationSubmission,
+    EventInitialSubmission, EventsSubmitBatchRequestBody, validate_anchor_unit_lease_bindings,
 };
 pub use events::*;
 pub use extension_manifest::{
@@ -105,11 +106,12 @@ pub use http_signature::HttpMessageSignature;
 pub use notary::{ForensicAttribution, NotaryValue};
 pub use object_address::*;
 pub use offline_publication::{
-    AUTHORITY_SET_POLICY_SCHEMA, AuthoritySetAuthorizationRule, AuthoritySetIssuer,
-    AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource,
-    AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease, IngressReceipt, LeaseBasisRef,
-    RECOVERY_ACCOUNT_AUTHORITY_SET_ID, RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID,
-    RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RiskTier, distinct_issuer_count,
+    AUTHORITY_SET_POLICY_SCHEMA, AnchorUnitLeaseBasis, AnchorUnitLeaseBasisRef,
+    AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole, AuthoritySetPolicy,
+    AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind,
+    AuthorizationLease, IngressReceipt, LeaseBasisRef, RECOVERY_ACCOUNT_AUTHORITY_SET_ID,
+    RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID, RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RiskTier,
+    distinct_issuer_count,
 };
 pub use patch::*;
 pub use plaintext::PlaintextDataClassKind;
