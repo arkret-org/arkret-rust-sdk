@@ -177,6 +177,20 @@ pub struct AccountDataRow {
     pub updated_at: DateTime<Utc>,
 }
 
+/// Closed `cas_conflict` / `not_found` details for one Account Data key.
+///
+/// `current_entry` is present only while the key has a live value. A missing
+/// entry still carries the authoritative revision high-water mark.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AccountDataCasConflictDetails {
+    pub account_data_key: String,
+    pub current_revision: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_entry: Option<AccountDataRow>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -574,6 +588,37 @@ pub struct AccountCursorRevokeOutcome {
 
 fn default_cursor_revoke_scope() -> CursorRevokeScope {
     CursorRevokeScope::ThisCursor
+}
+
+#[cfg(test)]
+mod account_data_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn cas_conflict_details_preserve_revision_without_live_entry() {
+        let details: AccountDataCasConflictDetails = serde_json::from_value(json!({
+            "account_data_key": "ak.client.ui_state",
+            "current_revision": 7
+        }))
+        .unwrap();
+
+        assert_eq!(details.current_revision, 7);
+        assert!(details.current_entry.is_none());
+    }
+
+    #[test]
+    fn cas_conflict_details_reject_unknown_fields() {
+        assert!(
+            serde_json::from_value::<AccountDataCasConflictDetails>(json!({
+                "account_data_key": "ak.client.ui_state",
+                "current_revision": 7,
+                "expected_revision": 6
+            }))
+            .is_err()
+        );
+    }
 }
 
 #[cfg(test)]
