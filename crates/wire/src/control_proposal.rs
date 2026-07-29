@@ -741,8 +741,35 @@ impl ControlProposalDecision {
         previous_defers: &[ControlProposalDecision],
         policy: ControlProposalDecisionPolicy,
     ) -> Result<()> {
-        receipt.validate_structural(policy)?;
-        if previous_defers.len() > usize::from(policy.max_defers) {
+        self.validate_chain_common(receipt, previous_defers, Some(policy))
+    }
+
+    /// Validate a decision chain when the receiver has not resolved the
+    /// proposal's frozen Realm policy. This preserves every receipt binding,
+    /// chain transition, proof, and protocol hard ceiling without pretending
+    /// that the hard ceilings are the Realm's exact effective policy.
+    pub fn validate_chain_protocol_bounds(
+        &self,
+        receipt: &ControlProposalReceipt,
+        previous_defers: &[ControlProposalDecision],
+    ) -> Result<()> {
+        self.validate_chain_common(receipt, previous_defers, None)
+    }
+
+    fn validate_chain_common(
+        &self,
+        receipt: &ControlProposalReceipt,
+        previous_defers: &[ControlProposalDecision],
+        policy: Option<ControlProposalDecisionPolicy>,
+    ) -> Result<()> {
+        let max_defers = if let Some(policy) = policy {
+            receipt.validate_structural(policy)?;
+            policy.max_defers
+        } else {
+            receipt.validate_protocol_bounds()?;
+            MAX_PROPOSAL_DEFERS
+        };
+        if previous_defers.len() > usize::from(max_defers) {
             return Err(Error::Protocol(
                 "proposal decision chain exceeds max_defers".to_owned(),
             ));
@@ -761,7 +788,7 @@ impl ControlProposalDecision {
                     "only signed_defer may precede another proposal decision".to_owned(),
                 ));
             }
-            decision.validate_chain(receipt, &previous_defers[..index], policy)?;
+            decision.validate_chain_common(receipt, &previous_defers[..index], policy)?;
         }
 
         let (
@@ -826,7 +853,7 @@ impl ControlProposalDecision {
                 defer_count,
                 ..
             } => {
-                if expected_count >= policy.max_defers || *defer_count != expected_count + 1 {
+                if expected_count >= max_defers || *defer_count != expected_count + 1 {
                     return Err(Error::Protocol(
                         "signed_defer exceeds max_defers or skips defer_count".to_owned(),
                     ));
@@ -1060,6 +1087,26 @@ mod tests {
                     ControlProposalDecisionPolicy::default(),
                 )
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn decision_chain_protocol_bounds_do_not_invent_an_exact_realm_policy() {
+        let receipt = receipt();
+        let first = defer(&receipt, 1, at(20), at(60));
+
+        first
+            .validate_chain_protocol_bounds(&receipt, &[])
+            .expect("30s/90s receipt and its defer are within protocol ceilings");
+        assert!(
+            first
+                .validate_chain(
+                    &receipt,
+                    &[],
+                    ControlProposalDecisionPolicy::protocol_maximum(),
+                )
+                .is_err(),
+            "the protocol ceiling is not the receipt's exact effective policy"
         );
     }
 

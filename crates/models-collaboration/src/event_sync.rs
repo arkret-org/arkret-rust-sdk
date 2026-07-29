@@ -139,7 +139,7 @@ impl EventsFrontierSelector {
             (Self::RealmSeal { realm_id }, EventsFrontierView::RealmSeal(frontier))
                 if &frontier.realm_id == realm_id =>
             {
-                frontier.validate()
+                frontier.validate_protocol_bounds()
             }
             (Self::ActorAggregate { actor_id }, EventsFrontierView::ActorAggregate(frontier))
                 if &frontier.actor_id == actor_id =>
@@ -418,7 +418,15 @@ impl ControlGovernanceHealth {
         }
     }
 
-    pub fn validate(&self, policy: ControlProposalDecisionPolicy) -> Result<()> {
+    pub fn validate_with_policy(&self, policy: ControlProposalDecisionPolicy) -> Result<()> {
+        self.validate_common(Some(policy))
+    }
+
+    pub fn validate_protocol_bounds(&self) -> Result<()> {
+        self.validate_common(None)
+    }
+
+    fn validate_common(&self, policy: Option<ControlProposalDecisionPolicy>) -> Result<()> {
         if self.pending_proposals.len() > Self::MAX_PENDING_PROPOSALS {
             return Err(Error::Protocol(
                 "control governance health exceeds 128 pending proposals".to_owned(),
@@ -432,7 +440,11 @@ impl ControlGovernanceHealth {
         let mut previous_key: Option<(DateTime<Utc>, &str)> = None;
         let mut has_overdue = false;
         for pending in &self.pending_proposals {
-            pending.receipt.validate_structural(policy)?;
+            if let Some(policy) = policy {
+                pending.receipt.validate_structural(policy)?;
+            } else {
+                pending.receipt.validate_protocol_bounds()?;
+            }
             if pending.proposal_digest != pending.receipt.proposal_digest
                 || pending.absolute_due_at != pending.receipt.absolute_due_at
                 || usize::from(pending.defer_count) != pending.decisions.len()
@@ -449,7 +461,11 @@ impl ControlGovernanceHealth {
                         "terminal signed_reject cannot remain pending".to_owned(),
                     ));
                 }
-                decision.validate_chain(&pending.receipt, &verified_defers, policy)?;
+                if let Some(policy) = policy {
+                    decision.validate_chain(&pending.receipt, &verified_defers, policy)?;
+                } else {
+                    decision.validate_chain_protocol_bounds(&pending.receipt, &verified_defers)?;
+                }
                 verified_defers.push(decision.clone());
             }
             let expected_due_at = verified_defers
@@ -492,7 +508,11 @@ impl ControlGovernanceHealth {
         }
         let mut previous_fault_key: Option<(DateTime<Utc>, &str)> = None;
         for fault in &self.retained_faults {
-            fault.receipt.validate_structural(policy)?;
+            if let Some(policy) = policy {
+                fault.receipt.validate_structural(policy)?;
+            } else {
+                fault.receipt.validate_protocol_bounds()?;
+            }
             if fault.proposal_digest != fault.receipt.proposal_digest
                 || fault.fault_reason != ControlProposalFaultReason::ControlProposalDecisionOverdue
             {
@@ -510,7 +530,11 @@ impl ControlGovernanceHealth {
                         "signed_reject cannot precede an accepted Seal".to_owned(),
                     ));
                 }
-                decision.validate_chain(&fault.receipt, &verified_defers, policy)?;
+                if let Some(policy) = policy {
+                    decision.validate_chain(&fault.receipt, &verified_defers, policy)?;
+                } else {
+                    decision.validate_chain_protocol_bounds(&fault.receipt, &verified_defers)?;
+                }
                 missed_deadline |= !decision.satisfied_current_deadline(previous_due_at);
                 previous_due_at = decision.decision_due_at();
                 verified_defers.push(decision.clone());
@@ -541,30 +565,6 @@ impl ControlGovernanceHealth {
             ));
         }
         Ok(())
-    }
-
-    /// Validate a frontier received without the Realm's create-locked policy.
-    ///
-    /// Frontier consumers do not have the canonical `ak.realm.create` payload
-    /// at this boundary. Recover the effective decision windows from the first
-    /// signed receipt, then require every other receipt and decision chain to
-    /// agree with them. Empty health views have no policy-dependent fields.
-    pub fn validate_protocol_bounds(&self) -> Result<()> {
-        let receipt = self
-            .pending_proposals
-            .first()
-            .map(|pending| &pending.receipt)
-            .or_else(|| self.retained_faults.first().map(|fault| &fault.receipt));
-        let Some(receipt) = receipt else {
-            return self.validate(ControlProposalDecisionPolicy::default());
-        };
-        let policy = ControlProposalDecisionPolicy {
-            receipt_sla: arkret_wire::MAX_PROPOSAL_RECEIPT_SLA,
-            decision_window: receipt.decision_due_at - receipt.received_at,
-            absolute_horizon: receipt.absolute_due_at - receipt.received_at,
-            max_defers: arkret_wire::MAX_PROPOSAL_DEFERS,
-        };
-        self.validate(policy)
     }
 }
 
@@ -611,8 +611,12 @@ impl RealmSealFrontierView {
         }
     }
 
-    pub fn validate(&self) -> Result<()> {
+    pub fn validate_protocol_bounds(&self) -> Result<()> {
         self.governance_health.validate_protocol_bounds()
+    }
+
+    pub fn validate_with_policy(&self, policy: ControlProposalDecisionPolicy) -> Result<()> {
+        self.governance_health.validate_with_policy(policy)
     }
 }
 
@@ -1412,29 +1416,52 @@ mod tests {
     }
 
     #[test]
-    fn realm_frontier_validates_the_effective_receipt_window() {
+    fn realm_seal_frontier_distinguishes_protocol_bounds_from_exact_policy() {
         let event = control_move_over(&federation_prerequisite_seal());
-        let receipt = federation_submission(event)
-            .control_proposal_receipt
-            .expect("control fixture has a proposal receipt");
+        let submission = federation_submission(event.clone());
+        let received_at = DateTime::parse_from_rfc3339("2026-07-29T20:57:46.276Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let receipt = proposal_receipt_for(
+            &event,
+            &submission.authorization_lease.authority_set_ref,
+            received_at,
+        );
         let health = ControlGovernanceHealth {
             status: ControlGovernanceHealthStatus::Healthy,
             pending_proposals: vec![PendingControlProposal {
                 proposal_digest: receipt.proposal_digest.clone(),
+                current_decision_due_at: receipt.decision_due_at,
                 absolute_due_at: receipt.absolute_due_at,
                 defer_count: 0,
                 decision_state: ControlProposalDecisionState::Pending,
                 fault_reason: None,
-                current_decision_due_at: receipt.decision_due_at,
                 receipt,
                 decisions: Vec::new(),
             }],
             retained_faults: Vec::new(),
         };
+        let frontier = RealmSealFrontierView::new(
+            event.realm_id,
+            SealId::new(format!("ak:seal:sha256:{}", "1".repeat(64))).unwrap(),
+            Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
+            Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
+            health,
+            None,
+        );
 
-        health
+        frontier
             .validate_protocol_bounds()
-            .expect("a 30-second Realm policy is valid below protocol maxima");
+            .expect("a 30s/90s Realm frontier is inside protocol ceilings");
+        frontier
+            .validate_with_policy(ControlProposalDecisionPolicy::default())
+            .expect("the same frontier matches the effective default Realm policy");
+        assert!(
+            frontier
+                .validate_with_policy(ControlProposalDecisionPolicy::protocol_maximum())
+                .is_err(),
+            "protocol ceilings must not masquerade as the exact Realm policy"
+        );
     }
 
     fn federation_request(events: Vec<Event>) -> EventsSubmitFederationRequestBody {
