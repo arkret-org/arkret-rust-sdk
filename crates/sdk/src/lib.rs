@@ -47,6 +47,7 @@
 //! ```
 
 mod sdk_error;
+mod sidecar_recovery;
 pub use arkret_auth as auth;
 pub use arkret_auth::{AdminKeyStore, session_grant};
 pub use arkret_bootstrap as bootstrap;
@@ -349,6 +350,7 @@ pub use arkret_wire::{
     error_codes as error, is_query_auth_parameter,
 };
 pub use sdk_error::{Error, Result};
+pub use sidecar_recovery::{AgentSidecarContextLocator, recover_agent_sidecar_context_locators};
 
 pub mod events {
     pub use arkret_models_collaboration::events_payloads::redaction::*;
