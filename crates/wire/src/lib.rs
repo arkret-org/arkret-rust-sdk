@@ -94,8 +94,11 @@ pub use event_submission::{
 };
 pub use events::*;
 pub use extension_manifest::{
-    ConcurrencyClass, ConfidentialityClass, ExtensionManifest, ManifestResourceLimits,
-    ProtocolLayerKind, ReducerContractRef, RegistryContentRef,
+    ConcurrencyClass, ConfidentialityClass, ExtensionManifest, ExtensionManifestCatalog,
+    ExtensionManifestProofVerifier, LoadedExtensionManifests, ManifestDependencyLayer,
+    ManifestKernelLimits, ManifestRegistryContent, ManifestRegistryContentKind,
+    ManifestResourceLimits, ProtocolLayerKind, ReducerContractRef, RegistryContentRef,
+    load_extension_manifests,
 };
 pub use extension_map::XExtensionMap;
 pub use generated::{
