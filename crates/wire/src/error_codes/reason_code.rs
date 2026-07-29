@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=40f8caa97fdb3d7e2abccc488b4c0365cfc9e4017525cd7d705bb55e420ce575
+//! sha256=dbea650ae05e664f24ad71422f3da9746022f7adf965a26dcbac3dc1a264d96a
 //! Entries: reason_codes=446
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -3460,17 +3460,17 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "patch_path_invalid",
         applies_to: &["event_envelope"],
-        description: "A `ak.patch.v1` patch path violates the ABNF grammar in zh/models/event-and-patch.md §4.2.1 (malformed identifier, non-canonical selector-value, ambiguous quoting, path > 1024 bytes, or nesting > 16 segments). Parser MUST NOT attempt fallback recovery; reducer rejects with this reason.",
+        description: "An `ak.schema.patch.v1` patch path violates the ABNF grammar in zh/models/event-and-patch.md §4.2.1 (malformed identifier, quoted identifier, selector or numeric-index form, path > 1024 bytes, or nesting > 16 segments). Parser MUST NOT attempt fallback recovery; reducer rejects with this reason.",
     },
     ReasonCodeDescriptor {
         code: "patch_path_reducer_managed",
         applies_to: &["event_envelope"],
-        description: "A `ak.patch.v1` patch path attempts to modify a reducer-managed field (`id` / `schema` / `realm_id` / `created_by` / `created_at` / `state` / `state_changed_at`). These fields are owned by their corresponding lifecycle events; patch MUST NOT touch them. See zh/models/event-and-patch.md §4.2.5.",
+        description: "An `ak.schema.patch.v1` patch path attempts to modify a reducer-managed field (`id` / `schema` / `realm_id` / `created_by` / `created_at` / `state` / `state_changed_at`). These fields are owned by their corresponding lifecycle events; patch MUST NOT touch them. See zh/models/event-and-patch.md §4.2.5.",
     },
     ReasonCodeDescriptor {
         code: "patch_unset_redactable_field",
         applies_to: &["event_envelope"],
-        description: "A `ak.patch.v1` `$op=\"unset\"` was used on a redactable content field (e.g. message.content, strand.metadata.summary, encrypted_content / encrypted_metadata). Redaction MUST go through `ak.<kind>.redact` or `ak.redaction` events to enforce redaction-specific capability checks and audit. See zh/models/event-and-patch.md §4.2.4.",
+        description: "An `ak.schema.patch.v1` `$op=\"unset\"` was used on a redactable content field (e.g. message.content, strand.metadata.summary, encrypted_content / encrypted_metadata). Redaction MUST go through `ak.<kind>.redact` or `ak.redaction` events to enforce redaction-specific capability checks and audit. See zh/models/event-and-patch.md §4.2.4.",
     },
     ReasonCodeDescriptor {
         code: "permission_denied",

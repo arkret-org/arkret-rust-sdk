@@ -5,13 +5,13 @@
 //! exporter-label-registry.json; version=2026-06-10;
 //! sha256=8ac4e357f9c8759ad0ee46582a045c1501665ac3c49b34262fecbbca8c7c28d9 Input: registry/
 //! digest-suite-registry.json; version=2026-06-10;
-//! sha256=6522a9f899872e285762d46634a8f13a2d9f69437d04287a404cccde42327344 Input: registry/
+//! sha256=e4e1d83ec88fb124229d48001a8b900224a649be57b38d252600978cf311599b Input: registry/
 //! signature-alg-registry.json; version=2026-07-13;
-//! sha256=5ccd1caf0e223f267b782a5d8bd61310597031f76f71cc49d60eea261b73061f Input: registry/
+//! sha256=e31df27e0c7bb4ad76c41209a65a0075d88f49783c1663cf36b47da4f5462505 Input: registry/
 //! hpke-suite-registry.json; version=2026-07-13;
-//! sha256=bbb4b335c9d8e33b7c3b378932dedaa7aff019c5dec21225576632d88374a5d2 Input: registry/
+//! sha256=2c6f58d88acf500b1532db9ebc4baafeaac8856be55fd924a2a6a7073f185e6b Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-07-29;
-//! sha256=5dd4e2c03bb441400992841f2357ecf6283086f0ffd20141072136b580c722c7 Input: registry/
+//! sha256=2c73b41567acd7880abcb4f73a2b09f28805517f41531ef9bfa9a1d018d63ac3 Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
 //! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
 //! Entries: proof_contexts=36, exporter_labels=9, digest_suites=3, signature_algorithms=4,
