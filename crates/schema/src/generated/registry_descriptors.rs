@@ -3,12 +3,12 @@
 //! Input: registry/id-kind-registry.json; version=2026-07-20;
 //! sha256=f71350ccddedcc621b3a77b90549b5d0d1e0e317004019fca9dd642ac820ae3b Input: registry/
 //! capability-action-registry.json; version=2026-07-20;
-//! sha256=aefb5e175eacb3c3cf789f9bc28a86a616729f327983f7c229d6eb70a0c41a1c Input: registry/
+//! sha256=8fc7b8f2068813d548b07a5bba710de0039c0a0193943636171ab9f401eca7eb Input: registry/
 //! schema-registry.json; version=2026-07-20;
-//! sha256=d9873d94e49a7b7a4b7268848c5c44a254cac543f5147a91e28e0408161b1cb4 Input: registry/
+//! sha256=8bdff4c45222df3083a745a7e096451bcc3388b289bd452130c03d155210d035 Input: registry/
 //! account-data-key-registry.json; version=2026-07-03;
 //! sha256=0ee8f8609eb903dbb1a254cb9fda133b843a332febfad0648d523e1aeeaf80eb Entries: id_kinds=53,
-//! special_forms=9, actions=156, schemas=149, account_data_patterns=22
+//! special_forms=9, actions=157, schemas=150, account_data_patterns=22
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -787,6 +787,15 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         target_event_kinds: &["ak.invite.third_party"],
         profile: None,
         event_mapping_kind: "same_name",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::KeysBackupSeriesErase,
+        category: "service",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        target_event_kinds: &[],
+        profile: None,
+        event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MessageCreate,
@@ -1973,6 +1982,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: "ak.schema.availability_receipt.v1",
         file: "schemas/availability-receipt.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.backup_series_erase_confirmation.v1",
+        file: "schemas/keys-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: "ak.schema.blob.v1",

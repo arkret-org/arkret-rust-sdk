@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/operation-registry.json; version=2026-07-20;
-//! sha256=35f23c4323c7f0407f4149c6bc690c28df3578a002c1620bccd7e80d7696c53b Entries: registered=217
+//! sha256=8ba87b47a999974e929ecef2f7ff841662eeb32fcdfdffd26add8b9bed237dcc Entries: registered=217
 
 use serde::{Deserialize, Serialize};
 
@@ -153,11 +153,11 @@ pub enum ServiceOperationId {
     SelfContactCommandRespond,
     SelfContactCommandTombstone,
     SelfContactQueryList,
+    SelfControlProposalReceiptsCommandIssue,
     SelfDeviceMessagesCommandAck,
     SelfDeviceMessagesCommandSend,
     SelfDeviceMessagesQueryList,
     SelfDirectConversationCommandResolve,
-    SelfEventsCommandSignControlProposalReceipt,
     SelfEventsCommandSubmit,
     SelfEventsCommandSubmitSeal,
     SelfEventsQueryDescribe,
@@ -373,11 +373,11 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.self.contact.command.respond",
     "ak.self.contact.command.tombstone",
     "ak.self.contact.query.list",
+    "ak.self.control_proposal_receipts.command.issue",
     "ak.self.device_messages.command.ack",
     "ak.self.device_messages.command.send",
     "ak.self.device_messages.query.list",
     "ak.self.direct_conversation.command.resolve",
-    "ak.self.events.command.sign_control_proposal_receipt",
     "ak.self.events.command.submit",
     "ak.self.events.command.submit_seal",
     "ak.self.events.query.describe",
@@ -609,11 +609,11 @@ impl ServiceOperationId {
         Self::SelfContactCommandRespond,
         Self::SelfContactCommandTombstone,
         Self::SelfContactQueryList,
+        Self::SelfControlProposalReceiptsCommandIssue,
         Self::SelfDeviceMessagesCommandAck,
         Self::SelfDeviceMessagesCommandSend,
         Self::SelfDeviceMessagesQueryList,
         Self::SelfDirectConversationCommandResolve,
-        Self::SelfEventsCommandSignControlProposalReceipt,
         Self::SelfEventsCommandSubmit,
         Self::SelfEventsCommandSubmitSeal,
         Self::SelfEventsQueryDescribe,
@@ -908,6 +908,8 @@ impl ServiceOperationId {
     pub const SELF_CONTACT_COMMAND_RESPOND: &'static str = "ak.self.contact.command.respond";
     pub const SELF_CONTACT_COMMAND_TOMBSTONE: &'static str = "ak.self.contact.command.tombstone";
     pub const SELF_CONTACT_QUERY_LIST: &'static str = "ak.self.contact.query.list";
+    pub const SELF_CONTROL_PROPOSAL_RECEIPTS_COMMAND_ISSUE: &'static str =
+        "ak.self.control_proposal_receipts.command.issue";
     pub const SELF_DEVICE_MESSAGES_COMMAND_ACK: &'static str =
         "ak.self.device_messages.command.ack";
     pub const SELF_DEVICE_MESSAGES_COMMAND_SEND: &'static str =
@@ -915,8 +917,6 @@ impl ServiceOperationId {
     pub const SELF_DEVICE_MESSAGES_QUERY_LIST: &'static str = "ak.self.device_messages.query.list";
     pub const SELF_DIRECT_CONVERSATION_COMMAND_RESOLVE: &'static str =
         "ak.self.direct_conversation.command.resolve";
-    pub const SELF_EVENTS_COMMAND_SIGN_CONTROL_PROPOSAL_RECEIPT: &'static str =
-        "ak.self.events.command.sign_control_proposal_receipt";
     pub const SELF_EVENTS_COMMAND_SUBMIT: &'static str = "ak.self.events.command.submit";
     pub const SELF_EVENTS_COMMAND_SUBMIT_SEAL: &'static str = "ak.self.events.command.submit_seal";
     pub const SELF_EVENTS_QUERY_DESCRIBE: &'static str = "ak.self.events.query.describe";
@@ -1230,14 +1230,14 @@ impl ServiceOperationId {
             Self::SelfContactCommandRespond => "ak.self.contact.command.respond",
             Self::SelfContactCommandTombstone => "ak.self.contact.command.tombstone",
             Self::SelfContactQueryList => "ak.self.contact.query.list",
+            Self::SelfControlProposalReceiptsCommandIssue => {
+                "ak.self.control_proposal_receipts.command.issue"
+            }
             Self::SelfDeviceMessagesCommandAck => "ak.self.device_messages.command.ack",
             Self::SelfDeviceMessagesCommandSend => "ak.self.device_messages.command.send",
             Self::SelfDeviceMessagesQueryList => "ak.self.device_messages.query.list",
             Self::SelfDirectConversationCommandResolve => {
                 "ak.self.direct_conversation.command.resolve"
-            }
-            Self::SelfEventsCommandSignControlProposalReceipt => {
-                "ak.self.events.command.sign_control_proposal_receipt"
             }
             Self::SelfEventsCommandSubmit => "ak.self.events.command.submit",
             Self::SelfEventsCommandSubmitSeal => "ak.self.events.command.submit_seal",
@@ -1562,14 +1562,14 @@ impl ServiceOperationId {
             "ak.self.contact.command.respond" => Some(Self::SelfContactCommandRespond),
             "ak.self.contact.command.tombstone" => Some(Self::SelfContactCommandTombstone),
             "ak.self.contact.query.list" => Some(Self::SelfContactQueryList),
+            "ak.self.control_proposal_receipts.command.issue" => {
+                Some(Self::SelfControlProposalReceiptsCommandIssue)
+            }
             "ak.self.device_messages.command.ack" => Some(Self::SelfDeviceMessagesCommandAck),
             "ak.self.device_messages.command.send" => Some(Self::SelfDeviceMessagesCommandSend),
             "ak.self.device_messages.query.list" => Some(Self::SelfDeviceMessagesQueryList),
             "ak.self.direct_conversation.command.resolve" => {
                 Some(Self::SelfDirectConversationCommandResolve)
-            }
-            "ak.self.events.command.sign_control_proposal_receipt" => {
-                Some(Self::SelfEventsCommandSignControlProposalReceipt)
             }
             "ak.self.events.command.submit" => Some(Self::SelfEventsCommandSubmit),
             "ak.self.events.command.submit_seal" => Some(Self::SelfEventsCommandSubmitSeal),
@@ -4100,6 +4100,23 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfControlProposalReceiptsCommandIssue,
+        http_method: "POST",
+        http_path: "/_arkret/self/control-proposal-receipts",
+        grpc: Some("SelfControlProposalReceipts/Issue"),
+        mq: Some("self.control_proposal_receipts.command.issue"),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/control-proposal-decision.schema.json#/$defs/proposal_receipt_issue_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/control-proposal-decision.schema.json#/$defs/proposal_receipt_issue_outcome",
+        ),
+        uncertain_outcome: None,
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfDeviceMessagesCommandAck,
         http_method: "POST",
         http_path: "/_arkret/self/device_messages/ack",
@@ -4162,23 +4179,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some(
             "schemas/contact-operations.schema.json#/$defs/direct_conversation_resolve_outcome",
-        ),
-        uncertain_outcome: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfEventsCommandSignControlProposalReceipt,
-        http_method: "POST",
-        http_path: "/_arkret/self/events/control-proposal-receipts",
-        grpc: Some("SelfEvents/SignControlProposalReceipt"),
-        mq: Some("self.events.command.sign_control_proposal_receipt"),
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: Some("canonical_hash"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/ControlProposalEvidenceSignRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/ControlProposalEvidenceSignOutcome",
         ),
         uncertain_outcome: None,
     },
@@ -4418,13 +4418,13 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         grpc: Some("SelfKeys/BackupSeriesErase"),
         mq: Some("self.keys.backup_series.command.erase"),
         success_shape_kind: "schema_resource",
-        idempotency_mechanism: Some("protocol_sequence"),
+        idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/keys-operations.schema.json#/$defs/keys_backup_series_erase_request_body",
+            "schemas/keys-operations.schema.json#/$defs/backup_series_erase_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keys-operations.schema.json#/$defs/keys_backup_series_erase_outcome",
+            "schemas/keys-operations.schema.json#/$defs/backup_series_erase_outcome",
         ),
         uncertain_outcome: None,
     },

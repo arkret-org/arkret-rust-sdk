@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/capability-action-registry.json; version=2026-07-20;
-//! sha256=aefb5e175eacb3c3cf789f9bc28a86a616729f327983f7c229d6eb70a0c41a1c Entries: registered=156
+//! sha256=8fc7b8f2068813d548b07a5bba710de0039c0a0193943636171ab9f401eca7eb Entries: registered=157
 
 use serde::{Deserialize, Serialize};
 
@@ -53,6 +53,7 @@ pub enum CapabilityActionId {
     InviteCreate,
     InviteRevoke,
     InviteThirdParty,
+    KeysBackupSeriesErase,
     MessageCreate,
     MessageMentionBroadcast,
     MessageRedact,
@@ -213,6 +214,7 @@ impl CapabilityActionId {
         Self::InviteCreate,
         Self::InviteRevoke,
         Self::InviteThirdParty,
+        Self::KeysBackupSeriesErase,
         Self::MessageCreate,
         Self::MessageMentionBroadcast,
         Self::MessageRedact,
@@ -371,6 +373,7 @@ impl CapabilityActionId {
     pub const INVITE_CREATE: &'static str = "ak.invite.create";
     pub const INVITE_REVOKE: &'static str = "ak.invite.revoke";
     pub const INVITE_THIRD_PARTY: &'static str = "ak.invite.third_party";
+    pub const KEYS_BACKUP_SERIES_ERASE: &'static str = "ak.keys.backup_series.erase";
     pub const MESSAGE_CREATE: &'static str = "ak.message.create";
     pub const MESSAGE_MENTION_BROADCAST: &'static str = "ak.message.mention.broadcast";
     pub const MESSAGE_REDACT: &'static str = "ak.message.redact";
@@ -536,6 +539,7 @@ impl CapabilityActionId {
             Self::InviteCreate => "ak.invite.create",
             Self::InviteRevoke => "ak.invite.revoke",
             Self::InviteThirdParty => "ak.invite.third_party",
+            Self::KeysBackupSeriesErase => "ak.keys.backup_series.erase",
             Self::MessageCreate => "ak.message.create",
             Self::MessageMentionBroadcast => "ak.message.mention.broadcast",
             Self::MessageRedact => "ak.message.redact",
@@ -699,6 +703,7 @@ impl CapabilityActionId {
             "ak.invite.create" => Some(Self::InviteCreate),
             "ak.invite.revoke" => Some(Self::InviteRevoke),
             "ak.invite.third_party" => Some(Self::InviteThirdParty),
+            "ak.keys.backup_series.erase" => Some(Self::KeysBackupSeriesErase),
             "ak.message.create" => Some(Self::MessageCreate),
             "ak.message.mention.broadcast" => Some(Self::MessageMentionBroadcast),
             "ak.message.redact" => Some(Self::MessageRedact),

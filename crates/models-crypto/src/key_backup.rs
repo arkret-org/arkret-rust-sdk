@@ -7,11 +7,12 @@ use arkret_canonical::{
     decode_multibase_base58btc, decode_multicodec_varint, encode_multibase_base58btc,
 };
 use arkret_wire::{
-    AuthoritySetIssuer, AuthoritySetIssuerRole, AuthorizationLease, BackupId, BackupSeriesId,
-    BackupSeriesEraseRequestBody, Base64UrlString, CbaProofBundle, Cursor, DeviceId, Did, DidUrl,
-    Error, Event, EventId, EventInitialSubmission, EventKind, HPKE_SUITES, Hash, LeaseBasisRef,
-    NonEmptyString, PolicyId, RealmId, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId,
-    Result, SecurityRotationBackupKind, TransactionId, TypedTrustDomainId, XExtensionMap,
+    AuthoritySetIssuer, AuthoritySetIssuerRole, AuthorizationLease, BackupId,
+    BackupSeriesEraseRequestBody, BackupSeriesId, Base64UrlString, CbaProofBundle,
+    ControlProposalReceipt, Cursor, DeviceId, Did, DidUrl, Error, Event, EventId,
+    EventInitialSubmission, EventKind, HPKE_SUITES, Hash, LeaseBasisRef, NonEmptyString, PolicyId,
+    RealmId, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId, Result,
+    SecurityRotationBackupKind, TransactionId, TypedTrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -1548,6 +1549,8 @@ pub struct RecoveryPolicyPublishRequest {
     pub authorization_lease: AuthorizationLease,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cba_proof_bundles: Vec<CbaProofBundle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control_proposal_receipt: Option<ControlProposalReceipt>,
 }
 
 impl RecoveryPolicyPublishRequest {
@@ -1578,6 +1581,7 @@ impl From<RecoveryPolicyPublishRequest> for EventInitialSubmission {
             event: value.event,
             authorization_lease: value.authorization_lease,
             cba_proof_bundles: value.cba_proof_bundles,
+            control_proposal_receipt: value.control_proposal_receipt,
         }
     }
 }
@@ -1588,6 +1592,7 @@ impl From<EventInitialSubmission> for RecoveryPolicyPublishRequest {
             event: value.event,
             authorization_lease: value.authorization_lease,
             cba_proof_bundles: value.cba_proof_bundles,
+            control_proposal_receipt: value.control_proposal_receipt,
         }
     }
 }

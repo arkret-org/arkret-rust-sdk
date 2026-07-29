@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
 //! Input: registry/proof-context-registry.json; version=2026-07-24;
-//! sha256=9d281d78f2bb28b1991bd50f000b01a3880f31510bf2af542ba2915d7b81a60f Input: registry/
+//! sha256=9476fb6ca20b92e79a8cebad5f8e584e856bc5324bfb94ec5ae9610e8d0484c5 Input: registry/
 //! exporter-label-registry.json; version=2026-06-10;
 //! sha256=8ac4e357f9c8759ad0ee46582a045c1501665ac3c49b34262fecbbca8c7c28d9 Input: registry/
 //! digest-suite-registry.json; version=2026-06-10;
@@ -14,7 +14,7 @@
 //! sha256=a480b2b689250123d2cc22e004bc376cb8080d9f6bf1500886271ff30b5a6ad6 Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
 //! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
-//! Entries: proof_contexts=34, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=36, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -29,6 +29,8 @@ pub enum ProofContextId {
     AuditRywReceiptProofV1,
     AuthorizationLeaseProofV1,
     CapabilityGrantProofV1,
+    ControlProposalDecisionProofV1,
+    ControlProposalMemberReceiptProofV1,
     DidContinuityProofV1,
     DidKeyLogEntryProofV1,
     DidWebvhWitnessReceiptProofV1,
@@ -67,6 +69,8 @@ impl ProofContextId {
         Self::AuditRywReceiptProofV1,
         Self::AuthorizationLeaseProofV1,
         Self::CapabilityGrantProofV1,
+        Self::ControlProposalDecisionProofV1,
+        Self::ControlProposalMemberReceiptProofV1,
         Self::DidContinuityProofV1,
         Self::DidKeyLogEntryProofV1,
         Self::DidWebvhWitnessReceiptProofV1,
@@ -106,6 +110,10 @@ impl ProofContextId {
     pub const AUDIT_RYW_RECEIPT_PROOF_V1: &'static str = "ak.audit-ryw-receipt-proof-v1";
     pub const AUTHORIZATION_LEASE_PROOF_V1: &'static str = "ak.authorization-lease-proof-v1";
     pub const CAPABILITY_GRANT_PROOF_V1: &'static str = "ak.capability-grant-proof-v1";
+    pub const CONTROL_PROPOSAL_DECISION_PROOF_V1: &'static str =
+        "ak.control-proposal-decision-proof-v1";
+    pub const CONTROL_PROPOSAL_MEMBER_RECEIPT_PROOF_V1: &'static str =
+        "ak.control-proposal-member-receipt-proof-v1";
     pub const DID_CONTINUITY_PROOF_V1: &'static str = "ak.did-continuity-proof-v1";
     pub const DID_KEY_LOG_ENTRY_PROOF_V1: &'static str = "ak.did-key-log-entry-proof-v1";
     pub const DID_WEBVH_WITNESS_RECEIPT_PROOF_V1: &'static str =
@@ -157,6 +165,10 @@ impl ProofContextId {
             Self::AuditRywReceiptProofV1 => "ak.audit-ryw-receipt-proof-v1",
             Self::AuthorizationLeaseProofV1 => "ak.authorization-lease-proof-v1",
             Self::CapabilityGrantProofV1 => "ak.capability-grant-proof-v1",
+            Self::ControlProposalDecisionProofV1 => "ak.control-proposal-decision-proof-v1",
+            Self::ControlProposalMemberReceiptProofV1 => {
+                "ak.control-proposal-member-receipt-proof-v1"
+            }
             Self::DidContinuityProofV1 => "ak.did-continuity-proof-v1",
             Self::DidKeyLogEntryProofV1 => "ak.did-key-log-entry-proof-v1",
             Self::DidWebvhWitnessReceiptProofV1 => "ak.did-webvh-witness-receipt-proof-v1",
@@ -212,6 +224,10 @@ impl ProofContextId {
             "ak.audit-ryw-receipt-proof-v1" => Some(Self::AuditRywReceiptProofV1),
             "ak.authorization-lease-proof-v1" => Some(Self::AuthorizationLeaseProofV1),
             "ak.capability-grant-proof-v1" => Some(Self::CapabilityGrantProofV1),
+            "ak.control-proposal-decision-proof-v1" => Some(Self::ControlProposalDecisionProofV1),
+            "ak.control-proposal-member-receipt-proof-v1" => {
+                Some(Self::ControlProposalMemberReceiptProofV1)
+            }
             "ak.did-continuity-proof-v1" => Some(Self::DidContinuityProofV1),
             "ak.did-key-log-entry-proof-v1" => Some(Self::DidKeyLogEntryProofV1),
             "ak.did-webvh-witness-receipt-proof-v1" => Some(Self::DidWebvhWitnessReceiptProofV1),
@@ -492,6 +508,20 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/capability-grant.schema.json",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::ControlProposalDecisionProofV1,
+        context: "ak.control-proposal-decision-proof-v1",
+        object_family: "control_proposal_decision",
+        binding_fields: &["payload_digest", "verification_method", "created_at"],
+        schema_ref: "schemas/control-proposal-decision.schema.json#/$defs/proposal_decision",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::ControlProposalMemberReceiptProofV1,
+        context: "ak.control-proposal-member-receipt-proof-v1",
+        object_family: "control_proposal_member_receipt",
+        binding_fields: &["payload_digest", "verification_method", "created_at"],
+        schema_ref: "schemas/control-proposal-decision.schema.json#/$defs/proposal_member_receipt",
     },
     ProofContextDescriptor {
         id: ProofContextId::DidContinuityProofV1,

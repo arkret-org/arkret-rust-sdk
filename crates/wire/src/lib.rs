@@ -86,7 +86,7 @@ pub use error_codes::*;
 pub use event_envelope::*;
 pub use event_receipt::*;
 pub use event_submission::{
-    AuthorizationLeaseIssueOutcome, AuthorizationLeaseIssueRequest, EventFederationSubmission,
+    AuthorizationLeaseIssueOutcome, AuthorizationLeaseIssueRequest,
     ControlProposalReceiptSignOutcome, ControlProposalReceiptSignRequestBody,
     EventFederationSubmission, EventInitialSubmission, EventsSubmitBatchRequestBody,
     validate_anchor_unit_lease_bindings,

@@ -424,21 +424,47 @@ mod tests {
             "updated_at": "2026-07-27T00:00:00.000Z",
             "expires_at": "2026-07-27T00:15:00.000Z"
         });
+        let scope_ref = json!({
+            "kind": "realm",
+            "realm_id": "ak:realm:01964137-0000-7000-8000-000000000088"
+        });
         if identity_model == "cross_signing" {
             value["ssk_generation"] = json!(7);
+            let authority_set_policy = json!({
+                "schema": "ak.schema.authority_set_policy.v1",
+                "authority_set_id": "ak.authority_set.recovery_cross_signing.v1",
+                "policy_kind": "principal_control",
+                "scope_ref": scope_ref,
+                "source": {
+                    "source_kind": "cross_signing_publish",
+                    "source_ref": "ak:cross_signing_publish:7",
+                    "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                    "generation_ref": "7"
+                },
+                "authorization_rules": [{
+                    "rule_id": "cross_signing",
+                    "issuer_role": "cross_signing_self_signing",
+                    "allowed_actions": [
+                        "ak.device.authorize",
+                        "ak.device.list_update"
+                    ],
+                    "issuers": [{
+                        "verification_method": "did:web:alice.example#self-signing-7"
+                    }],
+                    "threshold": 1
+                }]
+            });
+            let authority_set_digest =
+                arkret_canonical::canonical_sha256(&authority_set_policy).unwrap();
             value["publication_authority_context"] = json!({
                 "identity_model": "cross_signing",
-                "issuer_key_role": "self_signing",
                 "basis_ref": "ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "scope_ref": {
-                    "kind": "realm",
-                    "realm_id": "ak:realm:01964137-0000-7000-8000-000000000088"
-                },
+                "scope_ref": scope_ref,
                 "authority_set_ref": {
-                    "authority_set_id": "ak.authority_set.recovery.cross_signing.v1",
-                    "authority_set_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    "authority_set_id": "ak.authority_set.recovery_cross_signing.v1",
+                    "authority_set_digest": authority_set_digest
                 },
-                "verification_method": "did:web:alice.example#self-signing-7",
+                "authority_set_policy": authority_set_policy,
                 "allowed_actions": [
                     "ak.device.authorize",
                     "ak.device.list_update"
@@ -450,19 +476,38 @@ mod tests {
             value["registry_head"] =
                 json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
             value["accepted_seal_frontier"] = json!(null);
+            let authority_set_policy = json!({
+                "schema": "ak.schema.authority_set_policy.v1",
+                "authority_set_id": "ak.authority_set.recovery_identity_reanchor.v1",
+                "policy_kind": "principal_control",
+                "scope_ref": scope_ref,
+                "source": {
+                    "source_kind": "recovery_policy",
+                    "source_ref": "ak:policy:01964137-0000-7000-8000-000000000077",
+                    "source_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                    "generation_ref": "1"
+                },
+                "authorization_rules": [{
+                    "rule_id": "recovery_unlock",
+                    "issuer_role": "identity_recovery",
+                    "allowed_actions": ["ak.device.reanchor"],
+                    "issuers": [{
+                        "verification_method": "did:web:alice.example#identity-recovery-12"
+                    }],
+                    "threshold": 1
+                }]
+            });
+            let authority_set_digest =
+                arkret_canonical::canonical_sha256(&authority_set_policy).unwrap();
             value["publication_authority_context"] = json!({
                 "identity_model": "enrollment_authority",
-                "issuer_key_role": "identity_recovery",
                 "basis_ref": "ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "scope_ref": {
-                    "kind": "realm",
-                    "realm_id": "ak:realm:01964137-0000-7000-8000-000000000088"
-                },
+                "scope_ref": scope_ref,
                 "authority_set_ref": {
-                    "authority_set_id": "ak.authority_set.recovery.enrollment_authority.v1",
-                    "authority_set_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    "authority_set_id": "ak.authority_set.recovery_identity_reanchor.v1",
+                    "authority_set_digest": authority_set_digest
                 },
-                "verification_method": "did:web:alice.example#identity-recovery-12",
+                "authority_set_policy": authority_set_policy,
                 "allowed_actions": ["ak.device.reanchor"]
             });
         }
