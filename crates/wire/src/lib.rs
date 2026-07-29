@@ -24,6 +24,7 @@ pub mod serde_helpers {
 }
 
 pub mod applet_revoke_mode;
+pub mod authorization_lease_issuance_fixture;
 pub mod bottom;
 pub mod cba;
 pub mod cba_proof_bundle;
@@ -63,6 +64,9 @@ pub mod wire_strings;
 
 pub use applet_revoke_mode::AppletRevokeMode;
 pub use arkret_identifiers::*;
+pub use authorization_lease_issuance_fixture::{
+    AuthorizationLeaseIssuanceProjection, run_authorization_lease_issuance_fixture,
+};
 pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
 pub use cba::{
     LatticeOp, LatticeOpType, ObservedRemoveMatch, Precondition, Predicate, PredicateOp,
