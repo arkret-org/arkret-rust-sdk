@@ -16,6 +16,7 @@ use crate::event_envelope::{Event, EventSubmitContext};
 use crate::offline_publication::{
     AnchorUnitLeaseBasis, AuthorizationLease, IngressReceipt, LeaseBasisRef,
 };
+use crate::{RiskTier, ScopeRef};
 
 pub const MAX_SUBMISSION_CBA_BUNDLES: usize = 64;
 
@@ -33,11 +34,25 @@ pub struct EventsSubmitBatchRequestBody {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorizationLeaseIssueRequest {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(
         feature = "openapi",
         salvo(schema(value_type = Vec<serde_json::Value>))
     )]
     pub events: Vec<Event>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub intents: Vec<AuthorizationLeaseIssueIntent>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorizationLeaseIssueIntent {
+    pub scope_ref: ScopeRef,
+    pub action: String,
+    pub authorization_rule_id: String,
+    pub risk_tier: RiskTier,
+    pub basis_ref: LeaseBasisRef,
 }
 
 /// One authority-issued lease per requested Event, preserving request order.

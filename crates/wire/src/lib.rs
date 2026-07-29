@@ -88,8 +88,9 @@ pub use error_codes::*;
 pub use event_envelope::*;
 pub use event_receipt::*;
 pub use event_submission::{
-    AuthorizationLeaseIssueOutcome, AuthorizationLeaseIssueRequest, EventFederationSubmission,
-    EventInitialSubmission, EventsSubmitBatchRequestBody, validate_anchor_unit_lease_bindings,
+    AuthorizationLeaseIssueIntent, AuthorizationLeaseIssueOutcome, AuthorizationLeaseIssueRequest,
+    EventFederationSubmission, EventInitialSubmission, EventsSubmitBatchRequestBody,
+    validate_anchor_unit_lease_bindings,
 };
 pub use events::*;
 pub use extension_manifest::{
@@ -143,15 +144,18 @@ pub use seal::{
 };
 pub use security_transaction::{
     AcceptedStep, BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupRotationPlan,
-    CLIENT_STEP_ATTESTATION_SIGNED_FIELDS, ClientStepAttestation, ClientStepAttestationAuthData,
-    CrossSigningRecoveryBinding, CrossSigningRecoveryPlan, EnrollmentAuthorityRecoveryBinding,
-    EnrollmentAuthorityRecoveryPlan, PreparedDidPublication, PreparedEventUnit, RecoveryBinding,
-    RecoveryIdentityModel, RecoveryPreparedPlan, RecoveryTransactionCreateRequest,
-    SecurityRotationBinding, SecurityRotationPlan, SecurityRotationTransactionCreateRequest,
-    SecurityTransaction, SecurityTransactionBinding, SecurityTransactionContinueRequest,
+    CLIENT_STEP_ATTESTATION_SIGNED_FIELDS, CROSS_SIGNING_RECOVERY_STEP_ORDER,
+    ClientStepAttestation, ClientStepAttestationAuthData, CrossSigningRecoveryBinding,
+    CrossSigningRecoveryPlan, ENROLLMENT_AUTHORITY_RECOVERY_STEP_ORDER,
+    EnrollmentAuthorityRecoveryBinding, EnrollmentAuthorityRecoveryPlan, PreparedDidPublication,
+    PreparedEventUnit, RecoveryBinding, RecoveryIdentityModel, RecoveryPreparedPlan,
+    RecoveryTransactionCreateRequest, SECURITY_ROTATION_STEP_ORDER, SecurityRotationBinding,
+    SecurityRotationPlan, SecurityRotationTransactionCreateRequest, SecurityTransaction,
+    SecurityTransactionBinding, SecurityTransactionContinueRequest,
     SecurityTransactionCreateRequest, SecurityTransactionKind, SecurityTransactionPreparedPlan,
     SecurityTransactionResultKind, SecurityTransactionState, SecurityTransactionStep,
-    SecurityTransactionTerminalResult,
+    SecurityTransactionTerminalResult, security_rotation_erase_confirmation_digest,
+    security_rotation_local_commit_digest,
 };
 pub use self_contact_paths::*;
 pub use service_kind::{EvaluationClass, ServiceKind};

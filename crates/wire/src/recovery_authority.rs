@@ -85,6 +85,16 @@ pub struct CanonicalPublicMaterial {
 }
 
 impl CanonicalPublicMaterial {
+    pub fn canonical_json(value: Value) -> Result<Self> {
+        let bytes = arkret_canonical::canonical::canonical_json_bytes(&value)?;
+        Ok(Self {
+            canonical_encoding: CanonicalEncoding::CanonicalJson,
+            canonical_bytes_base64url: arkret_canonical::base64url::base64url_encode(&bytes),
+            digest: Hash::new(arkret_canonical::canonical::sha256_digest(&bytes))?,
+            value,
+        })
+    }
+
     pub fn validate_structural(&self) -> Result<()> {
         let bytes = arkret_canonical::base64url::base64url_decode(&self.canonical_bytes_base64url)?;
         arkret_canonical::canonical::verify_digest(&bytes, self.digest.as_str())?;

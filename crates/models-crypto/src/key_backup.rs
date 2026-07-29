@@ -291,6 +291,16 @@ fn validate_rotation_bindings(series: &[BackupRotationBinding]) -> Result<()> {
 impl BackupSeriesEraseRequestBody {
     pub fn validate_structural(&self) -> Result<()> {
         validate_rotation_bindings(&self.series)?;
+        if self.erase_confirmation_digest
+            != arkret_wire::security_rotation_erase_confirmation_digest(
+                &self.transaction_id,
+                &self.series,
+            )?
+        {
+            return Err(Error::Protocol(
+                "backup-series erase confirmation digest changed its fixed projection".to_owned(),
+            ));
+        }
         self.authorization_lease.validate_structural()?;
         if self.authorization_lease.action != "ak.keys.backup_series.erase" {
             return Err(Error::Protocol(
@@ -437,8 +447,12 @@ impl BackupSeriesEraseOutcome {
                         .to_owned(),
                 ));
             }
-            let digest = arkret_canonical::canonical::canonical_sha256(confirmation)?;
-            if request.erase_confirmation_digest.as_str() != digest {
+            if request.erase_confirmation_digest
+                != arkret_wire::security_rotation_erase_confirmation_digest(
+                    &confirmation.transaction_id,
+                    &confirmation.series,
+                )?
+            {
                 return Err(Error::Protocol(
                     "backup-series erase confirmation does not match its reserved digest"
                         .to_owned(),

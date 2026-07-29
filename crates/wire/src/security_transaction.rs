@@ -262,6 +262,21 @@ pub struct PreparedEventUnit {
     pub request_digest: Hash,
 }
 
+impl PreparedEventUnit {
+    pub fn new(destination_service_id: Did, request: Value) -> Result<Self> {
+        let bytes = arkret_canonical::canonical::canonical_json_bytes(&request)?;
+        Ok(Self {
+            operation_id: "ak.self.events.command.submit".to_owned(),
+            audience: destination_service_id.clone(),
+            destination_service_id,
+            request_schema: "https://arkret.org/v1/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitBatchRequestBody".to_owned(),
+            canonical_request_base64url: arkret_canonical::base64url::base64url_encode(&bytes),
+            request_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&bytes))?,
+            request,
+        })
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -274,6 +289,17 @@ pub struct PreparedEventSubmissionBatch {
 }
 
 impl PreparedEventSubmissionBatch {
+    pub fn new(destination_service_id: Did, request: EventsSubmitBatchRequestBody) -> Result<Self> {
+        let bytes = arkret_canonical::canonical::canonical_json_bytes(&request)?;
+        Ok(Self {
+            audience: destination_service_id.clone(),
+            destination_service_id,
+            request,
+            canonical_request_base64url: arkret_canonical::base64url::base64url_encode(&bytes),
+            request_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&bytes))?,
+        })
+    }
+
     fn validate_structural(&self, coordinator_service_id: &Did) -> Result<()> {
         if &self.destination_service_id != coordinator_service_id
             || self.audience != self.destination_service_id
@@ -493,6 +519,183 @@ pub struct SecurityRotationTransactionCreateRequest {
 pub enum SecurityTransactionCreateRequest {
     Recovery(RecoveryTransactionCreateRequest),
     SecurityRotation(SecurityRotationTransactionCreateRequest),
+}
+
+impl RecoveryTransactionCreateRequest {
+    pub fn new(
+        transaction_id: TransactionId,
+        principal_id: Did,
+        expires_at: DateTime<Utc>,
+        binding: RecoveryBinding,
+        prepared_plan: RecoveryPreparedPlan,
+    ) -> Result<Self> {
+        binding.validate_discriminator()?;
+        prepared_plan.validate_discriminator()?;
+        if binding.identity_model() != prepared_plan.identity_model() {
+            return Err(Error::Protocol(
+                "recovery binding and prepared plan identity models disagree".to_owned(),
+            ));
+        }
+        let prepared_plan_digest = Hash::new(arkret_canonical::canonical::canonical_sha256(
+            &SecurityTransactionPreparedPlan::Recovery(prepared_plan.clone()),
+        )?)?;
+        Ok(Self {
+            transaction_id,
+            kind: SecurityTransactionKind::Recovery,
+            principal_id,
+            expires_at,
+            binding,
+            prepared_plan,
+            prepared_plan_digest,
+        })
+    }
+}
+
+impl SecurityRotationTransactionCreateRequest {
+    pub fn from_prepared_rotations(
+        transaction_id: TransactionId,
+        principal_id: Did,
+        expires_at: DateTime<Utc>,
+        revoke_event_id: EventId,
+        revoke_unit: PreparedEventUnit,
+        new_secret_commitment: Hash,
+        backup_rotations: Vec<BackupRotationPlan>,
+    ) -> Result<Self> {
+        let bindings = backup_rotations
+            .iter()
+            .map(|rotation| rotation.binding.clone())
+            .collect::<Vec<_>>();
+        let erase_confirmation_digest =
+            security_rotation_erase_confirmation_digest(&transaction_id, &bindings)?;
+        let local_commit_digest = security_rotation_local_commit_digest(
+            &transaction_id,
+            &new_secret_commitment,
+            &bindings,
+        )?;
+        Self::new(
+            transaction_id,
+            principal_id,
+            expires_at,
+            SecurityRotationBinding {
+                revoke_event_id,
+                new_secret_commitment: new_secret_commitment.clone(),
+                backup_rotations: bindings,
+                erase_confirmation_digest: erase_confirmation_digest.clone(),
+                local_commit_digest: local_commit_digest.clone(),
+            },
+            SecurityRotationPlan {
+                revoke_unit,
+                new_secret_commitment,
+                backup_rotations,
+                erase_confirmation_digest,
+                local_commit_digest,
+            },
+        )
+    }
+
+    pub fn new(
+        transaction_id: TransactionId,
+        principal_id: Did,
+        expires_at: DateTime<Utc>,
+        binding: SecurityRotationBinding,
+        prepared_plan: SecurityRotationPlan,
+    ) -> Result<Self> {
+        validate_security_rotation_fixed_shape(&binding, &prepared_plan)?;
+        if binding.erase_confirmation_digest
+            != security_rotation_erase_confirmation_digest(
+                &transaction_id,
+                &binding.backup_rotations,
+            )?
+            || binding.local_commit_digest
+                != security_rotation_local_commit_digest(
+                    &transaction_id,
+                    &binding.new_secret_commitment,
+                    &binding.backup_rotations,
+                )?
+        {
+            return Err(Error::Protocol(
+                "security-rotation reserved outcome digests do not match their non-circular projections"
+                    .to_owned(),
+            ));
+        }
+        let prepared_plan_digest = Hash::new(arkret_canonical::canonical::canonical_sha256(
+            &SecurityTransactionPreparedPlan::SecurityRotation(prepared_plan.clone()),
+        )?)?;
+        Ok(Self {
+            transaction_id,
+            kind: SecurityTransactionKind::SecurityRotation,
+            principal_id,
+            expires_at,
+            binding,
+            prepared_plan,
+            prepared_plan_digest,
+        })
+    }
+}
+
+pub fn security_rotation_erase_confirmation_digest(
+    transaction_id: &TransactionId,
+    backup_rotations: &[BackupRotationBinding],
+) -> Result<Hash> {
+    Ok(Hash::new(arkret_canonical::canonical::canonical_sha256(
+        &serde_json::json!({
+            "domain": "ak.backup_series_erase_confirmation_preimage.v1",
+            "transaction_id": transaction_id,
+            "series": backup_rotations,
+        }),
+    )?)?)
+}
+
+pub fn security_rotation_local_commit_digest(
+    transaction_id: &TransactionId,
+    new_secret_commitment: &Hash,
+    backup_rotations: &[BackupRotationBinding],
+) -> Result<Hash> {
+    Ok(Hash::new(arkret_canonical::canonical::canonical_sha256(
+        &serde_json::json!({
+            "domain": "ak.security_rotation_local_commit_preimage.v1",
+            "transaction_id": transaction_id,
+            "new_secret_commitment": new_secret_commitment,
+            "backup_rotations": backup_rotations,
+        }),
+    )?)?)
+}
+
+fn validate_security_rotation_fixed_shape(
+    binding: &SecurityRotationBinding,
+    plan: &SecurityRotationPlan,
+) -> Result<()> {
+    if binding.new_secret_commitment != plan.new_secret_commitment
+        || binding.backup_rotations.len() != 2
+        || plan.backup_rotations.len() != 2
+        || binding.erase_confirmation_digest != plan.erase_confirmation_digest
+        || binding.local_commit_digest != plan.local_commit_digest
+    {
+        return Err(Error::Protocol(
+            "security-rotation binding and prepared plan artifacts disagree".to_owned(),
+        ));
+    }
+    for (index, expected_kind) in [
+        BackupRotationKind::SecretStorage,
+        BackupRotationKind::MlsHistory,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let rotation = &binding.backup_rotations[index];
+        if rotation.backup_kind != expected_kind
+            || plan.backup_rotations[index].binding != *rotation
+            || rotation.previous_series_id == rotation.new_series_id
+            || rotation.new_backups.is_empty()
+            || rotation.old_backups.is_empty()
+        {
+            return Err(Error::Protocol(
+                "security-rotation requires exact secret_storage and mls_history rotations"
+                    .to_owned(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 impl SecurityTransactionCreateRequest {
@@ -856,9 +1059,18 @@ impl SecurityTransaction {
                                 .to_owned(),
                         ));
                     }
-                    if outcome.receipt_id.is_none() {
+                    if self.kind == SecurityTransactionKind::Recovery
+                        && outcome.receipt_id.is_none()
+                    {
                         return Err(Error::Protocol(
-                            "completed security transaction must carry a receipt_id".to_owned(),
+                            "completed recovery transaction must carry a receipt_id".to_owned(),
+                        ));
+                    }
+                    if self.kind == SecurityTransactionKind::SecurityRotation
+                        && outcome.receipt_id.is_some()
+                    {
+                        return Err(Error::Protocol(
+                            "completed security rotation must not invent a receipt_id".to_owned(),
                         ));
                     }
                     SecurityTransactionResultKind::Completed
@@ -1076,6 +1288,23 @@ impl SecurityTransaction {
     ) -> Result<()> {
         plan.revoke_unit
             .validate_structural(&self.coordinator_service_id)?;
+        if binding.erase_confirmation_digest
+            != security_rotation_erase_confirmation_digest(
+                &self.transaction_id,
+                &binding.backup_rotations,
+            )?
+            || binding.local_commit_digest
+                != security_rotation_local_commit_digest(
+                    &self.transaction_id,
+                    &binding.new_secret_commitment,
+                    &binding.backup_rotations,
+                )?
+        {
+            return Err(Error::Protocol(
+                "security-rotation reserved outcome digests do not match their non-circular projections"
+                    .to_owned(),
+            ));
+        }
         if binding.new_secret_commitment != plan.new_secret_commitment
             || binding.backup_rotations.len() != 2
             || plan.backup_rotations.len() != 2
@@ -1306,6 +1535,14 @@ mod tests {
             backup_binding(BackupRotationKind::SecretStorage, 1),
             backup_binding(BackupRotationKind::MlsHistory, 2),
         ];
+        let transaction_id =
+            TransactionId::new("ak:transaction:01904100-0000-7000-8000-abcdefabcdef").unwrap();
+        let erase_confirmation_digest =
+            security_rotation_erase_confirmation_digest(&transaction_id, &backup_rotations)
+                .unwrap();
+        let local_commit_digest =
+            security_rotation_local_commit_digest(&transaction_id, &hash('e'), &backup_rotations)
+                .unwrap();
         let plan = SecurityRotationPlan {
             revoke_unit: event_unit(&coordinator_service_id),
             new_secret_commitment: hash('e'),
@@ -1318,8 +1555,8 @@ mod tests {
                     active_series_unit: event_unit(&coordinator_service_id),
                 })
                 .collect(),
-            erase_confirmation_digest: hash('2'),
-            local_commit_digest: hash('3'),
+            erase_confirmation_digest: erase_confirmation_digest.clone(),
+            local_commit_digest: local_commit_digest.clone(),
         };
         let accepted_steps = SECURITY_ROTATION_STEP_ORDER
             .iter()
@@ -1339,10 +1576,7 @@ mod tests {
             Hash::new(arkret_canonical::canonical::canonical_sha256(&prepared_plan).unwrap())
                 .unwrap();
         SecurityTransaction {
-            transaction_id: TransactionId::new(
-                "ak:transaction:01904100-0000-7000-8000-abcdefabcdef",
-            )
-            .unwrap(),
+            transaction_id,
             kind: SecurityTransactionKind::SecurityRotation,
             principal_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             coordinator_service_id,
@@ -1354,8 +1588,8 @@ mod tests {
                     .unwrap(),
                 new_secret_commitment: hash('e'),
                 backup_rotations,
-                erase_confirmation_digest: hash('2'),
-                local_commit_digest: hash('3'),
+                erase_confirmation_digest,
+                local_commit_digest,
             }),
             prepared_plan,
             prepared_plan_digest,
@@ -1378,9 +1612,7 @@ mod tests {
                         _ => unreachable!(),
                     },
                     completed_at: created_at + Duration::hours(1),
-                    receipt_id: Some(
-                        ReceiptId::new("ak:receipt:01904100-0000-7000-8000-a0086f45c579").unwrap(),
-                    ),
+                    receipt_id: None,
                     reason_code: None,
                     completion_attestation: None,
                 }),
@@ -1434,6 +1666,66 @@ mod tests {
     }
 
     #[test]
+    fn rotation_create_constructor_fixes_kind_and_plan_digest() {
+        let resource = rotation(0, SecurityTransactionState::Pending);
+        let SecurityTransactionBinding::SecurityRotation(binding) = resource.binding.clone() else {
+            panic!("rotation fixture binding");
+        };
+        let SecurityTransactionPreparedPlan::SecurityRotation(plan) =
+            resource.prepared_plan.clone()
+        else {
+            panic!("rotation fixture plan");
+        };
+        let request = SecurityRotationTransactionCreateRequest::from_prepared_rotations(
+            resource.transaction_id,
+            resource.principal_id,
+            resource.expires_at,
+            binding.revoke_event_id,
+            plan.revoke_unit,
+            binding.new_secret_commitment,
+            plan.backup_rotations,
+        )
+        .unwrap();
+        assert_eq!(request.kind, SecurityTransactionKind::SecurityRotation);
+        assert_eq!(
+            request.prepared_plan_digest,
+            Hash::new(
+                arkret_canonical::canonical::canonical_sha256(
+                    &SecurityTransactionPreparedPlan::SecurityRotation(
+                        request.prepared_plan.clone()
+                    )
+                )
+                .unwrap()
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn rotation_create_constructor_rejects_single_backup_compatibility_shape() {
+        let resource = rotation(0, SecurityTransactionState::Pending);
+        let SecurityTransactionBinding::SecurityRotation(mut binding) = resource.binding else {
+            panic!("rotation fixture binding");
+        };
+        let SecurityTransactionPreparedPlan::SecurityRotation(mut plan) = resource.prepared_plan
+        else {
+            panic!("rotation fixture plan");
+        };
+        binding.backup_rotations.pop();
+        plan.backup_rotations.pop();
+        assert!(
+            SecurityRotationTransactionCreateRequest::new(
+                resource.transaction_id,
+                resource.principal_id,
+                resource.expires_at,
+                binding,
+                plan,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn continue_binds_request_plan_and_requires_terminal_attestation() {
         let resource = rotation(4, SecurityTransactionState::AwaitingDeviceAttestation);
         let missing: SecurityTransactionContinueRequest<Value> =
@@ -1455,7 +1747,12 @@ mod tests {
             expected_next_step: SecurityTransactionStep::LocalCommit,
             client_attestation: Some(ClientStepAttestation {
                 step: SecurityTransactionStep::LocalCommit,
-                output_ref: hash('3').as_str().to_owned(),
+                output_ref: match &resource.binding {
+                    SecurityTransactionBinding::SecurityRotation(binding) => {
+                        binding.local_commit_digest.as_str().to_owned()
+                    }
+                    _ => unreachable!(),
+                },
                 transaction_id: resource.transaction_id.clone(),
                 transaction_request_digest: hash('b'),
                 prepared_plan_digest: resource.prepared_plan_digest.clone(),

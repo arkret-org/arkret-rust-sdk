@@ -129,6 +129,26 @@ impl EventsSubscribeFrameStream {
 }
 
 impl Client {
+    pub async fn issue_authorization_leases(
+        &self,
+        request: &arkret_wire::AuthorizationLeaseIssueRequest,
+        options: &ClientRequestOptions,
+    ) -> Result<arkret_wire::AuthorizationLeaseIssueOutcome> {
+        let outcome: arkret_wire::AuthorizationLeaseIssueOutcome = self
+            .post_with_options("/_arkret/self/authorization-leases", request, options)
+            .await?;
+        let expected = request.events.len() + request.intents.len();
+        if expected == 0 || outcome.authorization_leases.len() != expected {
+            return Err(Error::Protocol(
+                "authorization lease outcome cardinality changed".to_owned(),
+            ));
+        }
+        for lease in &outcome.authorization_leases {
+            lease.validate_structural()?;
+        }
+        Ok(outcome)
+    }
+
     pub async fn issue_control_proposal_receipt(
         &self,
         request: &ProposalReceiptIssueRequest,
