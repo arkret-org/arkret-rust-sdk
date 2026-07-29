@@ -11,8 +11,8 @@ use serde_json::Value;
 
 use crate::error::{Error, Result};
 use crate::{
-    AuthorizationLease, CbaProofBundle, Event, EventSubmitContext, Hash, PayloadSignature, RealmId,
-    canonical,
+    AuthorizationLease, CbaProofBundle, Did, Event, EventSubmitContext, Hash, PayloadSignature,
+    RealmId, canonical,
 };
 
 pub const MAX_PROPOSAL_DECISION_WINDOW: Duration = Duration::hours(24);
@@ -20,6 +20,7 @@ pub const MAX_PROPOSAL_ABSOLUTE_HORIZON: Duration = Duration::hours(72);
 pub const MAX_PROPOSAL_RECEIPT_SLA: Duration = Duration::hours(24);
 pub const MAX_PROPOSAL_DEFERS: u8 = 2;
 pub const MAX_PROPOSAL_AUTHORITY_PROOFS: usize = 32;
+pub const MAX_PROPOSAL_RECEIPT_MEMBERS: usize = MAX_PROPOSAL_AUTHORITY_PROOFS;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -232,6 +233,19 @@ fn validate_signature(
     Ok(())
 }
 
+fn signer_controller(signature: &PayloadSignature) -> Result<&str> {
+    let controller = signature
+        .verification_method
+        .split_once('#')
+        .map(|(controller, _)| controller)
+        .filter(|controller| !controller.is_empty())
+        .ok_or_else(|| {
+            Error::Protocol("control proposal verification_method must be a DID URL".to_owned())
+        })?;
+    Did::new(controller)?;
+    Ok(controller)
+}
+
 fn validate_proofs(
     proofs: &[PayloadSignature],
     expected_digest: &Hash,
@@ -243,6 +257,7 @@ fn validate_proofs(
         )));
     }
     let mut previous_method: Option<&str> = None;
+    let mut controllers = std::collections::BTreeSet::new();
     for proof in proofs {
         if previous_method.is_some_and(|previous| previous >= proof.verification_method.as_str()) {
             return Err(Error::Protocol(
@@ -251,6 +266,11 @@ fn validate_proofs(
             ));
         }
         validate_signature(proof, expected_digest, expected_created_at)?;
+        if !controllers.insert(signer_controller(proof)?) {
+            return Err(Error::Protocol(
+                "control proposal proofs contain a duplicate authority member".to_owned(),
+            ));
+        }
         previous_method = Some(proof.verification_method.as_str());
     }
     Ok(())
@@ -310,6 +330,10 @@ impl ProposalMemberReceipt {
         digest_without_field(self, "signature")
     }
 
+    pub fn member_digest(&self) -> Result<Hash> {
+        self.member_receipt_digest()
+    }
+
     pub fn validate_structural(&self, policy: ControlProposalDecisionPolicy) -> Result<()> {
         policy.validate()?;
         self.validate_protocol_bounds()?;
@@ -352,6 +376,54 @@ impl ProposalMemberReceipt {
 }
 
 impl ControlProposalReceipt {
+    pub fn from_member_receipts(
+        mut member_receipts: Vec<ProposalMemberReceipt>,
+        policy: ControlProposalDecisionPolicy,
+    ) -> Result<Self> {
+        if member_receipts.is_empty() {
+            return Err(Error::Protocol(
+                "proposal receipt requires at least one member receipt".to_owned(),
+            ));
+        }
+        member_receipts.sort_by(|left, right| {
+            left.signature
+                .verification_method
+                .cmp(&right.signature.verification_method)
+        });
+        let first = &member_receipts[0];
+        let realm_id = first.realm_id.clone();
+        let proposal_digest = first.proposal_digest.clone();
+        let authority_set_ref = first.authority_set_ref.clone();
+        let received_at = member_receipts
+            .iter()
+            .map(|member| member.received_at)
+            .max()
+            .expect("non-empty member receipts");
+        let decision_due_at = member_receipts
+            .iter()
+            .map(|member| member.decision_due_at)
+            .min()
+            .expect("non-empty member receipts");
+        let absolute_due_at = member_receipts
+            .iter()
+            .map(|member| member.absolute_due_at)
+            .min()
+            .expect("non-empty member receipts");
+        let receipt = Self {
+            kind: ControlProposalReceiptKind::ProposalReceipt,
+            realm_id,
+            proposal_digest,
+            received_at,
+            decision_due_at,
+            absolute_due_at,
+            defer_count: 0,
+            authority_set_ref,
+            member_receipts,
+        };
+        receipt.validate_structural(policy)?;
+        Ok(receipt)
+    }
+
     pub fn receipt_digest(&self) -> Result<Hash> {
         Ok(Hash::new(canonical::sha256_digest(
             &canonical::canonical_json_bytes(self)?,
@@ -445,6 +517,37 @@ impl ControlProposalReceipt {
                 member.validate_protocol_bounds()?;
             }
             previous_method = Some(member.signature.verification_method.as_str());
+        }
+        Ok(())
+    }
+
+    pub fn validate_authority_quorum(
+        &self,
+        authority_members: &[Did],
+        threshold: usize,
+    ) -> Result<()> {
+        let authority_member_set = authority_members
+            .iter()
+            .map(Did::as_str)
+            .collect::<std::collections::BTreeSet<_>>();
+        if threshold == 0
+            || threshold > authority_member_set.len()
+            || authority_member_set.len() != authority_members.len()
+        {
+            return Err(Error::Protocol(
+                "control proposal authority set or threshold is invalid".to_owned(),
+            ));
+        }
+        let valid_signers = self
+            .member_receipts
+            .iter()
+            .map(|member| signer_controller(&member.signature))
+            .collect::<Result<std::collections::BTreeSet<_>>>()?;
+        if !valid_signers.is_subset(&authority_member_set) || valid_signers.len() < threshold {
+            return Err(Error::Protocol(
+                "control proposal member receipts do not satisfy authority membership and quorum"
+                    .to_owned(),
+            ));
         }
         Ok(())
     }

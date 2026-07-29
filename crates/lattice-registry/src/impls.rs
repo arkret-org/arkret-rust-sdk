@@ -1297,6 +1297,16 @@ per_subject_lattice!(
 
 // ── Realm CasRegister/Reject singleton families ──
 
+per_subject_lattice!(
+    PolicyDefinition,
+    "ak.component.policy.definition.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    "policy_id",
+    &["ak.policy.set"]
+);
+
 singleton_lattice!(
     RealmPolicy,
     "ak.component.realm.policy.v1",

@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_collaboration::agent_operations::AgentProvisionEvents;
+use arkret_models_collaboration::event_sync::RealmSealFrontierView;
 use arkret_models_collaboration::events_payloads::RealmCreatePayload;
 use arkret_models_collaboration::events_payloads::device_identity::{
     DeviceAuthorizePayload, DeviceOrPrincipalRef,
@@ -453,6 +454,124 @@ pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
         availability_root: None,
         coverage_scope: None,
         covered_event_digests: delta,
+        previous_state_root: None,
+        previous_digest_algorithm: None,
+        notary_signature: NotarySig::Single(PayloadSignature {
+            alg: "EdDSA".to_owned(),
+            verification_method: signer.verification_method_id().to_owned(),
+            payload_digest: zero_hash,
+            created_at: sealed_at,
+            jws: String::new(),
+        }),
+        sealed_at,
+        hlc,
+        kind: SealKind::Normal,
+    };
+    let canonical_bytes = seal.canonical_bytes_for_id()?;
+    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes)?;
+    seal.notary_signature = NotarySig::Single(signer.sign_payload(&canonical_bytes)?);
+    seal.validate_structural()?;
+    seal.validate_id()?;
+    Ok(seal)
+}
+
+/// Build the first device-signed successor Seal for a self principal-control
+/// Realm after its closed two-Event bootstrap unit.
+///
+/// The first recovery-policy `ak.policy.set` is the only persistent write
+/// allowed before the first-backup gate is satisfied, so its predecessor must
+/// be the exact bootstrap Seal and its notary sequence is necessarily one.
+/// The caller supplies the registered projector so the post-state root is
+/// byte-identical to receiver replay.
+pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
+    create: &Event,
+    authorize: &Event,
+    successor: &Event,
+    predecessor: &RealmSealFrontierView,
+    hlc: Hlc,
+    signer: &S,
+    project: CellWriteProjector<'_>,
+) -> Result<Seal> {
+    validate_self_principal_bootstrap_unit(create, authorize, project)?;
+    if successor.realm_id != create.realm_id
+        || successor.actor_id != create.actor_id
+        || successor.actor_seq != 2
+        || successor.prev_refs != vec![authorize.event_id.clone()]
+        || successor.kind != EventKind::POLICY_SET
+    {
+        return Err(Error::Protocol(
+            "self principal first successor must be the actor_seq=2 recovery policy Event"
+                .to_owned(),
+        ));
+    }
+    if signer.signer_did() != &create.actor_id {
+        return Err(Error::Protocol(
+            "self principal successor Seal signer DID must equal the principal DID".to_owned(),
+        ));
+    }
+
+    let create_digest = Hash::new(create.event_digest()?)?;
+    let authorize_digest = Hash::new(authorize.event_digest()?)?;
+    let successor_digest = Hash::new(successor.event_digest()?)?;
+    let bootstrap_covered = [create_digest.clone(), authorize_digest.clone()]
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    let bootstrap_control_root = control_event_set_root(&bootstrap_covered)
+        .map_err(|error| Error::Protocol(format!("bootstrap Seal coverage root: {error}")))?;
+    let bootstrap_state_root = self_principal_bootstrap_state_root(create, authorize, project)?;
+    if predecessor.realm_id != create.realm_id
+        || predecessor.control_event_set_root != bootstrap_control_root
+        || predecessor.state_root != bootstrap_state_root
+    {
+        return Err(Error::Protocol(
+            "self principal first successor predecessor is not the accepted bootstrap Seal"
+                .to_owned(),
+        ));
+    }
+
+    let covered = [create_digest, authorize_digest, successor_digest.clone()]
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    if covered.len() != 3 {
+        return Err(Error::Protocol(
+            "self principal first successor Event digests must be distinct".to_owned(),
+        ));
+    }
+    let state_root = state_root_from_projection(
+        &create.realm_id,
+        &[
+            (create, Hash::new(create.event_digest()?)?),
+            (authorize, Hash::new(authorize.event_digest()?)?),
+            (successor, successor_digest.clone()),
+        ],
+        project,
+    )?;
+    let control_event_set_root = control_event_set_root(&covered).map_err(|error| {
+        Error::Protocol(format!("self principal successor coverage root: {error}"))
+    })?;
+    let events = [create.clone(), authorize.clone(), successor.clone()];
+    let completeness_root = arkret_state::control_event_completeness_root(&events, &covered)
+        .map_err(|error| {
+            Error::Protocol(format!(
+                "self principal successor completeness root: {error}"
+            ))
+        })?;
+    let sealed_at = Utc::now();
+    let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
+    let mut seal = Seal {
+        id: SealId::new(format!("ak:seal:sha256:{}", "00".repeat(32)))?,
+        realm_id: create.realm_id.clone(),
+        predecessor_refs: vec![predecessor.seal_id.clone()],
+        delta: vec![successor_digest],
+        control_event_set_root,
+        state_root,
+        completeness_root,
+        notary_seq: 1,
+        data_view_root: None,
+        data_event_set_root: None,
+        availability_root: None,
+        coverage_scope: None,
+        covered_event_digests: covered.into_iter().collect(),
         previous_state_root: None,
         previous_digest_algorithm: None,
         notary_signature: NotarySig::Single(PayloadSignature {
