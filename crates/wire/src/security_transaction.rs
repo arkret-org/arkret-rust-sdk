@@ -17,7 +17,7 @@ use crate::recovery_authority::{
     RecoveryCompletionAttestation, RecoveryModelGenerationRef,
 };
 use crate::{
-    BackupId, BackupSeriesId, DeviceId, Did, EventId, EventInitialSubmission,
+    BackupId, BackupSeriesId, DeviceId, Did, EventId, EventInitialSubmission, EventSubmitContext,
     EventsSubmitBatchRequestBody, Hash, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId,
     TransactionId,
 };
@@ -342,7 +342,14 @@ impl PreparedDidPublication {
                 "prepared DID registry endpoint is invalid: {error}"
             ))
         })?;
-        if endpoint.scheme() != "https"
+        let loopback_http = endpoint.scheme() == "http"
+            && endpoint.host_str().is_some_and(|host| {
+                host.eq_ignore_ascii_case("localhost")
+                    || host
+                        .parse::<std::net::IpAddr>()
+                        .is_ok_and(|address| address.is_loopback())
+            });
+        if (endpoint.scheme() != "https" && !loopback_http)
             || !endpoint.username().is_empty()
             || endpoint.password().is_some()
             || endpoint.query().is_some()
@@ -350,7 +357,8 @@ impl PreparedDidPublication {
             || endpoint.path() != "/_arkret/root/identity/submit-did-operation"
         {
             return Err(Error::Protocol(
-                "prepared DID registry endpoint must be the exact standard HTTPS submit endpoint"
+                "prepared DID registry endpoint must be the exact standard HTTPS submit endpoint \
+                 (HTTP is allowed only on loopback)"
                     .to_owned(),
             ));
         }
@@ -1335,7 +1343,8 @@ impl SecurityTransaction {
                     &plan.authorization_preimage,
                     &plan.authorization_request_digest,
                 )?;
-                plan.reanchor_event_submission.validate_structural()?;
+                plan.reanchor_event_submission
+                    .validate_structural_in_context(EventSubmitContext::AnchorUnit)?;
                 plan.authorize_event_publication_intent
                     .validate_structural()?;
                 validate_canonical_digest(
@@ -1629,6 +1638,26 @@ mod tests {
 
     fn hash(byte: char) -> Hash {
         Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
+    }
+
+    #[test]
+    fn did_publication_endpoint_allows_only_https_or_loopback_http() {
+        let mut publication = PreparedDidPublication {
+            registry_service_id: Did::new("did:web:registry.example").unwrap(),
+            registry_endpoint: "http://127.0.0.1:3000/_arkret/root/identity/submit-did-operation"
+                .to_owned(),
+            previous_entry_ref: "did:web:alice.example?versionId=1-a".to_owned(),
+            expected_entry_ref: "did:web:alice.example?versionId=2-b".to_owned(),
+            canonical_entry_base64url: "e30".to_owned(),
+            entry_digest: hash('a'),
+        };
+        publication
+            .validate_structural()
+            .expect("loopback development transport");
+
+        publication.registry_endpoint =
+            "http://registry.example/_arkret/root/identity/submit-did-operation".to_owned();
+        assert!(publication.validate_structural().is_err());
     }
 
     fn material(binding: &BackupRotationBinding) -> CanonicalPublicMaterial {
