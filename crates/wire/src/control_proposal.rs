@@ -15,7 +15,7 @@ use crate::error::{Error, Result};
 use crate::notary::NotaryValue;
 use crate::{
     AuthorizationLease, CbaProofBundle, Did, Event, EventSubmitContext, Hash, PayloadSignature,
-    RealmId, canonical,
+    PayloadSigner, RealmId, canonical,
 };
 
 pub const MAX_PROPOSAL_DECISION_WINDOW: Duration = Duration::hours(24);
@@ -320,6 +320,63 @@ impl ControlProposalDecisionPolicy {
 }
 
 impl ProposalMemberReceipt {
+    /// Issue one immutable authority-member receipt with a local Agent,
+    /// device, HSM, or service signer.
+    ///
+    /// The signer signs the same canonical transcript as the HTTP authority
+    /// operation. Only the transport hop is omitted.
+    pub fn issue_with_signer<S: PayloadSigner + ?Sized>(
+        realm_id: RealmId,
+        proposal_digest: Hash,
+        authority_set_ref: Hash,
+        received_at: DateTime<Utc>,
+        policy: ControlProposalDecisionPolicy,
+        signer: &S,
+    ) -> Result<Self> {
+        policy.validate()?;
+        let received_at = canonical::normalize_timestamp_canonical(received_at);
+        let verification_method = signer.verification_method_id().to_owned();
+        let placeholder_digest = Hash::new(format!("sha256:{}", "0".repeat(64)))?;
+        let signer_binding = PayloadSignature {
+            alg: "EdDSA".to_owned(),
+            verification_method: verification_method.clone(),
+            payload_digest: placeholder_digest.clone(),
+            created_at: received_at,
+            jws: String::new(),
+        };
+        if signer_controller(&signer_binding)? != signer.signer_did().as_str() {
+            return Err(Error::Protocol(
+                "proposal member signer DID does not control its verification method".to_owned(),
+            ));
+        }
+        let mut member = Self {
+            realm_id,
+            proposal_digest,
+            received_at,
+            decision_due_at: received_at + policy.decision_window,
+            absolute_due_at: received_at + policy.absolute_horizon,
+            authority_set_ref,
+            signature: PayloadSignature {
+                alg: "EdDSA".to_owned(),
+                verification_method,
+                payload_digest: placeholder_digest,
+                created_at: received_at,
+                jws: String::new(),
+            },
+        };
+        member.signature.payload_digest = member.member_receipt_digest()?;
+        let signed = signer.sign_payload(&member.canonical_bytes_for_signature()?)?;
+        if signed.verification_method != member.signature.verification_method {
+            return Err(Error::Protocol(
+                "proposal member signer changed verification method while signing".to_owned(),
+            ));
+        }
+        member.signature.alg = signed.alg;
+        member.signature.jws = signed.jws;
+        member.validate_structural(policy)?;
+        Ok(member)
+    }
+
     pub fn canonical_bytes_for_signature(&self) -> Result<Vec<u8>> {
         proof_transcript(
             "ak.control-proposal-member-receipt-proof-v1",
@@ -796,6 +853,31 @@ mod tests {
 
     use super::*;
 
+    struct FixtureSigner {
+        did: Did,
+        verification_method: String,
+    }
+
+    impl PayloadSigner for FixtureSigner {
+        fn signer_did(&self) -> &Did {
+            &self.did
+        }
+
+        fn verification_method_id(&self) -> &str {
+            &self.verification_method
+        }
+
+        fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<PayloadSignature> {
+            Ok(PayloadSignature {
+                alg: "EdDSA".to_owned(),
+                verification_method: self.verification_method.clone(),
+                payload_digest: Hash::new(canonical::sha256_digest(canonical_bytes))?,
+                created_at: at(999),
+                jws: "e30..c2ln".to_owned(),
+            })
+        }
+    }
+
     fn at(seconds: i64) -> DateTime<Utc> {
         Utc.timestamp_opt(1_775_000_000 + seconds, 0).unwrap()
     }
@@ -836,6 +918,34 @@ mod tests {
             authority_set_ref: hash('b'),
             member_receipts: vec![member],
         }
+    }
+
+    #[test]
+    fn local_member_receipt_uses_the_canonical_signer_transcript() {
+        let signer = FixtureSigner {
+            did: Did::new("did:webvh:z6mkfixture:authority.example").unwrap(),
+            verification_method: "did:webvh:z6mkfixture:authority.example#device-1".to_owned(),
+        };
+        let member = ProposalMemberReceipt::issue_with_signer(
+            RealmId::new("ak:realm:018f6b1d-7a20-7abc-8def-0123456789ab").unwrap(),
+            hash('a'),
+            hash('b'),
+            at(0),
+            ControlProposalDecisionPolicy::default(),
+            &signer,
+        )
+        .unwrap();
+
+        assert_eq!(member.decision_due_at, at(30));
+        assert_eq!(member.absolute_due_at, at(90));
+        assert_eq!(member.signature.created_at, member.received_at);
+        assert_eq!(
+            member.signature.payload_digest,
+            member.member_receipt_digest().unwrap()
+        );
+        member
+            .validate_structural(ControlProposalDecisionPolicy::default())
+            .unwrap();
     }
 
     fn defer(
