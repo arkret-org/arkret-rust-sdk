@@ -194,7 +194,11 @@ impl Client {
         let builder = self
             .request(Method::GET, "/_arkret/root/identity/receipts")?
             .query(&[("did", did), ("head", head)]);
-        self.send_json(builder).await
+        let outcome: IdentityReceiptListOutcome = self.send_json(builder).await?;
+        for receipt in &outcome.receipts {
+            receipt.validate_proof_binding()?;
+        }
+        Ok(outcome)
     }
 
     pub async fn organization_registration_prepare(
