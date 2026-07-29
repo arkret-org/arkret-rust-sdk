@@ -484,6 +484,96 @@ pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
     Ok(seal)
 }
 
+/// Build and sign the first Seal for an ordinary Realm bootstrap unit.
+///
+/// The unit begins with `ak.realm.create`; every supplied control Event must
+/// share its Realm and actor, and the root Seal covers the complete unit.
+pub fn build_realm_bootstrap_seal<S: PayloadSigner + ?Sized>(
+    events: &[Event],
+    hlc: Hlc,
+    signer: &S,
+    project: CellWriteProjector<'_>,
+) -> Result<Seal> {
+    let first = events
+        .first()
+        .ok_or_else(|| Error::Protocol("Realm bootstrap Seal history is empty".to_owned()))?;
+    if first.kind.as_str() != EventKind::REALM_CREATE {
+        return Err(Error::Protocol(
+            "Realm bootstrap Seal must begin with ak.realm.create".to_owned(),
+        ));
+    }
+    if events.iter().any(|event| {
+        event.realm_id != first.realm_id
+            || event.actor_id != first.actor_id
+            || event.seal_basis.is_some()
+            || event.seal_ref.is_some()
+    }) {
+        return Err(Error::Protocol(
+            "Realm bootstrap Seal Events must be unsealed control Events sharing one Realm and actor"
+                .to_owned(),
+        ));
+    }
+    if signer.signer_did() != &first.actor_id {
+        return Err(Error::Protocol(
+            "Realm bootstrap Seal signer DID must equal the Realm creator".to_owned(),
+        ));
+    }
+    let covered = events
+        .iter()
+        .map(|event| Ok((event, Hash::new(event.event_digest()?)?)))
+        .collect::<Result<Vec<_>>>()?;
+    let target = covered
+        .iter()
+        .map(|(_, digest)| digest.clone())
+        .collect::<BTreeSet<_>>();
+    if target.len() != events.len() {
+        return Err(Error::Protocol(
+            "Realm bootstrap Event digests must be distinct".to_owned(),
+        ));
+    }
+    let state_root = state_root_from_projection(&first.realm_id, &covered, project)?;
+    let control_event_set_root = control_event_set_root(&target)
+        .map_err(|error| Error::Protocol(format!("Realm bootstrap control root: {error}")))?;
+    let completeness_root = arkret_state::control_event_completeness_root(events, &target)
+        .map_err(|error| Error::Protocol(format!("Realm bootstrap completeness root: {error}")))?;
+    let sealed_at = Utc::now();
+    let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
+    let delta = target.iter().cloned().collect::<Vec<_>>();
+    let mut seal = Seal {
+        id: SealId::new(format!("ak:seal:sha256:{}", "00".repeat(32)))?,
+        realm_id: first.realm_id.clone(),
+        predecessor_refs: Vec::new(),
+        delta: delta.clone(),
+        control_event_set_root,
+        state_root,
+        completeness_root,
+        notary_seq: 0,
+        data_view_root: None,
+        data_event_set_root: None,
+        availability_root: None,
+        coverage_scope: None,
+        covered_event_digests: delta,
+        previous_state_root: None,
+        previous_digest_algorithm: None,
+        notary_signature: NotarySig::Single(PayloadSignature {
+            alg: "EdDSA".to_owned(),
+            verification_method: signer.verification_method_id().to_owned(),
+            payload_digest: zero_hash,
+            created_at: sealed_at,
+            jws: String::new(),
+        }),
+        sealed_at,
+        hlc,
+        kind: SealKind::Normal,
+    };
+    let canonical_bytes = seal.canonical_bytes_for_id()?;
+    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes)?;
+    seal.notary_signature = NotarySig::Single(signer.sign_payload(&canonical_bytes)?);
+    seal.validate_structural()?;
+    seal.validate_id()?;
+    Ok(seal)
+}
+
 /// Build the first device-signed successor Seal for a self principal-control
 /// Realm after its closed two-Event bootstrap unit.
 ///
