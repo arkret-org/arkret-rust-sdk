@@ -14,9 +14,9 @@ use serde_json::Value;
 use crate::error::{Error, Result};
 use crate::{
     AuthoritySetPolicy, AuthoritySetRef, AuthorizationLease, CbaProofBundle, DeviceId, Did, Event,
-    EventId, GrantId, Hash, LeaseBasisRef, PolicyId, RECOVERY_ACCOUNT_AUTHORITY_SET_ID, ReceiptId,
-    RecoveryAuthorityTicketId, RecoverySessionId, RiskTier, ScopeRef, TransactionId,
-    TypedTrustDomainId,
+    EventId, EventSubmitContext, GrantId, Hash, LeaseBasisRef, PolicyId,
+    RECOVERY_ACCOUNT_AUTHORITY_SET_ID, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId,
+    RiskTier, ScopeRef, TransactionId, TypedTrustDomainId,
 };
 
 const MAX_RECOVERY_PUBLICATION_CBA_BUNDLES: usize = 64;
@@ -569,7 +569,11 @@ impl AuthorizeRecoveryDeviceOutcome {
                     "authorized recovery Event is not a closed Event: {error}"
                 ))
             })?;
-        event.validate_for_submit_structural()?;
+        // This authority-signed authorize Event is one half of the closed
+        // B-model re-anchor unit. It intentionally has no accepted Seal yet;
+        // the coordinator validates the closed pair and publishes it
+        // atomically.
+        event.validate_for_submit_structural_in_context(EventSubmitContext::AnchorUnit)?;
         if self.ticket_id != request.ticket.ticket_id
             || self.transaction_id != request.ticket.transaction_id
             || self.authorize_event_id != request.ticket.authorize_event_id
