@@ -20,7 +20,9 @@ use arkret_models_crypto::{
 use arkret_models_discovery::ServiceDescribe;
 use arkret_state::SnapshotManifest;
 use arkret_wire::{
-    EventInitialSubmission, Hash, ProposalReceiptIssueOutcome, ProposalReceiptIssueRequest, Seal,
+    AuthorizationLeaseIssueRequest, ControlProposalDecisionPolicy, ControlProposalReceipt, Event,
+    EventInitialSubmission, EventSubmitContext, Hash, ProposalReceiptIssueOutcome,
+    ProposalReceiptIssueRequest, Seal,
 };
 use reqwest::{Method, Response};
 
@@ -131,7 +133,7 @@ impl EventsSubscribeFrameStream {
 impl Client {
     pub async fn issue_authorization_leases(
         &self,
-        request: &arkret_wire::AuthorizationLeaseIssueRequest,
+        request: &AuthorizationLeaseIssueRequest,
         options: &ClientRequestOptions,
     ) -> Result<arkret_wire::AuthorizationLeaseIssueOutcome> {
         request.validate_structural()?;
@@ -140,6 +142,84 @@ impl Client {
             .await?;
         outcome.validate_against_request(request)?;
         Ok(outcome)
+    }
+
+    /// Obtain authority-issued publication evidence for an ordered Event unit.
+    ///
+    /// The signed Events are never rewritten. A complete anchor unit is sent
+    /// in one lease request so the issuer can bind its exact cardinality and
+    /// order. Standard Control Moves additionally obtain the Principal
+    /// Server's canonical proposal member receipt before the wrapper is
+    /// returned.
+    pub async fn prepare_initial_submissions(
+        &self,
+        events: &[Event],
+    ) -> Result<Vec<EventInitialSubmission>> {
+        let has_anchor_event = events
+            .iter()
+            .any(|event| event.seal_ref.is_none() && event.seal_basis.is_none());
+        let anchor_unit = !events.is_empty()
+            && events
+                .iter()
+                .all(|event| event.seal_ref.is_none() && event.seal_basis.is_none());
+        if has_anchor_event && !anchor_unit {
+            return Err(Error::Protocol(
+                "anchor Events must be authorized as one complete ordered unit".to_owned(),
+            ));
+        }
+        let request = AuthorizationLeaseIssueRequest {
+            events: events.to_vec(),
+            intents: Vec::new(),
+        };
+        let request_key = arkret_wire::new_prefixed_uuid7("lease-");
+        let options = ClientRequestOptions::new()
+            .request_id(request_key.clone())
+            .idempotency_key(request_key);
+        let outcome = self.issue_authorization_leases(&request, &options).await?;
+        let mut submissions = Vec::with_capacity(events.len());
+        for (event, lease) in events.iter().zip(outcome.authorization_leases) {
+            let mut submission = EventInitialSubmission {
+                event: event.clone(),
+                authorization_lease: lease,
+                cba_proof_bundles: Vec::new(),
+                control_proposal_receipt: None,
+            };
+            if !anchor_unit && event.seal_basis.is_some() {
+                let outcome = self
+                    .issue_control_proposal_receipt(&ProposalReceiptIssueRequest {
+                        event: event.clone(),
+                        authorization_lease: submission.authorization_lease.clone(),
+                        cba_proof_bundles: Vec::new(),
+                    })
+                    .await?;
+                submission.control_proposal_receipt =
+                    Some(ControlProposalReceipt::from_member_receipts(
+                        vec![outcome.member_receipt],
+                        ControlProposalDecisionPolicy::protocol_maximum(),
+                    )?);
+            }
+            submission.validate_structural_in_context(if anchor_unit {
+                EventSubmitContext::AnchorUnit
+            } else {
+                EventSubmitContext::Standard
+            })?;
+            submissions.push(submission);
+        }
+        Ok(submissions)
+    }
+
+    /// Single-Event convenience wrapper around
+    /// [`prepare_initial_submissions`](Self::prepare_initial_submissions).
+    pub async fn prepare_initial_submission(
+        &self,
+        event: &Event,
+    ) -> Result<EventInitialSubmission> {
+        let submissions = self
+            .prepare_initial_submissions(std::slice::from_ref(event))
+            .await?;
+        submissions.into_iter().next().ok_or_else(|| {
+            Error::Protocol("authorization issuer returned no initial submission".to_owned())
+        })
     }
 
     pub async fn issue_control_proposal_receipt(
@@ -455,10 +535,10 @@ impl Client {
     /// Event plus the publication evidence that bounds it. A bare Event
     /// Envelope is no longer a valid body.
     ///
-    /// The caller owns `authorization_lease`. Minting one requires the issuer
-    /// signing keys and the authority-set identity of the party that granted
-    /// the capability, neither of which this client holds, so the SDK never
-    /// fabricates a lease on the caller's behalf.
+    /// Callers that do not already hold a wrapper should use
+    /// [`prepare_initial_submission`](Self::prepare_initial_submission) so the
+    /// authenticated Principal Server performs read-only admission and signs
+    /// the lease. The SDK never fabricates a lease locally.
     pub async fn events_submit(
         &self,
         submission: &EventInitialSubmission,
@@ -486,7 +566,7 @@ impl Client {
     /// Submit a batch of initial Event publications via
     /// `ak.self.events.command.submit` (`POST /_arkret/self/events`) using the
     /// `EventsSubmitBatchRequestBody` body shape. Each element carries its own
-    /// caller-minted lease; see [`events_submit`](Self::events_submit).
+    /// authority-issued lease; see [`events_submit`](Self::events_submit).
     pub async fn events_submit_batch(
         &self,
         submissions: &[EventInitialSubmission],
