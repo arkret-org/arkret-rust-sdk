@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_models_collaboration::agent_operations::AgentProvisionEvents;
+use arkret_models_collaboration::agent_operations::AgentProvisionEventDrafts;
 use arkret_models_collaboration::event_sync::RealmSealFrontierView;
 use arkret_models_collaboration::events_payloads::RealmCreatePayload;
 use arkret_models_collaboration::events_payloads::device_identity::{
@@ -159,7 +159,7 @@ pub fn build_agent_provision_event_drafts<S: PayloadSigner + ?Sized>(
     agent_slug: &str,
     options: AgentProvisionEventDraftOptions,
     signer: &S,
-) -> Result<AgentProvisionEvents> {
+) -> Result<AgentProvisionEventDrafts> {
     if signer.signer_did() != controller_id {
         return Err(Error::Protocol(format!(
             "provision signer {} does not match controller {controller_id}",
@@ -280,7 +280,7 @@ pub fn build_agent_provision_event_drafts<S: PayloadSigner + ?Sized>(
     )?;
     selector_claim.requirements.schema_profile_refs = vec![AGENT_SELECTOR_CLAIM_SCHEMA.to_owned()];
 
-    Ok(AgentProvisionEvents {
+    Ok(AgentProvisionEventDrafts {
         accountability_grant,
         selector_claim,
     })

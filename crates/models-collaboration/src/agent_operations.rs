@@ -8,6 +8,7 @@
 
 use std::collections::BTreeSet;
 
+use arkret_wire::EventInitialSubmission;
 use arkret_wire::serde_helpers::{
     deserialize_canonical_timestamp, deserialize_optional_canonical_timestamp,
     serialize_canonical_timestamp, serialize_optional_canonical_timestamp,
@@ -281,8 +282,14 @@ pub enum AgentProvisionRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct AgentProvisionEvents {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub accountability_grant: Event,
+    pub accountability_grant: EventInitialSubmission,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub selector_claim: EventInitialSubmission,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct AgentProvisionEventDrafts {
+    pub accountability_grant: Event,
     pub selector_claim: Event,
 }
 
