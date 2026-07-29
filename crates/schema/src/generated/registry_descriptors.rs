@@ -68,6 +68,8 @@ pub struct AccountDataPatternDescriptor {
     pub storage: &'static str,
     pub plaintext_schema: Option<&'static str>,
     pub write_event_kinds: &'static [&'static str],
+    pub merge_strategy: &'static str,
+    pub deletion_mode: &'static str,
 }
 
 pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
@@ -2540,6 +2542,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set", "ak.account.blocklist"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.account.invite_quarantine",
@@ -2547,6 +2551,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.agent.draft.v1:<agent_id>:<draft_id>",
@@ -2554,6 +2560,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.agent.action_approve", "ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.agent.participation.v1:<agent_id>:<scope_key>",
@@ -2561,6 +2569,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.agent.sidecar_view_state.v1:<controller_id>:<target_realm_id>:<target_strand_id>",
@@ -2568,6 +2578,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: Some("ak.schema.agent_sidecar_view_state.v1"),
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.client.ui_state",
@@ -2575,6 +2587,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.collections.stickers",
@@ -2582,6 +2596,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.contacts.actor.<did>",
@@ -2589,6 +2605,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.contacts.realm.<realm_id>",
@@ -2596,6 +2614,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.dnd_schedule",
@@ -2603,6 +2623,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.draft.v1:<kind>:<target_key>:<slot_key>",
@@ -2610,6 +2632,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.file_transfer.v1:<transfer_key>",
@@ -2617,6 +2641,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "value_tombstone",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.presence.preference",
@@ -2624,6 +2650,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.presence.visibility",
@@ -2631,6 +2659,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.push_rules",
@@ -2638,6 +2668,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.read_receipt.preferences",
@@ -2645,6 +2677,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.reminders.v1:<id>",
@@ -2652,6 +2686,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.saved.v1:<collection_key>:<target_key>",
@@ -2659,6 +2695,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.scheduled_send.v1:<planned_message_id>",
@@ -2666,6 +2704,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.search.index_manifest.v1:<realm_key>",
@@ -2673,6 +2713,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.snooze.v1:<target_key>",
@@ -2680,6 +2722,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
         key_pattern: "ak.tags.realm.<realm_id>",
@@ -2687,6 +2731,8 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
     },
 ];
 

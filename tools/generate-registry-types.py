@@ -1210,6 +1210,8 @@ def generate_registry_descriptors(artifacts: Path) -> str:
             "    pub storage: &'static str,",
             "    pub plaintext_schema: Option<&'static str>,",
             "    pub write_event_kinds: &'static [&'static str],",
+            "    pub merge_strategy: &'static str,",
+            "    pub deletion_mode: &'static str,",
             "}",
             "",
             "pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[",
@@ -1294,6 +1296,8 @@ def generate_registry_descriptors(artifacts: Path) -> str:
                 f"        storage: {rust_string(row['storage'])},",
                 f"        plaintext_schema: {rust_option(row.get('plaintext_schema'))},",
                 f"        write_event_kinds: {rust_slice(row['write_event_kinds'])},",
+                f"        merge_strategy: {rust_string(row['merge_strategy'])},",
+                f"        deletion_mode: {rust_string(row['deletion_mode'])},",
                 "    },",
             ]
         )
