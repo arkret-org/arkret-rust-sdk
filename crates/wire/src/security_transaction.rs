@@ -522,6 +522,94 @@ pub enum SecurityTransactionCreateRequest {
 }
 
 impl RecoveryTransactionCreateRequest {
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_cross_signing_prepared(
+        transaction_id: TransactionId,
+        principal_id: Did,
+        expires_at: DateTime<Utc>,
+        recovery_session_id: RecoverySessionId,
+        replacement_device_id: DeviceId,
+        terminal_receipt_id: ReceiptId,
+        recovery_session_snapshot_digest: Hash,
+        proof_digest: Hash,
+        previous_model_generation_ref: u64,
+        result_model_generation_ref: u64,
+        authorize_unit: PreparedEventSubmissionBatch,
+    ) -> Result<Self> {
+        let [authorize, device_list_update] = authorize_unit.request.events.as_slice() else {
+            return Err(Error::Protocol(
+                "cross-signing recovery unit must reserve exactly two Events".to_owned(),
+            ));
+        };
+        if authorize.event.kind != "ak.device.authorize"
+            || device_list_update.event.kind != "ak.device.list_update"
+        {
+            return Err(Error::Protocol(
+                "cross-signing recovery unit must reserve authorize then device-list-update"
+                    .to_owned(),
+            ));
+        }
+        Self::new(
+            transaction_id,
+            principal_id,
+            expires_at,
+            RecoveryBinding::CrossSigning(CrossSigningRecoveryBinding {
+                identity_model: RecoveryIdentityModel::CrossSigning,
+                recovery_session_id,
+                replacement_device_id,
+                authorize_event_id: authorize.event.event_id.clone(),
+                device_list_update_event_id: device_list_update.event.event_id.clone(),
+                terminal_receipt_id,
+            }),
+            RecoveryPreparedPlan::CrossSigning(CrossSigningRecoveryPlan {
+                identity_model: RecoveryIdentityModel::CrossSigning,
+                recovery_session_snapshot_digest,
+                proof_digest,
+                previous_model_generation_ref,
+                result_model_generation_ref,
+                authorize_unit,
+            }),
+        )
+    }
+
+    pub fn from_enrollment_authority_prepared(
+        transaction_id: TransactionId,
+        principal_id: Did,
+        expires_at: DateTime<Utc>,
+        authority_ticket_id: RecoveryAuthorityTicketId,
+        terminal_receipt_id: ReceiptId,
+        plan: EnrollmentAuthorityRecoveryPlan,
+    ) -> Result<Self> {
+        if plan.authorization_preimage.principal_id != principal_id
+            || plan.reanchor_event_submission.event.event_id
+                != plan.authorization_preimage.reanchor_event_id
+            || plan.authorize_event_publication_intent.event_id
+                != plan.authorization_preimage.authorize_event_id
+        {
+            return Err(Error::Protocol(
+                "enrollment-authority prepared artifacts do not bind the requested principal and reserved Events"
+                    .to_owned(),
+            ));
+        }
+        let binding = EnrollmentAuthorityRecoveryBinding {
+            identity_model: RecoveryIdentityModel::EnrollmentAuthority,
+            recovery_session_id: plan.authorization_preimage.recovery_session_id.clone(),
+            replacement_device_id: plan.authorization_preimage.replacement_device_id.clone(),
+            authority_ticket_id,
+            did_entry_ref: plan.authorization_preimage.did_entry_ref.clone(),
+            reanchor_event_id: plan.authorization_preimage.reanchor_event_id.clone(),
+            authorize_event_id: plan.authorization_preimage.authorize_event_id.clone(),
+            terminal_receipt_id,
+        };
+        Self::new(
+            transaction_id,
+            principal_id,
+            expires_at,
+            RecoveryBinding::EnrollmentAuthority(binding),
+            RecoveryPreparedPlan::EnrollmentAuthority(plan),
+        )
+    }
+
     pub fn new(
         transaction_id: TransactionId,
         principal_id: Did,
@@ -1843,6 +1931,56 @@ mod tests {
                 .unwrap()
             )
             .unwrap()
+        );
+    }
+
+    #[test]
+    fn cross_signing_create_constructor_derives_reserved_event_ids() {
+        let coordinator = Did::new("did:webvh:z6mkfixture:coordinator.example").unwrap();
+        let authorize = event_unit(
+            &coordinator,
+            EventId::new("ak:event:01904100-0000-7000-8000-a0086f45ca01").unwrap(),
+            "ak.device.authorize",
+        );
+        let update = event_unit(
+            &coordinator,
+            EventId::new("ak:event:01904100-0000-7000-8000-a0086f45ca02").unwrap(),
+            "ak.device.list_update",
+        );
+        let mut authorize_request: EventsSubmitBatchRequestBody =
+            serde_json::from_value(authorize.request).unwrap();
+        let update_request: EventsSubmitBatchRequestBody =
+            serde_json::from_value(update.request).unwrap();
+        authorize_request.events.extend(update_request.events);
+        let authorize_unit =
+            PreparedEventSubmissionBatch::new(coordinator, authorize_request).unwrap();
+
+        let request = RecoveryTransactionCreateRequest::from_cross_signing_prepared(
+            TransactionId::new("ak:transaction:01904100-0000-7000-8000-a0086f45ca03").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            Utc.with_ymd_and_hms(2026, 7, 28, 1, 0, 0).unwrap(),
+            RecoverySessionId::new("ak:recovery_session:01904100-0000-7000-8000-a0086f45ca04")
+                .unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-a0086f45ca05").unwrap(),
+            ReceiptId::new("ak:receipt:01904100-0000-7000-8000-a0086f45ca06").unwrap(),
+            hash('1'),
+            hash('2'),
+            3,
+            3,
+            authorize_unit,
+        )
+        .unwrap();
+
+        let RecoveryBinding::CrossSigning(binding) = request.binding else {
+            panic!("cross-signing binding")
+        };
+        assert_eq!(
+            binding.authorize_event_id.as_str(),
+            "ak:event:01904100-0000-7000-8000-a0086f45ca01"
+        );
+        assert_eq!(
+            binding.device_list_update_event_id.as_str(),
+            "ak:event:01904100-0000-7000-8000-a0086f45ca02"
         );
     }
 
