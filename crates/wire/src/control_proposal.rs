@@ -5,11 +5,14 @@
 //! decisions, but only inclusion in an accepted Seal provides control-plane
 //! finality.
 
+use std::collections::BTreeSet;
+
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::{Error, Result};
+use crate::notary::NotaryValue;
 use crate::{
     AuthorizationLease, CbaProofBundle, Did, Event, EventSubmitContext, Hash, PayloadSignature,
     RealmId, canonical,
@@ -257,7 +260,7 @@ fn validate_proofs(
         )));
     }
     let mut previous_method: Option<&str> = None;
-    let mut controllers = std::collections::BTreeSet::new();
+    let mut controllers = BTreeSet::new();
     for proof in proofs {
         if previous_method.is_some_and(|previous| previous >= proof.verification_method.as_str()) {
             return Err(Error::Protocol(
@@ -377,8 +380,25 @@ impl ProposalMemberReceipt {
 
 impl ControlProposalReceipt {
     pub fn from_member_receipts(
-        mut member_receipts: Vec<ProposalMemberReceipt>,
+        member_receipts: Vec<ProposalMemberReceipt>,
         policy: ControlProposalDecisionPolicy,
+    ) -> Result<Self> {
+        Self::from_member_receipts_inner(member_receipts, Some(policy))
+    }
+
+    /// Assemble a canonical set when the caller has not yet resolved the
+    /// Realm's tighter decision policy. Protocol ceilings and all aggregate
+    /// bindings are still enforced; authoritative admission must subsequently
+    /// validate the exact Realm policy.
+    pub fn from_member_receipts_protocol_bounds(
+        member_receipts: Vec<ProposalMemberReceipt>,
+    ) -> Result<Self> {
+        Self::from_member_receipts_inner(member_receipts, None)
+    }
+
+    fn from_member_receipts_inner(
+        mut member_receipts: Vec<ProposalMemberReceipt>,
+        policy: Option<ControlProposalDecisionPolicy>,
     ) -> Result<Self> {
         if member_receipts.is_empty() {
             return Err(Error::Protocol(
@@ -420,7 +440,55 @@ impl ControlProposalReceipt {
             authority_set_ref,
             member_receipts,
         };
-        receipt.validate_structural(policy)?;
+        if let Some(policy) = policy {
+            receipt.validate_structural(policy)?;
+        } else {
+            receipt.validate_protocol_bounds()?;
+        }
+        Ok(receipt)
+    }
+
+    /// Assemble the unique canonical member set and require that it satisfies
+    /// the caller-resolved current notary profile.
+    pub fn from_member_receipts_for_notary(
+        member_receipts: Vec<ProposalMemberReceipt>,
+        policy: ControlProposalDecisionPolicy,
+        notary: &NotaryValue,
+    ) -> Result<Self> {
+        notary.validate()?;
+        let receipt = Self::from_member_receipts(member_receipts, policy)?;
+        let mut signers = BTreeSet::new();
+        for member in &receipt.member_receipts {
+            let (did, fragment) = member
+                .signature
+                .verification_method
+                .rsplit_once('#')
+                .ok_or_else(|| {
+                    Error::Protocol(
+                        "proposal member verification_method must be a DID URL".to_owned(),
+                    )
+                })?;
+            if fragment.is_empty() {
+                return Err(Error::Protocol(
+                    "proposal member verification_method fragment is empty".to_owned(),
+                ));
+            }
+            let did = Did::new(did).map_err(|error| {
+                Error::Protocol(format!(
+                    "proposal member verification_method DID is invalid: {error}"
+                ))
+            })?;
+            if !signers.insert(did) {
+                return Err(Error::Protocol(
+                    "proposal receipt repeats an authority member".to_owned(),
+                ));
+            }
+        }
+        if !notary.proposal_quorum_met(&signers) {
+            return Err(Error::Protocol(
+                "proposal receipt authority quorum is unreachable".to_owned(),
+            ));
+        }
         Ok(receipt)
     }
 
@@ -520,37 +588,6 @@ impl ControlProposalReceipt {
         }
         Ok(())
     }
-
-    pub fn validate_authority_quorum(
-        &self,
-        authority_members: &[Did],
-        threshold: usize,
-    ) -> Result<()> {
-        let authority_member_set = authority_members
-            .iter()
-            .map(Did::as_str)
-            .collect::<std::collections::BTreeSet<_>>();
-        if threshold == 0
-            || threshold > authority_member_set.len()
-            || authority_member_set.len() != authority_members.len()
-        {
-            return Err(Error::Protocol(
-                "control proposal authority set or threshold is invalid".to_owned(),
-            ));
-        }
-        let valid_signers = self
-            .member_receipts
-            .iter()
-            .map(|member| signer_controller(&member.signature))
-            .collect::<Result<std::collections::BTreeSet<_>>>()?;
-        if !valid_signers.is_subset(&authority_member_set) || valid_signers.len() < threshold {
-            return Err(Error::Protocol(
-                "control proposal member receipts do not satisfy authority membership and quorum"
-                    .to_owned(),
-            ));
-        }
-        Ok(())
-    }
 }
 
 impl ControlProposalDecision {
@@ -603,6 +640,42 @@ impl ControlProposalDecision {
 
     pub fn is_reject(&self) -> bool {
         matches!(self, Self::SignedReject { .. })
+    }
+
+    /// Require the canonical proof set to satisfy the exact notary profile
+    /// that governed the bound receipt.
+    pub fn validate_notary_quorum(&self, notary: &NotaryValue) -> Result<()> {
+        notary.validate()?;
+        let proofs = match self {
+            Self::SignedReject { proofs, .. } | Self::SignedDefer { proofs, .. } => proofs,
+        };
+        let signers = proofs
+            .iter()
+            .map(|proof| Did::new(signer_controller(proof)?).map_err(Into::into))
+            .collect::<Result<BTreeSet<_>>>()?;
+        if !notary.proposal_quorum_met(&signers) {
+            return Err(Error::Protocol(
+                "control proposal decision proof set does not satisfy the current notary quorum"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Validate the full defer/reject chain and every canonical decision proof
+    /// set against the same receipt authority profile.
+    pub fn validate_chain_for_notary(
+        &self,
+        receipt: &ControlProposalReceipt,
+        previous_defers: &[ControlProposalDecision],
+        policy: ControlProposalDecisionPolicy,
+        notary: &NotaryValue,
+    ) -> Result<()> {
+        self.validate_chain(receipt, previous_defers, policy)?;
+        for decision in previous_defers {
+            decision.validate_notary_quorum(notary)?;
+        }
+        self.validate_notary_quorum(notary)
     }
 
     pub fn validate_chain(
@@ -806,6 +879,49 @@ mod tests {
                 .unwrap_err()
                 .to_string()
                 .contains("absolute")
+        );
+    }
+
+    #[test]
+    fn canonical_receipt_assembly_requires_current_threshold_quorum() {
+        let first = receipt().member_receipts.remove(0);
+        let mut second = first.clone();
+        second.signature.verification_method =
+            "did:webvh:z6mkfixture:authority-b.example#notary-1".to_owned();
+        second.signature.payload_digest = second.member_receipt_digest().unwrap();
+        let profile = NotaryValue::Threshold {
+            threshold: 2,
+            members: vec![
+                Did::new("did:webvh:z6mkfixture:authority.example").unwrap(),
+                Did::new("did:webvh:z6mkfixture:authority-b.example").unwrap(),
+                Did::new("did:webvh:z6mkfixture:authority-c.example").unwrap(),
+            ],
+            forensic_attribution: crate::notary::ForensicAttribution::QuorumIntersection,
+        };
+        assert!(
+            ControlProposalReceipt::from_member_receipts_for_notary(
+                vec![first.clone()],
+                ControlProposalDecisionPolicy::default(),
+                &profile,
+            )
+            .is_err()
+        );
+        let assembled = ControlProposalReceipt::from_member_receipts_for_notary(
+            vec![second, first],
+            ControlProposalDecisionPolicy::default(),
+            &profile,
+        )
+        .unwrap();
+        assert_eq!(
+            assembled
+                .member_receipts
+                .iter()
+                .map(|member| member.signature.verification_method.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "did:webvh:z6mkfixture:authority-b.example#notary-1",
+                "did:webvh:z6mkfixture:authority.example#notary-1",
+            ]
         );
     }
 

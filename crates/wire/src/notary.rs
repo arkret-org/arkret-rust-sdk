@@ -15,6 +15,8 @@
 //! Wire shape uses internal tagging on `kind` so consumers can decode
 //! without ambiguity.
 
+use std::collections::BTreeSet;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{Did, Error, Result};
@@ -218,6 +220,38 @@ impl NotaryValue {
                     ));
                 }
                 Ok(())
+            }
+        }
+    }
+
+    /// Whether a distinct signer set satisfies this exact current notary
+    /// profile for one canonical proposal receipt or decision payload.
+    ///
+    /// Open-set members occupy independent signer slots and therefore never
+    /// combine into a cross-leaf threshold. Mixed profiles accept either the
+    /// primary alone or the complete recovery set, but never a blend.
+    pub fn proposal_quorum_met(&self, signers: &BTreeSet<Did>) -> bool {
+        match self {
+            Self::SingleDid { did, .. } => signers.len() == 1 && signers.contains(did),
+            Self::Threshold {
+                threshold, members, ..
+            } => {
+                signers.iter().all(|signer| members.contains(signer))
+                    && signers.len() >= usize::try_from(*threshold).unwrap_or(usize::MAX)
+            }
+            Self::OpenSet { members } => {
+                signers.len() == 1 && signers.iter().all(|signer| members.contains(signer))
+            }
+            Self::Mixed {
+                did,
+                recovery_members,
+            } => {
+                (signers.len() == 1 && signers.contains(did))
+                    || (!recovery_members.is_empty()
+                        && signers.len() == recovery_members.len()
+                        && signers
+                            .iter()
+                            .all(|signer| recovery_members.contains(signer)))
             }
         }
     }

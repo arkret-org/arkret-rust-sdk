@@ -19,6 +19,7 @@ use arkret_models_crypto::{
 };
 use arkret_models_discovery::ServiceDescribe;
 use arkret_state::SnapshotManifest;
+use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
     AuthorizationLeaseIssueRequest, ControlProposalDecisionPolicy, ControlProposalReceipt, Event,
     EventInitialSubmission, EventSubmitContext, Hash, ProposalReceiptIssueOutcome,
@@ -155,6 +156,39 @@ impl Client {
         &self,
         events: &[Event],
     ) -> Result<Vec<EventInitialSubmission>> {
+        self.prepare_initial_submissions_with_collector(events, None)
+            .await
+    }
+
+    /// Prepare an ordered Event unit while collecting one immutable member
+    /// receipt from every supplied current authority transport.
+    ///
+    /// The resulting receipt set is sorted and checked against `notary`; a
+    /// partial threshold or mixed recovery set fails before Event submission.
+    pub async fn prepare_initial_submissions_with_proposal_authorities(
+        &self,
+        events: &[Event],
+        authority_clients: &[Client],
+        notary: &NotaryValue,
+        policy: ControlProposalDecisionPolicy,
+    ) -> Result<Vec<EventInitialSubmission>> {
+        if authority_clients.is_empty() {
+            return Err(Error::Protocol(
+                "proposal authority client set must not be empty".to_owned(),
+            ));
+        }
+        self.prepare_initial_submissions_with_collector(
+            events,
+            Some((authority_clients, notary, policy)),
+        )
+        .await
+    }
+
+    async fn prepare_initial_submissions_with_collector(
+        &self,
+        events: &[Event],
+        collector: Option<(&[Client], &NotaryValue, ControlProposalDecisionPolicy)>,
+    ) -> Result<Vec<EventInitialSubmission>> {
         let has_anchor_event = events
             .iter()
             .any(|event| event.seal_ref.is_none() && event.seal_basis.is_none());
@@ -185,18 +219,27 @@ impl Client {
                 control_proposal_receipt: None,
             };
             if !anchor_unit && event.seal_basis.is_some() {
-                let outcome = self
-                    .issue_control_proposal_receipt(&ProposalReceiptIssueRequest {
-                        event: event.clone(),
-                        authorization_lease: submission.authorization_lease.clone(),
-                        cba_proof_bundles: Vec::new(),
-                    })
-                    .await?;
-                submission.control_proposal_receipt =
-                    Some(ControlProposalReceipt::from_member_receipts(
-                        vec![outcome.member_receipt],
-                        ControlProposalDecisionPolicy::protocol_maximum(),
-                    )?);
+                let request = ProposalReceiptIssueRequest {
+                    event: event.clone(),
+                    authorization_lease: submission.authorization_lease.clone(),
+                    cba_proof_bundles: Vec::new(),
+                };
+                submission.control_proposal_receipt = Some(
+                    if let Some((authority_clients, notary, policy)) = collector {
+                        self.collect_control_proposal_receipt(
+                            &request,
+                            authority_clients,
+                            notary,
+                            policy,
+                        )
+                        .await?
+                    } else {
+                        let outcome = self.issue_control_proposal_receipt(&request).await?;
+                        ControlProposalReceipt::from_member_receipts_protocol_bounds(vec![
+                            outcome.member_receipt,
+                        ])?
+                    },
+                );
             }
             submission.validate_structural_in_context(if anchor_unit {
                 EventSubmitContext::AnchorUnit
@@ -206,6 +249,34 @@ impl Client {
             submissions.push(submission);
         }
         Ok(submissions)
+    }
+
+    /// Collect and assemble one canonical proposal receipt set from independent
+    /// current authority transports.
+    pub async fn collect_control_proposal_receipt(
+        &self,
+        request: &ProposalReceiptIssueRequest,
+        authority_clients: &[Client],
+        notary: &NotaryValue,
+        policy: ControlProposalDecisionPolicy,
+    ) -> Result<ControlProposalReceipt> {
+        request.validate_structural()?;
+        if authority_clients.is_empty() {
+            return Err(Error::Protocol(
+                "proposal authority client set must not be empty".to_owned(),
+            ));
+        }
+        let mut members = Vec::with_capacity(authority_clients.len());
+        for authority in authority_clients {
+            members.push(
+                authority
+                    .issue_control_proposal_receipt(request)
+                    .await?
+                    .member_receipt,
+            );
+        }
+        ControlProposalReceipt::from_member_receipts_for_notary(members, policy, notary)
+            .map_err(Into::into)
     }
 
     /// Single-Event convenience wrapper around
