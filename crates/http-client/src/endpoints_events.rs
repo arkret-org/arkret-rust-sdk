@@ -20,8 +20,7 @@ use arkret_models_crypto::{
 use arkret_models_discovery::ServiceDescribe;
 use arkret_state::SnapshotManifest;
 use arkret_wire::{
-    ControlProposalDecisionPolicy, ControlProposalReceiptSignOutcome,
-    ControlProposalReceiptSignRequestBody, EventInitialSubmission, Hash, Seal,
+    EventInitialSubmission, Hash, ProposalReceiptIssueOutcome, ProposalReceiptIssueRequest, Seal,
 };
 use reqwest::{Method, Response};
 
@@ -130,23 +129,21 @@ impl EventsSubscribeFrameStream {
 }
 
 impl Client {
-    pub async fn sign_control_proposal_receipt(
+    pub async fn issue_control_proposal_receipt(
         &self,
-        request: &ControlProposalReceiptSignRequestBody,
-    ) -> Result<ControlProposalReceiptSignOutcome> {
+        request: &ProposalReceiptIssueRequest,
+    ) -> Result<ProposalReceiptIssueOutcome> {
         request.validate_structural()?;
-        let outcome: ControlProposalReceiptSignOutcome = self
-            .post("/_arkret/self/events/control-proposal-receipts", request)
+        let outcome: ProposalReceiptIssueOutcome = self
+            .post("/_arkret/self/control-proposal-receipts", request)
             .await?;
-        outcome
-            .proposal_receipt
-            .validate_structural(ControlProposalDecisionPolicy::protocol_maximum())?;
+        outcome.member_receipt.validate_protocol_bounds()?;
         let event_digest = Hash::new(request.event.event_digest()?)?;
-        if outcome.proposal_receipt.realm_id != request.event.realm_id
-            || outcome.proposal_receipt.proposal_digest != event_digest
+        if outcome.member_receipt.realm_id != request.event.realm_id
+            || outcome.member_receipt.proposal_digest != event_digest
         {
             return Err(Error::Protocol(
-                "proposal receipt signing response changed the Event binding".to_owned(),
+                "proposal member receipt response changed the Event binding".to_owned(),
             ));
         }
         Ok(outcome)

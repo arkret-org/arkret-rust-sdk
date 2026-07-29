@@ -1357,28 +1357,35 @@ mod tests {
         authority_set_ref: &AuthoritySetRef,
         received_at: DateTime<Utc>,
     ) -> ControlProposalReceipt {
-        let coordinator = Did::new("did:web:authority.example").unwrap();
-        let mut receipt = ControlProposalReceipt {
+        let proposal_digest = Hash::new(event.event_digest().unwrap()).unwrap();
+        let authority_set_digest = authority_set_ref.authority_set_digest.clone();
+        let mut member_receipt = arkret_wire::ProposalMemberReceipt {
+            realm_id: event.realm_id.clone(),
+            proposal_digest: proposal_digest.clone(),
+            received_at,
+            decision_due_at: received_at + chrono::Duration::seconds(30),
+            absolute_due_at: received_at + chrono::Duration::seconds(90),
+            authority_set_ref: authority_set_digest.clone(),
+            signature: PayloadSignature {
+                alg: "EdDSA".to_owned(),
+                verification_method: "did:web:authority.example#key-1".to_owned(),
+                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                created_at: received_at,
+                jws: "a..b".to_owned(),
+            },
+        };
+        member_receipt.signature.payload_digest = member_receipt.member_receipt_digest().unwrap();
+        ControlProposalReceipt {
             kind: ControlProposalReceiptKind::ProposalReceipt,
             realm_id: event.realm_id.clone(),
-            proposal_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
+            proposal_digest,
             received_at,
             decision_due_at: received_at + chrono::Duration::seconds(30),
             absolute_due_at: received_at + chrono::Duration::seconds(90),
             defer_count: 0,
-            authority_set_ref: authority_set_ref.clone(),
-            receipt_coordinator: coordinator,
-            signatures: Vec::new(),
-        };
-        let payload_digest = receipt.receipt_digest().unwrap();
-        receipt.signatures = vec![PayloadSignature {
-            alg: "EdDSA".to_owned(),
-            verification_method: "did:web:authority.example#key-1".to_owned(),
-            payload_digest,
-            created_at: received_at,
-            jws: "a..b".to_owned(),
-        }];
-        receipt
+            authority_set_ref: authority_set_digest,
+            member_receipts: vec![member_receipt],
+        }
     }
 
     fn federation_request(events: Vec<Event>) -> EventsSubmitFederationRequestBody {

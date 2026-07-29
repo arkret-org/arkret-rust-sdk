@@ -7,12 +7,12 @@ use arkret_canonical::{
     decode_multibase_base58btc, decode_multicodec_varint, encode_multibase_base58btc,
 };
 use arkret_wire::{
-    AuthoritySetIssuer, AuthoritySetIssuerRole, AuthorizationLease, BackupId,
-    BackupSeriesEraseRequestBody, BackupSeriesId, Base64UrlString, CbaProofBundle,
+    AuthoritySetIssuer, AuthoritySetIssuerRole, AuthorizationLease, BackupId, BackupObjectRef,
+    BackupRotationBinding, BackupRotationKind, BackupSeriesId, Base64UrlString, CbaProofBundle,
     ControlProposalReceipt, Cursor, DeviceId, Did, DidUrl, Error, Event, EventId,
     EventInitialSubmission, EventKind, HPKE_SUITES, Hash, LeaseBasisRef, NonEmptyString, PolicyId,
-    RealmId, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId, Result,
-    SecurityRotationBackupKind, TransactionId, TypedTrustDomainId, XExtensionMap,
+    RealmId, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId, Result, TransactionId,
+    TypedTrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -166,38 +166,165 @@ pub enum BackupSeriesEraseStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum BackupSeriesEraseState {
+pub enum BackupSeriesEraseResultStatus {
     Erased,
     Pending,
+    FailedRetryable,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BackupSeriesEraseRequestBody {
+    pub transaction_id: TransactionId,
+    pub transaction_request_digest: Hash,
+    pub prepared_plan_digest: Hash,
+    pub erase_confirmation_digest: Hash,
+    pub series: Vec<BackupRotationBinding>,
+    pub authorization_lease: AuthorizationLease,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cba_proof_bundles: Vec<CbaProofBundle>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BackupSeriesEraseResult {
-    pub backup_kind: SecurityRotationBackupKind,
-    pub series_id: BackupSeriesId,
-    pub state: BackupSeriesEraseState,
-    pub erased_backup_ids: Vec<BackupId>,
+    pub backup_kind: BackupRotationKind,
+    pub previous_series_id: BackupSeriesId,
+    pub new_series_id: BackupSeriesId,
+    pub status: BackupSeriesEraseResultStatus,
+    pub erased_backups: Vec<BackupObjectRef>,
+    pub remaining_backups: Vec<BackupObjectRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub retry_after_ms: Option<u64>,
+    pub reason_code: Option<String>,
 }
+
+pub const BACKUP_SERIES_ERASE_CONFIRMATION_SCHEMA: &str =
+    "ak.schema.backup_series_erase_confirmation.v1";
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BackupSeriesEraseConfirmation {
+    pub schema: String,
+    pub transaction_id: TransactionId,
+    pub transaction_request_digest: Hash,
+    pub prepared_plan_digest: Hash,
+    pub series: Vec<BackupRotationBinding>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BackupSeriesEraseOutcome {
     pub transaction_id: TransactionId,
     pub request_digest: Hash,
     pub status: BackupSeriesEraseStatus,
     pub series_results: Vec<BackupSeriesEraseResult>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confirmation: Option<BackupSeriesEraseConfirmation>,
+}
+
+fn validate_backup_object_refs(refs: &[BackupObjectRef], label: &str) -> Result<()> {
+    if refs.len() > 512 {
+        return Err(Error::Protocol(format!(
+            "{label} exceeds 512 backup object references"
+        )));
+    }
+    let mut backup_ids = BTreeSet::new();
+    if refs
+        .iter()
+        .any(|object| !backup_ids.insert(object.backup_id.clone()))
+    {
+        return Err(Error::Protocol(format!(
+            "{label} backup object references must be unique"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_canonical_backup_object_refs(refs: &[BackupObjectRef], label: &str) -> Result<()> {
+    validate_backup_object_refs(refs, label)?;
+    if refs
+        .windows(2)
+        .any(|pair| pair[0].backup_id.as_str() >= pair[1].backup_id.as_str())
+    {
+        return Err(Error::Protocol(format!(
+            "{label} must be canonical backup-id sorted"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_rotation_bindings(series: &[BackupRotationBinding]) -> Result<()> {
+    let expected_kinds = [
+        BackupRotationKind::SecretStorage,
+        BackupRotationKind::MlsHistory,
+    ];
+    if series.len() != expected_kinds.len()
+        || series
+            .iter()
+            .map(|binding| binding.backup_kind)
+            .ne(expected_kinds)
+    {
+        return Err(Error::Protocol(
+            "backup-series erase requires exactly secret_storage then mls_history".to_owned(),
+        ));
+    }
+    for binding in series {
+        if binding.previous_series_id == binding.new_series_id
+            || binding.new_backups.is_empty()
+            || binding.old_backups.is_empty()
+        {
+            return Err(Error::Protocol(
+                "backup-series erase bindings require distinct series and non-empty backup sets"
+                    .to_owned(),
+            ));
+        }
+        validate_backup_object_refs(&binding.new_backups, "new_backups")?;
+        validate_backup_object_refs(&binding.old_backups, "old_backups")?;
+    }
+    Ok(())
+}
+
+impl BackupSeriesEraseRequestBody {
+    pub fn validate_structural(&self) -> Result<()> {
+        validate_rotation_bindings(&self.series)?;
+        self.authorization_lease.validate_structural()?;
+        if self.authorization_lease.action != "ak.keys.backup_series.erase" {
+            return Err(Error::Protocol(
+                "backup-series erase requires the exact erase authorization action".to_owned(),
+            ));
+        }
+        if self.cba_proof_bundles.len() > 64 {
+            return Err(Error::Protocol(
+                "backup-series erase exceeds 64 CBA proof bundles".to_owned(),
+            ));
+        }
+        for bundle in &self.cba_proof_bundles {
+            bundle.validate_structural()?;
+        }
+        Ok(())
+    }
+}
+
+impl BackupSeriesEraseConfirmation {
+    pub fn validate_structural(&self) -> Result<()> {
+        if self.schema != BACKUP_SERIES_ERASE_CONFIRMATION_SCHEMA {
+            return Err(Error::Protocol(
+                "backup-series erase confirmation schema is invalid".to_owned(),
+            ));
+        }
+        validate_rotation_bindings(&self.series)
+    }
 }
 
 impl BackupSeriesEraseOutcome {
     pub fn validate_structural(&self) -> Result<()> {
         let expected_kinds = [
-            SecurityRotationBackupKind::MlsHistory,
-            SecurityRotationBackupKind::SecretStorage,
+            BackupRotationKind::SecretStorage,
+            BackupRotationKind::MlsHistory,
         ];
         if self.series_results.len() != expected_kinds.len()
             || self
@@ -207,70 +334,116 @@ impl BackupSeriesEraseOutcome {
                 .ne(expected_kinds)
         {
             return Err(Error::Protocol(
-                "backup-series erase outcome must contain one canonical result for each backup kind"
+                "backup-series erase outcome requires exactly secret_storage then mls_history"
                     .to_owned(),
             ));
         }
 
-        let mut series_ids = BTreeSet::new();
-        let mut has_pending = false;
+        let mut has_incomplete = false;
         for result in &self.series_results {
-            if !series_ids.insert(result.series_id.clone()) {
+            if result.previous_series_id == result.new_series_id {
                 return Err(Error::Protocol(
-                    "backup-series erase outcome repeats a backup series".to_owned(),
+                    "backup-series erase result must change the active series".to_owned(),
                 ));
             }
-            if result
-                .erased_backup_ids
-                .windows(2)
-                .any(|pair| pair[0] >= pair[1])
-            {
-                return Err(Error::Protocol(
-                    "erased backup ids must be canonical bytewise sorted and unique".to_owned(),
-                ));
-            }
-            match result.state {
-                BackupSeriesEraseState::Erased if result.retry_after_ms.is_some() => {
+            validate_canonical_backup_object_refs(&result.erased_backups, "erased_backups")?;
+            validate_canonical_backup_object_refs(&result.remaining_backups, "remaining_backups")?;
+            match result.status {
+                BackupSeriesEraseResultStatus::Erased if !result.remaining_backups.is_empty() => {
                     return Err(Error::Protocol(
-                        "an erased backup series cannot carry retry_after_ms".to_owned(),
+                        "erased backup series cannot retain remaining backups".to_owned(),
                     ));
                 }
-                BackupSeriesEraseState::Pending if result.retry_after_ms.is_none() => {
+                BackupSeriesEraseResultStatus::Erased if result.reason_code.is_some() => {
                     return Err(Error::Protocol(
-                        "a pending backup series requires retry_after_ms".to_owned(),
+                        "erased backup series cannot carry a reason code".to_owned(),
                     ));
                 }
-                BackupSeriesEraseState::Pending => has_pending = true,
-                BackupSeriesEraseState::Erased => {}
+                BackupSeriesEraseResultStatus::Pending if result.reason_code.is_some() => {
+                    return Err(Error::Protocol(
+                        "pending backup series cannot carry a reason code".to_owned(),
+                    ));
+                }
+                BackupSeriesEraseResultStatus::FailedRetryable if result.reason_code.is_none() => {
+                    return Err(Error::Protocol(
+                        "failed-retryable backup series requires a reason code".to_owned(),
+                    ));
+                }
+                BackupSeriesEraseResultStatus::Pending
+                | BackupSeriesEraseResultStatus::FailedRetryable => {
+                    has_incomplete = true;
+                }
+                BackupSeriesEraseResultStatus::Erased => {}
             }
         }
-        if (self.status == BackupSeriesEraseStatus::Partial) != has_pending {
+        if (self.status == BackupSeriesEraseStatus::Partial) != has_incomplete {
             return Err(Error::Protocol(
                 "backup-series erase status does not match its per-series states".to_owned(),
             ));
+        }
+        match (self.status, self.confirmation.as_ref()) {
+            (BackupSeriesEraseStatus::Complete, Some(confirmation)) => {
+                confirmation.validate_structural()?;
+            }
+            (BackupSeriesEraseStatus::Partial, None) => {}
+            _ => {
+                return Err(Error::Protocol(
+                    "only a complete erase outcome carries one confirmation".to_owned(),
+                ));
+            }
         }
         Ok(())
     }
 
     pub fn validate_for_request(&self, request: &BackupSeriesEraseRequestBody) -> Result<()> {
         self.validate_structural()?;
-        request.erase_intent.validate_structural()?;
+        request.validate_structural()?;
         let request_digest = arkret_canonical::canonical::canonical_sha256(request)?;
         if self.transaction_id != request.transaction_id
             || self.request_digest.as_str() != request_digest
             || self
                 .series_results
                 .iter()
-                .zip(&request.erase_intent.targets)
-                .any(|(result, target)| {
-                    result.backup_kind != target.backup_kind
-                        || result.series_id != target.previous_series_id
+                .zip(&request.series)
+                .any(|(result, binding)| {
+                    let mut reported_backups = result.erased_backups.clone();
+                    reported_backups.extend(result.remaining_backups.clone());
+                    reported_backups.sort_by(|left, right| {
+                        left.backup_id.as_str().cmp(right.backup_id.as_str())
+                    });
+                    let mut planned_backups = binding.old_backups.clone();
+                    planned_backups.sort_by(|left, right| {
+                        left.backup_id.as_str().cmp(right.backup_id.as_str())
+                    });
+                    result.backup_kind != binding.backup_kind
+                        || result.previous_series_id != binding.previous_series_id
+                        || result.new_series_id != binding.new_series_id
+                        || reported_backups != planned_backups
                 })
         {
             return Err(Error::Protocol(
                 "backup-series erase outcome changed the transaction, request, or target binding"
                     .to_owned(),
             ));
+        }
+        if let Some(confirmation) = &self.confirmation {
+            if confirmation.transaction_id != request.transaction_id
+                || confirmation.transaction_request_digest != request.transaction_request_digest
+                || confirmation.prepared_plan_digest != request.prepared_plan_digest
+                || confirmation.series != request.series
+            {
+                return Err(Error::Protocol(
+                    "backup-series erase confirmation changed the reserved transaction plan"
+                        .to_owned(),
+                ));
+            }
+            let digest = arkret_canonical::canonical::canonical_sha256(confirmation)?;
+            if request.erase_confirmation_digest.as_str() != digest {
+                return Err(Error::Protocol(
+                    "backup-series erase confirmation does not match its reserved digest"
+                        .to_owned(),
+                ));
+            }
         }
         Ok(())
     }

@@ -72,14 +72,6 @@ pub enum RecoveryIdentityModel {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SecurityRotationBackupKind {
-    MlsHistory,
-    SecretStorage,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SecurityTransactionState {
@@ -104,6 +96,14 @@ pub enum SecurityTransactionResultKind {
     Completed,
     Aborted,
     Expired,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BackupRotationKind {
+    SecretStorage,
+    MlsHistory,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -216,21 +216,29 @@ impl RecoveryBinding {
 pub struct SecurityRotationBinding {
     pub revoke_event_id: EventId,
     pub new_secret_commitment: Hash,
-    pub backup_rotations: Vec<SecurityRotationBackupBinding>,
-    pub erase_intent_digest: Hash,
+    pub backup_rotations: Vec<BackupRotationBinding>,
+    pub erase_confirmation_digest: Hash,
     pub local_commit_digest: Hash,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SecurityRotationBackupBinding {
-    pub backup_kind: SecurityRotationBackupKind,
+pub struct BackupObjectRef {
+    pub backup_id: BackupId,
+    pub ciphertext_digest: Hash,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BackupRotationBinding {
+    pub backup_kind: BackupRotationKind,
     pub previous_series_id: BackupSeriesId,
     pub new_series_id: BackupSeriesId,
-    pub genesis_backup_id: BackupId,
-    pub tail_backup_id: BackupId,
+    pub new_backups: Vec<BackupObjectRef>,
     pub active_series_event_id: EventId,
+    pub old_backups: Vec<BackupObjectRef>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -388,152 +396,21 @@ impl RecoveryPreparedPlan {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct BackupSeriesEraseObject {
-    pub backup_id: BackupId,
-    pub ciphertext_digest: Hash,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BackupSeriesEraseTarget {
-    pub backup_kind: SecurityRotationBackupKind,
-    pub previous_series_id: BackupSeriesId,
-    pub successor_series_id: BackupSeriesId,
-    pub successor_pointer_event_id: EventId,
-    pub objects: Vec<BackupSeriesEraseObject>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BackupSeriesEraseRequestBody {
-    pub transaction_id: TransactionId,
-    pub transaction_request_digest: Hash,
-    pub prepared_plan_digest: Hash,
-    pub erase_intent: BackupSeriesEraseIntent,
-    pub proof: Value,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BackupSeriesEraseIntent {
-    pub targets: Vec<BackupSeriesEraseTarget>,
-}
-
-impl BackupSeriesEraseIntent {
-    pub fn validate_structural(&self) -> Result<()> {
-        let expected_kinds = [
-            SecurityRotationBackupKind::MlsHistory,
-            SecurityRotationBackupKind::SecretStorage,
-        ];
-        if self.targets.len() != expected_kinds.len()
-            || self
-                .targets
-                .iter()
-                .map(|target| target.backup_kind)
-                .ne(expected_kinds)
-        {
-            return Err(Error::Protocol(
-                "backup-series erase intent must contain one canonical target for each backup kind"
-                    .to_owned(),
-            ));
-        }
-        let mut series_ids = std::collections::BTreeSet::new();
-        let mut backup_ids = std::collections::BTreeSet::new();
-        for target in &self.targets {
-            if target.previous_series_id == target.successor_series_id {
-                return Err(Error::Protocol(
-                    "backup-series erase target cannot erase its successor series".to_owned(),
-                ));
-            }
-            if !series_ids.insert(target.previous_series_id.clone())
-                || !series_ids.insert(target.successor_series_id.clone())
-            {
-                return Err(Error::Protocol(
-                    "backup-series erase intent repeats a series across targets".to_owned(),
-                ));
-            }
-            if target.objects.is_empty() || target.objects.len() > 4096 {
-                return Err(Error::Protocol(
-                    "backup-series erase target must contain 1..=4096 objects".to_owned(),
-                ));
-            }
-            if target
-                .objects
-                .windows(2)
-                .any(|pair| pair[0].backup_id >= pair[1].backup_id)
-                || target
-                    .objects
-                    .iter()
-                    .any(|object| !backup_ids.insert(object.backup_id.clone()))
-            {
-                return Err(Error::Protocol(
-                    "backup-series erase objects must be globally unique and canonically sorted"
-                        .to_owned(),
-                ));
-            }
-        }
-        Ok(())
-    }
-}
-
-impl BackupSeriesEraseRequestBody {
-    pub fn validate_for_transaction(&self, transaction: &SecurityTransaction) -> Result<()> {
-        transaction.validate_structural()?;
-        self.erase_intent.validate_structural()?;
-        let (binding, plan) = match (&transaction.binding, &transaction.prepared_plan) {
-            (
-                SecurityTransactionBinding::SecurityRotation(binding),
-                SecurityTransactionPreparedPlan::SecurityRotation(plan),
-            ) => (binding, plan),
-            _ => {
-                return Err(Error::Protocol(
-                    "backup-series erase requires a security-rotation transaction".to_owned(),
-                ));
-            }
-        };
-        if self.transaction_id != transaction.transaction_id
-            || self.transaction_request_digest != transaction.request_digest
-            || self.prepared_plan_digest != transaction.prepared_plan_digest
-            || self.erase_intent != plan.erase_intent
-        {
-            return Err(Error::Protocol(
-                "backup-series erase request does not match the durable transaction".to_owned(),
-            ));
-        }
-        let intent_digest = Hash::new(arkret_canonical::canonical::canonical_sha256(
-            &self.erase_intent,
-        )?)?;
-        if intent_digest != binding.erase_intent_digest {
-            return Err(Error::Protocol(
-                "backup-series erase intent digest does not match the transaction binding"
-                    .to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SecurityRotationBackupPlan {
-    pub binding: SecurityRotationBackupBinding,
-    pub encrypted_backup_material: CanonicalPublicMaterial,
-    pub active_series_unit: PreparedEventUnit,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct SecurityRotationPlan {
     pub revoke_unit: PreparedEventUnit,
     pub new_secret_commitment: Hash,
-    pub backup_rotations: Vec<SecurityRotationBackupPlan>,
-    pub erase_intent: BackupSeriesEraseIntent,
+    pub backup_rotations: Vec<BackupRotationPlan>,
+    pub erase_confirmation_digest: Hash,
     pub local_commit_digest: Hash,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BackupRotationPlan {
+    pub binding: BackupRotationBinding,
+    pub encrypted_backup_material: CanonicalPublicMaterial,
+    pub active_series_unit: PreparedEventUnit,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1200,66 +1077,58 @@ impl SecurityTransaction {
         plan.revoke_unit
             .validate_structural(&self.coordinator_service_id)?;
         if binding.new_secret_commitment != plan.new_secret_commitment
+            || binding.backup_rotations.len() != 2
+            || plan.backup_rotations.len() != 2
+            || binding.erase_confirmation_digest != plan.erase_confirmation_digest
             || binding.local_commit_digest != plan.local_commit_digest
         {
             return Err(Error::Protocol(
                 "security-rotation binding and prepared plan artifacts disagree".to_owned(),
             ));
         }
-        if binding.backup_rotations.len() != 2
-            || plan.backup_rotations.len() != 2
-            || plan.erase_intent.targets.len() != 2
-        {
-            return Err(Error::Protocol(
-                "security rotation requires exactly secret_storage and mls_history plans"
-                    .to_owned(),
-            ));
-        }
-        plan.erase_intent.validate_structural()?;
         let expected_kinds = [
-            SecurityRotationBackupKind::MlsHistory,
-            SecurityRotationBackupKind::SecretStorage,
+            BackupRotationKind::SecretStorage,
+            BackupRotationKind::MlsHistory,
         ];
-        for (index, expected_kind) in expected_kinds.iter().enumerate() {
-            let bound = &binding.backup_rotations[index];
-            let prepared = &plan.backup_rotations[index];
-            let target = &plan.erase_intent.targets[index];
-            if &bound.backup_kind != expected_kind
-                || &prepared.binding.backup_kind != expected_kind
-                || &target.backup_kind != expected_kind
-                || prepared.binding != *bound
-                || target.previous_series_id != bound.previous_series_id
-                || target.successor_series_id != bound.new_series_id
-                || target.successor_pointer_event_id != bound.active_series_event_id
-                || target.objects.is_empty()
-                || target.objects.len() > 4096
+        for (index, expected_kind) in expected_kinds.into_iter().enumerate() {
+            let binding_rotation = &binding.backup_rotations[index];
+            let plan_rotation = &plan.backup_rotations[index];
+            if binding_rotation.backup_kind != expected_kind
+                || plan_rotation.binding != *binding_rotation
+                || binding_rotation.previous_series_id == binding_rotation.new_series_id
+                || binding_rotation.new_backups.is_empty()
+                || binding_rotation.new_backups.len() > 512
+                || binding_rotation.old_backups.is_empty()
+                || binding_rotation.old_backups.len() > 512
             {
                 return Err(Error::Protocol(
-                    "security rotation backup binding, plan and erase intent disagree".to_owned(),
+                    "security-rotation backup entries must be the exact canonical secret_storage and mls_history bindings"
+                        .to_owned(),
                 ));
             }
-            let object_ids: std::collections::BTreeSet<_> = target
-                .objects
-                .iter()
-                .map(|object| &object.backup_id)
-                .collect();
-            if object_ids.len() != target.objects.len() {
+            let mut new_backups = binding_rotation.new_backups.clone();
+            new_backups
+                .sort_by(|left, right| left.backup_id.as_str().cmp(right.backup_id.as_str()));
+            let mut old_backups = binding_rotation.old_backups.clone();
+            old_backups
+                .sort_by(|left, right| left.backup_id.as_str().cmp(right.backup_id.as_str()));
+            if new_backups
+                .windows(2)
+                .any(|pair| pair[0].backup_id == pair[1].backup_id)
+                || old_backups
+                    .windows(2)
+                    .any(|pair| pair[0].backup_id == pair[1].backup_id)
+            {
                 return Err(Error::Protocol(
-                    "security rotation erase intent contains duplicate backup ids".to_owned(),
+                    "security-rotation backup object references must be unique".to_owned(),
                 ));
             }
-            prepared
+            plan_rotation
                 .active_series_unit
                 .validate_structural(&self.coordinator_service_id)?;
-            prepared.encrypted_backup_material.validate_structural()?;
-        }
-        let intent_digest = Hash::new(arkret_canonical::canonical::canonical_sha256(
-            &plan.erase_intent,
-        )?)?;
-        if binding.erase_intent_digest != intent_digest {
-            return Err(Error::Protocol(
-                "security rotation erase_intent digest disagrees with the binding".to_owned(),
-            ));
+            plan_rotation
+                .encrypted_backup_material
+                .validate_structural()?;
         }
         Ok(())
     }
@@ -1401,73 +1270,55 @@ mod tests {
         }
     }
 
-    fn backup_binding(
-        backup_kind: SecurityRotationBackupKind,
-        suffix: char,
-    ) -> SecurityRotationBackupBinding {
-        SecurityRotationBackupBinding {
-            backup_kind,
-            previous_series_id: BackupSeriesId::new(format!(
-                "ak:backup_series:01904100-0000-7000-8000-a0086f45c57{suffix}"
-            ))
-            .unwrap(),
-            new_series_id: BackupSeriesId::new(format!(
-                "ak:backup_series:01904100-0000-7000-8000-b0086f45c57{suffix}"
-            ))
-            .unwrap(),
-            genesis_backup_id: BackupId::new(format!(
-                "ak:backup:01904100-0000-7000-8000-c0086f45c57{suffix}"
-            ))
-            .unwrap(),
-            tail_backup_id: BackupId::new(format!(
-                "ak:backup:01904100-0000-7000-8000-d0086f45c57{suffix}"
-            ))
-            .unwrap(),
-            active_series_event_id: EventId::new(format!(
-                "ak:event:01904100-0000-7000-8000-e0086f45c57{suffix}"
-            ))
-            .unwrap(),
-        }
-    }
-
     fn rotation(accepted: usize, state: SecurityTransactionState) -> SecurityTransaction {
         let created_at = Utc.with_ymd_and_hms(2026, 7, 28, 0, 0, 0).unwrap();
         let coordinator_service_id = Did::new("did:webvh:z6mkfixture:coordinator.example").unwrap();
-        let backup_rotations = vec![
-            backup_binding(SecurityRotationBackupKind::MlsHistory, '6'),
-            backup_binding(SecurityRotationBackupKind::SecretStorage, '7'),
-        ];
-        let erase_intent = BackupSeriesEraseIntent {
-            targets: backup_rotations
-                .iter()
-                .map(|binding| BackupSeriesEraseTarget {
-                    backup_kind: binding.backup_kind,
-                    previous_series_id: binding.previous_series_id.clone(),
-                    successor_series_id: binding.new_series_id.clone(),
-                    successor_pointer_event_id: binding.active_series_event_id.clone(),
-                    objects: vec![BackupSeriesEraseObject {
-                        backup_id: binding.tail_backup_id.clone(),
-                        ciphertext_digest: hash('9'),
-                    }],
-                })
-                .collect(),
+        let backup_binding = |kind, offset: u8| BackupRotationBinding {
+            backup_kind: kind,
+            previous_series_id: BackupSeriesId::new(format!(
+                "ak:backup_series:01904100-0000-7000-8000-a0086f45c5{offset:02x}"
+            ))
+            .unwrap(),
+            new_series_id: BackupSeriesId::new(format!(
+                "ak:backup_series:01904100-0000-7000-8000-a0086f45c6{offset:02x}"
+            ))
+            .unwrap(),
+            new_backups: vec![BackupObjectRef {
+                backup_id: BackupId::new(format!(
+                    "ak:backup:01904100-0000-7000-8000-a0086f45c7{offset:02x}"
+                ))
+                .unwrap(),
+                ciphertext_digest: hash('7'),
+            }],
+            active_series_event_id: EventId::new(format!(
+                "ak:event:01904100-0000-7000-8000-a0086f45c8{offset:02x}"
+            ))
+            .unwrap(),
+            old_backups: vec![BackupObjectRef {
+                backup_id: BackupId::new(format!(
+                    "ak:backup:01904100-0000-7000-8000-a0086f45c9{offset:02x}"
+                ))
+                .unwrap(),
+                ciphertext_digest: hash('9'),
+            }],
         };
-        let erase_intent_digest =
-            Hash::new(arkret_canonical::canonical::canonical_sha256(&erase_intent).unwrap())
-                .unwrap();
+        let backup_rotations = vec![
+            backup_binding(BackupRotationKind::SecretStorage, 1),
+            backup_binding(BackupRotationKind::MlsHistory, 2),
+        ];
         let plan = SecurityRotationPlan {
             revoke_unit: event_unit(&coordinator_service_id),
             new_secret_commitment: hash('e'),
             backup_rotations: backup_rotations
                 .iter()
                 .cloned()
-                .map(|binding| SecurityRotationBackupPlan {
+                .map(|binding| BackupRotationPlan {
                     binding,
                     encrypted_backup_material: material(),
                     active_series_unit: event_unit(&coordinator_service_id),
                 })
                 .collect(),
-            erase_intent,
+            erase_confirmation_digest: hash('2'),
             local_commit_digest: hash('3'),
         };
         let accepted_steps = SECURITY_ROTATION_STEP_ORDER
@@ -1503,7 +1354,7 @@ mod tests {
                     .unwrap(),
                 new_secret_commitment: hash('e'),
                 backup_rotations,
-                erase_intent_digest,
+                erase_confirmation_digest: hash('2'),
                 local_commit_digest: hash('3'),
             }),
             prepared_plan,

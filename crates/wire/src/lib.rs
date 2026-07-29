@@ -79,17 +79,17 @@ pub use constants::*;
 pub use control_proposal::{
     ControlProposalDecision, ControlProposalDecisionPolicy, ControlProposalDeferReason,
     ControlProposalReceipt, ControlProposalReceiptKind, ControlProposalRejectReason,
-    MAX_PROPOSAL_ABSOLUTE_HORIZON, MAX_PROPOSAL_DECISION_WINDOW, MAX_PROPOSAL_DEFERS,
+    MAX_PROPOSAL_ABSOLUTE_HORIZON, MAX_PROPOSAL_AUTHORITY_PROOFS, MAX_PROPOSAL_DECISION_WINDOW,
+    MAX_PROPOSAL_DEFERS, MAX_PROPOSAL_RECEIPT_SLA, ProposalMemberReceipt,
+    ProposalReceiptIssueOutcome, ProposalReceiptIssueRequest,
 };
 pub use error::{Error, Result, WireError};
 pub use error_codes::*;
 pub use event_envelope::*;
 pub use event_receipt::*;
 pub use event_submission::{
-    AuthorizationLeaseIssueOutcome, AuthorizationLeaseIssueRequest,
-    ControlProposalReceiptSignOutcome, ControlProposalReceiptSignRequestBody,
-    EventFederationSubmission, EventInitialSubmission, EventsSubmitBatchRequestBody,
-    validate_anchor_unit_lease_bindings,
+    AuthorizationLeaseIssueOutcome, AuthorizationLeaseIssueRequest, EventFederationSubmission,
+    EventInitialSubmission, EventsSubmitBatchRequestBody, validate_anchor_unit_lease_bindings,
 };
 pub use events::*;
 pub use extension_manifest::{
@@ -142,17 +142,16 @@ pub use seal::{
     ThresholdSigKind, ThresholdSignature, compute_seal_id, seal_canonical_bytes,
 };
 pub use security_transaction::{
-    AcceptedStep, BackupSeriesEraseIntent, BackupSeriesEraseObject, BackupSeriesEraseRequestBody,
-    BackupSeriesEraseTarget, CLIENT_STEP_ATTESTATION_SIGNED_FIELDS, ClientStepAttestation,
-    ClientStepAttestationAuthData, CrossSigningRecoveryBinding, CrossSigningRecoveryPlan,
-    EnrollmentAuthorityRecoveryBinding, EnrollmentAuthorityRecoveryPlan, PreparedDidPublication,
-    PreparedEventUnit, RecoveryBinding, RecoveryIdentityModel, RecoveryPreparedPlan,
-    RecoveryTransactionCreateRequest, SecurityRotationBackupBinding, SecurityRotationBackupKind,
-    SecurityRotationBackupPlan, SecurityRotationBinding, SecurityRotationPlan,
-    SecurityRotationTransactionCreateRequest, SecurityTransaction, SecurityTransactionBinding,
-    SecurityTransactionContinueRequest, SecurityTransactionCreateRequest, SecurityTransactionKind,
-    SecurityTransactionPreparedPlan, SecurityTransactionResultKind, SecurityTransactionState,
-    SecurityTransactionStep, SecurityTransactionTerminalResult,
+    AcceptedStep, BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupRotationPlan,
+    CLIENT_STEP_ATTESTATION_SIGNED_FIELDS, ClientStepAttestation, ClientStepAttestationAuthData,
+    CrossSigningRecoveryBinding, CrossSigningRecoveryPlan, EnrollmentAuthorityRecoveryBinding,
+    EnrollmentAuthorityRecoveryPlan, PreparedDidPublication, PreparedEventUnit, RecoveryBinding,
+    RecoveryIdentityModel, RecoveryPreparedPlan, RecoveryTransactionCreateRequest,
+    SecurityRotationBinding, SecurityRotationPlan, SecurityRotationTransactionCreateRequest,
+    SecurityTransaction, SecurityTransactionBinding, SecurityTransactionContinueRequest,
+    SecurityTransactionCreateRequest, SecurityTransactionKind, SecurityTransactionPreparedPlan,
+    SecurityTransactionResultKind, SecurityTransactionState, SecurityTransactionStep,
+    SecurityTransactionTerminalResult,
 };
 pub use self_contact_paths::*;
 pub use service_kind::{EvaluationClass, ServiceKind};

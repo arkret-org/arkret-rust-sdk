@@ -10,11 +10,16 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::{Error, Result};
-use crate::{AuthoritySetRef, Did, Hash, PayloadSignature, RealmId, canonical};
+use crate::{
+    AuthorizationLease, CbaProofBundle, Event, EventSubmitContext, Hash, PayloadSignature, RealmId,
+    canonical,
+};
 
 pub const MAX_PROPOSAL_DECISION_WINDOW: Duration = Duration::hours(24);
 pub const MAX_PROPOSAL_ABSOLUTE_HORIZON: Duration = Duration::hours(72);
+pub const MAX_PROPOSAL_RECEIPT_SLA: Duration = Duration::hours(24);
 pub const MAX_PROPOSAL_DEFERS: u8 = 2;
+pub const MAX_PROPOSAL_AUTHORITY_PROOFS: usize = 32;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -46,6 +51,22 @@ pub enum ControlProposalDeferReason {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct ProposalMemberReceipt {
+    pub realm_id: RealmId,
+    pub proposal_digest: Hash,
+    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
+    pub received_at: DateTime<Utc>,
+    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
+    pub decision_due_at: DateTime<Utc>,
+    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
+    pub absolute_due_at: DateTime<Utc>,
+    pub authority_set_ref: Hash,
+    pub signature: PayloadSignature,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ControlProposalReceipt {
     pub kind: ControlProposalReceiptKind,
     pub realm_id: RealmId,
@@ -57,9 +78,8 @@ pub struct ControlProposalReceipt {
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub absolute_due_at: DateTime<Utc>,
     pub defer_count: u8,
-    pub authority_set_ref: AuthoritySetRef,
-    pub receipt_coordinator: Did,
-    pub signatures: Vec<PayloadSignature>,
+    pub authority_set_ref: Hash,
+    pub member_receipts: Vec<ProposalMemberReceipt>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -78,8 +98,8 @@ pub enum ControlProposalDecision {
         absolute_due_at: DateTime<Utc>,
         defer_count: u8,
         reason_code: ControlProposalRejectReason,
-        authority_set_ref: AuthoritySetRef,
-        signatures: Vec<PayloadSignature>,
+        authority_set_ref: Hash,
+        proofs: Vec<PayloadSignature>,
     },
     SignedDefer {
         realm_id: RealmId,
@@ -93,13 +113,61 @@ pub enum ControlProposalDecision {
         absolute_due_at: DateTime<Utc>,
         defer_count: u8,
         reason_code: ControlProposalDeferReason,
-        authority_set_ref: AuthoritySetRef,
-        signatures: Vec<PayloadSignature>,
+        authority_set_ref: Hash,
+        proofs: Vec<PayloadSignature>,
     },
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProposalReceiptIssueRequest {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub event: Event,
+    pub authorization_lease: AuthorizationLease,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cba_proof_bundles: Vec<CbaProofBundle>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProposalReceiptIssueOutcome {
+    pub member_receipt: ProposalMemberReceipt,
+}
+
+impl ProposalReceiptIssueRequest {
+    pub fn validate_structural(&self) -> Result<()> {
+        self.event
+            .validate_for_submit_structural_in_context(EventSubmitContext::Standard)?;
+        if self.event.seal_basis.is_none() {
+            return Err(Error::Protocol(
+                "proposal receipt issuance accepts only non-genesis Control Moves".to_owned(),
+            ));
+        }
+        self.authorization_lease.validate_structural()?;
+        if self.authorization_lease.actor_id != self.event.actor_id
+            || self.authorization_lease.scope_ref != self.event.scope_ref
+        {
+            return Err(Error::Protocol(
+                "proposal receipt authorization lease does not bind the Event".to_owned(),
+            ));
+        }
+        if self.cba_proof_bundles.len() > 64 {
+            return Err(Error::Protocol(
+                "proposal receipt issuance exceeds 64 CBA proof bundles".to_owned(),
+            ));
+        }
+        for bundle in &self.cba_proof_bundles {
+            bundle.validate_structural()?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ControlProposalDecisionPolicy {
+    pub receipt_sla: Duration,
     pub decision_window: Duration,
     pub absolute_horizon: Duration,
     pub max_defers: u8,
@@ -108,6 +176,7 @@ pub struct ControlProposalDecisionPolicy {
 impl Default for ControlProposalDecisionPolicy {
     fn default() -> Self {
         Self {
+            receipt_sla: MAX_PROPOSAL_RECEIPT_SLA,
             decision_window: Duration::seconds(30),
             absolute_horizon: Duration::seconds(90),
             max_defers: MAX_PROPOSAL_DEFERS,
@@ -115,18 +184,33 @@ impl Default for ControlProposalDecisionPolicy {
     }
 }
 
-fn digest_without_signatures<T: Serialize>(value: &T) -> Result<Hash> {
+fn digest_without_field<T: Serialize>(value: &T, field: &str) -> Result<Hash> {
     Ok(Hash::new(canonical::sha256_digest(
-        &canonical_bytes_without_signatures(value)?,
+        &canonical_bytes_without_field(value, field)?,
     ))?)
 }
 
-fn canonical_bytes_without_signatures<T: Serialize>(value: &T) -> Result<Vec<u8>> {
+fn canonical_bytes_without_field<T: Serialize>(value: &T, field: &str) -> Result<Vec<u8>> {
     let mut json = serde_json::to_value(value)?;
     if let Value::Object(map) = &mut json {
-        map.remove("signatures");
+        map.remove(field);
     }
     Ok(canonical::canonical_json_bytes(&json)?)
+}
+
+fn proof_transcript(
+    context: &str,
+    payload_digest: &Hash,
+    verification_method: &str,
+    created_at: DateTime<Utc>,
+) -> Result<Vec<u8>> {
+    canonical::canonical_json_bytes(&serde_json::json!({
+        "context": context,
+        "payload_digest": payload_digest,
+        "verification_method": verification_method,
+        "created_at": created_at,
+    }))
+    .map_err(Into::into)
 }
 
 fn validate_signature(
@@ -148,48 +232,26 @@ fn validate_signature(
     Ok(())
 }
 
-fn signer_controller(signature: &PayloadSignature) -> Result<&str> {
-    let controller = signature
-        .verification_method
-        .split_once('#')
-        .map(|(controller, _)| controller)
-        .filter(|controller| !controller.is_empty())
-        .ok_or_else(|| {
-            Error::Protocol("control proposal verification_method must be a DID URL".to_owned())
-        })?;
-    Did::new(controller)?;
-    Ok(controller)
-}
-
-fn validate_signature_set(
-    signatures: &[PayloadSignature],
+fn validate_proofs(
+    proofs: &[PayloadSignature],
     expected_digest: &Hash,
     expected_created_at: DateTime<Utc>,
 ) -> Result<()> {
-    if signatures.is_empty() || signatures.len() > 32 {
-        return Err(Error::Protocol(
-            "control proposal evidence requires 1..=32 signatures".to_owned(),
-        ));
+    if proofs.is_empty() || proofs.len() > MAX_PROPOSAL_AUTHORITY_PROOFS {
+        return Err(Error::Protocol(format!(
+            "control proposal proof set requires 1..={MAX_PROPOSAL_AUTHORITY_PROOFS} members"
+        )));
     }
     let mut previous_method: Option<&str> = None;
-    let mut controllers = std::collections::BTreeSet::new();
-    for signature in signatures {
-        validate_signature(signature, expected_digest, expected_created_at)?;
-        if previous_method
-            .is_some_and(|previous| previous >= signature.verification_method.as_str())
-        {
+    for proof in proofs {
+        if previous_method.is_some_and(|previous| previous >= proof.verification_method.as_str()) {
             return Err(Error::Protocol(
-                "control proposal signatures must be strictly sorted by verification_method"
+                "control proposal proofs must use distinct verification methods in canonical ascending order"
                     .to_owned(),
             ));
         }
-        let controller = signer_controller(signature)?;
-        if !controllers.insert(controller) {
-            return Err(Error::Protocol(
-                "control proposal signatures contain a duplicate signer controller".to_owned(),
-            ));
-        }
-        previous_method = Some(&signature.verification_method);
+        validate_signature(proof, expected_digest, expected_created_at)?;
+        previous_method = Some(proof.verification_method.as_str());
     }
     Ok(())
 }
@@ -197,6 +259,7 @@ fn validate_signature_set(
 impl ControlProposalDecisionPolicy {
     pub fn protocol_maximum() -> Self {
         Self {
+            receipt_sla: MAX_PROPOSAL_RECEIPT_SLA,
             decision_window: MAX_PROPOSAL_DECISION_WINDOW,
             absolute_horizon: MAX_PROPOSAL_ABSOLUTE_HORIZON,
             max_defers: MAX_PROPOSAL_DEFERS,
@@ -204,6 +267,11 @@ impl ControlProposalDecisionPolicy {
     }
 
     pub fn validate(self) -> Result<()> {
+        if self.receipt_sla < Duration::zero() || self.receipt_sla > MAX_PROPOSAL_RECEIPT_SLA {
+            return Err(Error::Protocol(
+                "proposal receipt SLA must be within 0ms..=24h".to_owned(),
+            ));
+        }
         if self.decision_window <= Duration::zero()
             || self.decision_window > MAX_PROPOSAL_DECISION_WINDOW
         {
@@ -228,67 +296,155 @@ impl ControlProposalDecisionPolicy {
     }
 }
 
-impl ControlProposalReceipt {
+impl ProposalMemberReceipt {
     pub fn canonical_bytes_for_signature(&self) -> Result<Vec<u8>> {
-        canonical_bytes_without_signatures(self)
+        proof_transcript(
+            "ak.control-proposal-member-receipt-proof-v1",
+            &self.member_receipt_digest()?,
+            &self.signature.verification_method,
+            self.signature.created_at,
+        )
     }
 
-    pub fn receipt_digest(&self) -> Result<Hash> {
-        digest_without_signatures(self)
+    pub fn member_receipt_digest(&self) -> Result<Hash> {
+        digest_without_field(self, "signature")
     }
 
     pub fn validate_structural(&self, policy: ControlProposalDecisionPolicy) -> Result<()> {
         policy.validate()?;
+        self.validate_protocol_bounds()?;
+        if self.received_at.checked_add_signed(policy.decision_window) != Some(self.decision_due_at)
+        {
+            return Err(Error::Protocol(
+                "proposal member receipt decision_due_at must equal the effective decision window"
+                    .to_owned(),
+            ));
+        }
+        if self.received_at.checked_add_signed(policy.absolute_horizon)
+            != Some(self.absolute_due_at)
+        {
+            return Err(Error::Protocol(
+                "proposal member receipt absolute_due_at must equal the effective absolute horizon"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_protocol_bounds(&self) -> Result<()> {
+        let decision_window = self.decision_due_at - self.received_at;
+        let absolute_horizon = self.absolute_due_at - self.received_at;
+        if decision_window <= Duration::zero()
+            || decision_window > MAX_PROPOSAL_DECISION_WINDOW
+            || absolute_horizon < decision_window
+            || absolute_horizon > MAX_PROPOSAL_ABSOLUTE_HORIZON
+        {
+            return Err(Error::Protocol(
+                "proposal member receipt deadlines exceed protocol bounds".to_owned(),
+            ));
+        }
+        validate_signature(
+            &self.signature,
+            &self.member_receipt_digest()?,
+            self.received_at,
+        )
+    }
+}
+
+impl ControlProposalReceipt {
+    pub fn receipt_digest(&self) -> Result<Hash> {
+        Ok(Hash::new(canonical::sha256_digest(
+            &canonical::canonical_json_bytes(self)?,
+        ))?)
+    }
+
+    pub fn validate_structural(&self, policy: ControlProposalDecisionPolicy) -> Result<()> {
+        policy.validate()?;
+        self.validate_common(policy.receipt_sla, Some(policy))
+    }
+
+    pub fn validate_protocol_bounds(&self) -> Result<()> {
+        self.validate_common(MAX_PROPOSAL_RECEIPT_SLA, None)
+    }
+
+    fn validate_common(
+        &self,
+        receipt_sla: Duration,
+        policy: Option<ControlProposalDecisionPolicy>,
+    ) -> Result<()> {
         if self.defer_count != 0 {
             return Err(Error::Protocol(
                 "proposal receipt defer_count must be zero".to_owned(),
             ));
         }
-        let decision_window = self.decision_due_at - self.received_at;
-        if decision_window <= Duration::zero() || decision_window > policy.decision_window {
-            return Err(Error::Protocol(
-                "proposal receipt decision_due_at exceeds the effective decision window".to_owned(),
-            ));
+        if self.member_receipts.is_empty()
+            || self.member_receipts.len() > MAX_PROPOSAL_AUTHORITY_PROOFS
+        {
+            return Err(Error::Protocol(format!(
+                "proposal receipt requires 1..={MAX_PROPOSAL_AUTHORITY_PROOFS} member receipts"
+            )));
         }
-        let absolute_horizon = self.absolute_due_at - self.received_at;
-        if self.absolute_due_at < self.decision_due_at || absolute_horizon > policy.absolute_horizon
+        let expected_received_at = self
+            .member_receipts
+            .iter()
+            .map(|member| member.received_at)
+            .max()
+            .expect("member receipt set is non-empty");
+        let earliest_received_at = self
+            .member_receipts
+            .iter()
+            .map(|member| member.received_at)
+            .min()
+            .expect("member receipt set is non-empty");
+        let expected_decision_due_at = self
+            .member_receipts
+            .iter()
+            .map(|member| member.decision_due_at)
+            .min()
+            .expect("member receipt set is non-empty");
+        let expected_absolute_due_at = self
+            .member_receipts
+            .iter()
+            .map(|member| member.absolute_due_at)
+            .min()
+            .expect("member receipt set is non-empty");
+        if expected_received_at - earliest_received_at > receipt_sla
+            || self.received_at != expected_received_at
+            || self.decision_due_at != expected_decision_due_at
+            || self.absolute_due_at != expected_absolute_due_at
+            || self.received_at > self.decision_due_at
+            || self.decision_due_at > self.absolute_due_at
         {
             return Err(Error::Protocol(
-                "proposal receipt absolute_due_at is outside the effective absolute horizon"
+                "proposal receipt aggregate timestamps do not match the canonical member window"
                     .to_owned(),
             ));
         }
-        validate_signature_set(&self.signatures, &self.receipt_digest()?, self.received_at)
-    }
-
-    pub fn validate_authority_quorum(
-        &self,
-        authority_members: &[Did],
-        threshold: usize,
-    ) -> Result<()> {
-        let authority_member_set = authority_members
-            .iter()
-            .map(Did::as_str)
-            .collect::<std::collections::BTreeSet<_>>();
-        if threshold == 0
-            || threshold > authority_member_set.len()
-            || authority_member_set.len() != authority_members.len()
-            || !authority_member_set.contains(self.receipt_coordinator.as_str())
-        {
-            return Err(Error::Protocol(
-                "control proposal authority set, threshold, or coordinator is invalid".to_owned(),
-            ));
-        }
-        let valid_signers = self
-            .signatures
-            .iter()
-            .map(signer_controller)
-            .collect::<Result<std::collections::BTreeSet<_>>>()?;
-        if !valid_signers.is_subset(&authority_member_set) || valid_signers.len() < threshold {
-            return Err(Error::Protocol(
-                "control proposal signature set does not satisfy authority membership and quorum"
-                    .to_owned(),
-            ));
+        let mut previous_method: Option<&str> = None;
+        for member in &self.member_receipts {
+            if member.realm_id != self.realm_id
+                || member.proposal_digest != self.proposal_digest
+                || member.authority_set_ref != self.authority_set_ref
+            {
+                return Err(Error::Protocol(
+                    "proposal member receipt does not preserve the aggregate receipt binding"
+                        .to_owned(),
+                ));
+            }
+            if previous_method
+                .is_some_and(|previous| previous >= member.signature.verification_method.as_str())
+            {
+                return Err(Error::Protocol(
+                    "proposal member receipts must use distinct verification methods in canonical ascending order"
+                        .to_owned(),
+                ));
+            }
+            if let Some(policy) = policy {
+                member.validate_structural(policy)?;
+            } else {
+                member.validate_protocol_bounds()?;
+            }
+            previous_method = Some(member.signature.verification_method.as_str());
         }
         Ok(())
     }
@@ -296,46 +452,23 @@ impl ControlProposalReceipt {
 
 impl ControlProposalDecision {
     pub fn canonical_bytes_for_signature(&self) -> Result<Vec<u8>> {
-        canonical_bytes_without_signatures(self)
+        let proof = match self {
+            Self::SignedReject { proofs, .. } | Self::SignedDefer { proofs, .. } => {
+                proofs.first().ok_or_else(|| {
+                    Error::Protocol("control proposal decision has no proof".to_owned())
+                })?
+            }
+        };
+        proof_transcript(
+            "ak.control-proposal-decision-proof-v1",
+            &self.decision_digest()?,
+            &proof.verification_method,
+            proof.created_at,
+        )
     }
 
     pub fn decision_digest(&self) -> Result<Hash> {
-        digest_without_signatures(self)
-    }
-
-    pub fn validate_authority_quorum(
-        &self,
-        authority_members: &[Did],
-        threshold: usize,
-    ) -> Result<()> {
-        let authority_member_set = authority_members
-            .iter()
-            .map(Did::as_str)
-            .collect::<std::collections::BTreeSet<_>>();
-        if threshold == 0
-            || threshold > authority_member_set.len()
-            || authority_member_set.len() != authority_members.len()
-        {
-            return Err(Error::Protocol(
-                "control proposal decision authority set or threshold is invalid".to_owned(),
-            ));
-        }
-        let signatures = match self {
-            Self::SignedReject { signatures, .. } | Self::SignedDefer { signatures, .. } => {
-                signatures
-            }
-        };
-        let valid_signers = signatures
-            .iter()
-            .map(signer_controller)
-            .collect::<Result<std::collections::BTreeSet<_>>>()?;
-        if !valid_signers.is_subset(&authority_member_set) || valid_signers.len() < threshold {
-            return Err(Error::Protocol(
-                "control proposal decision signatures do not satisfy authority membership and quorum"
-                    .to_owned(),
-            ));
-        }
-        Ok(())
+        digest_without_field(self, "proofs")
     }
 
     pub fn defer_count(&self) -> u8 {
@@ -404,7 +537,7 @@ impl ControlProposalDecision {
             bound_receipt_digest,
             absolute_due_at,
             authority_set_ref,
-            signatures,
+            proofs,
         ) = match self {
             Self::SignedReject {
                 realm_id,
@@ -412,7 +545,7 @@ impl ControlProposalDecision {
                 receipt_digest,
                 absolute_due_at,
                 authority_set_ref,
-                signatures,
+                proofs,
                 ..
             }
             | Self::SignedDefer {
@@ -421,7 +554,7 @@ impl ControlProposalDecision {
                 receipt_digest,
                 absolute_due_at,
                 authority_set_ref,
-                signatures,
+                proofs,
                 ..
             } => (
                 realm_id,
@@ -429,7 +562,7 @@ impl ControlProposalDecision {
                 receipt_digest,
                 absolute_due_at,
                 authority_set_ref,
-                signatures,
+                proofs,
             ),
         };
         if realm_id != &receipt.realm_id
@@ -473,7 +606,7 @@ impl ControlProposalDecision {
                 }
             }
         }
-        validate_signature_set(signatures, &self.decision_digest()?, self.decided_at())
+        validate_proofs(proofs, &self.decision_digest()?, self.decided_at())
     }
 
     pub fn satisfied_current_deadline(&self, previous_due_at: DateTime<Utc>) -> bool {
@@ -505,42 +638,28 @@ mod tests {
         }
     }
 
-    fn signature_for(
-        verification_method: &str,
-        payload_digest: Hash,
-        created_at: DateTime<Utc>,
-    ) -> PayloadSignature {
-        PayloadSignature {
-            alg: "EdDSA".to_owned(),
-            verification_method: verification_method.to_owned(),
-            payload_digest,
-            created_at,
-            jws: "e30..c2ln".to_owned(),
-        }
-    }
-
-    fn authority_set_ref() -> AuthoritySetRef {
-        AuthoritySetRef {
-            authority_set_id: "ak.authority_set.fixture.v1".to_owned(),
-            authority_set_digest: hash('b'),
-        }
-    }
-
     fn receipt() -> ControlProposalReceipt {
-        let mut receipt = ControlProposalReceipt {
-            kind: ControlProposalReceiptKind::ProposalReceipt,
+        let mut member = ProposalMemberReceipt {
             realm_id: RealmId::new("ak:realm:018f6b1d-7a20-7abc-8def-0123456789ab").unwrap(),
             proposal_digest: hash('a'),
             received_at: at(0),
             decision_due_at: at(30),
             absolute_due_at: at(90),
-            defer_count: 0,
-            authority_set_ref: authority_set_ref(),
-            receipt_coordinator: Did::new("did:webvh:z6mkfixture:authority.example").unwrap(),
-            signatures: vec![signature(hash('0'), at(0))],
+            authority_set_ref: hash('b'),
+            signature: signature(hash('0'), at(0)),
         };
-        receipt.signatures[0].payload_digest = receipt.receipt_digest().unwrap();
-        receipt
+        member.signature.payload_digest = member.member_receipt_digest().unwrap();
+        ControlProposalReceipt {
+            kind: ControlProposalReceiptKind::ProposalReceipt,
+            realm_id: member.realm_id.clone(),
+            proposal_digest: member.proposal_digest.clone(),
+            received_at: at(0),
+            decision_due_at: at(30),
+            absolute_due_at: at(90),
+            defer_count: 0,
+            authority_set_ref: hash('b'),
+            member_receipts: vec![member],
+        }
     }
 
     fn defer(
@@ -559,11 +678,11 @@ mod tests {
             defer_count: count,
             reason_code: ControlProposalDeferReason::QuorumUnreachable,
             authority_set_ref: receipt.authority_set_ref.clone(),
-            signatures: vec![signature(hash('0'), decided_at)],
+            proofs: vec![signature(hash('0'), decided_at)],
         };
         let digest = decision.decision_digest().unwrap();
-        if let ControlProposalDecision::SignedDefer { signatures, .. } = &mut decision {
-            signatures[0].payload_digest = digest;
+        if let ControlProposalDecision::SignedDefer { proofs, .. } = &mut decision {
+            proofs[0].payload_digest = digest;
         }
         decision
     }
@@ -575,7 +694,9 @@ mod tests {
             .unwrap();
         let mut invalid = receipt();
         invalid.absolute_due_at = at(91);
-        invalid.signatures[0].payload_digest = invalid.receipt_digest().unwrap();
+        invalid.member_receipts[0].absolute_due_at = at(91);
+        invalid.member_receipts[0].signature.payload_digest =
+            invalid.member_receipts[0].member_receipt_digest().unwrap();
         assert!(
             invalid
                 .validate_structural(ControlProposalDecisionPolicy::default())
@@ -627,8 +748,8 @@ mod tests {
         let receipt = receipt();
         let mut first = defer(&receipt, 1, at(20), at(60));
         let second = defer(&receipt, 2, at(50), at(90));
-        if let ControlProposalDecision::SignedDefer { signatures, .. } = &mut first {
-            signatures[0].payload_digest = hash('f');
+        if let ControlProposalDecision::SignedDefer { proofs, .. } = &mut first {
+            proofs[0].payload_digest = hash('f');
         }
         assert!(
             second
@@ -639,35 +760,5 @@ mod tests {
                 )
                 .is_err()
         );
-    }
-
-    #[test]
-    fn receipt_and_decision_require_real_member_quorum() {
-        let authority = Did::new("did:webvh:z6mkfixture:authority.example").unwrap();
-        let bravo = Did::new("did:webvh:z6mkfixture:bravo.example").unwrap();
-        let members = [authority, bravo];
-        let mut receipt = receipt();
-        receipt.signatures.push(signature_for(
-            "did:webvh:z6mkfixture:bravo.example#notary-1",
-            receipt.receipt_digest().unwrap(),
-            receipt.received_at,
-        ));
-        receipt.validate_authority_quorum(&members, 2).unwrap();
-
-        let mut decision = defer(&receipt, 1, at(20), at(60));
-        decision.validate_authority_quorum(&members, 2).unwrap_err();
-        let digest = decision.decision_digest().unwrap();
-        if let ControlProposalDecision::SignedDefer { signatures, .. } = &mut decision {
-            signatures.push(signature_for(
-                "did:webvh:z6mkfixture:bravo.example#notary-1",
-                digest,
-                at(20),
-            ));
-        }
-        decision.validate_authority_quorum(&members, 2).unwrap();
-
-        receipt.receipt_coordinator =
-            Did::new("did:webvh:z6mkfixture:not-a-member.example").unwrap();
-        assert!(receipt.validate_authority_quorum(&members, 2).is_err());
     }
 }
