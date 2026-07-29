@@ -159,6 +159,7 @@ pub struct AccountRegistrationAudit {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataReplaceRequestBody {
+    pub expected_revision: u64,
     pub content: Value,
 }
 
@@ -167,6 +168,7 @@ pub struct AccountDataReplaceRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataRow {
     pub account_data_key: String,
+    pub revision: u64,
     pub content: Value,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
@@ -189,6 +191,7 @@ pub struct AccountDataList {
 pub struct AccountDataDeleteOutcome {
     pub ok: bool,
     pub account_data_key: String,
+    pub revision: u64,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

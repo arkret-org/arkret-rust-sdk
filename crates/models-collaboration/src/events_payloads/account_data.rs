@@ -64,6 +64,9 @@ impl<'de> Deserialize<'de> for AccountDataBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct AccountDataSetPayload {
     pub key: NonEmptyString,
+    /// Compare-and-set precondition. `0` creates a key that has never been
+    /// written; every accepted write stores `expected_revision + 1`.
+    pub expected_revision: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub owner: Option<Did>,
     /// Caller-supplied opaque value. Unlike the encrypted branch, this may be
@@ -84,14 +87,13 @@ pub struct AccountDataSetPayload {
         serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp"
     )]
     pub updated_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_state_digest: Option<Hash>,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct AccountDataSetPayloadWire {
     key: NonEmptyString,
+    expected_revision: u64,
     #[serde(default)]
     owner: Option<Did>,
     #[serde(default)]
@@ -107,8 +109,6 @@ struct AccountDataSetPayloadWire {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
     )]
     updated_at: Option<DateTime<Utc>>,
-    #[serde(default)]
-    expected_state_digest: Option<Hash>,
 }
 
 impl<'de> Deserialize<'de> for AccountDataSetPayload {
@@ -124,13 +124,13 @@ impl<'de> Deserialize<'de> for AccountDataSetPayload {
         }
         let payload = Self {
             key: wire.key,
+            expected_revision: wire.expected_revision,
             owner: wire.owner,
             body: wire.body,
             encrypted_payload: wire.encrypted_payload,
             body_digest: wire.body_digest,
             tombstone: wire.tombstone.unwrap_or(false),
             updated_at: wire.updated_at,
-            expected_state_digest: wire.expected_state_digest,
         };
         payload.validate().map_err(de::Error::custom)?;
         Ok(payload)
@@ -161,6 +161,7 @@ mod tests {
     fn account_data_set_payload_matches_current_spec_shape() {
         let payload: AccountDataSetPayload = serde_json::from_value(json!({
             "key": "ak.preference.theme",
+            "expected_revision": 0,
             "body": "dark"
         }))
         .unwrap();
@@ -181,10 +182,12 @@ mod tests {
         for value in [
             json!({
                 "key": "ak.private.index",
+                "expected_revision": 4,
                 "encrypted_payload": {"ciphertext": "opaque"}
             }),
             json!({
                 "key": "ak.preference.theme",
+                "expected_revision": 7,
                 "tombstone": true
             }),
         ] {
@@ -197,13 +200,18 @@ mod tests {
     fn account_data_set_payload_preserves_explicit_null_body() {
         let payload: AccountDataSetPayload = serde_json::from_value(json!({
             "key": "ak.preference.optional",
+            "expected_revision": 0,
             "body": null
         }))
         .unwrap();
         assert_eq!(payload.body.as_value(), Some(&Value::Null));
         assert_eq!(
             serde_json::to_value(payload).unwrap(),
-            json!({"key": "ak.preference.optional", "body": null})
+            json!({
+                "key": "ak.preference.optional",
+                "expected_revision": 0,
+                "body": null
+            })
         );
     }
 
@@ -211,13 +219,15 @@ mod tests {
     fn account_data_set_payload_rejects_invalid_union_and_false_tombstone() {
         assert!(
             serde_json::from_value::<AccountDataSetPayload>(json!({
-                "key": "ak.preference.theme"
+                "key": "ak.preference.theme",
+                "expected_revision": 0
             }))
             .is_err()
         );
         assert!(
             serde_json::from_value::<AccountDataSetPayload>(json!({
                 "key": "ak.preference.theme",
+                "expected_revision": 0,
                 "tombstone": false
             }))
             .is_err()
@@ -225,8 +235,25 @@ mod tests {
         assert!(
             serde_json::from_value::<AccountDataSetPayload>(json!({
                 "key": "ak.preference.theme",
+                "expected_revision": 0,
                 "body": {},
                 "legacy_field": true
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<AccountDataSetPayload>(json!({
+                "key": "ak.preference.theme",
+                "body": "dark"
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<AccountDataSetPayload>(json!({
+                "key": "ak.preference.theme",
+                "expected_state_digest":
+                    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "body": "dark"
             }))
             .is_err()
         );

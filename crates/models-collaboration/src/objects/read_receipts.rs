@@ -36,6 +36,70 @@ impl ReadCursor {
     }
 }
 
+/// Causal relationship between an incoming cursor position and the currently
+/// stored position. The caller determines this from the known Event closure;
+/// HLC must never be used to guess an unknown relationship.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReadCursorCausalRelation {
+    CandidateDominatesCurrent,
+    CurrentDominatesCandidate,
+    Concurrent,
+    Undecidable,
+}
+
+/// Result of the normative causal-first Read Cursor merge.
+#[derive(Clone, Copy, Debug)]
+pub struct ReadCursorMerge<'a> {
+    pub winner: &'a ReadCursor,
+    /// `true` means causal closure is incomplete. The winner is the preserved
+    /// current position and MUST NOT be persisted or reported as final.
+    pub provisional: bool,
+}
+
+/// Merge two cursors for the same `(actor_id, realm_id, read_scope)`.
+///
+/// The algorithm is fixed by read-receipts.md §6.5: causal dominance wins;
+/// only concurrent positions compare HLC; equal HLCs compare `device_id`.
+/// An undecidable closure preserves the current cursor provisionally.
+pub fn merge_read_cursors<'a>(
+    current: &'a ReadCursor,
+    candidate: &'a ReadCursor,
+    relation: ReadCursorCausalRelation,
+) -> Result<ReadCursorMerge<'a>> {
+    if current.actor_id != candidate.actor_id
+        || current.realm_id != candidate.realm_id
+        || current.read_scope != candidate.read_scope
+    {
+        return Err(Error::Protocol(
+            "read cursor merge requires identical actor_id, realm_id, and read_scope".to_owned(),
+        ));
+    }
+
+    let (winner, provisional) = match relation {
+        ReadCursorCausalRelation::CandidateDominatesCurrent => (candidate, false),
+        ReadCursorCausalRelation::CurrentDominatesCandidate => (current, false),
+        ReadCursorCausalRelation::Concurrent => {
+            let winner = match candidate.position.hlc.cmp(&current.position.hlc) {
+                std::cmp::Ordering::Greater => candidate,
+                std::cmp::Ordering::Less => current,
+                std::cmp::Ordering::Equal => {
+                    if candidate.device_id.as_str() > current.device_id.as_str() {
+                        candidate
+                    } else {
+                        current
+                    }
+                }
+            };
+            (winner, false)
+        }
+        ReadCursorCausalRelation::Undecidable => (current, true),
+    };
+    Ok(ReadCursorMerge {
+        winner,
+        provisional,
+    })
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -75,6 +139,81 @@ pub struct ReadMarkerOutcome {
 pub struct ReadCursorList {
     #[serde(default)]
     pub markers: Vec<ReadMarkerOutcome>,
+}
+
+#[cfg(test)]
+mod read_cursor_merge_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn cursor(device_suffix: u32, event_suffix: u32, hlc: &str) -> ReadCursor {
+        serde_json::from_value(json!({
+            "id": format!("ak:read_cursor:01964137-0000-7000-8000-{device_suffix:012x}"),
+            "schema": "ak.schema.read_cursor.v1",
+            "actor_id": "did:webvh:z6mkalice:alice.example",
+            "device_id": format!("ak:device:01964137-0000-7000-8000-{device_suffix:012x}"),
+            "realm_id": "ak:realm:01964137-0000-7000-8000-000000000001",
+            "read_scope": {"kind": "realm"},
+            "position": {
+                "event_id": format!("ak:event:01964137-0000-7000-8000-{event_suffix:012x}"),
+                "hlc": hlc
+            },
+            "updated_at": "2026-07-29T00:00:00.000Z"
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn causal_dominance_wins_even_with_lower_hlc() {
+        let current = cursor(1, 1, "01970e589d21-0002-a13f9c2e");
+        let candidate = cursor(2, 2, "01970e589d21-0001-a13f9c2e");
+        let merged = merge_read_cursors(
+            &current,
+            &candidate,
+            ReadCursorCausalRelation::CandidateDominatesCurrent,
+        )
+        .unwrap();
+        assert_eq!(merged.winner.position.event_id, candidate.position.event_id);
+        assert!(!merged.provisional);
+    }
+
+    #[test]
+    fn concurrent_positions_use_hlc_then_device_id() {
+        let current = cursor(1, 1, "01970e589d21-0001-a13f9c2e");
+        let higher_hlc = cursor(2, 2, "01970e589d21-0002-a13f9c2e");
+        assert_eq!(
+            merge_read_cursors(&current, &higher_hlc, ReadCursorCausalRelation::Concurrent)
+                .unwrap()
+                .winner
+                .device_id,
+            higher_hlc.device_id
+        );
+
+        let higher_device = cursor(2, 2, "01970e589d21-0001-a13f9c2e");
+        assert_eq!(
+            merge_read_cursors(
+                &current,
+                &higher_device,
+                ReadCursorCausalRelation::Concurrent
+            )
+            .unwrap()
+            .winner
+            .device_id,
+            higher_device.device_id
+        );
+    }
+
+    #[test]
+    fn unknown_causal_closure_preserves_current_provisionally() {
+        let current = cursor(1, 1, "01970e589d21-0001-a13f9c2e");
+        let candidate = cursor(2, 2, "01970e589d21-0002-a13f9c2e");
+        let merged =
+            merge_read_cursors(&current, &candidate, ReadCursorCausalRelation::Undecidable)
+                .unwrap();
+        assert_eq!(merged.winner.position.event_id, current.position.event_id);
+        assert!(merged.provisional);
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

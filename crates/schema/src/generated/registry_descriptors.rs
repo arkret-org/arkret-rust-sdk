@@ -5,10 +5,10 @@
 //! capability-action-registry.json; version=2026-07-20;
 //! sha256=8fc7b8f2068813d548b07a5bba710de0039c0a0193943636171ab9f401eca7eb Input: registry/
 //! schema-registry.json; version=2026-07-20;
-//! sha256=8bdff4c45222df3083a745a7e096451bcc3388b289bd452130c03d155210d035 Input: registry/
-//! account-data-key-registry.json; version=2026-07-03;
-//! sha256=0ee8f8609eb903dbb1a254cb9fda133b843a332febfad0648d523e1aeeaf80eb Entries: id_kinds=53,
-//! special_forms=9, actions=157, schemas=150, account_data_patterns=22
+//! sha256=e795ba316720d72e9f202e85f5a945bafba52e4d784dd01b18678d129619503d Input: registry/
+//! account-data-key-registry.json; version=2026-07-29;
+//! sha256=4440a5ff1a4a91605e5a83b1e46b4da4fc1bd49eaf110ec807ac246fd25b59ec Entries: id_kinds=53,
+//! special_forms=9, actions=157, schemas=170, account_data_patterns=22
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -2120,6 +2120,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/event-payload.schema.json",
     },
     SchemaDescriptor {
+        schema_id: "ak.schema.events_subscribe_frame.v1",
+        file: "schemas/events-subscribe-frame.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: "ak.schema.extension_manifest.v1",
         file: "schemas/extension-manifest.schema.json",
     },
@@ -2450,6 +2454,82 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: "ak.schema.view.v1",
         file: "schemas/view.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_authenticate_frame.v1",
+        file: "schemas/websocket-frame.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_challenge_frame.v1",
+        file: "schemas/websocket-frame.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_client_frame.v1",
+        file: "schemas/websocket-frame.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_close_frame.v1",
+        file: "schemas/websocket-frame.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_closed_frame.v1",
+        file: "schemas/websocket-frame.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_control_frame.v1",
+        file: "schemas/websocket-frame.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_data_frame.v1",
+        file: "schemas/websocket-frame.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_dpop_claims.v1",
+        file: "schemas/websocket-dpop-proof.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_dpop_proof.v1",
+        file: "schemas/websocket-dpop-proof.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_dpop_protected_header.v1",
+        file: "schemas/websocket-dpop-proof.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_error_frame.v1",
+        file: "schemas/websocket-frame.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_frame.v1",
+        file: "schemas/websocket-frame.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_open_frame.v1",
+        file: "schemas/websocket-frame.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_opened_frame.v1",
+        file: "schemas/websocket-frame.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_ping_frame.v1",
+        file: "schemas/websocket-frame.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_pong_frame.v1",
+        file: "schemas/websocket-frame.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_reauth_required_frame.v1",
+        file: "schemas/websocket-frame.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_server_frame.v1",
+        file: "schemas/websocket-frame.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.websocket_welcome_frame.v1",
+        file: "schemas/websocket-frame.schema.json",
     },
 ];
 

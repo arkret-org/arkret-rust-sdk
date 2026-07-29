@@ -50,7 +50,7 @@ impl Deref for AgentRuntimeApprovalStatusResponse {
 
 impl Client {
     /// `POST /_arkret/self/agent-signer-evidence/query`
-    /// (`ak.self.agent_signer_evidence.query`).
+    /// (`ak.self.agent_signer_evidence.query.resolve`).
     pub async fn agent_signer_evidence_query(
         &self,
         request: &AgentSignerEvidenceQueryRequestBodyBody,
