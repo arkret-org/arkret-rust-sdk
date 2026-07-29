@@ -939,6 +939,18 @@ impl PreparedEventUnit {
         arkret_canonical::canonical::verify_digest(&bytes, self.request_digest.as_str())?;
         Ok(())
     }
+
+    fn events_submit_request(
+        &self,
+        coordinator_service_id: &Did,
+    ) -> Result<EventsSubmitBatchRequestBody> {
+        self.validate_structural(coordinator_service_id)?;
+        serde_json::from_value(self.request.clone()).map_err(|error| {
+            Error::Protocol(format!(
+                "prepared Event unit is not a typed EventsSubmitBatchRequestBody: {error}"
+            ))
+        })
+    }
 }
 
 impl SecurityTransaction {
@@ -1286,8 +1298,18 @@ impl SecurityTransaction {
         binding: &SecurityRotationBinding,
         plan: &SecurityRotationPlan,
     ) -> Result<()> {
-        plan.revoke_unit
-            .validate_structural(&self.coordinator_service_id)?;
+        let revoke_request = plan
+            .revoke_unit
+            .events_submit_request(&self.coordinator_service_id)?;
+        if revoke_request.events.len() != 1
+            || revoke_request.events[0].event.event_id != binding.revoke_event_id
+            || revoke_request.events[0].event.kind != "ak.device.revoke"
+        {
+            return Err(Error::Protocol(
+                "security-rotation revoke unit must contain exactly the reserved ak.device.revoke Event"
+                    .to_owned(),
+            ));
+        }
         if binding.erase_confirmation_digest
             != security_rotation_erase_confirmation_digest(
                 &self.transaction_id,
@@ -1352,12 +1374,53 @@ impl SecurityTransaction {
                     "security-rotation backup object references must be unique".to_owned(),
                 ));
             }
-            plan_rotation
+            let active_series_request = plan_rotation
                 .active_series_unit
-                .validate_structural(&self.coordinator_service_id)?;
+                .events_submit_request(&self.coordinator_service_id)?;
+            if active_series_request.events.len() != 1
+                || active_series_request.events[0].event.event_id
+                    != binding_rotation.active_series_event_id
+                || active_series_request.events[0].event.kind != "ak.key_backup.active_series"
+            {
+                return Err(Error::Protocol(
+                    "security-rotation active-series unit must contain exactly its reserved ak.key_backup.active_series Event"
+                        .to_owned(),
+                ));
+            }
             plan_rotation
                 .encrypted_backup_material
                 .validate_structural()?;
+            let prepared_backups = plan_rotation
+                .encrypted_backup_material
+                .value
+                .as_array()
+                .cloned()
+                .unwrap_or_else(|| vec![plan_rotation.encrypted_backup_material.value.clone()]);
+            let expected_kind = match binding_rotation.backup_kind {
+                BackupRotationKind::SecretStorage => "secret_storage",
+                BackupRotationKind::MlsHistory => "mls_history",
+            };
+            if prepared_backups.len() != binding_rotation.new_backups.len()
+                || binding_rotation.new_backups.iter().any(|expected| {
+                    !prepared_backups.iter().any(|prepared| {
+                        prepared.get("backup_id").and_then(Value::as_str)
+                            == Some(expected.backup_id.as_str())
+                            && prepared.get("ciphertext_digest").and_then(Value::as_str)
+                                == Some(expected.ciphertext_digest.as_str())
+                            && prepared.get("actor_id").and_then(Value::as_str)
+                                == Some(self.principal_id.as_str())
+                            && prepared.get("series_id").and_then(Value::as_str)
+                                == Some(binding_rotation.new_series_id.as_str())
+                            && prepared.get("backup_kind").and_then(Value::as_str)
+                                == Some(expected_kind)
+                    })
+                })
+            {
+                return Err(Error::Protocol(
+                    "security-rotation encrypted backup material must exactly cover the reserved new backups"
+                        .to_owned(),
+                ));
+            }
         }
         Ok(())
     }
@@ -1469,13 +1532,37 @@ mod tests {
 
     use super::*;
     use crate::recovery_authority::CanonicalEncoding;
+    use crate::{
+        AUTHORITY_SET_POLICY_SCHEMA, AuthoritySetPolicy, AuthoritySetPolicyKind,
+        AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease,
+        AuthorizationLeaseId, DeviceId, Event, Hlc, LeaseBasisRef, RealmId, RiskTier, ScopeRef,
+        SealId,
+    };
 
     fn hash(byte: char) -> Hash {
         Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
     }
 
-    fn material() -> CanonicalPublicMaterial {
-        let value = json!({"fixture": true});
+    fn material(binding: &BackupRotationBinding) -> CanonicalPublicMaterial {
+        let backup_kind = match binding.backup_kind {
+            BackupRotationKind::SecretStorage => "secret_storage",
+            BackupRotationKind::MlsHistory => "mls_history",
+        };
+        let value = Value::Array(
+            binding
+                .new_backups
+                .iter()
+                .map(|backup| {
+                    json!({
+                        "actor_id": "did:webvh:z6mkfixture:alice.example",
+                        "backup_id": backup.backup_id,
+                        "backup_kind": backup_kind,
+                        "ciphertext_digest": backup.ciphertext_digest,
+                        "series_id": binding.new_series_id,
+                    })
+                })
+                .collect(),
+        );
         let bytes = arkret_canonical::canonical::canonical_json_bytes(&value).unwrap();
         CanonicalPublicMaterial {
             canonical_encoding: CanonicalEncoding::CanonicalJson,
@@ -1485,18 +1572,67 @@ mod tests {
         }
     }
 
-    fn event_unit(coordinator: &Did) -> PreparedEventUnit {
-        let request = json!({"events": []});
-        let bytes = arkret_canonical::canonical::canonical_json_bytes(&request).unwrap();
-        PreparedEventUnit {
-            operation_id: "ak.self.events.command.submit".to_owned(),
-            destination_service_id: coordinator.clone(),
-            audience: coordinator.clone(),
-            request_schema: "https://arkret.org/v1/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitBatchRequestBody".to_owned(),
-            request,
-            canonical_request_base64url: arkret_canonical::base64url::base64url_encode(&bytes),
-            request_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&bytes)).unwrap(),
-        }
+    fn event_unit(coordinator: &Did, event_id: EventId, kind: &str) -> PreparedEventUnit {
+        let scope_ref = ScopeRef::Realm {
+            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+        };
+        let actor_id = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+        let event = Event::new_with_id_at(
+            event_id,
+            kind,
+            scope_ref.clone(),
+            actor_id.clone(),
+            1,
+            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+            json!({"fixture": true}),
+            Utc.with_ymd_and_hms(2026, 7, 28, 0, 0, 0).unwrap(),
+        )
+        .unwrap();
+        let authority_set_policy = AuthoritySetPolicy {
+            schema: AUTHORITY_SET_POLICY_SCHEMA.to_owned(),
+            authority_set_id: "ak.authority_set.rotation_fixture.v1".to_owned(),
+            policy_kind: AuthoritySetPolicyKind::RealmAdmission,
+            scope_ref: scope_ref.clone(),
+            source: AuthoritySetPolicySource {
+                source_kind: AuthoritySetSourceKind::RealmControl,
+                source_ref: "ak:event:01904100-0000-7000-8000-111111111111".to_owned(),
+                source_digest: hash('a'),
+                generation_ref: "1".to_owned(),
+            },
+            authorization_rules: Vec::new(),
+        };
+        let request = EventsSubmitBatchRequestBody {
+            events: vec![EventInitialSubmission {
+                event,
+                authorization_lease: AuthorizationLease {
+                    authorization_lease_id: AuthorizationLeaseId::new(
+                        "ak:authorization_lease:01904100-0000-7000-8000-aaaaaaaaaaaa",
+                    )
+                    .unwrap(),
+                    basis_ref: LeaseBasisRef::Seal(
+                        SealId::new(format!("ak:seal:sha256:{}", "b".repeat(64))).unwrap(),
+                    ),
+                    actor_id,
+                    device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-bbbbbbbbbbbb")
+                        .unwrap(),
+                    scope_ref,
+                    action: "ak.realm.admin".to_owned(),
+                    authorization_rule_id: "fixture".to_owned(),
+                    risk_tier: RiskTier::High,
+                    issued_at: Utc.with_ymd_and_hms(2026, 7, 28, 0, 0, 0).unwrap(),
+                    expires_at: Utc.with_ymd_and_hms(2026, 7, 28, 1, 0, 0).unwrap(),
+                    authority_set_ref: AuthoritySetRef {
+                        authority_set_id: authority_set_policy.authority_set_id.clone(),
+                        authority_set_digest: hash('c'),
+                    },
+                    authority_set_policy,
+                    proofs: Vec::new(),
+                },
+                cba_proof_bundles: Vec::new(),
+                control_proposal_receipt: None,
+            }],
+        };
+        PreparedEventUnit::new(coordinator.clone(), serde_json::to_value(request).unwrap()).unwrap()
     }
 
     fn rotation(accepted: usize, state: SecurityTransactionState) -> SecurityTransaction {
@@ -1543,16 +1679,26 @@ mod tests {
         let local_commit_digest =
             security_rotation_local_commit_digest(&transaction_id, &hash('e'), &backup_rotations)
                 .unwrap();
+        let revoke_event_id =
+            EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap();
         let plan = SecurityRotationPlan {
-            revoke_unit: event_unit(&coordinator_service_id),
+            revoke_unit: event_unit(
+                &coordinator_service_id,
+                revoke_event_id.clone(),
+                "ak.device.revoke",
+            ),
             new_secret_commitment: hash('e'),
             backup_rotations: backup_rotations
                 .iter()
                 .cloned()
                 .map(|binding| BackupRotationPlan {
+                    active_series_unit: event_unit(
+                        &coordinator_service_id,
+                        binding.active_series_event_id.clone(),
+                        "ak.key_backup.active_series",
+                    ),
+                    encrypted_backup_material: material(&binding),
                     binding,
-                    encrypted_backup_material: material(),
-                    active_series_unit: event_unit(&coordinator_service_id),
                 })
                 .collect(),
             erase_confirmation_digest: erase_confirmation_digest.clone(),
@@ -1584,8 +1730,7 @@ mod tests {
             created_at,
             request_digest: hash('b'),
             binding: SecurityTransactionBinding::SecurityRotation(SecurityRotationBinding {
-                revoke_event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575")
-                    .unwrap(),
+                revoke_event_id,
                 new_secret_commitment: hash('e'),
                 backup_rotations,
                 erase_confirmation_digest,
@@ -1698,6 +1843,67 @@ mod tests {
                 .unwrap()
             )
             .unwrap()
+        );
+    }
+
+    #[test]
+    fn rotation_plan_binds_reserved_event_ids_and_kinds_before_execution() {
+        let resource = rotation(0, SecurityTransactionState::Pending);
+        let SecurityTransactionBinding::SecurityRotation(binding) = &resource.binding else {
+            panic!("rotation fixture binding");
+        };
+        let SecurityTransactionPreparedPlan::SecurityRotation(plan) = &resource.prepared_plan
+        else {
+            panic!("rotation fixture plan");
+        };
+
+        let mut wrong_revoke = plan.clone();
+        wrong_revoke.revoke_unit = event_unit(
+            &resource.coordinator_service_id,
+            EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c576").unwrap(),
+            "ak.device.revoke",
+        );
+        let error = resource
+            .validate_security_rotation_binding_plan(binding, &wrong_revoke)
+            .unwrap_err();
+        assert!(error.to_string().contains("reserved ak.device.revoke"));
+
+        let mut wrong_pointer = plan.clone();
+        let reserved_event_id = binding.backup_rotations[0].active_series_event_id.clone();
+        wrong_pointer.backup_rotations[0].active_series_unit = event_unit(
+            &resource.coordinator_service_id,
+            reserved_event_id,
+            "ak.message.create",
+        );
+        let error = resource
+            .validate_security_rotation_binding_plan(binding, &wrong_pointer)
+            .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("reserved ak.key_backup.active_series")
+        );
+
+        let mut wrong_backup = plan.clone();
+        let mut value = wrong_backup.backup_rotations[0]
+            .encrypted_backup_material
+            .value
+            .clone();
+        value[0]["actor_id"] = json!("did:webvh:z6mkfixture:mallory.example");
+        let bytes = arkret_canonical::canonical::canonical_json_bytes(&value).unwrap();
+        wrong_backup.backup_rotations[0].encrypted_backup_material = CanonicalPublicMaterial {
+            canonical_encoding: CanonicalEncoding::CanonicalJson,
+            value,
+            canonical_bytes_base64url: arkret_canonical::base64url::base64url_encode(&bytes),
+            digest: Hash::new(arkret_canonical::canonical::sha256_digest(&bytes)).unwrap(),
+        };
+        let error = resource
+            .validate_security_rotation_binding_plan(binding, &wrong_backup)
+            .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("exactly cover the reserved new backups")
         );
     }
 
