@@ -1,6 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_models_collaboration::agent_operations::AgentProvisionEventDrafts;
 use arkret_models_collaboration::event_sync::RealmSealFrontierView;
 use arkret_models_collaboration::events_payloads::RealmCreatePayload;
 use arkret_models_collaboration::events_payloads::device_identity::{
@@ -149,6 +148,16 @@ pub struct AgentProvisionEventDraftOptions {
     pub accountability_hlc: Hlc,
     pub selector_actor_seq: u64,
     pub selector_hlc: Hlc,
+}
+
+/// Controller-owned Event drafts before ordinary publication evidence is
+/// attached. This is deliberately distinct from
+/// `agent_operations::AgentProvisionEvents`, whose two fields are complete
+/// `EventInitialSubmission` values on the provision commit wire.
+#[derive(Clone, Debug)]
+pub struct AgentProvisionEventDrafts {
+    pub accountability_grant: Event,
+    pub selector_claim: Event,
 }
 
 /// Build the closed controller-owned managed-agent provisioning Event pair.
@@ -1843,7 +1852,7 @@ mod tests {
         );
 
         assert_eq!(
-            serde_json::to_value(events).unwrap()["accountability_grant"]["created_at"],
+            serde_json::to_value(&events.accountability_grant).unwrap()["created_at"],
             "2026-07-18T01:02:03.000Z"
         );
     }

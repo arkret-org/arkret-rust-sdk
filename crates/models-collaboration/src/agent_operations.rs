@@ -287,12 +287,6 @@ pub struct AgentProvisionEvents {
     pub selector_claim: EventInitialSubmission,
 }
 
-#[derive(Clone, Debug, Serialize)]
-pub struct AgentProvisionEventDrafts {
-    pub accountability_grant: Event,
-    pub selector_claim: Event,
-}
-
 // NOTE: `AgentKeyScope` is the spec object `{actions, resources, constraints?}`
 // defined in `models/artifacts/event_payload/agent.rs`
 // (`event-payload.schema.json#/$defs/agent_key_scope`, `$ref`'d by
