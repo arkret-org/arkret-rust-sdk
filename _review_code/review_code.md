@@ -107,3 +107,20 @@
 - Prevention dimension: every signed object family must test its serialized proof member names
   against its exact schema reference; Event proof helpers may never be reused by non-Event
   objects.
+
+## 2026-07-30 — Realm frontier transport validation guessed the effective proposal policy
+
+- Surface: `RealmSealFrontierView` and `ControlGovernanceHealth`.
+- Regression: the account-client frontier carries proposal receipts and decision chains but not
+  the Realm's exact decision policy. Its structural validator substituted
+  `ControlProposalDecisionPolicy::protocol_maximum()` and performed exact-policy validation,
+  rejecting a canonical 30s/90s receipt as though it were required to use the 24h/72h protocol
+  ceilings.
+- Detection: the real Inkson/Soland onboarding flow accepted and sealed the principal-control
+  anchor, then failed locally while validating the returned Realm frontier.
+- Correction: recover the effective receipt windows at the frontier boundary and require every
+  receipt/decision chain to agree; authoritative admission and persistence still pass the full
+  effective Realm policy explicitly.
+- Prevention dimension: a protocol ceiling is a bound, never a substitute for an unresolved
+  effective policy. DTOs that omit policy inputs must not pass `protocol_maximum()` to an
+  exact-policy validator.
