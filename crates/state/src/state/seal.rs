@@ -178,9 +178,12 @@ where
         });
     }
 
-    // The baseline every Control Move in this batch is evaluated against is
-    // frozen at the predecessor view: same-batch writes MUST NOT advance a
-    // later Move's precondition basis (§6.3.1 frozen-predecessor rule).
+    // The baseline every ordinary Control Move in this batch is evaluated
+    // against is frozen at the predecessor view: same-batch writes MUST NOT
+    // advance a later Move's precondition basis (§6.3.1
+    // frozen-predecessor rule). The first closed anchor unit is the sole
+    // exception: realm-and-space.md §2.5 requires ak.realm.create's registered
+    // writes to be staged before its bootstrap follow-ups are evaluated.
     let pre_state =
         effective_state_for_covered_events(&pred_covered, &seal.realm_id, cells, registry)?;
     let pred_closure = predecessor_seal_closure(&seal.predecessor_refs, seals)?;
@@ -198,6 +201,8 @@ where
 
     let mut accepted: Vec<(Hash, Event, Vec<crate::ProjectionEffect>)> =
         Vec::with_capacity(ordered.len());
+    let mut staged_anchor_state = pre_state.clone();
+    let mut staged_anchor_ops = BTreeMap::<CellRef, Vec<IssuedOp>>::new();
     for (digest, event) in ordered {
         if event.seal_basis.is_some() || context == EventSubmitContext::Standard {
             verify_seal_basis(
@@ -213,13 +218,33 @@ where
         match verify_control_move_in_context(
             &event,
             &seal.realm_id,
-            &pre_state,
+            if context == EventSubmitContext::AnchorUnit {
+                &staged_anchor_state
+            } else {
+                &pre_state
+            },
             registry,
             verify_proofs,
             project_writes,
             context,
         ) {
-            Ok(effects) => accepted.push((digest, event, effects)),
+            Ok(effects) => {
+                if context == EventSubmitContext::AnchorUnit {
+                    for effect in &effects {
+                        let cell_ops = staged_anchor_ops.entry(effect.cell.clone()).or_default();
+                        cell_ops.push(IssuedOp {
+                            issuer: event.actor_id.clone(),
+                            op: SealedOp::new(digest.clone(), effect.op.clone()),
+                        });
+                        let binding = registry.resolve(&seal.realm_id, &effect.cell)?;
+                        staged_anchor_state.insert(
+                            effect.cell.clone(),
+                            join_cell(binding.lattice.as_ref(), &effect.cell, cell_ops),
+                        );
+                    }
+                }
+                accepted.push((digest, event, effects));
+            }
             Err(reject) => {
                 return Err(SealReject::ControlMoveRejected {
                     event_digest: digest.as_str().to_owned(),
@@ -705,10 +730,12 @@ mod tests {
     use crate::state::store::memory::{
         MemoryCellRegistry, MemoryCellStore, MemoryControlEventStore, MemorySealStore,
     };
-    use crate::state::store::{CellStore, ControlEventStore, SealStore, control_event_digest};
+    use crate::state::store::{
+        BottomMode, CellStore, ControlEventStore, SealStore, control_event_digest,
+    };
     use crate::{
         Did, Event, EventId, EventRequirements, Hlc, LatticeOp, LatticeOpType, NotarySig,
-        PayloadSignature, ProjectedOp, SealBasis, SealKind,
+        PayloadSignature, Precondition, Predicate, PredicateOp, ProjectedOp, SealBasis, SealKind,
     };
 
     fn realm() -> RealmId {
@@ -1134,6 +1161,22 @@ mod tests {
         }])
     }
 
+    fn bootstrap_member_transition_write(event: &Event) -> Result<Vec<ProjectedCellWrite>, String> {
+        let mut op = LatticeOp::empty();
+        op.op_type = LatticeOpType::Transition;
+        let state = if event.actor_seq == 0 {
+            ("leave", "join")
+        } else {
+            ("join", "join")
+        };
+        op.from = Some(json!(state.0));
+        op.to = Some(json!(state.1));
+        Ok(vec![ProjectedCellWrite {
+            cell: member_cell(),
+            op: ProjectedOp::Direct(op),
+        }])
+    }
+
     #[test]
     fn apply_seal_rejects_an_empty_first_root() {
         let seal = signed_seal(
@@ -1216,6 +1259,80 @@ mod tests {
         )
         .unwrap();
         assert_eq!(effect.accepted_event_digests, vec![digest]);
+        assert_eq!(effect.post_state_root, seal.state_root);
+    }
+
+    #[test]
+    fn anchor_unit_stages_create_projection_before_creator_binding_transition() {
+        let events = MemoryControlEventStore::default();
+        let seals = MemorySealStore::default();
+        let cells = MemoryCellStore::default();
+        let mut registry = MemoryCellRegistry::new();
+        registry.register_fsm(
+            "ak.component.member.state.v1",
+            Some(json!("leave")),
+            vec![
+                (json!("leave"), json!("join")),
+                (json!("join"), json!("join")),
+            ],
+            BottomMode::Reject,
+        );
+        let placeholder_basis = SealBasis {
+            leaves: vec![seal_id(0x01)],
+            control_event_set_root: hash(0x02),
+            state_root: hash(0x03),
+        };
+        let mut create = control_move(0, placeholder_basis.clone(), Vec::new(), Vec::new());
+        create.seal_basis = None;
+        create.proofs[0].event_digest = Hash::new(create.event_digest().unwrap()).unwrap();
+        let create_digest = control_event_digest(&create).unwrap();
+        events.put_pending(&create).unwrap();
+
+        let mut binding = control_move(
+            1,
+            placeholder_basis,
+            vec![create.event_id.clone()],
+            Vec::new(),
+        );
+        binding.seal_basis = None;
+        binding.preconditions.push(Precondition {
+            cell: member_cell(),
+            predicate: Predicate {
+                op: PredicateOp::HeadEq,
+                value: Some(json!("join")),
+                values: None,
+                predicate_id: None,
+            },
+        });
+        binding.proofs[0].event_digest = Hash::new(binding.event_digest().unwrap()).unwrap();
+        let binding_digest = control_event_digest(&binding).unwrap();
+        events.put_pending(&binding).unwrap();
+
+        let covered = BTreeSet::from([create_digest.clone(), binding_digest.clone()]);
+        let post_state = BTreeMap::from([(member_cell(), CellState::Value(json!("join")))]);
+        let seal = signed_seal(
+            Vec::new(),
+            vec![create_digest.clone(), binding_digest.clone()],
+            control_event_set_root(&covered).unwrap(),
+            compute_state_root(&post_state).unwrap(),
+            0,
+        );
+
+        let effect = apply_seal_in_context(
+            &seal,
+            &events,
+            &seals,
+            &cells,
+            &registry,
+            ok_proofs,
+            bootstrap_member_transition_write,
+            EventSubmitContext::AnchorUnit,
+        )
+        .unwrap();
+        assert_eq!(
+            effect.accepted_event_digests,
+            vec![create_digest, binding_digest]
+        );
         assert_eq!(effect.post_state_root, seal.state_root);
     }
 
