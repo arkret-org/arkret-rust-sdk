@@ -593,6 +593,110 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
     Ok(seal)
 }
 
+/// Build a later device-signed Seal for a self principal-control Realm.
+///
+/// `events` is the complete accepted control history through the desired
+/// frontier. The predecessor coverage must be a strict subset of that history;
+/// the resulting delta contains every newly accepted Control Move.
+pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
+    events: &[Event],
+    predecessor: &Seal,
+    hlc: Hlc,
+    signer: &S,
+    project: CellWriteProjector<'_>,
+) -> Result<Seal> {
+    let first = events
+        .first()
+        .ok_or_else(|| Error::Protocol("self principal Seal history is empty".to_owned()))?;
+    if events
+        .iter()
+        .any(|event| event.realm_id != first.realm_id || event.actor_id != first.actor_id)
+    {
+        return Err(Error::Protocol(
+            "self principal Seal Events must share one Realm and actor".to_owned(),
+        ));
+    }
+    if signer.signer_did() != &first.actor_id {
+        return Err(Error::Protocol(
+            "self principal Seal signer DID must equal the principal DID".to_owned(),
+        ));
+    }
+    if predecessor.realm_id != first.realm_id || predecessor.covered_event_digests.is_empty() {
+        return Err(Error::Protocol(
+            "self principal predecessor has incompatible Realm or coverage".to_owned(),
+        ));
+    }
+
+    let covered = events
+        .iter()
+        .map(|event| Ok((event, Hash::new(event.event_digest()?)?)))
+        .collect::<Result<Vec<_>>>()?;
+    let target = covered
+        .iter()
+        .map(|(_, digest)| digest.clone())
+        .collect::<BTreeSet<_>>();
+    let current = predecessor
+        .covered_event_digests
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    if !current.is_subset(&target) {
+        return Err(Error::Protocol(
+            "self principal predecessor coverage is not a subset of the target".to_owned(),
+        ));
+    }
+    let delta = target.difference(&current).cloned().collect::<Vec<_>>();
+    if delta.is_empty() {
+        return Err(Error::Protocol(
+            "self principal Seal has no new Event delta".to_owned(),
+        ));
+    }
+
+    let control_event_set_root = control_event_set_root(&target)
+        .map_err(|error| Error::Protocol(format!("self principal control root: {error}")))?;
+    let state_root = state_root_from_projection(&first.realm_id, &covered, project)?;
+    let completeness_root = arkret_state::control_event_completeness_root(events, &target)
+        .map_err(|error| Error::Protocol(format!("self principal completeness root: {error}")))?;
+    let sealed_at = Utc::now();
+    let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
+    let mut seal = Seal {
+        id: SealId::new(format!("ak:seal:sha256:{}", "00".repeat(32)))?,
+        realm_id: first.realm_id.clone(),
+        predecessor_refs: vec![predecessor.id.clone()],
+        delta,
+        control_event_set_root,
+        state_root,
+        completeness_root,
+        notary_seq: predecessor
+            .notary_seq
+            .checked_add(1)
+            .ok_or_else(|| Error::Protocol("self principal notary sequence overflow".to_owned()))?,
+        data_view_root: None,
+        data_event_set_root: None,
+        availability_root: None,
+        coverage_scope: None,
+        covered_event_digests: target.into_iter().collect(),
+        previous_state_root: None,
+        previous_digest_algorithm: None,
+        notary_signature: NotarySig::Single(PayloadSignature {
+            alg: "EdDSA".to_owned(),
+            verification_method: signer.verification_method_id().to_owned(),
+            payload_digest: zero_hash,
+            created_at: sealed_at,
+            jws: String::new(),
+        }),
+        sealed_at,
+        hlc,
+        kind: SealKind::Compaction,
+    };
+    let canonical_bytes = seal.canonical_bytes_for_id()?;
+    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes)?;
+    seal.notary_signature = NotarySig::Single(signer.sign_payload(&canonical_bytes)?);
+    seal.validate_structural()?;
+    seal.validate_id()?;
+    Ok(seal)
+}
+
 /// Complete reducer material needed to construct or validate a
 /// controller-signed managed Agent PCR Event Seal.
 #[derive(Clone, Debug)]
