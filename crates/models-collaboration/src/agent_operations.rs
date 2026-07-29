@@ -152,7 +152,7 @@ pub struct AgentKeyPairRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub authorize_event: Event,
+    pub authorize_event: EventInitialSubmission,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

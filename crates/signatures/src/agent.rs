@@ -12,7 +12,8 @@ use arkret_models_collaboration::agent_signer_evidence::AgentSigningKeyBinding;
 use arkret_models_collaboration::events_payloads::agent::AgentKeyAuthorizePayloadRuntimeAttestation;
 use arkret_models_collaboration::governance::agent_artifacts::PublicKey;
 use arkret_wire::{
-    Did, DidUrl, Event, EventKind, Hash, NonEmptyJsonObject, NonEmptyString, ServiceOperationId,
+    Did, DidUrl, Event, EventInitialSubmission, EventKind, Hash, NonEmptyJsonObject,
+    NonEmptyString, ServiceOperationId,
 };
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signer, SigningKey};
@@ -162,7 +163,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         &self,
         requested_scope_disclosure: AgentRequestedScopeDisclosure,
         signing_key_binding: AgentSigningKeyBinding,
-        authorize_event: Event,
+        authorize_event: EventInitialSubmission,
     ) -> Result<RuntimeKeyRequest<AgentKeyPairRequestBody>> {
         requested_scope_disclosure
             .validate()
@@ -188,7 +189,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
                     .to_owned(),
             ));
         }
-        validate_pairing_authorize_event(&authorize_event, &self.bootstrap.agent_id)?;
+        validate_pairing_authorize_event(&authorize_event.event, &self.bootstrap.agent_id)?;
         let (public_key, public_key_digest, proof_of_possession) = self.request_material()?;
         Ok(RuntimeKeyRequest {
             body: AgentKeyPairRequestBody {
@@ -461,11 +462,70 @@ pub fn agent_key_pair_proof_request_binding_digest(
 #[cfg(test)]
 mod tests {
     use arkret_models_collaboration::events_payloads::agent::AgentKeyScope;
-    use arkret_wire::{EventId, Hlc, Proof, RealmId, RequestId};
+    use arkret_wire::{
+        AUTHORITY_SET_POLICY_SCHEMA, AuthoritySetAuthorizationRule, AuthoritySetId,
+        AuthoritySetIssuer, AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind,
+        AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease,
+        AuthorizationLeaseId, DeviceId, EventId, Hlc, LeaseBasisRef, Proof, RealmId, RequestId,
+        RiskTier, SealId,
+    };
     use chrono::TimeZone;
     use serde_json::json;
 
     use super::*;
+
+    fn initial_submission(event: Event) -> EventInitialSubmission {
+        let policy = AuthoritySetPolicy {
+            schema: AUTHORITY_SET_POLICY_SCHEMA.to_owned(),
+            authority_set_id: AuthoritySetId::new("ak.authority_set.realm_admission.v1").unwrap(),
+            policy_kind: AuthoritySetPolicyKind::RealmAdmission,
+            scope_ref: event.scope_ref.clone(),
+            source: AuthoritySetPolicySource {
+                source_kind: AuthoritySetSourceKind::RealmControl,
+                source_ref: event.event_id.as_str().to_owned(),
+                source_digest: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
+                generation_ref: "1".to_owned(),
+            },
+            authorization_rules: vec![AuthoritySetAuthorizationRule {
+                rule_id: "realm_admission".to_owned(),
+                issuer_role: AuthoritySetIssuerRole::RealmAdmission,
+                allowed_actions: vec!["ak.agent.key.authorize".to_owned()],
+                issuers: vec![AuthoritySetIssuer {
+                    verification_method: DidUrl::new(format!("{}#controller", event.actor_id))
+                        .unwrap(),
+                }],
+                threshold: 1,
+            }],
+        };
+        EventInitialSubmission {
+            authorization_lease: AuthorizationLease {
+                authorization_lease_id: AuthorizationLeaseId::new(
+                    "ak:authorization_lease:01904100-0000-7000-8000-0000000000f1",
+                )
+                .unwrap(),
+                basis_ref: LeaseBasisRef::Seal(
+                    SealId::new(format!("ak:seal:sha256:{}", "11".repeat(32))).unwrap(),
+                ),
+                actor_id: event.actor_id.clone(),
+                device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
+                scope_ref: event.scope_ref.clone(),
+                action: "ak.agent.key.authorize".to_owned(),
+                authorization_rule_id: "realm_admission".to_owned(),
+                risk_tier: RiskTier::High,
+                issued_at: event.created_at,
+                expires_at: event.created_at + chrono::Duration::minutes(5),
+                authority_set_ref: AuthoritySetRef {
+                    authority_set_id: policy.authority_set_id.clone(),
+                    authority_set_digest: policy.digest().unwrap(),
+                },
+                authority_set_policy: policy,
+                proofs: Vec::new(),
+            },
+            event,
+            cba_proof_bundles: Vec::new(),
+            control_proposal_receipt: None,
+        }
+    }
 
     #[test]
     fn runtime_key_binding_matches_normative_vector() {
@@ -715,7 +775,7 @@ mod tests {
                     &SigningKey::from_bytes(&[3_u8; 32]),
                 )
                 .unwrap(),
-                authorize_event,
+                initial_submission(authorize_event),
             )
             .unwrap();
 
