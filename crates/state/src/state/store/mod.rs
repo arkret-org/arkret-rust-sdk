@@ -15,7 +15,7 @@
 pub mod memory;
 
 use arkret_wire::event_envelope::Event;
-use arkret_wire::{ControlProposalDecision, ControlProposalReceipt};
+use arkret_wire::{ControlProposalDecision, ControlProposalDecisionPolicy, ControlProposalReceipt};
 use thiserror::Error;
 
 use crate::lattice::ordered_log::IssuedOp;
@@ -104,6 +104,7 @@ pub trait ControlEventStore: Send + Sync {
         &self,
         event_digest: &Hash,
         decision: &ControlProposalDecision,
+        policy: ControlProposalDecisionPolicy,
     ) -> StoreResult<()>;
 
     fn list_pending_records(

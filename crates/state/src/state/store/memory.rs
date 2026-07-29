@@ -168,6 +168,7 @@ impl ControlEventStore for MemoryControlEventStore {
         &self,
         event_digest: &Hash,
         decision: &ControlProposalDecision,
+        policy: arkret_wire::ControlProposalDecisionPolicy,
     ) -> StoreResult<()> {
         let mut inner = self
             .inner
@@ -205,11 +206,7 @@ impl ControlEventStore for MemoryControlEventStore {
             )));
         }
         decision
-            .validate_chain(
-                &receipt,
-                decisions,
-                arkret_wire::ControlProposalDecisionPolicy::protocol_maximum(),
-            )
+            .validate_chain(&receipt, decisions, policy)
             .map_err(|error| StoreError::Conflict(error.to_string()))?;
         decisions.push(decision.clone());
         Ok(())
@@ -1196,6 +1193,72 @@ mod tests {
             authority_set_ref,
             member_receipts: vec![member_receipt],
         }
+    }
+
+    fn signed_reject(receipt: &ControlProposalReceipt) -> ControlProposalDecision {
+        let decided_at = receipt.received_at + chrono::Duration::seconds(20);
+        let mut decision = ControlProposalDecision::SignedReject {
+            realm_id: receipt.realm_id.clone(),
+            proposal_digest: receipt.proposal_digest.clone(),
+            receipt_digest: receipt.receipt_digest().unwrap(),
+            decided_at,
+            decision_due_at: receipt.decision_due_at,
+            absolute_due_at: receipt.absolute_due_at,
+            defer_count: 0,
+            reason_code: arkret_wire::ControlProposalRejectReason::PolicyDenied,
+            authority_set_ref: receipt.authority_set_ref.clone(),
+            proofs: vec![PayloadSignature {
+                alg: "EdDSA".to_owned(),
+                verification_method: "did:webvh:z6mkfixture:notary.example#k1".to_owned(),
+                payload_digest: hash(0),
+                created_at: decided_at,
+                jws: "e30..c2ln".to_owned(),
+            }],
+        };
+        let decision_digest = decision.decision_digest().unwrap();
+        let ControlProposalDecision::SignedReject { proofs, .. } = &mut decision else {
+            unreachable!("constructed a signed reject");
+        };
+        proofs[0].payload_digest = decision_digest;
+        decision
+    }
+
+    #[test]
+    fn control_event_store_records_decision_with_effective_realm_policy() {
+        let store = MemoryControlEventStore::default();
+        let event = control_move(1);
+        let event_digest = control_event_digest(&event).unwrap();
+        let receipt = proposal_receipt(&event);
+        let decision = signed_reject(&receipt);
+        let policy = arkret_wire::ControlProposalDecisionPolicy::default();
+
+        assert!(
+            decision
+                .validate_chain(
+                    &receipt,
+                    &[],
+                    arkret_wire::ControlProposalDecisionPolicy::protocol_maximum(),
+                )
+                .is_err(),
+            "the protocol ceiling must not substitute for the effective Realm policy"
+        );
+
+        store
+            .put_pending_with_receipt(&event, Some(&receipt))
+            .unwrap();
+        store
+            .record_proposal_decision(&event_digest, &decision, policy)
+            .unwrap();
+        store
+            .record_proposal_decision(&event_digest, &decision, policy)
+            .unwrap();
+        assert!(
+            store
+                .list_pending_records(&event.realm_id, 10)
+                .unwrap()
+                .is_empty(),
+            "a terminal signed rejection must remove the proposal from the pending work set"
+        );
     }
 
     #[test]
