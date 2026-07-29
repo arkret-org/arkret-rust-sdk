@@ -542,6 +542,30 @@ impl ControlGovernanceHealth {
         }
         Ok(())
     }
+
+    /// Validate a frontier received without the Realm's create-locked policy.
+    ///
+    /// Frontier consumers do not have the canonical `ak.realm.create` payload
+    /// at this boundary. Recover the effective decision windows from the first
+    /// signed receipt, then require every other receipt and decision chain to
+    /// agree with them. Empty health views have no policy-dependent fields.
+    pub fn validate_protocol_bounds(&self) -> Result<()> {
+        let receipt = self
+            .pending_proposals
+            .first()
+            .map(|pending| &pending.receipt)
+            .or_else(|| self.retained_faults.first().map(|fault| &fault.receipt));
+        let Some(receipt) = receipt else {
+            return self.validate(ControlProposalDecisionPolicy::default());
+        };
+        let policy = ControlProposalDecisionPolicy {
+            receipt_sla: arkret_wire::MAX_PROPOSAL_RECEIPT_SLA,
+            decision_window: receipt.decision_due_at - receipt.received_at,
+            absolute_horizon: receipt.absolute_due_at - receipt.received_at,
+            max_defers: arkret_wire::MAX_PROPOSAL_DEFERS,
+        };
+        self.validate(policy)
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -588,8 +612,7 @@ impl RealmSealFrontierView {
     }
 
     pub fn validate(&self) -> Result<()> {
-        self.governance_health
-            .validate(ControlProposalDecisionPolicy::protocol_maximum())
+        self.governance_health.validate_protocol_bounds()
     }
 }
 
@@ -1386,6 +1409,32 @@ mod tests {
             authority_set_ref: authority_set_digest,
             member_receipts: vec![member_receipt],
         }
+    }
+
+    #[test]
+    fn realm_frontier_validates_the_effective_receipt_window() {
+        let event = control_move_over(&federation_prerequisite_seal());
+        let receipt = federation_submission(event)
+            .control_proposal_receipt
+            .expect("control fixture has a proposal receipt");
+        let health = ControlGovernanceHealth {
+            status: ControlGovernanceHealthStatus::Healthy,
+            pending_proposals: vec![PendingControlProposal {
+                proposal_digest: receipt.proposal_digest.clone(),
+                absolute_due_at: receipt.absolute_due_at,
+                defer_count: 0,
+                decision_state: ControlProposalDecisionState::Pending,
+                fault_reason: None,
+                current_decision_due_at: receipt.decision_due_at,
+                receipt,
+                decisions: Vec::new(),
+            }],
+            retained_faults: Vec::new(),
+        };
+
+        health
+            .validate_protocol_bounds()
+            .expect("a 30-second Realm policy is valid below protocol maxima");
     }
 
     fn federation_request(events: Vec<Event>) -> EventsSubmitFederationRequestBody {
