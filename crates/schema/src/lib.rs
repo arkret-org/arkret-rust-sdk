@@ -24,9 +24,9 @@ pub use arkret_wire::{
 };
 pub use error::{Error, Result, SchemaError};
 pub use event_cell_contract::{
-    EventCellContractContext, EventCellContractError, batch_add_tag, or_set_dot,
-    project_registered_cell_writes, validate_registered_cell_writes,
-    validate_registered_cell_writes_in_context,
+    EventCellContractContext, EventCellContractError, FrozenPreState, batch_add_tag, or_set_dot,
+    project_registered_cell_writes, project_registered_cell_writes_with_pre_state,
+    validate_registered_cell_writes, validate_registered_cell_writes_in_context,
 };
 pub use event_validation::{EventSchemaExt, validate_event_for_submit, validate_event_wire_schema};
 pub use generated::*;

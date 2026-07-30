@@ -11,12 +11,14 @@
 //! normative algebras themselves. Impls below dispatch a `cell_family`
 //! → `crate::lattice::LatticeKind` enum mapping plus a typed
 //! subject-derivation function.
+mod contract_registry;
 mod factory;
 mod generated;
 mod impls;
 mod registry;
 mod types;
 
+pub use contract_registry::*;
 pub use factory::*;
 pub use impls::*;
 pub use registry::*;
@@ -109,6 +111,193 @@ mod tests {
                 .resolve(&realm_id, &cell)
                 .unwrap_or_else(|error| panic!("{family} missing from SDK registry: {error}"));
         }
+    }
+
+    #[test]
+    fn canonical_fsm_contracts_resolve_all_templates_with_exact_closure() {
+        let contracts = canonical_fsm_contracts().unwrap();
+        assert_eq!(contracts.len(), 17);
+        let by_family: BTreeMap<_, _> = contracts
+            .iter()
+            .map(|contract| (contract.cell_family.as_str(), contract))
+            .collect();
+        let realm_member = by_family["ak.component.member.state.v1"];
+        assert!(
+            realm_member
+                .allowed_transitions
+                .contains(&("join".to_owned(), "join".to_owned()))
+        );
+        let circle_member = by_family["ak.component.circle.member.v1"];
+        assert!(
+            !circle_member
+                .allowed_transitions
+                .contains(&("join".to_owned(), "join".to_owned()))
+        );
+        let keypackage = by_family["ak.component.mls.keypackage.v1"];
+        assert!(keypackage.states.contains(&"retired".to_owned()));
+        assert!(!keypackage.states.contains(&"expired".to_owned()));
+        assert!(
+            keypackage
+                .allowed_transitions
+                .contains(&("published".to_owned(), "retired".to_owned()))
+        );
+    }
+
+    fn private_candidate(
+        value: serde_json::Value,
+        revision: Option<u64>,
+        expected_revision: Option<u64>,
+        causal_order: Option<u64>,
+        hlc: Option<&str>,
+        device_id: Option<&str>,
+    ) -> ActorPrivateCandidate {
+        ActorPrivateCandidate {
+            value,
+            revision,
+            expected_revision,
+            causal_order,
+            hlc: hlc.map(ToOwned::to_owned),
+            device_id: device_id.map(ToOwned::to_owned),
+        }
+    }
+
+    #[test]
+    fn actor_private_registry_is_exact_and_isolated_from_shared_cells() {
+        let private = build_actor_private_registry().unwrap();
+        assert_eq!(private.event_writes().len(), 8);
+        assert_eq!(private.families().len(), 5);
+        assert!(
+            private
+                .family("ak.private.device.push_route.v1")
+                .unwrap()
+                .bottom_reject
+        );
+        assert!(
+            private
+                .family("ak.component.device.push_route.v1")
+                .is_none()
+        );
+
+        assert!(
+            CellRef::new("ak:cell:ak.private.device.push_route.v1:fixture".to_owned()).is_err()
+        );
+
+        let payload = json!({
+            "recipient_service_id": "did:webvh:z6mkfixture:service.example",
+            "principal_id": "did:webvh:z6mkfixture:alice.example",
+            "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
+            "push_route": "fcm"
+        });
+        assert_eq!(
+            private
+                .derive_subject(
+                    "ak.device.push_route",
+                    "did:webvh:z6mkfixture:alice.example",
+                    &payload
+                )
+                .unwrap(),
+            composite_subject(&[
+                "did:webvh:z6mkfixture:service.example",
+                "did:webvh:z6mkfixture:alice.example",
+                "ak:device:01904100-0000-7000-8000-000000000001",
+                "fcm",
+            ])
+            .unwrap()
+        );
+        assert!(
+            private
+                .validate_private_event_shape(&json!({
+                    "kind": "ak.device.push_route",
+                    "payload": payload,
+                    "seal_basis": {}
+                }))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn actor_private_merge_contracts_cover_account_data_push_route_and_cursor() {
+        let private = build_actor_private_registry().unwrap();
+        let account = private_candidate(json!({"content": "a"}), Some(7), None, None, None, None);
+        let next = private_candidate(json!({"content": "b"}), Some(8), Some(7), None, None, None);
+        assert!(matches!(
+            private
+                .apply("ak.private.account_data.v1", Some(&account), next.clone())
+                .unwrap(),
+            ActorPrivateMergeOutcome::Accepted(candidate) if candidate == next
+        ));
+        let stale = private_candidate(
+            json!({"content": "stale"}),
+            Some(8),
+            Some(7),
+            None,
+            None,
+            None,
+        );
+        assert_eq!(
+            private
+                .apply("ak.private.account_data.v1", Some(&next), stale)
+                .unwrap(),
+            ActorPrivateMergeOutcome::Conflict
+        );
+
+        let route_a = private_candidate(json!({"target": "a"}), None, None, None, None, None);
+        let route_b = private_candidate(json!({"target": "b"}), None, None, None, None, None);
+        assert_eq!(
+            private
+                .apply("ak.private.device.push_route.v1", Some(&route_a), route_b)
+                .unwrap(),
+            ActorPrivateMergeOutcome::Conflict
+        );
+
+        let cursor_a = private_candidate(
+            json!({"event_id": "a"}),
+            None,
+            None,
+            Some(5),
+            Some("01970e589d21-0001-a13f9c2e"),
+            Some("device-a"),
+        );
+        let cursor_b = private_candidate(
+            json!({"event_id": "b"}),
+            None,
+            None,
+            Some(5),
+            Some("01970e589d21-0002-a13f9c2e"),
+            Some("device-b"),
+        );
+        assert!(matches!(
+            private
+                .apply(
+                    "ak.private.read_cursor.v1",
+                    Some(&cursor_a),
+                    cursor_b.clone()
+                )
+                .unwrap(),
+            ActorPrivateMergeOutcome::Accepted(candidate) if candidate == cursor_b
+        ));
+
+        let proposed = private_candidate(json!("proposed"), Some(1), Some(0), None, None, None);
+        assert!(matches!(
+            private
+                .apply("ak.private.agent.draft.v1", None, proposed.clone())
+                .unwrap(),
+            ActorPrivateMergeOutcome::Accepted(_)
+        ));
+        let approved = private_candidate(json!("approved"), Some(2), Some(1), None, None, None);
+        assert!(matches!(
+            private
+                .apply("ak.private.agent.draft.v1", Some(&proposed), approved)
+                .unwrap(),
+            ActorPrivateMergeOutcome::Accepted(_)
+        ));
+        let skipped = private_candidate(json!("published"), Some(2), Some(1), None, None, None);
+        assert_eq!(
+            private
+                .apply("ak.private.agent.draft.v1", Some(&proposed), skipped)
+                .unwrap(),
+            ActorPrivateMergeOutcome::Conflict
+        );
     }
 
     #[test]
@@ -358,7 +547,7 @@ mod tests {
     }
 
     #[test]
-    fn last_resort_keypackage_can_remain_published() {
+    fn last_resort_keypackage_preservation_does_not_invent_a_self_transition() {
         let registry = build_sdk_cell_registry();
         let realm_id =
             RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011".to_owned()).unwrap();
@@ -374,7 +563,7 @@ mod tests {
             reason: None,
             issuer_seq: None,
         };
-        binding.lattice.validate_op(&op).unwrap();
+        assert!(binding.lattice.validate_op(&op).is_err());
     }
 
     #[test]

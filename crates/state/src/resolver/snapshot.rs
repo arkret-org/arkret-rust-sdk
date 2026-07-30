@@ -394,9 +394,8 @@ pub struct MerkleProofStep {
 /// Merkle tree rooted at `root` per `operations-sync.md` §11.
 ///
 /// The proof is the bottom-up sibling chain from the leaf to the root.
-/// At each step the running hash and the sibling are combined into the
-/// canonical inner-node payload `{ "left": .., "right": .. }`, matching
-/// [`merkle_root`].
+/// Leaves use `sha256(0x00 || leaf_data)` and each inner node uses
+/// `sha256(0x01 || left || right)`, matching [`merkle_root`].
 pub fn verify_snapshot_inclusion(
     event_id: &str,
     proof: &[MerkleProofStep],
@@ -406,21 +405,17 @@ pub fn verify_snapshot_inclusion(
         "key": event_id,
         "value": event_id,
     }))?)?;
-    let leaf_data = crate::snapshot::parse_sha256(&leaf_digest)
-        .ok_or_else(|| Error::Protocol("snapshot leaf digest is not sha256".to_owned()))?;
-    let mut running = crate::snapshot::hash_leaf(&leaf_data);
+    let mut running = crate::merkle_root_from_hashes(vec![leaf_digest])?;
     for step in proof {
         let sibling = crate::Hash::new(step.sibling.clone())?;
-        let sibling = crate::snapshot::parse_sha256(&sibling)
-            .ok_or_else(|| Error::Protocol("snapshot proof sibling is not sha256".to_owned()))?;
         running = if step.is_left {
-            crate::snapshot::hash_node(&sibling, &running)
+            crate::snapshot::merkle::parent_hash(&sibling, &running)?
         } else {
-            crate::snapshot::hash_node(&running, &sibling)
+            crate::snapshot::merkle::parent_hash(&running, &sibling)?
         };
     }
     let root = crate::Hash::new(root.to_owned())?;
-    if crate::snapshot::format_hash(&running) == root {
+    if running == root {
         Ok(())
     } else {
         Err(Error::Protocol(format!(

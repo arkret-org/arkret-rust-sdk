@@ -1,7 +1,7 @@
-use arkret_models_collaboration::governance::realm_governance::REALM_LINK_ALLOWED_TRANSITIONS;
 use arkret_state::lattice::LatticeKind as SdkLatticeKind;
 use arkret_state::state::{BottomMode, MemoryCellRegistry};
 
+use super::contract_registry::{ContractRegistryError, canonical_fsm_contracts};
 use super::generated::SPEC_LATTICE_BINDINGS;
 use super::impls::*;
 use super::registry::*;
@@ -22,7 +22,6 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(SessionGrant);
     registry.register(DeviceAuthorized);
     registry.register(DeviceListUpdate);
-    registry.register(DevicePushRoute);
     registry.register(AgentKey);
     registry.register(CoveredSeals);
     registry.register(KeyBackupActiveSeries);
@@ -118,259 +117,35 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
     SPEC_LATTICE_BINDINGS.to_vec()
 }
 
-/// Build a fresh [`MemoryCellRegistry`] populated with every
-/// spec-declared cell family. Move/Seal receive pipeline
-/// (`verify_move` / `apply_seal`) uses this to resolve
-/// `(family → Lattice)` for every effect.
+/// Build the shared Realm cell registry from the embedded canonical contract.
 ///
-/// FSM families need their transition tables set via `register_fsm`; the
-/// spec-normative membership FSM table is encoded inline below.
+/// This convenience wrapper is appropriate when an invalid embedded artifact
+/// is a process invariant violation. Servers that need a recoverable startup
+/// error should call [`try_build_sdk_cell_registry`] and fail closed.
 pub fn build_sdk_cell_registry() -> MemoryCellRegistry {
-    use serde_json::json;
+    try_build_sdk_cell_registry().expect("embedded canonical cell contract must resolve")
+}
 
+pub fn try_build_sdk_cell_registry() -> Result<MemoryCellRegistry, ContractRegistryError> {
     let mut sdk_registry = MemoryCellRegistry::empty();
     for (family, kind, bottom_mode) in lattice_bindings_for_sdk_registry() {
         if matches!(kind, SdkLatticeKind::Fsm) {
             continue;
         }
+        if family.starts_with("ak.private.") {
+            return Err(ContractRegistryError::Invalid(format!(
+                "actor-private family {family} leaked into the shared registry"
+            )));
+        }
         sdk_registry.register(family, kind, bottom_mode);
     }
-    sdk_registry.register_fsm(
-        "ak.component.member.state.v1",
-        Some(json!("leave")),
-        vec![
-            (json!("leave"), json!("invite")),
-            (json!("leave"), json!("knock")),
-            (json!("leave"), json!("join")),
-            (json!("leave"), json!("ban")),
-            (json!("invite"), json!("join")),
-            (json!("invite"), json!("leave")),
-            (json!("invite"), json!("ban")),
-            (json!("knock"), json!("invite")),
-            (json!("knock"), json!("join")),
-            (json!("knock"), json!("leave")),
-            (json!("knock"), json!("ban")),
-            (json!("join"), json!("join")),
-            (json!("join"), json!("leave")),
-            (json!("join"), json!("ban")),
-            (json!("ban"), json!("leave")),
-            (json!("ban"), json!("invite")),
-        ],
-        BottomMode::Reject,
-    );
-    sdk_registry.register_fsm(
-        "ak.component.circle.member.v1",
-        Some(json!("leave")),
-        vec![
-            (json!("leave"), json!("invite")),
-            (json!("leave"), json!("knock")),
-            (json!("leave"), json!("join")),
-            (json!("leave"), json!("ban")),
-            (json!("invite"), json!("join")),
-            (json!("invite"), json!("leave")),
-            (json!("invite"), json!("ban")),
-            (json!("knock"), json!("invite")),
-            (json!("knock"), json!("join")),
-            (json!("knock"), json!("leave")),
-            (json!("knock"), json!("ban")),
-            (json!("join"), json!("leave")),
-            (json!("join"), json!("ban")),
-            (json!("ban"), json!("leave")),
-            (json!("ban"), json!("invite")),
-        ],
-        BottomMode::Reject,
-    );
-    let invite_terminal_states = [
-        "expired",
-        "revoked",
-        "revoked_by_capability_loss",
-        "revoked_by_inviter_left",
-        "invalidated_by_rate_limit",
-    ];
-    let mut invite_transitions = vec![
-        (json!(null), json!("pending")),
-        (json!("pending"), json!("accepted")),
-        (json!("pending"), json!("rejected")),
-        (json!("pending"), json!("claimed")),
-        (json!("pending"), json!("send_failed")),
-        (json!("claimed"), json!("accepted")),
-        (json!("claimed"), json!("rejected")),
-        (json!("send_failed"), json!("pending")),
-    ];
-    for from in ["pending", "claimed", "send_failed"] {
-        invite_transitions.extend(
-            invite_terminal_states
-                .iter()
-                .map(|to| (json!(from), json!(to))),
-        );
-    }
-    sdk_registry.register_fsm(
-        "ak.component.invite.lifecycle.v1",
-        Some(json!(null)),
-        invite_transitions,
-        BottomMode::Reject,
-    );
-    sdk_registry.register_fsm(
-        "ak.component.agent.status.v1",
-        Some(json!("active")),
-        vec![
-            (json!("active"), json!("paused")),
-            (json!("paused"), json!("active")),
-            (json!("active"), json!("deactivated")),
-            (json!("paused"), json!("deactivated")),
-        ],
-        BottomMode::Reject,
-    );
-    sdk_registry.register_fsm(
-        "ak.component.audit.binding.v1",
-        Some(json!(null)),
-        vec![
-            (json!(null), json!("active")),
-            (json!("active"), json!("suspended")),
-            (json!("active"), json!("revoked")),
-            (json!("suspended"), json!("active")),
-            (json!("suspended"), json!("revoked")),
-        ],
-        BottomMode::Reject,
-    );
-    sdk_registry.register_fsm(
-        "ak.component.audit.session.v1",
-        Some(json!(null)),
-        vec![
-            (json!(null), json!("request")),
-            (json!("request"), json!("authorize")),
-            (json!("authorize"), json!("notice")),
-            (json!("request"), json!("close")),
-            (json!("authorize"), json!("close")),
-            (json!("notice"), json!("close")),
-        ],
-        BottomMode::Reject,
-    );
-    sdk_registry.register_fsm(
-        "ak.component.call.state.v1",
-        Some(json!(null)),
-        vec![
-            (json!(null), json!("scheduled")),
-            (json!(null), json!("ringing")),
-            (json!(null), json!("connecting")),
-            (json!("scheduled"), json!("ringing")),
-            (json!("scheduled"), json!("connecting")),
-            (json!("scheduled"), json!("cancelled")),
-            (json!("scheduled"), json!("missed")),
-            (json!("scheduled"), json!("failed")),
-            (json!("ringing"), json!("connecting")),
-            (json!("ringing"), json!("active")),
-            (json!("ringing"), json!("missed")),
-            (json!("ringing"), json!("cancelled")),
-            (json!("ringing"), json!("failed")),
-            (json!("connecting"), json!("active")),
-            (json!("connecting"), json!("failed")),
-            (json!("connecting"), json!("ended")),
-            (json!("active"), json!("ended")),
-            (json!("active"), json!("failed")),
-        ],
-        BottomMode::Reject,
-    );
-    sdk_registry.register_fsm(
-        "ak.component.call.recording.v1",
-        Some(json!(null)),
-        vec![
-            (json!(null), json!("recording")),
-            (json!("recording"), json!("stopped")),
-            (json!("recording"), json!("ready")),
-            (json!("recording"), json!("failed")),
-            (json!("stopped"), json!("ready")),
-        ],
-        BottomMode::Reject,
-    );
-    sdk_registry.register_fsm(
-        "ak.component.call.transcript.v1",
-        Some(json!(null)),
-        vec![
-            (json!(null), json!("transcribing")),
-            (json!("transcribing"), json!("stopped")),
-            (json!("transcribing"), json!("ready")),
-            (json!("transcribing"), json!("failed")),
-            (json!("stopped"), json!("ready")),
-        ],
-        BottomMode::Reject,
-    );
-    for family in [
-        "ak.component.circle.lifecycle.v1",
-        "ak.component.morph.lifecycle.v1",
-        "ak.component.strand.lifecycle.v1",
-    ] {
+    for contract in canonical_fsm_contracts()? {
         sdk_registry.register_fsm(
-            family,
-            Some(json!("active")),
-            vec![
-                (json!("active"), json!("archived")),
-                (json!("archived"), json!("active")),
-            ],
+            &contract.cell_family,
+            contract.runtime_initial_state,
+            contract.runtime_transitions,
             BottomMode::Reject,
         );
     }
-    sdk_registry.register_fsm(
-        "ak.component.space.lifecycle.v1",
-        Some(json!("active")),
-        vec![
-            (json!("active"), json!("archived")),
-            (json!("archived"), json!("active")),
-            (json!("active"), json!("tombstoned")),
-            (json!("archived"), json!("tombstoned")),
-        ],
-        BottomMode::Reject,
-    );
-    sdk_registry.register_fsm(
-        "ak.component.relation.lifecycle.v1",
-        Some(json!("active")),
-        vec![(json!("active"), json!("tombstoned"))],
-        BottomMode::Reject,
-    );
-    sdk_registry.register_fsm(
-        "ak.component.moderation.appeal.v1",
-        Some(json!(null)),
-        vec![
-            (json!(null), json!("submitted")),
-            (json!("submitted"), json!("under_review")),
-            (json!("under_review"), json!("decided")),
-            (json!("submitted"), json!("closed")),
-            (json!("under_review"), json!("closed")),
-            (json!("decided"), json!("closed")),
-        ],
-        BottomMode::Reject,
-    );
-    sdk_registry.register_fsm(
-        "ak.component.mls.keypackage.v1",
-        Some(json!(null)),
-        vec![
-            (json!(null), json!("published")),
-            (json!("published"), json!("published")),
-            (json!("published"), json!("claimed")),
-            (json!("published"), json!("expired")),
-            (json!("published"), json!("revoked")),
-            (json!("claimed"), json!("consumed")),
-            (json!("claimed"), json!("expired")),
-            (json!("claimed"), json!("revoked")),
-        ],
-        BottomMode::Reject,
-    );
-    sdk_registry.register_fsm(
-        "ak.component.realm.link.v1",
-        Some(json!(null)),
-        [
-            (json!(null), json!("active")),
-            (json!(null), json!("rejected")),
-            (json!(null), json!("tombstoned")),
-        ]
-        .into_iter()
-        .chain(
-            REALM_LINK_ALLOWED_TRANSITIONS
-                .iter()
-                .map(|(from, to)| (json!(from.as_str()), json!(to.as_str()))),
-        )
-        .collect(),
-        BottomMode::Reject,
-    );
-    sdk_registry
+    Ok(sdk_registry)
 }

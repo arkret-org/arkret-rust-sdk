@@ -203,65 +203,6 @@ per_subject_lattice!(
     &["ak.device.list_update"]
 );
 
-pub struct DevicePushRoute;
-impl LatticeKind for DevicePushRoute {
-    fn cell_family(&self) -> &'static str {
-        "ak.component.device.push_route.v1"
-    }
-    fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::CasRegister
-    }
-    fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Reject
-    }
-    fn component(&self) -> ComponentDescriptor {
-        ComponentDescriptor {
-            component_type: "ak.component.device.push_route.v1",
-            component_version: 1,
-            criticality: Criticality::Required,
-        }
-    }
-    fn subject_for_effect(
-        &self,
-        effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
-        let recipient_service_id = effect_payload
-            .get("recipient_service_id")
-            .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.device.push_route.v1",
-                field: "recipient_service_id",
-            })?;
-        let principal_id = effect_payload
-            .get("principal_id")
-            .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.device.push_route.v1",
-                field: "principal_id",
-            })?;
-        let device_id = effect_payload
-            .get("device_id")
-            .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.device.push_route.v1",
-                field: "device_id",
-            })?;
-        let push_route = effect_payload
-            .get("push_route")
-            .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ak.component.device.push_route.v1",
-                field: "push_route",
-            })?;
-        Ok(Some(format!(
-            "{recipient_service_id}::{principal_id}::{device_id}::{push_route}"
-        )))
-    }
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &["ak.device.push_route"]
-    }
-}
-
 pub struct AgentKey;
 impl LatticeKind for AgentKey {
     fn cell_family(&self) -> &'static str {

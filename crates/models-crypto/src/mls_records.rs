@@ -24,8 +24,8 @@ pub enum MlsKeyPackageState {
     Published,
     Claimed,
     Consumed,
-    Expired,
     Revoked,
+    Retired,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -85,8 +85,21 @@ impl MlsKeyPackageRecord {
             self.state,
             MlsKeyPackageState::Revoked
                 | MlsKeyPackageState::Consumed
-                | MlsKeyPackageState::Expired
+                | MlsKeyPackageState::Retired
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::MlsKeyPackageState;
+
+    #[test]
+    fn keypackage_wire_state_accepts_retired_and_rejects_expired() {
+        let retired: MlsKeyPackageState = serde_json::from_str("\"retired\"").unwrap();
+        assert_eq!(retired, MlsKeyPackageState::Retired);
+        assert_eq!(serde_json::to_string(&retired).unwrap(), "\"retired\"");
+        assert!(serde_json::from_str::<MlsKeyPackageState>("\"expired\"").is_err());
     }
 }
 

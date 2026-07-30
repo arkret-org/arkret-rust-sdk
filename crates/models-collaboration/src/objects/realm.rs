@@ -586,4 +586,20 @@ mod tests {
         realm.proposal_absolute_deadline_ms = Some(30_000);
         assert!(realm.control_proposal_decision_policy().is_err());
     }
+
+    #[test]
+    fn proposal_policy_only_allows_equal_windows_without_defers() {
+        let mut realm = realm();
+        realm.proposal_decision_window_ms = Some(60_000);
+        realm.proposal_absolute_deadline_ms = Some(60_000);
+        realm.max_proposal_defers = Some(0);
+        realm.control_proposal_decision_policy().unwrap();
+
+        realm.max_proposal_defers = Some(1);
+        assert!(realm.control_proposal_decision_policy().is_err());
+
+        let serialized = serde_json::to_value(&realm).unwrap();
+        let decoded: Realm = serde_json::from_value(serialized).unwrap();
+        assert!(decoded.control_proposal_decision_policy().is_err());
+    }
 }
