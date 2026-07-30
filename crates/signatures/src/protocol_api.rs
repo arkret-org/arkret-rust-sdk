@@ -18,7 +18,7 @@ pub mod proof;
 // themselves.
 #[path = "event_signer.rs"]
 pub mod event_signer;
-pub use event_signer::{SignEventOptions, sign_event};
+pub use event_signer::{SignEventOptions, sign_event, sign_event_with_digest_suite};
 
 #[path = "dpop.rs"]
 pub mod dpop;

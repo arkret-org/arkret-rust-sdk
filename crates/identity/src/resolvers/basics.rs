@@ -195,9 +195,20 @@ where
 pub fn event_proof_verification_context(
     event: &Event,
 ) -> Result<arkret_signatures::ProofVerificationContext> {
+    event_proof_verification_context_with_digest_suite(event, arkret_canonical::DigestSuite::Sha256)
+}
+
+/// Build an Event proof context with the active digest suite of its Realm.
+pub fn event_proof_verification_context_with_digest_suite(
+    event: &Event,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<arkret_signatures::ProofVerificationContext> {
     let builder = arkret_signatures::EventProofBuilder::new();
     let canonical_bytes = builder.envelope_bytes(event)?;
-    let expected_digest = Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))?;
+    let expected_digest = Hash::new(arkret_canonical::canonical::digest(
+        digest_suite,
+        &canonical_bytes,
+    ))?;
     let signing_actor = event
         .executed_by
         .clone()

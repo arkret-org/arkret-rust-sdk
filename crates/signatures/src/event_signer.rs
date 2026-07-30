@@ -93,6 +93,27 @@ pub fn sign_event<S: PayloadSigner + ?Sized>(
     verification_method: &str,
     options: SignEventOptions,
 ) -> Result<()> {
+    sign_event_with_digest_suite(
+        event,
+        signer,
+        verification_method,
+        arkret_canonical::DigestSuite::Sha256,
+        options,
+    )
+}
+
+/// Sign an Event Envelope with the active digest suite of its Realm.
+///
+/// Callers authoring into a Realm whose `digest_algorithm` is not the v1
+/// default must use this entry point. The suite is an explicit input so the
+/// signer cannot infer security state from an untrusted Event payload.
+pub fn sign_event_with_digest_suite<S: PayloadSigner + ?Sized>(
+    event: &mut Event,
+    signer: &S,
+    verification_method: &str,
+    digest_suite: arkret_canonical::DigestSuite,
+    options: SignEventOptions,
+) -> Result<()> {
     // Refuse to mix proofs from different signers — caller mistake.
     if let Some(existing) = event.proofs.iter().find(|proof| {
         proof.verification_method != verification_method && proof.kind == proof_kind::DETACHED_JWS
@@ -105,7 +126,7 @@ pub fn sign_event<S: PayloadSigner + ?Sized>(
     }
 
     let canonical_bytes = canonical::canonical_json_bytes(&event.digest_payload()?)?;
-    let payload_digest = Hash::new(canonical::sha256_digest(&canonical_bytes))?;
+    let payload_digest = Hash::new(canonical::digest(digest_suite, &canonical_bytes))?;
 
     let created_at =
         canonical::normalize_timestamp_canonical(options.created_at.unwrap_or_else(Utc::now));
@@ -145,7 +166,10 @@ pub fn sign_event<S: PayloadSigner + ?Sized>(
         event.proofs.push(proof);
     }
 
-    debug_assert_eq!(event.event_digest()?, payload_digest.as_str());
+    debug_assert_eq!(
+        canonical::digest(digest_suite, canonical_bytes),
+        payload_digest.as_str()
+    );
     Ok(())
 }
 
@@ -263,6 +287,21 @@ mod tests {
         assert_eq!(event.proofs[0].alg, "EdDSA");
         // validate_proof_bindings (production) round-trips.
         event.validate_proof_bindings().unwrap();
+    }
+
+    #[test]
+    fn sign_event_with_digest_suite_uses_the_realm_suite() {
+        let mut event = make_event();
+        let signer = StubPayloadSigner::new(alice(), vm_alice());
+        sign_event_with_digest_suite(
+            &mut event,
+            &signer,
+            vm_alice(),
+            arkret_canonical::DigestSuite::Blake3,
+            SignEventOptions::new(),
+        )
+        .unwrap();
+        assert!(event.proofs[0].event_digest.as_str().starts_with("blake3:"));
     }
 
     #[test]

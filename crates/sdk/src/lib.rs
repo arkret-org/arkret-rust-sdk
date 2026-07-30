@@ -475,11 +475,12 @@ pub use identity::{
     PairwiseDidResolutionProof, PairwiseDidStore, ResolvedVerificationMethodKey,
     StaridControlProofRequestBody, StaridControlProofVerification, StaridRegistryAdapter,
     StaridRegistryRecord, VerifiedDidKeyLog, attach_did_key_log_controller_proof,
-    event_proof_verification_context, handle_claim_proof, handle_dns_txt_name,
-    handle_well_known_url, pairwise_resolution_proof, resolve_verification_method_key,
-    resolve_verification_method_key_from_document, starid_control_proof, verification_method_did,
-    verify_canonical_proof_with_did_resolver, verify_did_key_log,
-    verify_event_proof_with_did_resolver, verify_event_proof_with_did_resolver_context,
+    event_proof_verification_context, event_proof_verification_context_with_digest_suite,
+    handle_claim_proof, handle_dns_txt_name, handle_well_known_url, pairwise_resolution_proof,
+    resolve_verification_method_key, resolve_verification_method_key_from_document,
+    starid_control_proof, verification_method_did, verify_canonical_proof_with_did_resolver,
+    verify_did_key_log, verify_event_proof_with_did_resolver,
+    verify_event_proof_with_did_resolver_context,
 };
 #[cfg(feature = "client")]
 pub use key_backup_client::KeyBackupClient;
