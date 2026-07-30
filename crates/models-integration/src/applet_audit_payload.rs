@@ -63,6 +63,7 @@ pub struct AppletRegistrationPayload {
     pub controller_id: Did,
     pub base_url: String,
     pub bot_actor_id: Did,
+    pub claimed_profiles: Vec<String>,
     pub protocols: Vec<String>,
     pub namespaces: BTreeMap<String, Value>,
     pub receive_events: bool,
@@ -84,7 +85,7 @@ pub struct AppletRegistrationPayload {
 impl AppletRegistrationPayload {
     /// Build a `ak.applet.registration` payload with the full closed field set
     /// (`event-payload.schema.json#/$defs/applet_registration_payload`). The
-    /// spec marks 14 fields required plus `created_at`; the collection / flag
+    /// spec marks the complete field set required; the collection / flag
     /// fields default to their empty / false forms (all schema-valid) and are
     /// set through the `with_*` chain. Downstream MUST stop sending the legacy
     /// `{service_id, namespace, capabilities}` short form — it fails the strong
@@ -107,6 +108,7 @@ impl AppletRegistrationPayload {
             controller_id,
             base_url: base_url.into(),
             bot_actor_id,
+            claimed_profiles: vec!["ak.profile.applet_service.v1".to_owned()],
             protocols: Vec::new(),
             namespaces: BTreeMap::new(),
             receive_events: false,
@@ -123,6 +125,11 @@ impl AppletRegistrationPayload {
 
     pub fn with_protocols(mut self, protocols: Vec<String>) -> Self {
         self.protocols = protocols;
+        self
+    }
+
+    pub fn with_claimed_profiles(mut self, claimed_profiles: Vec<String>) -> Self {
+        self.claimed_profiles = claimed_profiles;
         self
     }
 

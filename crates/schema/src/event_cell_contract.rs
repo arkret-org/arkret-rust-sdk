@@ -2138,7 +2138,9 @@ mod tests {
             vec![
                 write(
                     INVITE_LIFECYCLE_CELL,
-                    transition_op(json!("pending"), json!("accepted")),
+                    ProjectedOp::TransitionTo {
+                        to: json!("accepted"),
+                    },
                 ),
                 write(
                     BOB_MEMBER_CELL,
@@ -2310,8 +2312,17 @@ mod tests {
         // falling back to an implementation-private default.
         let mut event = invite_terminal_event(EventKind::INVITE_CANCEL);
         event.payload.remove("target_state");
-        let error = project_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256)
-            .unwrap_err();
+        let mut pre_state = FrozenPreState::new();
+        pre_state.insert(
+            CellRef::new(INVITE_LIFECYCLE_CELL.to_owned()).unwrap(),
+            json!({"invitee": "did:webvh:z6mkfixture:bob.example"}),
+        );
+        let error = project_registered_cell_writes_with_pre_state(
+            &event,
+            arkret_canonical::DigestSuite::Sha256,
+            &pre_state,
+        )
+        .unwrap_err();
         assert!(
             matches!(error, EventCellContractError::EffectSetMismatch { .. }),
             "got {error}"

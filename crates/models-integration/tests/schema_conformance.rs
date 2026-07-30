@@ -88,6 +88,10 @@ fn applet_registration_builder_validates_against_catalog() {
         value["service_id"],
         json!("did:webvh:z6mkfixture:svc.example")
     );
+    assert_eq!(
+        value["claimed_profiles"],
+        json!(["ak.profile.applet_service.v1"])
+    );
     arkret_schema::event_payload_validator_catalog()
         .unwrap()
         .validate_payload("ak.applet.registration", &value)

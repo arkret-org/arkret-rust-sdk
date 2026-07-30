@@ -761,7 +761,6 @@ mod tests {
         "ak.realm.plaintext_visible_services",
         "ak.realm.policy",
         "ak.realm.policy_bundle",
-        "ak.realm.policy_server",
         "ak.realm.preview_policy",
         "ak.realm.schema",
         "ak.realm.upgrade",
