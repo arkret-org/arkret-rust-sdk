@@ -49,6 +49,21 @@ pub struct HistorySharingPolicyPayload {
     pub reason: Option<String>,
 }
 
+impl HistorySharingPolicyPayload {
+    pub fn new(value: HistorySharingPolicyPayloadValue) -> Self {
+        Self {
+            value,
+            reason: None,
+        }
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        serde_json::to_value(self).map_err(|err| {
+            Error::Protocol(format!("history sharing policy payload serialize: {err}"))
+        })
+    }
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/history_sharing_restricted_rule`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

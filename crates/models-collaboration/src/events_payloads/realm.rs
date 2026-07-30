@@ -1,5 +1,8 @@
 //! Realm lifecycle, policy, and organization event payloads.
 
+use std::collections::BTreeSet;
+
+use crate::governance::delivery_binding::BindingSource;
 use crate::internal_prelude::*;
 
 /// Counterpart for
@@ -10,6 +13,144 @@ pub type HierarchyLinkStatus = String;
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/inheritance_policy_status`.
 pub type InheritancePolicyStatus = String;
 
+/// `rebind_authorization` enum for [`DeliveryBindingPolicyPayload`]
+/// (`event-payload.schema.json#/$defs/delivery_binding_policy_payload`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RebindAuthorization {
+    Member,
+    MemberAndAdmin,
+    AdminOnly,
+    ServiceOnly,
+    Any,
+}
+
+/// `allowed_recipient_services` value of [`DeliveryBindingPolicyPayload`].
+///
+/// The spec models this as a `oneOf`: either an allow-list of recipient
+/// service DIDs — where the **empty** list means "reject every recipient
+/// service" (fail-closed, never "unrestricted") — or exactly the one-element
+/// sentinel `["*"]`. Keeping the two cases in separate variants is what makes
+/// the fail-closed reading unmistakable at the call site; a bare `Vec<Did>`
+/// could not carry the sentinel at all, since `*` is not a DID.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AllowedRecipientServices {
+    /// The explicit `["*"]` sentinel. Lifts only the recipient-service
+    /// allow-list dimension; `required_endorsers` still applies.
+    Unrestricted,
+    /// Closed allow-list. Empty = reject every recipient service.
+    Allowlist(Vec<Did>),
+}
+
+/// Wire token for [`AllowedRecipientServices::Unrestricted`].
+const ALLOWED_RECIPIENT_SERVICES_UNRESTRICTED: &str = "*";
+
+impl Serialize for AllowedRecipientServices {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        match self {
+            Self::Unrestricted => [ALLOWED_RECIPIENT_SERVICES_UNRESTRICTED].serialize(serializer),
+            Self::Allowlist(dids) => dids.serialize(serializer),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for AllowedRecipientServices {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        let entries = Vec::<String>::deserialize(deserializer)?;
+        if entries
+            .iter()
+            .any(|entry| entry == ALLOWED_RECIPIENT_SERVICES_UNRESTRICTED)
+        {
+            if entries.len() != 1 {
+                return Err(serde::de::Error::custom(
+                    "allowed_recipient_services sentinel must be exactly [\"*\"]",
+                ));
+            }
+            return Ok(Self::Unrestricted);
+        }
+        entries
+            .into_iter()
+            .map(|entry| Did::new(entry).map_err(serde::de::Error::custom))
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map(Self::Allowlist)
+    }
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/delivery_binding_policy_payload`.
+///
+/// Payload of `ak.realm.delivery_binding_policy`. Field declaration order
+/// mirrors the spec schema `properties` ordering. `minProperties: 1` in the
+/// schema means an all-absent payload is a `schema_violation`; [`Self::validate`]
+/// enforces it locally so the Event is never authored in that shape.
+/// No `Default`: an all-absent value violates `minProperties: 1`, so there is
+/// no such thing as a default delivery-binding policy.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeliveryBindingPolicyPayload {
+    /// Optional echo of the governed Realm; the authoritative scope is the
+    /// enclosing envelope `realm_id`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed_binding_sources: Option<BTreeSet<BindingSource>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub did_document_default_allowed: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed_recipient_services: Option<AllowedRecipientServices>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub required_endorsers: Option<BTreeSet<Did>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unroutable_membership_allowed: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rebind_authorization: Option<RebindAuthorization>,
+    /// `None` (absent) and a wire `null` both mean "no expiry"; only a
+    /// positive value is a real cap, so the absent form is the only one this
+    /// type emits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_after_seconds: Option<u64>,
+}
+
+impl DeliveryBindingPolicyPayload {
+    pub fn validate(&self) -> Result<()> {
+        if self.realm_id.is_none()
+            && self.allowed_binding_sources.is_none()
+            && self.did_document_default_allowed.is_none()
+            && self.allowed_recipient_services.is_none()
+            && self.required_endorsers.is_none()
+            && self.unroutable_membership_allowed.is_none()
+            && self.rebind_authorization.is_none()
+            && self.expires_after_seconds.is_none()
+        {
+            return Err(Error::Protocol(
+                "delivery_binding_policy_payload must declare at least one property \
+                 (schema_violation)"
+                    .to_owned(),
+            ));
+        }
+        if self.expires_after_seconds == Some(0) {
+            return Err(Error::Protocol(
+                "delivery_binding_policy_payload.expires_after_seconds must be >= 1 \
+                 (schema_violation)"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        self.validate()?;
+        serde_json::to_value(self).map_err(|err| {
+            Error::Protocol(format!("delivery binding policy payload serialize: {err}"))
+        })
+    }
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_create_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -18,6 +159,27 @@ pub struct RealmCreatePayload {
     pub object: Realm,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial_relations: Option<Vec<BTreeMap<String, Value>>>,
+}
+
+impl RealmCreatePayload {
+    pub fn new(object: Realm) -> Self {
+        Self {
+            object,
+            initial_relations: None,
+        }
+    }
+
+    /// Serialize the create payload, first re-checking the Realm invariants the
+    /// receiver's candidate gate checks (soland
+    /// `validate_realm_proposal_policy`). Authoring is the cheapest place to
+    /// learn that `security_class=high_assurance` was paired with
+    /// `federation_policy=open`, or that `notary_profile` disagrees with
+    /// `notary.kind`.
+    pub fn to_value(&self) -> Result<Value> {
+        self.object.validate_kind_invariants()?;
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("realm create payload serialize: {err}")))
+    }
 }
 
 /// Counterpart for

@@ -12,6 +12,23 @@ pub struct SpaceCreatePayload {
     pub initial_relations: Option<Vec<BTreeMap<String, Value>>>,
 }
 
+impl SpaceCreatePayload {
+    pub fn new(object: Space) -> Self {
+        Self {
+            object,
+            initial_relations: None,
+        }
+    }
+
+    /// Serialize the create payload, first re-checking the Space invariants
+    /// (`kind` / `title` non-empty, bounded `labels`, `fields.wip_limit`).
+    pub fn to_value(&self) -> Result<Value> {
+        self.object.validate()?;
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("space create payload serialize: {err}")))
+    }
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/space_parent_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

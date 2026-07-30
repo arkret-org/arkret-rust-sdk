@@ -62,6 +62,8 @@ pub struct StrandCreateObject {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
+impl arkret_models_collaboration::events_payloads::ProtocolCreateObject for StrandCreateObject {}
+
 impl StrandCreateObject {
     pub fn new(id: StrandId, realm_id: RealmId, created_by: Did) -> Self {
         Self {
