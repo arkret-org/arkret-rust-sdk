@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-07-30;
-//! sha256=b5e7a427952c5dff59d0ec2bfa348653042559a3d9232129faa2bad20e018bf7 Entries: error_codes=269
+//! Input: registry/error-code-registry.json; version=2026-07-30.1;
+//! sha256=69916b7548766bb811e5a22987a60ea669f7b668e6a8d167e3b89dcc7f5f5bc0 Entries: error_codes=269
 
 use serde::{Deserialize, Serialize};
 
@@ -1605,7 +1605,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         scope: "endpoint",
         applies_to: &["service_call"],
-        description: "ak.self.applet.command.install recomputed the canonical InstallPlan from the submitted Applet Package, approved_scopes, effective_scope, and current Realm/Circle policy, and the recomputed plan_digest did not exactly match the submitted plan_digest. Server MUST fail closed and require a fresh preview/approval before fan-out. See zh/extensions/applet-integration.md §4b.",
+        description: "ak.self.applet.command.install recomputed the canonical InstallPlan from the submitted Applet Package, caller-signed registration/capability-grant Events, effective_scope, and current Realm/Circle policy, and the recomputed plan_digest did not exactly match the submitted plan_digest. Server MUST fail closed and require a fresh preview/approval before formal Event admission. See zh/extensions/applet-integration.md §4b.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletInstallProjectionIncomplete,

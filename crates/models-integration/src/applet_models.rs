@@ -9,12 +9,12 @@
 use std::collections::BTreeMap;
 
 pub use arkret_wire::AppletIdentifier;
-use arkret_wire::{BlobRef, Did, EventId, GrantId, Hash, RealmId, ScopeRef};
+use arkret_wire::{BlobRef, Did, Event, EventId, GrantId, Hash, RealmId, ScopeRef};
 use serde::{Deserialize, Serialize};
 
 use crate::applet::AppletPackage;
 use crate::artifacts_applet::{
-    E2eePolicy, ExternalRef, FieldDefinition, ProtocolInstance, RejectedItem, ScopeGrant,
+    E2eePolicy, ExternalRef, FieldDefinition, ProtocolInstance, RejectedItem,
 };
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -184,7 +184,8 @@ pub struct AppletInstallRequestBody {
     pub plan_digest: Hash,
     pub applet_package: AppletPackage,
     pub effective_scope: ScopeRef,
-    pub approved_scopes: Vec<ScopeGrant>,
+    pub registration_event: Event,
+    pub capability_grant_events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actor_policy: Option<AppletActorPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

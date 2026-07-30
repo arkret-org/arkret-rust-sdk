@@ -2,16 +2,17 @@ use arkret_canonical as canonical;
 use arkret_models_identity::DidDocument;
 use arkret_models_integration::{
     AppletDidMethodVersionEvidence, AppletEndpointAuth, AppletEndpointEntry, AppletEndpointMethod,
-    AppletInstallAppletId, AppletInstallPlan, AppletNamespaceDomain, AppletNamespaceEntry,
-    AppletPackage, AppletRegistrationEpochEvidence, AppletWireNamespaces, E2eeEffect, WebhookAuth,
-    WebhookSignatureAlg, WidgetEffect, WireAppletRegistration, sign_registration,
+    AppletInstallAppletId, AppletInstallPlan, AppletInstallRequestBody, AppletNamespaceDomain,
+    AppletNamespaceEntry, AppletPackage, AppletRegistrationEpochEvidence, AppletWireNamespaces,
+    E2eeEffect, WebhookAuth, WebhookSignatureAlg, WidgetEffect, WireAppletRegistration,
+    sign_registration,
 };
 use arkret_wire::{
-    AppletId, Did, Hash, PayloadSignature, PayloadSigner, Proof, RealmId, Result as WireResult,
-    ScopeRef,
+    AppletId, Did, Event, Hash, Hlc, PayloadSignature, PayloadSigner, Proof, RealmId,
+    Result as WireResult, ScopeRef,
 };
 use chrono::Utc;
-use serde_json::Value;
+use serde_json::{Value, json};
 
 fn did(name: &str) -> Did {
     Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
@@ -247,6 +248,60 @@ fn install_plan_digest_excludes_itself_and_scope_round_trips() {
     assert_eq!(value["effective_scope"]["kind"], "realm");
     let round_trip: AppletInstallPlan = serde_json::from_value(value).unwrap();
     assert_eq!(round_trip.effective_scope.realm_id(), &realm());
+}
+
+#[test]
+fn install_commit_uses_only_caller_signed_formal_events() {
+    let scope = ScopeRef::Realm { realm_id: realm() };
+    let registration_event = Event::new(
+        "ak.applet.registration",
+        scope.clone(),
+        did("admin"),
+        1,
+        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+        json!({"applet_id": "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"}),
+    )
+    .unwrap();
+    let capability_grant_event = Event::new(
+        "ak.capability.grant",
+        scope.clone(),
+        did("admin"),
+        2,
+        Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
+        json!({"grant_id": "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa"}),
+    )
+    .unwrap();
+    let request = AppletInstallRequestBody {
+        plan_digest: sample_epoch(),
+        applet_package: package_with_required_fields(),
+        effective_scope: scope,
+        registration_event,
+        capability_grant_events: vec![capability_grant_event],
+        actor_policy: None,
+        e2ee_policy: None,
+        widget_policy: None,
+    };
+    let value = serde_json::to_value(&request).unwrap();
+    assert_eq!(
+        value["registration_event"]["kind"],
+        json!("ak.applet.registration")
+    );
+    assert_eq!(
+        value["capability_grant_events"][0]["kind"],
+        json!("ak.capability.grant")
+    );
+
+    let mut old_wire = value;
+    old_wire
+        .as_object_mut()
+        .unwrap()
+        .remove("registration_event");
+    old_wire
+        .as_object_mut()
+        .unwrap()
+        .remove("capability_grant_events");
+    old_wire["approved_scopes"] = json!([]);
+    assert!(serde_json::from_value::<AppletInstallRequestBody>(old_wire).is_err());
 }
 
 #[test]
