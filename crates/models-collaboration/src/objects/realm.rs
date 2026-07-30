@@ -191,12 +191,21 @@ pub struct Realm {
     /// defaults from contract-registry".
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cell_lattices: Vec<CellLatticeDeclaration>,
-    /// Co-write policy (data-structures.md §4 — Move/Seal/Lattice). How
-    /// the server orders concurrent Moves before they reach an Seal.
-    /// `None` means "implementation default" (spec suggests
-    /// `deterministic_order` for single-DID, `causal_only` for threshold).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub co_write_policy: Option<CoWritePolicy>,
+    /// Control Move atomic-write constraint (`realm.schema.json`
+    /// `co_write_policy`; `models/realm-and-space.md` §2.3 field table).
+    /// Optional whitelist of `ak.component.<…>.v<N>` cell-family groups that
+    /// MAY be written by the same Move; empty means "no Realm-specific
+    /// constraint". Carried for wire fidelity only — the spec declares the
+    /// field but has not yet published a normative enforcement rule or
+    /// reason code for it, so the SDK does not evaluate it.
+    ///
+    /// This is *not* a concurrent-Move ordering knob: ordering is
+    /// unconditional per `authz/event-auth-state-resolution.md` §6.3.1
+    /// (canonical total order for exposure, frozen causal predecessor for
+    /// `preconditions[]`) and is implemented in `arkret_state::state::
+    /// deterministic_order`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub co_write_policy: Vec<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retention_policy_id: Option<PolicyId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -307,19 +316,6 @@ pub struct CellLatticeDeclaration {
     pub bottom: Option<String>,
 }
 
-/// Co-write policy declaration on `Realm` (Move/Seal/Lattice). Governs
-/// how concurrent Moves are ordered before reaching an Seal.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CoWritePolicy {
-    /// Notary applies a deterministic order (HLC → issuer → id) before
-    /// folding into the next Seal. Best for single-DID deployments.
-    DeterministicOrder,
-    /// Causal-only order; concurrent Moves on the same cell may produce
-    /// `bottom`. Suitable for threshold / open-set deployments.
-    CausalOnly,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AvailabilityHolderRole {
@@ -420,7 +416,7 @@ impl Realm {
             max_delegation_lifetime_ms: default_max_delegation_lifetime_ms(),
             bottom_escalation_after_ms: None,
             cell_lattices: Vec::new(),
-            co_write_policy: None,
+            co_write_policy: Vec::new(),
             retention_policy_id: None,
             avatar_blob_ref: None,
             created_by,
@@ -494,9 +490,17 @@ impl Realm {
         self
     }
 
-    /// Builder: declare the Move co-write policy (deterministic vs causal).
-    pub fn with_co_write_policy(mut self, policy: CoWritePolicy) -> Self {
-        self.co_write_policy = Some(policy);
+    /// Builder: append one co-write group — the cell families that MAY be
+    /// written by the same Control Move. Append-only; call once per group.
+    /// Each entry MUST be an `ak.component.<…>.v<N>` identifier
+    /// (`realm.schema.json` `co_write_policy.items.items`).
+    pub fn with_co_write_group<I, S>(mut self, cell_families: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.co_write_policy
+            .push(cell_families.into_iter().map(Into::into).collect());
         self
     }
 

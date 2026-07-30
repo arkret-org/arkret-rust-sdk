@@ -5,7 +5,7 @@ use arkret_models_collaboration::objects::profiles::{
     validate_strand_track_name,
 };
 use arkret_models_collaboration::objects::realm::{
-    CellLatticeDeclaration, CoWritePolicy, NotaryProfile, Realm, SyncEndpoint,
+    CellLatticeDeclaration, NotaryProfile, Realm, SyncEndpoint,
 };
 use arkret_models_collaboration::objects::strand::Strand;
 use arkret_wire::{FederationPolicy, MORPH_SCHEMA, ObjectStage, ObjectState, STRAND_SCHEMA};
@@ -151,7 +151,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     assert_eq!(realm.max_delegation_lifetime_ms, 86_400_000);
     assert!(realm.bottom_escalation_after_ms.is_none());
     assert!(realm.cell_lattices.is_empty());
-    assert!(realm.co_write_policy.is_none());
+    assert!(realm.co_write_policy.is_empty());
     assert!(realm.updated_by.is_none());
 
     realm = realm
@@ -171,7 +171,10 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
             "or_set",
             Some("reject".to_owned()),
         )
-        .with_co_write_policy(CoWritePolicy::CausalOnly);
+        .with_co_write_group([
+            "ak.component.strand.track.v1",
+            "ak.component.realm.join_rule.v1",
+        ]);
     realm.preview_policy_id =
         Some(PolicyId::new("ak:policy:0196419b-0000-7000-8000-000000000003").unwrap());
     realm.sync_endpoints.push(SyncEndpoint {
@@ -210,7 +213,13 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     );
     assert_eq!(realm.cell_lattices[0].lattice, "or_set");
     assert_eq!(realm.cell_lattices[0].bottom.as_deref(), Some("reject"));
-    assert_eq!(realm.co_write_policy, Some(CoWritePolicy::CausalOnly));
+    assert_eq!(
+        realm.co_write_policy,
+        vec![vec![
+            "ak.component.strand.track.v1".to_owned(),
+            "ak.component.realm.join_rule.v1".to_owned(),
+        ]]
+    );
 
     // Round-trip through serde to confirm wire shape.
     let json = serde_json::to_value(&realm).unwrap();
@@ -227,7 +236,17 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     assert_eq!(json["revocation_freshness_window_ms"], 60_000);
     assert_eq!(json["max_delegation_lifetime_ms"], 3_600_000);
     assert_eq!(json["bottom_escalation_after_ms"], 120_000);
-    assert_eq!(json["co_write_policy"], "causal_only");
+    // `realm.schema.json` co_write_policy is `array<array<component>>` — a
+    // whitelist of cell families writable by the same Control Move, not an
+    // ordering enum. Ordering is unconditional (event-auth-state-resolution.md
+    // §6.3.1) and carries no Realm field.
+    assert_eq!(
+        json["co_write_policy"],
+        json!([[
+            "ak.component.strand.track.v1",
+            "ak.component.realm.join_rule.v1"
+        ]])
+    );
     assert_eq!(json["updated_by"], "did:webvh:z6mkfixture:bob.example");
     assert_eq!(
         json["cell_lattices"][0]["cell_family"],
