@@ -507,14 +507,17 @@ impl Client {
     /// Spec: `crypto-media/key-management.md` §7.2 +
     /// `sync/service-http-binding.md` §3 (PUT
     /// `/_arkret/self/keys/backups/{backup_id}`). The envelope's
-    /// `ciphertext_digest` is the server-side idempotency / dedup key.
+    /// The caller owns the stable idempotency key and MUST reuse it only for
+    /// byte-identical retries of the same backup body.
     pub async fn put_key_backup(
         &self,
         backup_id: &BackupId,
         body: &KeyBackup,
+        idempotency_key: &str,
     ) -> Result<KeysBackupsReplaceOutcome> {
         let path = format!("/_arkret/self/keys/backups/{}", backup_id.as_str());
-        self.put(&path, body).await
+        let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
+        self.put_with_options(&path, body, &options).await
     }
 
     /// List existing key backups for the authorized actor. Honors the

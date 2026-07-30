@@ -118,31 +118,84 @@ pub fn resolve_primary_track<'a>(
     tracks: &'a BTreeMap<String, StrandTrackConfig>,
     profile_default: Option<&str>,
 ) -> Result<Option<(&'a String, &'a StrandTrackConfig)>> {
+    if tracks.is_empty() {
+        return Ok(None);
+    }
     let explicit: Vec<(&String, &StrandTrackConfig)> = tracks
         .iter()
         .filter(|(_, cfg)| cfg.is_primary == Some(true))
         .collect();
     match explicit.len() {
         0 => {}
-        1 => return Ok(Some(explicit[0])),
+        1 if explicit[0].1.enabled != Some(false) => return Ok(Some(explicit[0])),
+        1 => {
+            return Err(Error::Protocol(
+                "track_disabled: explicit primary track is disabled".to_owned(),
+            ));
+        }
         _ => {
             return Err(Error::Protocol(
                 "Strand has more than one track with is_primary=true".to_owned(),
             ));
         }
     }
-    if let Some((k, v)) = tracks.get_key_value(STRAND_TRACK_NAME_SYNTHESIS) {
-        return Ok(Some((k, v)));
-    }
-    if tracks.len() == 1 {
-        return Ok(tracks.iter().next());
-    }
-    if let Some(default_name) = profile_default
-        && let Some((k, v)) = tracks.get_key_value(default_name)
+    let enabled = tracks
+        .iter()
+        .filter(|(_, config)| config.enabled != Some(false))
+        .collect::<Vec<_>>();
+    if let Some((k, v)) = tracks.get_key_value(STRAND_TRACK_NAME_SYNTHESIS)
+        && v.enabled != Some(false)
     {
         return Ok(Some((k, v)));
     }
-    Ok(None)
+    if enabled.len() == 1 {
+        return Ok(enabled.into_iter().next());
+    }
+    if let Some(default_name) = profile_default
+        && let Some((k, v)) = tracks.get_key_value(default_name)
+        && v.enabled != Some(false)
+    {
+        return Ok(Some((k, v)));
+    }
+    Err(Error::Protocol(
+        "primary_track_required: enabled tracks require one primary track".to_owned(),
+    ))
+}
+
+pub fn validate_primary_track_transition(
+    previous: &BTreeMap<String, StrandTrackConfig>,
+    next: &BTreeMap<String, StrandTrackConfig>,
+    profile_default: Option<&str>,
+) -> Result<()> {
+    let previous_primary = resolve_primary_track(previous, profile_default)?;
+    let next_primary = resolve_primary_track(next, profile_default)?;
+    if let Some((previous_name, _)) = previous_primary {
+        let previous_still_enabled = next
+            .get(previous_name)
+            .is_some_and(|config| config.enabled != Some(false));
+        if !previous_still_enabled && next_primary.is_none() {
+            return Err(Error::Protocol(
+                "primary_track_required: disabling or deleting the primary track requires an atomic migration"
+                    .to_owned(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub fn select_primary_track<'a>(
+    tracks: &'a BTreeMap<String, StrandTrackConfig>,
+    track_name: &str,
+) -> Result<(&'a String, &'a StrandTrackConfig)> {
+    let selected = tracks.get_key_value(track_name).ok_or_else(|| {
+        Error::Protocol("primary_track_required: selected track does not exist".to_owned())
+    })?;
+    if selected.1.enabled == Some(false) {
+        return Err(Error::Protocol(
+            "track_disabled: selected primary track is disabled".to_owned(),
+        ));
+    }
+    Ok(selected)
 }
 
 /// Morph `metadata` shape — shares [`ObjectMetadata`] with Strand. Morph carries

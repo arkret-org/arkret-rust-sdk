@@ -496,6 +496,16 @@ impl ArkretMlsGroup {
         self.export_secret(HISTORY_SECRET_LABEL, realm_id.as_bytes(), 32)
     }
 
+    /// Derive the epoch-scoped mention-routing tag for one mentioned DID.
+    pub fn mention_routing_hmac(&self, realm_id: &str, mentioned_did: &Did) -> Result<[u8; 32]> {
+        let routing_key = self.export_secret(
+            crate::MENTION_ROUTING_EXPORTER_LABEL,
+            realm_id.as_bytes(),
+            32,
+        )?;
+        crate::mention_routing_hmac_from_key(&routing_key, mentioned_did)
+    }
+
     /// Encrypt `plaintext` for the current epoch under the `mls_exporter_aead_v1`
     /// content scheme, returning `nonce || ciphertext` (the `N_AEAD`-byte nonce
     /// prepended so the receiver decrypt path is self-describing).

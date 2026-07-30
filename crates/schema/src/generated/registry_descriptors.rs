@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-07-30.6;
-//! sha256=ff85663d75934967af783bf6a3ef407acd8463052011a935526adf400507bdc5 Input: registry/
-//! capability-action-registry.json; version=2026-07-30.6;
-//! sha256=e4218dff95234e6df9df947cba30329fe7672c534325516fcc3e429cda7aac1b Input: registry/
-//! schema-registry.json; version=2026-07-30.6;
-//! sha256=63193729bbbb86c7335b70f416b1f0524cd56d8408112f5b1e1156e202aff774 Input: registry/
-//! account-data-key-registry.json; version=2026-07-29;
-//! sha256=4440a5ff1a4a91605e5a83b1e46b4da4fc1bd49eaf110ec807ac246fd25b59ec Entries: id_kinds=53,
-//! special_forms=9, actions=158, schemas=170, account_data_patterns=22
+//! Input: registry/id-kind-registry.json; version=2026-07-30.9;
+//! sha256=c299745b5604a78f399bd4c6ac5db43d997f28967d842683f8c6420f2f900b3d Input: registry/
+//! capability-action-registry.json; version=2026-07-30.9;
+//! sha256=1196bbed94e43ff0df7878cb79a16d2d69afbe27a4082d0a8da70c50fc387d07 Input: registry/
+//! schema-registry.json; version=2026-07-30.9;
+//! sha256=bd2820514aead492a4d80f68edcd501983c6ee8be33ed77702b7254b9701a8a4 Input: registry/
+//! account-data-key-registry.json; version=2026-07-30;
+//! sha256=9afa80c16d13fcc3bdc5da373e0e1bc6bc5099e06aaccdd560745962023f89a3 Entries: id_kinds=53,
+//! special_forms=9, actions=158, schemas=171, account_data_patterns=24
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -2019,6 +2019,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/call-recording-artifact.schema.json",
     },
     SchemaDescriptor {
+        schema_id: "ak.schema.call_signal_plaintext.v1",
+        file: "schemas/call-signal-plaintext.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: "ak.schema.capability.v1",
         file: "schemas/capability-grant.schema.json",
     },
@@ -2654,6 +2658,15 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         deletion_mode: "value_tombstone",
     },
     AccountDataPatternDescriptor {
+        key_pattern: "ak.notifications.inbox.<notification_id>",
+        scope: "principal_private_notification_state",
+        storage: "encrypted_account_data",
+        plaintext_schema: None,
+        write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
+    },
+    AccountDataPatternDescriptor {
         key_pattern: "ak.presence.preference",
         scope: "principal_private_preference",
         storage: "encrypted_account_data",
@@ -2737,6 +2750,15 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
     AccountDataPatternDescriptor {
         key_pattern: "ak.tags.realm.<realm_id>",
         scope: "realm_private_preference",
+        storage: "encrypted_account_data",
+        plaintext_schema: None,
+        write_event_kinds: &["ak.account_data.set"],
+        merge_strategy: "cas_register",
+        deletion_mode: "physical_delete",
+    },
+    AccountDataPatternDescriptor {
+        key_pattern: "ak.views.private.<view_id>",
+        scope: "realm_private_view",
         storage: "encrypted_account_data",
         plaintext_schema: None,
         write_event_kinds: &["ak.account_data.set"],

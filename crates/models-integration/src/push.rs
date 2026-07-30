@@ -105,7 +105,10 @@ pub struct PushRule {
     pub kind: String,
     #[serde(default = "default_push_rule_enabled")]
     pub enabled: bool,
-    #[serde(default = "default_push_rule_locus")]
+    #[serde(
+        default = "default_push_rule_locus",
+        deserialize_with = "deserialize_push_rule_locus"
+    )]
     pub evaluation_locus: String,
     #[serde(default)]
     pub conditions: Vec<PushCondition>,
@@ -120,28 +123,6 @@ impl PushRule {
         } else {
             PushPriority::Normal
         }
-    }
-
-    pub fn server_metadata_matches(&self, event_kind: &str, realm_id: Option<&str>) -> bool {
-        self.evaluation_locus == "server"
-            && self.conditions.iter().all(|condition| {
-                if condition.kind != "field_match" {
-                    return false;
-                }
-                let Some(field) = condition.field.as_deref() else {
-                    return false;
-                };
-                let Some(pattern) = condition.pattern.as_ref() else {
-                    return false;
-                };
-                match field {
-                    "kind" | "event_kind" => push_pattern_matches(pattern, event_kind),
-                    "realm_id" => {
-                        realm_id.is_some_and(|realm_id| push_pattern_matches(pattern, realm_id))
-                    }
-                    _ => false,
-                }
-            })
     }
 }
 
@@ -194,21 +175,25 @@ pub struct DndPeriod {
 }
 
 fn default_push_rule_locus() -> String {
-    "server".to_owned()
+    "client".to_owned()
+}
+
+fn deserialize_push_rule_locus<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = String::deserialize(deserializer)?;
+    if value == "client" {
+        Ok(value)
+    } else {
+        Err(serde::de::Error::custom(
+            "unsupported_feature: v1 push rules require evaluation_locus=client",
+        ))
+    }
 }
 
 fn default_push_rule_enabled() -> bool {
     true
-}
-
-fn push_pattern_matches(pattern: &Value, value: &str) -> bool {
-    match pattern {
-        Value::String(pattern) => pattern == "*" || pattern == value,
-        Value::Array(patterns) => patterns
-            .iter()
-            .any(|pattern| push_pattern_matches(pattern, value)),
-        _ => false,
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -311,18 +296,6 @@ pub fn blind_payload_data_for_event_kind(event_kind: &str) -> Value {
 
 fn parse_platform(value: &str) -> Option<PushPlatform> {
     PushPlatform::new(value)
-}
-
-impl PushRulesConfig {
-    pub fn matching_server_metadata_rule(
-        &self,
-        event_kind: &str,
-        realm_id: Option<&str>,
-    ) -> Option<&PushRule> {
-        self.rules
-            .iter()
-            .find(|rule| rule.enabled && rule.server_metadata_matches(event_kind, realm_id))
-    }
 }
 
 /// B.5 #6 — spec revision chime was compiled against. Used by
@@ -646,7 +619,7 @@ mod tests {
             rule_id: "default".to_owned(),
             kind: "underride".to_owned(),
             enabled: true,
-            evaluation_locus: "server".to_owned(),
+            evaluation_locus: "client".to_owned(),
             conditions: Vec::new(),
             actions: vec!["notify".to_owned(), "sound_critical".to_owned()],
         };
@@ -815,44 +788,27 @@ mod tests {
     }
 
     #[test]
-    fn server_metadata_rule_matching_fails_closed_for_client_conditions() {
-        let config = PushRulesConfig {
-            rules: vec![
-                PushRule {
-                    rule_id: "client-mention".to_owned(),
-                    kind: "underride".to_owned(),
-                    enabled: true,
-                    evaluation_locus: "client".to_owned(),
-                    conditions: vec![PushCondition {
-                        kind: "mentions_actor".to_owned(),
-                        ..Default::default()
-                    }],
-                    actions: vec!["notify".to_owned()],
-                },
-                PushRule {
-                    rule_id: "server-message".to_owned(),
-                    kind: "underride".to_owned(),
-                    enabled: true,
-                    evaluation_locus: "server".to_owned(),
-                    conditions: vec![PushCondition {
-                        kind: "field_match".to_owned(),
-                        field: Some("kind".to_owned()),
-                        pattern: Some(Value::String("ak.message.create".to_owned())),
-                        ..Default::default()
-                    }],
-                    actions: vec!["notify".to_owned()],
-                },
-            ],
-        };
+    fn push_rules_reject_server_evaluation_locus() {
+        let error = serde_json::from_value::<PushRule>(serde_json::json!({
+            "rule_id": "server-message",
+            "kind": "underride",
+            "enabled": true,
+            "evaluation_locus": "server",
+            "conditions": [],
+            "actions": ["notify"]
+        }))
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("unsupported_feature"));
 
-        let matched = config
-            .matching_server_metadata_rule("ak.message.create", None)
-            .expect("server metadata rule");
-        assert_eq!(matched.rule_id, "server-message");
-        assert!(
-            config
-                .matching_server_metadata_rule("ak.reaction.add", None)
-                .is_none()
-        );
+        let client: PushRule = serde_json::from_value(serde_json::json!({
+            "rule_id": "client-message",
+            "kind": "underride",
+            "enabled": true,
+            "conditions": [],
+            "actions": ["notify"]
+        }))
+        .unwrap();
+        assert_eq!(client.evaluation_locus, "client");
     }
 }

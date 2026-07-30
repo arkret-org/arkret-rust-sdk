@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-07-30.2;
-//! sha256=03e79d6c31e9f84e1afe4c8152e684d7119b17a8d20c24b597a3b54f06b9c867
-//! Entries: reason_codes=447
+//! Input: registry/error-code-registry.json; version=2026-07-30.3;
+//! sha256=e04e9627c5f79539a1ebe8885aef50cce3f78f810c35b0f0a18efe483de8a3b0
+//! Entries: reason_codes=449
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -298,9 +298,11 @@ pub enum ReasonCode {
     PresignInvalid,
     PresignScopeMismatch,
     PrevRefsTooLarge,
+    PrimaryTrackRequired,
     PrincipalControlEventKindForbidden,
     PrincipalDeactivated,
     PrivateAttachment,
+    PrivateViewRequiresAccountData,
     ProfileUnsupported,
     ProjectionIncomplete,
     ProofBindingMissing,
@@ -826,10 +828,13 @@ impl ReasonCode {
     pub const PRESIGN_INVALID: &'static str = "presign_invalid";
     pub const PRESIGN_SCOPE_MISMATCH: &'static str = "presign_scope_mismatch";
     pub const PREV_REFS_TOO_LARGE: &'static str = "prev_refs_too_large";
+    pub const PRIMARY_TRACK_REQUIRED: &'static str = "primary_track_required";
     pub const PRINCIPAL_CONTROL_EVENT_KIND_FORBIDDEN: &'static str =
         "principal_control_event_kind_forbidden";
     pub const PRINCIPAL_DEACTIVATED: &'static str = "principal_deactivated";
     pub const PRIVATE_ATTACHMENT: &'static str = "private_attachment";
+    pub const PRIVATE_VIEW_REQUIRES_ACCOUNT_DATA: &'static str =
+        "private_view_requires_account_data";
     pub const PROFILE_UNSUPPORTED: &'static str = "profile_unsupported";
     pub const PROJECTION_INCOMPLETE: &'static str = "projection_incomplete";
     pub const PROOF_BINDING_MISSING: &'static str = "proof_binding_missing";
@@ -1353,9 +1358,11 @@ impl ReasonCode {
             Self::PresignInvalid => "presign_invalid",
             Self::PresignScopeMismatch => "presign_scope_mismatch",
             Self::PrevRefsTooLarge => "prev_refs_too_large",
+            Self::PrimaryTrackRequired => "primary_track_required",
             Self::PrincipalControlEventKindForbidden => "principal_control_event_kind_forbidden",
             Self::PrincipalDeactivated => "principal_deactivated",
             Self::PrivateAttachment => "private_attachment",
+            Self::PrivateViewRequiresAccountData => "private_view_requires_account_data",
             Self::ProfileUnsupported => "profile_unsupported",
             Self::ProjectionIncomplete => "projection_incomplete",
             Self::ProofBindingMissing => "proof_binding_missing",
@@ -1878,9 +1885,11 @@ impl ReasonCode {
             "presign_invalid" => Self::PresignInvalid,
             "presign_scope_mismatch" => Self::PresignScopeMismatch,
             "prev_refs_too_large" => Self::PrevRefsTooLarge,
+            "primary_track_required" => Self::PrimaryTrackRequired,
             "principal_control_event_kind_forbidden" => Self::PrincipalControlEventKindForbidden,
             "principal_deactivated" => Self::PrincipalDeactivated,
             "private_attachment" => Self::PrivateAttachment,
+            "private_view_requires_account_data" => Self::PrivateViewRequiresAccountData,
             "profile_unsupported" => Self::ProfileUnsupported,
             "projection_incomplete" => Self::ProjectionIncomplete,
             "proof_binding_missing" => Self::ProofBindingMissing,
@@ -3069,7 +3078,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "invalid_genesis_seal",
         applies_to: &["seal", "state_resolution"],
-        description: "The first Seal of a Realm did not atomically cover the complete founding anchor unit (Realm metadata, creator joined membership, founding authority/notary, founding grant, base policy, and for an MLS-backed scope the epoch-0 governance binding), or used an empty covered set or empty control_event_set_root. See zh/authz/cba-profiles.md section 3.",
+        description: "The first Seal of a Realm did not atomically cover the complete founding anchor unit (Realm metadata, creator joined membership, founding authority/notary, founding grant and base policy), or used an empty covered set or empty control_event_set_root. MLS epoch-0 binding is checked on the first successor Seal covering ak.mls.genesis. See zh/authz/cba-profiles.md section 3.",
     },
     ReasonCodeDescriptor {
         code: "invalid_membership_transition",
@@ -3532,6 +3541,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Event Envelope prev_refs exceeds the v1 maximum of 128 entries, or duplicates entries where uniqueness is required. Receiver MUST reject with schema_violation. See zh/conformance/scalability-constraints.md.",
     },
     ReasonCodeDescriptor {
+        code: "primary_track_required",
+        applies_to: &["event_envelope", "state_resolution"],
+        description: "An ak.strand.tracks.update patch attempted to disable or remove the current primary track without atomically transferring primary status to another active track. Carried under failed_precondition; the patch is rejected atomically. See zh/models/strand-and-message.md section 4.7.",
+    },
+    ReasonCodeDescriptor {
         code: "principal_control_event_kind_forbidden",
         applies_to: &["event_envelope", "auth_decision"],
         description: "A Realm claiming ak.profile.principal_control_realm.v1 received a collaboration / media / content event kind outside its allowlist-only control-plane event policy. Reducers MUST reject instead of treating the Realm as ordinary collaboration history. See zh/identity/key-management.md §4.2 and artifacts/profiles/conformance-profiles.json#profile_requirements.",
@@ -3550,6 +3564,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "private_attachment",
         applies_to: &["service_call", "auth_decision"],
         description: "The target blob is actor_private / private attachment material and MUST NOT be exposed through a bearer presign URL. It remains fetchable only through header-authenticated actor-bound access. See zh/crypto-media/media-and-blob.md §5.4.4.1.",
+    },
+    ReasonCodeDescriptor {
+        code: "private_view_requires_account_data",
+        applies_to: &["event_envelope", "schema_validation"],
+        description: "A shared Realm View Event attempted to persist visibility=private. Private Views are encrypted holder account data under ak.views.private.<view_id> and MUST NOT enter the shared reducer. Carried under schema_violation. See zh/models/views.md.",
     },
     ReasonCodeDescriptor {
         code: "profile_unsupported",

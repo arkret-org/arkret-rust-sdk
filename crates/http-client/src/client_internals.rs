@@ -285,6 +285,19 @@ impl Client {
         if body_digest.is_some() {
             covered_components.push(Component::Header("content-digest".to_owned()));
         }
+        let mut signed_headers = Vec::new();
+        for header_name in [HEADER_IDEMPOTENCY_KEY, HEADER_WAIT_FOR] {
+            if let Some(value) = request.headers().get(header_name) {
+                let value = value.to_str().map_err(|_| {
+                    Error::Protocol(format!(
+                        "{header_name} must be visible ASCII for HTTP message signing"
+                    ))
+                })?;
+                let canonical_name = header_name.to_ascii_lowercase();
+                covered_components.push(Component::Header(canonical_name.clone()));
+                signed_headers.push((canonical_name, value.to_owned()));
+            }
+        }
         let created = chrono::Utc::now().timestamp();
         let validity = signer.validity_seconds();
         if validity <= 0 || validity > 300 {
@@ -308,7 +321,7 @@ impl Client {
             target_uri: url.as_str().to_owned(),
             authority: request_authority(url)?,
             path: url.path().to_owned(),
-            headers: Vec::new(),
+            headers: signed_headers,
             body_digest: body_digest.as_ref().map(|digest| digest.wire_value.clone()),
         };
         let message = canonical_message(&parts, &signature_input)

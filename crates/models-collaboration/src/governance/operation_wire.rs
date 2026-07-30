@@ -84,8 +84,14 @@ pub struct PolicyRule {
     pub rule_id: String,
     pub kind: PolicyRuleKind,
     pub effect: PolicyEffect,
+    #[serde(default, skip_serializing_if = "is_zero_i64")]
+    pub priority: i64,
     #[serde(flatten)]
     pub extra: XExtensionMap,
+}
+
+fn is_zero_i64(value: &i64) -> bool {
+    *value == 0
 }
 
 impl PolicyRule {

@@ -117,6 +117,7 @@ def generate_operations(artifacts: Path) -> str:
             "pub enum DurableEventTarget {",
             "    Static(&'static [&'static str]),",
             "    Dynamic(&'static str),",
+            "    DynamicMany(&'static [&'static str]),",
             "}",
             "",
             "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
@@ -252,6 +253,18 @@ def generate_operations(artifacts: Path) -> str:
                     target = (
                         "Some(DurableEventTarget::Dynamic("
                         f"{rust_string(durable['event_kind_source'])}))"
+                    )
+                elif (
+                    isinstance(durable.get("event_kind_sources"), list)
+                    and durable["event_kind_sources"]
+                    and all(
+                        isinstance(source, str) and source
+                        for source in durable["event_kind_sources"]
+                    )
+                ):
+                    target = (
+                        "Some(DurableEventTarget::DynamicMany("
+                        f"{rust_slice(durable['event_kind_sources'])}))"
                     )
                 else:
                     raise ValueError(

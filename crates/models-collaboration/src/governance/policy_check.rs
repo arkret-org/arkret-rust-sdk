@@ -125,3 +125,42 @@ pub struct PolicyCheckOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub obligations: Vec<Value>,
 }
+
+#[derive(Serialize)]
+struct PolicyDecisionTranscript<'a> {
+    kind: &'static str,
+    request_id: &'a str,
+    decision: &'a AuthzDecision,
+    bound_to: &'a PolicyCheckBoundTo,
+    freshness_state: &'a FreshnessState,
+    auth_state_digest: &'a Hash,
+    policy_frontier_digest: &'a Hash,
+    membership_frontier_digest: &'a Hash,
+    reason_code: &'a str,
+    expires_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    next_retry_at: Option<String>,
+    #[serde(skip_serializing_if = "<[_]>::is_empty")]
+    obligations: &'a [Value],
+}
+
+/// Canonical v1 transcript signed by policy issuers and rebuilt by verifiers.
+pub fn policy_decision_transcript_bytes(outcome: &PolicyCheckOutcome) -> Result<Vec<u8>> {
+    let transcript = PolicyDecisionTranscript {
+        kind: "ak.policy.check.transcript.v1",
+        request_id: &outcome.request_id,
+        decision: &outcome.decision,
+        bound_to: &outcome.bound_to,
+        freshness_state: &outcome.freshness_state,
+        auth_state_digest: &outcome.auth_state_digest,
+        policy_frontier_digest: &outcome.policy_frontier_digest,
+        membership_frontier_digest: &outcome.membership_frontier_digest,
+        reason_code: &outcome.reason_code,
+        expires_at: arkret_canonical::format_timestamp_canonical(outcome.expires_at),
+        next_retry_at: outcome
+            .next_retry_at
+            .map(arkret_canonical::format_timestamp_canonical),
+        obligations: &outcome.obligations,
+    };
+    Ok(canonical::canonical_json_bytes(&transcript)?)
+}

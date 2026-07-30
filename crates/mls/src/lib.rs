@@ -9,6 +9,7 @@
 //! `CryptoStore`.
 
 mod error;
+mod exporter_kdf;
 mod group;
 mod identity;
 mod message;
@@ -28,6 +29,7 @@ pub use error::MlsError;
 // concrete `std::result::Result<_, MlsError>` and external callers do not need
 // a generic root-level alias.
 pub(crate) use error::Result;
+pub use exporter_kdf::*;
 pub use group::*;
 pub use identity::*;
 pub use message::*;

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-07-30.6;
-//! sha256=6ab68cfb84427fd7c80599478f1425c5282290237364b8cf89b38f5b62dd9f73 Entries: registered=217
+//! Input: registry/operation-registry.json; version=2026-07-30.9;
+//! sha256=01a7bbd3898d611e41f700af8616092eb5f7a74f45f1081ebdb2fcc665a76307 Entries: registered=217
 
 use serde::{Deserialize, Serialize};
 
@@ -458,6 +458,7 @@ pub enum DurableEffectKind {
 pub enum DurableEventTarget {
     Static(&'static [&'static str]),
     Dynamic(&'static str),
+    DynamicMany(&'static [&'static str]),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -2985,9 +2986,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Dynamic(
-                "$request.submissions[*].event.kind",
-            )),
+            target: Some(DurableEventTarget::Dynamic("$request.events[*].event.kind")),
             rationale: None,
         }),
     },
@@ -4327,11 +4326,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "{\"operation_id\":\"ak.self.circle.resource.get\",\"strategy\":\"query_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Dynamic(
-                "$request.event_units[*].event.kind",
-            )),
-            rationale: None,
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "v1_surface_is_declared_but_always_returns_unsupported_feature_until_a_signed_event_submission_request_contract_is_registered",
+            ),
         }),
     },
     ServiceOperationDescriptor {
@@ -4727,11 +4726,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Dynamic(
-                "$request.signed_event_units[*].event.kind",
-            )),
-            rationale: None,
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "returns_client_authoring_material_or_an_existing_projection_and_never_commits_the_draft_events",
+            ),
         }),
     },
     ServiceOperationDescriptor {
@@ -4752,9 +4751,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Dynamic(
-                "$request.submissions[*].event.kind",
-            )),
+            target: Some(DurableEventTarget::DynamicMany(&[
+                "$request.event.kind",
+                "$request.events[*].event.kind",
+            ])),
             rationale: None,
         }),
     },
@@ -4965,7 +4965,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         response_schema_ref: Some(
             "schemas/principal-locator.schema.json#/$defs/invite_locator_issue_outcome",
         ),
-        uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
+        uncertain_outcome: Some(
+            "{\"reissue_operation_id\":\"ak.self.invite_locator.command.issue\",\"requires_fresh_request_identity\":true,\"revoke_operation_id\":\"ak.self.invite_locator.command.revoke\",\"strategy\":\"revoke_then_reissue\"}",
+        ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,

@@ -7,6 +7,7 @@ use crate::internal_prelude::*;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountStatusPayload {
+    pub account_id: String,
     pub principal_id: Did,
     pub status: AccountStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -24,4 +25,49 @@ pub struct AccountStatusPayload {
     pub supersedes_status_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub admin_proof: Option<SignatureMaterial>,
+}
+
+pub struct AccountStatusServiceBinding<'a> {
+    pub actor_id: &'a Did,
+    pub proof_controller: &'a Did,
+    pub signature_kid_controller: &'a Did,
+    pub authoritative_service_id: &'a Did,
+    pub bound_account_id: &'a str,
+    pub bound_principal_id: &'a Did,
+    pub signing_key_valid_at_effective_at: bool,
+    pub delegation_covers_account_status: bool,
+}
+
+impl AccountStatusPayload {
+    pub fn validate_service_binding(
+        &self,
+        binding: &AccountStatusServiceBinding<'_>,
+    ) -> Result<()> {
+        if self.account_id.is_empty() || self.account_id.len() > 255 {
+            return Err(Error::Protocol(
+                "account status account_id must be 1..=255 bytes".to_owned(),
+            ));
+        }
+        if binding.actor_id != binding.authoritative_service_id
+            || binding.proof_controller != binding.authoritative_service_id
+            || binding.signature_kid_controller != binding.authoritative_service_id
+        {
+            return Err(Error::Protocol(
+                "account status issuer service binding mismatch".to_owned(),
+            ));
+        }
+        if self.account_id != binding.bound_account_id
+            || &self.principal_id != binding.bound_principal_id
+        {
+            return Err(Error::Protocol(
+                "account status account/principal binding mismatch".to_owned(),
+            ));
+        }
+        if !binding.signing_key_valid_at_effective_at || !binding.delegation_covers_account_status {
+            return Err(Error::Protocol(
+                "account status signing authority is not valid at effective_at".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }

@@ -29,9 +29,6 @@ pub struct SyncRequestBody {
     /// Realm subscriptions.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subscriptions: Option<SubscriptionConfig>,
-    /// Optional frontier that the server should wait to observe before replying.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub wait_for: Option<WaitForFrontier>,
 }
 
 /// Sync filter for selective synchronization.
@@ -669,7 +666,6 @@ mod tests {
             catchup: Some(true),
             filter: None,
             subscriptions: None,
-            wait_for: None,
         };
 
         let json = serde_json::to_string(&request).unwrap();
@@ -698,7 +694,6 @@ mod tests {
             catchup: Some(true),
             filter: None,
             subscriptions: None,
-            wait_for: None,
         };
         let initial = SyncSemantics::from_request(&request);
 

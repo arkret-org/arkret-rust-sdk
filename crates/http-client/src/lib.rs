@@ -1846,7 +1846,6 @@ mod tests {
                     catchup: Some(true),
                     filter: None,
                     subscriptions: None,
-                    wait_for: None,
                 })
                 .await
                 .expect("stream init");
@@ -1883,7 +1882,6 @@ mod tests {
                     catchup: Some(true),
                     filter: None,
                     subscriptions: None,
-                    wait_for: None,
                 })
                 .await
                 .unwrap();
@@ -1940,7 +1938,6 @@ mod tests {
                     catchup: Some(true),
                     filter: None,
                     subscriptions: None,
-                    wait_for: None,
                 }),
             )
             .await
@@ -1970,7 +1967,6 @@ mod tests {
                     catchup: Some(true),
                     filter: None,
                     subscriptions: None,
-                    wait_for: None,
                 })
                 .await
                 .unwrap_err();
@@ -1999,7 +1995,6 @@ mod tests {
                     catchup: Some(true),
                     filter: None,
                     subscriptions: None,
-                    wait_for: None,
                 })
                 .await
                 .unwrap_err();

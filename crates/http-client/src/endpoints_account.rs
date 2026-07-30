@@ -43,7 +43,9 @@ use reqwest::header::CONTENT_TYPE;
 use reqwest::{Method, RequestBuilder};
 
 use crate::client_internals::{transport_error, trim_ascii};
-use crate::{AccountSubscribeFolder, Client, Error, MAX_SUBSCRIBE_FRAME_BYTES, Result};
+use crate::{
+    AccountSubscribeFolder, Client, ClientRequestOptions, Error, MAX_SUBSCRIBE_FRAME_BYTES, Result,
+};
 
 #[cfg(not(target_arch = "wasm32"))]
 type BoxAccountSubscribeFrameStream =
@@ -319,14 +321,6 @@ impl Client {
                     .to_owned(),
             ));
         }
-        if request.wait_for.is_some() {
-            return Err(Error::Protocol(
-                "account subscribe does not support `wait_for`; use the X-Arkret-Wait-For \
-                 header on read endpoints instead"
-                    .to_owned(),
-            ));
-        }
-
         let mut builder = self
             .request_unbounded(Method::GET, "/_arkret/self/account/subscribe")?
             .header("accept", accept);
@@ -369,11 +363,16 @@ impl Client {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    async fn account_subscribe(&self, request: &SyncRequestBody) -> Result<Response> {
+    async fn account_subscribe(
+        &self,
+        request: &SyncRequestBody,
+        options: &ClientRequestOptions,
+    ) -> Result<Response> {
         // Long-lived NDJSON stream — exempt from the per-request default
         // total timeout (see `DEFAULT_REQUEST_TIMEOUT`).
         let builder = self.account_subscribe_request(request, "application/x-ndjson")?;
-        self.send_response(builder).await
+        self.send_response(self.apply_request_options(builder, options)?)
+            .await
     }
 
     /// Subscribe and return one validated account delta snapshot.
@@ -394,6 +393,15 @@ impl Client {
     pub async fn account_subscribe_batch(
         &self,
         request: &SyncRequestBody,
+    ) -> Result<AccountSubscribeBatch> {
+        self.account_subscribe_batch_with_options(request, &ClientRequestOptions::default())
+            .await
+    }
+
+    pub async fn account_subscribe_batch_with_options(
+        &self,
+        request: &SyncRequestBody,
+        options: &ClientRequestOptions,
     ) -> Result<AccountSubscribeBatch> {
         use futures_util::StreamExt;
 
@@ -430,8 +438,9 @@ impl Client {
             }
         }
 
+        let builder = self.account_subscribe_request(request, "application/x-ndjson")?;
         let response = self
-            .send_response(self.account_subscribe_request(request, "application/x-ndjson")?)
+            .send_response(self.apply_request_options(builder, options)?)
             .await?;
         let content_type = response
             .headers()
@@ -487,11 +496,21 @@ impl Client {
         &self,
         request: &SyncRequestBody,
     ) -> Result<AccountSubscribeFrameStream> {
+        self.account_subscribe_frames_with_options(request, &ClientRequestOptions::default())
+            .await
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn account_subscribe_frames_with_options(
+        &self,
+        request: &SyncRequestBody,
+        options: &ClientRequestOptions,
+    ) -> Result<AccountSubscribeFrameStream> {
         use futures_util::StreamExt;
         use tokio_util::codec::{FramedRead, LinesCodec};
         use tokio_util::io::StreamReader;
 
-        let response = self.account_subscribe(request).await?;
+        let response = self.account_subscribe(request, options).await?;
         let byte_stream = response
             .bytes_stream()
             .map(|chunk| chunk.map_err(std::io::Error::other));
@@ -575,15 +594,11 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
-    use arkret_models_collaboration::sync_frames::client_sync::{
-        SubscriptionConfig, SyncFilter, WaitForFrontier,
-    };
+    use arkret_models_collaboration::sync_frames::client_sync::{SubscriptionConfig, SyncFilter};
     use arkret_wire::RealmId;
     use url::Url;
 
     use super::*;
-    use crate::ClientRequestOptions;
-
     fn client() -> Client {
         Client::new(Url::parse("https://alice.example/").unwrap()).unwrap()
     }
@@ -594,7 +609,6 @@ mod tests {
             catchup: None,
             filter: None,
             subscriptions: None,
-            wait_for: None,
         }
     }
 
@@ -743,18 +757,6 @@ mod tests {
             .account_subscribe_request(&with_subscriptions, "application/x-ndjson")
             .unwrap_err();
         assert!(matches!(error, Error::Protocol(message) if message.contains("subscriptions")));
-
-        let with_wait_for = SyncRequestBody {
-            wait_for: Some(WaitForFrontier {
-                positions: Vec::new(),
-                timeout_ms: 5000,
-            }),
-            ..empty_request()
-        };
-        let error = client()
-            .account_subscribe_request(&with_wait_for, "application/x-ndjson")
-            .unwrap_err();
-        assert!(matches!(error, Error::Protocol(message) if message.contains("wait_for")));
     }
 
     #[test]

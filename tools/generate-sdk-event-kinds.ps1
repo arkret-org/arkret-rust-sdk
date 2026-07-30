@@ -78,6 +78,7 @@ foreach ($k in $arr) {
             default { throw "unsupported event wire scope: $($row.wire_scope)" }
         }
         ReducerInput = [bool]$row.reducer_input
+        Admission = if ($null -eq $row.admission) { $null } else { [string]$row.admission }
         PayloadSchema = if ($null -eq $row.payload_schema) { $null } else { [string]$row.payload_schema }
         PayloadSchemaRef = if ($null -eq $row.payload_schema_ref) { $null } else { [string]$row.payload_schema_ref }
         CellFamily = if ($null -eq $row.cell_family) { $null } else { [string]$row.cell_family }
@@ -207,6 +208,7 @@ foreach ($category in $categories) {
 & $add "    pub category: EventRegistryCategory,"
 & $add "    pub wire_scope: EventWireScope,"
 & $add "    pub reducer_input: bool,"
+& $add "    pub admission: Option<&'static str>,"
 & $add "    pub payload_schema: Option<&'static str>,"
 & $add "    pub payload_schema_ref: Option<&'static str>,"
 & $add "    pub cell_family: Option<&'static str>,"
@@ -432,6 +434,7 @@ foreach ($entry in $cellFamilyPlanes) {
 & $add "pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &["
 foreach ($e in $entries) {
     $reducerInput = $e.ReducerInput.ToString().ToLowerInvariant()
+    $admission = if ($null -eq $e.Admission) { "None" } else { "Some(`"$($e.Admission)`")" }
     $payloadSchema = if ($null -eq $e.PayloadSchema) { "None" } else { "Some(`"$($e.PayloadSchema)`")" }
     $payloadSchemaRef = if ($null -eq $e.PayloadSchemaRef) { "None" } else { "Some(`"$($e.PayloadSchemaRef)`")" }
     $cellFamily = if ($null -eq $e.CellFamily) { "None" } else { "Some(`"$($e.CellFamily)`")" }
@@ -446,6 +449,7 @@ foreach ($e in $entries) {
     & $add "        category: EventRegistryCategory::$($e.CategoryVariant),"
     & $add "        wire_scope: EventWireScope::$($e.WireScopeVariant),"
     & $add "        reducer_input: $reducerInput,"
+    & $add "        admission: $admission,"
     & $add "        payload_schema: $payloadSchema,"
     & $add "        payload_schema_ref: $payloadSchemaRef,"
     & $add "        cell_family: $cellFamily,"

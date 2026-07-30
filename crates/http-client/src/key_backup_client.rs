@@ -34,8 +34,12 @@ impl KeyBackupClient {
         backup_id: &str,
         record: &KeyBackup,
     ) -> SdkResult<arkret_models_crypto::KeysBackupsReplaceOutcome> {
-        let path = format!("/_arkret/self/keys/backups/{backup_id}");
-        self.client.put(&path, record).await
+        let backup_id = BackupId::new(backup_id.to_owned())?;
+        let digest = arkret_canonical::canonical_sha256(record)?;
+        let idempotency_key = format!("arkret-key-backup-{}", digest.trim_start_matches("sha256:"));
+        self.client
+            .put_key_backup(&backup_id, record, &idempotency_key)
+            .await
     }
 
     /// `POST /_arkret/self/keys/backups/{backup_id}/unlock`.

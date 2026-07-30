@@ -30,6 +30,10 @@ fn every_write_operation_has_a_closed_durable_effect_descriptor() {
             (DurableEffectKind::EventLog, Some(DurableEventTarget::Dynamic(source))) => {
                 assert!(!source.is_empty());
             }
+            (DurableEffectKind::EventLog, Some(DurableEventTarget::DynamicMany(sources))) => {
+                assert!(!sources.is_empty());
+                assert!(sources.iter().all(|source| !source.is_empty()));
+            }
             (DurableEffectKind::ActorPrivateEvent, Some(DurableEventTarget::Static([kind]))) => {
                 assert_eq!(event_wire_scope(kind), EventWireScope::ActorPrivateEvent);
             }

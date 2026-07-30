@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-07-30.2;
-//! sha256=03e79d6c31e9f84e1afe4c8152e684d7119b17a8d20c24b597a3b54f06b9c867 Entries: error_codes=269
+//! Input: registry/error-code-registry.json; version=2026-07-30.3;
+//! sha256=e04e9627c5f79539a1ebe8885aef50cce3f78f810c35b0f0a18efe483de8a3b0 Entries: error_codes=269
 
 use serde::{Deserialize, Serialize};
 
@@ -2326,7 +2326,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 422,
         scope: "both",
         applies_to: &[],
-        description: "The first Seal of a Realm did not atomically cover and materialize the complete founding anchor unit, or it declared an empty covered set or an empty control_event_set_root. Distinct from seal_incomplete (a backfill gap in an otherwise valid chain) and from rejected_seal (a Seal whose covered Control Moves failed reducer validation): a genesis Seal that omits a required cell is never repairable by later Seals, because accepting an empty Seal first and adding the authority afterwards is exactly what this code forbids. See zh/authz/cba-profiles.md section 3.",
+        description: "The first Seal of a Realm did not atomically cover and materialize the complete founding anchor unit, or it declared an empty covered set or an empty control_event_set_root. The founding unit covers Realm metadata, creator membership, authority/notary, founding grant and base policy. For MLS-backed scope, epoch-0 binding is instead required on the first successor Seal covering ak.mls.genesis, whose seal_basis is the accepted Genesis Seal. Omitted founding authority is never repairable by later Seals. See zh/authz/cba-profiles.md section 3.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::InvalidParam,
@@ -3352,10 +3352,10 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UpstreamUnavailable,
-        http_status: 412,
+        http_status: 503,
         scope: "endpoint",
         applies_to: &[],
-        description: "A required upstream dependency is unavailable.",
+        description: "A required upstream dependency is temporarily unavailable. HTTP bindings MUST use 503 Service Unavailable and SHOULD include Retry-After when a retry window is known; 412 is reserved for failed request preconditions.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::VerifierNotAuthorized,

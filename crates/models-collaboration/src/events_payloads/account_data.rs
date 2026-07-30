@@ -4,6 +4,20 @@ use serde::de;
 
 use crate::internal_prelude::*;
 
+pub const PRIVATE_VIEW_ACCOUNT_DATA_PREFIX: &str = "ak.views.private.";
+pub const NOTIFICATION_INBOX_ACCOUNT_DATA_PREFIX: &str = "ak.notifications.inbox.";
+
+pub fn private_view_account_data_key(view_id: &ViewId) -> String {
+    format!("{PRIVATE_VIEW_ACCOUNT_DATA_PREFIX}{}", view_id.as_str())
+}
+
+pub fn notification_inbox_account_data_key(notification_id: &NotificationId) -> String {
+    format!(
+        "{NOTIFICATION_INBOX_ACCOUNT_DATA_PREFIX}{}",
+        notification_id.as_str()
+    )
+}
+
 /// Presence-aware account-data body.
 ///
 /// The schema permits any JSON value, including explicit `null`, so a plain

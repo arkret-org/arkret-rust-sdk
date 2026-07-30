@@ -111,7 +111,6 @@ mod tests {
             catchup: Some(catchup),
             filter: None,
             subscriptions: None,
-            wait_for: None,
         }
     }
 

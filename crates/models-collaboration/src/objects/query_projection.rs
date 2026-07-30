@@ -227,6 +227,23 @@ pub struct CollectionRelationGroupSource {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DerivedRelationGroupModel {
+    #[serde(rename = "derived_relation")]
+    DerivedRelation,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CollectionDerivedRelationGroupSource {
+    pub model: DerivedRelationGroupModel,
+    pub scope_container_id: ObjectRef,
+    pub container_id: ObjectRef,
+    pub relation_kind: NonEmptyString,
+    pub source_cell_id: NonEmptyString,
+    pub rank: NonEmptyString,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TimeBucketGroupModel {
     #[serde(rename = "time_bucket")]
     TimeBucket,
@@ -267,6 +284,7 @@ pub struct CollectionCrosstabGroupSource {
 #[serde(untagged)]
 pub enum CollectionGroupSource {
     FieldValue(CollectionFieldValueGroupSource),
+    DerivedRelation(CollectionDerivedRelationGroupSource),
     Relation(CollectionRelationGroupSource),
     TimeBucket(CollectionTimeBucketGroupSource),
     Crosstab(CollectionCrosstabGroupSource),

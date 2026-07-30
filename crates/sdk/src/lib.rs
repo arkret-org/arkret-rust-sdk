@@ -110,6 +110,7 @@ pub use arkret_keystore::{
 pub use arkret_models_collaboration::account_lifecycle::*;
 pub use arkret_models_collaboration::agent_operations::*;
 pub use arkret_models_collaboration::agent_signer_evidence::*;
+pub use arkret_models_collaboration::call_signal::*;
 pub use arkret_models_collaboration::event_query::*;
 pub use arkret_models_collaboration::event_sync::*;
 pub use arkret_models_collaboration::events_payloads::agent::*;

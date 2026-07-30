@@ -154,7 +154,7 @@ fn sha256_prefixed(bytes: &[u8]) -> String {
     sha256_digest(bytes)
 }
 
-fn aead_nonce_prefix_len(nonce_len: usize) -> Result<usize> {
+pub fn aead_nonce_prefix_len(nonce_len: usize) -> Result<usize> {
     if nonce_len <= AEAD_NONCE_COUNTER_LEN {
         return Err(protocol_error(
             ReasonCode::AEAD_NONCE_DERIVATION_INVALID,

@@ -15,7 +15,7 @@ use arkret_wire::{
     Base64UrlString, BlobRef, CbaProofBundle, ConsentId, ControlProposalReceipt, Cursor, DeviceId,
     Did, Error, Event, EventId, EventInitialSubmission, EventKind, GrantId, Hash, IngressReceipt,
     MimiRoomUri, MlsGroupId, MorphId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId,
-    RelationId, ReportId, Result, SealId, SignalEnvelope, SpaceId, StrandId, canonical,
+    RelationId, ReportId, Result, Seal, SealId, SignalEnvelope, SpaceId, StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -311,21 +311,57 @@ pub struct EventView {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EventsResolveRequestBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub event_ids: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub event_digests: Vec<Hash>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub seal_refs: Vec<SealId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub include_payload: Option<bool>,
 }
 
+impl EventsResolveRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        if self.event_ids.is_empty() && self.event_digests.is_empty() && self.seal_refs.is_empty() {
+            return Err(Error::Protocol(
+                "events resolve requires at least one selector".to_owned(),
+            ));
+        }
+        if self.event_ids.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
+            || self.event_digests.len() > MAX_PEER_RESOLVE_EVENT_SELECTORS
+            || self.seal_refs.len() > MAX_PEER_RESOLVE_SEAL_SELECTORS
+        {
+            return Err(Error::Protocol(
+                "events resolve selector limit exceeded".to_owned(),
+            ));
+        }
+        let mut seals = self
+            .seal_refs
+            .iter()
+            .map(SealId::as_str)
+            .collect::<Vec<_>>();
+        seals.sort_unstable();
+        if seals.windows(2).any(|pair| pair[0] == pair[1]) {
+            return Err(Error::Protocol(
+                "events resolve seal_refs must be unique".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EventsResolveOutcome {
     #[serde(default)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub events: Vec<Event>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub seals: Vec<Seal>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub missing: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
