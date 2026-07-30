@@ -19,10 +19,12 @@ mod constraints;
 pub mod delegation;
 mod engine;
 mod grants;
+mod owner_authority;
 mod selectors;
 
 pub use approval::*;
 pub use constraints::*;
 pub use engine::*;
 pub use grants::*;
+pub use owner_authority::*;
 pub use selectors::*;

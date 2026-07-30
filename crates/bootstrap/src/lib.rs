@@ -59,7 +59,9 @@ pub const DID_INCEPTION_REF_ROLE: &str = "did_inception";
 // only (`models/realm-and-space.md` section 2.8.3) and MUST NOT appear in a cell
 // id: doing so both forks the `state_root` leaf set and turns the per-Realm
 // genesis singleton into a deployment-wide shared key.
-pub use arkret_wire::{REALM_CREATE_CELL, REALM_METADATA_CELL, REALM_NOTARY_CELL};
+pub use arkret_wire::{
+    REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_METADATA_CELL, REALM_NOTARY_CELL,
+};
 
 /// Registry projection evaluator supplied by the caller, normally
 /// `arkret_schema::project_registered_cell_writes`.
@@ -130,6 +132,7 @@ fn validate_realm_create_projection(event: &Event, effects: &[ProjectionEffect])
         ),
         REALM_CREATE_CELL.to_owned(),
         REALM_NOTARY_CELL.to_owned(),
+        REALM_AUTHORITY_ROOT_CELL.to_owned(),
     ]
     .into_iter()
     .collect::<BTreeSet<_>>();
@@ -139,7 +142,7 @@ fn validate_realm_create_projection(event: &Event, effects: &[ProjectionEffect])
         .collect::<BTreeSet<_>>();
     if effects.len() != expected.len() || derived != expected {
         return Err(Error::Protocol(
-            "Realm create does not derive the canonical four genesis cells".to_owned(),
+            "Realm create does not derive the canonical five genesis cells".to_owned(),
         ));
     }
     Ok(())
@@ -308,6 +311,9 @@ pub struct SelfPrincipalPcrCreateInput {
     pub realm_id: RealmId,
     pub trust_domain: TypedTrustDomainId,
     pub did_inception_ref: EventRef,
+    /// Genesis capability-action registry basis copied into the Realm's
+    /// authority-root cell (`models/realm-and-space.md` section 2.5).
+    pub capability_action_registry_digest: Hash,
     pub event_id: EventId,
     pub created_at: DateTime<Utc>,
     pub hlc: Hlc,
@@ -342,6 +348,7 @@ pub fn build_self_principal_pcr_create(
         input.trust_domain,
         NotaryProfile::SingleDid,
         NotaryValue::single_did(input.principal_id.clone()),
+        input.capability_action_registry_digest.clone(),
     );
     realm.security_class = Some(SecurityClass::HighAssurance);
     realm.schema_refs = vec![
@@ -1541,6 +1548,8 @@ mod tests {
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 DID_INCEPTION_REF_ROLE,
             ),
+            capability_action_registry_digest: Hash::new(format!("sha256:{}", "9a".repeat(32)))
+                .unwrap(),
             event_id: EventId::new("ak:event:01904100-0000-7000-8000-000000000001").unwrap(),
             created_at: "2026-07-15T00:00:00.000Z".parse().unwrap(),
             hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
@@ -1575,6 +1584,7 @@ mod tests {
                 ),
                 REALM_CREATE_CELL.to_owned(),
                 REALM_NOTARY_CELL.to_owned(),
+                REALM_AUTHORITY_ROOT_CELL.to_owned(),
             ]
             .into_iter()
             .collect::<BTreeSet<_>>()
@@ -1749,6 +1759,7 @@ mod tests {
                     "created_by": agent,
                     "fields": {"purpose": "principal_control"},
                     "notary": {"kind": "single_did", "did": agent},
+                    "capability_action_registry_digest": format!("sha256:{}", "9a".repeat(32)),
                 }
             }),
         )
@@ -1778,6 +1789,7 @@ mod tests {
             vec![
                 "ak:cell:ak.component.member.state.v1:did:web:agent.example",
                 REALM_NOTARY_CELL,
+                REALM_AUTHORITY_ROOT_CELL,
                 REALM_CREATE_CELL,
                 REALM_METADATA_CELL,
             ]

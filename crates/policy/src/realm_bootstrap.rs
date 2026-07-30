@@ -1,24 +1,19 @@
-//! Ordinary Realm bootstrap batch validation.
+//! Ordinary Realm bootstrap batch validation and Realm authority root.
 //!
 //! `ak.realm.create` is not an independently committable Event.  The wire
-//! unit is the ordered batch `create -> founding grant -> closed followups`.
-//! Keeping that shape here prevents clients and servers from growing separate
-//! kind allowlists or interpreting genesis authority differently.
+//! unit is the ordered batch `create -> closed followups`.  Keeping that shape
+//! here prevents clients and servers from growing separate kind allowlists or
+//! interpreting genesis authority differently.
+//!
+//! Genesis authority is not a per-person grant.  `ak.realm.create` registers a
+//! singleton `ak.component.realm.authority_root.v1` cell whose current
+//! controller holds effective `ak.realm.owner`
+//! (`models/realm-and-space.md` section 2.5).
 
-use std::collections::BTreeSet;
+use arkret_wire::{Did, Error, Event, EventId, EventKind, Hash, REALM_AUTHORITY_ROOT_CELL, Result};
+use serde::{Deserialize, Serialize};
 
-use arkret_wire::{Event, EventKind};
-
-/// The only actions carried by an ordinary Realm founding grant.
-pub const REALM_FOUNDING_GRANT_ACTIONS: [&str; 5] = [
-    "ak.realm.admin",
-    "ak.capability.grant",
-    "ak.capability.revoke",
-    "ak.realm_key.share",
-    "ak.message.create",
-];
-
-/// Closed set of initial Realm facets that may follow the founding grant.
+/// Closed set of initial Realm facets that may follow the create Event.
 pub fn is_realm_bootstrap_followup_kind(kind: &str) -> bool {
     matches!(
         kind,
@@ -34,11 +29,92 @@ pub fn is_realm_bootstrap_followup_kind(kind: &str) -> bool {
     )
 }
 
+/// Canonical value of the Realm authority-root cell.
+///
+/// Field order follows the registered `value_projection` in
+/// `contract-registry.json`; the JCS bytes of this struct are a `state_root`
+/// leaf preimage, so the order is wire-significant.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmAuthorityRootValue {
+    pub controller_id: Did,
+    pub controller_epoch: u64,
+    pub authority_generation: u64,
+    pub capability_action_registry_digest: Hash,
+}
+
+impl RealmAuthorityRootValue {
+    /// Derive the genesis value from an accepted `ak.realm.create` payload.
+    ///
+    /// Both inputs come from the signed payload: the receiver copies the
+    /// author's registry digest verbatim instead of substituting its own
+    /// embedded snapshot, because the digest is a `state_root` leaf input and
+    /// inferring it would fork genesis state across software versions.
+    pub fn genesis(controller_id: Did, capability_action_registry_digest: Hash) -> Self {
+        Self {
+            controller_id,
+            controller_epoch: 0,
+            authority_generation: 0,
+            capability_action_registry_digest,
+        }
+    }
+
+    /// True when this value is a well-formed genesis root for `created_by`.
+    pub fn is_genesis_for(&self, created_by: &str) -> bool {
+        self.controller_id.as_str() == created_by
+            && self.controller_epoch == 0
+            && self.authority_generation == 0
+    }
+}
+
+/// How an Event proves it speaks for the Realm authority root.
+///
+/// The two forms are not interchangeable: a staged proof exists only while the
+/// genesis batch is being evaluated and no accepted Seal covers the cell yet,
+/// and an accepted-Seal proof is the only form that survives outside that unit.
+/// Accepting either one in the other's context would let a genesis-window
+/// credential be replayed for the lifetime of the Realm.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RealmAuthorityRootProof {
+    /// Valid only inside the atomic genesis unit, bound to the same batch's
+    /// `ak.realm.create` Event.
+    StagedGenesis { create_event_id: EventId },
+    /// Inclusion proof of the registered cell under an accepted Seal.
+    AcceptedSeal,
+}
+
+impl RealmAuthorityRootProof {
+    /// The `authorization_ref` an Event carries for either proof form.
+    ///
+    /// The wire ref is the same closed constant in both cases; which proof the
+    /// reducer resolves is decided by admission context, exactly like the rest
+    /// of the bootstrap follow-up whitelist.
+    pub const fn authorization_ref(&self) -> &'static str {
+        REALM_AUTHORITY_ROOT_CELL
+    }
+}
+
+/// Build the `authorization_ref` value for a staged genesis-batch root proof.
+///
+/// The create Event id is not carried in the ref itself; it is the batch
+/// predecessor the Event must descend from. Returning it here keeps callers
+/// from inventing their own binding.
+pub fn staged_root_authorization(create: &Event) -> Result<RealmAuthorityRootProof> {
+    if create.kind.as_str() != EventKind::REALM_CREATE {
+        return Err(Error::Protocol(
+            "staged Realm authority-root proof must bind an ak.realm.create Event".to_owned(),
+        ));
+    }
+    Ok(RealmAuthorityRootProof::StagedGenesis {
+        create_event_id: create.event_id.clone(),
+    })
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RealmBootstrapValidationError {
     NotOrdinaryRealmBootstrap,
-    RealmFoundingGrantMissing,
-    InvalidRealmFoundingGrant,
+    RealmAuthorityRootMissing,
+    RealmAuthorityRootConflict,
     OutOfOrderBootstrap,
     EffectsPayloadMismatch,
     PlaneCrossWrite,
@@ -48,8 +124,8 @@ impl RealmBootstrapValidationError {
     pub const fn reason_code(self) -> &'static str {
         match self {
             Self::NotOrdinaryRealmBootstrap => "not_ordinary_realm_bootstrap",
-            Self::RealmFoundingGrantMissing => "realm_founding_grant_missing",
-            Self::InvalidRealmFoundingGrant => "invalid_realm_founding_grant",
+            Self::RealmAuthorityRootMissing => "realm_authority_root_missing",
+            Self::RealmAuthorityRootConflict => "realm_authority_root_conflict",
             Self::OutOfOrderBootstrap => "out_of_order_bootstrap",
             Self::EffectsPayloadMismatch => "effects_payload_mismatch",
             Self::PlaneCrossWrite => "plane_cross_write",
@@ -69,15 +145,17 @@ impl std::error::Error for RealmBootstrapValidationError {}
 pub struct ValidatedRealmBootstrap {
     pub realm_id: String,
     pub actor_id: String,
+    pub authority_root: RealmAuthorityRootValue,
 }
 
 /// Validate the complete ordinary (non-PCR) Realm genesis transaction.
 ///
 /// Envelope schema/proof validation remains the caller's responsibility. This
-/// function owns the cross-Event shape and genesis-authority invariants.
+/// function owns the cross-Event shape and the genesis authority-root
+/// invariants.
 pub fn validate_realm_bootstrap_unit(
     events: &[Event],
-) -> Result<ValidatedRealmBootstrap, RealmBootstrapValidationError> {
+) -> std::result::Result<ValidatedRealmBootstrap, RealmBootstrapValidationError> {
     let Some(create) = events.first() else {
         return Err(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap);
     };
@@ -93,27 +171,17 @@ pub fn validate_realm_bootstrap_unit(
     }
     let actor_id = create.actor_id.as_str();
     let realm_id = create.realm_id.as_str();
-    if create
+    let object = create
         .payload
         .get("object")
-        .and_then(|object| object.get("created_by"))
-        .and_then(serde_json::Value::as_str)
-        != Some(actor_id)
-    {
+        .and_then(serde_json::Value::as_object)
+        .ok_or(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap)?;
+    if object.get("created_by").and_then(serde_json::Value::as_str) != Some(actor_id) {
         return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
     }
-    let Some(founding) = events.get(1) else {
-        return Err(RealmBootstrapValidationError::RealmFoundingGrantMissing);
-    };
-    if founding.kind.as_str() != EventKind::CAPABILITY_GRANT {
-        return Err(RealmBootstrapValidationError::RealmFoundingGrantMissing);
-    }
-    if founding.actor_id.as_str() != actor_id || founding.realm_id.as_str() != realm_id {
-        return Err(RealmBootstrapValidationError::InvalidRealmFoundingGrant);
-    }
-    validate_founding_grant_payload(&founding.payload, realm_id, actor_id)?;
+    let authority_root = genesis_authority_root(object, actor_id)?;
 
-    for followup in &events[2..] {
+    for followup in &events[1..] {
         if followup.actor_id.as_str() != actor_id
             || followup.realm_id.as_str() != realm_id
             || !is_realm_bootstrap_followup_kind(followup.kind.as_str())
@@ -137,110 +205,36 @@ pub fn validate_realm_bootstrap_unit(
     Ok(ValidatedRealmBootstrap {
         realm_id: realm_id.to_owned(),
         actor_id: actor_id.to_owned(),
+        authority_root,
     })
 }
 
-fn validate_founding_grant_payload(
-    object: &std::collections::BTreeMap<String, serde_json::Value>,
-    realm_id: &str,
+/// Derive and check the registered authority-root value of a create payload.
+fn genesis_authority_root(
+    object: &serde_json::Map<String, serde_json::Value>,
     actor_id: &str,
-) -> Result<(), RealmBootstrapValidationError> {
-    let invalid = RealmBootstrapValidationError::InvalidRealmFoundingGrant;
-    if object.keys().any(|key| key != "grant_id" && key != "grant") {
-        return Err(invalid);
-    }
-    let grant_id = object
-        .get("grant_id")
-        .and_then(serde_json::Value::as_str)
-        .filter(|value| value.starts_with("ak:grant:"))
-        .ok_or(invalid)?;
-    let grant = object
-        .get("grant")
-        .and_then(serde_json::Value::as_object)
-        .ok_or(invalid)?;
-    const ALLOWED_GRANT_FIELDS: &[&str] = &[
-        "id",
-        "schema",
-        "realm_id",
-        "issuer",
-        "subject",
-        "actions",
-        "resources",
-        "capability_action_registry_digest",
-        "issued_at",
-        "proofs",
-    ];
-    if grant
-        .keys()
-        .any(|key| !ALLOWED_GRANT_FIELDS.contains(&key.as_str()))
-        || grant.get("id").and_then(serde_json::Value::as_str) != Some(grant_id)
-        || grant.get("schema").and_then(serde_json::Value::as_str)
-            != Some("ak.schema.capability.v1")
-        || grant.get("realm_id").and_then(serde_json::Value::as_str) != Some(realm_id)
-        || grant.get("issuer").and_then(serde_json::Value::as_str) != Some(actor_id)
-        || grant.get("subject").and_then(serde_json::Value::as_str) != Some(actor_id)
-    {
-        return Err(invalid);
-    }
-    let actions = grant
-        .get("actions")
-        .and_then(serde_json::Value::as_array)
-        .ok_or(invalid)?;
-    let actual_actions = actions
-        .iter()
-        .map(|action| action.as_str().ok_or(invalid))
-        .collect::<Result<BTreeSet<_>, _>>()?;
-    let expected_actions = REALM_FOUNDING_GRANT_ACTIONS
-        .into_iter()
-        .collect::<BTreeSet<_>>();
-    if actual_actions != expected_actions || actions.len() != expected_actions.len() {
-        return Err(invalid);
-    }
-    let registry_digest = grant
+) -> std::result::Result<RealmAuthorityRootValue, RealmBootstrapValidationError> {
+    let digest = object
         .get("capability_action_registry_digest")
         .and_then(serde_json::Value::as_str)
-        .and_then(|value| arkret_wire::Hash::new(value.to_owned()).ok())
-        .ok_or(invalid)?;
-    let expected_registry_digest =
-        crate::current_capability_action_registry_digest().map_err(|_| invalid)?;
-    if registry_digest != expected_registry_digest {
-        return Err(invalid);
-    }
-    let resources = grant
-        .get("resources")
-        .and_then(serde_json::Value::as_array)
-        .filter(|resources| resources.len() == 1)
-        .ok_or(invalid)?;
-    let resource = resources[0].as_object().ok_or(invalid)?;
-    if resource.len() != 3
-        || resource.get("kind").and_then(serde_json::Value::as_str) != Some("realm")
-        || resource.get("realm_id").and_then(serde_json::Value::as_str) != Some(realm_id)
-        || resource
-            .get("match_scope")
-            .and_then(serde_json::Value::as_str)
-            != Some("realm_wide")
-    {
-        return Err(invalid);
-    }
-    if !grant
-        .get("issued_at")
-        .is_some_and(serde_json::Value::is_string)
-        || !grant.get("proofs").is_some_and(serde_json::Value::is_array)
-    {
-        return Err(invalid);
-    }
-    Ok(())
+        .ok_or(RealmBootstrapValidationError::RealmAuthorityRootMissing)?;
+    let digest = Hash::new(digest.to_owned())
+        .map_err(|_| RealmBootstrapValidationError::RealmAuthorityRootConflict)?;
+    let controller_id = Did::new(actor_id)
+        .map_err(|_| RealmBootstrapValidationError::RealmAuthorityRootConflict)?;
+    Ok(RealmAuthorityRootValue::genesis(controller_id, digest))
 }
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{Did, Hlc, RealmId, ScopeRef};
+    use arkret_wire::{Hlc, RealmId, ScopeRef};
     use serde_json::json;
 
     use super::*;
 
     const REALM: &str = "ak:realm:01964120-0000-7000-8000-000000000000";
     const ACTOR: &str = "did:web:founder.example";
+    const DIGEST: &str = "sha256:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a";
 
     fn event(kind: &str, payload: serde_json::Value) -> Event {
         Event::new_at(
@@ -260,33 +254,10 @@ mod tests {
     fn create() -> Event {
         event(
             EventKind::REALM_CREATE,
-            json!({"object": {"created_by": ACTOR}}),
-        )
-    }
-
-    fn founding(subject: &str) -> Event {
-        let registry_digest = crate::current_capability_action_registry_digest().unwrap();
-        event(
-            EventKind::CAPABILITY_GRANT,
-            json!({
-                "grant_id": "ak:grant:01964120-0000-7000-8000-000000000001",
-                "grant": {
-                    "id": "ak:grant:01964120-0000-7000-8000-000000000001",
-                    "schema": "ak.schema.capability.v1",
-                    "realm_id": REALM,
-                    "issuer": ACTOR,
-                    "subject": subject,
-                    "actions": REALM_FOUNDING_GRANT_ACTIONS,
-                    "capability_action_registry_digest": registry_digest,
-                    "resources": [{
-                        "kind": "realm",
-                        "realm_id": REALM,
-                        "match_scope": "realm_wide"
-                    }],
-                    "issued_at": "2026-07-20T00:00:00.000Z",
-                    "proofs": []
-                }
-            }),
+            json!({"object": {
+                "created_by": ACTOR,
+                "capability_action_registry_digest": DIGEST
+            }}),
         )
     }
 
@@ -303,90 +274,90 @@ mod tests {
     }
 
     #[test]
-    fn accepts_closed_founding_grant_and_history_sharing_followup() {
-        let events = vec![create(), founding(ACTOR), history_sharing_followup()];
+    fn accepts_create_with_registered_authority_root_and_followup() {
+        let events = vec![create(), history_sharing_followup()];
         let result = validate_realm_bootstrap_unit(&events);
-        assert!(result.is_ok(), "unexpected bootstrap rejection: {result:?}");
+        let bootstrap = result.expect("bootstrap accepted");
+        assert!(bootstrap.authority_root.is_genesis_for(ACTOR));
+        assert_eq!(
+            bootstrap
+                .authority_root
+                .capability_action_registry_digest
+                .as_str(),
+            DIGEST
+        );
     }
 
     #[test]
-    fn rejects_legacy_four_action_founding_grant() {
-        let mut legacy = founding(ACTOR);
-        legacy
+    fn rejects_create_without_registry_basis() {
+        let mut create = create();
+        create
             .payload
-            .get_mut("grant")
-            .and_then(serde_json::Value::as_object_mut)
-            .expect("founding grant payload")
-            .insert(
-                "actions".to_owned(),
-                json!([
-                    "ak.realm.admin",
-                    "ak.capability.grant",
-                    "ak.capability.revoke",
-                    "ak.realm_key.share"
-                ]),
-            );
-        let result = validate_realm_bootstrap_unit(&[create(), legacy]);
-        assert_eq!(
-            result,
-            Err(RealmBootstrapValidationError::InvalidRealmFoundingGrant)
-        );
-    }
-
-    #[test]
-    fn rejects_missing_founding_grant() {
-        let events = vec![
-            create(),
-            event(
-                EventKind::REALM_POLICY_BUNDLE,
-                json!({"value": {"policy_revision": 1}}),
-            ),
-        ];
-        assert_eq!(
-            validate_realm_bootstrap_unit(&events),
-            Err(RealmBootstrapValidationError::RealmFoundingGrantMissing)
-        );
-    }
-
-    #[test]
-    fn rejects_widened_or_third_party_founding_grant() {
-        let events = vec![create(), founding("did:web:other.example")];
-        assert_eq!(
-            validate_realm_bootstrap_unit(&events),
-            Err(RealmBootstrapValidationError::InvalidRealmFoundingGrant)
-        );
-    }
-
-    #[test]
-    fn rejects_founding_grant_without_registry_basis() {
-        let mut founding = founding(ACTOR);
-        founding
-            .payload
-            .get_mut("grant")
+            .get_mut("object")
             .and_then(serde_json::Value::as_object_mut)
             .unwrap()
             .remove("capability_action_registry_digest");
         assert_eq!(
-            validate_realm_bootstrap_unit(&[create(), founding]),
-            Err(RealmBootstrapValidationError::InvalidRealmFoundingGrant)
+            validate_realm_bootstrap_unit(&[create]),
+            Err(RealmBootstrapValidationError::RealmAuthorityRootMissing)
         );
     }
 
     #[test]
-    fn rejects_founding_grant_with_unknown_registry_basis() {
-        let mut founding = founding(ACTOR);
-        founding
+    fn rejects_create_with_malformed_registry_basis() {
+        let mut create = create();
+        create
             .payload
-            .get_mut("grant")
+            .get_mut("object")
             .and_then(serde_json::Value::as_object_mut)
             .unwrap()
             .insert(
                 "capability_action_registry_digest".to_owned(),
-                serde_json::json!(format!("sha256:{}", "0".repeat(64))),
+                json!("not-a-digest"),
             );
         assert_eq!(
-            validate_realm_bootstrap_unit(&[create(), founding]),
-            Err(RealmBootstrapValidationError::InvalidRealmFoundingGrant)
+            validate_realm_bootstrap_unit(&[create]),
+            Err(RealmBootstrapValidationError::RealmAuthorityRootConflict)
         );
+    }
+
+    #[test]
+    fn rejects_legacy_founding_grant_slot() {
+        // The old genesis shape put a self ak.capability.grant right after
+        // create. It is not a bootstrap follow-up kind, so it now fails as an
+        // out-of-order unit rather than being recognised as an authority root.
+        let legacy = event(
+            EventKind::CAPABILITY_GRANT,
+            json!({"grant_id": "ak:grant:01964120-0000-7000-8000-000000000001"}),
+        );
+        assert_eq!(
+            validate_realm_bootstrap_unit(&[create(), legacy]),
+            Err(RealmBootstrapValidationError::OutOfOrderBootstrap)
+        );
+    }
+
+    #[test]
+    fn genesis_root_value_is_controller_epoch_and_generation_zero() {
+        let value = RealmAuthorityRootValue::genesis(
+            Did::new(ACTOR).unwrap(),
+            Hash::new(DIGEST.to_owned()).unwrap(),
+        );
+        assert_eq!(value.controller_epoch, 0);
+        assert_eq!(value.authority_generation, 0);
+        assert!(!value.is_genesis_for("did:web:other.example"));
+    }
+
+    #[test]
+    fn staged_root_authorization_binds_the_create_event() {
+        let create = create();
+        let proof = staged_root_authorization(&create).unwrap();
+        assert_eq!(
+            proof,
+            RealmAuthorityRootProof::StagedGenesis {
+                create_event_id: create.event_id.clone()
+            }
+        );
+        assert_eq!(proof.authorization_ref(), REALM_AUTHORITY_ROOT_CELL);
+        assert!(staged_root_authorization(&history_sharing_followup()).is_err());
     }
 }

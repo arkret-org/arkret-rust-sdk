@@ -8,7 +8,7 @@ use arkret_models_collaboration::objects::realm::{
     CellLatticeDeclaration, NotaryProfile, Realm, SyncEndpoint,
 };
 use arkret_models_collaboration::objects::strand::Strand;
-use arkret_wire::{FederationPolicy, MORPH_SCHEMA, ObjectStage, ObjectState, STRAND_SCHEMA};
+use arkret_wire::{FederationPolicy, Hash, MORPH_SCHEMA, ObjectStage, ObjectState, STRAND_SCHEMA};
 use chrono::Utc;
 use serde_json::json;
 
@@ -138,6 +138,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         NotaryProfile::SingleDid,
         single_did_notary("did:webvh:z6mkfixture:alice.example"),
+        Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
     );
     assert!(realm.preview_policy_id.is_none());
     assert!(realm.sync_endpoints.is_empty());
@@ -291,6 +292,7 @@ fn realm_anchor_fields_include_required_notary() {
         TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         NotaryProfile::SingleDid,
         single_did_notary("did:webvh:z6mkfixture:alice.example"),
+        Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
     );
     let json = serde_json::to_value(&realm).unwrap();
     let obj = json.as_object().unwrap();
@@ -320,6 +322,7 @@ fn realm_notary_profile_must_match_notary_kind() {
         TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         NotaryProfile::Threshold,
         single_did_notary("did:webvh:z6mkfixture:notary.example"),
+        Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
     );
 
     let err = realm.validate_kind_invariants().unwrap_err();
@@ -335,6 +338,7 @@ fn realm_digest_algorithm_defaults_and_rejects_unknown_values() {
         TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         NotaryProfile::SingleDid,
         single_did_notary("did:webvh:z6mkfixture:alice.example"),
+        Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
     );
     let mut json = serde_json::to_value(&realm).unwrap();
     let obj = json.as_object_mut().unwrap();
@@ -512,6 +516,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
         TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         NotaryProfile::SingleDid,
         single_did_notary("did:webvh:z6mkfixture:notary.example"),
+        Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
     );
     realm.policy_id =
         Some(PolicyId::new("ak:policy:01904100-0000-7000-8000-0000000000f3").unwrap());

@@ -13,7 +13,7 @@ use arkret_models_crypto::{
 };
 use arkret_wire::{
     Base64UrlString, BlobRef, CbaProofBundle, ConsentId, ControlProposalReceipt, Cursor, DeviceId,
-    Did, Error, Event, EventId, EventInitialSubmission, EventKind, GrantId, Hash, IngressReceipt,
+    Did, Error, Event, EventId, EventInitialSubmission, EventKind, Hash, IngressReceipt,
     MimiRoomUri, MlsGroupId, MorphId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId,
     RelationId, ReportId, Result, Seal, SealId, SignalEnvelope, SpaceId, StrandId, canonical,
 };
@@ -1443,15 +1443,11 @@ pub struct DirectConversationMaterializationDraft {
     pub claim_receipt: Option<PeerKeyPackageClaimReceipt>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub realm_event: Event,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub founding_grant_event: Event,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub creator_member_event: Option<Event>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub peer_member_event: Event,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub main_strand_grant_event: Event,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub main_strand_event: Event,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -1464,62 +1460,23 @@ pub struct DirectConversationMaterializationDraft {
 }
 
 impl DirectConversationMaterializationDraft {
-    pub fn founding_grant_payload(&self) -> Result<crate::events_payloads::CapabilityGrantPayload> {
-        self.capability_grant_payload(
-            &self.founding_grant_event,
-            "direct conversation founding grant draft payload",
-        )
-    }
-
-    pub fn main_strand_grant_payload(
-        &self,
-    ) -> Result<crate::events_payloads::CapabilityGrantPayload> {
-        self.capability_grant_payload(
-            &self.main_strand_grant_event,
-            "direct conversation main Strand grant draft payload",
-        )
-    }
-
-    pub fn founding_grant_id(&self) -> Result<GrantId> {
-        Ok(self.founding_grant_payload()?.grant_id)
-    }
-
-    pub fn main_strand_grant_id(&self) -> Result<GrantId> {
-        Ok(self.main_strand_grant_payload()?.grant_id)
-    }
-
     pub fn expected_event_ids(&self) -> Vec<&EventId> {
-        let mut event_ids = vec![
-            &self.realm_event.event_id,
-            &self.founding_grant_event.event_id,
-        ];
+        let mut event_ids = vec![&self.realm_event.event_id];
         if let Some(event) = &self.creator_member_event {
             event_ids.push(&event.event_id);
         }
         event_ids.extend([
             &self.peer_member_event.event_id,
-            &self.main_strand_grant_event.event_id,
             &self.main_strand_event.event_id,
             &self.binding_event.event_id,
         ]);
         event_ids
     }
 
-    fn capability_grant_payload(
-        &self,
-        event: &Event,
-        context: &str,
-    ) -> Result<crate::events_payloads::CapabilityGrantPayload> {
-        serde_json::from_value(serde_json::to_value(&event.payload)?)
-            .map_err(|error| Error::Protocol(format!("{context} is invalid: {error}")))
-    }
-
     pub fn validate_shape(&self) -> Result<()> {
         let mut expected = vec![
             (&self.realm_event, EventKind::REALM_CREATE),
-            (&self.founding_grant_event, EventKind::CAPABILITY_GRANT),
             (&self.peer_member_event, EventKind::MEMBER_STATE),
-            (&self.main_strand_grant_event, EventKind::CAPABILITY_GRANT),
             (&self.main_strand_event, EventKind::STRAND_CREATE),
             (&self.binding_event, EventKind::DIRECT_CONVERSATION_BOUND),
         ];
@@ -1539,54 +1496,12 @@ impl DirectConversationMaterializationDraft {
                 || self.realm_event.actor_id != event.actor_id
         }) || self.realm_event.realm_id != self.peer_member_event.realm_id
             || self.realm_event.realm_id != self.main_strand_event.realm_id
-            || self.realm_event.realm_id != self.founding_grant_event.realm_id
-            || self.realm_event.realm_id != self.main_strand_grant_event.realm_id
             || self.realm_event.actor_id != self.peer_member_event.actor_id
-            || self.realm_event.actor_id != self.founding_grant_event.actor_id
-            || self.realm_event.actor_id != self.main_strand_grant_event.actor_id
             || self.realm_event.actor_id != self.main_strand_event.actor_id
             || self.realm_event.actor_id != self.binding_event.actor_id
         {
             return Err(Error::Protocol(
                 "direct conversation materialization Event draft binding is invalid".into(),
-            ));
-        }
-        let founding_payload = self.founding_grant_payload()?;
-        let founding_grant = founding_payload.grant.ok_or_else(|| {
-            Error::Protocol("direct conversation founding grant draft is absent".into())
-        })?;
-        if founding_grant.id != founding_payload.grant_id
-            || founding_grant.issuer != self.founding_grant_event.actor_id
-            || !founding_grant.proofs.is_empty()
-        {
-            return Err(Error::Protocol(
-                "direct conversation founding grant must be an unsigned issuer draft".into(),
-            ));
-        }
-        let strand_grant_payload = self.main_strand_grant_payload()?;
-        let strand_grant = strand_grant_payload.grant.ok_or_else(|| {
-            Error::Protocol("direct conversation main Strand grant draft is absent".into())
-        })?;
-        let realm_resource_is_exact = strand_grant.resources.len() == 1
-            && strand_grant.resources[0].kind == arkret_wire::ResourceSelectorKind::Realm
-            && strand_grant.resources[0].realm_id.as_ref() == Some(&self.realm_event.realm_id)
-            && strand_grant.resources[0].match_scope
-                == Some(arkret_wire::ResourceMatchScope::RealmWide);
-        let subject_is_creator = matches!(
-            &strand_grant.subject,
-            crate::governance::grant_constraint::CapabilitySubject::Did(subject)
-                if subject == &self.main_strand_grant_event.actor_id
-        );
-        if strand_grant.id != strand_grant_payload.grant_id
-            || strand_grant.issuer != self.main_strand_grant_event.actor_id
-            || !subject_is_creator
-            || strand_grant.actions.as_slice() != [EventKind::STRAND_CREATE]
-            || !realm_resource_is_exact
-            || !strand_grant.proofs.is_empty()
-        {
-            return Err(Error::Protocol(
-                "direct conversation main Strand grant must be an exact unsigned issuer draft"
-                    .into(),
             ));
         }
         let binding: crate::events_payloads::device_identity::DirectConversationBoundPayload =

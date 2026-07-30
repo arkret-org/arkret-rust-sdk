@@ -180,6 +180,7 @@ pub fn direct_conversation_realm_create_payload(
     trust_domain: TypedTrustDomainId,
     notary_profile: NotaryProfile,
     notary: NotaryValue,
+    capability_action_registry_digest: Hash,
     created_at: DateTime<Utc>,
 ) -> RealmCreatePayload {
     let mut realm = Realm::new(
@@ -189,6 +190,7 @@ pub fn direct_conversation_realm_create_payload(
         trust_domain,
         notary_profile,
         notary,
+        capability_action_registry_digest,
     );
     realm.security_class = Some(SecurityClass::Standard);
     realm
@@ -469,6 +471,7 @@ mod tests {
             trust_domain(),
             NotaryProfile::SingleDid,
             NotaryValue::single_did(creator),
+            Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
             DateTime::parse_from_rfc3339("2026-07-21T00:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
@@ -567,6 +570,7 @@ mod tests {
             trust_domain(),
             NotaryProfile::SingleDid,
             NotaryValue::single_did(creator.clone()),
+            Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
             Utc::now(),
         )
         .object;

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-07-30.4;
-//! sha256=3f618098d05dcdd2d6f547ec0c733ab77c55fc710db7ece1e25ed19a02e1658d
-//! Entries: reason_codes=451
+//! Input: registry/error-code-registry.json; version=2026-07-31.7;
+//! sha256=d421e5f94e4951966f6a2e56ac9e50d8d90d0888f7d3c326e3be09cd32e4ebf2
+//! Entries: reason_codes=452
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -207,7 +207,6 @@ pub enum ReasonCode {
     InvalidEncoding,
     InvalidGenesisSeal,
     InvalidMembershipTransition,
-    InvalidRealmFoundingGrant,
     InvalidTaskFsmTransition,
     InvalidatedByRateLimit,
     InviteAlreadyTerminal,
@@ -329,7 +328,9 @@ pub enum ReasonCode {
     RealmAliasHomographForbidden,
     RealmAliasTaken,
     RealmAlreadyExists,
-    RealmFoundingGrantMissing,
+    RealmAuthorityControllerMismatch,
+    RealmAuthorityRootConflict,
+    RealmAuthorityRootMissing,
     RealmLinkInvalidTransition,
     RealmLinkSelfReference,
     RealmOrganizationAuthorizationInvalid,
@@ -723,7 +724,6 @@ impl ReasonCode {
     pub const INVALID_ENCODING: &'static str = "invalid_encoding";
     pub const INVALID_GENESIS_SEAL: &'static str = "invalid_genesis_seal";
     pub const INVALID_MEMBERSHIP_TRANSITION: &'static str = "invalid_membership_transition";
-    pub const INVALID_REALM_FOUNDING_GRANT: &'static str = "invalid_realm_founding_grant";
     pub const INVALID_TASK_FSM_TRANSITION: &'static str = "invalid_task_fsm_transition";
     pub const INVALIDATED_BY_RATE_LIMIT: &'static str = "invalidated_by_rate_limit";
     pub const INVITE_ALREADY_TERMINAL: &'static str = "invite_already_terminal";
@@ -866,7 +866,10 @@ impl ReasonCode {
     pub const REALM_ALIAS_HOMOGRAPH_FORBIDDEN: &'static str = "realm_alias_homograph_forbidden";
     pub const REALM_ALIAS_TAKEN: &'static str = "realm_alias_taken";
     pub const REALM_ALREADY_EXISTS: &'static str = "realm_already_exists";
-    pub const REALM_FOUNDING_GRANT_MISSING: &'static str = "realm_founding_grant_missing";
+    pub const REALM_AUTHORITY_CONTROLLER_MISMATCH: &'static str =
+        "realm_authority_controller_mismatch";
+    pub const REALM_AUTHORITY_ROOT_CONFLICT: &'static str = "realm_authority_root_conflict";
+    pub const REALM_AUTHORITY_ROOT_MISSING: &'static str = "realm_authority_root_missing";
     pub const REALM_LINK_INVALID_TRANSITION: &'static str = "realm_link_invalid_transition";
     pub const REALM_LINK_SELF_REFERENCE: &'static str = "realm_link_self_reference";
     pub const REALM_ORGANIZATION_AUTHORIZATION_INVALID: &'static str =
@@ -1257,7 +1260,6 @@ impl ReasonCode {
             Self::InvalidEncoding => "invalid_encoding",
             Self::InvalidGenesisSeal => "invalid_genesis_seal",
             Self::InvalidMembershipTransition => "invalid_membership_transition",
-            Self::InvalidRealmFoundingGrant => "invalid_realm_founding_grant",
             Self::InvalidTaskFsmTransition => "invalid_task_fsm_transition",
             Self::InvalidatedByRateLimit => "invalidated_by_rate_limit",
             Self::InviteAlreadyTerminal => "invite_already_terminal",
@@ -1397,7 +1399,9 @@ impl ReasonCode {
             Self::RealmAliasHomographForbidden => "realm_alias_homograph_forbidden",
             Self::RealmAliasTaken => "realm_alias_taken",
             Self::RealmAlreadyExists => "realm_already_exists",
-            Self::RealmFoundingGrantMissing => "realm_founding_grant_missing",
+            Self::RealmAuthorityControllerMismatch => "realm_authority_controller_mismatch",
+            Self::RealmAuthorityRootConflict => "realm_authority_root_conflict",
+            Self::RealmAuthorityRootMissing => "realm_authority_root_missing",
             Self::RealmLinkInvalidTransition => "realm_link_invalid_transition",
             Self::RealmLinkSelfReference => "realm_link_self_reference",
             Self::RealmOrganizationAuthorizationInvalid => {
@@ -1786,7 +1790,6 @@ impl ReasonCode {
             "invalid_encoding" => Self::InvalidEncoding,
             "invalid_genesis_seal" => Self::InvalidGenesisSeal,
             "invalid_membership_transition" => Self::InvalidMembershipTransition,
-            "invalid_realm_founding_grant" => Self::InvalidRealmFoundingGrant,
             "invalid_task_fsm_transition" => Self::InvalidTaskFsmTransition,
             "invalidated_by_rate_limit" => Self::InvalidatedByRateLimit,
             "invite_already_terminal" => Self::InviteAlreadyTerminal,
@@ -1926,7 +1929,9 @@ impl ReasonCode {
             "realm_alias_homograph_forbidden" => Self::RealmAliasHomographForbidden,
             "realm_alias_taken" => Self::RealmAliasTaken,
             "realm_already_exists" => Self::RealmAlreadyExists,
-            "realm_founding_grant_missing" => Self::RealmFoundingGrantMissing,
+            "realm_authority_controller_mismatch" => Self::RealmAuthorityControllerMismatch,
+            "realm_authority_root_conflict" => Self::RealmAuthorityRootConflict,
+            "realm_authority_root_missing" => Self::RealmAuthorityRootMissing,
             "realm_link_invalid_transition" => Self::RealmLinkInvalidTransition,
             "realm_link_self_reference" => Self::RealmLinkSelfReference,
             "realm_organization_authorization_invalid" => {
@@ -3086,17 +3091,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "invalid_genesis_seal",
         applies_to: &["seal", "state_resolution"],
-        description: "The first Seal of a Realm did not atomically cover the complete founding anchor unit (Realm metadata, creator joined membership, founding authority/notary, founding grant and base policy), or used an empty covered set or empty control_event_set_root. MLS epoch-0 binding is checked on the first successor Seal covering ak.mls.genesis. See zh/authz/cba-profiles.md section 3.",
+        description: "The first Seal of a Realm did not atomically cover the complete founding anchor unit (the five registered ak.realm.create cell writes: Realm metadata, creator joined membership, create log, founding notary and the authority-root cell), or used an empty covered set or empty control_event_set_root. MLS epoch-0 binding is checked on the first successor Seal covering ak.mls.genesis. See zh/authz/cba-profiles.md section 3.",
     },
     ReasonCodeDescriptor {
         code: "invalid_membership_transition",
         applies_to: &["authz", "state_resolution"],
         description: "A ak.member.state Move requests a membership FSM transition that is not listed as legal for the member's current state. Reducers MUST reject the Move with failed_precondition. See zh/models/realm-and-space.md §2.7.",
-    },
-    ReasonCodeDescriptor {
-        code: "invalid_realm_founding_grant",
-        applies_to: &["event_envelope", "state_resolution", "auth_decision"],
-        description: "The purported Realm founding grant was outside the ak.realm.create atomic bootstrap unit, did not target created_by, or widened the closed actions/resources/constraints shape. Reducer MUST reject it and, during bootstrap, roll back the entire unit. See zh/models/realm-and-space.md section 2.5 and zh/authz/capabilities.md section 3.2.",
     },
     ReasonCodeDescriptor {
         code: "invalid_task_fsm_transition",
@@ -3709,9 +3709,19 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A ak.realm.create event attempted to create a Realm id whose genesis cell is already set. Reducer MUST reject the duplicate create without rewriting create-locked fields.",
     },
     ReasonCodeDescriptor {
-        code: "realm_founding_grant_missing",
+        code: "realm_authority_controller_mismatch",
+        applies_to: &["event_envelope", "state_resolution", "auth_decision"],
+        description: "An Event presented ak:cell:ak.component.realm.authority_root.v1:null as its authorization_ref but the cell's current controller_id is not the authorizing principal, or the epoch / authority_generation / registry digest bound at issuance no longer matches the cell in that basis. Includes replaying a staged genesis-batch root proof outside its atomic bootstrap unit. See zh/authz/capabilities.md section 3.2.",
+    },
+    ReasonCodeDescriptor {
+        code: "realm_authority_root_conflict",
         applies_to: &["event_envelope", "state_resolution"],
-        description: "A ak.realm.create bootstrap batch did not place the required closed-form creator self founding grant immediately after the create event. Reducer MUST reject the entire bootstrap unit atomically without leaving Realm metadata or creator membership. See zh/models/realm-and-space.md section 2.5.",
+        description: "The authority-root cell value was author-supplied or otherwise diverges from the registered value_projection: controller_id not equal to payload.object.created_by, a non-zero controller_epoch or authority_generation at genesis, a capability_action_registry_digest differing from the signed create payload, or members beyond the closed four-field shape. Reducer MUST reject the whole unit. See zh/models/realm-and-space.md section 2.5.",
+    },
+    ReasonCodeDescriptor {
+        code: "realm_authority_root_missing",
+        applies_to: &["event_envelope", "state_resolution", "auth_decision"],
+        description: "The Realm has no registered ak.component.realm.authority_root.v1 cell in the authorization basis, or a ak.realm.create bootstrap unit failed to materialize it. Reducer MUST reject the entire bootstrap unit atomically without leaving Realm metadata or creator membership, and MUST NOT fall back to created_by, membership or a realm_state.owner projection mirror. See zh/models/realm-and-space.md section 2.5.",
     },
     ReasonCodeDescriptor {
         code: "realm_link_invalid_transition",

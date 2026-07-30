@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-07-30.10;
-//! sha256=96e628537a4ca9bc1991f2cd9eb894612306bfe95cfef15f6422d9a1b556ab6f Entries: registered=159
+//! Input: registry/capability-action-registry.json; version=2026-07-31.11;
+//! sha256=25e510ddaf4806cb0c2f5381d10285f6674cdfa5bb855f933767b63e4e6bc2d4 Entries: registered=160
 
 use serde::{Deserialize, Serialize};
 
@@ -111,6 +111,7 @@ pub enum CapabilityActionId {
     RealmMediaService,
     RealmModerationPolicy,
     RealmNotificationAudit,
+    RealmOwner,
     RealmPlaintextVisibleServices,
     RealmPreviewPolicy,
     RealmSearchPolicy,
@@ -274,6 +275,7 @@ impl CapabilityActionId {
         Self::RealmMediaService,
         Self::RealmModerationPolicy,
         Self::RealmNotificationAudit,
+        Self::RealmOwner,
         Self::RealmPlaintextVisibleServices,
         Self::RealmPreviewPolicy,
         Self::RealmSearchPolicy,
@@ -435,6 +437,7 @@ impl CapabilityActionId {
     pub const REALM_MEDIA_SERVICE: &'static str = "ak.realm.media_service";
     pub const REALM_MODERATION_POLICY: &'static str = "ak.realm.moderation_policy";
     pub const REALM_NOTIFICATION_AUDIT: &'static str = "ak.realm.notification.audit";
+    pub const REALM_OWNER: &'static str = "ak.realm.owner";
     pub const REALM_PLAINTEXT_VISIBLE_SERVICES: &'static str =
         "ak.realm.plaintext_visible_services";
     pub const REALM_PREVIEW_POLICY: &'static str = "ak.realm.preview_policy";
@@ -603,6 +606,7 @@ impl CapabilityActionId {
             Self::RealmMediaService => "ak.realm.media_service",
             Self::RealmModerationPolicy => "ak.realm.moderation_policy",
             Self::RealmNotificationAudit => "ak.realm.notification.audit",
+            Self::RealmOwner => "ak.realm.owner",
             Self::RealmPlaintextVisibleServices => "ak.realm.plaintext_visible_services",
             Self::RealmPreviewPolicy => "ak.realm.preview_policy",
             Self::RealmSearchPolicy => "ak.realm.search_policy",
@@ -769,6 +773,7 @@ impl CapabilityActionId {
             "ak.realm.media_service" => Some(Self::RealmMediaService),
             "ak.realm.moderation_policy" => Some(Self::RealmModerationPolicy),
             "ak.realm.notification.audit" => Some(Self::RealmNotificationAudit),
+            "ak.realm.owner" => Some(Self::RealmOwner),
             "ak.realm.plaintext_visible_services" => Some(Self::RealmPlaintextVisibleServices),
             "ak.realm.preview_policy" => Some(Self::RealmPreviewPolicy),
             "ak.realm.search_policy" => Some(Self::RealmSearchPolicy),

@@ -123,6 +123,10 @@ function Format-NonEventGrantAuthorityRules {
             [void]$sb.Append("        ${field}: `"$value`",")
             [void]$sb.Append([Environment]::NewLine)
         }
+        $ownerAllowed = if ($rule.issuer_owner_authority_allowed) { "true" } else { "false" }
+        [void]$sb.Append($pad)
+        [void]$sb.Append("        issuer_owner_authority_allowed: $ownerAllowed,")
+        [void]$sb.Append([Environment]::NewLine)
         [void]$sb.Append($pad)
         [void]$sb.Append("    },")
         [void]$sb.Append([Environment]::NewLine)
@@ -153,6 +157,11 @@ $lines.Add("/// Closed machine rule authorizing one non-event capability grant s
 $lines.Add("#[derive(Clone, Copy, Debug, PartialEq, Eq)]") | Out-Null
 $lines.Add("pub struct NonEventGrantAuthorityRule {") | Out-Null
 $lines.Add("    pub issuer_action: &'static str,") | Out-Null
+$lines.Add("    /// When true the issuer side additionally accepts Realm effective owner") | Out-Null
+$lines.Add("    /// authority (authority-root controller or an active co-owner grant) in") | Out-Null
+$lines.Add("    /// place of literally holding `issuer_action`. Every other gate in this") | Out-Null
+$lines.Add("    /// rule still applies unchanged.") | Out-Null
+$lines.Add("    pub issuer_owner_authority_allowed: bool,") | Out-Null
 $lines.Add("    pub grantable_action: &'static str,") | Out-Null
 $lines.Add("    pub required_registration_event_kind: &'static str,") | Out-Null
 $lines.Add("    pub required_claimed_profile: &'static str,") | Out-Null
@@ -179,6 +188,11 @@ $lines.Add("    pub required_features: &'static [&'static str],") | Out-Null
 $lines.Add("    pub required_cell_namespaces: &'static [&'static str],") | Out-Null
 $lines.Add("    pub required_cells: &'static [&'static str],") | Out-Null
 $lines.Add("    pub required_constraint_kinds: &'static [&'static str],") | Out-Null
+$lines.Add("    /// Profile-gated actions this profile registers as owner-grantable") | Out-Null
+$lines.Add("    /// (`capabilities.md` section 3.2). Absent from this list means a Realm") | Out-Null
+$lines.Add("    /// owner cannot sign a grant for the action even while the profile is") | Out-Null
+$lines.Add("    /// active; being listed does not waive the profile's own gates.") | Out-Null
+$lines.Add("    pub owner_grant_authority_actions: &'static [&'static str],") | Out-Null
 $lines.Add("    pub non_event_grant_authority_rules: &'static [NonEventGrantAuthorityRule],") | Out-Null
 $lines.Add("}") | Out-Null
 $lines.Add("") | Out-Null
@@ -208,6 +222,11 @@ foreach ($profileId in $profileIds) {
     $combined += $constraint_kinds_field
     $required_constraint_kinds = Sort-Ordinal -Values $combined
     $non_event_grant_authority_rules = $entry.non_event_grant_authority_rules
+    $owner_grant_authority_actions = if ($null -eq $entry.owner_grant_authority_actions) {
+        [string[]]@()
+    } else {
+        Sort-Ordinal -Values ([string[]]@($entry.owner_grant_authority_actions))
+    }
 
     $escapedId = $profileId.Replace('\', '\\').Replace('"', '\"')
     $lines.Add("        map.insert(") | Out-Null
@@ -225,6 +244,7 @@ foreach ($profileId in $profileIds) {
     $lines.Add("                required_cell_namespaces: " + (Format-RustStrSlice -Values $required_cell_namespaces -Indent 16) + ",") | Out-Null
     $lines.Add("                required_cells: " + (Format-RustStrSlice -Values $required_cells -Indent 16) + ",") | Out-Null
     $lines.Add("                required_constraint_kinds: " + (Format-RustStrSlice -Values $required_constraint_kinds -Indent 16) + ",") | Out-Null
+    $lines.Add("                owner_grant_authority_actions: " + (Format-RustStrSlice -Values $owner_grant_authority_actions -Indent 16) + ",") | Out-Null
     $lines.Add("                non_event_grant_authority_rules: " + (Format-NonEventGrantAuthorityRules -Rules $non_event_grant_authority_rules -Indent 16) + ",") | Out-Null
     $lines.Add("            },") | Out-Null
     $lines.Add("        );") | Out-Null

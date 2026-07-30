@@ -2349,7 +2349,8 @@ mod tests {
                     "notary": {
                         "type": "single_did",
                         "did": "did:webvh:z6mkfixture:alice.example"
-                    }
+                    },
+                    "capability_action_registry_digest": "sha256:9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a"
                 }
             },
             "proofs": []
@@ -2378,6 +2379,19 @@ mod tests {
                 write(
                     "ak:cell:ak.component.notary.v1:null",
                     set_op(object["notary"].clone()),
+                ),
+                // The authority root is a registry-derived composite: the
+                // controller and registry basis come from the signed payload,
+                // the epoch and generation are registry literals so no author
+                // can start a Realm at a rotated or reset authority.
+                write(
+                    arkret_wire::REALM_AUTHORITY_ROOT_CELL,
+                    set_op(json!({
+                        "controller_id": "did:webvh:z6mkfixture:alice.example",
+                        "controller_epoch": 0,
+                        "authority_generation": 0,
+                        "capability_action_registry_digest": object["capability_action_registry_digest"].clone()
+                    })),
                 ),
             ]
         );

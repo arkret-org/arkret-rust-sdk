@@ -6,7 +6,7 @@ use arkret_wire::constants::{CORE_SCHEMA_PROFILE, REALM_SCHEMA_ID};
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
     BlobRef, ControlProposalDecisionPolicy, Did, Discoverability, EncryptionProfile, Error,
-    FederationPolicy, HistoryVisibility, JoinRule, PolicyId, RealmId, Result, SecurityClass,
+    FederationPolicy, Hash, HistoryVisibility, JoinRule, PolicyId, RealmId, Result, SecurityClass,
     StrandId, TypedTrustDomainId, canonical,
 };
 use chrono::{DateTime, Duration, Utc};
@@ -163,6 +163,13 @@ pub struct Realm {
     /// Subsequent notary changes strand through Move on the
     /// `ak:cell:ak.component.notary.v1:<realm_id>` cell.
     pub notary: NotaryValue,
+    /// Create-locked genesis capability-action registry basis
+    /// (`models/realm-and-space.md` §2.5). The `ak.realm.create` reducer copies
+    /// this signed value verbatim into the authority-root cell instead of
+    /// substituting its own embedded snapshot: the digest is a `state_root`
+    /// leaf input, so inferring it would fork genesis state across software
+    /// versions. Later changes are a root-control Move, not a Realm update.
+    pub capability_action_registry_digest: Hash,
     /// Soft cap on how stale the latest Seal leaf may be before clients
     /// SHOULD warn / re-fetch. `None` means "implementation default" (spec
     /// suggests 30s for single-DID, longer for threshold). Reducer-derived
@@ -363,9 +370,16 @@ fn default_max_delegation_lifetime_ms() -> u64 {
 }
 
 impl Realm {
-    /// Build a materialized Realm object. The deployment-scope trust domain
-    /// and genesis notary value are required because `ak.realm.create`
-    /// validates the full Realm object schema.
+    /// Build a materialized Realm object. The deployment-scope trust domain,
+    /// genesis notary value and capability-action registry basis are required
+    /// because `ak.realm.create` validates the full Realm object schema and
+    /// seeds the authority-root cell from the signed basis.
+    ///
+    /// The basis is a parameter rather than a default read of the local
+    /// embedded snapshot: it is what the creator commits the Realm's owner
+    /// ceiling to for the rest of its life, so the caller states it instead of
+    /// inheriting whatever registry its build happens to carry. Authors
+    /// normally pass `arkret_policy::current_capability_action_registry_digest()`.
     pub fn new(
         id: RealmId,
         title: impl Into<String>,
@@ -373,6 +387,7 @@ impl Realm {
         trust_domain: TypedTrustDomainId,
         notary_profile: NotaryProfile,
         notary: NotaryValue,
+        capability_action_registry_digest: Hash,
     ) -> Self {
         Self {
             id,
@@ -406,6 +421,7 @@ impl Realm {
             audit_policy: None,
             digest_algorithm: canonical::DigestSuite::Sha256,
             notary,
+            capability_action_registry_digest,
             revocation_freshness_window_ms: None,
             recovery_witness_freshness_window_ms: None,
             receipt_sla_ms: None,
@@ -605,6 +621,7 @@ mod tests {
             TypedTrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
             NotaryProfile::SingleDid,
             NotaryValue::single_did(notary),
+            Hash::new(format!("sha256:{}", "9a".repeat(32))).unwrap(),
         )
     }
 

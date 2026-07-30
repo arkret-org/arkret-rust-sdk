@@ -55,6 +55,14 @@ pub const REALM_METADATA_CELL: &str = "ak:cell:ak.component.realm.metadata.v1:nu
 /// Canonical per-Realm notary control cell; its genesis value is an explicit
 /// `ak.realm.create` effect and later values come from `ak.realm.notary`.
 pub const REALM_NOTARY_CELL: &str = "ak:cell:ak.component.notary.v1:null";
+/// Canonical per-Realm authority root, written by `ak.realm.create` and the
+/// only cell that carries Realm owner authority
+/// (`models/realm-and-space.md` section 2.5). `(realm_id, this cell)` is the
+/// Realm's lifetime authority identity; the value's `controller_id` is only who
+/// holds it right now. It doubles as the closed `authorization_ref` constant an
+/// Event uses to claim that authority, so it is spelled once here rather than
+/// re-derived per consumer.
+pub const REALM_AUTHORITY_ROOT_CELL: &str = "ak:cell:ak.component.realm.authority_root.v1:null";
 
 /// Parsed cell id with its component family and subject substrings.
 ///

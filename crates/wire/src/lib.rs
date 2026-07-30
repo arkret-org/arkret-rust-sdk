@@ -74,9 +74,9 @@ pub use cba::{
 };
 pub use cba_proof_bundle::{AvailabilityReceipt, CbaProofBundle};
 pub use cell::{
-    CellId, CompositeSubjectComponent, NULL_SUBJECT, REALM_CREATE_CELL, REALM_METADATA_CELL,
-    REALM_NOTARY_CELL, composite_subject, composite_subject_pipe, null_subject_cell,
-    string_set_digest_component,
+    CellId, CompositeSubjectComponent, NULL_SUBJECT, REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL,
+    REALM_METADATA_CELL, REALM_NOTARY_CELL, composite_subject, composite_subject_pipe,
+    null_subject_cell, string_set_digest_component,
 };
 pub use consent_scope::*;
 pub use constants::*;

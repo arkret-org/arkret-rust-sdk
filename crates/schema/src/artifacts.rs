@@ -141,8 +141,16 @@ pub struct ParsedCapabilityActionDescriptor {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub required_evaluator_checks: Vec<String>,
     pub target_event_kinds: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub grant_authority_actions: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub profile: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub root_control_only: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub subject_only: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reducer_only: bool,
     pub event_mapping_kind: String,
 }
 
@@ -1058,10 +1066,24 @@ fn capability_action_from_entry(
             action,
         )?,
         target_event_kinds: registry_string_array(entry, "target_event_kinds", action)?,
+        grant_authority_actions: registry_string_array(entry, "grant_authority_actions", action)?,
         profile,
+        root_control_only: registry_flag(entry, "root_control_only", action)?,
+        subject_only: registry_flag(entry, "subject_only", action)?,
+        reducer_only: registry_flag(entry, "reducer_only", action)?,
         event_mapping_kind: required_registry_string(entry, "event_mapping_kind", action)?
             .to_owned(),
     })
+}
+
+fn registry_flag(entry: &Value, field: &str, label: &str) -> Result<bool> {
+    match entry.get(field) {
+        None | Some(Value::Null) => Ok(false),
+        Some(Value::Bool(value)) => Ok(*value),
+        Some(_) => Err(Error::Protocol(format!(
+            "capability action {label} field {field} must be a boolean"
+        ))),
+    }
 }
 
 fn required_registry_string<'a>(entry: &'a Value, field: &str, label: &str) -> Result<&'a str> {
