@@ -706,6 +706,89 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
     Ok(seal)
 }
 
+/// Build the next Seal for a linear self-principal control history when the
+/// server exposes only its accepted frontier view rather than the full
+/// predecessor Seal.
+///
+/// The final Event is the only new delta. All preceding Events must reproduce
+/// the server frontier's cumulative control and state roots exactly.
+pub fn build_self_principal_linear_successor_seal<S: PayloadSigner + ?Sized>(
+    events: &[Event],
+    predecessor: &RealmSealFrontierView,
+    hlc: Hlc,
+    signer: &S,
+    project: CellWriteProjector<'_>,
+) -> Result<Seal> {
+    if events.len() < 3 {
+        return Err(Error::Protocol(
+            "self principal linear successor requires preserved history and one new Event"
+                .to_owned(),
+        ));
+    }
+    let prior = &events[..events.len() - 1];
+    let first = &events[0];
+    if events.iter().enumerate().any(|(index, event)| {
+        event.realm_id != first.realm_id
+            || event.actor_id != first.actor_id
+            || event.actor_seq != index as u64
+    }) {
+        return Err(Error::Protocol(
+            "self principal linear history must have one actor and contiguous actor_seq".to_owned(),
+        ));
+    }
+    let prior_with_digests = prior
+        .iter()
+        .map(|event| Ok((event, Hash::new(event.event_digest()?)?)))
+        .collect::<Result<Vec<_>>>()?;
+    let prior_covered = prior_with_digests
+        .iter()
+        .map(|(_, digest)| digest.clone())
+        .collect::<BTreeSet<_>>();
+    let prior_control_root = control_event_set_root(&prior_covered)
+        .map_err(|error| Error::Protocol(format!("self principal control root: {error}")))?;
+    let prior_state_root =
+        state_root_from_projection(&first.realm_id, &prior_with_digests, project)?;
+    if predecessor.realm_id != first.realm_id
+        || predecessor.control_event_set_root != prior_control_root
+        || predecessor.state_root != prior_state_root
+    {
+        return Err(Error::Protocol(
+            "self principal preserved history does not reproduce the accepted frontier".to_owned(),
+        ));
+    }
+
+    let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
+    let predecessor_seal = Seal {
+        id: predecessor.seal_id.clone(),
+        realm_id: predecessor.realm_id.clone(),
+        predecessor_refs: Vec::new(),
+        delta: Vec::new(),
+        control_event_set_root: predecessor.control_event_set_root.clone(),
+        state_root: predecessor.state_root.clone(),
+        completeness_root: predecessor.control_event_set_root.clone(),
+        notary_seq: u64::try_from(prior.len() - 2)
+            .map_err(|_| Error::Protocol("self principal notary sequence overflow".to_owned()))?,
+        data_view_root: None,
+        data_event_set_root: None,
+        availability_root: None,
+        coverage_scope: None,
+        covered_event_digests: prior_covered.into_iter().collect(),
+        previous_state_root: None,
+        previous_digest_algorithm: None,
+        notary_signature: NotarySig::Single(PayloadSignature {
+            alg: "EdDSA".to_owned(),
+            verification_method: signer.verification_method_id().to_owned(),
+            payload_digest: zero_hash,
+            created_at: Utc::now(),
+            jws: String::new(),
+        }),
+        sealed_at: Utc::now(),
+        hlc: predecessor.hlc.clone().unwrap_or_else(|| hlc.clone()),
+        kind: SealKind::Normal,
+    };
+    build_self_principal_event_seal(events, &predecessor_seal, hlc, signer, project)
+}
+
 /// Complete reducer material needed to construct or validate a
 /// controller-signed managed Agent PCR Event Seal.
 #[derive(Clone, Debug)]
