@@ -6,8 +6,9 @@ use arkret_models_collaboration::governance::authorization::{
 };
 use arkret_models_collaboration::governance::realm_governance::RealmOrganizationRelationshipList;
 use arkret_models_collaboration::http_bodies::{
-    EventSealSubmitOutcome, EventView, EventsQueryOutcome, EventsSubmitBatchRequestBody,
-    EventsSubmitOutcome, EventsSubscribeFrame, ProjectionSpaceList, ProjectionStrandList,
+    EventSealSubmitOutcome, EventView, EventsQueryOutcome, EventsRangeCompleteness,
+    EventsSubmitBatchRequestBody, EventsSubmitOutcome, EventsSubscribeFrame, ProjectionSpaceList,
+    ProjectionStrandList,
 };
 use arkret_models_collaboration::objects::query_projection::{
     CollectionProjectionView, DocumentMorphProjectionOutcome, ViewProjectionRequestBody,
@@ -576,9 +577,38 @@ impl Client {
     /// Walk every page of `ak.self.events.query.scan` for a Realm using
     /// the standard `has_more` / `next_cursor` contract.
     pub async fn events_query_all_pages(&self, realm_id: &str) -> Result<EventsQueryOutcome> {
+        self.events_query_all_pages_inner(realm_id, false).await
+    }
+
+    /// Walk every page and request range-completeness evidence for each page.
+    ///
+    /// Inline attestations and references are unioned by id across pages. An
+    /// absent `range_completeness` response remains absence, rather than an
+    /// error, because feature negotiation decides whether the service supports
+    /// this optional query extension.
+    pub async fn events_query_all_pages_with_completeness(
+        &self,
+        realm_id: &str,
+    ) -> Result<EventsQueryOutcome> {
+        self.events_query_all_pages_inner(realm_id, true).await
+    }
+
+    async fn events_query_all_pages_inner(
+        &self,
+        realm_id: &str,
+        include_completeness: bool,
+    ) -> Result<EventsQueryOutcome> {
         let mut combined = self
-            .events_query_outcome(realm_id, None, None, None, None, None)
+            .events_query_outcome(
+                realm_id,
+                None,
+                None,
+                None,
+                None,
+                include_completeness.then_some(true),
+            )
             .await?;
+        let mut completeness = combined.range_completeness.take();
         let mut pages = 1usize;
         let mut last_cursor: Option<String> = None;
         while combined.has_more {
@@ -604,15 +634,23 @@ impl Client {
                 )));
             }
             let page = self
-                .events_query_outcome(realm_id, None, Some(&next), None, None, None)
+                .events_query_outcome(
+                    realm_id,
+                    None,
+                    Some(&next),
+                    None,
+                    None,
+                    include_completeness.then_some(true),
+                )
                 .await?;
             combined.events.extend(page.events);
             combined.has_more = page.has_more;
             combined.next_cursor = page.next_cursor;
-            combined.range_completeness = page.range_completeness;
+            merge_range_completeness(&mut completeness, page.range_completeness)?;
             last_cursor = Some(next);
             pages += 1;
         }
+        combined.range_completeness = completeness;
         Ok(combined)
     }
 
@@ -819,6 +857,47 @@ impl Client {
         let path = format!("/_arkret/self/realms/{realm_id}/organizations");
         self.get(&path).await
     }
+}
+
+fn merge_range_completeness(
+    combined: &mut Option<EventsRangeCompleteness>,
+    page: Option<EventsRangeCompleteness>,
+) -> Result<()> {
+    let Some(page) = page else {
+        return Ok(());
+    };
+    let combined = combined.get_or_insert_with(|| EventsRangeCompleteness {
+        attestation_refs: Vec::new(),
+        attestations: Vec::new(),
+    });
+    for reference in page.attestation_refs {
+        if !combined.attestation_refs.contains(&reference) {
+            combined.attestation_refs.push(reference);
+        }
+    }
+    for attestation in page.attestations {
+        if let Some(existing) = combined
+            .attestations
+            .iter()
+            .find(|candidate| candidate.event_id == attestation.event_id)
+        {
+            if existing != &attestation {
+                return Err(Error::Protocol(format!(
+                    "duplicate_conflict: range-completeness Event {} changed across query pages",
+                    attestation.event_id
+                )));
+            }
+        } else {
+            combined.attestations.push(attestation);
+        }
+    }
+    combined
+        .attestation_refs
+        .sort_by(|left, right| left.as_str().cmp(right.as_str()));
+    combined
+        .attestations
+        .sort_by(|left, right| left.event_id.as_str().cmp(right.event_id.as_str()));
+    Ok(())
 }
 
 #[cfg(test)]

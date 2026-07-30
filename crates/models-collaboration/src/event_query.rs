@@ -47,6 +47,8 @@ pub struct EventsQueryPostRequestBody {
     pub limit: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub filters: Option<BTreeMap<String, Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub include_completeness: Option<bool>,
 }
 
 #[cfg(test)]

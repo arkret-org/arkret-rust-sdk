@@ -15,12 +15,19 @@
 //! live in `arkret-spec/spec/v1/zh/authz/event-auth-state-resolution.md`
 //! §5-§6.
 pub mod compaction;
+pub mod range_completeness;
 pub mod seal;
 pub mod state_root;
 pub mod store;
 pub mod verify;
 
 pub use compaction::{CompactionPolicy, PruneCandidate, PruneEligibility};
+pub use range_completeness::{
+    RangeCompletenessError, VerifiedRangeCompleteness, full_realm_range_events,
+    full_realm_range_frontiers, range_completeness_actor_seq_ranges, range_completeness_root,
+    range_completeness_root_with_suite, verify_full_realm_range_completeness,
+    verify_full_realm_range_completeness_with_suite,
+};
 pub use seal::{
     EffectiveSealView, SealEffect, SealLeafUnionProof, SealReject, apply_seal,
     apply_seal_in_context, control_event_completeness_root, control_event_set_root,
