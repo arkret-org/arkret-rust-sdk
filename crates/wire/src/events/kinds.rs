@@ -232,6 +232,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::RealmDestroy
         | EventKind::RealmDiscovery
         | EventKind::RealmFreeze
+        | EventKind::RealmAlias
         | EventKind::RealmHistorySharingPolicy
         | EventKind::RealmHistoryVisibility
         | EventKind::RealmInheritancePolicy

@@ -1454,6 +1454,15 @@ singleton_lattice!(
 );
 
 singleton_lattice!(
+    RealmAlias,
+    "ak.component.realm.alias.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["ak.realm.alias"]
+);
+
+singleton_lattice!(
     RealmPlaintextVisibleServices,
     "ak.component.realm.plaintext_visible_services.v1",
     SdkLatticeKind::CasRegister,

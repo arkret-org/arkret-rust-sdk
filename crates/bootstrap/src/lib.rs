@@ -14,6 +14,13 @@ use arkret_models_collaboration::http_bodies::{
     EventsSubmitBatchRequestBody, EventsSubmitRequestBody,
 };
 use arkret_models_collaboration::objects::realm::{NotaryProfile, Realm};
+// The Realm role markers are owned by the Realm model, next to the sibling
+// Direct Conversation role constants, so the profile id and the `purpose`
+// discriminator are each spelled exactly once in the SDK. Re-exported here
+// because this crate's public bootstrap API has always carried the profile id.
+pub use arkret_models_collaboration::objects::realm::{
+    PRINCIPAL_CONTROL_PURPOSE, PRINCIPAL_CONTROL_REALM_PROFILE,
+};
 #[cfg(test)]
 use arkret_models_identity::artifacts_device_identity::{
     DeviceEnrollmentAuthorityBinding, DeviceEnrollmentAuthorityBindingKind,
@@ -44,9 +51,7 @@ use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
-pub const PRINCIPAL_CONTROL_REALM_PROFILE: &str = "ak.profile.principal_control_realm.v1";
 pub const DID_INCEPTION_REF_ROLE: &str = "did_inception";
-const PRINCIPAL_CONTROL_PURPOSE: &str = "principal_control";
 // The canonical `cell_subject: null` cell ids live in `arkret_wire::cell`, the
 // lowest crate that owns cell identity, so every consumer (this crate, soland's
 // reducer and its HTTP proof path) spells them once. The Realm role

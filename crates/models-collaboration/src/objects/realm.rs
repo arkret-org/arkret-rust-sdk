@@ -17,6 +17,43 @@ use crate::governance::agent_participation::AgentParticipationPolicy;
 use crate::governance::circle::EncryptionFloor;
 use crate::objects::relation::RelationProfile;
 
+/// Principal Control Realm role markers (`models/realm-and-space.md` §2.8.1).
+///
+/// `realm.schema.json` binds the two discriminators bidirectionally: a
+/// `fields.purpose = "principal_control"` object MUST carry the profile ref and
+/// vice versa, so a half-marked object is already schema-rejected. Sibling of
+/// the Direct Conversation role constants in
+/// [`crate::objects::direct_conversation`]; both Realm roles spell their
+/// profile id exactly once here so no consumer re-types the string.
+pub const PRINCIPAL_CONTROL_REALM_PROFILE: &str = "ak.profile.principal_control_realm.v1";
+pub const PRINCIPAL_CONTROL_PURPOSE_FIELD: &str = "purpose";
+pub const PRINCIPAL_CONTROL_PURPOSE: &str = "principal_control";
+
+/// Whether an `ak.realm.create` Realm object declares the Principal Control
+/// Realm role.
+///
+/// BOTH markers are required. This is deliberately the fail-closed reading for
+/// a gate that hands a PCR something an ordinary Realm does not get (the
+/// profile-fixed history-sharing baseline, exemption from the same-batch policy
+/// requirement): a half-marked object MUST NOT collect the exemption, and it
+/// cannot be conformant anyway.
+pub fn realm_object_is_principal_control(object: &Value) -> bool {
+    let purpose_marker = object
+        .get("fields")
+        .and_then(Value::as_object)
+        .and_then(|fields| fields.get(PRINCIPAL_CONTROL_PURPOSE_FIELD))
+        .and_then(Value::as_str)
+        == Some(PRINCIPAL_CONTROL_PURPOSE);
+    let profile_marker = object
+        .get("schema_refs")
+        .and_then(Value::as_array)
+        .is_some_and(|refs| {
+            refs.iter()
+                .any(|schema_ref| schema_ref.as_str() == Some(PRINCIPAL_CONTROL_REALM_PROFILE))
+        });
+    purpose_marker && profile_marker
+}
+
 /// Counterpart for `spec/v1/artifacts/schemas/realm.schema.json#/$defs/sync_endpoint`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -601,5 +638,33 @@ mod tests {
         let serialized = serde_json::to_value(&realm).unwrap();
         let decoded: Realm = serde_json::from_value(serialized).unwrap();
         assert!(decoded.control_proposal_decision_policy().is_err());
+    }
+
+    /// Both PCR markers are required. `realm.schema.json` binds them
+    /// bidirectionally, so a half-marked object is non-conformant; a gate that
+    /// grants a PCR-only exemption MUST NOT accept one.
+    #[test]
+    fn principal_control_role_needs_both_pinned_discriminators() {
+        assert!(realm_object_is_principal_control(&serde_json::json!({
+            "fields": {"purpose": PRINCIPAL_CONTROL_PURPOSE},
+            "schema_refs": ["ak.schema.realm.v1", PRINCIPAL_CONTROL_REALM_PROFILE]
+        })));
+        // Purpose without the profile ref.
+        assert!(!realm_object_is_principal_control(&serde_json::json!({
+            "fields": {"purpose": PRINCIPAL_CONTROL_PURPOSE},
+            "schema_refs": ["ak.schema.realm.v1"]
+        })));
+        // Profile ref without the purpose discriminator.
+        assert!(!realm_object_is_principal_control(&serde_json::json!({
+            "schema_refs": ["ak.schema.realm.v1", PRINCIPAL_CONTROL_REALM_PROFILE]
+        })));
+        // A Direct Conversation Realm is the sibling role, never a PCR.
+        assert!(!realm_object_is_principal_control(&serde_json::json!({
+            "fields": {"collaboration_role": "direct_conversation"},
+            "schema_refs": [
+                "ak.schema.realm.v1",
+                "ak.profile.direct_conversation_realm.v1"
+            ]
+        })));
     }
 }

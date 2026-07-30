@@ -30,6 +30,7 @@ pub fn is_realm_bootstrap_followup_kind(kind: &str) -> bool {
             | EventKind::REALM_JOIN_RULE
             | EventKind::REALM_DELIVERY_BINDING_POLICY
             | EventKind::REALM_PLAINTEXT_VISIBLE_SERVICES
+            | EventKind::REALM_ALIAS
     )
 }
 

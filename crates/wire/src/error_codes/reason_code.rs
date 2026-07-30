@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-07-30.3;
-//! sha256=e04e9627c5f79539a1ebe8885aef50cce3f78f810c35b0f0a18efe483de8a3b0
-//! Entries: reason_codes=449
+//! Input: registry/error-code-registry.json; version=2026-07-30.4;
+//! sha256=3f618098d05dcdd2d6f547ec0c733ab77c55fc710db7ece1e25ed19a02e1658d
+//! Entries: reason_codes=451
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -325,7 +325,9 @@ pub enum ReasonCode {
     ReactionTargetUnsupported,
     ReadReceiptForcedPublicWorldReadableForbidden,
     ReadReceiptVisibilityCombinationInvalid,
+    RealmAliasAuthorityMismatch,
     RealmAliasHomographForbidden,
+    RealmAliasTaken,
     RealmAlreadyExists,
     RealmFoundingGrantMissing,
     RealmLinkInvalidTransition,
@@ -860,7 +862,9 @@ impl ReasonCode {
         "read_receipt_forced_public_world_readable_forbidden";
     pub const READ_RECEIPT_VISIBILITY_COMBINATION_INVALID: &'static str =
         "read_receipt_visibility_combination_invalid";
+    pub const REALM_ALIAS_AUTHORITY_MISMATCH: &'static str = "realm_alias_authority_mismatch";
     pub const REALM_ALIAS_HOMOGRAPH_FORBIDDEN: &'static str = "realm_alias_homograph_forbidden";
+    pub const REALM_ALIAS_TAKEN: &'static str = "realm_alias_taken";
     pub const REALM_ALREADY_EXISTS: &'static str = "realm_already_exists";
     pub const REALM_FOUNDING_GRANT_MISSING: &'static str = "realm_founding_grant_missing";
     pub const REALM_LINK_INVALID_TRANSITION: &'static str = "realm_link_invalid_transition";
@@ -1389,7 +1393,9 @@ impl ReasonCode {
             Self::ReadReceiptVisibilityCombinationInvalid => {
                 "read_receipt_visibility_combination_invalid"
             }
+            Self::RealmAliasAuthorityMismatch => "realm_alias_authority_mismatch",
             Self::RealmAliasHomographForbidden => "realm_alias_homograph_forbidden",
+            Self::RealmAliasTaken => "realm_alias_taken",
             Self::RealmAlreadyExists => "realm_already_exists",
             Self::RealmFoundingGrantMissing => "realm_founding_grant_missing",
             Self::RealmLinkInvalidTransition => "realm_link_invalid_transition",
@@ -1916,7 +1922,9 @@ impl ReasonCode {
             "read_receipt_visibility_combination_invalid" => {
                 Self::ReadReceiptVisibilityCombinationInvalid
             }
+            "realm_alias_authority_mismatch" => Self::RealmAliasAuthorityMismatch,
             "realm_alias_homograph_forbidden" => Self::RealmAliasHomographForbidden,
+            "realm_alias_taken" => Self::RealmAliasTaken,
             "realm_already_exists" => Self::RealmAlreadyExists,
             "realm_founding_grant_missing" => Self::RealmFoundingGrantMissing,
             "realm_link_invalid_transition" => Self::RealmLinkInvalidTransition,
@@ -3681,9 +3689,19 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Read receipt visibility=public was combined with history_visibility=world_readable without an explicit opt-in marker. Reducer MUST reject the combination to avoid leaking actor read positions to anonymous observers.",
     },
     ReasonCodeDescriptor {
+        code: "realm_alias_authority_mismatch",
+        applies_to: &["state_resolution", "service_call"],
+        description: "An ak.realm.alias declaration carried an alias whose <domain> is not an authority domain of this Realm's trust_domain, so the Realm's own notary signature is not evidence that the domain's alias issuer authorized the claim. Reducers and directories MUST fail closed instead of registering a foreign-domain alias. See zh/discovery/object-addressing.md §3.3.",
+    },
+    ReasonCodeDescriptor {
         code: "realm_alias_homograph_forbidden",
         applies_to: &["schema_validation", "service_call"],
         description: "Realm alias registration collided with the same authority-local realm-alias-namespace UTS #39 skeleton index or failed its declared Highly Restrictive registration policy. Skeletons do not define canonical equality; cross-namespace handle/realm-alias homographs are disambiguated by sigil and type context. See zh/discovery/object-addressing.md §3.3.",
+    },
+    ReasonCodeDescriptor {
+        code: "realm_alias_taken",
+        applies_to: &["state_resolution", "service_call"],
+        description: "An ak.realm.alias declaration requested a canonical alias already held by a different Realm in the same issuing authority's realm-alias namespace. The alias registrar MUST reject the later claim rather than re-pointing the alias; releasing an alias requires the holding Realm to publish an ak.realm.alias tombstone first. Handle namespace occupancy is NOT a collision (the two namespaces are disjoint). See zh/discovery/object-addressing.md §3.3.",
     },
     ReasonCodeDescriptor {
         code: "realm_already_exists",

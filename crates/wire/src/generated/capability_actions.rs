@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-07-30.9;
-//! sha256=1196bbed94e43ff0df7878cb79a16d2d69afbe27a4082d0a8da70c50fc387d07 Entries: registered=158
+//! Input: registry/capability-action-registry.json; version=2026-07-30.10;
+//! sha256=96e628537a4ca9bc1991f2cd9eb894612306bfe95cfef15f6422d9a1b556ab6f Entries: registered=159
 
 use serde::{Deserialize, Serialize};
 
@@ -99,6 +99,7 @@ pub enum CapabilityActionId {
     ReactionRemove,
     ReadCursorAdvance,
     RealmAdmin,
+    RealmAlias,
     RealmArchive,
     RealmCreate,
     RealmDestroy,
@@ -261,6 +262,7 @@ impl CapabilityActionId {
         Self::ReactionRemove,
         Self::ReadCursorAdvance,
         Self::RealmAdmin,
+        Self::RealmAlias,
         Self::RealmArchive,
         Self::RealmCreate,
         Self::RealmDestroy,
@@ -421,6 +423,7 @@ impl CapabilityActionId {
     pub const REACTION_REMOVE: &'static str = "ak.reaction.remove";
     pub const READ_CURSOR_ADVANCE: &'static str = "ak.read_cursor.advance";
     pub const REALM_ADMIN: &'static str = "ak.realm.admin";
+    pub const REALM_ALIAS: &'static str = "ak.realm.alias";
     pub const REALM_ARCHIVE: &'static str = "ak.realm.archive";
     pub const REALM_CREATE: &'static str = "ak.realm.create";
     pub const REALM_DESTROY: &'static str = "ak.realm.destroy";
@@ -588,6 +591,7 @@ impl CapabilityActionId {
             Self::ReactionRemove => "ak.reaction.remove",
             Self::ReadCursorAdvance => "ak.read_cursor.advance",
             Self::RealmAdmin => "ak.realm.admin",
+            Self::RealmAlias => "ak.realm.alias",
             Self::RealmArchive => "ak.realm.archive",
             Self::RealmCreate => "ak.realm.create",
             Self::RealmDestroy => "ak.realm.destroy",
@@ -753,6 +757,7 @@ impl CapabilityActionId {
             "ak.reaction.remove" => Some(Self::ReactionRemove),
             "ak.read_cursor.advance" => Some(Self::ReadCursorAdvance),
             "ak.realm.admin" => Some(Self::RealmAdmin),
+            "ak.realm.alias" => Some(Self::RealmAlias),
             "ak.realm.archive" => Some(Self::RealmArchive),
             "ak.realm.create" => Some(Self::RealmCreate),
             "ak.realm.destroy" => Some(Self::RealmDestroy),

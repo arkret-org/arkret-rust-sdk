@@ -765,7 +765,13 @@ fn dual_plane_vector_inventory_is_pinned() {
                 // state_root leaf-set invariants, not per-domain reducer
                 // behaviour.
                 || vector_id == "ak.vector.event_kind.realm_create_projection_closure.v1"
-                || vector_id == "ak.vector.event_kind.null_cell_subject_wire_form.v1",
+                || vector_id == "ak.vector.event_kind.null_cell_subject_wire_form.v1"
+                // Single-carrier closure for the Realm alias: the cas_register
+                // `ak.component.realm.alias.v1` cell is the only place an alias
+                // exists, so the closed Realm object, the create/update payloads
+                // and concurrent conflicting declarations are all state_root
+                // leaf-set invariants rather than per-domain reducer behaviour.
+                || vector_id == "ak.vector.event_kind.realm_alias_single_carrier.v1",
             "unexpected vector id {vector_id}"
         );
         // Expectations are carried either as a top-level `expected*` block or

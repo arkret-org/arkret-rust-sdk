@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-07-30.9;
-//! sha256=c299745b5604a78f399bd4c6ac5db43d997f28967d842683f8c6420f2f900b3d Input: registry/
-//! capability-action-registry.json; version=2026-07-30.9;
-//! sha256=1196bbed94e43ff0df7878cb79a16d2d69afbe27a4082d0a8da70c50fc387d07 Input: registry/
-//! schema-registry.json; version=2026-07-30.9;
-//! sha256=bd2820514aead492a4d80f68edcd501983c6ee8be33ed77702b7254b9701a8a4 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-07-30.10;
+//! sha256=bd1c46f4c883e27b484e9e5049a997c0e7d32d06b4a19797b458d8864baab5b2 Input: registry/
+//! capability-action-registry.json; version=2026-07-30.10;
+//! sha256=96e628537a4ca9bc1991f2cd9eb894612306bfe95cfef15f6422d9a1b556ab6f Input: registry/
+//! schema-registry.json; version=2026-07-30.10;
+//! sha256=8cd7c91abb9fdf073bce74888e97648e91f0575b1a3a8b06454362c01eefa364 Input: registry/
 //! account-data-key-registry.json; version=2026-07-30;
 //! sha256=9afa80c16d13fcc3bdc5da373e0e1bc6bc5099e06aaccdd560745962023f89a3 Entries: id_kinds=53,
-//! special_forms=9, actions=158, schemas=171, account_data_patterns=24
+//! special_forms=9, actions=159, schemas=171, account_data_patterns=24
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -1222,6 +1222,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         target_event_kinds: &[
             "ak.realm.organization",
             "ak.realm.link",
+            "ak.realm.alias",
             "ak.realm.policy",
             "ak.realm.join_rule",
             "ak.realm.history_visibility",
@@ -1246,6 +1247,15 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         ],
         profile: None,
         event_mapping_kind: "aggregate_admin",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::RealmAlias,
+        category: "management",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        target_event_kinds: &["ak.realm.alias"],
+        profile: None,
+        event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmArchive,

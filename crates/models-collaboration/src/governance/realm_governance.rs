@@ -29,6 +29,7 @@ use crate::events_payloads::{
     RealmOrganizationControlScope, RealmOrganizationIssuerRole, RealmOrganizationRelationship,
     RealmOrganizationStatus,
 };
+use crate::objects::realm_alias::RealmAlias;
 
 /// Wire field names used by effective moderation policy payloads.
 pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_REALM_ID: &str = "realm_id";
@@ -615,6 +616,97 @@ pub enum RealmPolicyServerPayload {
     Tombstone(RealmPolicyServerTombstonePayload),
 }
 
+/// `ak.realm.alias` declaration — the ONLY wire carrier of a Realm alias.
+///
+/// `realm.schema.json` is a closed object with no `alias` property, and
+/// `ak.realm.create` / `ak.realm.update` payloads MUST NOT carry one
+/// (`discovery/object-addressing.md` §3.3).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmAliasDeclarationPayload {
+    pub alias: RealmAlias,
+}
+
+/// `ak.realm.alias` durable value tombstone: releases the alias without
+/// erasing cell history. Effective resolution then treats the Realm as
+/// addressable only by `realm_id`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmAliasTombstonePayload {
+    pub tombstone: bool,
+}
+
+impl RealmAliasTombstonePayload {
+    pub const VALUE: Self = Self { tombstone: true };
+
+    pub fn validate(self) -> Result<Self> {
+        if self.tombstone {
+            Ok(self)
+        } else {
+            Err(Error::Protocol(
+                "realm alias tombstone MUST be true".to_owned(),
+            ))
+        }
+    }
+}
+
+/// Closed `ak.realm.alias` payload: declaration or exact value tombstone.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RealmAliasPayload {
+    Declaration(RealmAliasDeclarationPayload),
+    Tombstone(RealmAliasTombstonePayload),
+}
+
+impl RealmAliasPayload {
+    pub fn declaration(alias: RealmAlias) -> Self {
+        Self::Declaration(RealmAliasDeclarationPayload { alias })
+    }
+
+    pub const fn tombstone() -> Self {
+        Self::Tombstone(RealmAliasTombstonePayload::VALUE)
+    }
+
+    /// Effective alias carried by this payload; `None` for a tombstone.
+    pub fn alias(&self) -> Option<&RealmAlias> {
+        match self {
+            Self::Declaration(declaration) => Some(&declaration.alias),
+            Self::Tombstone(_) => None,
+        }
+    }
+
+    /// Reject a `{"tombstone": false}` shape, which is neither form.
+    pub fn validate(self) -> Result<Self> {
+        match self {
+            Self::Declaration(_) => Ok(self),
+            Self::Tombstone(tombstone) => tombstone.validate().map(Self::Tombstone),
+        }
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("realm alias payload serialize: {err}")))
+    }
+
+    /// The alias `<domain>` is the issuing authority; a Realm's own notary
+    /// signature is not evidence that a foreign domain authorized the claim.
+    /// Declarations under any other authority fail closed.
+    pub fn validate_issuing_authority(self, authority_domain: &str) -> Result<Self> {
+        let validated = self.validate()?;
+        if let Self::Declaration(declaration) = &validated
+            && declaration.alias.domain() != authority_domain
+        {
+            return Err(Error::Protocol(format!(
+                "{}: realm alias domain {} is not the issuing authority domain {authority_domain}",
+                ReasonCode::REALM_ALIAS_AUTHORITY_MISMATCH,
+                declaration.alias.domain(),
+            )));
+        }
+        Ok(validated)
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1117,5 +1209,71 @@ mod tests {
         )
         .unwrap();
         assert!(false_tombstone.validate().is_err());
+    }
+
+    #[test]
+    fn realm_alias_payload_is_closed_to_declaration_or_tombstone() {
+        let declaration =
+            RealmAliasPayload::declaration(RealmAlias::parse("general:acme.example").unwrap());
+        assert_eq!(
+            declaration.to_value().unwrap(),
+            serde_json::json!({"alias": "general:acme.example"})
+        );
+        assert_eq!(
+            RealmAliasPayload::tombstone().to_value().unwrap(),
+            serde_json::json!({"tombstone": true})
+        );
+        assert!(RealmAliasPayload::tombstone().alias().is_none());
+
+        // Both shapes at once matches neither arm.
+        assert!(
+            serde_json::from_value::<RealmAliasPayload>(serde_json::json!({
+                "alias": "general:acme.example",
+                "tombstone": true
+            }))
+            .is_err()
+        );
+        // The `#` share sigil is display-only and never reaches the wire.
+        assert!(
+            serde_json::from_value::<RealmAliasPayload>(
+                serde_json::json!({"alias": "#general:acme.example"})
+            )
+            .is_err()
+        );
+        // A bare localpart is not a canonical alias.
+        assert!(
+            serde_json::from_value::<RealmAliasPayload>(serde_json::json!({"alias": "general"}))
+                .is_err()
+        );
+        // `{"tombstone": false}` is neither form.
+        assert!(
+            serde_json::from_value::<RealmAliasPayload>(serde_json::json!({"tombstone": false}))
+                .unwrap()
+                .validate()
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn realm_alias_declaration_binds_the_issuing_authority_domain() {
+        let declaration =
+            RealmAliasPayload::declaration(RealmAlias::parse("general:acme.example").unwrap());
+        assert!(
+            declaration
+                .clone()
+                .validate_issuing_authority("acme.example")
+                .is_ok()
+        );
+        let error = declaration
+            .validate_issuing_authority("other.example")
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains(ReasonCode::REALM_ALIAS_AUTHORITY_MISMATCH));
+        // A tombstone releases the Realm's own alias and carries no authority.
+        assert!(
+            RealmAliasPayload::tombstone()
+                .validate_issuing_authority("other.example")
+                .is_ok()
+        );
     }
 }

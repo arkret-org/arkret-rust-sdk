@@ -19,6 +19,7 @@ use arkret_models_collaboration::governance::history_visibility::{
     HistorySharingRestrictedScopeRef, HistorySharingScopeKind, HistoryVisibilityDecision,
     RealmKeyWithheldReasonCode, RestrictedRuleMatch,
 };
+use arkret_models_collaboration::objects::realm::PRINCIPAL_CONTROL_REALM_PROFILE;
 use arkret_wire::HistoryVisibility;
 
 pub fn event_time_history_visible(
@@ -306,6 +307,56 @@ where
     values.into_iter().any(|value| !seen.insert(value))
 }
 
+/// The effective `ak.realm.history_sharing_policy` of a Principal Control Realm,
+/// read from the profile that fixes it.
+///
+/// A PCR MUST declare `history_visibility="restricted"`, and
+/// `governance/history-visibility.md` §3 forbids an effective restricted
+/// visibility without an accepted `ak.realm.history_sharing_policy`. A PCR can
+/// never publish one: the kind is absent from the profile's event-kind
+/// allowlist, PCR genesis is the closed `create + ak.device.authorize` unit (a
+/// managed Agent PCR genesis is a single create), and the post-bootstrap
+/// recovery-material gate admits only its own closed write set. The profile
+/// therefore supplies the value, and this is the ONE place implementations read
+/// it from — a hand-copied literal in a server or client would fork the policy.
+///
+/// Fails closed when the embedded profile artifact does not declare the
+/// baseline: a PCR with no evaluable policy MUST NOT fall back to "allow".
+pub fn principal_control_realm_history_sharing_policy()
+-> arkret_wire::Result<HistorySharingPolicyPayloadValue> {
+    let profiles = arkret_schema::embedded_json_artifact("profiles/conformance-profiles.json")
+        .map_err(|error| {
+            arkret_wire::Error::Protocol(format!(
+                "principal control realm history sharing baseline unavailable: {error}"
+            ))
+        })?;
+    let value = profiles
+        .get("profile_requirements")
+        .and_then(|profiles| profiles.get(PRINCIPAL_CONTROL_REALM_PROFILE))
+        .and_then(|profile| profile.get("history_sharing_policy_fixed_baseline"))
+        .and_then(|baseline| baseline.get("value"))
+        .ok_or_else(|| {
+            arkret_wire::Error::Protocol(
+                "principal control realm profile declares no \
+                 history_sharing_policy_fixed_baseline.value"
+                    .to_owned(),
+            )
+        })?;
+    let policy: HistorySharingPolicyPayloadValue =
+        serde_json::from_value(value.clone()).map_err(|error| {
+            arkret_wire::Error::Protocol(format!(
+                "principal control realm history sharing baseline is not a valid policy value: \
+                 {error}"
+            ))
+        })?;
+    validate_history_sharing_policy(&policy).map_err(|error| {
+        arkret_wire::Error::Protocol(format!(
+            "principal control realm history sharing baseline fails policy validation: {error}"
+        ))
+    })?;
+    Ok(policy)
+}
+
 #[cfg(test)]
 mod policy_tests {
     use arkret_models_collaboration::events_payloads::HistorySharingPolicyPayloadValueAudit;
@@ -453,5 +504,37 @@ mod policy_tests {
             validate_history_sharing_policy(&policy),
             Err(HistorySharingPolicyValidationError::DuplicateRuleId { .. })
         ));
+    }
+
+    #[test]
+    fn principal_control_realm_baseline_comes_from_the_profile_and_validates() {
+        let policy = principal_control_realm_history_sharing_policy()
+            .expect("the PCR profile declares a valid fixed history-sharing baseline");
+        // Deny by default; every release goes through the restricted rule, since
+        // a PCR is always history_visibility=restricted.
+        assert_eq!(policy.default_key_share, HistoryKeyShareDefault::Deny);
+        assert_eq!(
+            policy.pre_join_history,
+            Some(HistorySharingPreJoinPolicy::RuleOnly)
+        );
+        let rules = policy.restricted_rules.as_deref().unwrap_or_default();
+        assert_eq!(
+            rules.len(),
+            1,
+            "the baseline carries exactly one same-principal device rule"
+        );
+        assert_eq!(rules[0].rule_id, "principal_control_authorized_device");
+        // A third-party archive or recovery service MUST NOT be able to unlock
+        // a high-assurance identity control stream's history.
+        for source in [
+            HistoryKeySource::ArchiveNode,
+            HistoryKeySource::RecoveryService,
+        ] {
+            assert!(
+                !policy.allowed_key_sources.contains(&source),
+                "{source:?} must stay out of the PCR baseline"
+            );
+            assert!(!rules[0].key_sources.contains(&source));
+        }
     }
 }

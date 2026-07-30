@@ -68,6 +68,31 @@ impl RealmAlias {
         })
     }
 
+    /// Prepare a user-entered alias under a known issuing authority domain.
+    ///
+    /// Accepts a bare localpart (`general`) or a display / canonical form
+    /// (`#general:acme.example`, `general:acme.example`). A full form naming a
+    /// different domain is rejected: only the issuing authority may create
+    /// aliases beneath its own domain, and silently rebinding the domain would
+    /// mint an alias the authority never authorized.
+    pub fn prepare_under_authority(input: &str, authority_domain: &str) -> Result<Self> {
+        let trimmed = input.trim();
+        let body = trimmed.strip_prefix('#').unwrap_or(trimmed).trim();
+        let authority = prepare_idna_domain(authority_domain)?;
+        let alias = if body.contains(':') {
+            Self::prepare(body)?
+        } else {
+            Self::prepare(&format!("{body}:{authority}"))?
+        };
+        if alias.domain() != authority {
+            return Err(Error::Protocol(format!(
+                "realm alias domain {} is not the issuing authority domain {authority}",
+                alias.domain()
+            )));
+        }
+        Ok(alias)
+    }
+
     /// Prepare a user-entered alias into canonical wire form.
     pub fn prepare(input: &str) -> Result<Self> {
         let trimmed = input.trim();
@@ -98,6 +123,54 @@ impl RealmAlias {
 
     pub fn domain(&self) -> &str {
         &self.domain
+    }
+
+    /// Derive the realm-alias issuing authority domain operated by a service
+    /// DID, so a client and its Principal Server agree on the exact bytes.
+    ///
+    /// The alias `<domain>` is the issuing authority, and a Realm's own notary
+    /// signature is not evidence that a foreign domain authorized the claim
+    /// (`discovery/object-addressing.md` §3.3). A deployment therefore issues
+    /// aliases only beneath its own authority domain, which is the DID's host:
+    ///
+    /// * `did:web:<host>[:<path>…]` — the host is the first method-specific segment. `did:web`
+    ///   percent-encodes a port as `%3A`, so a bare `:` always starts a path segment and is never
+    ///   part of the host.
+    /// * `did:webvh:<scid>:<host>[:<path>…]` — the SCID precedes the host.
+    pub fn authority_domain_for_service(service_id: &str) -> Result<String> {
+        let mut segments = service_id.split(':');
+        if segments.next() != Some("did") {
+            return Err(Error::Protocol(format!(
+                "realm alias authority is not a DID: {service_id}"
+            )));
+        }
+        let method = segments
+            .next()
+            .filter(|method| !method.is_empty())
+            .ok_or_else(|| {
+                Error::Protocol(format!(
+                    "realm alias authority DID has no method: {service_id}"
+                ))
+            })?;
+        let host = match method {
+            "web" => segments.next(),
+            // The SCID is method-specific data preceding the host.
+            "webvh" => segments.nth(1),
+            _ => {
+                return Err(Error::Protocol(format!(
+                    "realm alias authority DID method {method} declares no host: {service_id}"
+                )));
+            }
+        }
+        .filter(|host| !host.is_empty())
+        .ok_or_else(|| {
+            Error::Protocol(format!(
+                "realm alias authority DID has no host: {service_id}"
+            ))
+        })?;
+        // A did:web port is percent-encoded; an alias authority is host-only.
+        let host = host.split_once("%3A").map_or(host, |(host, _)| host);
+        prepare_idna_domain(host)
     }
 
     /// Display / share form `#<localpart>:<domain>` favoured for UI surfaces —
@@ -192,6 +265,70 @@ mod tests {
     fn accepts_internationalized_localpart() {
         let alias = RealmAlias::parse("项目:acme.example").unwrap();
         assert_eq!(alias.display(), "#项目:acme.example");
+    }
+
+    #[test]
+    fn derives_authority_domain_from_service_did() {
+        assert_eq!(
+            RealmAlias::authority_domain_for_service("did:web:acme.example").unwrap(),
+            "acme.example"
+        );
+        // A did:web path segment is not part of the host.
+        assert_eq!(
+            RealmAlias::authority_domain_for_service("did:web:acme.example:services:principal")
+                .unwrap(),
+            "acme.example"
+        );
+        // A did:web port is percent-encoded and is not part of the authority.
+        assert_eq!(
+            RealmAlias::authority_domain_for_service("did:web:acme.example%3A8443").unwrap(),
+            "acme.example"
+        );
+        // did:webvh puts the SCID before the host.
+        assert_eq!(
+            RealmAlias::authority_domain_for_service(
+                "did:webvh:zGUwpRSnyVCLzU7upsm9iSwEv:notary.acme.example"
+            )
+            .unwrap(),
+            "notary.acme.example"
+        );
+        // Case is normalized to the lowercase A-label form.
+        assert_eq!(
+            RealmAlias::authority_domain_for_service("did:web:ACME.Example").unwrap(),
+            "acme.example"
+        );
+        // Non-DID input and host-less DID methods fail closed rather than
+        // guessing an authority.
+        assert!(RealmAlias::authority_domain_for_service("acme.example").is_err());
+        assert!(RealmAlias::authority_domain_for_service("did:key:z6Mkfixture").is_err());
+        assert!(RealmAlias::authority_domain_for_service("did:web:").is_err());
+    }
+
+    #[test]
+    fn prepares_under_the_issuing_authority_only() {
+        assert_eq!(
+            RealmAlias::prepare_under_authority("general", "acme.example")
+                .unwrap()
+                .canonical(),
+            "general:acme.example"
+        );
+        assert_eq!(
+            RealmAlias::prepare_under_authority("#General", "acme.example")
+                .unwrap()
+                .canonical(),
+            "general:acme.example"
+        );
+        assert_eq!(
+            RealmAlias::prepare_under_authority("team.eng:acme.example", "acme.example")
+                .unwrap()
+                .canonical(),
+            "team.eng:acme.example"
+        );
+        // A foreign domain is never silently rebound to the local authority.
+        assert!(
+            RealmAlias::prepare_under_authority("general:other.example", "acme.example").is_err()
+        );
+        assert!(RealmAlias::prepare_under_authority("", "acme.example").is_err());
     }
 
     #[test]
