@@ -33,6 +33,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(CallRoster);
 
     // CasRegister
+    registry.register(AppletRegistration);
     registry.register(CircleTombstone);
     registry.register(CircleMember);
     registry.register(StrandPosition);
@@ -138,6 +139,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ak.component.call.moderation.v1",
         "ak.component.call.roster.v1",
         // CasRegister
+        "ak.component.applet.registration.v1",
         "ak.component.circle.tombstone.v1",
         "ak.component.circle.member.v1",
         "ak.component.strand.position.v1",

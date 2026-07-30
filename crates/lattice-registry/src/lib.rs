@@ -65,7 +65,24 @@ mod tests {
         // registry. New spec cell families must be added here before their
         // contracts are consumed by Move/Seal state resolution.
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 84);
+        assert_eq!(registry.len(), 85);
+    }
+
+    #[test]
+    fn applet_registration_uses_spec_cas_register_binding() {
+        let registry = default_lattice_registry();
+        let kind = registry
+            .lookup("ak.component.applet.registration.v1")
+            .expect("Applet registration family must be registered");
+        assert_eq!(kind.lattice(), SdkLatticeKind::CasRegister);
+        assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
+        assert_eq!(
+            kind.subject_for_effect(&json!({"applet_id": "ak:applet:fixture"}))
+                .unwrap()
+                .as_deref(),
+            Some("ak:applet:fixture")
+        );
+        assert_eq!(kind.event_kinds(), &["ak.applet.registration"]);
     }
 
     #[test]
