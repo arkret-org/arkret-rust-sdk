@@ -222,11 +222,16 @@ fn merkle_out_of_order_rejected() {
 }
 
 #[test]
-fn merkle_single_leaf_root_equals_leaf() {
+fn merkle_single_leaf_root_is_domain_separated() {
     let cs = chunks(1);
     let tree = SnapshotMerkleTree::build(&cs).unwrap();
     assert_eq!(tree.leaf_count(), 1);
-    assert_eq!(tree.root(), &cs[0].digest);
+    let leaf_data = merkle::parse_sha256(&cs[0].digest).unwrap();
+    assert_eq!(
+        tree.root(),
+        &merkle::format_hash(&merkle::hash_leaf(&leaf_data))
+    );
+    assert_ne!(tree.root(), &cs[0].digest);
     // Audit path is empty for single-leaf trees.
     assert_eq!(tree.audit_path(0).unwrap().len(), 0);
 }
@@ -235,9 +240,9 @@ fn merkle_single_leaf_root_equals_leaf() {
 fn merkle_two_leaves_root_is_hash_pair() {
     let cs = chunks(2);
     let tree = SnapshotMerkleTree::build(&cs).unwrap();
-    // root = sha256(leaf0 || leaf1).
-    let left = merkle::parse_sha256(&cs[0].digest).unwrap();
-    let right = merkle::parse_sha256(&cs[1].digest).unwrap();
+    // root = sha256(0x01 || H(0x00 || leaf0) || H(0x00 || leaf1)).
+    let left = merkle::hash_leaf(&merkle::parse_sha256(&cs[0].digest).unwrap());
+    let right = merkle::hash_leaf(&merkle::parse_sha256(&cs[1].digest).unwrap());
     let expected = merkle::hash_pair(&left, &right);
     assert_eq!(*tree.root(), merkle::format_hash(&expected));
 }
@@ -456,6 +461,25 @@ fn state_item(kind: &str, id: &str, source_suffix: &str) -> SnapshotMaterialized
 fn spec_merkle_empty_root_is_sha256_empty() {
     let root = merkle_root_from_hashes(Vec::new()).unwrap();
     assert_eq!(root.as_str(), EMPTY_SHA256_DIGEST);
+}
+
+#[test]
+fn spec_merkle_rfc6962_fixed_vectors_reject_legacy_roots() {
+    let one = merkle_root_from_hashes(vec![hash(0x11)]).unwrap();
+    assert_eq!(
+        one.as_str(),
+        "sha256:4635e1fa62a599a7880a8d14a56f720a1d40f6e5448ab5a5e39bedc8bd87fa8e"
+    );
+    assert_ne!(
+        one.as_str(),
+        "sha256:02d449a31fbb267c8f352e9968a79e3e5fc95c1bbeaa502fd6454ebde5a4bedc"
+    );
+
+    let two = merkle_root_from_hashes(vec![hash(0x11), hash(0x22)]).unwrap();
+    assert_eq!(
+        two.as_str(),
+        "sha256:cc15b132263fd4fd2748c0e7cb9e1c4ad0afe70fcf9382ee644c4da8af0286a5"
+    );
 }
 
 #[test]

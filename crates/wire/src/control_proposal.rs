@@ -310,6 +310,12 @@ impl ControlProposalDecisionPolicy {
                     .to_owned(),
             ));
         }
+        if self.max_defers > 0 && self.absolute_horizon == self.decision_window {
+            return Err(Error::Protocol(
+                "proposal absolute horizon must exceed the decision window when defers are enabled"
+                    .to_owned(),
+            ));
+        }
         if self.max_defers > MAX_PROPOSAL_DEFERS {
             return Err(Error::Protocol(
                 "proposal max_defers exceeds the protocol ceiling of 2".to_owned(),
@@ -1016,6 +1022,45 @@ mod tests {
                 .unwrap_err()
                 .to_string()
                 .contains("absolute")
+        );
+    }
+
+    #[test]
+    fn proposal_policy_enforces_window_horizon_and_defer_cross_field_rules() {
+        let base = ControlProposalDecisionPolicy {
+            receipt_sla: Duration::seconds(1),
+            decision_window: Duration::seconds(30),
+            absolute_horizon: Duration::seconds(90),
+            max_defers: 2,
+        };
+        base.validate().unwrap();
+
+        assert!(
+            ControlProposalDecisionPolicy {
+                decision_window: Duration::seconds(31),
+                absolute_horizon: Duration::seconds(30),
+                ..base
+            }
+            .validate()
+            .is_err()
+        );
+        ControlProposalDecisionPolicy {
+            decision_window: Duration::seconds(30),
+            absolute_horizon: Duration::seconds(30),
+            max_defers: 0,
+            ..base
+        }
+        .validate()
+        .unwrap();
+        assert!(
+            ControlProposalDecisionPolicy {
+                decision_window: Duration::seconds(30),
+                absolute_horizon: Duration::seconds(30),
+                max_defers: 1,
+                ..base
+            }
+            .validate()
+            .is_err()
         );
     }
 

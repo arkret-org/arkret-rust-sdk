@@ -448,6 +448,26 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DurableEffectKind {
+    EventLog,
+    ActorPrivateEvent,
+    None,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DurableEventTarget {
+    Static(&'static [&'static str]),
+    Dynamic(&'static str),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DurableEffectDescriptor {
+    pub kind: DurableEffectKind,
+    pub target: Option<DurableEventTarget>,
+    pub rationale: Option<&'static str>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ServiceOperationDescriptor {
     pub id: ServiceOperationId,
     pub http_method: &'static str,
@@ -460,6 +480,7 @@ pub struct ServiceOperationDescriptor {
     pub request_schema_ref: Option<&'static str>,
     pub response_schema_ref: Option<&'static str>,
     pub uncertain_outcome: Option<&'static str>,
+    pub durable_effect: Option<DurableEffectDescriptor>,
 }
 
 impl ServiceOperationId {
@@ -1732,6 +1753,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-edge-operations.schema.json#/$defs/applet_actor_view",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::EdgeAppletCommandTransaction,
@@ -1749,6 +1771,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-edge-operations.schema.json#/$defs/applet_transaction_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::EdgeAppletQueryDescribe,
@@ -1762,6 +1789,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: None,
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::EdgeAppletQueryPing,
@@ -1777,6 +1805,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-edge-operations.schema.json#/$defs/applet_ping_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::EdgeAppletQueryProtocolMetadata,
@@ -1792,6 +1821,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-edge-operations.schema.json#/$defs/applet_protocol_metadata",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::EdgeAppletRealmQueryResolve,
@@ -1807,6 +1837,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-edge-operations.schema.json#/$defs/applet_realm_view",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::EdgeAppletThirdPartyLocationsQueryList,
@@ -1822,6 +1853,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-edge-operations.schema.json#/$defs/applet_third_party_location_list",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::EdgeAppletThirdPartyUsersQueryList,
@@ -1837,6 +1869,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-edge-operations.schema.json#/$defs/applet_third_party_user_list",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::EdgePushCommandNotify,
@@ -1852,6 +1885,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some("schemas/push-operations.schema.json#/$defs/push_notify_outcome"),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::EdgePushCommandRegisterDevice,
@@ -1869,6 +1907,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/push-operations.schema.json#/$defs/push_register_device_outcome",
         ),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::EdgePushCommandUnregisterDevice,
@@ -1886,6 +1929,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/push-operations.schema.json#/$defs/push_unregister_device_outcome",
         ),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryCommandAnnounce,
@@ -1905,6 +1953,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.find.directory.query.resolve_target\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryCommandTakedownAppeal,
@@ -1922,6 +1975,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealOutcome",
         ),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryCommandWithdraw,
@@ -1939,6 +1997,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/DirectoryWithdrawOutcome",
         ),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryPushCommandRegister,
@@ -1956,6 +2019,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/directory-operations.schema.json#/$defs/directory_push_register_outcome",
         ),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryQueryDescribe,
@@ -1969,6 +2037,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: None,
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryQueryListHandlesForSubject,
@@ -1984,6 +2053,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some("schemas/list-handles-for-subject-response.schema.json"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryQueryPrivateContactDiscovery,
@@ -2001,6 +2071,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/directory-operations.schema.json#/$defs/directory_private_contact_discovery_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryQueryResolveAgentSelector,
@@ -2018,6 +2089,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/directory-operations.schema.json#/$defs/directory_agent_selector_resolution_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryQueryResolveHandle,
@@ -2035,6 +2107,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/directory-operations.schema.json#/$defs/directory_handle_resolution_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryQueryResolveOrganization,
@@ -2052,6 +2125,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/directory-operations.schema.json#/$defs/directory_organization_resolution_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryQueryResolveRealm,
@@ -2069,6 +2143,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/directory-operations.schema.json#/$defs/directory_realm_resolution_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryQueryResolveTarget,
@@ -2086,6 +2161,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/directory-operations.schema.json#/$defs/directory_target_resolution_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryQuerySearchActors,
@@ -2103,6 +2179,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/directory-operations.schema.json#/$defs/directory_actor_search_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryQuerySearchOrganizations,
@@ -2120,6 +2197,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/directory-operations.schema.json#/$defs/directory_organization_search_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryQuerySearchRealms,
@@ -2137,6 +2215,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/directory-operations.schema.json#/$defs/directory_realm_search_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryQuerySearchUsers,
@@ -2154,6 +2233,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/directory-operations.schema.json#/$defs/directory_user_search_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandAuthorizeRecoveryDevice,
@@ -2171,6 +2251,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/recovery-authority.schema.json#/$defs/authorize_recovery_device_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("returns_signed_event_material_without_committing_it"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandEnrollDevice,
@@ -2190,6 +2275,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.account.query.viewer\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("returns_signed_event_material_without_committing_it"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandIntrospectSessionGrant,
@@ -2207,6 +2297,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantIntrospectOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandIssueIdentityBindingChallenge,
@@ -2224,6 +2319,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-operations.schema.json#/$defs/identity_binding_challenge_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandIssueSessionGrant,
@@ -2243,6 +2343,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.gate.account.command.issue_session_grant\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandLogout,
@@ -2262,6 +2367,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.gate.account.command.introspect_session_grant\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandLogoutAuthSession,
@@ -2281,6 +2391,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.gate.account.command.introspect_session_grant\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandPairAgentKey,
@@ -2298,6 +2413,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_key_pair_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandPairDevice,
@@ -2317,6 +2437,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.account.query.viewer\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandPromoteRecoverySessionGrant,
@@ -2334,6 +2459,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/recovery-authority.schema.json#/$defs/promote_recovery_session_grant_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandRefreshSessionGrant,
@@ -2353,6 +2483,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.gate.account.command.issue_session_grant\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandRegister,
@@ -2370,6 +2505,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-operations.schema.json#/$defs/account_register_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandRevokeSession,
@@ -2389,6 +2529,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.gate.account.command.introspect_session_grant\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountExchangeCompleteOidc,
@@ -2406,6 +2551,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/AccountOidcCallbackOutcome",
         ),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountExchangeCreateHandoff,
@@ -2423,6 +2573,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-operations.schema.json#/$defs/account_handoff_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenAgentPairingCommandSubmitRuntimeKeyRequest,
@@ -2440,6 +2595,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenAgentPairingQueryResolve,
@@ -2457,6 +2617,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_pairing_bootstrap",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenAgentPairingQueryRuntimeKeyRequestStatus,
@@ -2474,6 +2635,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_status_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenDevicePairingCommandStage,
@@ -2493,6 +2655,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.open.device_pairing.command.stage\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenDevicePairingQueryResolve,
@@ -2510,6 +2677,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/device-pairing.schema.json#/$defs/device_pairing_bootstrap",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenDevicePairingQueryStatus,
@@ -2527,6 +2695,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/device-pairing.schema.json#/$defs/device_pairing_status_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenInviteLocatorQueryResolve,
@@ -2542,6 +2711,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some("schemas/principal-locator.schema.json"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiCommandNotify,
@@ -2557,6 +2727,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_notify_outcome"),
         uncertain_outcome: Some("{\"strategy\":\"drop_unconfirmed\"}"),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiCommandProxyDownload,
@@ -2576,6 +2751,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.open.mimi.command.proxy_download\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiCommandReportAbuse,
@@ -2593,6 +2773,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/mimi-operations.schema.json#/$defs/mimi_report_abuse_outcome",
         ),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiCommandRequestConsent,
@@ -2612,6 +2797,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiCommandSubmitMessage,
@@ -2631,6 +2821,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.open.mimi.query.group_info\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiCommandUpdateConsent,
@@ -2650,6 +2845,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiCommandUpdateRoom,
@@ -2669,6 +2869,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.open.mimi.query.group_info\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiExchangeRequestKeyMaterial,
@@ -2688,6 +2893,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.open.mimi.query.group_info\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiQueryGroupInfo,
@@ -2703,6 +2913,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/mimi-operations.schema.json#/$defs/mimi_group_info_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiQueryIdentifiers,
@@ -2720,6 +2931,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/mimi-operations.schema.json#/$defs/mimi_identifier_query_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenMimiQueryProviderDirectory,
@@ -2733,6 +2945,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/mimi-interop.schema.json"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerContactsCommandSubmit,
@@ -2748,6 +2961,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/peer-contact-delivery-request.schema.json#/$defs/peer_contact_delivery_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("delivers_existing_signed_fact_without_committing_a_local_event"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerEventsCommandSubmit,
@@ -2765,6 +2983,13 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Dynamic(
+                "$request.submissions[*].event.kind",
+            )),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerEventsQueryDescribe,
@@ -2778,6 +3003,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: None,
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerEventsQueryFrontier,
@@ -2793,6 +3019,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/EventsFrontierFederationPeerState",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerEventsQueryResolve,
@@ -2810,6 +3037,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/PeerEventsResolveOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerEventsQueryScan,
@@ -2825,6 +3053,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/EventsQueryOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerEventsQueryScanBody,
@@ -2842,6 +3071,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/EventsQueryOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerInvitesCommandSubmit,
@@ -2857,6 +3087,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/invite-delivery-request.schema.json#/$defs/invite_delivery_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("delivers_existing_signed_event_without_committing_a_local_event"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerKeysKeypackagesCommandClaim,
@@ -2876,6 +3111,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.peer.keys.keypackages.query.claim\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerKeysKeypackagesQueryClaim,
@@ -2893,6 +3133,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keypackage-operations.schema.json#/$defs/peer_key_packages_claim_query_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerSignalCommandRelay,
@@ -2906,6 +3147,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: Some("schemas/signal-relay.schema.json"),
         response_schema_ref: Some("schemas/signal-relay.schema.json#/$defs/signal_relay_outcome"),
         uncertain_outcome: Some("{\"strategy\":\"drop_unconfirmed\"}"),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("ephemeral_signal_must_not_be_durable_event"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerSnapshotQueryManifestHead,
@@ -2919,6 +3165,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/snapshot.schema.json"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityCommandSubmitDidOperation,
@@ -2936,6 +3183,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/DidOperationSubmitOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityDocumentResourceGet,
@@ -2951,6 +3203,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/IdentityDocumentView",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityLogQueryList,
@@ -2966,6 +3219,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/IdentityLogListOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityOrganizationRegistrationCommandEnsure,
@@ -2983,6 +3237,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityOrganizationRegistrationCommandPrepare,
@@ -3002,6 +3261,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.root.identity.organization_registration.command.prepare\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityOrganizationRegistrationCommandRefresh,
@@ -3019,6 +3283,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityOrganizationRegistrationCommandRevoke,
@@ -3036,6 +3305,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityOrganizationRegistrationResourceGet,
@@ -3051,6 +3325,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityQueryResolve,
@@ -3068,6 +3343,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/IdentityResolveOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityReceiptsQueryList,
@@ -3083,6 +3359,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/IdentityReceiptListOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityRecoveryPolicyCommandPublish,
@@ -3100,6 +3377,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/recovery-policy.schema.json#/$defs/recovery_policy_publish_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.policy.set"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityRecoveryPolicyResourceGet,
@@ -3115,6 +3397,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/recovery-policy.schema.json#/$defs/recovery_policy_active_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityRecoverySessionCommandCreate,
@@ -3134,6 +3417,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.root.identity.recovery_session.resource.get\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityRecoverySessionCommandSubmitProof,
@@ -3153,6 +3441,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.root.identity.recovery_session.resource.get\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityRecoverySessionResourceGet,
@@ -3168,6 +3461,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/recovery-session.schema.json#/$defs/recovery_session_state",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityRegistryQueryDescribe,
@@ -3181,6 +3475,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: None,
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityServiceRegistrationCommandEnsure,
@@ -3198,6 +3493,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/ServiceRegistrationOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::RootIdentityServiceRegistrationResourceGet,
@@ -3213,6 +3513,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/ServiceRegistrationOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountCommandRevokeCursor,
@@ -3230,6 +3531,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/AccountCursorRevokeOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountCommandUpdateProfile,
@@ -3249,6 +3555,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.account.query.viewer\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.profile.update"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountQueryDescribe,
@@ -3262,6 +3573,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: None,
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountQueryViewer,
@@ -3275,6 +3587,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/account-operations.schema.json#/$defs/account_view"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountStreamSubscribe,
@@ -3288,6 +3601,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: None,
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountDataQueryList,
@@ -3303,6 +3617,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-data-operations.schema.json#/$defs/account_data_list",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountDataResourceDelete,
@@ -3318,6 +3633,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-data-operations.schema.json#/$defs/account_data_delete_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::ActorPrivateEvent,
+            target: Some(DurableEventTarget::Static(&["ak.account_data.set"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountDataResourceGet,
@@ -3333,6 +3653,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-data-operations.schema.json#/$defs/account_data_entry",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountDataResourceReplace,
@@ -3350,6 +3671,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-data-operations.schema.json#/$defs/account_data_entry",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::ActorPrivateEvent,
+            target: Some(DurableEventTarget::Static(&["ak.account_data.set"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentCommandDeactivate,
@@ -3369,6 +3695,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.agent.resource.get\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.self.agent.deactivate"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentCommandPause,
@@ -3388,6 +3719,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.agent.resource.get\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.self.agent.pause"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentCommandProvision,
@@ -3405,6 +3741,14 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_provision_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&[
+                "ak.identity.accountability_grant",
+                "ak.agent.selector_claim",
+            ])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentCommandRenewPairing,
@@ -3424,6 +3768,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.agent.resource.get\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentCommandResume,
@@ -3443,6 +3792,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.agent.resource.get\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.self.agent.resume"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentGrantCommandAttach,
@@ -3462,6 +3816,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.authz.grants.query.effective\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.capability.grant"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentGrantResourceDelete,
@@ -3477,6 +3836,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_grant_detach_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.capability.revoke"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentParticipationResourceGet,
@@ -3492,6 +3856,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_participation_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentParticipationResourceReplace,
@@ -3509,6 +3874,14 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_participation_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&[
+                "ak.capability.grant",
+                "ak.capability.revoke",
+            ])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentQueryList,
@@ -3522,6 +3895,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_list"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentResourceGet,
@@ -3535,6 +3909,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_view"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentSidecarCommandEnsure,
@@ -3552,6 +3927,17 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_sidecar_ensure_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&[
+                "ak.sidecar.create",
+                "ak.circle.create",
+                "ak.circle.member.state",
+                "ak.strand.create",
+                "ak.relation.create",
+            ])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentSidecarQueryList,
@@ -3565,6 +3951,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_sidecar_list"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentSidecarResourceGet,
@@ -3578,6 +3965,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_sidecar_view"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAgentSignerEvidenceQueryResolve,
@@ -3595,6 +3983,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-signer-evidence-operations.schema.json#/$defs/query_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAppletCommandInstall,
@@ -3612,6 +4001,14 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-install-operations.schema.json#/$defs/applet_install_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&[
+                "ak.applet.registration",
+                "ak.capability.grant",
+            ])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAppletCommandRevoke,
@@ -3629,6 +4026,14 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-install-operations.schema.json#/$defs/applet_revoke_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&[
+                "ak.capability.revoke",
+                "ak.member.state",
+            ])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAppletGhostCommandProvision,
@@ -3646,6 +4051,14 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-ghost-operations.schema.json#/$defs/ghost_actor_provision_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&[
+                "ak.identity.accountability_grant",
+                "ak.profile.create",
+            ])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAppletInstallCommandPreview,
@@ -3661,6 +4074,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some("schemas/applet-install-plan.schema.json"),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("read_only_preview_despite_post_binding"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAuthorizationLeasesCommandIssue,
@@ -3678,6 +4096,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/AuthorizationLeaseIssueOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("pre_admission_only_no_event_commit"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAuthzGrantsQueryEffective,
@@ -3691,6 +4114,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/GrantList"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAuthzInvitesQueryList,
@@ -3704,6 +4128,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/authz-operations.schema.json#/$defs/authz_invite_list"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAuthzQueryCheck,
@@ -3721,6 +4146,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfBlobCommandPresign,
@@ -3740,6 +4166,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.blob.command.presign\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfBlobResourceGet,
@@ -3753,6 +4184,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: None,
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfBlobResourceHead,
@@ -3766,6 +4198,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: None,
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfBlobUploadCreate,
@@ -3781,6 +4214,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some("schemas/blob-operations.schema.json#/$defs/blob_upload_outcome"),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCallMediaExchangeIssueToken,
@@ -3800,6 +4238,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.call.media.exchange.issue_token\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCircleCommandArchive,
@@ -3817,6 +4260,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.circle.resource.get\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.circle.archive"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCircleCommandCreate,
@@ -3834,6 +4282,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.circle.query.list\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.circle.create"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCircleCommandRestore,
@@ -3851,6 +4304,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.circle.resource.get\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.circle.restore"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCircleCommandRotateScope,
@@ -3868,6 +4326,13 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.circle.resource.get\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Dynamic(
+                "$request.event_units[*].event.kind",
+            )),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCircleCommandTombstone,
@@ -3885,6 +4350,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.circle.resource.get\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.circle.tombstone"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCircleMemberCommandAdd,
@@ -3904,6 +4374,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.circle.resource.get\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.circle.member.state"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCircleMemberResourceDelete,
@@ -3919,6 +4394,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/circle-operations.schema.json#/$defs/circle_membership_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.circle.member.state"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCircleQueryList,
@@ -3932,6 +4412,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_list"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCircleResourceGet,
@@ -3945,6 +4426,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_view"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfConsentCommandGrant,
@@ -3964,6 +4446,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.consent.grant"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfConsentCommandRequest,
@@ -3983,6 +4470,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfConsentCommandRevoke,
@@ -4002,6 +4494,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.consent.query.list\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.consent.revoke"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfConsentQueryList,
@@ -4017,6 +4514,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/consent-operations.schema.json#/$defs/consent_cell_list",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfConsentResourceGet,
@@ -4032,6 +4530,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/consent-operations.schema.json#/$defs/consent_cell_view",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfContactCommandRequest,
@@ -4051,6 +4550,14 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.contact.query.list\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&[
+                "ak.contact.requested",
+                "ak.consent.grant",
+            ])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfContactCommandRespond,
@@ -4070,6 +4577,15 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.contact.query.list\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&[
+                "ak.contact.accepted",
+                "ak.contact.rejected",
+                "ak.consent.grant",
+            ])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfContactCommandTombstone,
@@ -4089,6 +4605,14 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.contact.query.list\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&[
+                "ak.contact.tombstoned",
+                "ak.consent.revoke",
+            ])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfContactQueryList,
@@ -4102,6 +4626,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/contact-operations.schema.json#/$defs/contact_list"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfControlProposalReceiptsCommandIssue,
@@ -4119,6 +4644,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/control-proposal-decision.schema.json#/$defs/proposal_receipt_issue_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("pre_admission_receipt_only_no_event_commit"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfDeviceMessagesCommandAck,
@@ -4136,6 +4666,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesAckOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfDeviceMessagesCommandSend,
@@ -4153,6 +4688,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesSendOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfDeviceMessagesQueryList,
@@ -4168,6 +4708,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesGetOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfDirectConversationCommandResolve,
@@ -4185,6 +4726,13 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/contact-operations.schema.json#/$defs/direct_conversation_resolve_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Dynamic(
+                "$request.signed_event_units[*].event.kind",
+            )),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfEventsCommandSubmit,
@@ -4202,6 +4750,13 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Dynamic(
+                "$request.submissions[*].event.kind",
+            )),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfEventsCommandSubmitSeal,
@@ -4217,6 +4772,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/EventSealSubmitOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("commits_a_seal_not_an_event"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfEventsQueryDescribe,
@@ -4230,6 +4790,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: None,
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfEventsQueryFrontier,
@@ -4245,6 +4806,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/EventsFrontierState",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfEventsQueryMlsGovernanceProof,
@@ -4260,6 +4822,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some("schemas/mls-governance-proof-bundle.schema.json"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfEventsQueryResolve,
@@ -4277,6 +4840,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/EventsResolveOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfEventsQueryScan,
@@ -4292,6 +4856,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/EventsQueryOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfEventsQueryScanBody,
@@ -4309,6 +4874,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/EventsQueryOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfEventsResourceGet,
@@ -4322,6 +4888,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventView"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfEventsStreamSubscribe,
@@ -4335,6 +4902,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: None,
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfInviteLocatorCommandIssue,
@@ -4354,6 +4922,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.invite_locator.command.issue\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfInviteLocatorCommandRevoke,
@@ -4371,6 +4944,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/principal-locator.schema.json#/$defs/invite_locator_revoke_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfInviteLocatorCommandRotate,
@@ -4388,6 +4966,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/principal-locator.schema.json#/$defs/invite_locator_issue_outcome",
         ),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfInviteReceivePolicyResourceGet,
@@ -4401,6 +4984,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/invite-receive-policy.schema.json"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfInviteReceivePolicyResourceReplace,
@@ -4414,6 +4998,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: Some("schemas/invite-receive-policy.schema.json"),
         response_schema_ref: Some("schemas/invite-receive-policy.schema.json"),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysBackupSeriesCommandErase,
@@ -4431,6 +5020,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keys-operations.schema.json#/$defs/backup_series_erase_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysBackupsCommandUnlock,
@@ -4448,6 +5042,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.keys.backups.command.unlock\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysBackupsQueryList,
@@ -4461,6 +5060,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_backups_list"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysBackupsResourceDelete,
@@ -4478,6 +5078,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keys-operations.schema.json#/$defs/keys_backups_delete_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysBackupsResourceReplace,
@@ -4493,6 +5098,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keys-operations.schema.json#/$defs/keys_backups_replace_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysCommandClaim,
@@ -4510,6 +5120,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.keys.query.lookup\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysKeypackagesCommandClaim,
@@ -4529,6 +5144,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.keys.keypackages.command.claim\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysKeypackagesCommandConsume,
@@ -4548,6 +5168,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.keys.query.lookup\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysKeypackagesCommandRevoke,
@@ -4567,6 +5192,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.keys.query.lookup\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysKeypackagesUploadCreate,
@@ -4586,6 +5216,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.keys.keypackages.upload.create\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysQueryLookup,
@@ -4601,6 +5236,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_query_outcome"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysUploadCreate,
@@ -4618,6 +5254,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.keys.query.lookup\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfMediaQueryIceConfig,
@@ -4633,6 +5274,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some("schemas/ice-config-response.schema.json"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfModerationCommandReport,
@@ -4648,6 +5290,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/ModerationReportOutcome",
         ),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.self.moderation.report"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfMorphQueryList,
@@ -4663,6 +5310,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/ProjectionMorphList",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfMorphResourceGet,
@@ -4678,6 +5326,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/view.schema.json#/$defs/document_morph_projection_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfPolicyQueryCheck,
@@ -4695,6 +5344,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/PolicyCheckOutcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfReadCursorCommandAdvance,
@@ -4712,6 +5362,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/read-cursor-operations.schema.json#/$defs/read_marker_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::ActorPrivateEvent,
+            target: Some(DurableEventTarget::Static(&["ak.read_cursor.advance"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfReadCursorQueryList,
@@ -4727,6 +5382,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/read-cursor-operations.schema.json#/$defs/read_cursor_list",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmCommandArchive,
@@ -4744,6 +5400,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.realm.resource.get\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.realm.archive"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmCommandDestroy,
@@ -4761,6 +5422,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.realm.resource.get\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.realm.destroy"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmCommandFreeze,
@@ -4778,6 +5444,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.realm.resource.get\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.realm.freeze"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmCommandTombstone,
@@ -4797,6 +5468,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.realm.resource.get\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.realm.tombstone"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmJoinApplicationAuditQueryList,
@@ -4812,6 +5488,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/join-policy-operations.schema.json#/$defs/application_audit_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmJoinApplicationCommandCancel,
@@ -4829,6 +5506,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/join-policy-operations.schema.json#/$defs/application_mutation_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmJoinApplicationCommandReview,
@@ -4846,6 +5528,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/join-policy-operations.schema.json#/$defs/application_mutation_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmJoinApplicationCommandSubmit,
@@ -4863,6 +5550,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/join-policy-operations.schema.json#/$defs/application_mutation_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmJoinApplicationQueryList,
@@ -4878,6 +5570,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/join-policy-operations.schema.json#/$defs/application_list_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmJoinApplicationResourceGet,
@@ -4893,6 +5586,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/join-policy-operations.schema.json#/$defs/application_get_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmModerationPolicyQueryEffective,
@@ -4908,6 +5602,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/realm-read-operations.schema.json#/$defs/realm_effective_moderation_policy",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmModerationPolicyResourceReplace,
@@ -4925,6 +5620,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/realm-read-operations.schema.json#/$defs/realm_moderation_policy_document",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.realm.moderation_policy"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmQueryExport,
@@ -4938,6 +5638,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/realm-read-operations.schema.json#/$defs/realm_export"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmResourceGet,
@@ -4953,6 +5654,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/realm-read-operations.schema.json#/$defs/realm_lifecycle_view",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmLinkCommandCreate,
@@ -4972,6 +5674,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.realm_link.query.list\",\"strategy\":\"query_operation\"}",
         ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.realm.link"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmLinkQueryEffectivePolicy,
@@ -4987,6 +5694,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/realm-link-operations.schema.json#/$defs/realm_effective_policy_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmLinkQueryList,
@@ -5002,6 +5710,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/realm-link-operations.schema.json#/$defs/realm_link_list",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmLinkResourceDelete,
@@ -5017,6 +5726,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/realm-link-operations.schema.json#/$defs/realm_link_mutation_outcome",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.realm.link"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmOrganizationQueryList,
@@ -5032,6 +5746,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/realm-organization-operations.schema.json#/$defs/realm_organization_relationship_list",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmPolicyServerResourceDelete,
@@ -5045,6 +5760,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: None,
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.realm.policy_server"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmPolicyServerResourceGet,
@@ -5060,6 +5780,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/realm-policy-server-operations.schema.json#/$defs/realm_policy_server_view",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmPolicyServerResourceReplace,
@@ -5077,6 +5798,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/realm-policy-server-operations.schema.json#/$defs/realm_policy_server_view",
         ),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.realm.policy_server"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRecoveryAuthorityTicketCommandIssue,
@@ -5092,6 +5818,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some("schemas/recovery-authority.schema.json"),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfSecurityTransactionCommandContinue,
@@ -5107,6 +5838,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some("schemas/security-transaction.schema.json"),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfSecurityTransactionCommandCreate,
@@ -5120,6 +5856,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: Some("schemas/security-transaction.schema.json#/$defs/create_request"),
         response_schema_ref: Some("schemas/security-transaction.schema.json"),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfSecurityTransactionResourceGet,
@@ -5133,6 +5874,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/security-transaction.schema.json"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfSignalCommandSend,
@@ -5148,6 +5890,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/SignalSubmitOutcome",
         ),
         uncertain_outcome: Some("{\"strategy\":\"drop_unconfirmed\"}"),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("ephemeral_signal_must_not_be_durable_event"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfSignalStreamSubscribe,
@@ -5161,6 +5908,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: None,
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfSnapshotQueryManifestHead,
@@ -5174,6 +5922,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some("schemas/snapshot.schema.json"),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfSpaceQueryList,
@@ -5189,6 +5938,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/ProjectionSpaceList",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfStrandQueryList,
@@ -5204,6 +5954,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/ProjectionStrandList",
         ),
         uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfViewsCollectionProjectionCommandMaterialize,
@@ -5217,6 +5968,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: Some("schemas/view.schema.json#/$defs/view_projection_request_body"),
         response_schema_ref: Some("schemas/view.schema.json#/$defs/collection_projection_view"),
         uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::ServerQueryDescribe,
@@ -5230,5 +5986,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: None,
         uncertain_outcome: None,
+        durable_effect: None,
     },
 ];

@@ -107,6 +107,26 @@ def generate_operations(artifacts: Path) -> str:
             "];",
             "",
             "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
+            "pub enum DurableEffectKind {",
+            "    EventLog,",
+            "    ActorPrivateEvent,",
+            "    None,",
+            "}",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
+            "pub enum DurableEventTarget {",
+            "    Static(&'static [&'static str]),",
+            "    Dynamic(&'static str),",
+            "}",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
+            "pub struct DurableEffectDescriptor {",
+            "    pub kind: DurableEffectKind,",
+            "    pub target: Option<DurableEventTarget>,",
+            "    pub rationale: Option<&'static str>,",
+            "}",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
             "pub struct ServiceOperationDescriptor {",
             "    pub id: ServiceOperationId,",
             "    pub http_method: &'static str,",
@@ -119,6 +139,7 @@ def generate_operations(artifacts: Path) -> str:
             "    pub request_schema_ref: Option<&'static str>,",
             "    pub response_schema_ref: Option<&'static str>,",
             "    pub uncertain_outcome: Option<&'static str>,",
+            "    pub durable_effect: Option<DurableEffectDescriptor>,",
             "}",
             "",
             "impl ServiceOperationId {",
@@ -215,6 +236,60 @@ def generate_operations(artifacts: Path) -> str:
         retry_expr = (
             "None" if retry is None else f"Some({str(bool(retry)).lower()})"
         )
+        durable = row.get("durable_effect")
+        durable_lines: list[str]
+        if durable is None:
+            durable_lines = ["        durable_effect: None,"]
+        else:
+            kind = durable.get("kind")
+            if kind == "event_log":
+                if "event_kinds" in durable:
+                    target = (
+                        "Some(DurableEventTarget::Static("
+                        f"{rust_slice(durable['event_kinds'])}))"
+                    )
+                elif isinstance(durable.get("event_kind_source"), str):
+                    target = (
+                        "Some(DurableEventTarget::Dynamic("
+                        f"{rust_string(durable['event_kind_source'])}))"
+                    )
+                else:
+                    raise ValueError(
+                        f"{row['operation_id']} event_log durable effect needs a target"
+                    )
+                durable_expr = (
+                    "Some(DurableEffectDescriptor { "
+                    "kind: DurableEffectKind::EventLog, "
+                    f"target: {target}, rationale: None }})"
+                )
+            elif kind == "actor_private_event":
+                event_kind = durable.get("event_kind")
+                if not isinstance(event_kind, str):
+                    raise ValueError(
+                        f"{row['operation_id']} actor_private_event needs event_kind"
+                    )
+                durable_expr = (
+                    "Some(DurableEffectDescriptor { "
+                    "kind: DurableEffectKind::ActorPrivateEvent, "
+                    "target: Some(DurableEventTarget::Static("
+                    f"{rust_slice([event_kind])})), rationale: None }})"
+                )
+            elif kind == "none":
+                rationale = durable.get("rationale")
+                if not isinstance(rationale, str) or not rationale:
+                    raise ValueError(
+                        f"{row['operation_id']} none durable effect needs rationale"
+                    )
+                durable_expr = (
+                    "Some(DurableEffectDescriptor { "
+                    "kind: DurableEffectKind::None, target: None, "
+                    f"rationale: Some({rust_string(rationale)}) }})"
+                )
+            else:
+                raise ValueError(
+                    f"{row['operation_id']} has unsupported durable effect kind {kind!r}"
+                )
+            durable_lines = [f"        durable_effect: {durable_expr},"]
         lines.extend(
             [
                 "    ServiceOperationDescriptor {",
@@ -229,6 +304,7 @@ def generate_operations(artifacts: Path) -> str:
                 f"        request_schema_ref: {rust_option(row.get('request_schema_ref'))},",
                 f"        response_schema_ref: {rust_option(row.get('response_schema_ref'))},",
                 f"        uncertain_outcome: {rust_option(uncertain)},",
+                *durable_lines,
                 "    },",
             ]
         )

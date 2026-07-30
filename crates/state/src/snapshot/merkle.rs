@@ -4,13 +4,13 @@ use crate::{Error, Hash, Result};
 /// Binary Merkle tree over snapshot chunk digests.
 ///
 /// Construction:
-/// - Leaves are chunk digests in `chunk_id` order.
-/// - Internal nodes are `sha256(left || right)` (raw 32-byte concat).
+/// - Leaves are `sha256(0x00 || raw_digest)` in `chunk_id` order.
+/// - Internal nodes are `sha256(0x01 || left || right)`.
 /// - Odd levels promote the last node to the next level **unchanged** (RFC 6962-style; never
 ///   duplicate — see spec `event-auth-state-resolution.md` §4.2.2 for the house odd-layer rule).
 ///   Duplication would make `[A,B,C]` and `[A,B,C,C]` share a root (CVE-2012-2459-shaped
 ///   ambiguity).
-/// - Single-leaf tree returns the leaf as root.
+/// - Single-leaf tree returns the domain-separated leaf hash as root.
 #[derive(Clone, Debug)]
 pub struct SnapshotMerkleTree {
     leaves: Vec<Hash>,
@@ -39,8 +39,9 @@ impl SnapshotMerkleTree {
                 )));
             }
         }
-        let leaves: Vec<Hash> = chunks.iter().map(|c| c.digest.clone()).collect();
-        let levels = build_levels(&leaves)?;
+        let leaf_data: Vec<Hash> = chunks.iter().map(|c| c.digest.clone()).collect();
+        let levels = build_levels(&leaf_data)?;
+        let leaves = levels[0].clone();
         Ok(Self { leaves, levels })
     }
 
@@ -98,9 +99,10 @@ impl SnapshotMerkleTree {
         if leaf_count == 0 || leaf_index >= leaf_count {
             return false;
         }
-        let Some(mut current) = parse_sha256(leaf) else {
+        let Some(leaf_data) = parse_sha256(leaf) else {
             return false;
         };
+        let mut current = hash_leaf(&leaf_data);
         let mut idx = leaf_index;
         let mut layer_size = leaf_count;
         let mut siblings = audit_path.iter();
@@ -136,8 +138,22 @@ impl SnapshotMerkleTree {
     }
 }
 
-pub(crate) fn build_levels(leaves: &[Hash]) -> Result<Vec<Vec<Hash>>> {
-    let mut levels: Vec<Vec<Hash>> = vec![leaves.to_vec()];
+/// Build RFC 6962 levels from caller-supplied leaf data digests.
+///
+/// The input hashes are leaf *data*, not already-domain-separated Merkle
+/// leaves. This distinction prevents callers from accidentally accepting the
+/// legacy unprefixed tree.
+pub(crate) fn build_levels(leaf_data: &[Hash]) -> Result<Vec<Vec<Hash>>> {
+    let leaves = leaf_data
+        .iter()
+        .enumerate()
+        .map(|(index, leaf)| {
+            parse_sha256(leaf)
+                .map(|bytes| format_hash(&hash_leaf(&bytes)))
+                .ok_or_else(|| Error::Protocol(format!("Merkle leaf {index} not sha256: {leaf}")))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let mut levels: Vec<Vec<Hash>> = vec![leaves];
     while levels.last().map(|l| l.len()).unwrap_or(0) > 1 {
         let current = levels.last().expect("non-empty");
         let mut next = Vec::with_capacity(current.len().div_ceil(2));
@@ -183,8 +199,20 @@ pub(crate) fn parse_sha256(hash: &Hash) -> Option<[u8; 32]> {
     Some(out)
 }
 
+pub(crate) fn hash_leaf(leaf_data: &[u8]) -> [u8; 32] {
+    crate::canonical::sha256_bytes_from_slices(&[&[0x00], leaf_data])
+}
+
 pub(crate) fn hash_pair(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
-    crate::canonical::sha256_bytes_from_slices(&[&left[..], &right[..]])
+    crate::canonical::sha256_bytes_from_slices(&[&[0x01], &left[..], &right[..]])
+}
+
+pub(crate) fn parent_hash(left: &Hash, right: &Hash) -> Result<Hash> {
+    let left = parse_sha256(left)
+        .ok_or_else(|| Error::Protocol(format!("Merkle node not sha256: {left}")))?;
+    let right = parse_sha256(right)
+        .ok_or_else(|| Error::Protocol(format!("Merkle node not sha256: {right}")))?;
+    Ok(format_hash(&hash_pair(&left, &right)))
 }
 
 pub(crate) fn format_hash(bytes: &[u8; 32]) -> Hash {

@@ -406,15 +406,14 @@ pub fn verify_snapshot_inclusion(
         "key": event_id,
         "value": event_id,
     }))?)?;
-    let mut running = leaf_hash;
+    let mut running = crate::merkle_root_from_hashes(vec![leaf_hash])?;
     for step in proof {
         let sibling = crate::Hash::new(step.sibling.clone())?;
-        let leaves = if step.is_left {
-            vec![sibling, running]
+        running = if step.is_left {
+            crate::snapshot::merkle::parent_hash(&sibling, &running)?
         } else {
-            vec![running, sibling]
+            crate::snapshot::merkle::parent_hash(&running, &sibling)?
         };
-        running = crate::merkle_root_from_hashes(leaves)?;
     }
     if running.as_str() == root {
         Ok(())

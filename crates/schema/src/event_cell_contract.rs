@@ -66,6 +66,15 @@ pub enum EventCellContractError {
     EffectSetMismatch { kind: String, message: String },
     #[error("event kind {kind} cell subject cannot be derived: {message}")]
     SubjectDerivation { kind: String, message: String },
+    #[error(
+        "event kind {kind} failed frozen pre-state requirement ({code}/{reason_code}): {message}"
+    )]
+    PreStateRequirement {
+        kind: String,
+        code: String,
+        reason_code: String,
+        message: String,
+    },
 }
 
 impl EventCellContractError {
@@ -73,10 +82,21 @@ impl EventCellContractError {
     pub fn reason_code(&self) -> &'static str {
         match self {
             Self::PlaneMismatch { .. } => "plane_cross_write",
+            Self::PreStateRequirement { reason_code, .. }
+                if reason_code == "invite_kind_requires_revoke" =>
+            {
+                "invite_kind_requires_revoke"
+            }
+            Self::PreStateRequirement { .. } => "reducer_projection_failed",
             _ => "effects_payload_mismatch",
         }
     }
 }
+
+/// Frozen cell values used while evaluating registry-declared pre-state
+/// requirements. A missing entry is a failed requirement, never an implicit
+/// bottom value.
+pub type FrozenPreState = BTreeMap<CellRef, Value>;
 
 static EMBEDDED_EVENT_KIND_REGISTRY: OnceLock<Result<Value, String>> = OnceLock::new();
 
@@ -107,6 +127,19 @@ pub fn project_registered_cell_writes(
     event: &Event,
     digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<Vec<ProjectedCellWrite>, EventCellContractError> {
+    project_registered_cell_writes_with_pre_state(event, digest_suite, &FrozenPreState::new())
+}
+
+/// Project registered writes after evaluating every requirement against one
+/// immutable pre-state snapshot.
+///
+/// Requirement failure returns before any write is exposed to the caller, so
+/// an Event cannot partially apply its registered write set.
+pub fn project_registered_cell_writes_with_pre_state(
+    event: &Event,
+    digest_suite: arkret_canonical::DigestSuite,
+    frozen_pre_state: &FrozenPreState,
+) -> Result<Vec<ProjectedCellWrite>, EventCellContractError> {
     let kind = event.kind.as_str().to_owned();
     let registry = event_kind_registry()?;
     let row = registry
@@ -117,6 +150,7 @@ pub fn project_registered_cell_writes(
                 .find(|row| row.get("event_kind").and_then(Value::as_str) == Some(kind.as_str()))
         })
         .ok_or_else(|| EventCellContractError::UnregisteredReducerInput(kind.clone()))?;
+    validate_pre_state_requirements(event, row, frozen_pre_state, &kind)?;
     let Some(writes) = row.get("cell_writes").and_then(Value::as_array) else {
         // An active reducer-input kind MUST declare a complete contract
         // (`event-and-patch.md` §2.4.2). Returning an empty projection for one
@@ -237,6 +271,96 @@ pub fn project_registered_cell_writes(
         }
     }
     Ok(projected)
+}
+
+fn validate_pre_state_requirements(
+    event: &Event,
+    row: &Value,
+    frozen_pre_state: &FrozenPreState,
+    kind: &str,
+) -> Result<(), EventCellContractError> {
+    let Some(requirements) = row.get("pre_state_requirements").and_then(Value::as_array) else {
+        return Ok(());
+    };
+    for requirement in requirements {
+        let family = requirement
+            .get("cell_family")
+            .and_then(Value::as_str)
+            .ok_or_else(|| effect_set_error(kind, "pre-state requirement omits cell_family"))?;
+        let subject_path = requirement
+            .get("subject")
+            .and_then(|value| value.get("field"))
+            .and_then(Value::as_str)
+            .ok_or_else(|| effect_set_error(kind, "pre-state requirement omits subject.field"))?;
+        let subject = field_value(event, subject_path)
+            .ok_or_else(|| effect_set_error(kind, "pre-state subject field is absent"))
+            .and_then(|value| {
+                scalar_subject(value).map_err(|message| effect_set_error(kind, &message))
+            })?;
+        let cell = CellRef::new(format!("ak:cell:{family}:{subject}")).map_err(|error| {
+            EventCellContractError::InvalidCell {
+                kind: kind.to_owned(),
+                message: error.to_string(),
+            }
+        })?;
+        let stored = frozen_pre_state.get(&cell);
+        let predicate = requirement
+            .get("predicate")
+            .and_then(Value::as_object)
+            .ok_or_else(|| effect_set_error(kind, "pre-state requirement omits predicate"))?;
+        let field = predicate
+            .get("field")
+            .and_then(Value::as_str)
+            .ok_or_else(|| effect_set_error(kind, "pre-state requirement predicate omits field"))?;
+        let stored_value = stored.and_then(|value| nested_value(value, field));
+        let satisfied = match predicate.get("kind").and_then(Value::as_str) {
+            Some("stored_field_present") => stored_value.is_some_and(|value| !value.is_null()),
+            Some("stored_field_equals_payload") => {
+                let payload_path = predicate
+                    .get("payload_field")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| {
+                        effect_set_error(kind, "stored_field_equals_payload omits payload_field")
+                    })?;
+                stored_value == field_value(event, payload_path)
+            }
+            other => {
+                return Err(effect_set_error(
+                    kind,
+                    &format!("unsupported pre-state predicate {other:?}"),
+                ));
+            }
+        };
+        if !satisfied {
+            let failure = requirement
+                .get("failure")
+                .and_then(Value::as_object)
+                .ok_or_else(|| effect_set_error(kind, "pre-state requirement omits failure"))?;
+            return Err(EventCellContractError::PreStateRequirement {
+                kind: kind.to_owned(),
+                code: failure
+                    .get("code")
+                    .and_then(Value::as_str)
+                    .unwrap_or("failed_precondition")
+                    .to_owned(),
+                reason_code: failure
+                    .get("reason_code")
+                    .and_then(Value::as_str)
+                    .unwrap_or("reducer_projection_failed")
+                    .to_owned(),
+                message: format!("predicate failed for {cell}"),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn nested_value<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
+    let mut current = value;
+    for segment in path.split('.') {
+        current = current.as_object()?.get(segment)?;
+    }
+    Some(current)
 }
 
 /// Admission gate: the registered contract must be evaluable for this Event.
@@ -2047,26 +2171,60 @@ mod tests {
 
     #[test]
     fn invite_terminal_member_transition_is_exact() {
-        for kind in [EventKind::INVITE_CANCEL, EventKind::INVITE_REVOKE] {
-            // Both writes read the head from the frozen pre-state, so they stay
-            // `TransitionTo`; the member always leaves, and no producer could
-            // substitute a join for it.
-            assert_eq!(
-                project(&invite_terminal_event(kind)),
-                vec![
-                    write(
-                        INVITE_LIFECYCLE_CELL,
-                        ProjectedOp::TransitionTo {
-                            to: json!("revoked"),
-                        },
-                    ),
-                    write(
-                        BOB_MEMBER_CELL,
-                        ProjectedOp::TransitionTo { to: json!("leave") },
-                    ),
-                ]
-            );
-        }
+        let expected = vec![
+            write(
+                INVITE_LIFECYCLE_CELL,
+                ProjectedOp::TransitionTo {
+                    to: json!("revoked"),
+                },
+            ),
+            write(
+                BOB_MEMBER_CELL,
+                ProjectedOp::TransitionTo { to: json!("leave") },
+            ),
+        ];
+        assert_eq!(
+            project(&invite_terminal_event(EventKind::INVITE_REVOKE)),
+            expected
+        );
+
+        let cancel = invite_terminal_event(EventKind::INVITE_CANCEL);
+        let lifecycle = CellRef::new(INVITE_LIFECYCLE_CELL.to_owned()).unwrap();
+        let mut pre_state = FrozenPreState::new();
+        pre_state.insert(
+            lifecycle.clone(),
+            json!({"invitee": "did:webvh:z6mkfixture:bob.example"}),
+        );
+        assert_eq!(
+            project_registered_cell_writes_with_pre_state(
+                &cancel,
+                arkret_canonical::DigestSuite::Sha256,
+                &pre_state,
+            )
+            .unwrap(),
+            expected
+        );
+
+        pre_state.clear();
+        let missing = project_registered_cell_writes_with_pre_state(
+            &cancel,
+            arkret_canonical::DigestSuite::Sha256,
+            &pre_state,
+        )
+        .unwrap_err();
+        assert_eq!(missing.reason_code(), "invite_kind_requires_revoke");
+
+        pre_state.insert(
+            lifecycle,
+            json!({"invitee": "did:webvh:z6mkfixture:mallory.example"}),
+        );
+        let mismatch = project_registered_cell_writes_with_pre_state(
+            &cancel,
+            arkret_canonical::DigestSuite::Sha256,
+            &pre_state,
+        )
+        .unwrap_err();
+        assert_eq!(mismatch.reason_code(), "reducer_projection_failed");
     }
 
     fn consent_revoke_event(observed_dots: Value) -> Event {
