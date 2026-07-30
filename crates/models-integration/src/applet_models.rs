@@ -184,7 +184,12 @@ pub struct AppletInstallRequestBody {
     pub plan_digest: Hash,
     pub applet_package: AppletPackage,
     pub effective_scope: ScopeRef,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub registration_event: Event,
+    #[cfg_attr(
+        feature = "openapi",
+        salvo(schema(value_type = Vec<serde_json::Value>))
+    )]
     pub capability_grant_events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actor_policy: Option<AppletActorPolicy>,
