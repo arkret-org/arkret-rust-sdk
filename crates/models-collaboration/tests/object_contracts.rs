@@ -151,7 +151,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     assert_eq!(realm.max_delegation_lifetime_ms, 86_400_000);
     assert!(realm.bottom_escalation_after_ms.is_none());
     assert!(realm.cell_lattices.is_empty());
-    assert!(realm.co_write_policy.is_empty());
+    assert!(realm.cowrite_policy.is_empty());
     assert!(realm.updated_by.is_none());
 
     realm = realm
@@ -214,7 +214,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     assert_eq!(realm.cell_lattices[0].lattice, "or_set");
     assert_eq!(realm.cell_lattices[0].bottom.as_deref(), Some("reject"));
     assert_eq!(
-        realm.co_write_policy,
+        realm.cowrite_policy,
         vec![vec![
             "ak.component.strand.track.v1".to_owned(),
             "ak.component.realm.join_rule.v1".to_owned(),
@@ -236,12 +236,12 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     assert_eq!(json["revocation_freshness_window_ms"], 60_000);
     assert_eq!(json["max_delegation_lifetime_ms"], 3_600_000);
     assert_eq!(json["bottom_escalation_after_ms"], 120_000);
-    // `realm.schema.json` co_write_policy is `array<array<component>>` — a
+    // `realm.schema.json` cowrite_policy is `array<array<component>>` — a
     // whitelist of cell families writable by the same Control Move, not an
     // ordering enum. Ordering is unconditional (event-auth-state-resolution.md
     // §6.3.1) and carries no Realm field.
     assert_eq!(
-        json["co_write_policy"],
+        json["cowrite_policy"],
         json!([[
             "ak.component.strand.track.v1",
             "ak.component.realm.join_rule.v1"
@@ -273,7 +273,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         restored.bottom_escalation_after_ms,
         realm.bottom_escalation_after_ms
     );
-    assert_eq!(restored.co_write_policy, realm.co_write_policy);
+    assert_eq!(restored.cowrite_policy, realm.cowrite_policy);
     assert_eq!(
         restored.updated_by.as_ref().map(Did::as_str),
         realm.updated_by.as_ref().map(Did::as_str)
@@ -307,7 +307,7 @@ fn realm_anchor_fields_include_required_notary() {
     );
     assert!(!obj.contains_key("bottom_escalation_after_ms"));
     assert!(!obj.contains_key("cell_lattices"));
-    assert!(!obj.contains_key("co_write_policy"));
+    assert!(!obj.contains_key("cowrite_policy"));
     assert!(!obj.contains_key("updated_by"));
 }
 

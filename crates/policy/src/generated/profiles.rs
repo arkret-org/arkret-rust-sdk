@@ -4,8 +4,8 @@
 //! conformance profile and reducer profile registries; do not edit by hand.
 //! Conformance input version: 2026-07-30.4;
 //! sha256=5315576d5747873111a2987509a1c6c4283d97a5c0e1270a41732a4dca0230e9; profiles=98.
-//! Reducer input version: 2026-07-30.13;
-//! sha256=4d46f1280fc74971ff2544ca866f37ed215fbe0183dc53f8ba1dcde5e3185d38; active_profiles=5.
+//! Reducer input version: 2026-07-30.14;
+//! sha256=a6454a270c580c542db7bbb7d4940c64a43392ab15e910e66a30a6d0de247560; active_profiles=5.
 
 pub const PROFILE_IDS: &[&str] = &[
     "ak.profile.agent_auth.v1",
@@ -116,7 +116,7 @@ pub fn is_profile_id(value: &str) -> bool {
 pub const REDUCER_PROFILE_DIGESTS: &[(&str, &str)] = &[
     (
         "ak.profile.chat_mvp.v1",
-        "sha256:277a2b1e4bd751dfe177f5de40d68e1bc4fff9842d80bbff94370f3a8f499813",
+        "sha256:0a5d696f768dbcd6284d3f2b5cc38c8244a72fc3b7c2632449a4229ff8ee48dd",
     ),
     (
         "ak.profile.core_event_store.v1",
@@ -128,11 +128,11 @@ pub const REDUCER_PROFILE_DIGESTS: &[(&str, &str)] = &[
     ),
     (
         "ak.profile.kanban_mvp.v1",
-        "sha256:2ca6fafddc92ce3c4deb907df5262bf7e1701eb73fcedbebaf54952f2d6cddcf",
+        "sha256:f3f0f1f9c4d0529f7e7fa4570b40083d30889d0f23f8574672f288df09bc385a",
     ),
     (
         "ak.profile.principal_server.v1",
-        "sha256:439f101467961130a57db93387816ac510c33a09520dcfd6f244659d96675275",
+        "sha256:a92ebf94e957d8786341869cc8b9d3f6b348a2986b51ba44acec7b7f2334c714",
     ),
 ];
 
