@@ -1,4 +1,5 @@
 use arkret_canonical::canonical;
+use arkret_schema::generated::profile_requirements::non_event_grant_authority_rule;
 use arkret_schema::*;
 use arkret_wire::{BUILT_IN_CONFORMANCE_FIXTURES_VERSION, Did, Hash, Proof};
 use serde_json::json;
@@ -158,6 +159,24 @@ fn profile_conformance_suites_cover_required_domains() {
                 .any(|suite| suite.profile == profile && !suite.cases.is_empty())
         );
     }
+}
+
+#[test]
+fn applet_bridge_exposes_exact_non_event_grant_authority_rule() {
+    let rule =
+        non_event_grant_authority_rule("ak.profile.applet_bridge.v1", "ak.applet.ghost.provision")
+            .expect("applet bridge rule must be generated");
+    assert_eq!(rule.issuer_action, "ak.realm.admin");
+    assert_eq!(
+        rule.required_registration_event_kind,
+        "ak.applet.registration"
+    );
+    assert_eq!(rule.required_constraint_subkind, "applet_delegation");
+    assert_eq!(rule.subject_binding, "registration.service_id");
+    assert!(
+        non_event_grant_authority_rule("ak.profile.applet_bridge.v1", "ak.message.create")
+            .is_none()
+    );
 }
 
 #[test]

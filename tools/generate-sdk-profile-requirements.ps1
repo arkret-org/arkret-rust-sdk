@@ -84,6 +84,54 @@ function Format-RustStrSlice {
     return $sb.ToString()
 }
 
+function Escape-RustString {
+    param([string]$Value)
+    return $Value.Replace('\', '\\').Replace('"', '\"')
+}
+
+function Format-NonEventGrantAuthorityRules {
+    param($Rules, [int]$Indent)
+    if ($null -eq $Rules) {
+        return "&[]"
+    }
+    $items = @($Rules)
+    if ($items.Count -eq 0) {
+        return "&[]"
+    }
+    $pad = ' ' * $Indent
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.Append("&[")
+    [void]$sb.Append([Environment]::NewLine)
+    foreach ($rule in $items) {
+        [void]$sb.Append($pad)
+        [void]$sb.Append("    NonEventGrantAuthorityRule {")
+        [void]$sb.Append([Environment]::NewLine)
+        foreach ($field in @(
+            'issuer_action',
+            'grantable_action',
+            'required_registration_event_kind',
+            'required_claimed_profile',
+            'required_constraint_kind',
+            'required_constraint_subkind',
+            'subject_binding',
+            'scope_binding',
+            'epoch_binding',
+            'requested_action_binding'
+        )) {
+            $value = Escape-RustString -Value ([string]$rule.$field)
+            [void]$sb.Append($pad)
+            [void]$sb.Append("        ${field}: `"$value`",")
+            [void]$sb.Append([Environment]::NewLine)
+        }
+        [void]$sb.Append($pad)
+        [void]$sb.Append("    },")
+        [void]$sb.Append([Environment]::NewLine)
+    }
+    [void]$sb.Append($pad)
+    [void]$sb.Append(']')
+    return $sb.ToString()
+}
+
 $lines = New-Object System.Collections.Generic.List[string]
 $lines.Add("//! Generated conformance profile requirements + validator.") | Out-Null
 $lines.Add("//!") | Out-Null
@@ -101,6 +149,21 @@ $lines.Add("") | Out-Null
 $lines.Add("use std::collections::BTreeMap;") | Out-Null
 $lines.Add("use std::sync::LazyLock;") | Out-Null
 $lines.Add("") | Out-Null
+$lines.Add("/// Closed machine rule authorizing one non-event capability grant surface.") | Out-Null
+$lines.Add("#[derive(Clone, Copy, Debug, PartialEq, Eq)]") | Out-Null
+$lines.Add("pub struct NonEventGrantAuthorityRule {") | Out-Null
+$lines.Add("    pub issuer_action: &'static str,") | Out-Null
+$lines.Add("    pub grantable_action: &'static str,") | Out-Null
+$lines.Add("    pub required_registration_event_kind: &'static str,") | Out-Null
+$lines.Add("    pub required_claimed_profile: &'static str,") | Out-Null
+$lines.Add("    pub required_constraint_kind: &'static str,") | Out-Null
+$lines.Add("    pub required_constraint_subkind: &'static str,") | Out-Null
+$lines.Add("    pub subject_binding: &'static str,") | Out-Null
+$lines.Add("    pub scope_binding: &'static str,") | Out-Null
+$lines.Add("    pub epoch_binding: &'static str,") | Out-Null
+$lines.Add("    pub requested_action_binding: &'static str,") | Out-Null
+$lines.Add("}") | Out-Null
+$lines.Add("") | Out-Null
 $lines.Add("/// Frozen requirement set for a conformance profile.") | Out-Null
 $lines.Add("#[derive(Clone, Copy, Debug, PartialEq, Eq)]") | Out-Null
 $lines.Add("pub struct ProfileRequirements {") | Out-Null
@@ -116,6 +179,7 @@ $lines.Add("    pub required_features: &'static [&'static str],") | Out-Null
 $lines.Add("    pub required_cell_namespaces: &'static [&'static str],") | Out-Null
 $lines.Add("    pub required_cells: &'static [&'static str],") | Out-Null
 $lines.Add("    pub required_constraint_kinds: &'static [&'static str],") | Out-Null
+$lines.Add("    pub non_event_grant_authority_rules: &'static [NonEventGrantAuthorityRule],") | Out-Null
 $lines.Add("}") | Out-Null
 $lines.Add("") | Out-Null
 $lines.Add("/// Profile requirements as a sorted map keyed by profile_id.") | Out-Null
@@ -143,6 +207,7 @@ foreach ($profileId in $profileIds) {
     $combined += $constraint_subkinds
     $combined += $constraint_kinds_field
     $required_constraint_kinds = Sort-Ordinal -Values $combined
+    $non_event_grant_authority_rules = $entry.non_event_grant_authority_rules
 
     $escapedId = $profileId.Replace('\', '\\').Replace('"', '\"')
     $lines.Add("        map.insert(") | Out-Null
@@ -160,6 +225,7 @@ foreach ($profileId in $profileIds) {
     $lines.Add("                required_cell_namespaces: " + (Format-RustStrSlice -Values $required_cell_namespaces -Indent 16) + ",") | Out-Null
     $lines.Add("                required_cells: " + (Format-RustStrSlice -Values $required_cells -Indent 16) + ",") | Out-Null
     $lines.Add("                required_constraint_kinds: " + (Format-RustStrSlice -Values $required_constraint_kinds -Indent 16) + ",") | Out-Null
+    $lines.Add("                non_event_grant_authority_rules: " + (Format-NonEventGrantAuthorityRules -Rules $non_event_grant_authority_rules -Indent 16) + ",") | Out-Null
     $lines.Add("            },") | Out-Null
     $lines.Add("        );") | Out-Null
 }
@@ -175,6 +241,17 @@ $lines.Add("") | Out-Null
 $lines.Add('/// Returns the requirements for `profile_id` if it is a known v1 profile.') | Out-Null
 $lines.Add("pub fn requirements_for(profile_id: &str) -> Option<&'static ProfileRequirements> {") | Out-Null
 $lines.Add("    PROFILE_REQUIREMENTS.get(profile_id)") | Out-Null
+$lines.Add("}") | Out-Null
+$lines.Add("") | Out-Null
+$lines.Add('/// Returns the exact non-event grant authority rule registered by a profile.') | Out-Null
+$lines.Add("pub fn non_event_grant_authority_rule(") | Out-Null
+$lines.Add("    profile_id: &str,") | Out-Null
+$lines.Add("    grantable_action: &str,") | Out-Null
+$lines.Add(") -> Option<&'static NonEventGrantAuthorityRule> {") | Out-Null
+$lines.Add("    requirements_for(profile_id)?") | Out-Null
+$lines.Add("        .non_event_grant_authority_rules") | Out-Null
+$lines.Add("        .iter()") | Out-Null
+$lines.Add("        .find(|rule| rule.grantable_action == grantable_action)") | Out-Null
 $lines.Add("}") | Out-Null
 $lines.Add("") | Out-Null
 $lines.Add('/// Structured failure produced by [`validate_profile_requirements`].') | Out-Null

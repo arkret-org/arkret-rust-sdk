@@ -71,6 +71,23 @@ pub struct ProfileRequirement {
     pub required_cells: Vec<String>,
     #[serde(default)]
     pub required_constraint_kinds: Vec<String>,
+    #[serde(default)]
+    pub non_event_grant_authority_rules: Vec<ParsedNonEventGrantAuthorityRule>,
+}
+
+/// Closed machine rule authorizing one non-event capability grant surface.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ParsedNonEventGrantAuthorityRule {
+    pub issuer_action: String,
+    pub grantable_action: String,
+    pub required_registration_event_kind: String,
+    pub required_claimed_profile: String,
+    pub required_constraint_kind: String,
+    pub required_constraint_subkind: String,
+    pub subject_binding: String,
+    pub scope_binding: String,
+    pub epoch_binding: String,
+    pub requested_action_binding: String,
 }
 
 /// Criticality level a receiver applies when it does not recognise an event's
@@ -335,6 +352,11 @@ impl SpecArtifactBundle {
             )?,
             required_cells: optional_string_array(entry, "required_cells", profile_id)?,
             required_constraint_kinds: profile_required_constraint_kinds(entry, profile_id)?,
+            non_event_grant_authority_rules: optional_typed_array(
+                entry,
+                "non_event_grant_authority_rules",
+                profile_id,
+            )?,
         }))
     }
 
@@ -1068,13 +1090,22 @@ fn optional_string_array(value: &Value, field: &str, profile_id: &str) -> Result
     Ok(out)
 }
 
+fn optional_typed_array<T>(value: &Value, field: &str, profile_id: &str) -> Result<Vec<T>>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    let Some(raw) = value.get(field) else {
+        return Ok(Vec::new());
+    };
+    serde_json::from_value(raw.clone()).map_err(|error| {
+        Error::Protocol(format!(
+            "profile {profile_id} field {field} has an invalid shape: {error}"
+        ))
+    })
+}
+
 fn profile_required_constraint_kinds(value: &Value, profile_id: &str) -> Result<Vec<String>> {
     let mut out = optional_string_array(value, "required_constraint_kinds", profile_id)?;
-    out.extend(optional_string_array(
-        value,
-        "required_constraint_kinds",
-        profile_id,
-    )?);
     out.extend(optional_string_array(
         value,
         "required_constraint_subkinds",
@@ -1532,6 +1563,26 @@ mod tests {
             Some("ak.profile.candidate.join_policy.v1")
         );
         assert_eq!(action.risk_tier, CapabilityRiskTier::Medium);
+    }
+
+    #[test]
+    fn live_applet_bridge_profile_parses_non_event_grant_authority_rule_when_available() {
+        let Some(artifacts_dir) = local_spec_artifacts_dir() else {
+            return;
+        };
+        let bundle = SpecArtifactBundle::load(artifacts_dir).unwrap();
+        let requirement = bundle
+            .profile_requirement("ak.profile.applet_bridge.v1")
+            .unwrap()
+            .expect("applet bridge profile must exist");
+        assert_eq!(requirement.non_event_grant_authority_rules.len(), 1);
+        let rule = &requirement.non_event_grant_authority_rules[0];
+        assert_eq!(rule.issuer_action, "ak.realm.admin");
+        assert_eq!(rule.grantable_action, "ak.applet.ghost.provision");
+        assert_eq!(
+            rule.epoch_binding,
+            "constraint.registration_epoch_exact_registration"
+        );
     }
 
     #[test]
