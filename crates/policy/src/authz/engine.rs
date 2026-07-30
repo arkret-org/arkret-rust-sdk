@@ -753,6 +753,7 @@ impl AuthzEngine {
             Constraint::DelegationControl {
                 max_delegation_depth,
                 prohibit_subdelegation,
+                ..
             } => {
                 if *prohibit_subdelegation && ctx.delegation_depth > 0 {
                     return EngineDecision::Deny {

@@ -16,8 +16,10 @@
 //! `constraint_kind = "delegation_control"` constraint with
 //! `max_delegation_depth` (no constraint ⇒ not delegable).
 
-use arkret_models_collaboration::governance::grant_constraint::CapabilitySubject;
-use arkret_wire::{CAPABILITY_SCHEMA, GrantId, Hash};
+use arkret_models_collaboration::governance::grant_constraint::{
+    CapabilitySubject, GrantConstraintSubkind,
+};
+use arkret_wire::{AppletId, CAPABILITY_SCHEMA, GrantId, Hash};
 
 use super::*;
 
@@ -133,6 +135,7 @@ impl GrantProjection {
             if let Constraint::DelegationControl {
                 max_delegation_depth,
                 prohibit_subdelegation,
+                ..
             } = &entry.constraint
             {
                 let this = if *prohibit_subdelegation {
@@ -810,13 +813,56 @@ pub(crate) fn constraint_entries_from_spec(
                 constraints.push(scope);
             }
         }
-        "delegation_control" => {
-            constraints.push(Constraint::DelegationControl {
-                max_delegation_depth: u64_field("max_delegation_depth")
-                    .map(|depth| u32::try_from(depth).unwrap_or(u32::MAX)),
-                prohibit_subdelegation: bool_field("prohibit_subdelegation"),
-            });
-        }
+        "delegation_control" => match constraint_subkind.as_deref() {
+            None => {
+                reject_unsupported_fields(&["applet_id", "executed_by", "registration_epoch"])?;
+                constraints.push(Constraint::DelegationControl {
+                    max_delegation_depth: u64_field("max_delegation_depth")
+                        .map(|depth| u32::try_from(depth).unwrap_or(u32::MAX)),
+                    prohibit_subdelegation: bool_field("prohibit_subdelegation"),
+                    constraint_subkind: None,
+                    applet_id: None,
+                    executed_by: None,
+                    registration_epoch: None,
+                });
+            }
+            Some("applet_delegation") => {
+                let applet_id = AppletId::new(str_field("applet_id").ok_or_else(|| {
+                    Error::Protocol(
+                        "delegation_control.applet_delegation requires applet_id".to_owned(),
+                    )
+                })?)
+                .map_err(Error::from)?;
+                let executed_by = Did::new(str_field("executed_by").ok_or_else(|| {
+                    Error::Protocol(
+                        "delegation_control.applet_delegation requires executed_by".to_owned(),
+                    )
+                })?)
+                .map_err(Error::from)?;
+                let registration_epoch =
+                    Hash::new(str_field("registration_epoch").ok_or_else(|| {
+                        Error::Protocol(
+                            "delegation_control.applet_delegation requires registration_epoch"
+                                .to_owned(),
+                        )
+                    })?)
+                    .map_err(Error::from)?;
+                constraints.push(Constraint::DelegationControl {
+                    max_delegation_depth: u64_field("max_delegation_depth")
+                        .map(|depth| u32::try_from(depth).unwrap_or(u32::MAX)),
+                    prohibit_subdelegation: bool_field("prohibit_subdelegation"),
+                    constraint_subkind: Some(GrantConstraintSubkind::AppletDelegation),
+                    applet_id: Some(applet_id),
+                    executed_by: Some(executed_by),
+                    registration_epoch: Some(registration_epoch),
+                });
+            }
+            Some(other) => {
+                return Err(Error::Protocol(format!(
+                    "unsupported delegation_control constraint_subkind '{other}'"
+                )));
+            }
+        },
         "quota" => match constraint_subkind.as_deref() {
             Some("rate") => {
                 constraints.push(Constraint::RateLimiting {
@@ -1331,8 +1377,9 @@ impl CapabilityGrantBuilder {
     }
 
     /// Declare the delegation budget for this grant via the canonical
-    /// `delegation_control` constraint (capabilities.md §10). Replaces any
-    /// previously declared delegation_control constraint. The removed
+    /// `delegation_control` constraint (capabilities.md §10). Replaces the
+    /// ordinary depth-control entry while preserving registered subkinds such
+    /// as `applet_delegation`. The removed
     /// top-level `delegable` boolean is intentionally not expressible:
     /// `max_delegation_depth >= 1` ⇔ delegable, `0` ⇔ not delegable.
     pub fn with_delegation_control(
@@ -1341,7 +1388,9 @@ impl CapabilityGrantBuilder {
         prohibit_subdelegation: bool,
     ) -> Self {
         self.grant.constraints.retain(|constraint| {
-            constraint.constraint_kind != arkret_models_collaboration::governance::grant_constraint::GrantConstraintKind::DelegationControl
+            constraint.constraint_kind
+                != arkret_models_collaboration::governance::grant_constraint::GrantConstraintKind::DelegationControl
+                || constraint.constraint_subkind.is_some()
         });
         self.grant
             .constraints
@@ -1612,6 +1661,28 @@ mod capability_grant_builder_tests {
     }
 
     #[test]
+    fn delegation_depth_builder_preserves_applet_delegation_subkind() {
+        let mut grant = base_grant();
+        grant.constraints.push(
+            arkret_models_collaboration::governance::grant_constraint::GrantConstraint::applet_delegation(
+                AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
+                Did::new("did:web:calendar.example").unwrap(),
+                Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            ),
+        );
+        let event = CapabilityGrantBuilder::new(scope(), alice(), grant)
+            .with_delegation_control(2, false)
+            .build(1, hlc())
+            .unwrap();
+        let constraints = event.payload["grant"]["constraints"].as_array().unwrap();
+        assert_eq!(constraints.len(), 2);
+        assert!(constraints.iter().any(|constraint| {
+            constraint["constraint_subkind"] == "applet_delegation"
+                && constraint["applet_id"] == "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
+        }));
+    }
+
+    #[test]
     fn capability_grant_deserialization_rejects_unknown_constraint_kind() {
         let mut artifact = serde_json::to_value(base_grant()).unwrap();
         artifact["constraints"] = json!([{
@@ -1826,6 +1897,49 @@ mod capability_grant_builder_tests {
                 "max_operations": 5,
                 "period": "PT1H",
                 "constraint_scope": "per_planet",
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn applet_delegation_projects_from_the_registered_spec_shape() {
+        let epoch = format!("sha256:{}", "a".repeat(64));
+        let entries = constraint_entries_from_spec(&json!({
+            "constraint_kind": "delegation_control",
+            "constraint_subkind": "applet_delegation",
+            "effect": "allow",
+            "evaluation_class": "grant_local",
+            "applet_id": "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb",
+            "executed_by": "did:web:calendar.example",
+            "registration_epoch": epoch,
+        }))
+        .unwrap();
+        assert!(matches!(
+            &entries[0].constraint,
+            Constraint::DelegationControl {
+                constraint_subkind: Some(GrantConstraintSubkind::AppletDelegation),
+                applet_id: Some(_),
+                executed_by: Some(_),
+                registration_epoch: Some(_),
+                ..
+            }
+        ));
+
+        assert!(
+            constraint_entries_from_spec(&json!({
+                "constraint_kind": "delegation_control",
+                "constraint_subkind": "applet_delegation",
+                "effect": "allow",
+                "applet_id": "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb",
+                "executed_by": "did:web:calendar.example",
+            }))
+            .is_err()
+        );
+        assert!(
+            constraint_entries_from_spec(&json!({
+                "constraint_kind": "applet_delegation_binding",
+                "effect": "allow",
             }))
             .is_err()
         );

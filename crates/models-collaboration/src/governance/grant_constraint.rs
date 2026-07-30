@@ -9,7 +9,7 @@ use arkret_wire::serde_helpers::{
     serialize_canonical_timestamp, serialize_optional_canonical_timestamp,
 };
 use arkret_wire::{
-    CircleId, Did, EncryptionProfile, Error, EvaluationClass, Facet, GrantId, Hash,
+    AppletId, CircleId, Did, EncryptionProfile, Error, EvaluationClass, Facet, GrantId, Hash,
     HistoryVisibility, PayloadProof, ProofContextId, RealmId, Result, WireError, XExtensionMap,
     canonical,
 };
@@ -75,6 +75,7 @@ pub enum GrantConstraintSubkind {
     EditWindow,
     RedactWindow,
     Session,
+    AppletDelegation,
 }
 
 /// Quota counting scope from `grant-constraint.schema.json`.
@@ -406,6 +407,12 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent_reference_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applet_id: Option<AppletId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub executed_by: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub registration_epoch: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blob_max_bytes: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blob_presign_max_ttl_seconds: Option<u64>,
@@ -543,6 +550,9 @@ impl GrantConstraint {
             delegation_scope: None,
             scope_expansion_allowed: None,
             parent_reference_required: None,
+            applet_id: None,
+            executed_by: None,
+            registration_epoch: None,
             blob_max_bytes: None,
             blob_presign_max_ttl_seconds: None,
             max_total_blob_bytes: None,
@@ -591,6 +601,25 @@ impl GrantConstraint {
         );
         constraint.max_delegation_depth = Some(max_delegation_depth);
         constraint.prohibit_subdelegation = Some(prohibit_subdelegation);
+        constraint
+    }
+
+    /// Build the canonical Applet install grant binding from
+    /// `constraint-schema.md` §7.3.
+    pub fn applet_delegation(
+        applet_id: AppletId,
+        executed_by: Did,
+        registration_epoch: Hash,
+    ) -> Self {
+        let mut constraint = Self::new(
+            GrantConstraintKind::DelegationControl,
+            GrantConstraintEffect::Allow,
+        );
+        constraint.evaluation_class = Some(EvaluationClass::GrantLocal);
+        constraint.constraint_subkind = Some(GrantConstraintSubkind::AppletDelegation);
+        constraint.applet_id = Some(applet_id);
+        constraint.executed_by = Some(executed_by);
+        constraint.registration_epoch = Some(registration_epoch);
         constraint
     }
 
@@ -800,6 +829,22 @@ mod tests {
         .expect("constraints are optional in capability-grant.schema.json");
 
         assert!(grant.constraints.is_empty());
+    }
+
+    #[test]
+    fn applet_delegation_uses_registered_delegation_control_shape() {
+        let constraint = GrantConstraint::applet_delegation(
+            AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
+            Did::new("did:web:calendar.example").unwrap(),
+            Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+        );
+        let wire = serde_json::to_value(constraint).unwrap();
+
+        assert_eq!(wire["constraint_kind"], "delegation_control");
+        assert_eq!(wire["constraint_subkind"], "applet_delegation");
+        assert_eq!(wire["evaluation_class"], "grant_local");
+        assert_eq!(wire["executed_by"], "did:web:calendar.example");
+        assert!(wire.get("applet_delegation_binding").is_none());
     }
 
     #[test]

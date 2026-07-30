@@ -390,6 +390,7 @@ mod tests {
                     "ak.self.realm.join_application.resource.get".to_owned(),
                 ],
                 schemas: vec!["ak.schema.join_policy_operations.v1".to_owned()],
+                fixtures: vec!["websocket-binding-fixture.json".to_owned()],
                 capability_actions: vec!["ak.realm.join.review".to_owned()],
                 ..ProfileSemanticSurface::default()
             },

@@ -32,7 +32,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_wire::{CircleId, Hash};
+use arkret_models_collaboration::governance::grant_constraint::GrantConstraintSubkind;
+use arkret_wire::{AppletId, CircleId, Did, Hash};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -157,20 +158,21 @@ pub enum GrantConstraint {
     /// preserves and validates shape; concrete counter enforcement is done
     /// by the service-side evaluator for the relevant action.
     RateLimiting { max_operations: u64, period: String },
-    /// Delegation depth control. v1 always passes (depth is enforced at
-    /// the chain-walking helper level rather than per-constraint).
+    /// Delegation control. Ordinary delegation uses `max_delegation_depth`;
+    /// Applet install grants use the registered
+    /// `constraint_subkind=applet_delegation` fields from
+    /// `constraint-schema.md` §7.3.
     DelegationControl {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         max_delegation_depth: Option<u32>,
-    },
-    /// Runtime projection constraint for Applet delegated execution. It is
-    /// installed by soland when an Applet package is accepted, then checked by
-    /// the event reducer before the grant can authorize Applet-originated
-    /// events.
-    AppletDelegationBinding {
-        applet_id: String,
-        executed_by: String,
-        registration_epoch: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        constraint_subkind: Option<GrantConstraintSubkind>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        applet_id: Option<AppletId>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        executed_by: Option<Did>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        registration_epoch: Option<Hash>,
     },
 }
 
@@ -301,6 +303,7 @@ pub fn max_delegation_depth(grant: &Grant) -> Option<u32> {
         .filter_map(|constraint| match constraint {
             GrantConstraint::DelegationControl {
                 max_delegation_depth,
+                ..
             } => *max_delegation_depth,
             _ => None,
         })
@@ -317,23 +320,38 @@ pub fn validate_applet_delegation_binding(
         .constraints
         .iter()
         .find_map(|constraint| match constraint {
-            GrantConstraint::AppletDelegationBinding {
+            GrantConstraint::DelegationControl {
+                constraint_subkind: Some(GrantConstraintSubkind::AppletDelegation),
                 applet_id,
                 executed_by,
                 registration_epoch,
-            } => Some((applet_id, executed_by, registration_epoch)),
+                ..
+            } => Some((
+                applet_id.as_ref(),
+                executed_by.as_ref(),
+                registration_epoch.as_ref(),
+            )),
             _ => None,
         })
     else {
         return Err(AppletDelegationBindingError::Missing);
     };
-    if binding.0 != applet_id {
+    let Some(binding_applet_id) = binding.0 else {
+        return Err(AppletDelegationBindingError::Missing);
+    };
+    let Some(binding_executed_by) = binding.1 else {
+        return Err(AppletDelegationBindingError::Missing);
+    };
+    let Some(binding_registration_epoch) = binding.2 else {
+        return Err(AppletDelegationBindingError::Missing);
+    };
+    if binding_applet_id.as_str() != applet_id {
         return Err(AppletDelegationBindingError::AppletIdMismatch);
     }
-    if binding.1 != executed_by {
+    if binding_executed_by.as_str() != executed_by {
         return Err(AppletDelegationBindingError::ExecutedByMismatch);
     }
-    if binding.2 != registration_epoch {
+    if binding_registration_epoch.as_str() != registration_epoch {
         return Err(AppletDelegationBindingError::RegistrationEpochMismatch);
     }
     Ok(())
@@ -833,6 +851,10 @@ mod tests {
         let mut root = root_grant("g1", &["read"], "ak:realm:1");
         root.constraints.push(GrantConstraint::DelegationControl {
             max_delegation_depth: Some(1),
+            constraint_subkind: None,
+            applet_id: None,
+            executed_by: None,
+            registration_epoch: None,
         });
         let parents = vec![root];
         let base_req = GrantRequestDraft {
@@ -853,6 +875,10 @@ mod tests {
         let narrowed_req = GrantRequestDraft {
             constraints: vec![GrantConstraint::DelegationControl {
                 max_delegation_depth: Some(0),
+                constraint_subkind: None,
+                applet_id: None,
+                executed_by: None,
+                registration_epoch: None,
             }],
             ..base_req
         };
@@ -867,6 +893,10 @@ mod tests {
         let mut root = root_grant("g1", &["read"], "ak:realm:1");
         root.constraints.push(GrantConstraint::DelegationControl {
             max_delegation_depth: Some(0),
+            constraint_subkind: None,
+            applet_id: None,
+            executed_by: None,
+            registration_epoch: None,
         });
         let parents = vec![root];
         let req = GrantRequestDraft {
@@ -878,6 +908,10 @@ mod tests {
             capability_action_registry_digest: None,
             constraints: vec![GrantConstraint::DelegationControl {
                 max_delegation_depth: Some(0),
+                constraint_subkind: None,
+                applet_id: None,
+                executed_by: None,
+                registration_epoch: None,
             }],
             expires_at: None,
         };
@@ -1080,39 +1114,69 @@ mod tests {
     }
 
     #[test]
+    fn applet_delegation_round_trips_only_the_registered_wire_shape() {
+        let registration_epoch = Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap();
+        let constraint = GrantConstraint::DelegationControl {
+            max_delegation_depth: None,
+            constraint_subkind: Some(GrantConstraintSubkind::AppletDelegation),
+            applet_id: Some(
+                AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
+            ),
+            executed_by: Some(Did::new("did:web:calendar.example").unwrap()),
+            registration_epoch: Some(registration_epoch),
+        };
+        let wire = serde_json::to_value(&constraint).unwrap();
+        assert_eq!(wire["constraint_kind"], "delegation_control");
+        assert_eq!(wire["constraint_subkind"], "applet_delegation");
+        assert!(serde_json::from_value::<GrantConstraint>(wire).is_ok());
+        assert!(
+            serde_json::from_value::<GrantConstraint>(serde_json::json!({
+                "constraint_kind": "applet_delegation_binding",
+                "applet_id": "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb",
+                "executed_by": "did:web:calendar.example",
+                "registration_epoch": format!("sha256:{}", "a".repeat(64))
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
     fn applet_delegation_binding_must_match_epoch_subject_and_applet() {
         let mut grant = root_grant("g1", &["ak.message.create"], "ak:realm:1");
+        let applet_id = "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb";
+        let registration_epoch = format!("sha256:{}", "a".repeat(64));
         assert!(matches!(
             validate_applet_delegation_binding(
                 &grant,
-                "ak:applet:1",
+                applet_id,
                 "did:webvh:z6mkfixture:svc.example",
-                "sha256:abc"
+                &registration_epoch
             ),
             Err(AppletDelegationBindingError::Missing)
         ));
-        grant
-            .constraints
-            .push(GrantConstraint::AppletDelegationBinding {
-                applet_id: "ak:applet:1".to_owned(),
-                executed_by: "did:webvh:z6mkfixture:svc.example".to_owned(),
-                registration_epoch: "sha256:abc".to_owned(),
-            });
+        grant.constraints.push(GrantConstraint::DelegationControl {
+            max_delegation_depth: None,
+            constraint_subkind: Some(GrantConstraintSubkind::AppletDelegation),
+            applet_id: Some(AppletId::new(applet_id).unwrap()),
+            executed_by: Some(Did::new("did:webvh:z6mkfixture:svc.example").unwrap()),
+            registration_epoch: Some(Hash::new(registration_epoch.clone()).unwrap()),
+        });
         assert!(
             validate_applet_delegation_binding(
                 &grant,
-                "ak:applet:1",
+                applet_id,
                 "did:webvh:z6mkfixture:svc.example",
-                "sha256:abc"
+                &registration_epoch
             )
             .is_ok()
         );
+        let different_epoch = format!("sha256:{}", "b".repeat(64));
         assert!(matches!(
             validate_applet_delegation_binding(
                 &grant,
-                "ak:applet:1",
+                applet_id,
                 "did:webvh:z6mkfixture:svc.example",
-                "sha256:def"
+                &different_epoch
             ),
             Err(AppletDelegationBindingError::RegistrationEpochMismatch)
         ));

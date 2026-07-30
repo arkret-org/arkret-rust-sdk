@@ -1,4 +1,6 @@
 use super::*;
+use arkret_models_collaboration::governance::grant_constraint::GrantConstraintSubkind;
+use arkret_wire::{AppletId, Hash};
 
 /// Resource being accessed.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -134,6 +136,14 @@ pub enum Constraint {
         max_delegation_depth: Option<u32>,
         #[serde(default = "default_false")]
         prohibit_subdelegation: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        constraint_subkind: Option<GrantConstraintSubkind>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        applet_id: Option<AppletId>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        executed_by: Option<Did>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        registration_epoch: Option<Hash>,
     },
     /// Rate limiting constraint
     RateLimiting {
