@@ -362,6 +362,16 @@ singleton_lattice!(
 
 // ────────────────────────── CasRegister families ──────────────────────────
 
+per_subject_lattice!(
+    AppletRegistration,
+    "ak.component.applet.registration.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    "applet_id",
+    &["ak.applet.registration"]
+);
+
 singleton_lattice!(
     CircleTombstone,
     "ak.component.circle.tombstone.v1",
