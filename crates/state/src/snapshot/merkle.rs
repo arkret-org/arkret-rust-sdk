@@ -1,16 +1,16 @@
 use super::types::SnapshotChunk;
 use crate::{Error, Hash, Result};
 
-/// Binary Merkle tree over snapshot chunk digests.
+/// RFC 6962 binary Merkle tree over snapshot chunk digests.
 ///
 /// Construction:
-/// - Leaves are chunk digests in `chunk_id` order.
-/// - Internal nodes are `sha256(left || right)` (raw 32-byte concat).
-/// - Odd levels promote the last node to the next level **unchanged** (RFC 6962-style; never
-///   duplicate — see spec `event-auth-state-resolution.md` §4.2.2 for the house odd-layer rule).
+/// - Leaf data are the raw bytes of each `sha256:` chunk digest in `chunk_id` order.
+/// - Leaves are `sha256(0x00 || leaf_data)`.
+/// - Internal nodes are `sha256(0x01 || left || right)`.
+/// - Odd levels promote the last node to the next level **unchanged** (never duplicate).
 ///   Duplication would make `[A,B,C]` and `[A,B,C,C]` share a root (CVE-2012-2459-shaped
 ///   ambiguity).
-/// - Single-leaf tree returns the leaf as root.
+/// - A single-leaf tree returns the domain-separated leaf hash.
 #[derive(Clone, Debug)]
 pub struct SnapshotMerkleTree {
     leaves: Vec<Hash>,
@@ -49,7 +49,7 @@ impl SnapshotMerkleTree {
         self.leaves.len()
     }
 
-    /// Root hash. Single-leaf trees return the leaf.
+    /// Root hash. Single-leaf trees return the domain-separated leaf hash.
     pub fn root(&self) -> &Hash {
         self.levels
             .last()
@@ -98,9 +98,10 @@ impl SnapshotMerkleTree {
         if leaf_count == 0 || leaf_index >= leaf_count {
             return false;
         }
-        let Some(mut current) = parse_sha256(leaf) else {
+        let Some(leaf_data) = parse_sha256(leaf) else {
             return false;
         };
+        let mut current = hash_leaf(&leaf_data);
         let mut idx = leaf_index;
         let mut layer_size = leaf_count;
         let mut siblings = audit_path.iter();
@@ -120,7 +121,7 @@ impl SnapshotMerkleTree {
                 } else {
                     (sib_bytes, current)
                 };
-                current = hash_pair(&left, &right);
+                current = hash_node(&left, &right);
             }
             idx /= 2;
             // Layer-size for the next layer up.
@@ -137,7 +138,16 @@ impl SnapshotMerkleTree {
 }
 
 pub(crate) fn build_levels(leaves: &[Hash]) -> Result<Vec<Vec<Hash>>> {
-    let mut levels: Vec<Vec<Hash>> = vec![leaves.to_vec()];
+    let first_level = leaves
+        .iter()
+        .enumerate()
+        .map(|(index, leaf)| {
+            parse_sha256(leaf)
+                .map(|leaf_data| format_hash(&hash_leaf(&leaf_data)))
+                .ok_or_else(|| Error::Protocol(format!("Merkle leaf {index} not sha256: {leaf}")))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let mut levels: Vec<Vec<Hash>> = vec![first_level];
     while levels.last().map(|l| l.len()).unwrap_or(0) > 1 {
         let current = levels.last().expect("non-empty");
         let mut next = Vec::with_capacity(current.len().div_ceil(2));
@@ -154,7 +164,7 @@ pub(crate) fn build_levels(leaves: &[Hash]) -> Result<Vec<Vec<Hash>>> {
                         current[i + 1]
                     ))
                 })?;
-                next.push(format_hash(&hash_pair(&left, &right)));
+                next.push(format_hash(&hash_node(&left, &right)));
                 i += 2;
             } else {
                 // Odd node count: promote the single trailing node to the
@@ -173,7 +183,7 @@ pub(crate) fn sha256_digest(bytes: &[u8]) -> Hash {
     Hash::new(crate::canonical::sha256_digest(bytes)).expect("sha256 wire form")
 }
 
-pub(crate) fn parse_sha256(hash: &Hash) -> Option<[u8; 32]> {
+pub fn parse_sha256(hash: &Hash) -> Option<[u8; 32]> {
     let suffix = hash.as_str().strip_prefix("sha256:")?;
     if suffix.len() != 64 {
         return None;
@@ -183,11 +193,15 @@ pub(crate) fn parse_sha256(hash: &Hash) -> Option<[u8; 32]> {
     Some(out)
 }
 
-pub(crate) fn hash_pair(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
-    crate::canonical::sha256_bytes_from_slices(&[&left[..], &right[..]])
+pub fn hash_leaf(leaf_data: &[u8]) -> [u8; 32] {
+    crate::canonical::sha256_bytes_from_slices(&[&[0x00], leaf_data])
 }
 
-pub(crate) fn format_hash(bytes: &[u8; 32]) -> Hash {
+pub fn hash_node(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
+    crate::canonical::sha256_bytes_from_slices(&[&[0x01], &left[..], &right[..]])
+}
+
+pub fn format_hash(bytes: &[u8; 32]) -> Hash {
     let hex = hex::encode(bytes);
     Hash::new(format!("sha256:{hex}")).expect("sha256 wire form")
 }

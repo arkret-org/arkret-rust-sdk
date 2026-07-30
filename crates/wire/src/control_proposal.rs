@@ -315,6 +315,12 @@ impl ControlProposalDecisionPolicy {
                 "proposal max_defers exceeds the protocol ceiling of 2".to_owned(),
             ));
         }
+        if self.max_defers > 0 && self.decision_window == self.absolute_horizon {
+            return Err(Error::Protocol(
+                "proposal decision window must be shorter than the absolute horizon when defers are enabled"
+                    .to_owned(),
+            ));
+        }
         Ok(())
     }
 }
@@ -1136,5 +1142,28 @@ mod tests {
                 )
                 .is_err()
         );
+    }
+
+    #[test]
+    fn proposal_window_policy_enforces_order_and_defer_headroom() {
+        let cases = [
+            (Duration::seconds(91), Duration::seconds(90), 0, false),
+            (Duration::seconds(90), Duration::seconds(90), 0, true),
+            (Duration::seconds(90), Duration::seconds(90), 1, false),
+        ];
+
+        for (decision_window, absolute_horizon, max_defers, expected_valid) in cases {
+            let policy = ControlProposalDecisionPolicy {
+                receipt_sla: Duration::seconds(60),
+                decision_window,
+                absolute_horizon,
+                max_defers,
+            };
+            assert_eq!(
+                policy.validate().is_ok(),
+                expected_valid,
+                "unexpected verdict for decision={decision_window:?}, absolute={absolute_horizon:?}, defers={max_defers}"
+            );
+        }
     }
 }

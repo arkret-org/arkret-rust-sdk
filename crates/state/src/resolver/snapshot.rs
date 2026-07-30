@@ -402,21 +402,25 @@ pub fn verify_snapshot_inclusion(
     proof: &[MerkleProofStep],
     root: &str,
 ) -> Result<()> {
-    let leaf_hash = crate::Hash::new(canonical_sha256(&serde_json::json!({
+    let leaf_digest = crate::Hash::new(canonical_sha256(&serde_json::json!({
         "key": event_id,
         "value": event_id,
     }))?)?;
-    let mut running = leaf_hash;
+    let leaf_data = crate::snapshot::parse_sha256(&leaf_digest)
+        .ok_or_else(|| Error::Protocol("snapshot leaf digest is not sha256".to_owned()))?;
+    let mut running = crate::snapshot::hash_leaf(&leaf_data);
     for step in proof {
         let sibling = crate::Hash::new(step.sibling.clone())?;
-        let leaves = if step.is_left {
-            vec![sibling, running]
+        let sibling = crate::snapshot::parse_sha256(&sibling)
+            .ok_or_else(|| Error::Protocol("snapshot proof sibling is not sha256".to_owned()))?;
+        running = if step.is_left {
+            crate::snapshot::hash_node(&sibling, &running)
         } else {
-            vec![running, sibling]
+            crate::snapshot::hash_node(&running, &sibling)
         };
-        running = crate::merkle_root_from_hashes(leaves)?;
     }
-    if running.as_str() == root {
+    let root = crate::Hash::new(root.to_owned())?;
+    if crate::snapshot::format_hash(&running) == root {
         Ok(())
     } else {
         Err(Error::Protocol(format!(

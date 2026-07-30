@@ -222,11 +222,12 @@ fn merkle_out_of_order_rejected() {
 }
 
 #[test]
-fn merkle_single_leaf_root_equals_leaf() {
+fn merkle_single_leaf_root_is_domain_separated() {
     let cs = chunks(1);
     let tree = SnapshotMerkleTree::build(&cs).unwrap();
     assert_eq!(tree.leaf_count(), 1);
-    assert_eq!(tree.root(), &cs[0].digest);
+    let leaf_data = parse_sha256(&cs[0].digest).unwrap();
+    assert_eq!(*tree.root(), format_hash(&hash_leaf(&leaf_data)));
     // Audit path is empty for single-leaf trees.
     assert_eq!(tree.audit_path(0).unwrap().len(), 0);
 }
@@ -235,11 +236,11 @@ fn merkle_single_leaf_root_equals_leaf() {
 fn merkle_two_leaves_root_is_hash_pair() {
     let cs = chunks(2);
     let tree = SnapshotMerkleTree::build(&cs).unwrap();
-    // root = sha256(leaf0 || leaf1).
-    let left = merkle::parse_sha256(&cs[0].digest).unwrap();
-    let right = merkle::parse_sha256(&cs[1].digest).unwrap();
-    let expected = merkle::hash_pair(&left, &right);
-    assert_eq!(*tree.root(), merkle::format_hash(&expected));
+    // root = sha256(0x01 || sha256(0x00 || leaf0) || sha256(0x00 || leaf1)).
+    let left = parse_sha256(&cs[0].digest).unwrap();
+    let right = parse_sha256(&cs[1].digest).unwrap();
+    let expected = hash_node(&hash_leaf(&left), &hash_leaf(&right));
+    assert_eq!(*tree.root(), format_hash(&expected));
 }
 
 #[test]
@@ -456,6 +457,66 @@ fn state_item(kind: &str, id: &str, source_suffix: &str) -> SnapshotMaterialized
 fn spec_merkle_empty_root_is_sha256_empty() {
     let root = merkle_root_from_hashes(Vec::new()).unwrap();
     assert_eq!(root.as_str(), EMPTY_SHA256_DIGEST);
+}
+
+#[test]
+fn spec_merkle_rfc6962_fixed_vectors() {
+    let leaf =
+        |byte: u8| Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap();
+    let one = leaf(0x11);
+    let two = leaf(0x22);
+    let three = leaf(0x33);
+
+    assert_eq!(
+        merkle_root_from_hashes(vec![one.clone()]).unwrap().as_str(),
+        "sha256:4635e1fa62a599a7880a8d14a56f720a1d40f6e5448ab5a5e39bedc8bd87fa8e"
+    );
+    assert_eq!(
+        merkle_root_from_hashes(vec![one.clone(), two.clone()])
+            .unwrap()
+            .as_str(),
+        "sha256:cc15b132263fd4fd2748c0e7cb9e1c4ad0afe70fcf9382ee644c4da8af0286a5"
+    );
+    assert_eq!(
+        merkle_root_from_hashes(vec![one, two, three])
+            .unwrap()
+            .as_str(),
+        "sha256:9bee4401962e94b921336a7910a5a9718836ffcbc545dde0a3f34d858beb5752"
+    );
+}
+
+#[test]
+fn merkle_verify_rejects_legacy_root_and_wrong_branch() {
+    let cs = [0x11, 0x22]
+        .into_iter()
+        .enumerate()
+        .map(|(chunk_id, byte)| SnapshotChunk {
+            chunk_id: chunk_id as u32,
+            bytes: vec![byte],
+            digest: Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap(),
+        })
+        .collect::<Vec<_>>();
+    let tree = SnapshotMerkleTree::build(&cs).unwrap();
+    let path = tree.audit_path(0).unwrap();
+    let legacy_root =
+        Hash::new("sha256:5189c77d29fe5d546a045ec46986852785fea5c13ac7da9c115ff5fb6edf817c")
+            .unwrap();
+    assert!(!SnapshotMerkleTree::verify(
+        &legacy_root,
+        &cs[0].digest,
+        0,
+        &path,
+        2
+    ));
+
+    let wrong_path = vec![Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap()];
+    assert!(!SnapshotMerkleTree::verify(
+        tree.root(),
+        &cs[0].digest,
+        0,
+        &wrong_path,
+        2
+    ));
 }
 
 #[test]

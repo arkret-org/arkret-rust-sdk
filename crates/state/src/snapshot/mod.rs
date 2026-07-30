@@ -34,7 +34,7 @@ mod types;
 pub use chunking::*;
 pub use constants::*;
 pub use generator_proof::*;
-pub use merkle::SnapshotMerkleTree;
+pub use merkle::{SnapshotMerkleTree, format_hash, hash_leaf, hash_node, parse_sha256};
 pub use types::*;
 
 #[cfg(test)]
