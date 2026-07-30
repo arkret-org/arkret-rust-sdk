@@ -490,11 +490,11 @@ impl Realm {
         self
     }
 
-    /// Builder: append one co-write group — the cell families that MAY be
+    /// Builder: append one cowrite group — the cell families that MAY be
     /// written by the same Control Move. Append-only; call once per group.
     /// Each entry MUST be an `ak.component.<…>.v<N>` identifier
     /// (`realm.schema.json` `co_write_policy.items.items`).
-    pub fn with_co_write_group<I, S>(mut self, cell_families: I) -> Self
+    pub fn with_cowrite_group<I, S>(mut self, cell_families: I) -> Self
     where
         I: IntoIterator<Item = S>,
         S: Into<String>,

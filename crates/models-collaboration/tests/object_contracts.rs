@@ -171,7 +171,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
             "or_set",
             Some("reject".to_owned()),
         )
-        .with_co_write_group([
+        .with_cowrite_group([
             "ak.component.strand.track.v1",
             "ak.component.realm.join_rule.v1",
         ]);
