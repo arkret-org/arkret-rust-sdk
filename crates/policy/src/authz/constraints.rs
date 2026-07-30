@@ -1,6 +1,7 @@
-use super::*;
 use arkret_models_collaboration::governance::grant_constraint::GrantConstraintSubkind;
 use arkret_wire::{AppletId, Hash};
+
+use super::*;
 
 /// Resource being accessed.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

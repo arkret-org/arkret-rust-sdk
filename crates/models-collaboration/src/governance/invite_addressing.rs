@@ -554,6 +554,41 @@ pub struct InviteReceivePolicy {
     pub disclosure: Option<DisclosurePolicy>,
 }
 
+impl InviteReceivePolicy {
+    /// Build the fail-closed default from `invite-addressing.md` §5.
+    ///
+    /// The subject is already a validated DID so callers cannot silently
+    /// substitute a placeholder principal when identity parsing fails.
+    #[must_use]
+    pub fn spec_default(subject_id: Did) -> Self {
+        Self {
+            schema: arkret_wire::INVITE_RECEIVE_POLICY_SCHEMA.to_owned(),
+            subject_id,
+            holder_allowed_introduction_kinds: vec![
+                "locator_ref".to_owned(),
+                "consent_grant".to_owned(),
+                "shared_realm".to_owned(),
+            ],
+            explicit_address_behavior: InviteReceiveAction::Quarantine,
+            handle_claim_behavior: Some(InviteReceiveAction::Quarantine),
+            unknown_invites: UnknownInviteAction::Drop,
+            allowed_handle_domains: Vec::new(),
+            denied_handle_domains: Vec::new(),
+            trusted_handle_issuers: Vec::new(),
+            trusted_directory_services: Vec::new(),
+            trusted_realm_ids: Vec::new(),
+            trusted_principal_services: Vec::new(),
+            denied_principal_services: Vec::new(),
+            denied_subjects: Vec::new(),
+            disclosure: Some(DisclosurePolicy {
+                high_trust: Some(DisclosureLevel::Outcome),
+                discovery_trust: Some(DisclosureLevel::Opaque),
+                low_trust: Some(DisclosureLevel::Opaque),
+            }),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -582,6 +617,36 @@ mod tests {
     };
 
     use super::*;
+
+    #[test]
+    fn invite_receive_policy_spec_default_is_fail_closed() {
+        let subject_id = Did::new("did:web:alice.example").unwrap();
+        let policy = InviteReceivePolicy::spec_default(subject_id.clone());
+
+        assert_eq!(policy.schema, INVITE_RECEIVE_POLICY_SCHEMA);
+        assert_eq!(policy.subject_id, subject_id);
+        assert_eq!(
+            policy.holder_allowed_introduction_kinds,
+            ["locator_ref", "consent_grant", "shared_realm"]
+        );
+        assert_eq!(policy.unknown_invites, UnknownInviteAction::Drop);
+        assert_eq!(
+            policy.explicit_address_behavior,
+            InviteReceiveAction::Quarantine
+        );
+        assert_eq!(
+            policy.handle_claim_behavior,
+            Some(InviteReceiveAction::Quarantine)
+        );
+        assert_eq!(
+            policy.disclosure,
+            Some(DisclosurePolicy {
+                high_trust: Some(DisclosureLevel::Outcome),
+                discovery_trust: Some(DisclosureLevel::Opaque),
+                low_trust: Some(DisclosureLevel::Opaque),
+            })
+        );
+    }
 
     fn test_time() -> DateTime<Utc> {
         DateTime::parse_from_rfc3339("2026-06-07T10:00:00.123Z")

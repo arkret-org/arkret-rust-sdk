@@ -40,13 +40,13 @@ pub struct ExternalRef {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FieldDefinition {
-    pub value_kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enum_values: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    pub value_kind: String,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/protocol`.

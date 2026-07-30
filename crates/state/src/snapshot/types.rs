@@ -28,16 +28,16 @@ pub struct SnapshotManifest {
     pub id: SnapshotId,
     pub realm_id: RealmId,
     pub reducer_profile: String,
+    pub security_class: SnapshotSecurityClass,
     #[serde(default)]
     pub schema_profile_refs: Vec<String>,
     pub state_digest: Hash,
     pub frontier: SnapshotFrontier,
     pub event_set_commitment: EventSetCommitment,
-    #[serde(default)]
-    pub chunks: Vec<SnapshotChunkDescriptor>,
-    pub security_class: SnapshotSecurityClass,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verification_hints: Option<SnapshotVerificationHints>,
+    #[serde(default)]
+    pub chunks: Vec<SnapshotChunkDescriptor>,
     pub created_by: Did,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
@@ -54,14 +54,14 @@ pub struct UnsignedSnapshotManifest<'a> {
     pub id: &'a SnapshotId,
     pub realm_id: &'a RealmId,
     pub reducer_profile: &'a str,
+    pub security_class: &'a SnapshotSecurityClass,
     pub schema_profile_refs: &'a [String],
     pub state_digest: &'a Hash,
     pub frontier: &'a SnapshotFrontier,
     pub event_set_commitment: &'a EventSetCommitment,
-    pub chunks: &'a [SnapshotChunkDescriptor],
-    pub security_class: &'a SnapshotSecurityClass,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verification_hints: Option<&'a SnapshotVerificationHints>,
+    pub chunks: &'a [SnapshotChunkDescriptor],
     pub created_by: &'a Did,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -230,8 +230,8 @@ pub enum SnapshotAuthorityKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DetachedJwsProof {
     pub kind: String,
-    pub alg: String,
     pub verification_method: String,
+    pub alg: String,
     pub payload_digest: Hash,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",

@@ -543,7 +543,6 @@ impl<'de> Deserialize<'de> for DeviceRevocationReason {
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationBoundPayload {
     pub pair_key: Hash,
-    pub binding_state: DirectConversationAuthoredBindingState,
     pub participants_unordered: Vec<Did>,
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
@@ -559,6 +558,7 @@ pub struct DirectConversationBoundPayload {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
     )]
     pub created_at: DateTime<Utc>,
+    pub binding_state: DirectConversationAuthoredBindingState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supersedes_binding_ref: Option<EventId>,
 }

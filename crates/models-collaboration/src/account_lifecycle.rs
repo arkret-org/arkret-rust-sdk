@@ -189,10 +189,6 @@ impl AccountLifecycleProof {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AccountView {
     pub principal_id: Did,
-    pub state: AccountStatus,
-    #[serde(default)]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub devices: Vec<AccountDeviceSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub primary_handle_claim: Option<HandleClaim>,
@@ -200,6 +196,10 @@ pub struct AccountView {
     pub primary_handle_claim_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub handle_claim_digests: Vec<Hash>,
+    pub state: AccountStatus,
+    #[serde(default)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub devices: Vec<AccountDeviceSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub profile: Option<ActorProfile>,

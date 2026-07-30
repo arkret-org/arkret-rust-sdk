@@ -73,10 +73,10 @@ pub enum NotificationData {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct NotificationDelta {
     pub id: NotificationId,
-    pub notification_kind: NotificationKind,
     pub action: NotificationDeltaAction,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub data: Option<NotificationData>,
+    pub notification_kind: NotificationKind,
 }
 
 impl NotificationDelta {
@@ -143,10 +143,10 @@ impl NotificationDelta {
 #[serde(deny_unknown_fields)]
 struct NotificationDeltaWire {
     id: NotificationId,
-    notification_kind: NotificationKind,
     action: NotificationDeltaAction,
     #[serde(default)]
     data: Option<NotificationData>,
+    notification_kind: NotificationKind,
 }
 
 impl<'de> Deserialize<'de> for NotificationDelta {
@@ -444,12 +444,12 @@ pub struct DeviceMessagesSendRequestBody {
 pub struct DeviceMessageTarget {
     pub message_id: DeviceMessageId,
     pub kind: ProtocolKind,
-    pub content: BTreeMap<String, Value>,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
     )]
     pub expires_at: DateTime<Utc>,
+    pub content: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

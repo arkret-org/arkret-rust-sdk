@@ -25,8 +25,8 @@ pub enum PlaintextServiceVisibility {
 pub struct PlaintextVisibleService {
     pub service_id: Did,
     pub service_kind: String,
-    pub data_classes: Vec<PlaintextDataClassKind>,
     pub purposes: Vec<String>,
+    pub data_classes: Vec<PlaintextDataClassKind>,
     pub visibility: PlaintextServiceVisibility,
     #[serde(
         default,

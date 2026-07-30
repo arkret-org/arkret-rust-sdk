@@ -13,6 +13,17 @@
       ]
     },
     {
+      "generator": "lattice-bindings",
+      "outputs": [
+        "crates/lattice-registry/src/generated/lattice_bindings.rs"
+      ],
+      "owner": "arkret-lattice-registry",
+      "mode": "registered+descriptor",
+      "artifacts": [
+        "registry/event-kind-registry.json"
+      ]
+    },
+    {
       "generator": "registry-types",
       "outputs": [
         "crates/wire/src/error_codes/error_code.rs",

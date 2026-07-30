@@ -969,6 +969,21 @@ impl MemoryCellRegistry {
         Self::default()
     }
 
+    /// Build a registry with no implicit test or fixture bindings.
+    ///
+    /// Production factories should start here and install the complete
+    /// spec-derived binding set explicitly.
+    pub fn empty() -> Self {
+        Self {
+            bindings: BTreeMap::new(),
+        }
+    }
+
+    /// Return every registered cell family in deterministic order.
+    pub fn registered_families(&self) -> impl Iterator<Item = &str> {
+        self.bindings.keys().map(String::as_str)
+    }
+
     /// Register an additional binding (test fixtures / Realm-level overrides).
     pub fn register(
         &mut self,

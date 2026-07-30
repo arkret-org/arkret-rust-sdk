@@ -93,10 +93,10 @@ pub struct StrandMoveExpectedPosition {
 pub struct StrandMovePayload {
     pub board_space_id: SpaceId,
     pub strand_id: StrandId,
-    pub target_space_id: SpaceId,
-    pub rank: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from_space_id: Option<SpaceId>,
+    pub target_space_id: SpaceId,
+    pub rank: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_position: Option<StrandMoveExpectedPosition>,
 }

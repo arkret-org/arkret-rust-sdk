@@ -1,9 +1,9 @@
 //! Cell-family lattice registry + spec-normative cell-family bindings.
 //!
-//! Per-cell-family [`LatticeKind`] runtime (one impl per `cell_family`
-//! declared in the spec event-kind-registry) plus a [`LatticeRegistry`]
-//! that pre-registers every spec-normative family via
-//! [`default_lattice_registry`].
+//! [`build_sdk_cell_registry`] installs the complete executable
+//! family/lattice/bottom mapping generated from the spec event-kind registry.
+//! [`default_lattice_registry`] provides typed subject-derivation and
+//! event-kind dispatch implementations for callers that need those helpers.
 //!
 //! Naming note: this module's [`LatticeKind`] is the *trait* declaring
 //! which lattice algebra owns a given `cell_family`; the SDK's
@@ -11,24 +11,8 @@
 //! normative algebras themselves. Impls below dispatch a `cell_family`
 //! → `crate::lattice::LatticeKind` enum mapping plus a typed
 //! subject-derivation function.
-//!
-//! Coverage (mirrors soland `reducer::lattice_kinds`):
-//! - **OrSet** (causal add/remove): consent.grant, capability.grant / delegate / derived,
-//!   session.grant, device.authorized, device.list_update, agent.key, covered_seals (MLS), call
-//!   moderation, and call roster.
-//! - **CasRegister** (last-writer-wins, conflict→Bottom): realm.policy, realm.read_receipt_policy,
-//!   realm.history_visibility, realm.join_rule, realm.discovery, realm.organization, realm.upgrade,
-//!   strand.position, strand.stage, morph.stage, space.parent, device.push_route, notary (Move/Seal
-//!   authority cell), identity accountability, mls_epoch, call focus, and call summary.
-//! - **Fsm** (legal transitions only): member.state, invite.lifecycle, agent.status, call state,
-//!   call recording, call transcript, and realm.link.
-//! - **OrderedLog** (per-issuer monotonic append): account.status, policy.rule,
-//!   cross_signing.reset, contact.fact_log, direct_conversation.binding, circle create, sidecar
-//!   create, and realm create.
-//! - **MvRegister** (concurrent multi-value): profile.create, agent.selector_claim, view.create /
-//!   update / reconcile, mimi.room_binding.
-
 mod factory;
+mod generated;
 mod impls;
 mod registry;
 mod types;
@@ -40,6 +24,8 @@ pub use types::*;
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use arkret_state::lattice::LatticeKind as SdkLatticeKind;
     use arkret_state::{BottomMode, CellRegistry, CellState, SealedOp};
     use arkret_wire::{CellRef, Hash, LatticeOp, LatticeOpType, RealmId, composite_subject};
@@ -48,24 +34,81 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_registry_covers_at_least_all_spec_normative_cell_families() {
-        let registry = default_lattice_registry();
-        // Spec event-kind-registry has 40+ unique `cell_family` strings;
-        // this registry should cover them all.
-        assert!(
-            registry.len() >= 40,
-            "expected ≥40 cell families registered, got {}",
-            registry.len()
-        );
-    }
+    fn sdk_cell_registry_bindings_match_embedded_spec_exactly() {
+        let artifact =
+            arkret_schema::embedded_json_artifact("registry/event-kind-registry.json").unwrap();
+        let mut expected = BTreeMap::new();
+        for event in artifact["event_kinds"].as_array().unwrap() {
+            if event["status"] != "active" {
+                continue;
+            }
+            let mut writes = event["cell_writes"].as_array().cloned().unwrap_or_default();
+            if event.get("cell_family").is_some() {
+                writes.push(event.clone());
+            }
+            for write in writes {
+                if write.get("cell_family").is_none() {
+                    continue;
+                }
+                let family = write["cell_family"].as_str().unwrap().to_owned();
+                let binding = (
+                    write["lattice"].as_str().unwrap().to_owned(),
+                    write["bottom"].as_str().unwrap().to_owned(),
+                );
+                assert_eq!(
+                    expected
+                        .insert(family.clone(), binding.clone())
+                        .unwrap_or(binding.clone()),
+                    binding,
+                    "conflicting spec binding for {family}"
+                );
+            }
+        }
 
-    #[test]
-    fn default_registry_kind_count_matches_expected_total() {
-        // Pin the set of families currently implemented by this shared
-        // registry. New spec cell families must be added here before their
-        // contracts are consumed by Move/Seal state resolution.
-        let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 85);
+        let actual: BTreeMap<_, _> = lattice_bindings_for_sdk_registry()
+            .into_iter()
+            .map(|(family, lattice, bottom)| {
+                (
+                    family.to_owned(),
+                    (
+                        match lattice {
+                            SdkLatticeKind::OrSet => "or_set",
+                            SdkLatticeKind::CasRegister => "cas_register",
+                            SdkLatticeKind::Fsm => "fsm",
+                            SdkLatticeKind::OrderedLog => "ordered_log",
+                            SdkLatticeKind::MvRegister => "mv_register",
+                            SdkLatticeKind::Counter => "counter",
+                        }
+                        .to_owned(),
+                        match bottom {
+                            BottomMode::Reject => "reject",
+                            BottomMode::Expose => "expose",
+                            BottomMode::Inert => "inert",
+                        }
+                        .to_owned(),
+                    ),
+                )
+            })
+            .collect();
+        assert_eq!(actual, expected);
+
+        let registry = build_sdk_cell_registry();
+        let registered: BTreeMap<_, _> = registry
+            .registered_families()
+            .map(|family| (family.to_owned(), ()))
+            .collect();
+        let expected_families: BTreeMap<_, _> =
+            expected.keys().map(|family| (family.clone(), ())).collect();
+        assert_eq!(registered, expected_families);
+
+        let realm_id =
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011".to_owned()).unwrap();
+        for family in actual.keys() {
+            let cell = CellRef::new(format!("ak:cell:{family}:coverage")).unwrap();
+            registry
+                .resolve(&realm_id, &cell)
+                .unwrap_or_else(|error| panic!("{family} missing from SDK registry: {error}"));
+        }
     }
 
     #[test]
@@ -239,6 +282,99 @@ mod tests {
             binding.lattice.join(&cell, &[pending, accepted]),
             CellState::Value(json!("accepted"))
         );
+    }
+
+    #[test]
+    fn fsm_initial_states_are_explicit_null_transitions() {
+        let registry = build_sdk_cell_registry();
+        let realm_id =
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011".to_owned()).unwrap();
+        for (family, initial) in [
+            ("ak.component.audit.binding.v1", "active"),
+            ("ak.component.audit.session.v1", "request"),
+            ("ak.component.realm.link.v1", "active"),
+        ] {
+            let cell = CellRef::new(format!("ak:cell:{family}:initial")).unwrap();
+            let binding = registry.resolve(&realm_id, &cell).unwrap();
+            let op = LatticeOp {
+                op_type: LatticeOpType::Transition,
+                tag: None,
+                value: None,
+                from: Some(json!(null)),
+                to: Some(json!(initial)),
+                reason: None,
+                issuer_seq: None,
+            };
+            binding.lattice.validate_op(&op).unwrap_or_else(|error| {
+                panic!("{family} rejects initial state {initial}: {error}")
+            });
+        }
+    }
+
+    #[test]
+    fn agent_status_starts_active_and_accepts_first_pause() {
+        let registry = build_sdk_cell_registry();
+        let realm_id =
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011".to_owned()).unwrap();
+        let cell = CellRef::new("ak:cell:ak.component.agent.status.v1:agent".to_owned()).unwrap();
+        let binding = registry.resolve(&realm_id, &cell).unwrap();
+        assert_eq!(binding.lattice.initial_state(), Some(json!("active")));
+
+        let op = LatticeOp {
+            op_type: LatticeOpType::Transition,
+            tag: None,
+            value: None,
+            from: Some(json!("active")),
+            to: Some(json!("paused")),
+            reason: None,
+            issuer_seq: None,
+        };
+        binding.lattice.validate_op(&op).unwrap();
+    }
+
+    #[test]
+    fn membership_delivery_rebind_is_realm_only() {
+        let registry = build_sdk_cell_registry();
+        let realm_id =
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011".to_owned()).unwrap();
+        let circle_cell =
+            CellRef::new("ak:cell:ak.component.circle.member.v1:membership".to_owned()).unwrap();
+        let op = LatticeOp {
+            op_type: LatticeOpType::Transition,
+            tag: None,
+            value: None,
+            from: Some(json!("join")),
+            to: Some(json!("join")),
+            reason: None,
+            issuer_seq: None,
+        };
+        let circle = registry.resolve(&realm_id, &circle_cell).unwrap();
+        assert!(circle.lattice.validate_op(&op).is_err());
+
+        let realm_cell =
+            CellRef::new("ak:cell:ak.component.member.state.v1:membership".to_owned()).unwrap();
+        let realm = registry.resolve(&realm_id, &realm_cell).unwrap();
+        realm.lattice.validate_op(&op).unwrap();
+    }
+
+    #[test]
+    fn last_resort_keypackage_can_remain_published() {
+        let registry = build_sdk_cell_registry();
+        let realm_id =
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011".to_owned()).unwrap();
+        let cell =
+            CellRef::new("ak:cell:ak.component.mls.keypackage.v1:last-resort".to_owned()).unwrap();
+        let binding = registry.resolve(&realm_id, &cell).unwrap();
+        let op = LatticeOp {
+            op_type: LatticeOpType::Transition,
+            tag: None,
+            value: None,
+            from: Some(json!("published")),
+            to: Some(json!("published")),
+            reason: None,
+            issuer_seq: None,
+        };
+        binding.lattice.validate_op(&op).unwrap();
     }
 
     #[test]

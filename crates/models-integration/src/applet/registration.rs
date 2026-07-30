@@ -433,13 +433,13 @@ pub struct WireAppletRegistration {
     /// top-level required fields.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest: Option<BTreeMap<String, Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof: Option<Proof>,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
     )]
     pub created_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof: Option<Proof>,
 }
 
 impl WireAppletRegistration {
@@ -1067,17 +1067,17 @@ pub struct AppletPackage {
     /// sentinel and MUST call [`seal_registration_epoch`](Self::seal_registration_epoch)
     /// after all security-relevant fields and evidence are finalized.
     pub registration_epoch: Hash,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
-    pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
+    pub created_at: DateTime<Utc>,
     /// Controller DID detached proof. `None` until [`sign`](Self::sign).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<Proof>,

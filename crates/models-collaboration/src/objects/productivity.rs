@@ -1611,17 +1611,17 @@ pub struct AccountBlocklistPayloadEntry {
     pub applies_to: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<arkret_wire::NonEmptyString>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
-    pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
+    #[serde(
+        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
+    )]
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

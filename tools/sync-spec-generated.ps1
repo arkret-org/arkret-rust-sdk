@@ -42,10 +42,12 @@ try {
     $eventOutput = Join-Path $targetRoot 'crates/wire/src/generated/event_kinds.rs'
     $profileOutput = Join-Path $targetRoot 'crates/policy/src/generated/profiles.rs'
     $requirementsOutput = Join-Path $targetRoot 'crates/schema/src/generated/profile_requirements.rs'
+    $latticeBindingsOutput = Join-Path $targetRoot 'crates/lattice-registry/src/generated/lattice_bindings.rs'
     @(
         $eventOutput,
         $profileOutput,
-        $requirementsOutput
+        $requirementsOutput,
+        $latticeBindingsOutput
     ) | ForEach-Object {
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $_) | Out-Null
     }
@@ -53,6 +55,10 @@ try {
     & (Join-Path $PSScriptRoot 'generate-sdk-event-kinds.ps1') -ArtifactsDir $artifacts -OutputPath $eventOutput
     & (Join-Path $PSScriptRoot 'generate-sdk-profile-constants.ps1') -ArtifactsDir $artifacts -OutputPath $profileOutput
     & (Join-Path $PSScriptRoot 'generate-sdk-profile-requirements.ps1') -ArtifactsDir $artifacts -OutputPath $requirementsOutput
+    & python (Join-Path $PSScriptRoot 'generate-sdk-lattice-bindings.py') --artifacts-dir $artifacts --output $latticeBindingsOutput
+    if ($LASTEXITCODE -ne 0) {
+        throw 'lattice binding generation failed'
+    }
 
     & python (Join-Path $PSScriptRoot 'generate-registry-types.py') --artifacts-dir $artifacts --output-root $targetRoot
     if ($LASTEXITCODE -ne 0) {
@@ -90,7 +96,8 @@ try {
         'crates/wire/src/generated',
         'crates/wire/src/error_codes',
         'crates/policy/src/generated',
-        'crates/schema/src/generated'
+        'crates/schema/src/generated',
+        'crates/lattice-registry/src/generated'
     )
     foreach ($relativeRoot in $generatedRoots) {
         $root = Join-Path $repoRoot $relativeRoot

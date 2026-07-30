@@ -157,8 +157,8 @@ impl DetachedSignatureBinding {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DetachedSignature {
     pub kind: String,
-    pub alg: String,
     pub verification_method: String,
+    pub alg: String,
     pub payload_digest: Hash,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",

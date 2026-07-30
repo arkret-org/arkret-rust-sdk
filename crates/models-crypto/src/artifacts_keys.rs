@@ -406,7 +406,6 @@ impl RecoveryModelGenerationRef {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(try_from = "GenericRecoveryTranscriptWire")]
 pub struct GenericRecoveryTranscript {
-    pub schema: String,
     pub kind: RecoveryProofKind,
     pub principal_id: Did,
     pub requesting_device_id: DeviceId,
@@ -430,12 +429,12 @@ pub struct GenericRecoveryTranscript {
     )]
     pub created_at: DateTime<Utc>,
     pub proof_body: BTreeMap<String, Value>,
+    pub schema: String,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct GenericRecoveryTranscriptWire {
-    schema: String,
     kind: RecoveryProofKind,
     principal_id: Did,
     requesting_device_id: DeviceId,
@@ -452,6 +451,7 @@ struct GenericRecoveryTranscriptWire {
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     created_at: DateTime<Utc>,
     proof_body: BTreeMap<String, Value>,
+    schema: String,
 }
 
 impl TryFrom<GenericRecoveryTranscriptWire> for GenericRecoveryTranscript {
@@ -497,7 +497,6 @@ impl GenericRecoveryTranscript {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(try_from = "PrincipalSigningTranscriptWire")]
 pub struct PrincipalSigningTranscript {
-    pub schema: String,
     pub kind: RecoveryProofKind,
     pub principal_id: Did,
     pub requesting_device_id: DeviceId,
@@ -520,12 +519,12 @@ pub struct PrincipalSigningTranscript {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
     )]
     pub created_at: DateTime<Utc>,
+    pub schema: String,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PrincipalSigningTranscriptWire {
-    schema: String,
     kind: RecoveryProofKind,
     principal_id: Did,
     requesting_device_id: DeviceId,
@@ -541,6 +540,7 @@ struct PrincipalSigningTranscriptWire {
     expires_at: DateTime<Utc>,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     created_at: DateTime<Utc>,
+    schema: String,
 }
 
 impl TryFrom<PrincipalSigningTranscriptWire> for PrincipalSigningTranscript {

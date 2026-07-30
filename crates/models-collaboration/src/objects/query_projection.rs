@@ -64,7 +64,6 @@ pub enum ProjectionObjectKind {
 #[serde(deny_unknown_fields)]
 pub struct ProjectionObject {
     pub id: String,
-    pub object_kind: ProjectionObjectKind,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub morph_kind: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -73,6 +72,8 @@ pub struct ProjectionObject {
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
+    #[serde(rename = "kind")]
+    pub object_kind: ProjectionObjectKind,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -388,4 +389,25 @@ pub struct DocumentMorphProjection {
     pub updated_at: Option<DateTime<Utc>>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extensions: BTreeMap<String, Value>,
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn projection_object_uses_the_spec_kind_member() {
+        let object: ProjectionObject = serde_json::from_value(json!({
+            "id": "ak:strand:01904100-0000-7000-8000-000000000011",
+            "kind": "strand"
+        }))
+        .unwrap();
+        assert_eq!(object.object_kind, ProjectionObjectKind::Strand);
+
+        let encoded = serde_json::to_value(object).unwrap();
+        assert_eq!(encoded["kind"], "strand");
+        assert!(encoded.get("object_kind").is_none());
+    }
 }

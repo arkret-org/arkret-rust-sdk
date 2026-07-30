@@ -64,11 +64,11 @@ impl<'de> Deserialize<'de> for AccountDataBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct AccountDataSetPayload {
     pub key: NonEmptyString,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<Did>,
     /// Compare-and-set precondition. `0` creates a key that has never been
     /// written; every accepted write stores `expected_revision + 1`.
     pub expected_revision: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub owner: Option<Did>,
     /// Caller-supplied opaque value. Unlike the encrypted branch, this may be
     /// any JSON value, including a scalar, array, or null.
     #[serde(default, skip_serializing_if = "AccountDataBody::is_absent")]
@@ -93,9 +93,9 @@ pub struct AccountDataSetPayload {
 #[serde(deny_unknown_fields)]
 struct AccountDataSetPayloadWire {
     key: NonEmptyString,
-    expected_revision: u64,
     #[serde(default)]
     owner: Option<Did>,
+    expected_revision: u64,
     #[serde(default)]
     body: AccountDataBody,
     #[serde(default)]

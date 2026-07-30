@@ -58,13 +58,13 @@ pub enum MembershipPayloadState {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MembershipPayload {
-    pub membership: MembershipPayloadState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actor_id: Option<Did>,
+    pub membership: MembershipPayloadState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delivery_status: Option<DeliveryStatus>,
     /// `member_delivery_binding` carried opaquely as a `Value`.
@@ -332,12 +332,12 @@ pub const INVITE_SUBJECT_PROOF_TRANSCRIPT_DOMAIN: &str = "ak.invite.claim.subjec
 #[serde(deny_unknown_fields)]
 pub struct InviteClaimBindingProof {
     pub verification_service_id: Did,
+    pub verification_method: String,
     pub subject_id: Did,
     pub realm_id: RealmId,
     pub audience: String,
     pub claim_nonce: String,
     pub expires_at: String,
-    pub verification_method: String,
     pub signature: String,
 }
 

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-07-30.1;
-//! sha256=69916b7548766bb811e5a22987a60ea669f7b668e6a8d167e3b89dcc7f5f5bc0
-//! Entries: reason_codes=446
+//! Input: registry/error-code-registry.json; version=2026-07-30.2;
+//! sha256=03e79d6c31e9f84e1afe4c8152e684d7119b17a8d20c24b597a3b54f06b9c867
+//! Entries: reason_codes=447
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -211,6 +211,7 @@ pub enum ReasonCode {
     InvalidTaskFsmTransition,
     InvalidatedByRateLimit,
     InviteAlreadyTerminal,
+    InviteKindRequiresRevoke,
     InviteOobEntropyTooLow,
     JoinAuthorisationInvalid,
     JoinPolicyDuplicateGateId,
@@ -722,6 +723,7 @@ impl ReasonCode {
     pub const INVALID_TASK_FSM_TRANSITION: &'static str = "invalid_task_fsm_transition";
     pub const INVALIDATED_BY_RATE_LIMIT: &'static str = "invalidated_by_rate_limit";
     pub const INVITE_ALREADY_TERMINAL: &'static str = "invite_already_terminal";
+    pub const INVITE_KIND_REQUIRES_REVOKE: &'static str = "invite_kind_requires_revoke";
     pub const INVITE_OOB_ENTROPY_TOO_LOW: &'static str = "invite_oob_entropy_too_low";
     pub const JOIN_AUTHORISATION_INVALID: &'static str = "join_authorisation_invalid";
     pub const JOIN_POLICY_DUPLICATE_GATE_ID: &'static str = "join_policy_duplicate_gate_id";
@@ -1250,6 +1252,7 @@ impl ReasonCode {
             Self::InvalidTaskFsmTransition => "invalid_task_fsm_transition",
             Self::InvalidatedByRateLimit => "invalidated_by_rate_limit",
             Self::InviteAlreadyTerminal => "invite_already_terminal",
+            Self::InviteKindRequiresRevoke => "invite_kind_requires_revoke",
             Self::InviteOobEntropyTooLow => "invite_oob_entropy_too_low",
             Self::JoinAuthorisationInvalid => "join_authorisation_invalid",
             Self::JoinPolicyDuplicateGateId => "join_policy_duplicate_gate_id",
@@ -1774,6 +1777,7 @@ impl ReasonCode {
             "invalid_task_fsm_transition" => Self::InvalidTaskFsmTransition,
             "invalidated_by_rate_limit" => Self::InvalidatedByRateLimit,
             "invite_already_terminal" => Self::InviteAlreadyTerminal,
+            "invite_kind_requires_revoke" => Self::InviteKindRequiresRevoke,
             "invite_oob_entropy_too_low" => Self::InviteOobEntropyTooLow,
             "join_authorisation_invalid" => Self::JoinAuthorisationInvalid,
             "join_policy_duplicate_gate_id" => Self::JoinPolicyDuplicateGateId,
@@ -3091,6 +3095,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "invite_already_terminal",
         applies_to: &["event_envelope", "auth_decision"],
         description: "An Invite state transition is rejected because the target Invite is already in a terminal flow state (`accepted` / `rejected` / `revoked` / `revoked_by_capability_loss` / `revoked_by_inviter_left` / `expired` / `invalidated_by_rate_limit`). Note the Invite `state` is the invite flow axis (not the generic object lifecycle axis); see zh/models/governance-objects.md §5.3.",
+    },
+    ReasonCodeDescriptor {
+        code: "invite_kind_requires_revoke",
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "ak.invite.cancel targeted a token/3PID Invite without a stored direct invitee binding. Only ak.invite.revoke may terminate that Invite class.",
     },
     ReasonCodeDescriptor {
         code: "invite_oob_entropy_too_low",

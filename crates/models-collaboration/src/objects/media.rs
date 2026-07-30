@@ -241,8 +241,6 @@ pub struct CallMediaTokenExchangeRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CallMediaParticipantBinding {
     pub scheme: String,
-    pub sig: String,
-    pub issuer_kid: DidUrl,
     pub realm_id: RealmId,
     pub call_id: CallId,
     pub focus_id: String,
@@ -259,6 +257,8 @@ pub struct CallMediaParticipantBinding {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
     )]
     pub expires_at: DateTime<Utc>,
+    pub issuer_kid: DidUrl,
+    pub sig: String,
 }
 
 impl CallMediaParticipantBinding {
@@ -280,7 +280,6 @@ pub struct CallMediaServiceSignature {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CallMediaTokenExchangeOutcome {
     pub focus_id: String,
-    pub backend_kind: String,
     pub connect_url: String,
     pub backend_token: String,
     pub participant_identity: String,
@@ -291,4 +290,5 @@ pub struct CallMediaTokenExchangeOutcome {
     )]
     pub expires_at: DateTime<Utc>,
     pub service_signature: CallMediaServiceSignature,
+    pub backend_kind: String,
 }

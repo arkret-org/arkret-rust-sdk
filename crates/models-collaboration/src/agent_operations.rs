@@ -148,9 +148,9 @@ pub struct AgentKeyPairRequestBody {
     pub public_key: PublicKey,
     pub proof_of_possession: NonEmptyJsonObject,
     pub requested_scope_disclosure: AgentRequestedScopeDisclosure,
-    pub signing_key_binding: AgentSigningKeyBinding,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
+    pub signing_key_binding: AgentSigningKeyBinding,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub authorize_event: EventInitialSubmission,
 }

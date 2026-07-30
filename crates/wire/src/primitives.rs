@@ -956,8 +956,8 @@ pub enum PayloadProofPurpose {
 #[serde(deny_unknown_fields)]
 pub struct PayloadProof {
     pub kind: String,
-    pub alg: String,
     pub verification_method: String,
+    pub alg: String,
     pub payload_digest: Hash,
     #[serde(
         serialize_with = "crate::serde_helpers::serialize_canonical_timestamp",

@@ -1,5 +1,49 @@
 # Regression review log
 
+## 2026-07-30 — generated FSM bindings still lacked executable transition semantics
+
+- Surface: `arkret-lattice-registry` FSM construction used by Move/Seal verification.
+- Regression: adding every spec-declared FSM family exposed several hand-maintained semantic gaps:
+  audit and Realm-link creation states had no accepted first transition, Circle membership inherited
+  Realm-only delivery-rebind self-transitions, last-resort KeyPackages could not remain published,
+  and an absent provisioned Agent did not resolve to its normative `active` lifecycle state.
+- Detection: trace the absent-cell `from` derivation through `verify_control_move`, then compare each
+  FSM table with its normative lifecycle and conformance-vector text instead of checking only that
+  the family resolved.
+- Correction: encode the missing creation/initial transitions, keep the `join -> join` rebind only
+  for Realm membership, permit the last-resort `published -> published` no-state-change operation,
+  and register `active` as the implicit Agent lifecycle state.
+- Prevention dimension: registry tests now exercise first writes and variant-specific transitions,
+  in addition to exact family/lattice/bottom set equality.
+
+## 2026-07-30 — executable lattice registry covered only a hand-picked subset
+
+- Surface: `arkret-lattice-registry` and the Move/Seal `MemoryCellRegistry`.
+- Regression: the spec declared 133 active cell families, while the executable factory registered
+  84. The previous count assertion only pinned the hand-maintained subset and therefore stayed
+  green as the spec added families.
+- Detection: exact set comparison against `event-kind-registry.json` during the SDK code review.
+- Correction: generate all family/lattice/bottom bindings from the active registry entries, remove
+  the duplicate handwritten family list and its panic path, and compare the generated executable
+  set with the embedded registry in both directions.
+- Prevention dimension: the spec generation manifest owns the executable lattice-binding output;
+  generation fails on incomplete, unsupported, or conflicting bindings, and the SDK test reports
+  any missing or extra family without relying on a numeric threshold.
+
+## 2026-07-30 — embedded artifacts and generated profile digests drifted independently
+
+- Surface: `arkret-schema` embedded artifacts and `arkret-policy` generated reducer profile
+  constants.
+- Regression: the embedded artifact snapshot missed the latest capability fixture and reducer
+  registry changes, while `profiles.rs` was two reducer-registry revisions behind. The existing
+  remote drift gates were red on the main checkout.
+- Detection: full artifact leaf comparison and the existing generation scripts' check modes.
+- Correction: refresh all 265 embedded JSON artifacts and regenerate profile constants from the
+  same current spec artifact tree.
+- Prevention dimension: every spec synchronization must run both the embedded-artifact refresh and
+  the manifest-owned generated-surface synchronization against one resolved artifact directory,
+  followed by both check modes before commit.
+
 ## 2026-07-29 — anchor-unit validation rejected valid CAS preconditions
 
 - Surface: `arkret-wire::Event::validate_for_submit_structural_in_context` and Soland's durable

@@ -19,11 +19,11 @@ use crate::artifacts_keys::{
 #[serde(deny_unknown_fields)]
 pub struct KeysUploadRequestBody {
     pub device_id: DeviceId,
+    pub device_signature: KeyOperationSignature,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub one_time_keys: AlgorithmKeyRecords,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fallback_keys: AlgorithmKeyRecords,
-    pub device_signature: KeyOperationSignature,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

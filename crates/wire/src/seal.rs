@@ -33,8 +33,8 @@ pub fn compute_seal_id(canonical_bytes: &[u8]) -> Result<SealId> {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PayloadSignature {
-    pub alg: String,
     pub verification_method: String,
+    pub alg: String,
     pub payload_digest: Hash,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",

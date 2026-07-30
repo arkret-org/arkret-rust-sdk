@@ -634,6 +634,9 @@ pub struct EventsFrontierFederationPeerState {
     pub realm_id: RealmId,
     /// Current federation-visible head Event IDs for the realm.
     pub heads: Vec<EventId>,
+    /// Maximum HLC observed by the issuer at this frontier, when available.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_hlc: Option<String>,
     /// Hash commitment returned to an authorized federation peer.
     pub frontier_root: Hash,
     /// Per-actor sequence upper bounds returned to an authorized peer.
@@ -647,9 +650,6 @@ pub struct EventsFrontierFederationPeerState {
     pub issuer: Did,
     /// Service signature object over the peer frontier response.
     pub signature: BTreeMap<String, Value>,
-    /// Maximum HLC observed by the issuer at this frontier, when available.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_hlc: Option<String>,
 }
 
 /// Round 4 — anonymous-health variant. Used by public health checks
