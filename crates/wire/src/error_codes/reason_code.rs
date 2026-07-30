@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-07-18;
-//! sha256=dbea650ae05e664f24ad71422f3da9746022f7adf965a26dcbac3dc1a264d96a
+//! Input: registry/error-code-registry.json; version=2026-07-30;
+//! sha256=b5e7a427952c5dff59d0ec2bfa348653042559a3d9232129faa2bad20e018bf7
 //! Entries: reason_codes=446
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2092,7 +2092,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "accountability_grant_missing",
         applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "Returned in three surfaces. (1) `event_envelope` / `auth_decision`: an Actor Profile update declares an `accountable_principal_ids[]` entry without a corresponding active `ak.identity.accountability_grant` (issuer=that DID, subject=profile.principal_id, grant_status=active, within validity window). Deployment policy chooses between reducer reject with this reason or silently strip the unverified entry + emit audit log; the `ak.profile.accountable_principals.strict_reject.v1` profile forces the reject path. See zh/models/actor.md §3.3.1. (2) `service_call`: returned by orchestrator HTTP operations that fan-out an accountability grant — `ak.self.agent.command.provision` rejects when the controller cannot present an issuable accountability grant for the new agent principal, and `ak.self.agent.command.resume` rejects when the controller's accountability grant over the agent has been revoked or has lapsed its freshness window since `ak.self.agent.command.pause`. HTTP callers MUST treat this as a precondition-class failure, not transient.",
+        description: "Returned in three surfaces. (1) `event_envelope` / `auth_decision`: an Actor Profile update declares an `accountable_principal_ids[]` entry without a corresponding active `ak.identity.accountability_grant` (issuer=that DID, subject=profile.principal_id, grant_status=active, within validity window). Reducer MUST reject the entire Event with this reason and MUST NOT accept a field-stripped projection. See zh/models/actor.md §3.3.1. (2) `service_call`: returned by orchestrator HTTP operations that fan-out an accountability grant — `ak.self.agent.command.provision` rejects when the controller cannot present an issuable accountability grant for the new agent principal, and `ak.self.agent.command.resume` rejects when the controller's accountability grant over the agent has been revoked or has lapsed its freshness window since `ak.self.agent.command.pause`. HTTP callers MUST treat this as a precondition-class failure, not transient.",
     },
     ReasonCodeDescriptor {
         code: "actor_kind_reducer_managed",
