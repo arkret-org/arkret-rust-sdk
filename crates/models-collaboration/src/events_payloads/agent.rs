@@ -316,6 +316,58 @@ pub struct AgentKeyAuthorizePayload {
     pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
 }
 
+/// Why an Event does not carry a valid `ak.agent.key.authorize` payload.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AgentKeyAuthorizePayloadError {
+    /// The envelope's `kind` is something other than `ak.agent.key.authorize`.
+    UnexpectedKind(String),
+    /// The envelope's `payload` does not match the closed authorize shape.
+    InvalidPayload(String),
+}
+
+impl core::fmt::Display for AgentKeyAuthorizePayloadError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::result::Result<(), core::fmt::Error> {
+        match self {
+            AgentKeyAuthorizePayloadError::UnexpectedKind(kind) => {
+                write!(f, "event kind must be ak.agent.key.authorize, got {kind}")
+            }
+            AgentKeyAuthorizePayloadError::InvalidPayload(reason) => {
+                write!(f, "ak.agent.key.authorize payload is invalid: {reason}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for AgentKeyAuthorizePayloadError {}
+
+/// Read the closed authorize payload out of a signed Event envelope.
+///
+/// Consumers (Coauth's runtime pairing gate, Soland's admission path) validate
+/// business fields against this type rather than re-reading string keys off a
+/// `serde_json::Value`, so a payload field rename is a compile error at every
+/// call site instead of a silently absent check.
+///
+/// This borrows the Event rather than consuming it: signature verification MUST
+/// keep using the original canonical Event bytes, never a re-serialization of
+/// the typed payload.
+impl TryFrom<&Event> for AgentKeyAuthorizePayload {
+    type Error = AgentKeyAuthorizePayloadError;
+
+    fn try_from(event: &Event) -> core::result::Result<Self, Self::Error> {
+        if event.kind.as_str() != EventKind::AGENT_KEY_AUTHORIZE {
+            return Err(AgentKeyAuthorizePayloadError::UnexpectedKind(
+                event.kind.as_str().to_owned(),
+            ));
+        }
+        // The envelope keeps `payload` as an ordered map so the canonical
+        // transcript is preserved; rebuild the object in place rather than
+        // round-tripping through a JSON string.
+        let payload = Value::Object(event.payload.clone().into_iter().collect());
+        serde_json::from_value(payload)
+            .map_err(|error| AgentKeyAuthorizePayloadError::InvalidPayload(error.to_string()))
+    }
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_revoke_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -384,4 +436,90 @@ pub struct AgentSidecarExposureAck {
     pub acknowledged_at: DateTime<Utc>,
     pub acknowledged_by: Did,
     pub sidecar_refs: Vec<ObjectRef>,
+}
+
+#[cfg(test)]
+mod agent_key_authorize_payload_tests {
+    use serde_json::json;
+
+    use super::{AgentKeyAuthorizePayload, AgentKeyAuthorizePayloadError};
+
+    fn authorize_event(kind: &str, payload_overrides: serde_json::Value) -> arkret_wire::Event {
+        let mut payload = json!({
+            "agent_id": "did:web:agent.example",
+            "key_id": "runtime-key-1",
+            "verification_method": "did:web:agent.example#runtime-key-1",
+            "public_key_digest":
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "signing_key_binding_digest":
+                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "accountable_principal_id": "did:web:controller.example",
+            "agent_key_scope": { "actions": ["ak.event.read"], "resources": [] },
+            "audience": ["did:web:soland.local"],
+            "issued_at": "2026-07-06T00:00:00.000Z",
+            "approval_evidence": {
+                "kind": "pairing_request",
+                "pairing_request_id":
+                    "agent_pairing_request:01999999-0000-7000-8000-00000000feed",
+                "request_canonical_digest":
+                    "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "approved_by": "did:web:controller.example"
+            }
+        });
+        if let (Some(payload), Some(overrides)) =
+            (payload.as_object_mut(), payload_overrides.as_object())
+        {
+            for (key, value) in overrides {
+                payload.insert(key.clone(), value.clone());
+            }
+        }
+        serde_json::from_value(json!({
+            "event_id": "ak:event:01999999-0000-7000-8000-000000000001",
+            "kind": kind,
+            "realm_id": "ak:realm:01999999-0000-7000-8000-000000000010",
+            "scope_ref": {
+                "kind": "realm",
+                "realm_id": "ak:realm:01999999-0000-7000-8000-000000000010"
+            },
+            "actor_id": "did:web:agent.example",
+            "executed_by": "did:web:controller.example",
+            "actor_seq": 1,
+            "created_at": "2026-07-06T00:00:00.000Z",
+            "prev_refs": [],
+            "payload": payload,
+            "proofs": []
+        }))
+        .expect("fixture is a wire Event")
+    }
+
+    #[test]
+    fn reads_the_closed_payload_from_a_matching_event() {
+        let event = authorize_event("ak.agent.key.authorize", json!({}));
+        let payload = AgentKeyAuthorizePayload::try_from(&event).expect("payload parses");
+        assert_eq!(payload.key_id.as_str(), "runtime-key-1");
+        assert_eq!(payload.audience, vec!["did:web:soland.local".to_owned()]);
+        assert!(payload.expires_at.is_none());
+        assert!(payload.supersedes.is_empty());
+    }
+
+    #[test]
+    fn rejects_an_event_of_another_kind() {
+        let event = authorize_event("ak.agent.key.revoke", json!({}));
+        assert!(matches!(
+            AgentKeyAuthorizePayload::try_from(&event),
+            Err(AgentKeyAuthorizePayloadError::UnexpectedKind(kind)) if kind == "ak.agent.key.revoke"
+        ));
+    }
+
+    #[test]
+    fn rejects_an_unregistered_payload_field() {
+        let event = authorize_event(
+            "ak.agent.key.authorize",
+            json!({ "unregistered_field": true }),
+        );
+        assert!(matches!(
+            AgentKeyAuthorizePayload::try_from(&event),
+            Err(AgentKeyAuthorizePayloadError::InvalidPayload(_))
+        ));
+    }
 }

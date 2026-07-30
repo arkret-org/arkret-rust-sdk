@@ -39,6 +39,24 @@ impl LatticeRegistry {
         self.lookup(family)
     }
 
+    /// Every registered cell family, in canonical order.
+    ///
+    /// Coverage checks compare this against the generated spec binding list;
+    /// counting registrations is not coverage, because one missing family and
+    /// one stray family cancel out.
+    pub fn families(&self) -> impl ExactSizeIterator<Item = &'static str> + '_ {
+        self.families.keys().copied()
+    }
+
+    /// Every registered `(event_kind, cell_family)` mapping, in canonical order.
+    pub fn event_kind_bindings(
+        &self,
+    ) -> impl ExactSizeIterator<Item = (&'static str, &'static str)> + '_ {
+        self.event_kind_index
+            .iter()
+            .map(|(event_kind, family)| (*event_kind, *family))
+    }
+
     pub fn event_kind_mappings(&self) -> usize {
         self.event_kind_index.len()
     }
