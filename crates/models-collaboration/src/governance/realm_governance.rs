@@ -17,7 +17,10 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::event_envelope::EventRef;
-use arkret_wire::{CapabilityId, Did, Error, ErrorCode, Hash, RealmId, ReasonCode, Result};
+use arkret_wire::{
+    CapabilityId, Did, DidUrl, Error, ErrorCode, Hash, NonEmptyString, ProtocolKind, RealmId,
+    ReasonCode, Result,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -529,6 +532,90 @@ pub enum RealmPolicyServerOnTimeout {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RealmPolicyServerFailMode {
+    Open,
+    SoftDeny,
+    Quarantine,
+    Closed,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RealmPolicyServerAppliesTo {
+    Join,
+    Invite,
+    Message,
+    Media,
+    Applet,
+    Directory,
+    Call,
+    Federation,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmPolicyServerPolicySource {
+    pub kind: ProtocolKind,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmPolicyServerDeclarationPayload {
+    pub policy_server_did: Did,
+    pub policy_server_url: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub public_keys: Vec<DidUrl>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub applies_to: Vec<RealmPolicyServerAppliesTo>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub policy_sources: Vec<RealmPolicyServerPolicySource>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub abuse_profile_ref: Option<NonEmptyString>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fail_mode: Option<RealmPolicyServerFailMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_ttl_seconds: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_timeout: Option<RealmPolicyServerOnTimeout>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmPolicyServerTombstonePayload {
+    pub tombstone: bool,
+}
+
+impl RealmPolicyServerTombstonePayload {
+    pub const VALUE: Self = Self { tombstone: true };
+
+    pub fn validate(self) -> Result<Self> {
+        if self.tombstone {
+            Ok(self)
+        } else {
+            Err(Error::Protocol(
+                "realm policy server tombstone MUST be true".to_owned(),
+            ))
+        }
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RealmPolicyServerPayload {
+    Declaration(RealmPolicyServerDeclarationPayload),
+    Tombstone(RealmPolicyServerTombstonePayload),
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmPolicyServerView {
@@ -1012,5 +1099,23 @@ mod tests {
         let v = serde_json::to_value(&cap).unwrap();
         let back: CapabilityDerived = serde_json::from_value(v).unwrap();
         assert_eq!(back, cap);
+    }
+
+    #[test]
+    fn realm_policy_server_tombstone_is_closed_and_true() {
+        let value = serde_json::to_value(RealmPolicyServerTombstonePayload::VALUE).unwrap();
+        assert_eq!(value, serde_json::json!({"tombstone": true}));
+        assert!(
+            serde_json::from_value::<RealmPolicyServerPayload>(serde_json::json!({
+                "tombstone": true,
+                "policy_server_did": "did:web:policy.example"
+            }))
+            .is_err()
+        );
+        let false_tombstone = serde_json::from_value::<RealmPolicyServerTombstonePayload>(
+            serde_json::json!({"tombstone": false}),
+        )
+        .unwrap();
+        assert!(false_tombstone.validate().is_err());
     }
 }
