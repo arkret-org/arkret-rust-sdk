@@ -27,6 +27,9 @@ static EMBEDDED_SPEC_ARTIFACTS: OnceLock<std::result::Result<BTreeMap<String, Va
 static EMBEDDED_CAPABILITY_ACTIONS: OnceLock<
     std::result::Result<BTreeMap<String, ParsedCapabilityActionDescriptor>, String>,
 > = OnceLock::new();
+static EMBEDDED_CAPABILITY_ACTIONS_BY_EVENT_KIND: OnceLock<
+    std::result::Result<BTreeMap<String, Vec<String>>, String>,
+> = OnceLock::new();
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SpecArtifactBundle {
@@ -942,6 +945,53 @@ pub fn embedded_capability_action(
     }
 }
 
+/// The capability actions whose `target_event_kinds` cover `event_kind`.
+///
+/// Event kinds and capability actions are two distinct namespaces: an Event
+/// names what happened, a capability action names what an actor is authorized
+/// to do. Some strings coincide (`ak.message.create`), most do not
+/// (`ak.realm.policy_server` is governed by `ak.policy.manage`). A caller that
+/// holds an Event and needs the authorization question has to go through this
+/// registry-derived mapping rather than passing the kind straight to a
+/// capability check.
+///
+/// The returned slice is sorted and may name several actions; any one of them
+/// authorizes the Event.
+pub fn embedded_capability_actions_for_event_kind(event_kind: &str) -> Result<&'static [String]> {
+    const EMPTY: &[String] = &[];
+    match EMBEDDED_CAPABILITY_ACTIONS_BY_EVENT_KIND.get_or_init(|| {
+        let actions = match EMBEDDED_CAPABILITY_ACTIONS.get_or_init(|| {
+            let artifacts = embedded_spec_artifacts().map_err(|error| error.to_string())?;
+            let registry = artifacts
+                .get("registry/capability-action-registry.json")
+                .ok_or_else(|| {
+                    "embedded spec artifact registry/capability-action-registry.json is missing"
+                        .to_owned()
+                })?;
+            capability_actions_from_registry(registry).map_err(|error| error.to_string())
+        }) {
+            Ok(actions) => actions,
+            Err(error) => return Err(error.clone()),
+        };
+        let mut by_kind: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for (action, descriptor) in actions {
+            for kind in &descriptor.target_event_kinds {
+                by_kind
+                    .entry(kind.clone())
+                    .or_default()
+                    .push(action.clone());
+            }
+        }
+        for actions in by_kind.values_mut() {
+            actions.sort();
+        }
+        Ok(by_kind)
+    }) {
+        Ok(by_kind) => Ok(by_kind.get(event_kind).map_or(EMPTY, Vec::as_slice)),
+        Err(error) => Err(Error::Protocol(error.clone())),
+    }
+}
+
 fn capability_action_from_registry(
     registry: &Value,
     action: &str,
@@ -1540,6 +1590,37 @@ mod tests {
             .expect("policy manage should be registered");
         assert_eq!(policy.risk_tier, CapabilityRiskTier::High);
         assert_eq!(policy.event_mapping_kind, "aggregate_admin");
+    }
+
+    #[test]
+    fn embedded_capability_actions_for_event_kind_inverts_target_event_kinds() {
+        // A kind whose string coincides with its governing action.
+        assert!(
+            embedded_capability_actions_for_event_kind("ak.message.create")
+                .expect("embedded registry should parse")
+                .contains(&"ak.message.create".to_owned())
+        );
+
+        // A kind whose governing actions are named differently: this is the
+        // case a caller holding only an Event kind cannot guess.
+        let policy_server = embedded_capability_actions_for_event_kind("ak.realm.policy_server")
+            .expect("embedded registry should parse");
+        assert!(
+            policy_server.contains(&"ak.policy.manage".to_owned()),
+            "ak.realm.policy_server must map to ak.policy.manage, got {policy_server:?}"
+        );
+        assert!(
+            policy_server.windows(2).all(|pair| pair[0] <= pair[1]),
+            "candidates must be sorted: {policy_server:?}"
+        );
+
+        // An unregistered kind yields no candidates rather than an error, so
+        // the caller can fall back to its own fail-closed verdict.
+        assert!(
+            embedded_capability_actions_for_event_kind("ak.not.a.registered.kind")
+                .expect("embedded registry should parse")
+                .is_empty()
+        );
     }
 
     #[cfg(feature = "embedded-artifacts")]
