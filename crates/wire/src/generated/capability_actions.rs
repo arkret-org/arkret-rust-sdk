@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-07-30;
-//! sha256=64ed8822610a920d744b332fa09d7835eed9594489fa6f6f0d2c2be70faf9e01 Entries: registered=157
+//! Input: registry/capability-action-registry.json; version=2026-07-30.1;
+//! sha256=468d3231a6123c420c5311127585972cc82bab9515298fd9594b6dc578a829a4 Entries: registered=158
 
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +18,7 @@ pub enum CapabilityActionId {
     AgentSidecarExchangeControl,
     AgentSidecarPublish,
     AgentSidecarWrite,
+    AppletGhostProvision,
     ApprovalVote,
     AuditAccessed,
     AuditAppletBinding,
@@ -179,6 +180,7 @@ impl CapabilityActionId {
         Self::AgentSidecarExchangeControl,
         Self::AgentSidecarPublish,
         Self::AgentSidecarWrite,
+        Self::AppletGhostProvision,
         Self::ApprovalVote,
         Self::AuditAccessed,
         Self::AuditAppletBinding,
@@ -338,6 +340,7 @@ impl CapabilityActionId {
     pub const AGENT_SIDECAR_EXCHANGE_CONTROL: &'static str = "ak.agent.sidecar.exchange.control";
     pub const AGENT_SIDECAR_PUBLISH: &'static str = "ak.agent.sidecar.publish";
     pub const AGENT_SIDECAR_WRITE: &'static str = "ak.agent.sidecar.write";
+    pub const APPLET_GHOST_PROVISION: &'static str = "ak.applet.ghost.provision";
     pub const APPROVAL_VOTE: &'static str = "ak.approval.vote";
     pub const AUDIT_ACCESSED: &'static str = "ak.audit.accessed";
     pub const AUDIT_APPLET_BINDING: &'static str = "ak.audit.applet_binding";
@@ -504,6 +507,7 @@ impl CapabilityActionId {
             Self::AgentSidecarExchangeControl => "ak.agent.sidecar.exchange.control",
             Self::AgentSidecarPublish => "ak.agent.sidecar.publish",
             Self::AgentSidecarWrite => "ak.agent.sidecar.write",
+            Self::AppletGhostProvision => "ak.applet.ghost.provision",
             Self::ApprovalVote => "ak.approval.vote",
             Self::AuditAccessed => "ak.audit.accessed",
             Self::AuditAppletBinding => "ak.audit.applet_binding",
@@ -668,6 +672,7 @@ impl CapabilityActionId {
             "ak.agent.sidecar.exchange.control" => Some(Self::AgentSidecarExchangeControl),
             "ak.agent.sidecar.publish" => Some(Self::AgentSidecarPublish),
             "ak.agent.sidecar.write" => Some(Self::AgentSidecarWrite),
+            "ak.applet.ghost.provision" => Some(Self::AppletGhostProvision),
             "ak.approval.vote" => Some(Self::ApprovalVote),
             "ak.audit.accessed" => Some(Self::AuditAccessed),
             "ak.audit.applet_binding" => Some(Self::AuditAppletBinding),

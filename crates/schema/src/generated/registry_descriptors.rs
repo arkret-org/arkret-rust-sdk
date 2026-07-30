@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-07-30;
-//! sha256=0feb07ad0c7867e2f4005bf231a753061126fdbebcd6fb7f35daae9be5642adb Input: registry/
-//! capability-action-registry.json; version=2026-07-30;
-//! sha256=64ed8822610a920d744b332fa09d7835eed9594489fa6f6f0d2c2be70faf9e01 Input: registry/
-//! schema-registry.json; version=2026-07-30;
-//! sha256=6c997225ff4600b352cb28f4a31818751f74f34b8bf97f6c3f2260b8710b7342 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-07-30.1;
+//! sha256=b61be7a0aa771f1186cd92180cd40845aec79716964bf4a10005445784551ed2 Input: registry/
+//! capability-action-registry.json; version=2026-07-30.1;
+//! sha256=468d3231a6123c420c5311127585972cc82bab9515298fd9594b6dc578a829a4 Input: registry/
+//! schema-registry.json; version=2026-07-30.1;
+//! sha256=95eb5e793e05c56594146789c38560670e835a133fa5bff5fd3303c8ce49428c Input: registry/
 //! account-data-key-registry.json; version=2026-07-29;
 //! sha256=4440a5ff1a4a91605e5a83b1e46b4da4fc1bd49eaf110ec807ac246fd25b59ec Entries: id_kinds=53,
-//! special_forms=9, actions=157, schemas=170, account_data_patterns=22
+//! special_forms=9, actions=158, schemas=170, account_data_patterns=22
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -469,6 +469,15 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         target_event_kinds: &["ak.message.create"],
         profile: Some("ak.profile.agent_sidecar.v1"),
         event_mapping_kind: "scope_suffix_variant",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::AppletGhostProvision,
+        category: "management",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &["applet_id", "executed_by", "registration_epoch"],
+        target_event_kinds: &[],
+        profile: Some("ak.profile.applet_bridge.v1"),
+        event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ApprovalVote,
