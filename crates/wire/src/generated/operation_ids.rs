@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-07-31.15;
-//! sha256=d3b566858aa950b56e0931d650bbf42b586356c0603867eaebb08fea86f43ef5 Entries: registered=218
+//! Input: registry/operation-registry.json; version=2026-07-31.17;
+//! sha256=fff0b1a4ad843c6bc60a0c9e97104d95452231a291f2de146e1d3bda60926732 Entries: registered=218
 
 use serde::{Deserialize, Serialize};
 
@@ -5168,17 +5168,15 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         grpc: Some("SelfKeys/KeyPackagesClaim"),
         mq: Some("self.keys.keypackages.command.claim"),
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
+        idempotency_mechanism: Some("object_id"),
+        retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/keypackage-operations.schema.json#/$defs/key_packages_claim_request_body",
         ),
         response_schema_ref: Some(
             "schemas/keypackage-operations.schema.json#/$defs/key_packages_claim_outcome",
         ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.keys.keypackages.command.claim\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
-        ),
+        uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,

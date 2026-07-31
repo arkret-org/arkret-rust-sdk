@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-07-24;
-//! sha256=9476fb6ca20b92e79a8cebad5f8e584e856bc5324bfb94ec5ae9610e8d0484c5 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-07-31;
+//! sha256=597455af6d749225da45307b1644c63b643d491f65e4eb5fd4e7edaf0ea081c2 Input: registry/
 //! exporter-label-registry.json; version=2026-06-10;
 //! sha256=8ac4e357f9c8759ad0ee46582a045c1501665ac3c49b34262fecbbca8c7c28d9 Input: registry/
 //! digest-suite-registry.json; version=2026-06-10;
@@ -14,7 +14,7 @@
 //! sha256=2c73b41567acd7880abcb4f73a2b09f28805517f41531ef9bfa9a1d018d63ac3 Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
 //! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
-//! Entries: proof_contexts=36, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=38, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -23,6 +23,7 @@ pub enum ProofContextId {
     AccountHandoffAuthenticationProofV1,
     AccountabilityGrantProofV1,
     AgentRequestedScopeDisclosureProofV1,
+    AgentRuntimeKeyPossessionProofV1,
     AgentSelectorClaimProofV1,
     AppletPackageProofV1,
     AuditReleaseAttestationProofV1,
@@ -44,6 +45,7 @@ pub enum ProofContextId {
     JoinApplicationCancelReceiptProofV1,
     JoinApplicationReceiptProofV1,
     JoinApplicationReviewReceiptProofV1,
+    KeypackageClaimRequestProofV1,
     MemberDeliveryBindingCandidateProofV1,
     MimiOperationProofV1,
     OrganizationRegistrationControlProofV1,
@@ -63,6 +65,7 @@ impl ProofContextId {
         Self::AccountHandoffAuthenticationProofV1,
         Self::AccountabilityGrantProofV1,
         Self::AgentRequestedScopeDisclosureProofV1,
+        Self::AgentRuntimeKeyPossessionProofV1,
         Self::AgentSelectorClaimProofV1,
         Self::AppletPackageProofV1,
         Self::AuditReleaseAttestationProofV1,
@@ -84,6 +87,7 @@ impl ProofContextId {
         Self::JoinApplicationCancelReceiptProofV1,
         Self::JoinApplicationReceiptProofV1,
         Self::JoinApplicationReviewReceiptProofV1,
+        Self::KeypackageClaimRequestProofV1,
         Self::MemberDeliveryBindingCandidateProofV1,
         Self::MimiOperationProofV1,
         Self::OrganizationRegistrationControlProofV1,
@@ -103,6 +107,8 @@ impl ProofContextId {
     pub const ACCOUNTABILITY_GRANT_PROOF_V1: &'static str = "ak.accountability-grant-proof-v1";
     pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_PROOF_V1: &'static str =
         "ak.agent-requested-scope-disclosure-proof-v1";
+    pub const AGENT_RUNTIME_KEY_POSSESSION_PROOF_V1: &'static str =
+        "ak.agent-runtime-key-possession-proof-v1";
     pub const AGENT_SELECTOR_CLAIM_PROOF_V1: &'static str = "ak.agent-selector-claim-proof-v1";
     pub const APPLET_PACKAGE_PROOF_V1: &'static str = "ak.applet-package-proof-v1";
     pub const AUDIT_RELEASE_ATTESTATION_PROOF_V1: &'static str =
@@ -132,6 +138,8 @@ impl ProofContextId {
         "ak.join-application-receipt-proof-v1";
     pub const JOIN_APPLICATION_REVIEW_RECEIPT_PROOF_V1: &'static str =
         "ak.join-application-review-receipt-proof-v1";
+    pub const KEYPACKAGE_CLAIM_REQUEST_PROOF_V1: &'static str =
+        "ak.keypackage-claim-request-proof-v1";
     pub const MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1: &'static str =
         "ak.member-delivery-binding-candidate-proof-v1";
     pub const MIMI_OPERATION_PROOF_V1: &'static str = "ak.mimi-operation-proof-v1";
@@ -159,6 +167,7 @@ impl ProofContextId {
             Self::AgentRequestedScopeDisclosureProofV1 => {
                 "ak.agent-requested-scope-disclosure-proof-v1"
             }
+            Self::AgentRuntimeKeyPossessionProofV1 => "ak.agent-runtime-key-possession-proof-v1",
             Self::AgentSelectorClaimProofV1 => "ak.agent-selector-claim-proof-v1",
             Self::AppletPackageProofV1 => "ak.applet-package-proof-v1",
             Self::AuditReleaseAttestationProofV1 => "ak.audit-release-attestation-proof-v1",
@@ -186,6 +195,7 @@ impl ProofContextId {
             Self::JoinApplicationReviewReceiptProofV1 => {
                 "ak.join-application-review-receipt-proof-v1"
             }
+            Self::KeypackageClaimRequestProofV1 => "ak.keypackage-claim-request-proof-v1",
             Self::MemberDeliveryBindingCandidateProofV1 => {
                 "ak.member-delivery-binding-candidate-proof-v1"
             }
@@ -218,6 +228,9 @@ impl ProofContextId {
             "ak.agent-requested-scope-disclosure-proof-v1" => {
                 Some(Self::AgentRequestedScopeDisclosureProofV1)
             }
+            "ak.agent-runtime-key-possession-proof-v1" => {
+                Some(Self::AgentRuntimeKeyPossessionProofV1)
+            }
             "ak.agent-selector-claim-proof-v1" => Some(Self::AgentSelectorClaimProofV1),
             "ak.applet-package-proof-v1" => Some(Self::AppletPackageProofV1),
             "ak.audit-release-attestation-proof-v1" => Some(Self::AuditReleaseAttestationProofV1),
@@ -245,6 +258,7 @@ impl ProofContextId {
             "ak.join-application-review-receipt-proof-v1" => {
                 Some(Self::JoinApplicationReviewReceiptProofV1)
             }
+            "ak.keypackage-claim-request-proof-v1" => Some(Self::KeypackageClaimRequestProofV1),
             "ak.member-delivery-binding-candidate-proof-v1" => {
                 Some(Self::MemberDeliveryBindingCandidateProofV1)
             }
@@ -419,6 +433,23 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/agent-requested-scope-disclosure.schema.json",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::AgentRuntimeKeyPossessionProofV1,
+        context: "ak.agent-runtime-key-possession-proof-v1",
+        object_family: "agent_runtime_key_possession",
+        binding_fields: &[
+            "kind",
+            "verification_method",
+            "alg",
+            "challenge",
+            "audience",
+            "created_at",
+            "expires_at",
+            "pairing_code",
+            "runtime_key_binding_digest",
+        ],
+        schema_ref: "schemas/agent-operations.schema.json#/$defs/agent_runtime_key_possession_proof",
     },
     ProofContextDescriptor {
         id: ProofContextId::AgentSelectorClaimProofV1,
@@ -712,6 +743,23 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "created_at",
         ],
         schema_ref: "schemas/join-policy-operations.schema.json#/$defs/review_receipt",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::KeypackageClaimRequestProofV1,
+        context: "ak.keypackage-claim-request-proof-v1",
+        object_family: "keypackage_claim_request",
+        binding_fields: &[
+            "payload_digest",
+            "requester",
+            "target_principal_id",
+            "intended_realm_id",
+            "claim_nonce",
+            "verification_method",
+            "created_at",
+            "proof_purpose",
+            "audience",
+        ],
+        schema_ref: "schemas/keypackage-operations.schema.json#/$defs/keypackage_claim_proof",
     },
     ProofContextDescriptor {
         id: ProofContextId::MemberDeliveryBindingCandidateProofV1,
