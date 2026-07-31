@@ -413,8 +413,10 @@ impl SignalEnvelope {
     }
 
     /// Every check the sender, ingress, relay and receiver share, except the
-    /// signature verification and the Seal-relative device authorization
-    /// lookup, which need key material and accepted state.
+    /// signature verification and the current-directory device authorization
+    /// lookup, which need key material and accepted state. The two are separate
+    /// state domains: `seal_ref` selects the Realm/scope basis only, never the
+    /// device frontier (`signal.md` §1).
     ///
     /// Notably absent by design: any inspection of a product `signal_kind`,
     /// `call_id` or `strand_id`. Those do not exist on the outer envelope, and
@@ -428,6 +430,22 @@ impl SignalEnvelope {
         if self.encrypted_payload.ciphertext.len() > MAX_SIGNAL_CIPHERTEXT_CHARS {
             return Err(Error::Protocol(format!(
                 "signal ciphertext exceeds {MAX_SIGNAL_CIPHERTEXT_CHARS} characters"
+            )));
+        }
+        // `signal.md` §1 — literal equality with `{sender_actor_id}#{sender_device_id}`.
+        // This is only the completeness condition of the directory lookup key,
+        // never a substitute for the device authorization itself: a fragment
+        // that merely looks like the device id, or a method controlled by
+        // another DID, would otherwise select a different directory row than
+        // the envelope claims to have been signed by.
+        let expected_verification_method = format!(
+            "{}#{}",
+            self.sender_actor_id.as_str(),
+            self.sender_device_id.as_str()
+        );
+        if self.proof.verification_method.as_str() != expected_verification_method {
+            return Err(Error::Protocol(format!(
+                "signal proof verification_method must equal '{expected_verification_method}'"
             )));
         }
         if self.proof.created_at != self.sent_at {
@@ -589,13 +607,20 @@ mod tests {
         Utc.with_ymd_and_hms(2026, 7, 28, 12, 0, 0).unwrap()
     }
 
+    fn actor() -> Did {
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
+    }
+
+    fn device() -> DeviceId {
+        DeviceId::new("ak:device:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap()
+    }
+
     fn envelope(signal_class: SignalClass, ttl_seconds: i64) -> SignalEnvelope {
         let mut envelope = SignalEnvelope {
             realm_id: realm(),
             scope_ref: ScopeRef::Realm { realm_id: realm() },
-            sender_actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            sender_device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-bbbbbbbbbbbb")
-                .unwrap(),
+            sender_actor_id: actor(),
+            sender_device_id: device(),
             seal_ref: SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
             signal_class,
             sent_at: sent_at(),
@@ -615,8 +640,7 @@ mod tests {
             },
             proof: SignalProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
-                verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-key")
-                    .unwrap(),
+                verification_method: DidUrl::new(format!("{}#{}", actor(), device())).unwrap(),
                 alg: "EdDSA".to_owned(),
                 envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at: sent_at(),
@@ -676,6 +700,26 @@ mod tests {
         ] {
             let err = envelope(class, over).validate_structural().unwrap_err();
             assert!(err.to_string().contains("signal_ttl_out_of_range"), "{err}");
+        }
+    }
+
+    #[test]
+    fn verification_method_must_equal_the_directory_lookup_key() {
+        // `signal.md` §3 conformance case 3: a fragment that merely looks like
+        // a device id, and a method controlled by another DID, both name a
+        // different directory row than the envelope claims.
+        for method in [
+            format!("{}#device-key", actor()),
+            format!("did:webvh:z6mkfixture:mallory.example#{}", device()),
+            format!("{}#ak:device:01904100-0000-7000-8000-bbbbbbbbbbbc", actor()),
+        ] {
+            let mut mutated = envelope(SignalClass::Session, 30);
+            // `envelope_digest` removes `proof`, so it stays valid here and the
+            // verification-method rule is the only check under test.
+            mutated.proof.verification_method = DidUrl::new(method).unwrap();
+
+            let err = mutated.validate_structural().unwrap_err();
+            assert!(err.to_string().contains("verification_method"), "{err}");
         }
     }
 

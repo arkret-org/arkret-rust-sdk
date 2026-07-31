@@ -39,11 +39,24 @@ serialized grant token in `Debug`; durable stores should persist `grant_hash`.
 Device binding scopes must use `urn:arkret:client:device:{id}`. Non-Arkret
 scope prefixes are rejected by `device_id_from_scope_token(...)`.
 
-The identity surface exposes `StaridRegistryAdapter` and
-`StaridRegistryRecord` as the registry-backed DID boundary. The in-memory
-adapter is for tests and offline development only; production adapters still
-need registry-network fetching, key-log receipt validation, stale-head handling
-and bounded response parsing.
+The identity surface is method-neutral: `DidResolver::resolve_did` yields a
+`ResolvedDid` (`document` plus `method_evidence`), and no DID method gets a
+bespoke public adapter. `did-usage-and-verification.md` §4 splits that surface
+in two, and the split is enforced by the signatures rather than by convention:
+
+- Ordinary per-object verification uses `verify_jws_with_binding`,
+  `verify_jws_with_document` or `verify_event_proof_with_binding`. None of them
+  takes a resolver parameter, so an ordinary call site cannot express a network
+  resolution at all.
+- The authority path uses `resolve_and_verify_binding`, whose
+  `BindingResolveRequest` requires a trust domain, purpose, policy digest and
+  freshness profile. Accepted results are held by a `VerifiedDidBindingStore`
+  (`InMemoryVerifiedDidBindingStore` is the reference implementation; durable
+  ones re-validate every row through `AcceptedDidBinding`) and revoked through
+  the conjunctive `BindingInvalidation` selector.
+
+Per-signature verification and per-signature resolution are therefore two
+independent counters; see the `identity::verifier` module docs.
 
 Server bindings should preserve the standard Arkret error envelope and retry
 metadata while implementing authentication, idempotency and rate limiting in
