@@ -341,12 +341,13 @@ pub use arkret_wire::signer::{PartialSignature, PayloadSigner, ThresholdAggregat
 pub use arkret_wire::string_profiles::*;
 pub use arkret_wire::wire_strings::*;
 pub use arkret_wire::{
-    AccountDataKey, CapabilityActionId, DIGEST_SUITES, EXPORTER_LABELS, EvaluationClass, EventKind,
-    ExporterLabelId, HPKE_SUITES, MLS_CIPHERSUITES, MLS_EXTENSIONS, PROOF_CONTEXTS, ProfileId,
-    ProofContextId, QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS,
-    SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId,
-    ServiceKind, ServiceOperationDescriptor, ServiceOperationId, WireError, XExtensionMap,
-    contains_query_auth_material, error_codes as error, is_query_auth_parameter,
+    AccountDataKey, CapabilityActionId, DIGEST_SUITES, DidFreshnessProfileId, DidFreshnessRiskTier,
+    EXPORTER_LABELS, EvaluationClass, EventKind, ExporterLabelId, HPKE_SUITES, MLS_CIPHERSUITES,
+    MLS_EXTENSIONS, PROOF_CONTEXTS, ProfileId, ProofContextId, QUERY_AUTH_PARAMETER_NAMES,
+    RELATION_KIND_DESCRIPTORS, SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS,
+    SIGNATURE_ALGORITHMS, SchemaId, ServiceKind, ServiceOperationDescriptor, ServiceOperationId,
+    WireError, XExtensionMap, contains_query_auth_material, error_codes as error,
+    is_query_auth_parameter,
 };
 pub use sdk_error::{Error, Result};
 pub use sidecar_recovery::{AgentSidecarContextLocator, recover_agent_sidecar_context_locators};

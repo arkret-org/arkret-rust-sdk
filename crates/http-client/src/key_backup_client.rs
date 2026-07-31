@@ -1,6 +1,9 @@
 //! Typed key-backup HTTP client for `ak.keys.backups.*`.
 
-use arkret_models_crypto::{KeyBackup, KeysBackupsDeleteRequestBody, KeysBackupsUnlockRequestBody};
+use arkret_models_crypto::{
+    KeyBackup, KeysBackupsDeleteChallenge, KeysBackupsDeleteRequestBody,
+    KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsUnlockRequestBody,
+};
 use arkret_wire::BackupId;
 
 use crate::{Client, Result as SdkResult};
@@ -56,6 +59,21 @@ impl KeyBackupClient {
     /// authenticated principal).
     pub async fn list_key_backups(&self) -> SdkResult<arkret_models_crypto::KeysBackupsList> {
         self.client.get("/_arkret/self/keys/backups").await
+    }
+
+    /// `POST /_arkret/self/keys/backups/{backup_id}/delete-challenge`.
+    ///
+    /// The first half of the §7.8.1 delete flow: the returned challenge is what
+    /// [`delete_key_backup`](Self::delete_key_backup)'s proof signs over.
+    pub async fn issue_key_backup_delete_challenge(
+        &self,
+        backup_id: &str,
+        request: &KeysBackupsIssueDeleteChallengeRequestBody,
+    ) -> SdkResult<KeysBackupsDeleteChallenge> {
+        let backup_id = BackupId::new(backup_id.to_owned())?;
+        self.client
+            .issue_key_backup_delete_challenge(&backup_id, request)
+            .await
     }
 
     /// `DELETE /_arkret/self/keys/backups/{backup_id}`.

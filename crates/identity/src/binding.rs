@@ -368,7 +368,9 @@ impl FreshnessProfile {
             stale_grace_seconds: None,
             hard_expiry_seconds: Some(
                 hard_expiry
-                    .map_or(fresh_for_seconds, |window| window.num_seconds().max(1) as u64)
+                    .map_or(fresh_for_seconds, |window| {
+                        window.num_seconds().max(1) as u64
+                    })
                     .max(fresh_for_seconds),
             ),
             stale_behavior: StaleBehavior::SynchronousRefreshOrFailClosed,

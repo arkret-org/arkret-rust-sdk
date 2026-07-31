@@ -106,14 +106,14 @@ pub use extension_manifest::{
 };
 pub use extension_map::XExtensionMap;
 pub use generated::{
-    AccountDataKey, AlgorithmSuiteDescriptor, CapabilityActionId, DIGEST_SUITES, EVENT_KIND_COUNT,
-    EXPORTER_LABELS, DidFreshnessProfileDescriptor, DidFreshnessProfileId, DidFreshnessRiskTier,
-    EventKind, ExporterLabelDescriptor, ExporterLabelId, HPKE_SUITES,
+    AccountDataKey, AlgorithmSuiteDescriptor, CapabilityActionId, DIGEST_SUITES,
+    DidFreshnessProfileDescriptor, DidFreshnessProfileId, DidFreshnessRiskTier, EVENT_KIND_COUNT,
+    EXPORTER_LABELS, EventKind, ExporterLabelDescriptor, ExporterLabelId, HPKE_SUITES,
     MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsExtensionDescriptor, PROOF_CONTEXTS, ProfileId,
-    REGISTERED_DID_FRESHNESS_PROFILES,
-    ProofContextDescriptor, ProofContextId, RELATION_KIND_DESCRIPTORS, SERVICE_KIND_DESCRIPTORS,
-    SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId, ServiceKindDescriptor,
-    ServiceOperationDescriptor, ServiceOperationId,
+    ProofContextDescriptor, ProofContextId, REGISTERED_DID_FRESHNESS_PROFILES,
+    RELATION_KIND_DESCRIPTORS, SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS,
+    SIGNATURE_ALGORITHMS, SchemaId, ServiceKindDescriptor, ServiceOperationDescriptor,
+    ServiceOperationId,
 };
 pub use http_signature::HttpMessageSignature;
 pub use notary::{ForensicAttribution, NotaryValue};

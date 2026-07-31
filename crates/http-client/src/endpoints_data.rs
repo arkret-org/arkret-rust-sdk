@@ -13,10 +13,10 @@ use arkret_models_crypto::{
     KeyBackupsListQuery, KeyPackagesClaimOutcome, KeyPackagesClaimRequestBody,
     KeyPackagesConsumeOutcome, KeyPackagesConsumeRequestBody, KeyPackagesRevokeOutcome,
     KeyPackagesRevokeRequestBody, KeyPackagesUploadOutcome, KeyPackagesUploadRequestBody,
-    KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody, KeysBackupsList,
-    KeysBackupsReplaceOutcome, KeysBackupsUnlockRequestBody, KeysClaimOutcome,
-    KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody, KeysUploadOutcome,
-    KeysUploadRequestBody,
+    KeysBackupsDeleteChallenge, KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody,
+    KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsList, KeysBackupsReplaceOutcome,
+    KeysBackupsUnlockRequestBody, KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome,
+    KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody,
 };
 use arkret_models_discovery::ServiceDescribe;
 use arkret_wire::{BackupId, BlobRef};
@@ -572,10 +572,33 @@ impl Client {
         self.post(&path, request).await
     }
 
-    /// Delete an existing key backup envelope. Spec §7.4 marks this as a
+    /// Ask the service to mint (or re-return) the single-use delete challenge a
+    /// high-risk delete proof is bound to.
+    ///
+    /// `key-management.md` §7.8.1: freshness is issued by the service, and a
+    /// caller-minted nonce is never accepted. While a challenge for the same
+    /// `(principal_id, backup_id, request_id)` is still valid the service
+    /// returns that same challenge, so a retry of this call does not invalidate
+    /// a proof already signed against it; a different `request_id` mints a new
+    /// one.
+    pub async fn issue_key_backup_delete_challenge(
+        &self,
+        backup_id: &BackupId,
+        request: &KeysBackupsIssueDeleteChallengeRequestBody,
+    ) -> Result<KeysBackupsDeleteChallenge> {
+        let path = format!(
+            "/_arkret/self/keys/backups/{}/delete-challenge",
+            backup_id.as_str()
+        );
+        self.post(&path, request).await
+    }
+
+    /// Delete an existing key backup envelope. Spec §7.8 marks this as a
     /// high-risk operation; the caller must supply the typed
-    /// [`KeysBackupsDeleteRequestBody`] with a valid proof and (optionally) a
-    /// human-readable reason.
+    /// [`KeysBackupsDeleteRequestBody`] carrying the `challenge_id` obtained
+    /// from [`issue_key_backup_delete_challenge`](Self::issue_key_backup_delete_challenge),
+    /// the `request_id` both calls share, one of the three registered proof
+    /// branches and (optionally) a human-readable reason.
     pub async fn delete_key_backup(
         &self,
         backup_id: &BackupId,
