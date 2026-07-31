@@ -15,7 +15,7 @@
 //! binding cannot be forged by round-tripping JSON either.
 
 use arkret_canonical::canonical;
-use arkret_wire::{Did, DidUrl, Hash, TypedTrustDomainId};
+use arkret_wire::{Did, DidFreshnessProfileId, DidUrl, Hash, TypedTrustDomainId};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -323,15 +323,64 @@ impl FreshnessProfile {
     /// misconfiguration degrades into extra resolutions rather than into
     /// silently accepted stale authority.
     pub fn fail_closed_default() -> Self {
+        Self::high_tier(
+            DidFreshnessProfileId::UnregisteredFailClosedV1,
+            Duration::hours(1),
+            Some(Duration::hours(1)),
+        )
+    }
+
+    /// A `high` tier row for a registered profile id.
+    ///
+    /// The id comes from the generated registry surface, never from a string a
+    /// deployment spells itself: §5.4 forbids inventing a `freshness_profile_id`
+    /// as firmly as it forbids guessing a tier. The **numbers** are the
+    /// deployment's to declare (§5.4 last bullet), which is why they are
+    /// parameters and the id is not.
+    ///
+    /// `fresh_for` is the single freshness threshold: it is where
+    /// `refresh_after` lands and it is the authority `max_age`. Passing a
+    /// `hard_expiry` shorter than it is rejected by the §5.4 tier constraint
+    /// `0 < fresh_for <= hard_expiry`, so the caller gets the clamped value
+    /// rather than a row that claims a window it cannot honor.
+    ///
+    /// # Panics
+    ///
+    /// Never. A non-positive `fresh_for` is clamped to one second, which is the
+    /// strictest representable window — the fail-closed direction.
+    pub fn high_tier(
+        id: DidFreshnessProfileId,
+        fresh_for: Duration,
+        hard_expiry: Option<Duration>,
+    ) -> Self {
+        debug_assert_eq!(
+            id.risk_tier(),
+            arkret_wire::DidFreshnessRiskTier::High,
+            "`high_tier` may only build a profile registered as the high tier"
+        );
+        let fresh_for_seconds = fresh_for.num_seconds().max(1) as u64;
         Self {
-            freshness_profile_id: "ak.did_freshness.unregistered_fail_closed.v1".to_owned(),
+            freshness_profile_id: id.as_str().to_owned(),
             risk_tier: FreshnessRiskTier::High,
             did_method_selector: vec!["*".to_owned()],
-            fresh_for_seconds: Some(3_600),
+            fresh_for_seconds: Some(fresh_for_seconds),
+            // §5.4: a `high` row has no stale consumption window at all.
             stale_grace_seconds: None,
-            hard_expiry_seconds: Some(3_600),
+            hard_expiry_seconds: Some(
+                hard_expiry
+                    .map_or(fresh_for_seconds, |window| window.num_seconds().max(1) as u64)
+                    .max(fresh_for_seconds),
+            ),
             stale_behavior: StaleBehavior::SynchronousRefreshOrFailClosed,
         }
+    }
+
+    /// The registered id this row declares, when it is one this build knows.
+    ///
+    /// `None` is the §5.4 "unknown id" case, which callers MUST treat as the
+    /// strictest tier.
+    pub fn registered_id(&self) -> Option<DidFreshnessProfileId> {
+        DidFreshnessProfileId::from_wire(&self.freshness_profile_id)
     }
 
     /// Whether this row applies to `method` (`did:<method>:` or `*`).

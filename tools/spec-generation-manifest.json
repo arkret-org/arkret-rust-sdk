@@ -127,6 +127,28 @@
     {
       "generator": "registry-types",
       "outputs": [
+        "crates/wire/src/generated/profile_ids.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "profiles/conformance-profiles.json"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
+        "crates/wire/src/generated/did_freshness_profiles.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "registry/did-freshness-profile-registry.json"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
         "crates/wire/src/generated/security_strings.rs"
       ],
       "owner": "arkret-wire",

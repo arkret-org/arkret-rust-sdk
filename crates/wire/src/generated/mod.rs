@@ -1,5 +1,6 @@
 pub mod account_data_keys;
 pub mod capability_actions;
+pub mod did_freshness_profiles;
 pub mod event_kinds;
 pub mod operation_ids;
 pub mod profile_ids;
@@ -10,6 +11,7 @@ pub mod service_kinds;
 
 pub use account_data_keys::*;
 pub use capability_actions::*;
+pub use did_freshness_profiles::*;
 pub use event_kinds::*;
 pub use operation_ids::*;
 pub use profile_ids::*;

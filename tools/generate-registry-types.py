@@ -38,6 +38,7 @@ def associated_name(value: str, prefixes: tuple[str, ...] = ()) -> str:
 
 SCHEMA_ID_PREFIXES = ("ak.schema.", "ak.")
 PROFILE_ID_PREFIXES = ("ak.profile.",)
+DID_FRESHNESS_PREFIXES = ("ak.did_freshness.",)
 
 
 def rust_string(value: str) -> str:
@@ -1912,6 +1913,126 @@ def generate_registry_descriptors(artifacts: Path) -> str:
     return "\n".join(lines) + "\n"
 
 
+def generate_did_freshness_profiles(artifacts: Path) -> str:
+    relative = "registry/did-freshness-profile-registry.json"
+    artifact, digest = load(artifacts / relative)
+    rows = sorted(artifact["profiles"], key=lambda row: row["freshness_profile_id"])
+    ensure_unique(rows, "freshness_profile_id", DID_FRESHNESS_PREFIXES)
+    tiers = {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+    }
+    lines = header([(relative, artifact, digest)], f"registered={len(rows)}")
+    lines.extend(
+        [
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "pub enum DidFreshnessProfileId {",
+        ]
+    )
+    for row in rows:
+        lines.append(f"    {variant(row['freshness_profile_id'], DID_FRESHNESS_PREFIXES)},")
+    lines.extend(
+        [
+            "}",
+            "",
+            "/// Registered risk tier of a freshness profile. Fixed by registration:",
+            "/// a deployment declares only the numeric windows.",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "pub enum DidFreshnessRiskTier {",
+            "    Low,",
+            "    Medium,",
+            "    High,",
+            "}",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
+            "pub struct DidFreshnessProfileDescriptor {",
+            "    pub freshness_profile_id: &'static str,",
+            "    pub risk_tier: DidFreshnessRiskTier,",
+            "    pub stale_behavior: &'static str,",
+            "}",
+            "",
+            "impl DidFreshnessProfileId {",
+            "    pub const ALL: &'static [Self] = &[",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"        Self::{variant(row['freshness_profile_id'], DID_FRESHNESS_PREFIXES)},"
+        )
+    lines.extend(["    ];", ""])
+    for row in rows:
+        lines.append(
+            f"    pub const {associated_name(row['freshness_profile_id'], DID_FRESHNESS_PREFIXES)}: "
+            f"&'static str = {rust_string(row['freshness_profile_id'])};"
+        )
+    lines.extend(
+        [
+            "",
+            "    pub const fn as_str(self) -> &'static str {",
+            "        match self {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            Self::{variant(row['freshness_profile_id'], DID_FRESHNESS_PREFIXES)} => "
+            f"Self::{associated_name(row['freshness_profile_id'], DID_FRESHNESS_PREFIXES)},"
+        )
+    lines.extend(
+        [
+            "        }",
+            "    }",
+            "",
+            "    pub const fn risk_tier(self) -> DidFreshnessRiskTier {",
+            "        match self {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            Self::{variant(row['freshness_profile_id'], DID_FRESHNESS_PREFIXES)} => "
+            f"DidFreshnessRiskTier::{tiers[row['risk_tier']]},"
+        )
+    lines.extend(
+        [
+            "        }",
+            "    }",
+            "",
+            "    /// §5.4: an unknown id resolves to the strictest tier, never to",
+            "    /// \"any cached binding will do\".",
+            "    pub fn from_wire(value: &str) -> Option<Self> {",
+            "        match value {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            Self::{associated_name(row['freshness_profile_id'], DID_FRESHNESS_PREFIXES)} => "
+            f"Some(Self::{variant(row['freshness_profile_id'], DID_FRESHNESS_PREFIXES)}),"
+        )
+    lines.extend(
+        [
+            "            _ => None,",
+            "        }",
+            "    }",
+            "}",
+            "",
+            "pub const REGISTERED_DID_FRESHNESS_PROFILES: &[DidFreshnessProfileDescriptor] = &[",
+        ]
+    )
+    for row in rows:
+        lines.extend(
+            [
+                "    DidFreshnessProfileDescriptor {",
+                "        freshness_profile_id: DidFreshnessProfileId::"
+                f"{associated_name(row['freshness_profile_id'], DID_FRESHNESS_PREFIXES)},",
+                f"        risk_tier: DidFreshnessRiskTier::{tiers[row['risk_tier']]},",
+                f"        stale_behavior: {rust_string(row['stale_behavior'])},",
+                "    },",
+            ]
+        )
+    lines.append("];")
+    return "\n".join(lines) + "\n"
+
+
 GENERATORS = {
     "crates/wire/src/error_codes/error_code.rs": generate_error_codes,
     "crates/wire/src/error_codes/reason_code.rs": generate_reason_codes,
@@ -1928,6 +2049,9 @@ GENERATORS = {
     ),
     "crates/wire/src/generated/capability_actions.rs": (
         generate_capability_actions
+    ),
+    "crates/wire/src/generated/did_freshness_profiles.rs": (
+        generate_did_freshness_profiles
     ),
     "crates/schema/src/generated/registry_descriptors.rs": (
         generate_registry_descriptors
