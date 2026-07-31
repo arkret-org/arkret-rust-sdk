@@ -192,7 +192,6 @@ $lines.Add("    /// Profile-gated actions this profile registers as owner-granta
 $lines.Add("    /// (`capabilities.md` section 3.2). Absent from this list means a Realm") | Out-Null
 $lines.Add("    /// owner cannot sign a grant for the action even while the profile is") | Out-Null
 $lines.Add("    /// active; being listed does not waive the profile's own gates.") | Out-Null
-$lines.Add("    pub owner_grant_authority_actions: &'static [&'static str],") | Out-Null
 $lines.Add("    pub non_event_grant_authority_rules: &'static [NonEventGrantAuthorityRule],") | Out-Null
 $lines.Add("}") | Out-Null
 $lines.Add("") | Out-Null
@@ -222,11 +221,6 @@ foreach ($profileId in $profileIds) {
     $combined += $constraint_kinds_field
     $required_constraint_kinds = Sort-Ordinal -Values $combined
     $non_event_grant_authority_rules = $entry.non_event_grant_authority_rules
-    $owner_grant_authority_actions = if ($null -eq $entry.owner_grant_authority_actions) {
-        [string[]]@()
-    } else {
-        Sort-Ordinal -Values ([string[]]@($entry.owner_grant_authority_actions))
-    }
 
     $escapedId = $profileId.Replace('\', '\\').Replace('"', '\"')
     $lines.Add("        map.insert(") | Out-Null
@@ -244,7 +238,6 @@ foreach ($profileId in $profileIds) {
     $lines.Add("                required_cell_namespaces: " + (Format-RustStrSlice -Values $required_cell_namespaces -Indent 16) + ",") | Out-Null
     $lines.Add("                required_cells: " + (Format-RustStrSlice -Values $required_cells -Indent 16) + ",") | Out-Null
     $lines.Add("                required_constraint_kinds: " + (Format-RustStrSlice -Values $required_constraint_kinds -Indent 16) + ",") | Out-Null
-    $lines.Add("                owner_grant_authority_actions: " + (Format-RustStrSlice -Values $owner_grant_authority_actions -Indent 16) + ",") | Out-Null
     $lines.Add("                non_event_grant_authority_rules: " + (Format-NonEventGrantAuthorityRules -Rules $non_event_grant_authority_rules -Indent 16) + ",") | Out-Null
     $lines.Add("            },") | Out-Null
     $lines.Add("        );") | Out-Null

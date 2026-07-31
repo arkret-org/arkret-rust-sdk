@@ -85,25 +85,23 @@ pub fn action_grants_authority_for(holder_action: &str, child_action: &str) -> R
 /// True when the Realm owner aggregate may sign a grant for `child_action`
 /// under the given registry basis.
 ///
-/// `active_profile_owner_grantable` supplies the actions the currently active
-/// profiles have registered in their `owner_grant_authority_actions[]`. A
-/// profile action absent from that list is not owner-grantable even when the
-/// profile is active, and a listed action still has to pass that profile's own
-/// registration / constraint / evidence gates downstream.
+/// `active_profiles` supplies the profile ids the Realm has declared in its
+/// `schema_refs`. A profile-gated action is owner-grantable exactly when its
+/// profile is declared — the declaration is the whole condition, there is no
+/// second per-action whitelist — and a grantable action still has to pass
+/// that profile's own registration / constraint / evidence gates downstream.
 pub fn owner_may_grant(
     child_action: &str,
     registry_basis: Option<&Hash>,
-    active_profile_owner_grantable: &[String],
+    active_profiles: &[String],
 ) -> Result<bool> {
     require_registry_basis(registry_basis)?;
     let child = descriptor(child_action)?;
     if child.root_control_only || child.subject_only || child.reducer_only {
         return Ok(false);
     }
-    if child.profile.is_some() {
-        return Ok(active_profile_owner_grantable
-            .iter()
-            .any(|action| action == child_action));
+    if let Some(profile) = child.profile {
+        return Ok(active_profiles.iter().any(|active| active == profile));
     }
     action_grants_authority_for(REALM_OWNER_ACTION, child_action)
 }
@@ -165,11 +163,14 @@ mod tests {
     }
 
     #[test]
-    fn profile_actions_need_explicit_owner_registration() {
+    fn profile_actions_need_their_profile_declared() {
         let basis = basis();
         assert!(!owner_may_grant("ak.agent.sidecar.write", Some(&basis), &[]).unwrap());
-        let registered = vec!["ak.agent.sidecar.write".to_owned()];
-        assert!(owner_may_grant("ak.agent.sidecar.write", Some(&basis), &registered).unwrap());
+        let declared = vec!["ak.profile.agent_sidecar.v1".to_owned()];
+        assert!(owner_may_grant("ak.agent.sidecar.write", Some(&basis), &declared).unwrap());
+        // Declaring an unrelated profile grants nothing.
+        let unrelated = vec!["ak.profile.calendar_event.v1".to_owned()];
+        assert!(!owner_may_grant("ak.agent.sidecar.write", Some(&basis), &unrelated).unwrap());
     }
 
     #[test]

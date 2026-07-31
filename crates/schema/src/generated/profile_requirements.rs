@@ -54,7 +54,6 @@ pub struct ProfileRequirements {
     /// (capabilities.md section 3.2). Absent from this list means a Realm
     /// owner cannot sign a grant for the action even while the profile is
     /// active; being listed does not waive the profile's own gates.
-    pub owner_grant_authority_actions: &'static [&'static str],
     pub non_event_grant_authority_rules: &'static [NonEventGrantAuthorityRule],
 }
 
@@ -77,7 +76,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -104,7 +102,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -129,7 +126,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -162,7 +158,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -211,7 +206,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -236,7 +230,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -265,7 +258,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[NonEventGrantAuthorityRule {
                     issuer_action: "ak.realm.admin",
                     grantable_action: "ak.applet.ghost.provision",
@@ -300,7 +292,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -319,7 +310,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -352,7 +342,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -371,7 +360,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -412,7 +400,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -437,7 +424,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -484,7 +470,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -507,7 +492,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -533,7 +517,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -556,7 +539,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -582,7 +564,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -626,7 +607,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &["edit_window", "temporal"],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -671,7 +651,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -693,7 +672,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -712,7 +690,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -731,7 +708,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -750,7 +726,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -769,7 +744,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -788,7 +762,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -836,7 +809,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "scope_limitation",
                     "temporal",
                 ],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -855,7 +827,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -877,7 +848,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -936,7 +906,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -980,7 +949,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1006,7 +974,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1045,7 +1012,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1064,7 +1030,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1116,7 +1081,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1135,7 +1099,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1154,7 +1117,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1173,7 +1135,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1205,7 +1166,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1238,7 +1198,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1257,7 +1216,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1276,7 +1234,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1308,7 +1265,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1333,7 +1289,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1380,7 +1335,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1399,7 +1353,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1418,7 +1371,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1460,7 +1412,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1479,7 +1430,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1520,7 +1470,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1558,7 +1507,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1595,7 +1543,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &["scope_limitation"],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1614,7 +1561,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1643,7 +1589,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1670,7 +1615,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1702,7 +1646,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1721,7 +1664,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1740,7 +1682,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1759,7 +1700,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1792,7 +1732,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1822,7 +1761,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1841,7 +1779,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1860,7 +1797,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1900,7 +1836,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ak:cell:ak.component.mls.key_schedule.v1:<mls_group_id>",
                 ],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1931,7 +1866,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1950,7 +1884,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1972,7 +1905,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -1994,7 +1926,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2016,7 +1947,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2038,7 +1968,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2070,7 +1999,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2104,7 +2032,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2159,7 +2086,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2190,7 +2116,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2217,7 +2142,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2239,7 +2163,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2309,7 +2232,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2344,7 +2266,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2400,7 +2321,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2422,7 +2342,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2444,7 +2363,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2463,7 +2381,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2490,7 +2407,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2509,7 +2425,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2528,7 +2443,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2551,7 +2465,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2570,7 +2483,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2598,7 +2510,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2622,7 +2533,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2641,7 +2551,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2660,7 +2569,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2701,7 +2609,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2723,7 +2630,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2763,7 +2669,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2786,7 +2691,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2813,7 +2717,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2832,7 +2735,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
@@ -2855,7 +2757,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
-                owner_grant_authority_actions: &[],
                 non_event_grant_authority_rules: &[],
             },
         );
