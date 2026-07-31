@@ -809,6 +809,8 @@ pub struct ManagedAgentPcrControlMaterial {
     pub agent_id: Did,
     pub controller_id: Did,
     pub authorization_ref: String,
+    /// The founding notary profile, exactly as the accepted create declared it.
+    pub notary: NotaryValue,
     pub covered_event_digests: Vec<Hash>,
     pub state_root: Hash,
     pub joined: BTreeMap<CellRef, CellState>,
@@ -998,11 +1000,86 @@ pub fn materialize_managed_agent_pcr_control(
         agent_id: create.actor_id.clone(),
         controller_id,
         authorization_ref,
+        notary: notary_value,
         covered_event_digests: covered.into_iter().collect(),
         state_root,
         joined,
         event_ops,
     })
+}
+
+/// The immutable proposal authority a managed Agent PCR was founded with.
+///
+/// Genesis authority is fixed by the single accepted `ak.realm.create`, so this
+/// type is built from that Event alone. Later transitions belong to
+/// [`materialize_managed_agent_pcr_control`], which folds the accepted history
+/// and therefore needs whatever frozen pre-state each transition requires.
+/// Keeping the two questions in separate types is what stops a caller that only
+/// wants genesis from handing over a full history and failing the moment a
+/// replacement adds an `ak.agent.key.revoke`.
+#[derive(Clone, Debug)]
+pub struct ManagedAgentPcrGenesisAuthority {
+    realm_id: RealmId,
+    agent_id: Did,
+    controller_id: Did,
+    authorization_ref: String,
+    notary: NotaryValue,
+    authority_set_ref: Hash,
+}
+
+impl ManagedAgentPcrGenesisAuthority {
+    /// Derive the authority from the one accepted delegated create Event.
+    ///
+    /// The complete genesis leaf set is validated exactly as it is for any
+    /// other managed PCR bootstrap branch, and the authority digest covers the
+    /// whole founding [`NotaryValue`] — recovery members, controller
+    /// organization, and every other field — not just the primary DID.
+    pub fn from_accepted_create(create: &Event, project: CellWriteProjector<'_>) -> Result<Self> {
+        if create.kind != EventKind::REALM_CREATE {
+            return Err(Error::Protocol(
+                "managed Agent PCR genesis authority requires the accepted ak.realm.create"
+                    .to_owned(),
+            ));
+        }
+        let material =
+            materialize_managed_agent_pcr_control(std::slice::from_ref(create), project)?;
+        let authority_set_ref = Hash::new(arkret_canonical::canonical_sha256(&material.notary)?)?;
+        Ok(Self {
+            realm_id: material.realm_id,
+            agent_id: material.agent_id,
+            controller_id: material.controller_id,
+            authorization_ref: material.authorization_ref,
+            notary: material.notary,
+            authority_set_ref,
+        })
+    }
+
+    pub fn realm_id(&self) -> &RealmId {
+        &self.realm_id
+    }
+
+    pub fn agent_id(&self) -> &Did {
+        &self.agent_id
+    }
+
+    /// The delegated controller whose device key signs receipts under this
+    /// authority.
+    pub fn controller_id(&self) -> &Did {
+        &self.controller_id
+    }
+
+    pub fn authorization_ref(&self) -> &str {
+        &self.authorization_ref
+    }
+
+    pub fn notary(&self) -> &NotaryValue {
+        &self.notary
+    }
+
+    /// Canonical digest of the founding notary profile.
+    pub fn authority_set_ref(&self) -> &Hash {
+        &self.authority_set_ref
+    }
 }
 
 /// Build and sign a managed Agent PCR Seal with the controller device named
@@ -1816,6 +1893,52 @@ mod tests {
         assert!(
             materialize_managed_agent_pcr_control(&[no_notary], &registry_projection).is_err(),
             "a Realm create whose notary source is missing must fail closed"
+        );
+    }
+
+    /// Genesis authority is a property of the accepted create alone. The type
+    /// only accepts that Event, so a caller cannot hand over a later
+    /// pre-state-dependent transition and cannot silently get a
+    /// current-state answer in its place.
+    #[test]
+    fn managed_agent_genesis_authority_covers_the_whole_founding_notary() {
+        let create = managed_agent_pcr_create();
+        let authority =
+            ManagedAgentPcrGenesisAuthority::from_accepted_create(&create, &registry_projection)
+                .unwrap();
+
+        assert_eq!(authority.agent_id(), &create.actor_id);
+        assert_eq!(
+            authority.controller_id(),
+            create.executed_by.as_ref().unwrap()
+        );
+        assert_eq!(
+            authority.authority_set_ref(),
+            &Hash::new(
+                arkret_canonical::canonical_sha256(&create.payload["object"]["notary"]).unwrap()
+            )
+            .unwrap(),
+            "the authority digest must cover the founding notary value verbatim"
+        );
+
+        let mut later_transition = Event::new(
+            EventKind::MLS_GENESIS,
+            create.scope_ref.clone(),
+            create.actor_id.clone(),
+            1,
+            Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
+            serde_json::json!({}),
+        )
+        .unwrap();
+        later_transition.executed_by = create.executed_by.clone();
+        later_transition.authorization_ref = create.authorization_ref.clone();
+        assert!(
+            ManagedAgentPcrGenesisAuthority::from_accepted_create(
+                &later_transition,
+                &registry_projection
+            )
+            .is_err(),
+            "only the accepted ak.realm.create defines the genesis authority"
         );
     }
 
