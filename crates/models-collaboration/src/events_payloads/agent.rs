@@ -363,8 +363,21 @@ impl TryFrom<&Event> for AgentKeyAuthorizePayload {
         // transcript is preserved; rebuild the object in place rather than
         // round-tripping through a JSON string.
         let payload = Value::Object(event.payload.clone().into_iter().collect());
-        serde_json::from_value(payload)
-            .map_err(|error| AgentKeyAuthorizePayloadError::InvalidPayload(error.to_string()))
+        // Report which member failed, not just why. A closed payload type whose
+        // rejection reads `premature end of input` tells an operator nothing
+        // about *which* field their producer got wrong, and the field-name
+        // precision this type exists to provide would stop at the type
+        // boundary. `serde_json` drops the path when deserializing from a
+        // `Value`, so recover it here.
+        serde_path_to_error::deserialize(payload).map_err(|error| {
+            let path = error.path().to_string();
+            let reason = error.into_inner().to_string();
+            AgentKeyAuthorizePayloadError::InvalidPayload(if path.is_empty() || path == "." {
+                reason
+            } else {
+                format!("{path}: {reason}")
+            })
+        })
     }
 }
 
