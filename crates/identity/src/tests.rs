@@ -826,12 +826,12 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
 fn did_resolver_verifies_event_proof_from_did_document_key() {
     let signing_key = SigningKey::from_bytes(&[11u8; 32]);
     let actor = did_web("alice");
-    let verification_method = format!("{actor}#key-1");
+    let verification_method = DidUrl::new(format!("{actor}#key-1")).unwrap();
     let mut resolver = DidWebResolver::new();
     resolver
         .insert(DidDocument::new(
             actor.clone(),
-            verification_method.clone(),
+            verification_method.as_str(),
             vector_update_key(&signing_key),
         ))
         .unwrap();
@@ -873,12 +873,12 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
     let signing_key = SigningKey::from_bytes(&[12u8; 32]);
     let controller = did_web("controller");
     let bridge = did_web("bridge");
-    let verification_method = format!("{bridge}#key-1");
+    let verification_method = DidUrl::new(format!("{bridge}#key-1")).unwrap();
     let mut resolver = DidWebResolver::new();
     resolver
         .insert(DidDocument::new(
             bridge.clone(),
-            verification_method.clone(),
+            verification_method.as_str(),
             vector_update_key(&signing_key),
         ))
         .unwrap();
@@ -921,12 +921,12 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
 fn did_key_log_verifies_schema_shaped_chain() {
     let signing_key = SigningKey::from_bytes(&[21u8; 32]);
     let alice = did_web("alice");
-    let verification_method = format!("{alice}#key-1");
+    let verification_method = DidUrl::new(format!("{alice}#key-1")).unwrap();
     let mut resolver = DidWebResolver::new();
     resolver
         .insert(DidDocument::new(
             alice.clone(),
-            verification_method.clone(),
+            verification_method.as_str(),
             vector_update_key(&signing_key),
         ))
         .unwrap();
@@ -988,12 +988,12 @@ fn did_key_log_rejects_drift_tampering_and_schema_violations() {
     let signing_key = SigningKey::from_bytes(&[23u8; 32]);
     let alice = did_web("alice");
     let bob = did_web("bob");
-    let verification_method = format!("{alice}#key-1");
+    let verification_method = DidUrl::new(format!("{alice}#key-1")).unwrap();
     let mut resolver = DidWebResolver::new();
     resolver
         .insert(DidDocument::new(
             alice.clone(),
-            verification_method.clone(),
+            verification_method.as_str(),
             vector_update_key(&signing_key),
         ))
         .unwrap();
@@ -1072,12 +1072,12 @@ fn did_key_log_rejects_drift_tampering_and_schema_violations() {
 fn did_registry_receipt_verifies_detached_jws_binding() {
     let registry_key = SigningKey::from_bytes(&[24u8; 32]);
     let registry = did_web("registry");
-    let verification_method = format!("{registry}#key-1");
+    let verification_method = DidUrl::new(format!("{registry}#key-1")).unwrap();
     let mut resolver = DidWebResolver::new();
     resolver
         .insert(DidDocument::new(
             registry.clone(),
-            verification_method.clone(),
+            verification_method.as_str(),
             vector_update_key(&registry_key),
         ))
         .unwrap();
@@ -1118,19 +1118,19 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
 fn starid_registry_adapter_resolves_records_and_control_proofs() {
     let registry_key = SigningKey::from_bytes(&[26u8; 32]);
     let registry = did_web("registry");
-    let registry_vm = format!("{registry}#key-1");
+    let registry_vm = DidUrl::new(format!("{registry}#key-1")).unwrap();
     let mut registry_resolver = DidWebResolver::new();
     registry_resolver
         .insert(DidDocument::new(
             registry.clone(),
-            registry_vm.clone(),
+            registry_vm.as_str(),
             vector_update_key(&registry_key),
         ))
         .unwrap();
 
     let alice = Did::new("did:webvh:zabc:starid.example:users:alice").unwrap();
     let head = Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
-    let document = DidDocument::new(alice.clone(), "root", "alice-public-key");
+    let document = DidDocument::new(alice.clone(), "#root", "alice-public-key");
     let receipt = DidRegistryReceipt::signed(
         arkret_wire::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000002").unwrap(),
         alice.clone(),
@@ -1147,7 +1147,7 @@ fn starid_registry_adapter_resolves_records_and_control_proofs() {
         registry_did: registry.clone(),
         document,
         key_log_head: head.as_str().to_owned(),
-        current_control_key: "root".to_owned(),
+        current_control_key: "#root".to_owned(),
         receipt: Some(receipt),
         resolved_at: Utc::now(),
     };
@@ -1161,20 +1161,21 @@ fn starid_registry_adapter_resolves_records_and_control_proofs() {
             .primary_key()
             .unwrap()
             .0,
-        "root"
+        "#root"
     );
     assert_eq!(adapter.current_key_log_head(&alice).unwrap(), head.as_str());
-    assert_eq!(adapter.current_control_key(&alice).unwrap(), "root");
+    assert_eq!(adapter.current_control_key(&alice).unwrap(), "#root");
     adapter
         .verify_registry_receipt(&alice, &registry_resolver)
         .unwrap();
 
     let challenge = "challenge-1";
-    let proof = starid_control_proof(&alice, "root", challenge, "alice-public-key");
+    let alice_vm = DidUrl::new(format!("{alice}#root")).unwrap();
+    let proof = starid_control_proof(&alice, &alice_vm, challenge, "alice-public-key");
     let verified = adapter
         .verify_control_proof(&StaridControlProofRequestBody {
             did: alice.clone(),
-            verification_method: "root".to_owned(),
+            verification_method: alice_vm.clone(),
             challenge: challenge.to_owned(),
             proof,
         })
@@ -1185,7 +1186,7 @@ fn starid_registry_adapter_resolves_records_and_control_proofs() {
         adapter
             .verify_control_proof(&StaridControlProofRequestBody {
                 did: verified.did,
-                verification_method: "root".to_owned(),
+                verification_method: alice_vm,
                 challenge: challenge.to_owned(),
                 proof: "bad".to_owned(),
             })

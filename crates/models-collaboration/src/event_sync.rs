@@ -1226,8 +1226,10 @@ mod tests {
         FederatedDeviceSigningKeyEvidence {
             actor_id: Did::new("did:web:alice.example").unwrap(),
             device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002").unwrap(),
-            verification_method:
-                "did:web:alice.example#ak:device:01904100-0000-7000-8000-000000000002".to_owned(),
+            verification_method: DidUrl::new(
+                "did:web:alice.example#ak:device:01904100-0000-7000-8000-000000000002",
+            )
+            .unwrap(),
             device_signing_key: DidKey::new(
                 "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuVkhY7g94pVQyG98x",
             )
@@ -1252,11 +1254,12 @@ mod tests {
     fn federation_request_rejects_unrelated_signer_evidence() {
         let event = event_with_device_proof();
         let mut unrelated = evidence();
-        unrelated.verification_method = format!(
+        unrelated.verification_method = DidUrl::new(format!(
             "{}#{}",
             unrelated.actor_id,
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000003").unwrap()
-        );
+        ))
+        .unwrap();
         unrelated.device_id =
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000003").unwrap();
         let request = EventsSubmitFederationRequestBody {
@@ -1277,14 +1280,14 @@ mod tests {
     }
 
     fn publication_proof(
-        verification_method: &str,
+        verification_method: &DidUrl,
         payload_digest: Hash,
         created_at: DateTime<Utc>,
     ) -> PayloadProof {
         PayloadProof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: verification_method.to_owned(),
+            verification_method: verification_method.clone(),
             payload_digest,
             created_at,
             domain: None,
@@ -1350,7 +1353,7 @@ mod tests {
         };
         let lease_digest = authorization_lease.lease_digest().unwrap();
         authorization_lease.proofs = vec![publication_proof(
-            "did:web:authority.example#key-1",
+            &DidUrl::new("did:web:authority.example#key-1").unwrap(),
             lease_digest,
             issued_at,
         )];
@@ -1366,7 +1369,7 @@ mod tests {
         };
         let receipt_digest = receipt.receipt_digest().unwrap();
         receipt.proofs = vec![publication_proof(
-            "did:web:ingress.example#key-1",
+            &DidUrl::new("did:web:ingress.example#key-1").unwrap(),
             receipt_digest,
             issued_at,
         )];
@@ -1395,7 +1398,8 @@ mod tests {
             authority_set_ref: authority_set_digest.clone(),
             signature: PayloadSignature {
                 alg: "EdDSA".to_owned(),
-                verification_method: "did:web:authority.example#key-1".to_owned(),
+                verification_method: DidUrl::new("did:web:authority.example#key-1").unwrap(),
+                extra: Default::default(),
                 payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at: received_at,
                 jws: "a..b".to_owned(),
@@ -1514,7 +1518,8 @@ mod tests {
             previous_digest_algorithm: None,
             notary_signature: NotarySig::Single(PayloadSignature {
                 alg: "EdDSA".to_owned(),
-                verification_method: "did:web:notary.example#key-1".to_owned(),
+                verification_method: DidUrl::new("did:web:notary.example#key-1").unwrap(),
+                extra: Default::default(),
                 payload_digest: hash('5'),
                 created_at: "2026-07-21T08:00:00Z".parse().unwrap(),
                 jws: "AAAA.BBBB.CCCC".to_owned(),

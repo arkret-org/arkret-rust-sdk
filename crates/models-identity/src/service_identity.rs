@@ -10,7 +10,7 @@
 use std::fmt;
 
 use arkret_canonical::canonical;
-use arkret_wire::{Did, Error, Result, ServiceKind};
+use arkret_wire::{Did, DidUrl, Error, Result, ServiceKind};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::{Digest, Sha256};
@@ -351,7 +351,7 @@ pub struct ServiceWebvhDataIntegrityProof {
     #[serde(rename = "type")]
     pub proof_type: String,
     pub cryptosuite: String,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub proof_purpose: String,
     pub proof_value: String,
 }

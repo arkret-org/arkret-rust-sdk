@@ -13,7 +13,7 @@ use arkret_models_collaboration::session_grant_bodies::{
     SessionGrantRequestBody, SessionGrantRequestProof,
 };
 use arkret_models_identity::SessionGrantProofKind;
-use arkret_wire::{DeviceId, Did, Hash};
+use arkret_wire::{DeviceId, Did, DidUrl, Hash};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -30,7 +30,7 @@ pub struct AgentKeyProofSigningInput {
     )]
     pub expires_at: DateTime<Utc>,
     pub request_canonical_digest: Hash,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
 }
 
 impl AgentKeyProofSigningInput {
@@ -70,13 +70,12 @@ pub fn agent_key_proof_signing_input_for_session_grant(
     agent_key_authorization_ref: &str,
     agent_scope_request: &SessionGrantAgentScopeRequest,
     dpop_binding_proof: &SessionGrantDpopBindingProof,
-    verification_method: impl Into<String>,
+    verification_method: DidUrl,
     challenge: impl Into<String>,
     nonce: impl Into<String>,
     audience: Did,
     expires_at: DateTime<Utc>,
 ) -> crate::Result<AgentKeyProofSigningInput> {
-    let verification_method = verification_method.into();
     let challenge = challenge.into();
     let nonce = nonce.into();
     let mut body = agent_key_proof_unsigned_session_grant_request(
@@ -112,7 +111,7 @@ pub fn agent_key_proof_session_grant_request(
     agent_key_authorization_ref: impl Into<String>,
     agent_scope_request: SessionGrantAgentScopeRequest,
     dpop_binding_proof: SessionGrantDpopBindingProof,
-    verification_method: impl Into<String>,
+    verification_method: DidUrl,
     challenge: impl Into<String>,
     nonce: impl Into<String>,
     audience: Did,
@@ -120,7 +119,6 @@ pub fn agent_key_proof_session_grant_request(
     signature: impl Into<String>,
 ) -> crate::Result<SessionGrantRequestBody> {
     let agent_key_authorization_ref = agent_key_authorization_ref.into();
-    let verification_method = verification_method.into();
     let challenge = challenge.into();
     let nonce = nonce.into();
     let signing_input = agent_key_proof_signing_input_for_session_grant(
@@ -162,7 +160,7 @@ fn agent_key_proof_unsigned_session_grant_request(
     agent_key_authorization_ref: impl Into<String>,
     agent_scope_request: SessionGrantAgentScopeRequest,
     dpop_binding_proof: SessionGrantDpopBindingProof,
-    verification_method: impl Into<String>,
+    verification_method: DidUrl,
     challenge: impl Into<String>,
     nonce: impl Into<String>,
     audience: Did,
@@ -184,7 +182,7 @@ fn agent_key_proof_unsigned_session_grant_request(
             audience,
             expires_at: Some(expires_at),
             signature: String::new(),
-            verification_method: Some(verification_method.into()),
+            verification_method: Some(verification_method),
             issuer: None,
             client_id: None,
             redirect_uri: None,
@@ -206,7 +204,7 @@ pub struct SessionGrantProofFields {
     pub audience: Did,
     pub expires_at: Option<DateTime<Utc>>,
     pub signature: String,
-    pub verification_method: Option<String>,
+    pub verification_method: Option<DidUrl>,
 }
 
 impl SessionGrantProofFields {
@@ -383,7 +381,9 @@ mod tests {
             audience: Did::new("did:webvh:z6mkfixture:service.example").unwrap(),
             expires_at: "2026-07-08T10:05:00.000Z".parse().ok(),
             signature: "proof-signature".to_owned(),
-            verification_method: Some("did:webvh:z6mkfixture:alice.example#device-1".to_owned()),
+            verification_method: Some(
+                DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1").unwrap(),
+            ),
         }
     }
 

@@ -33,7 +33,8 @@ pub fn verify_registration_receipt_proof(
     if provider_document.id != receipt.provider_service_id
         || !provider_document
             .assertion_method
-            .contains(&receipt.proof.verification_method)
+            .iter()
+            .any(|method| method == receipt.proof.verification_method.as_str())
     {
         return Err(Error::Protocol(
             "receipt proof verificationMethod is not an authorized Provider assertion method"
@@ -43,7 +44,7 @@ pub fn verify_registration_receipt_proof(
     let method = provider_document
         .verification_method
         .iter()
-        .find(|method| method.id == receipt.proof.verification_method)
+        .find(|method| method.id == receipt.proof.verification_method.as_str())
         .ok_or_else(|| {
             Error::Protocol(
                 "receipt proof verificationMethod is missing from the Provider DID Document"
@@ -86,7 +87,7 @@ mod tests {
     use arkret_models_identity::service_identity::{
         CanonicalServiceUrl, ServiceDidVerificationMethod, ServiceRegistrationKey,
     };
-    use arkret_wire::{Did, ServiceKind};
+    use arkret_wire::{Did, DidUrl, ServiceKind};
 
     use super::*;
 
@@ -109,7 +110,8 @@ mod tests {
             proof: ServiceWebvhDataIntegrityProof {
                 proof_type: "DataIntegrityProof".to_owned(),
                 cryptosuite: "eddsa-jcs-2022".to_owned(),
-                verification_method: format!("{provider_service_id}#service-key"),
+                verification_method: DidUrl::new(format!("{provider_service_id}#service-key"))
+                    .unwrap(),
                 proof_purpose: "assertionMethod".to_owned(),
                 proof_value: "z1".to_owned(),
             },
@@ -130,13 +132,13 @@ mod tests {
             id: receipt.provider_service_id.clone(),
             also_known_as: Vec::new(),
             verification_method: vec![ServiceDidVerificationMethod {
-                id: receipt.proof.verification_method.clone(),
+                id: receipt.proof.verification_method.as_str().to_owned(),
                 method_type: "Multikey".to_owned(),
                 controller: receipt.provider_service_id.clone(),
                 public_key_multibase,
             }],
-            authentication: vec![receipt.proof.verification_method.clone()],
-            assertion_method: vec![receipt.proof.verification_method.clone()],
+            authentication: vec![receipt.proof.verification_method.as_str().to_owned()],
+            assertion_method: vec![receipt.proof.verification_method.as_str().to_owned()],
             service: Vec::new(),
         };
         verify_registration_receipt_proof(&receipt, &provider_document).unwrap();

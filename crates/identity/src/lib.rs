@@ -8,6 +8,14 @@
 
 mod error;
 mod handles;
+// DID-P0-B01/B02/B03: verified DID binding value object, its store contract and
+// the resolver-free / authority verifier split (`did-usage-and-verification.md`
+// §4–§6).
+pub mod binding;
+// Canonical computation of the two §5 digest fields the spec mandates but does
+// not define, so six services stop each inventing their own.
+pub mod binding_digest;
+pub mod binding_store;
 pub(crate) mod helpers;
 pub mod history_recovery;
 pub mod jws;
@@ -16,6 +24,7 @@ mod resolvers;
 pub mod service_identity;
 #[cfg(test)]
 mod tests;
+pub mod verifier;
 
 // Data types the identity behavior operates on, re-exported so the umbrella
 // `arkret` crate can surface `arkret::identity::*` unchanged via its shim.
@@ -32,7 +41,24 @@ pub use arkret_models_identity::primary_handle::{
 pub use arkret_models_identity::{
     DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidKeyLogEntry, DidKeyLogOperation, HandleAttestation,
 };
-pub(crate) use arkret_wire::{Did, Event, Hash, Proof};
+pub(crate) use arkret_wire::{Did, DidUrl, Event, Hash, Proof};
+// DID-P0-B: flat re-exports of the verified-binding surface, so downstream
+// repos consume one shared model (`arkret_identity::VerifiedDidBinding`, or
+// `arkret::identity::*` through the umbrella) instead of inventing parallel
+// per-service types.
+pub use binding::{
+    BindingError, DidBindingPurpose, DidBindingStatus, FreshnessRequirement, LimitedTrustReason,
+    VerifiedDidBinding, VerifiedDidBindingDocumentInput, VerifiedDidBindingInput,
+    VerifiedDidBindingKey, document_canonical_digest,
+};
+pub use binding_digest::{
+    DigestError, EVIDENCE_DIGEST_VERSION, EvidenceEnvelope, POLICY_DIGEST_VERSION,
+    PolicyDigestInput, normalize_did_method_prefix, policy_digest,
+};
+pub use binding_store::{
+    AcceptedDidBinding, BindingFreshness, BindingInvalidation, BindingStoreError,
+    InMemoryVerifiedDidBindingStore, VerifiedDidBindingStore, binding_freshness_at,
+};
 pub(crate) use chrono::{DateTime, Utc};
 pub(crate) use error::IdentityError as Error;
 pub use error::{IdentityError, Result};
@@ -46,3 +72,10 @@ pub use records::*;
 pub use resolvers::*;
 pub(crate) use serde::{Deserialize, Serialize};
 pub(crate) use serde_json::Value;
+pub use verifier::{
+    BindingAcceptance, BindingAcceptanceTerms, BindingEvidenceError, BindingResolveError,
+    BindingResolveRequest, BindingVerifyError, DeferredEvidenceResolveRequest,
+    public_key_material_from_binding, resolve_and_verify_binding,
+    resolve_and_verify_binding_with_evidence, verify_event_proof_with_binding,
+    verify_event_proof_with_binding_for_event, verify_jws_with_binding, verify_jws_with_document,
+};

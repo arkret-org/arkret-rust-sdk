@@ -11,12 +11,12 @@ use arkret_signatures::proof::{
     PublicKeyMaterial, build_proof_envelope, sign_eddsa_detached_jws,
     verify_eddsa_detached_jws_proof,
 };
-use arkret_wire::{Did, Hash};
+use arkret_wire::{Did, DidUrl, Hash};
 use criterion::{Criterion, criterion_group, criterion_main};
 
 fn bench_proof_verify(c: &mut Criterion) {
     let seed = [7u8; 32];
-    let verification_method = "did:webvh:z6mkfixture:alice.example#key-1";
+    let verification_method = DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap();
     let actor_id = Did::new("did:webvh:z6mkfixture:alice.example").expect("static did");
     let public_key = PublicKeyMaterial::Ed25519Raw {
         bytes: ed25519_dalek::SigningKey::from_bytes(&seed)

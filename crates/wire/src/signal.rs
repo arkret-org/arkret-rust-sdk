@@ -24,7 +24,7 @@ use crate::error::{Error, Result};
 use crate::event_envelope::ScopeRef;
 use crate::generated::ProofContextId;
 use crate::primitives::Audience;
-use crate::{DeviceId, Did, Hash, RealmId, SealId, canonical};
+use crate::{DeviceId, Did, DidUrl, Hash, RealmId, SealId, canonical};
 
 /// Construction identifier of the v1 Signal payload.
 ///
@@ -291,7 +291,7 @@ impl SignalAeadBinding<'_> {
 #[serde(deny_unknown_fields)]
 pub struct SignalProof {
     pub kind: String,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub alg: String,
     pub envelope_digest: Hash,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
@@ -397,7 +397,7 @@ impl SignalEnvelope {
         );
         object.insert(
             "verification_method".to_owned(),
-            Value::String(self.proof.verification_method.clone()),
+            Value::String(self.proof.verification_method.as_str().to_owned()),
         );
         object.insert(
             "created_at".to_owned(),
@@ -612,7 +612,8 @@ mod tests {
             },
             proof: SignalProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
-                verification_method: "did:webvh:z6mkfixture:alice.example#device-key".to_owned(),
+                verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-key")
+                    .unwrap(),
                 alg: "EdDSA".to_owned(),
                 envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at: sent_at(),

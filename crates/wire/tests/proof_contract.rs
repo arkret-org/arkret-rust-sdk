@@ -1,5 +1,6 @@
 use arkret_wire::{
-    Audience, CriticalExtension, Did, Event, Hash, Hlc, Proof, ProofBindingRequirements, RealmId,
+    Audience, CriticalExtension, Did, DidUrl, Event, Hash, Hlc, Proof, ProofBindingRequirements,
+    RealmId,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -12,7 +13,7 @@ fn valid_proof() -> Proof {
     Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+        verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(
             "sha256:0000000000000000000000000000000000000000000000000000000000000000",
         )
@@ -46,10 +47,9 @@ fn proof_validate_rejects_empty_fields() {
     proof.alg = "".to_owned();
     assert!(proof.validate().is_err());
 
-    let mut proof = valid_proof();
-    proof.verification_method = "".to_owned();
-    assert!(proof.validate().is_err());
-
+    // `verification_method` is a `DidUrl`; an empty value is unrepresentable,
+    // so the runtime emptiness check was removed with the migration. See
+    // `proof_verification_method_rejects_non_did_url` below.
     let mut proof = valid_proof();
     proof.jws = "".to_owned();
     assert!(proof.validate().is_err());
@@ -153,7 +153,7 @@ fn proof_validate_binding_rejects_mismatched_verification_method() {
     let proof = valid_proof();
     let mut expected =
         proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
-    expected.verification_method = "did:webvh:z6mkfixture:bob.example#key-1".to_owned();
+    expected.verification_method = DidUrl::new("did:webvh:z6mkfixture:bob.example#key-1").unwrap();
     assert!(proof.validate_binding(&expected).is_err());
 }
 
@@ -299,7 +299,7 @@ fn event_validate_proof_bindings_checks_digest_match() {
     let proof = Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+        verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(digest).unwrap(),
         created_at: Utc::now(),
         domain: None,
@@ -330,7 +330,7 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
     let bad_proof = Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+        verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(
             "sha256:0000000000000000000000000000000000000000000000000000000000000000",
         )
@@ -365,7 +365,7 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
     let proof = Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+        verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(digest).unwrap(),
         created_at: Utc::now(),
         domain: None,
@@ -485,4 +485,15 @@ fn critical_extension_uses_spec_extension_scope_field() {
     }))
     .unwrap_err();
     assert!(error.to_string().contains("scope"), "{error}");
+}
+
+#[test]
+fn proof_verification_method_rejects_non_did_url() {
+    // `Proof.verification_method: DidUrl` replaces the old
+    // `String` + emptiness/`starts_with("did:")` checks.
+    assert!(DidUrl::new("").is_err());
+    assert!(DidUrl::new("not-a-did").is_err());
+    // Bare DID (no `#fragment`) is not a verification method.
+    assert!(DidUrl::new("did:webvh:z6mkfixture:alice.example").is_err());
+    assert!(DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").is_ok());
 }

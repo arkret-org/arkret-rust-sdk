@@ -2,7 +2,7 @@
 
 use arkret_canonical::binding_contexts;
 use arkret_models_identity::CrossSigningPublish;
-use arkret_wire::{DeviceId, Did};
+use arkret_wire::{DeviceId, Did, DidUrl};
 use serde::{Deserialize, Serialize};
 
 use crate::device::DeviceTrustState;
@@ -26,7 +26,7 @@ pub fn cross_signing_publish_cell_subject(
 /// (spec §5.2 `content.cross_signing_binding`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceTrustBinding {
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub alg: String,
     pub ssk_generation: u64,
     pub signature: String,

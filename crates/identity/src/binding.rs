@@ -56,7 +56,7 @@ use crate::DidDocument;
 /// | [`AccountBinding`](Self::AccountBinding) | Coauth DID-P2-A |
 /// | [`Recovery`](Self::Recovery) | Coauth DID-P2-A |
 /// | [`OrganizationRegistry`](Self::OrganizationRegistry) | Coauth DID-P2-A |
-/// | [`AdminAction`](Self::AdminAction) | Coauth DID-P2-A (admin / erasure) |
+/// | [`AdminAction`](Self::AdminAction) | Coauth DID-P2-A (the acting admin's own DID) |
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DidBindingPurpose {
@@ -84,7 +84,15 @@ pub enum DidBindingPurpose {
     Recovery,
     /// Organization registry control (Coauth DID-P2-A).
     OrganizationRegistry,
-    /// Admin / erasure action authority (Coauth DID-P2-A).
+    /// The DID of the **admin performing** an administrative action
+    /// (Coauth DID-P2-A).
+    ///
+    /// Not for erasure receipts: verifying a receipt resolves
+    /// `receipt.issuer`, which is §4's last row ("verifying a third-party
+    /// claim / receipt / attestation whose issuer key has no accepted binding
+    /// here") and therefore takes [`Issuer`](Self::Issuer). Using
+    /// `AdminAction` there would file the issuer's key under the acting
+    /// admin's purpose and let one acceptance authorize the other.
     AdminAction,
 }
 
@@ -244,6 +252,12 @@ pub enum BindingError {
         verification_method: String,
         did: String,
     },
+    /// The DID URL carries a `?query`. The spec `did_url` pattern is
+    /// `[^\s#?]+#...`, so a query component is not a valid verification method.
+    /// `DidUrl::new` does not currently reject it (see the P0-A hand-off list),
+    /// so this layer rejects it itself instead of trusting the wire type.
+    #[error("verification_method `{verification_method}` must not carry a `?query` component")]
+    VerificationMethodHasQuery { verification_method: String },
     /// `expires_at` is not strictly after `verified_at`.
     #[error("expires_at {expires_at} must be after verified_at {verified_at}")]
     ExpiryNotAfterVerification {
@@ -268,10 +282,14 @@ pub enum BindingError {
     )]
     LimitedTrustNotRecorded { expected: LimitedTrustReason },
     /// Both pins are present but a limited-trust reason was still claimed.
-    #[error("limited-trust reason {declared:?} recorded although history_head and version_id are both pinned")]
+    #[error(
+        "limited-trust reason {declared:?} recorded although history_head and version_id are both pinned"
+    )]
     LimitedTrustNotApplicable { declared: LimitedTrustReason },
     /// The recorded limited-trust reason contradicts the actual pins.
-    #[error("limited-trust reason {declared:?} contradicts the recorded pins (expected {expected:?})")]
+    #[error(
+        "limited-trust reason {declared:?} contradicts the recorded pins (expected {expected:?})"
+    )]
     LimitedTrustMismatch {
         declared: LimitedTrustReason,
         expected: LimitedTrustReason,
@@ -389,10 +407,10 @@ impl VerifiedDidBinding {
     ///
     /// 1. `method` that disagrees with `did.method()`;
     /// 2. a `verification_method` whose DID part is not `did`;
-    /// 3. an incoherent freshness window (`expires_at <= verified_at`,
-    ///    `refresh_after < verified_at`, `refresh_after > expires_at`);
-    /// 4. a missing `history_head` / `version_id` pin with no recorded
-    ///    [`LimitedTrustReason`] (and vice versa).
+    /// 3. an incoherent freshness window (`expires_at <= verified_at`, `refresh_after <
+    ///    verified_at`, `refresh_after > expires_at`);
+    /// 4. a missing `history_head` / `version_id` pin with no recorded [`LimitedTrustReason`] (and
+    ///    vice versa).
     ///
     /// The digest fields are typed [`Hash`] values, so `<algo>:<hex>` validity
     /// and non-emptiness are already enforced by the identifier layer.
@@ -405,6 +423,11 @@ impl VerifiedDidBinding {
         }
 
         if let Some(verification_method) = &input.verification_method {
+            if verification_method.as_str().contains('?') {
+                return Err(BindingError::VerificationMethodHasQuery {
+                    verification_method: verification_method.as_str().to_owned(),
+                });
+            }
             let did_part = verification_method
                 .as_str()
                 .split_once('#')
@@ -443,10 +466,8 @@ impl VerifiedDidBinding {
             }
         }
 
-        let expected_limited_trust = LimitedTrustReason::for_pins(
-            input.history_head.as_ref(),
-            input.version_id.as_deref(),
-        );
+        let expected_limited_trust =
+            LimitedTrustReason::for_pins(input.history_head.as_ref(), input.version_id.as_deref());
         match (expected_limited_trust, input.limited_trust) {
             (None, None) => {}
             (Some(expected), None) => {
@@ -569,7 +590,9 @@ impl VerifiedDidBinding {
     /// Whether `now` is past the background-refresh point (but see
     /// [`Self::is_hard_expired`] first).
     pub fn is_past_refresh(&self, now: DateTime<Utc>) -> bool {
-        self.inner.refresh_after.is_some_and(|refresh| now > refresh)
+        self.inner
+            .refresh_after
+            .is_some_and(|refresh| now > refresh)
     }
 
     /// The bare DID this binding was accepted for.
@@ -688,9 +711,7 @@ mod tests {
         let did = did();
         VerifiedDidBindingInput {
             method: did.method().to_owned(),
-            verification_method: Some(
-                DidUrl::new(format!("{did}#key-1")).expect("valid did url"),
-            ),
+            verification_method: Some(DidUrl::new(format!("{did}#key-1")).expect("valid did url")),
             did,
             trust_domain: trust_domain("local"),
             purpose: DidBindingPurpose::Principal,
@@ -805,7 +826,9 @@ mod tests {
         input.status = DidBindingStatus::Deactivated;
         let binding = VerifiedDidBinding::new(input).expect("valid binding");
         assert!(!binding.is_usable_for_ordinary_verification());
-        assert!(!binding.is_usable_for_authority(&FreshnessRequirement::any_accepted(), Utc::now()));
+        assert!(
+            !binding.is_usable_for_authority(&FreshnessRequirement::any_accepted(), Utc::now())
+        );
     }
 
     #[test]
@@ -824,24 +847,30 @@ mod tests {
         let binding = VerifiedDidBinding::new(input).expect("valid binding");
         assert!(binding.is_usable_for_ordinary_verification());
         assert!(binding.is_usable_for_authority(&FreshnessRequirement::any_accepted(), now));
-        assert!(!binding.is_usable_for_authority(
-            &FreshnessRequirement::fresh_within(Duration::hours(1)),
-            now
-        ));
+        assert!(
+            !binding.is_usable_for_authority(
+                &FreshnessRequirement::fresh_within(Duration::hours(1)),
+                now
+            )
+        );
     }
 
     #[test]
     fn max_age_bounds_authority_reuse() {
         let binding = VerifiedDidBinding::new(input()).expect("valid binding");
         let requirement = FreshnessRequirement::fresh_within(Duration::minutes(10));
-        assert!(binding.is_usable_for_authority(
-            &requirement,
-            binding.verified_at() + Duration::minutes(5)
-        ));
-        assert!(!binding.is_usable_for_authority(
-            &requirement,
-            binding.verified_at() + Duration::minutes(11)
-        ));
+        assert!(
+            binding.is_usable_for_authority(
+                &requirement,
+                binding.verified_at() + Duration::minutes(5)
+            )
+        );
+        assert!(
+            !binding.is_usable_for_authority(
+                &requirement,
+                binding.verified_at() + Duration::minutes(11)
+            )
+        );
     }
 
     #[test]
@@ -862,9 +891,9 @@ mod tests {
 
     #[test]
     fn deserialization_reruns_the_constructor_checks() {
-        let mut input = input();
-        input.method = "web".to_owned();
-        let json = serde_json::to_string(&input).expect("serialize");
+        let mut tampered = input();
+        tampered.method = "web".to_owned();
+        let json = serde_json::to_string(&tampered).expect("serialize");
         assert!(
             serde_json::from_str::<VerifiedDidBinding>(&json).is_err(),
             "serde must not be a back door around the validating constructor"
@@ -877,10 +906,8 @@ mod tests {
 
     #[test]
     fn from_verified_document_computes_the_digest_itself() {
-        let did = Did::new(
-            "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH".to_owned(),
-        )
-        .expect("valid did");
+        let did = Did::new("did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH".to_owned())
+            .expect("valid did");
         let document = DidDocument::new(
             did.clone(),
             format!("{did}#k1"),
@@ -916,10 +943,8 @@ mod tests {
     fn document_digest_matches_the_cached_resolution_hash_format() {
         // The digest MUST stay byte-identical to the string the resolver cache
         // stores in `CachedResolution::document_hash`.
-        let did = Did::new(
-            "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH".to_owned(),
-        )
-        .expect("valid did");
+        let did = Did::new("did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH".to_owned())
+            .expect("valid did");
         let document = DidDocument::new(
             did.clone(),
             format!("{did}#k1"),

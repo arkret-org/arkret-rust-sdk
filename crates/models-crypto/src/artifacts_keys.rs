@@ -601,7 +601,7 @@ pub struct ProofSummary {
     pub kind: RecoveryProofKind,
     pub proof_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verification_method: Option<String>,
+    pub verification_method: Option<DidUrl>,
 }
 
 /// Counterpart for

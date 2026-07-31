@@ -17,8 +17,8 @@ use arkret_models_identity::account::{
 use arkret_models_identity::actor_profile::ActorProfile;
 use arkret_wire::patch::Patch;
 use arkret_wire::{
-    AppletId, AppletRevokeMode, ConsentScope, DeviceId, Did, GrantId, Hash, Result, ScopeRef,
-    ServiceOperationId, canonical,
+    AppletId, AppletRevokeMode, ConsentScope, DeviceId, Did, DidUrl, GrantId, Hash, Result,
+    ScopeRef, ServiceOperationId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -127,7 +127,7 @@ pub struct AccountLifecycleProof {
     )]
     pub expires_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verification_method: Option<String>,
+    pub verification_method: Option<DidUrl>,
     pub signature: String,
 }
 

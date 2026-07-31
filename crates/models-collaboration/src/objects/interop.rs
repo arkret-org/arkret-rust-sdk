@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{Did, EventId, Hash, RealmId, StrandId};
+use arkret_wire::{Did, DidUrl, EventId, Hash, RealmId, StrandId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -79,7 +79,7 @@ pub struct ProviderDirectoryMimi {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProviderDirectoryProof {
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub signature: String,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,

@@ -153,13 +153,16 @@ impl CompactionPolicy {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DidUrl;
+
     use super::*;
     use crate::{Hash, Hlc, NotarySig, PayloadSignature, RealmId, SealId, SealKind};
 
     fn seal(kind: SealKind) -> Seal {
         let sig = PayloadSignature {
+            extra: Default::default(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:a.example#k1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:a.example#k1").unwrap(),
             payload_digest: Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap(),
             created_at: chrono::Utc::now(),
             jws: "AAAA.BBBB.CCCC".to_owned(),

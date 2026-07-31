@@ -816,7 +816,7 @@ impl CapabilityGrant {
             ("subject".to_owned(), serde_json::to_value(&self.subject)?),
             (
                 "verification_method".to_owned(),
-                Value::String(proof.verification_method.clone()),
+                Value::String(proof.verification_method.as_str().to_owned()),
             ),
             (
                 "created_at".to_owned(),
@@ -835,6 +835,8 @@ impl CapabilityGrant {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DidUrl;
+
     use arkret_wire::PayloadProofPurpose;
     use serde_json::json;
 
@@ -900,7 +902,7 @@ mod tests {
             proofs: vec![PayloadProof {
                 kind: "detached_jws".to_owned(),
                 alg: "EdDSA".to_owned(),
-                verification_method: "did:web:issuer.example#key-1".to_owned(),
+                verification_method: DidUrl::new("did:web:issuer.example#key-1").unwrap(),
                 payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at: fractional,
                 domain: None,

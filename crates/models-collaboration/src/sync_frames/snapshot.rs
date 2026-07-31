@@ -41,7 +41,7 @@ pub struct RangeCompletenessAttestationEventRange {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RangeCompletenessAttestationWitnessAttestationWitnessesItem {
     pub issuer: Did,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub controlling_organization: Did,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(

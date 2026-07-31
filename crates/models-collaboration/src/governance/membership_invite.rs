@@ -2,7 +2,8 @@ use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::{deserialize_canonical_timestamp, serialize_canonical_timestamp};
 use arkret_wire::{
-    Did, Error, EventId, Hash, InviteId, RealmId, Result, StrandId, XExtensionMap, canonical,
+    Did, DidUrl, Error, EventId, Hash, InviteId, RealmId, Result, StrandId, XExtensionMap,
+    canonical,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -332,7 +333,7 @@ pub const INVITE_SUBJECT_PROOF_TRANSCRIPT_DOMAIN: &str = "ak.invite.claim.subjec
 #[serde(deny_unknown_fields)]
 pub struct InviteClaimBindingProof {
     pub verification_service_id: Did,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub subject_id: Did,
     pub realm_id: RealmId,
     pub audience: String,
@@ -349,7 +350,7 @@ impl InviteClaimBindingProof {
         realm_id: RealmId,
         claim_nonce: impl Into<String>,
         expires_at: impl Into<String>,
-        verification_method: impl Into<String>,
+        verification_method: DidUrl,
         signature: impl Into<String>,
     ) -> Self {
         Self {
@@ -359,7 +360,7 @@ impl InviteClaimBindingProof {
             audience: INVITE_CLAIM_AUDIENCE.to_owned(),
             claim_nonce: claim_nonce.into(),
             expires_at: expires_at.into(),
-            verification_method: verification_method.into(),
+            verification_method,
             signature: signature.into(),
         }
     }
@@ -376,11 +377,10 @@ impl InviteClaimBindingProof {
             ));
         }
         canonical::validate_timestamp_canonical(&self.expires_at)?;
-        if self.verification_method.trim().is_empty() {
-            return Err(Error::Protocol(
-                "invite binding proof verification_method must not be empty".to_owned(),
-            ));
-        }
+        // `verification_method` is a `DidUrl`: emptiness — and "is it a DID
+        // URL at all" — is enforced by the type at deserialization, so the
+        // hand-written guard that used to live here is gone
+        // (did-usage-and-verification.md §6).
         if self.signature.trim().is_empty() {
             return Err(Error::Protocol(
                 "invite binding proof signature must not be empty".to_owned(),
@@ -417,7 +417,7 @@ pub struct InviteClaimUnsignedBindingProof {
     pub audience: String,
     pub claim_nonce: String,
     pub expires_at: String,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
 }
 
 /// Canonical `ak.invite.claim.binding_proof.v1` transcript body.
@@ -527,7 +527,7 @@ pub fn invite_binding_proof_transcript_digest(
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InviteSubjectProof {
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub alg: String,
     pub transcript_digest: Hash,
     pub signature: String,
@@ -535,12 +535,12 @@ pub struct InviteSubjectProof {
 
 impl InviteSubjectProof {
     pub fn new(
-        verification_method: impl Into<String>,
+        verification_method: DidUrl,
         transcript_digest: Hash,
         signature: impl Into<String>,
     ) -> Self {
         Self {
-            verification_method: verification_method.into(),
+            verification_method,
             alg: INVITE_SUBJECT_PROOF_ALG.to_owned(),
             transcript_digest,
             signature: signature.into(),
@@ -809,7 +809,7 @@ mod tests {
             RealmId::new(REALM).unwrap(),
             "nonce-claim-proof-1",
             "2099-01-01T00:00:00.000Z",
-            "did:web:verify.example#key-1",
+            DidUrl::new("did:web:verify.example#key-1").unwrap(),
             "c2ln",
         )
     }

@@ -415,6 +415,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DidUrl;
+
     use std::collections::{BTreeMap, BTreeSet};
 
     use arkret_models_crypto::mls_payloads::{
@@ -544,7 +546,8 @@ mod tests {
         event.proofs.push(Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:alice.example#device-key".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-key")
+                .unwrap(),
             event_digest: digest,
             created_at: event.created_at,
             domain: None,
@@ -577,8 +580,10 @@ mod tests {
             previous_state_root: None,
             previous_digest_algorithm: None,
             notary_signature: NotarySig::Single(PayloadSignature {
+                extra: Default::default(),
                 alg: "EdDSA".to_owned(),
-                verification_method: "did:webvh:z6mkfixture:notary.example#key-1".to_owned(),
+                verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#key-1")
+                    .unwrap(),
                 payload_digest: hash(0),
                 created_at: Utc.with_ymd_and_hms(2026, 7, 14, 0, 0, 0).unwrap(),
                 jws: "AAAA.BBBB.CCCC".to_owned(),

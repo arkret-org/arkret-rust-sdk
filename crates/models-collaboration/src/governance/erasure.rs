@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use arkret_canonical::canonical;
-use arkret_wire::{Did, Error, Hash, PolicyId, RealmId, Result};
+use arkret_wire::{Did, DidUrl, Error, Hash, PolicyId, RealmId, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -81,7 +81,7 @@ pub struct ErasureScope {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ErasureReceiptProof {
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub payload_digest: Hash,
     pub signature: String,
     #[serde(flatten)]
@@ -285,7 +285,8 @@ mod erasure_receipt_tests {
             completed_at: Utc::now(),
             issued_at: None,
             proofs: vec![ErasureReceiptProof {
-                verification_method: "did:webvh:z6mkfixture:erasure.example#key-1".to_owned(),
+                verification_method: DidUrl::new("did:webvh:z6mkfixture:erasure.example#key-1")
+                    .unwrap(),
                 payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 signature: "zplaceholder".to_owned(),
                 extra: BTreeMap::new(),

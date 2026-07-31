@@ -4,7 +4,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::constants::AGENT_SELECTOR_CLAIM_SCHEMA;
-use arkret_wire::{Did, Error, Hash, PayloadProof, ProofContextId, Result, canonical};
+use arkret_wire::{Did, DidUrl, Error, Hash, PayloadProof, ProofContextId, Result, canonical};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -57,7 +57,7 @@ pub struct DirectoryPresentedClaim {
 pub struct DirectoryRestrictedClaimPresentation {
     pub kind: String,
     pub iss: Did,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub audience: Did,
     pub nonce: String,
     pub claim: DirectoryPresentedClaim,
@@ -171,7 +171,7 @@ impl AgentSelectorClaim {
             ),
             (
                 "verification_method".to_owned(),
-                Value::String(proof.verification_method.clone()),
+                Value::String(proof.verification_method.as_str().to_owned()),
             ),
             (
                 "created_at".to_owned(),

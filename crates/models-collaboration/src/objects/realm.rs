@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use arkret_wire::constants::{CORE_SCHEMA_PROFILE, REALM_SCHEMA_ID};
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    BlobRef, ControlProposalDecisionPolicy, Did, Discoverability, EncryptionProfile, Error,
+    BlobRef, ControlProposalDecisionPolicy, Did, DidUrl, Discoverability, EncryptionProfile, Error,
     FederationPolicy, Hash, HistoryVisibility, JoinRule, PolicyId, RealmId, Result, SecurityClass,
     StrandId, TypedTrustDomainId, canonical,
 };
@@ -279,7 +279,7 @@ pub struct DurabilityThreshold {
 pub struct RealmRecoveryRecipient {
     pub recipient_id: String,
     pub principal_id: Did,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub controller_organization: Option<Did>,
 }

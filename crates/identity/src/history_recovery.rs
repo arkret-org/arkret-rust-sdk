@@ -11,6 +11,7 @@
 
 use arkret_canonical::multibase::{decode_multibase_base58btc, decode_multicodec_varint};
 use arkret_identifiers::Did;
+use arkret_wire::DidUrl;
 use serde_json::Value;
 
 /// DID service entry `type` designating an offline RRK (`identity-did.md` §8.3).
@@ -74,7 +75,7 @@ pub struct ResolvedRealmHistoryRecoveryKey {
     /// The principal that published the RRK service entry.
     pub principal_id: Did,
     /// The verification method id the RRK service entry designates.
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     /// Decoded raw 32-byte X25519 HPKE public key the provider seals to.
     pub hpke_public_key: [u8; 32],
 }
@@ -104,7 +105,7 @@ pub struct ResolvedRealmHistoryRecoveryKey {
 pub fn resolve_realm_history_recovery_key(
     recipient_id: &str,
     principal_id: &Did,
-    verification_method: &str,
+    verification_method: &DidUrl,
     did_document: &Value,
 ) -> Result<ResolvedRealmHistoryRecoveryKey, RealmHistoryRecoveryKeyError> {
     let document = did_document
@@ -201,7 +202,7 @@ pub fn resolve_realm_history_recovery_key(
     Ok(ResolvedRealmHistoryRecoveryKey {
         recipient_id: recipient_id.to_owned(),
         principal_id: principal_id.clone(),
-        verification_method: verification_method.to_owned(),
+        verification_method: verification_method.clone(),
         hpke_public_key,
     })
 }
@@ -236,15 +237,17 @@ mod tests {
     struct TestRecipient {
         recipient_id: String,
         principal_id: Did,
-        verification_method: String,
+        verification_method: DidUrl,
     }
 
     fn recipient() -> TestRecipient {
         TestRecipient {
             recipient_id: "acme-org-rrk-1".to_owned(),
             principal_id: Did::new("did:webvh:z6mkfixture:acme.example").unwrap(),
-            verification_method: "did:webvh:z6mkfixture:acme.example#realm-history-recovery-1"
-                .to_owned(),
+            verification_method: DidUrl::new(
+                "did:webvh:z6mkfixture:acme.example#realm-history-recovery-1",
+            )
+            .unwrap(),
         }
     }
 

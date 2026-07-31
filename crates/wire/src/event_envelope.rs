@@ -44,7 +44,7 @@ use crate::events::kinds::EventKind;
 use crate::primitives::{
     Audience, CriticalExtension, Proof, ProofBindingRequirements, SignatureBindingPayload,
 };
-use crate::{DidKey, canonical};
+use crate::{DidKey, DidUrl, canonical};
 
 /// Full canonical Event Envelope bound, measured over the reducer-accepted envelope including
 /// reducer-stamped top-level fields and every producer proof, excluding the read-view `unsigned`.
@@ -416,7 +416,7 @@ pub struct Event {
 pub struct FederatedDeviceSigningKeyEvidence {
     pub actor_id: Did,
     pub device_id: DeviceId,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub device_signing_key: DidKey,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub authorization_accepted_at: DateTime<Utc>,
@@ -468,14 +468,14 @@ impl FederatedDeviceSigningKeyEvidence {
         Ok(())
     }
 
-    pub fn matches_event_proof(&self, event: &Event, verification_method: &str) -> bool {
+    pub fn matches_event_proof(&self, event: &Event, verification_method: &DidUrl) -> bool {
         self.validate_shape().is_ok()
             && self.actor_id == event.actor_id
-            && self.verification_method == verification_method
+            && &self.verification_method == verification_method
             && event
                 .proofs
                 .iter()
-                .any(|proof| proof.verification_method == verification_method)
+                .any(|proof| &proof.verification_method == verification_method)
     }
 }
 
@@ -1019,7 +1019,7 @@ mod event_wire_surface_tests {
         event.proofs.push(Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             created_at: whole_second,
             domain: None,
@@ -1306,7 +1306,7 @@ mod event_wire_surface_tests {
         event.proofs.push(Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             domain: None,

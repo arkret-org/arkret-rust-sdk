@@ -2,6 +2,7 @@ use arkret_event_draft::{
     EventDraftKindRegistry, Operation, OperationEnvelopeBuilder, OperationEventConversion,
 };
 use arkret_identifiers::{Did, Hlc, OperationId, RealmId};
+use arkret_wire::DidUrl;
 use arkret_wire::{
     Audience, EventKind, Hash, OPERATION_SCHEMA, Proof, ProofBindingRequirements, ScopeRef,
 };
@@ -63,7 +64,7 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
     operation.proofs = vec![Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+        verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: Hash::new(digest).unwrap(),
         created_at: Utc::now(),
         domain: None,

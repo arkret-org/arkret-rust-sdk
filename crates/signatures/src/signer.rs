@@ -7,14 +7,14 @@
 //!
 //! ```
 //! use arkret_signatures::Ed25519PayloadSigner;
-//! use arkret_wire::{Did, PayloadSigner};
+//! use arkret_wire::{Did, DidUrl, PayloadSigner};
 //!
 //! let seed = [0u8; 32];
 //! let did = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
 //! let signer = Ed25519PayloadSigner::from_did_key_seed(
 //!     seed,
 //!     did,
-//!     "did:webvh:z6mkfixture:alice.example#key-1",
+//!     DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
 //! );
 //! assert_eq!(
 //!     signer.signer_did().as_str(),
@@ -22,10 +22,12 @@
 //! );
 //! ```
 
+use std::collections::BTreeMap;
+
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical;
 use arkret_wire::{
-    Did, Error as WireError, Hash, PayloadSignature, PayloadSigner, Result as WireResult,
+    Did, DidUrl, Error as WireError, Hash, PayloadSignature, PayloadSigner, Result as WireResult,
 };
 use chrono::Utc;
 use ed25519_dalek::{Signer as _, SigningKey};
@@ -41,30 +43,22 @@ use crate::{Error, Result};
 pub struct Ed25519PayloadSigner {
     signing_key: SigningKey,
     did: Did,
-    kid: String,
+    kid: DidUrl,
 }
 
 impl Ed25519PayloadSigner {
     /// Wrap an existing `ed25519_dalek::SigningKey`.
-    pub fn new(
-        signing_key: SigningKey,
-        did: Did,
-        verification_method_id: impl Into<String>,
-    ) -> Self {
+    pub fn new(signing_key: SigningKey, did: Did, verification_method_id: DidUrl) -> Self {
         Self {
             signing_key,
             did,
-            kid: verification_method_id.into(),
+            kid: verification_method_id,
         }
     }
 
     /// Convenience constructor that derives an ed25519 keypair from a 32-byte
     /// seed (RFC 8032 secret-key seed).
-    pub fn from_did_key_seed(
-        seed: [u8; 32],
-        did: Did,
-        verification_method_id: impl Into<String>,
-    ) -> Self {
+    pub fn from_did_key_seed(seed: [u8; 32], did: Did, verification_method_id: DidUrl) -> Self {
         let signing_key = SigningKey::from_bytes(&seed);
         Self::new(signing_key, did, verification_method_id)
     }
@@ -80,7 +74,7 @@ impl PayloadSigner for Ed25519PayloadSigner {
         &self.did
     }
 
-    fn verification_method_id(&self) -> &str {
+    fn verification_method_id(&self) -> &DidUrl {
         &self.kid
     }
 
@@ -107,6 +101,7 @@ impl PayloadSigner for Ed25519PayloadSigner {
             payload_digest,
             created_at: Utc::now(),
             jws,
+            extra: BTreeMap::new(),
         })
     }
 }
@@ -231,12 +226,12 @@ mod tests {
         let signer = Ed25519PayloadSigner::from_did_key_seed(
             [7u8; 32],
             alice(),
-            "did:webvh:z6mkfixture:alice.example#key-1",
+            DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         );
         let bytes = sample_canonical_bytes();
         let sig = signer.sign_payload(&bytes).unwrap();
         assert_eq!(sig.alg, "EdDSA");
-        assert_eq!(sig.verification_method, signer.verification_method_id());
+        assert_eq!(&sig.verification_method, signer.verification_method_id());
         verify_ed25519_payload_signature(&bytes, &sig, &signer.verifying_key()).unwrap();
     }
 
@@ -245,7 +240,7 @@ mod tests {
         let signer = Ed25519PayloadSigner::from_did_key_seed(
             [7u8; 32],
             alice(),
-            "did:webvh:z6mkfixture:alice.example#key-1",
+            DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         );
         let sig = signer.sign_payload(&sample_canonical_bytes()).unwrap();
         // The issuer-mismatch check this replaces lived in the deleted
@@ -269,7 +264,7 @@ mod tests {
         let signer = Ed25519PayloadSigner::from_did_key_seed(
             [9u8; 32],
             alice(),
-            "did:webvh:z6mkfixture:alice.example#key-1",
+            DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         );
         let a = Seal::sign_single(
             space(),
@@ -298,12 +293,12 @@ mod tests {
         let s1 = Ed25519PayloadSigner::from_did_key_seed(
             seed,
             alice(),
-            "did:webvh:z6mkfixture:alice.example#key-1",
+            DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         );
         let s2 = Ed25519PayloadSigner::from_did_key_seed(
             seed,
             alice(),
-            "did:webvh:z6mkfixture:alice.example#key-1",
+            DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         );
         assert_eq!(s1.verifying_key().to_bytes(), s2.verifying_key().to_bytes());
     }
@@ -313,7 +308,7 @@ mod tests {
         let signer = Ed25519PayloadSigner::from_did_key_seed(
             [3u8; 32],
             alice(),
-            "did:webvh:z6mkfixture:alice.example#key-1",
+            DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         );
         let mut bytes = sample_canonical_bytes();
         let sig = signer.sign_payload(&bytes).unwrap();
@@ -328,7 +323,7 @@ mod tests {
         let signer = Ed25519PayloadSigner::from_did_key_seed(
             [3u8; 32],
             alice(),
-            "did:webvh:z6mkfixture:alice.example#key-1",
+            DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         );
         let bytes = sample_canonical_bytes();
         let mut sig = signer.sign_payload(&bytes).unwrap();

@@ -1,7 +1,7 @@
 use arkret_canonical::canonical;
 use arkret_schema::generated::profile_requirements::non_event_grant_authority_rule;
 use arkret_schema::*;
-use arkret_wire::{BUILT_IN_CONFORMANCE_FIXTURES_VERSION, Did, Hash, Proof};
+use arkret_wire::{BUILT_IN_CONFORMANCE_FIXTURES_VERSION, Did, DidUrl, Hash, Proof};
 use serde_json::json;
 
 fn required_profiles() -> [ConformanceProfile; 11] {
@@ -262,7 +262,7 @@ fn signature_binding_payload_matches_spec_encoding_vector() {
     let proof = Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: input["verification_method"].as_str().unwrap().to_owned(),
+        verification_method: DidUrl::new(input["verification_method"].as_str().unwrap()).unwrap(),
         event_digest: Hash::new(input["event_digest"].as_str().unwrap()).unwrap(),
         created_at: input["created_at"].as_str().unwrap().parse().unwrap(),
         domain: None,

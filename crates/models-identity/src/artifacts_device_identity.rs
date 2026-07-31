@@ -77,7 +77,7 @@ impl IdentityReceipt {
         );
         object.insert(
             "verification_method".to_owned(),
-            Value::String(self.signature.verification_method.clone()),
+            Value::String(self.signature.verification_method.as_str().to_owned()),
         );
         object.insert(
             "created_at".to_owned(),
@@ -230,7 +230,7 @@ impl DidWebvhWitnessReceipt {
         );
         object.insert(
             "verification_method".to_owned(),
-            Value::String(self.signature.verification_method.clone()),
+            Value::String(self.signature.verification_method.as_str().to_owned()),
         );
         object.insert(
             "created_at".to_owned(),
@@ -449,12 +449,16 @@ impl CrossSigningPublish {
                     .to_owned(),
             ));
         }
-        if self.self_signing_key.binding.verification_method != self.principal_signing_key.kid {
+        if self.self_signing_key.binding.verification_method.as_str()
+            != self.principal_signing_key.kid.as_str()
+        {
             return Err(Error::Protocol(
                 "self_signing_key binding must reference the published PSK kid".to_owned(),
             ));
         }
-        if self.user_signing_key.binding.verification_method != self.principal_signing_key.kid {
+        if self.user_signing_key.binding.verification_method.as_str()
+            != self.principal_signing_key.kid.as_str()
+        {
             return Err(Error::Protocol(
                 "user_signing_key binding must reference the published PSK kid".to_owned(),
             ));
@@ -525,7 +529,15 @@ pub struct PublishedKey {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SubordinateSignedKeyBinding {
-    pub verification_method: NonEmptyString,
+    /// PSK DID URL that signed this subordinate key's canonical signing input.
+    ///
+    /// `cross-signing-publish.schema.json` calls it a "PSK kid", but the
+    /// official fixture instance is a full DID URL
+    /// (`did:webvh:z6mkfixture:alice.example#psk`) and
+    /// `identity/device-lifecycle.md` §256/§347 require the PSK kid to resolve
+    /// to a `verificationMethod` of the DID head, so §2.2 applies. The schema's
+    /// `minLength: 1` under-constraint is registered as a spec gap.
+    pub verification_method: DidUrl,
     pub alg: NonEmptyString,
     pub signature: NonEmptyString,
 }
@@ -710,8 +722,10 @@ mod tests {
             signature: PayloadProof {
                 kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
                 alg: "EdDSA".to_owned(),
-                verification_method:
-                    "did:webvh:z6mkfixture:starid.example#service-key".to_owned(),
+                verification_method: DidUrl::new(
+                    "did:webvh:z6mkfixture:starid.example#service-key",
+                )
+                .unwrap(),
                 payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at,
                 domain: None,

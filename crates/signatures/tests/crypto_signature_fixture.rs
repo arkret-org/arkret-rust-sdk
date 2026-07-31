@@ -23,7 +23,7 @@ use arkret_signatures::proof::{PublicKeyMaterial, verify_detached_ed25519_signat
 use arkret_signatures::{
     FUTURE_ALGORITHMS, PRODUCTION_ALGORITHMS, verify_eddsa_detached_jws_proof,
 };
-use arkret_wire::{Did, Hash, Proof};
+use arkret_wire::{Did, DidUrl, Hash, Proof};
 use ed25519_dalek::Signer as _;
 use serde_json::Value;
 
@@ -214,7 +214,7 @@ fn proof_for_negative(base: &Value, alg: &str, jws: &str) -> Proof {
     Proof {
         kind: "detached_jws".to_owned(),
         alg: alg.to_owned(),
-        verification_method: s(&base["proof"], "verification_method").to_owned(),
+        verification_method: DidUrl::new(s(&base["proof"], "verification_method")).unwrap(),
         event_digest: Hash::new(s(base, "event_digest")).unwrap(),
         created_at: s(&base["proof"], "created_at").parse().unwrap(),
         domain: base["proof"]["domain"].as_str().map(str::to_owned),

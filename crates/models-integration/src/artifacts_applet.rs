@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    CircleId, Did, EventId, EventProofAudience, Hash, NonEmptyString, RealmId,
+    CircleId, Did, DidUrl, EventId, EventProofAudience, Hash, NonEmptyString, RealmId,
     WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
@@ -216,7 +216,7 @@ pub struct AppletPackageE2eePolicy {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DetachedProof {
     pub kind: String,
-    pub verification_method: Did,
+    pub verification_method: DidUrl,
     pub alg: SignatureAlg,
     pub payload_digest: Hash,
     #[serde(

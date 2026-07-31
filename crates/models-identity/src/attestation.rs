@@ -1,6 +1,6 @@
 //! Structured attestation evidence for audited E2EE and audit agents.
 
-use arkret_wire::{Did, Hash, Proof, RealmId};
+use arkret_wire::{Did, DidUrl, Hash, Proof, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 /// Attestation chain item format identifier.
@@ -163,7 +163,7 @@ pub struct AuditReleaseAttestation {
 
     pub attestation_key: AttestationKey,
 
-    pub verification_method: String,
+    pub verification_method: DidUrl,
 
     pub validity: AttestationValidity,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -11,7 +11,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{Did, Error, Hash, Hlc, RealmId, Result, SealId, canonical};
+use crate::{Did, DidUrl, Error, Hash, Hlc, RealmId, Result, SealId, canonical};
 
 pub const SEAL_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ML-DSA-65"];
 pub const MAX_SEAL_PREDECESSOR_REFS: usize = 128;
@@ -30,10 +30,15 @@ pub fn compute_seal_id(canonical_bytes: &[u8]) -> Result<SealId> {
 /// Seal is not an Event Envelope, so its signature uses the generic
 /// `payload_digest` member rather than the Event-only `event_digest`
 /// (`seal.schema.json` `$defs.signature`).
+///
+/// This is the single Rust implementation of
+/// `seal.schema.json#/$defs/signature`; a second, incompatible copy used to
+/// live in `arkret_models_collaboration::governance::agent_artifacts::Signature`
+/// and was removed so the `$defs` cannot deserialize two different ways.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PayloadSignature {
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub alg: String,
     pub payload_digest: Hash,
     #[serde(
@@ -42,6 +47,11 @@ pub struct PayloadSignature {
     )]
     pub created_at: DateTime<Utc>,
     pub jws: String,
+    /// `seal.schema.json#/$defs/signature` declares `additionalProperties: true`;
+    /// unknown members are preserved so canonical re-serialization is lossless.
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub extra: BTreeMap<String, Value>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -352,10 +362,11 @@ mod tests {
     fn sig() -> PayloadSignature {
         PayloadSignature {
             alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:notary.example#k1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1").unwrap(),
             payload_digest: hash(0xaa),
             created_at: Utc.with_ymd_and_hms(2026, 6, 11, 0, 0, 0).unwrap(),
             jws: "AAAA.BBBB.CCCC".to_owned(),
+            extra: BTreeMap::new(),
         }
     }
 

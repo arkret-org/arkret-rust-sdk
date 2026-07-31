@@ -6,12 +6,9 @@
 //! (`AgentLifecycleState`, `AgentRuntimeState`, `AgentPcrRecoveryState`,
 //! `AgentPairingMode`) that remain core-resident.
 
-use std::collections::BTreeMap;
-
 use arkret_wire::{Base64UrlString, Did, DidUrl, EventId, GrantId, Hash, NonEmptyString, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/grant_snapshot`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -92,18 +89,12 @@ pub type SealRef = String;
 /// Counterpart for `spec/v1/artifacts/schemas/seal.schema.json#/$defs/event_digest`.
 pub type EventDigest = Hash;
 
-/// Counterpart for `spec/v1/artifacts/schemas/seal.schema.json#/$defs/signature`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Signature {
-    pub verification_method: Did,
-    pub alg: String,
-    pub payload_digest: Hash,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
-    pub created_at: DateTime<Utc>,
-    pub jws: String,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
+// `seal.schema.json#/$defs/signature` is modelled by
+// [`arkret_wire::PayloadSignature`]. A second, incompatible `Signature` struct
+// used to live here with `verification_method: Did`, which rejected every legal
+// wire value (the schema's own description says "Bare DID is not valid for
+// signatures"). It had zero constructors and zero readers across all
+// repositories — it only leaked into the facade through
+// `arkret_sdk`'s glob re-export — so it was removed rather than migrated, and
+// its `extra: BTreeMap` (schema `additionalProperties: true`) was folded into
+// `PayloadSignature`.

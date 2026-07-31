@@ -7,8 +7,8 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    Base64UrlString, DeviceId, Did, FederatedDeviceSigningKeyEvidence, Hash, NonEmptyString, Proof,
-    RealmId, StrandId, TypedTrustDomainId,
+    Base64UrlString, DeviceId, Did, DidUrl, FederatedDeviceSigningKeyEvidence, Hash,
+    NonEmptyString, Proof, RealmId, StrandId, TypedTrustDomainId,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -235,7 +235,7 @@ pub enum PeerKeyPackageClaimPurpose {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackageRequesterAuthorization {
-    pub verification_method: NonEmptyString,
+    pub verification_method: DidUrl,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub requester_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -617,7 +617,7 @@ struct PeerKeyPackageAuthorizationTranscript<'a> {
 
 #[derive(Serialize)]
 struct PeerKeyPackageAuthorizationMetadata<'a> {
-    verification_method: &'a NonEmptyString,
+    verification_method: &'a DidUrl,
     #[serde(skip_serializing_if = "Option::is_none")]
     requester_device_id: Option<&'a DeviceId>,
     #[serde(skip_serializing_if = "Option::is_none")]

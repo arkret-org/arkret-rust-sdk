@@ -105,7 +105,7 @@ mod tests {
         }
     }
 
-    fn subordinate(kid: &str, controller: &str) -> SubordinateSignedKey {
+    fn subordinate(kid: &str, controller: &DidUrl) -> SubordinateSignedKey {
         let key = published_key(kid);
         SubordinateSignedKey {
             kid: key.kid,
@@ -113,7 +113,7 @@ mod tests {
             public_key: key.public_key,
             key_format: key.key_format,
             binding: SubordinateSignedKeyBinding {
-                verification_method: NonEmptyString::new(controller).unwrap(),
+                verification_method: controller.clone(),
                 alg: NonEmptyString::new("EdDSA").unwrap(),
                 signature: NonEmptyString::new("signature").unwrap(),
             },
@@ -123,15 +123,23 @@ mod tests {
     #[test]
     fn device_control_events_project_registered_writes_and_keep_millis_time() {
         let principal = did("did:web:alice.example");
+        // `cross-signing-publish.schema.json` calls this a "PSK kid", but the
+        // official fixture instance is a full DID URL
+        // (`did:webvh:z6mkfixture:alice.example#psk`) and
+        // `identity/device-lifecycle.md` requires it to resolve to a
+        // `verificationMethod` of the DID head — so it is a DID URL, never a
+        // bare DID.
+        let psk = DidUrl::new(format!("{principal}#psk")).unwrap();
+        let psk_kid = psk.as_str().to_owned();
         let created_at = DateTime::parse_from_rfc3339("2026-07-18T01:02:03.987654Z")
             .unwrap()
             .with_timezone(&Utc);
         let publish = CrossSigningPublish {
             principal_id: principal.clone(),
             trust_domain: TypedTrustDomainId::new("ak:trust_domain:example").unwrap(),
-            principal_signing_key: published_key(principal.as_str()),
-            self_signing_key: subordinate("did:web:alice.example#ssk", principal.as_str()),
-            user_signing_key: subordinate("did:web:alice.example#usk", principal.as_str()),
+            principal_signing_key: published_key(&psk_kid),
+            self_signing_key: subordinate("did:web:alice.example#ssk", &psk),
+            user_signing_key: subordinate("did:web:alice.example#usk", &psk),
             expected_previous_generation: 0,
             generation: std::num::NonZeroU64::new(1).unwrap(),
             issued_at: created_at,

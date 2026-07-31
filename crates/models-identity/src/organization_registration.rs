@@ -642,6 +642,8 @@ fn is_lower_hex_sha256(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DidUrl;
+
     use super::*;
 
     fn did(value: &str) -> Did {
@@ -656,11 +658,11 @@ mod tests {
         }
     }
 
-    fn payload_proof(created_at: DateTime<Utc>, verification_method: &str) -> PayloadProof {
+    fn payload_proof(created_at: DateTime<Utc>, verification_method: &DidUrl) -> PayloadProof {
         PayloadProof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: verification_method.to_owned(),
+            verification_method: verification_method.clone(),
             payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             created_at,
             domain: None,
@@ -737,7 +739,8 @@ mod tests {
         };
         let version_id = "3-zQmPinnedVersion".to_owned();
         let log_head_digest = Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap();
-        let verification_method = format!("{}#org-control-key-1", request.organization_id);
+        let verification_method =
+            DidUrl::new(format!("{}#org-control-key-1", request.organization_id)).unwrap();
         let transcript = serde_json::json!({
             "context": ORGANIZATION_REGISTRATION_CONTROL_PURPOSE,
             "challenge_id": challenge.challenge_id,
@@ -800,7 +803,10 @@ mod tests {
             issued_at,
             expires_at: issued_at + chrono::Duration::days(30),
             issuer_service_id: issuer.clone(),
-            proof: payload_proof(issued_at, &format!("{issuer}#notary-key")),
+            proof: payload_proof(
+                issued_at,
+                &DidUrl::new(format!("{issuer}#notary-key")).unwrap(),
+            ),
         };
         receipt.registration_receipt_id = receipt.expected_receipt_id().unwrap();
         receipt.proof.payload_digest = receipt.expected_payload_digest().unwrap();
@@ -831,7 +837,10 @@ mod tests {
             issued_at,
             expires_at: issued_at + chrono::Duration::days(30),
             issuer_service_id: issuer.clone(),
-            proof: payload_proof(issued_at, &format!("{issuer}#notary-key")),
+            proof: payload_proof(
+                issued_at,
+                &DidUrl::new(format!("{issuer}#notary-key")).unwrap(),
+            ),
         };
         receipt.registration_receipt_id = receipt.expected_receipt_id().unwrap();
         receipt.proof.payload_digest = receipt.expected_payload_digest().unwrap();
@@ -872,7 +881,10 @@ mod tests {
             issued_at,
             expires_at: issued_at + chrono::Duration::days(30),
             issuer_service_id: issuer.clone(),
-            proof: payload_proof(issued_at, &format!("{issuer}#notary-key")),
+            proof: payload_proof(
+                issued_at,
+                &DidUrl::new(format!("{issuer}#notary-key")).unwrap(),
+            ),
         };
         receipt.registration_receipt_id = receipt.expected_receipt_id().unwrap();
         receipt.proof.payload_digest = receipt.expected_payload_digest().unwrap();

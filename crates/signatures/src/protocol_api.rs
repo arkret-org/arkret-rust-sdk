@@ -70,7 +70,9 @@ use arkret_canonical::canonical;
 /// documentation for why the other registry-active rows are excluded.
 pub use arkret_wire::PRODUCTION_ALGORITHMS;
 pub use arkret_wire::Proof as ProtocolProof;
-use arkret_wire::{Audience, Did, Hash, Proof, ProofBindingRequirements, SignatureBindingPayload};
+use arkret_wire::{
+    Audience, Did, DidUrl, Hash, Proof, ProofBindingRequirements, SignatureBindingPayload,
+};
 use chrono::{DateTime, Duration, Utc};
 pub use error::{Error, Result};
 pub use jwk::{JsonWebKey, JsonWebKeyOperation, JsonWebKeySet, JsonWebKeyUse};
@@ -114,7 +116,7 @@ pub const HTTP_MESSAGE_SIGNATURE_PROFILE: &str = "ak.http-message-signature.v1";
 pub struct DetachedSignatureBinding {
     pub payload_digest: Hash,
     pub signer: Did,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
@@ -130,12 +132,12 @@ impl DetachedSignatureBinding {
     pub fn from_payload<T: Serialize>(
         payload: &T,
         signer: Did,
-        verification_method: impl Into<String>,
+        verification_method: DidUrl,
     ) -> Result<Self> {
         Ok(Self {
             payload_digest: canonical_payload_digest(payload)?,
             signer,
-            verification_method: verification_method.into(),
+            verification_method,
             created_at: Utc::now(),
             domain: None,
             audience: None,
@@ -157,7 +159,7 @@ impl DetachedSignatureBinding {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DetachedSignature {
     pub kind: String,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub alg: String,
     pub payload_digest: Hash,
     #[serde(
@@ -223,7 +225,7 @@ pub trait DetachedVerifier {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerificationMethodDocument {
     pub did: Did,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub public_key_multibase: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub controller: Option<Did>,
@@ -232,7 +234,7 @@ pub struct VerificationMethodDocument {
 pub trait DidVerificationMethodResolver {
     fn resolve_verification_method(
         &self,
-        verification_method: &str,
+        verification_method: &DidUrl,
     ) -> Result<VerificationMethodDocument>;
 }
 
@@ -244,17 +246,17 @@ pub struct StaticDidVerificationMethodResolver {
 impl StaticDidVerificationMethodResolver {
     pub fn insert(&mut self, document: VerificationMethodDocument) {
         self.methods
-            .insert(document.verification_method.clone(), document);
+            .insert(document.verification_method.as_str().to_owned(), document);
     }
 }
 
 impl DidVerificationMethodResolver for StaticDidVerificationMethodResolver {
     fn resolve_verification_method(
         &self,
-        verification_method: &str,
+        verification_method: &DidUrl,
     ) -> Result<VerificationMethodDocument> {
         self.methods
-            .get(verification_method)
+            .get(verification_method.as_str())
             .cloned()
             .ok_or_else(|| {
                 Error::Protocol(format!(
@@ -447,7 +449,7 @@ mod tests {
         let binding = DetachedSignatureBinding::from_payload(
             &json!({"hello": "world"}),
             did("alice"),
-            "did:webvh:z6mkfixture:alice.example#key-1",
+            DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         )
         .unwrap();
         let signature = DetachedSignature {
@@ -473,14 +475,14 @@ mod tests {
         let mut resolver = StaticDidVerificationMethodResolver::default();
         resolver.insert(VerificationMethodDocument {
             did: actor.clone(),
-            verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             public_key_multibase: "zKey".to_owned(),
             controller: None,
         });
         let proof = Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: payload_digest.clone(),
             created_at: Utc::now(),
             domain: Some("api.example".to_owned()),
@@ -524,14 +526,14 @@ mod tests {
         let mut resolver = StaticDidVerificationMethodResolver::default();
         resolver.insert(VerificationMethodDocument {
             did: actor.clone(),
-            verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             public_key_multibase: "zKey".to_owned(),
             controller: None,
         });
         let mut proof = Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: payload_digest.clone(),
             created_at: Utc::now(),
             domain: None,

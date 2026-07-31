@@ -544,6 +544,8 @@ pub fn verify_full_realm_range_completeness_with_suite(
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DidUrl;
+
     use std::collections::BTreeMap;
 
     use arkret_wire::{EventKind, EventRequirements, Proof, ScopeRef, proof_kind};
@@ -585,7 +587,7 @@ mod tests {
         let digest = Hash::new(event.event_digest().unwrap()).unwrap();
         event.proofs.push(Proof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: format!("{actor}#device"),
+            verification_method: DidUrl::new(format!("{actor}#device")).unwrap(),
             alg: "EdDSA".to_owned(),
             event_digest: digest,
             created_at: event.created_at,
@@ -637,7 +639,7 @@ mod tests {
                 witnesses: vec![
                     RangeCompletenessAttestationWitnessAttestationWitnessesItem {
                         issuer: issuer.clone(),
-                        verification_method: format!("{issuer}#notary-key"),
+                        verification_method: DidUrl::new(format!("{issuer}#notary-key")).unwrap(),
                         controlling_organization: issuer.clone(),
                         attested_at: Some(created_at),
                         extra: BTreeMap::new(),
@@ -650,7 +652,7 @@ mod tests {
         unsigned_payload.as_object_mut().unwrap().remove("proofs");
         payload.proofs.push(Proof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: format!("{issuer}#notary-key"),
+            verification_method: DidUrl::new(format!("{issuer}#notary-key")).unwrap(),
             alg: "EdDSA".to_owned(),
             event_digest: Hash::new(arkret_canonical::canonical_sha256(&unsigned_payload).unwrap())
                 .unwrap(),
@@ -692,7 +694,7 @@ mod tests {
         };
         event.proofs.push(Proof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: format!("{issuer}#notary-key"),
+            verification_method: DidUrl::new(format!("{issuer}#notary-key")).unwrap(),
             alg: "EdDSA".to_owned(),
             event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
             created_at,

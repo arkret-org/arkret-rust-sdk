@@ -1485,6 +1485,8 @@ impl CapabilityGrantBuilder {
 
 #[cfg(test)]
 mod capability_grant_builder_tests {
+    use arkret_wire::DidUrl;
+
     use serde_json::json;
 
     use super::*;
@@ -1513,7 +1515,7 @@ mod capability_grant_builder_tests {
         arkret_wire::PayloadProof {
             kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: format!("{issuer}#device-1"),
+            verification_method: DidUrl::new(format!("{issuer}#device-1")).unwrap(),
             payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             domain: None,

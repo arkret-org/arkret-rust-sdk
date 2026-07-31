@@ -13,7 +13,7 @@ use arkret_models_collaboration::object_lifecycle::{
 };
 use arkret_wire::signal::{SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME};
 use arkret_wire::{
-    ConsentId, DeviceId, Did, EventId, Hash, RealmId, ScopeRef, SealId, SignalClass,
+    ConsentId, DeviceId, Did, DidUrl, EventId, Hash, RealmId, ScopeRef, SealId, SignalClass,
     SignalEncryptedPayload, SignalEnvelope, SignalKeyRef, SignalProof, StrandId, TypedAppealId,
     TypedTrustDomainId,
 };
@@ -67,7 +67,7 @@ fn signal_envelope(signal_class: SignalClass, ttl_seconds: i64) -> SignalEnvelop
         },
         proof: SignalProof {
             kind: "detached_jws".to_owned(),
-            verification_method: format!("{}#{}", did(), device_id()),
+            verification_method: DidUrl::new(format!("{}#{}", did(), device_id())).unwrap(),
             alg: "EdDSA".to_owned(),
             envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             created_at: sent_at,

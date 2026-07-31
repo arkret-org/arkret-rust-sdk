@@ -17,6 +17,13 @@
 //! callers can map DID-resolution failures, malformed shapes and signature
 //! mismatches to distinct wire `schema_violation` / `invalid_signature` 4xx
 //! responses without string sniffing.
+//!
+//! # Ordinary paths do not belong here
+//!
+//! [`verify_jws_ed25519`] is resolver-driven and therefore an authority-path
+//! API. Ordinary per-signature verification MUST go through
+//! [`crate::verifier`], whose `verify_jws_with_binding` /
+//! `verify_jws_with_document` take no resolver at all.
 
 use arkret_signatures::{Ed25519DetachedJwsVerifier, PublicKeyMaterial};
 use arkret_wire::{CellId, Hlc, ProjectedCellWrite};
@@ -119,6 +126,13 @@ pub enum ReplayWindowError {
 ///
 /// All error paths are uniform — any deviation from spec rejects with a
 /// typed reason (callers map to `schema_violation` 4xx, never 5xx).
+#[deprecated(note = "resolver-driven per-signature verification violates \
+did-usage-and-verification.md §3/§6. Ordinary paths MUST use \
+`arkret_identity::verify_jws_with_binding` (or `verify_jws_with_document` \
+for a pinned historical document), which take no resolver. Only a spec §4 \
+authority trigger may call `arkret_identity::resolve_and_verify_binding`. \
+NOTE: this function's `issuer` argument is accepted and never compared — \
+the replacement API does compare it.")]
 pub fn verify_jws_ed25519(
     canonical_bytes: &[u8],
     jws: &str,
@@ -402,6 +416,8 @@ pub fn verify_replay_window_at(
 }
 
 #[cfg(test)]
+// These tests exercise the deprecated resolver-driven verifier itself.
+#[allow(deprecated)]
 mod tests {
     use std::collections::BTreeMap;
 

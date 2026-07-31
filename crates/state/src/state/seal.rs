@@ -711,6 +711,8 @@ pub fn view_hash(leaves: &[SealId]) -> Result<Hash, crate::Error> {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DidUrl;
+
     /// Attach a fixed issuer to a sealed op. These fixtures exercise
     /// non-ordered-log lattices, where the issuer is carried but unused.
     fn issued(op: SealedOp) -> IssuedOp {
@@ -798,7 +800,7 @@ mod tests {
         event.proofs.push(Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:alice.example#k1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#k1").unwrap(),
             event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
             created_at: event.created_at,
             domain: None,
@@ -835,8 +837,9 @@ mod tests {
 
     fn dummy_signature() -> PayloadSignature {
         PayloadSignature {
+            extra: Default::default(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:notary.example#k1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1").unwrap(),
             payload_digest: hash(0xff),
             created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
             jws: "AAAA.BBBB.CCCC".to_owned(),

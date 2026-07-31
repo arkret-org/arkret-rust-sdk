@@ -468,7 +468,7 @@ mod tests {
         ServiceRegistrationReceipt, ServiceWebvhDataIntegrityProof, ServiceWebvhInceptionOperation,
         ServiceWebvhInceptionParameters,
     };
-    use arkret_wire::{Did, ServiceKind};
+    use arkret_wire::{Did, DidUrl, ServiceKind};
     use chrono::{DateTime, Utc};
 
     use super::{
@@ -521,7 +521,8 @@ mod tests {
             proof: vec![ServiceWebvhDataIntegrityProof {
                 proof_type: "DataIntegrityProof".to_owned(),
                 cryptosuite: "eddsa-jcs-2022".to_owned(),
-                verification_method: format!("did:key:{update_key}#{update_key}"),
+                verification_method: DidUrl::new(format!("did:key:{update_key}#{update_key}"))
+                    .unwrap(),
                 proof_purpose: "assertionMethod".to_owned(),
                 proof_value: "zProof".to_owned(),
             }],
@@ -543,7 +544,8 @@ mod tests {
             proof: ServiceWebvhDataIntegrityProof {
                 proof_type: "DataIntegrityProof".to_owned(),
                 cryptosuite: "eddsa-jcs-2022".to_owned(),
-                verification_method: format!("{provider_service_id}#service-key"),
+                verification_method: DidUrl::new(format!("{provider_service_id}#service-key"))
+                    .unwrap(),
                 proof_purpose: "assertionMethod".to_owned(),
                 proof_value: "zReceiptProof".to_owned(),
             },
@@ -661,7 +663,7 @@ mod tests {
 
         let mut wrong_controller = receipt;
         wrong_controller.proof.verification_method =
-            "did:webvh:QmOther:identity.example:webvh:service#service-key".to_owned();
+            DidUrl::new("did:webvh:QmOther:identity.example:webvh:service#service-key").unwrap();
         assert!(wrong_controller.validate_proof_binding().is_err());
     }
 

@@ -22,7 +22,7 @@ use arkret_models_integration::applet_models::{
     AppletTransactionOutcome,
 };
 use arkret_signatures::VerificationMethodDocument;
-use arkret_wire::{Error, Hash, Result};
+use arkret_wire::{DidUrl, Error, Hash, Result};
 
 use crate::idempotency::{
     IdempotencyIdentity, IdempotencyWindow, TransactionClaim, TransactionIdempotencyStore,
@@ -94,7 +94,7 @@ pub trait AppletHandler: Send + Sync + 'static {
     /// never observes an unauthenticated or forged push.
     fn resolve_verification_method(
         &self,
-        verification_method: &str,
+        verification_method: &DidUrl,
     ) -> Result<VerificationMethodDocument>;
 
     /// `GET /_arkret/edge/applet/ping`
@@ -269,7 +269,7 @@ mod tests {
     impl AppletHandler for StubHandler {
         fn resolve_verification_method(
             &self,
-            verification_method: &str,
+            verification_method: &DidUrl,
         ) -> Result<VerificationMethodDocument> {
             self.resolver
                 .resolve_verification_method(verification_method)

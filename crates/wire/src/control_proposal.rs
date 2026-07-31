@@ -5,7 +5,7 @@
 //! decisions, but only inclusion in an accepted Seal provides control-plane
 //! finality.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -236,15 +236,17 @@ fn validate_signature(
     Ok(())
 }
 
+/// Controller DID of a signature's verification method.
+///
+/// `verification_method` is a [`DidUrl`], so the `#fragment` split is
+/// infallible and the "must be a DID URL" shape check that used to live here
+/// is now enforced by the type. What remains is the narrower question of
+/// whether the controller part is itself a well-formed bare DID.
 fn signer_controller(signature: &PayloadSignature) -> Result<&str> {
-    let controller = signature
+    let (controller, _) = signature
         .verification_method
         .split_once('#')
-        .map(|(controller, _)| controller)
-        .filter(|controller| !controller.is_empty())
-        .ok_or_else(|| {
-            Error::Protocol("control proposal verification_method must be a DID URL".to_owned())
-        })?;
+        .expect("DidUrl always carries a fragment");
     Did::new(controller)?;
     Ok(controller)
 }
@@ -347,7 +349,7 @@ impl ProposalMemberReceipt {
     ) -> Result<Self> {
         policy.validate()?;
         let received_at = canonical::normalize_timestamp_canonical(received_at);
-        let verification_method = signer.verification_method_id().to_owned();
+        let verification_method = signer.verification_method_id().clone();
         let placeholder_digest = Hash::new(format!("sha256:{}", "0".repeat(64)))?;
         let signer_binding = PayloadSignature {
             alg: "EdDSA".to_owned(),
@@ -355,6 +357,7 @@ impl ProposalMemberReceipt {
             payload_digest: placeholder_digest.clone(),
             created_at: received_at,
             jws: String::new(),
+            extra: BTreeMap::new(),
         };
         if signer_controller(&signer_binding)? != signer.signer_did().as_str() {
             return Err(Error::Protocol(
@@ -374,6 +377,7 @@ impl ProposalMemberReceipt {
                 payload_digest: placeholder_digest,
                 created_at: received_at,
                 jws: String::new(),
+                extra: BTreeMap::new(),
             },
         };
         member.signature.payload_digest = member.member_receipt_digest()?;
@@ -891,10 +895,11 @@ mod tests {
     use chrono::TimeZone;
 
     use super::*;
+    use crate::DidUrl;
 
     struct FixtureSigner {
         did: Did,
-        verification_method: String,
+        verification_method: DidUrl,
     }
 
     impl PayloadSigner for FixtureSigner {
@@ -902,7 +907,7 @@ mod tests {
             &self.did
         }
 
-        fn verification_method_id(&self) -> &str {
+        fn verification_method_id(&self) -> &DidUrl {
             &self.verification_method
         }
 
@@ -913,6 +918,7 @@ mod tests {
                 payload_digest: Hash::new(canonical::sha256_digest(canonical_bytes))?,
                 created_at: at(999),
                 jws: "e30..c2ln".to_owned(),
+                extra: BTreeMap::new(),
             })
         }
     }
@@ -928,10 +934,12 @@ mod tests {
     fn signature(payload_digest: Hash, created_at: DateTime<Utc>) -> PayloadSignature {
         PayloadSignature {
             alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:authority.example#notary-1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:authority.example#notary-1")
+                .unwrap(),
             payload_digest,
             created_at,
             jws: "e30..c2ln".to_owned(),
+            extra: BTreeMap::new(),
         }
     }
 
@@ -963,7 +971,8 @@ mod tests {
     fn local_member_receipt_uses_the_canonical_signer_transcript() {
         let signer = FixtureSigner {
             did: Did::new("did:webvh:z6mkfixture:authority.example").unwrap(),
-            verification_method: "did:webvh:z6mkfixture:authority.example#device-1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:authority.example#device-1")
+                .unwrap(),
         };
         let member = ProposalMemberReceipt::issue_with_signer(
             RealmId::new("ak:realm:018f6b1d-7a20-7abc-8def-0123456789ab").unwrap(),
@@ -1075,7 +1084,7 @@ mod tests {
         let first = receipt().member_receipts.remove(0);
         let mut second = first.clone();
         second.signature.verification_method =
-            "did:webvh:z6mkfixture:authority-b.example#notary-1".to_owned();
+            DidUrl::new("did:webvh:z6mkfixture:authority-b.example#notary-1").unwrap();
         second.signature.payload_digest = second.member_receipt_digest().unwrap();
         let profile = NotaryValue::Threshold {
             threshold: 2,

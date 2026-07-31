@@ -1,3 +1,5 @@
+use arkret_wire::DidUrl;
+
 use super::*;
 
 /// State snapshot at a specific point in time.
@@ -64,7 +66,7 @@ pub struct SnapshotChunkManifest {
 pub struct SnapshotSignature {
     pub kind: String,
     pub alg: String,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub payload_digest: String,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
@@ -96,7 +98,7 @@ impl SnapshotSignature {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SnapshotSignatureBindingPayload {
     pub payload_digest: String,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"

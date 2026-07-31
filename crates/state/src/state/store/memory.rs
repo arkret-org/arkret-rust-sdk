@@ -1054,6 +1054,8 @@ impl CellRegistry for MemoryCellRegistry {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DidUrl;
+
     use crate::lattice::SealedOp;
 
     fn issued(op: SealedOp) -> IssuedOp {
@@ -1135,7 +1137,7 @@ mod tests {
         event.proofs.push(Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:admin.example#k1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:admin.example#k1").unwrap(),
             event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
             created_at: event.created_at,
             domain: None,
@@ -1148,8 +1150,9 @@ mod tests {
 
     fn dummy_seal(id: SealId, predecessors: Vec<SealId>, delta: Vec<Hash>) -> Seal {
         let sig = PayloadSignature {
+            extra: Default::default(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:notary.example#k1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1").unwrap(),
             payload_digest: hash(0xff),
             created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
             jws: "AAAA.BBBB.CCCC".to_owned(),
@@ -1189,8 +1192,10 @@ mod tests {
             absolute_due_at: received_at + chrono::Duration::seconds(90),
             authority_set_ref: authority_set_ref.clone(),
             signature: PayloadSignature {
+                extra: Default::default(),
                 alg: "EdDSA".to_owned(),
-                verification_method: "did:webvh:z6mkfixture:notary.example#k1".to_owned(),
+                verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1")
+                    .unwrap(),
                 payload_digest: hash(0),
                 created_at: received_at,
                 jws: "e30..c2ln".to_owned(),
@@ -1223,8 +1228,10 @@ mod tests {
             reason_code: arkret_wire::ControlProposalRejectReason::PolicyDenied,
             authority_set_ref: receipt.authority_set_ref.clone(),
             proofs: vec![PayloadSignature {
+                extra: Default::default(),
                 alg: "EdDSA".to_owned(),
-                verification_method: "did:webvh:z6mkfixture:notary.example#k1".to_owned(),
+                verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1")
+                    .unwrap(),
                 payload_digest: hash(0),
                 created_at: decided_at,
                 jws: "e30..c2ln".to_owned(),

@@ -970,7 +970,8 @@ mod tests {
             authorization_lease.proofs = vec![PayloadProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 alg: "EdDSA".to_owned(),
-                verification_method: "did:webvh:z6mkfixture:authority.example#key-1".to_owned(),
+                verification_method: DidUrl::new("did:webvh:z6mkfixture:authority.example#key-1")
+                    .unwrap(),
                 payload_digest: lease_digest,
                 created_at: issued_at,
                 domain: None,

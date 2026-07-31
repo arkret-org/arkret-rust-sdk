@@ -2,6 +2,7 @@ use arkret_event_draft::{
     CausalRef, EventDraftKindRegistry, OperationEnvelope, OperationEnvelopeBuilder,
     event_draft_kind_conformance_vectors, required_fields_for_event_kind,
 };
+use arkret_wire::DidUrl;
 use arkret_wire::{Did, EventKind, Hash, Hlc, OperationId, Proof, RealmId, ScopeRef};
 use serde_json::json;
 
@@ -20,7 +21,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
     let proof = Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:webvh:z6mkfixture:alice.example#device-1".to_owned(),
+        verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1").unwrap(),
         event_digest: Hash::new(
             "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777",
         )

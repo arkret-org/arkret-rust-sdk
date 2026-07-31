@@ -1511,6 +1511,8 @@ pub fn moderation_report_for_policy_outcome(
 
 #[cfg(test)]
 mod engine_wire_tests {
+    use arkret_wire::DidUrl;
+
     use arkret_models_collaboration::governance::grant_constraint::CapabilitySubject;
     use arkret_wire::{CAPABILITY_SCHEMA, GrantId};
     use serde_json::json;
@@ -1529,7 +1531,7 @@ mod engine_wire_tests {
         arkret_wire::PayloadProof {
             kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: format!("{issuer}#device-1"),
+            verification_method: DidUrl::new(format!("{issuer}#device-1")).unwrap(),
             payload_digest: arkret_wire::Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             domain: None,

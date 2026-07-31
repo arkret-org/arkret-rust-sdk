@@ -763,7 +763,7 @@ fn auth_uses_provider_did_proof_verifier_for_recovery() {
     let proof = Proof {
         kind: "did-proof".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: verification_method.to_owned(),
+        verification_method: DidUrl::new(verification_method).unwrap(),
         event_digest: Hash::new(format!("sha256:{}", sha256_hex(b"payload"))).unwrap(),
         created_at: Utc::now(),
         domain: Some("arkret-auth".to_owned()),

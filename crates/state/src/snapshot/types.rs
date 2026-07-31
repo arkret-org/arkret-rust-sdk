@@ -5,6 +5,7 @@ use serde_json::Value;
 use super::constants::{DETACHED_JWS_ALG_EDDSA, DETACHED_JWS_PROOF_KIND};
 use super::merkle::sha256_digest;
 use crate::{BlobRef, Did, Error, EventId, Hash, Hlc, RealmId, Result, SnapshotId};
+use arkret_wire::DidUrl;
 
 mod base64_url {
     use serde::{Deserialize, Deserializer, Serializer};
@@ -230,7 +231,7 @@ pub enum SnapshotAuthorityKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DetachedJwsProof {
     pub kind: String,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub alg: String,
     pub payload_digest: Hash,
     #[serde(
@@ -243,7 +244,7 @@ pub struct DetachedJwsProof {
 
 impl DetachedJwsProof {
     pub fn eddsa(
-        verification_method: String,
+        verification_method: DidUrl,
         payload_digest: Hash,
         created_at: DateTime<Utc>,
         jws: String,

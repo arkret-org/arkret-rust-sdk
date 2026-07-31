@@ -701,6 +701,8 @@ fn protocol_error<T>(message: impl Into<String>) -> Result<T> {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DidUrl;
+
     use arkret_wire::Audience;
 
     use super::*;
@@ -709,7 +711,7 @@ mod tests {
         PayloadProof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: format!("{}#device-key", actor.as_str()),
+            verification_method: DidUrl::new(format!("{}#device-key", actor.as_str())).unwrap(),
             payload_digest: digest,
             created_at,
             domain: None,

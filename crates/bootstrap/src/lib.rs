@@ -479,10 +479,11 @@ pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
         previous_digest_algorithm: None,
         notary_signature: NotarySig::Single(PayloadSignature {
             alg: "EdDSA".to_owned(),
-            verification_method: signer.verification_method_id().to_owned(),
+            verification_method: signer.verification_method_id().clone(),
             payload_digest: zero_hash,
             created_at: sealed_at,
             jws: String::new(),
+            extra: Default::default(),
         }),
         sealed_at,
         hlc,
@@ -597,10 +598,11 @@ pub fn build_self_principal_first_successor_seal<S: PayloadSigner + ?Sized>(
         previous_digest_algorithm: None,
         notary_signature: NotarySig::Single(PayloadSignature {
             alg: "EdDSA".to_owned(),
-            verification_method: signer.verification_method_id().to_owned(),
+            verification_method: signer.verification_method_id().clone(),
             payload_digest: zero_hash,
             created_at: sealed_at,
             jws: String::new(),
+            extra: Default::default(),
         }),
         sealed_at,
         hlc,
@@ -701,10 +703,11 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
         previous_digest_algorithm: None,
         notary_signature: NotarySig::Single(PayloadSignature {
             alg: "EdDSA".to_owned(),
-            verification_method: signer.verification_method_id().to_owned(),
+            verification_method: signer.verification_method_id().clone(),
             payload_digest: zero_hash,
             created_at: sealed_at,
             jws: String::new(),
+            extra: Default::default(),
         }),
         sealed_at,
         hlc,
@@ -789,10 +792,11 @@ pub fn build_self_principal_linear_successor_seal<S: PayloadSigner + ?Sized>(
         previous_digest_algorithm: None,
         notary_signature: NotarySig::Single(PayloadSignature {
             alg: "EdDSA".to_owned(),
-            verification_method: signer.verification_method_id().to_owned(),
+            verification_method: signer.verification_method_id().clone(),
             payload_digest: zero_hash,
             created_at: Utc::now(),
             jws: String::new(),
+            extra: Default::default(),
         }),
         sealed_at: Utc::now(),
         hlc: predecessor.hlc.clone().unwrap_or_else(|| hlc.clone()),
@@ -1085,10 +1089,11 @@ pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
         previous_digest_algorithm: None,
         notary_signature: NotarySig::Single(PayloadSignature {
             alg: "EdDSA".to_owned(),
-            verification_method: signer.verification_method_id().to_owned(),
+            verification_method: signer.verification_method_id().clone(),
             payload_digest: zero_hash,
             created_at: sealed_at,
             jws: String::new(),
+            extra: Default::default(),
         }),
         sealed_at,
         hlc,
@@ -1430,7 +1435,7 @@ mod tests {
 
     struct FixtureSigner {
         did: Did,
-        verification_method: String,
+        verification_method: DidUrl,
     }
 
     /// The real evaluator, wired in through the crate's injected projector.
@@ -1448,7 +1453,7 @@ mod tests {
             &self.did
         }
 
-        fn verification_method_id(&self) -> &str {
+        fn verification_method_id(&self) -> &DidUrl {
             &self.verification_method
         }
 
@@ -1464,16 +1469,17 @@ mod tests {
                 ))?,
                 created_at: Utc::now(),
                 jws: "fixture.detached-signature".to_owned(),
+                extra: Default::default(),
             })
         }
     }
 
-    fn attach_fixture_proof(event: &mut Event, verification_method: &str) {
+    fn attach_fixture_proof(event: &mut Event, verification_method: &DidUrl) {
         let digest = Hash::new(event.event_digest().unwrap()).unwrap();
         event.proofs = vec![Proof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: verification_method.to_owned(),
+            verification_method: verification_method.clone(),
             event_digest: digest,
             created_at: event.created_at,
             domain: None,
@@ -1487,7 +1493,10 @@ mod tests {
         let mut create = build_self_principal_pcr_create(input(), &registry_projection).unwrap();
         attach_fixture_proof(
             &mut create,
-            "did:key:z6MkvMW3tjuvW6PqYiX8dLRNwZWyGhxe3biRDjA4ZPiBaFaJ#z6MkvMW3tjuvW6PqYiX8dLRNwZWyGhxe3biRDjA4ZPiBaFaJ",
+            &DidUrl::new(
+                "did:key:z6MkvMW3tjuvW6PqYiX8dLRNwZWyGhxe3biRDjA4ZPiBaFaJ#z6MkvMW3tjuvW6PqYiX8dLRNwZWyGhxe3biRDjA4ZPiBaFaJ",
+            )
+            .unwrap(),
         );
 
         let authority =
@@ -1533,7 +1542,10 @@ mod tests {
         authorize.authorization_ref = Some(authorization_ref.to_string());
         attach_fixture_proof(
             &mut authorize,
-            &format!("{authority}#z6MkgZb469vbyZCg3L7kx1PbQuUD4NToPpcy1utdLxUUfpsh"),
+            &DidUrl::new(format!(
+                "{authority}#z6MkgZb469vbyZCg3L7kx1PbQuUD4NToPpcy1utdLxUUfpsh"
+            ))
+            .unwrap(),
         );
         (create, authorize)
     }
@@ -1711,7 +1723,7 @@ mod tests {
         let device_id = "ak:device:01904100-0000-7000-8000-000000000001";
         let signer = FixtureSigner {
             did: create.actor_id.clone(),
-            verification_method: format!("{}#{device_id}", create.actor_id),
+            verification_method: DidUrl::new(format!("{}#{device_id}", create.actor_id)).unwrap(),
         };
         let seal = build_self_principal_bootstrap_seal(
             &create,
@@ -1843,9 +1855,10 @@ mod tests {
 
         let signer = FixtureSigner {
             did: controller.clone(),
-            verification_method: format!(
+            verification_method: DidUrl::new(format!(
                 "{controller}#ak:device:01904100-0000-7000-8000-0000000000a1"
-            ),
+            ))
+            .unwrap(),
         };
         let first = build_managed_agent_pcr_event_seal(
             std::slice::from_ref(&create),
@@ -1886,7 +1899,7 @@ mod tests {
         let agent = Did::new("did:webvh:z6mkfixture:agent.example").unwrap();
         let signer = FixtureSigner {
             did: controller.clone(),
-            verification_method: format!("{controller}#device-1"),
+            verification_method: DidUrl::new(format!("{controller}#device-1")).unwrap(),
         };
         let events = build_agent_provision_event_drafts(
             &controller,

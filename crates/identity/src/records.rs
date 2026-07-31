@@ -29,12 +29,12 @@ fn placeholder_digest() -> Hash {
 pub fn attach_did_key_log_controller_proof(
     entry: &mut DidKeyLogEntry,
     signing_key: &ed25519_dalek::SigningKey,
-    verification_method: &str,
+    verification_method: &DidUrl,
 ) -> Result<()> {
     entry.head_event_digest = entry.compute_head_event_digest()?;
     let mut proof = DetachedPayloadProof {
         kind: "detached_jws".to_owned(),
-        verification_method: verification_method.to_owned(),
+        verification_method: verification_method.clone(),
         alg: "EdDSA".to_owned(),
         payload_digest: entry.proof_payload_digest()?,
         created_at: Utc::now(),
@@ -143,6 +143,12 @@ pub fn verify_did_key_log(
                 ));
             }
             let binding_bytes = entry.proof_binding_bytes(proof)?;
+            // Authority path, not an ordinary path: verifying a DID key log IS
+            // the "DID rotation / recovery / deactivation / method continuity"
+            // trigger of did-usage-and-verification.md §4, so there is by
+            // construction no accepted binding to verify against yet. The
+            // resolver-free `crate::verifier` APIs are not applicable here.
+            #[allow(deprecated)]
             jws::verify_jws_ed25519(
                 &binding_bytes,
                 &proof.jws,
@@ -226,7 +232,7 @@ impl DidRegistryReceipt {
         registry_service_id: Did,
         witness_role: IdentityReceiptWitnessRole,
         signing_key: &ed25519_dalek::SigningKey,
-        verification_method: &str,
+        verification_method: &DidUrl,
     ) -> Result<Self> {
         let created_at = Utc::now();
         let mut receipt = Self {
@@ -241,7 +247,7 @@ impl DidRegistryReceipt {
             created_at,
             signature: DetachedPayloadProof {
                 kind: "detached_jws".to_owned(),
-                verification_method: verification_method.to_owned(),
+                verification_method: verification_method.clone(),
                 alg: "EdDSA".to_owned(),
                 payload_digest: placeholder_digest(),
                 created_at,
@@ -293,7 +299,7 @@ impl DidRegistryReceipt {
         );
         object.insert(
             "verification_method".to_owned(),
-            Value::String(self.signature.verification_method.clone()),
+            Value::String(self.signature.verification_method.as_str().to_owned()),
         );
         object.insert(
             "created_at".to_owned(),
@@ -351,6 +357,13 @@ impl DidRegistryReceipt {
             ));
         }
         let binding_bytes = self.binding_bytes()?;
+        // Authority path, not an ordinary path: this is the
+        // did-usage-and-verification.md §4 trigger "verifying a third-party
+        // claim / receipt / attestation when no accepted binding for its issuer
+        // key exists locally". A caller that already holds an accepted binding
+        // for the registry service should use `crate::verify_jws_with_binding`
+        // instead of calling this.
+        #[allow(deprecated)]
         jws::verify_jws_ed25519(
             &binding_bytes,
             &self.signature.jws,
@@ -404,7 +417,7 @@ impl StaridRegistryRecord {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StaridControlProofRequestBody {
     pub did: Did,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub challenge: String,
     pub proof: String,
 }
@@ -413,7 +426,7 @@ pub struct StaridControlProofRequestBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StaridControlProofVerification {
     pub did: Did,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
@@ -424,11 +437,36 @@ pub struct StaridControlProofVerification {
 /// Compute the deterministic StarID control proof used by local test adapters.
 pub fn starid_control_proof(
     did: &Did,
-    verification_method: &str,
+    verification_method: &DidUrl,
     challenge: &str,
     public_key: &str,
 ) -> String {
     sha256_hex(format!("{did}|{verification_method}|{challenge}|{public_key}").as_bytes())
+}
+
+/// Resolve a wire [`DidUrl`] against a DID Document's verbatim
+/// `verificationMethod` index.
+///
+/// The wire side is always an absolute DID URL
+/// (`did-usage-and-verification.md` §2.2). The document side is carried
+/// verbatim and DID Core 1.0 §3.1 allows it to be a *relative* reference
+/// (`#key-1`), which is why `DidDocument::verification_methods` is still keyed
+/// by `String` (see the exemption on
+/// [`crate::ResolvedVerificationMethodKey::verification_method`]). Each document
+/// key is therefore absolutized against `did` before comparison — never the
+/// other way round, and never by prefix guessing.
+fn lookup_document_verification_method<'a>(
+    document: &'a DidDocument,
+    did: &Did,
+    verification_method: &DidUrl,
+) -> Option<&'a String> {
+    document.verification_methods.iter().find_map(|(id, key)| {
+        let absolute = match id.strip_prefix('#') {
+            Some(fragment) => DidUrl::new(format!("{}#{fragment}", did.as_str())).ok()?,
+            None => DidUrl::new(id.as_str()).ok()?,
+        };
+        (&absolute == verification_method).then_some(key)
+    })
 }
 
 /// Registry-backed DID resolver boundary for StarID-style deployments.
@@ -524,13 +562,14 @@ impl StaridRegistryAdapter for InMemoryStaridRegistryAdapter {
         request: &StaridControlProofRequestBody,
     ) -> Result<StaridControlProofVerification> {
         let record = self.resolve_registry_record(&request.did)?;
-        let public_key = record
-            .document
-            .verification_methods
-            .get(&request.verification_method)
-            .ok_or_else(|| {
-                Error::Protocol("StarID control proof verification method not found".to_owned())
-            })?;
+        let public_key = lookup_document_verification_method(
+            &record.document,
+            &request.did,
+            &request.verification_method,
+        )
+        .ok_or_else(|| {
+            Error::Protocol("StarID control proof verification method not found".to_owned())
+        })?;
         let expected = starid_control_proof(
             &request.did,
             &request.verification_method,

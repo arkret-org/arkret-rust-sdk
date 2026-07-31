@@ -722,6 +722,8 @@ pub type ControlMoveRejectMap = BTreeMap<Hash, ControlMoveReject>;
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DidUrl;
+
     use arkret_wire::Proof;
     use arkret_wire::event_envelope::{EventRef, ScopeRef};
     use chrono::{TimeZone, Utc};
@@ -795,7 +797,7 @@ mod tests {
         event.proofs.push(Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:admin.example#k1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:admin.example#k1").unwrap(),
             event_digest: Hash::new(event.event_digest().unwrap()).unwrap(),
             created_at: event.created_at,
             domain: None,

@@ -8,7 +8,7 @@
 //! the behavior crates.
 
 use arkret_wire::serde_helpers::{deserialize_canonical_timestamp, serialize_canonical_timestamp};
-use arkret_wire::{Audience, Hash};
+use arkret_wire::{Audience, DidUrl, Hash};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct DetachedPayloadProof {
     pub kind: String,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub alg: String,
     pub payload_digest: Hash,
     #[serde(

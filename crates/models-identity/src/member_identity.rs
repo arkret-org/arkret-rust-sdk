@@ -24,7 +24,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_wire::{BlobRef, Did, EventId, Hash, RealmId, Result, canonical};
+use arkret_wire::{BlobRef, Did, DidUrl, EventId, Hash, RealmId, Result, canonical};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -129,7 +129,7 @@ pub struct DisplayProfile {
 #[serde(deny_unknown_fields)]
 pub struct MemberIdentityProof {
     /// `did:method:identifier#fragment`.
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub signature_algorithm: MemberIdentitySignatureAlgorithm,
     pub payload_digest: Hash,
     /// Base64url-encoded raw signature bytes (per schema pattern
@@ -393,7 +393,8 @@ mod tests {
             },
             Utc::now(),
             MemberIdentityProof {
-                verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+                verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1")
+                    .unwrap(),
                 signature_algorithm: MemberIdentitySignatureAlgorithm::Ed25519,
                 payload_digest: Hash::new(
                     "sha256:0000000000000000000000000000000000000000000000000000000000000000",

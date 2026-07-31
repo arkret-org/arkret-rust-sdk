@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use arkret_canonical::canonical;
 use arkret_identifiers::Did;
+use arkret_wire::DidUrl;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -49,7 +50,7 @@ pub struct SdkArtifactSubject {
 #[serde(deny_unknown_fields)]
 pub struct SdkClaimIssuer {
     pub id: Did,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -471,7 +472,10 @@ mod tests {
             issued_at: "2026-07-11T00:00:00.000Z".parse().unwrap(),
             issuer: SdkClaimIssuer {
                 id: Did::new("did:webvh:z6mkfixture:release.example").unwrap(),
-                verification_method: "did:webvh:z6mkfixture:release.example#claim-key-1".to_owned(),
+                verification_method: DidUrl::new(
+                    "did:webvh:z6mkfixture:release.example#claim-key-1",
+                )
+                .unwrap(),
             },
             clause_claims: vec![SdkClauseClaim {
                 clause_id: "AK-SDK-001".to_owned(),

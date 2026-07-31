@@ -33,7 +33,7 @@ pub struct AgentKeyPairProofSigningInput {
     )]
     pub expires_at: DateTime<Utc>,
     pub request_canonical_digest: Hash,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
 }
 
 impl AgentKeyPairProofSigningInput {
@@ -49,7 +49,7 @@ impl AgentKeyPairProofSigningInput {
 }
 
 pub fn agent_key_pair_proof_signing_input(
-    verification_method: impl Into<String>,
+    verification_method: DidUrl,
     challenge: impl Into<String>,
     audience: impl Into<String>,
     expires_at: DateTime<Utc>,
@@ -60,7 +60,7 @@ pub fn agent_key_pair_proof_signing_input(
         challenge: challenge.into(),
         expires_at,
         request_canonical_digest,
-        verification_method: verification_method.into(),
+        verification_method,
     }
 }
 
@@ -231,7 +231,8 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
                 .as_ref(),
         )?;
         let signing_input = agent_key_pair_proof_signing_input(
-            self.verification_method.clone(),
+            DidUrl::new(self.verification_method.clone())
+                .map_err(|reason| Error::Protocol(reason.to_owned()))?,
             self.bootstrap.pairing_request_id.clone(),
             self.bootstrap.service_id.to_string(),
             proof_expires_at,
@@ -674,7 +675,7 @@ mod tests {
         let request_digest =
             Hash::new(proof["request_canonical_digest"].as_str().unwrap()).unwrap();
         let signing_input = agent_key_pair_proof_signing_input(
-            request.body.verification_method.to_string(),
+            request.body.verification_method.clone(),
             proof["challenge"].as_str().unwrap(),
             proof["audience"].as_str().unwrap(),
             proof_expires_at,
@@ -727,7 +728,7 @@ mod tests {
             proofs: vec![Proof {
                 kind: "detached_jws".to_owned(),
                 alg: "EdDSA".to_owned(),
-                verification_method: format!("{controller_id}#key-1"),
+                verification_method: DidUrl::new(format!("{controller_id}#key-1")).unwrap(),
                 event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at: issued_at,
                 domain: None,

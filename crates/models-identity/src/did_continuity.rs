@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use arkret_wire::{Did, Error, Hash, Result, canonical};
+use arkret_wire::{Did, DidUrl, Error, Hash, Result, canonical};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -48,7 +48,7 @@ pub struct DidContinuityTransferProof {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DidContinuitySignatureLink {
     pub principal_id: Did,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub algorithm: DidContinuitySignatureAlgorithm,
     pub payload_digest: Hash,
     pub signature: String,
@@ -153,15 +153,11 @@ impl DidContinuityProof {
         let mut has_old_link = false;
         let mut has_new_link = false;
         for link in &self.signature_chain {
-            if !link.verification_method.starts_with("did:")
-                || !link.verification_method.contains('#')
-            {
-                return Err(Error::Protocol(
-                    "DID continuity proof verification_method must be a DID URL with fragment \
-                     (schema_violation)"
-                        .to_owned(),
-                ));
-            }
+            // `verification_method` is a `DidUrl`, so "starts with did: and
+            // carries a #fragment" is enforced by the type at deserialization.
+            // did-usage-and-verification.md §6 forbids re-deriving it from a
+            // `starts_with("did:")` prefix guess, so the hand-written check
+            // that used to live here was removed.
             if link.signature.trim().is_empty()
                 || link
                     .signature
@@ -254,14 +250,14 @@ mod tests {
             signature_chain: vec![
                 DidContinuitySignatureLink {
                     principal_id: Did::new("did:web:old.example").unwrap(),
-                    verification_method: "did:web:old.example#key-1".to_owned(),
+                    verification_method: DidUrl::new("did:web:old.example#key-1").unwrap(),
                     algorithm: DidContinuitySignatureAlgorithm::Ed25519,
                     payload_digest: hash("e"),
                     signature: "old_sig".to_owned(),
                 },
                 DidContinuitySignatureLink {
                     principal_id: Did::new("did:webvh:new.example").unwrap(),
-                    verification_method: "did:webvh:new.example#key-1".to_owned(),
+                    verification_method: DidUrl::new("did:webvh:new.example#key-1").unwrap(),
                     algorithm: DidContinuitySignatureAlgorithm::MlDsa65,
                     payload_digest: hash("e"),
                     signature: "new_sig".to_owned(),
@@ -324,7 +320,8 @@ mod tests {
     fn did_continuity_proof_rejects_missing_new_did_link() {
         let mut proof = valid_fixture();
         proof.signature_chain[1].principal_id = Did::new("did:webvh:other.example").unwrap();
-        proof.signature_chain[1].verification_method = "did:webvh:other.example#key-1".to_owned();
+        proof.signature_chain[1].verification_method =
+            DidUrl::new("did:webvh:other.example#key-1").unwrap();
         let digest = proof.signature_payload_digest().unwrap();
         for link in &mut proof.signature_chain {
             link.payload_digest = digest.clone();

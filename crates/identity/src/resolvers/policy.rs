@@ -40,6 +40,29 @@ pub enum ResolverFailMode {
     AllowCachedOnError,
 }
 
+impl ResolverFailMode {
+    /// Stable snake_case token for canonical encodings.
+    ///
+    /// Never derive this from [`Debug`]: `format!("{:?}", ResolverFailMode::FailClosed)`
+    /// yields `"FailClosed"`, which is a Rust identifier, not a wire contract —
+    /// renaming the variant would silently change every digest computed from it.
+    /// `crate::binding_digest` uses this token, and downstream repos MUST use it
+    /// instead of hand-writing their own mapping (that divergence is exactly what
+    /// produced two incompatible `policy_digest` values for one policy value).
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::FailClosed => "fail_closed",
+            Self::AllowCachedOnError => "allow_cached_on_error",
+        }
+    }
+}
+
+impl std::fmt::Display for ResolverFailMode {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
 impl Default for ResolverPolicy {
     fn default() -> Self {
         // Default to the method set `identity-did.md` §5 requires a core

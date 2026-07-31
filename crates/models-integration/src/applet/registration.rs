@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use arkret_models_identity::did_document::DidDocument;
 use arkret_wire::{
-    Did, Error, Hash, PayloadSigner, Proof, Result, XExtensionMap, canonical, proof_kind,
+    Did, DidUrl, Error, Hash, PayloadSigner, Proof, Result, XExtensionMap, canonical, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -494,7 +494,7 @@ impl WireAppletRegistration {
 pub fn sign_registration<S: PayloadSigner + ?Sized>(
     reg: &mut WireAppletRegistration,
     signer: &S,
-    verification_method: &str,
+    verification_method: &DidUrl,
 ) -> Result<()> {
     let mut unsigned = reg.clone();
     unsigned.proof = None;
@@ -1204,7 +1204,7 @@ impl AppletPackage {
     pub fn sign<S: PayloadSigner + ?Sized>(
         &mut self,
         signer: &S,
-        verification_method: &str,
+        verification_method: &DidUrl,
     ) -> Result<()> {
         let mut unsigned = self.clone();
         unsigned.proof = None;

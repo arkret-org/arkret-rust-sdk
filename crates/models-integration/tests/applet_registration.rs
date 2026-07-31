@@ -8,7 +8,7 @@ use arkret_models_integration::{
     sign_registration,
 };
 use arkret_wire::{
-    AppletId, Did, Event, Hash, Hlc, PayloadSignature, PayloadSigner, Proof, RealmId,
+    AppletId, Did, DidUrl, Event, Hash, Hlc, PayloadSignature, PayloadSigner, Proof, RealmId,
     Result as WireResult, ScopeRef,
 };
 use chrono::Utc;
@@ -148,7 +148,7 @@ fn wire_registration_round_trips_and_excludes_proof_from_digest() {
     signed.proof = Some(Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+        verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: expected_digest.clone(),
         created_at: Utc::now(),
         domain: None,
@@ -171,7 +171,7 @@ fn applet_package_derives_registration_and_rejects_stale_epoch() {
     package.proof = Some(Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+        verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest: package.package_digest.clone().unwrap(),
         created_at: Utc::now(),
         domain: None,
@@ -308,7 +308,7 @@ fn install_commit_uses_only_caller_signed_formal_events() {
 fn sign_registration_attaches_matching_payload_digest() {
     struct StubSigner {
         did: Did,
-        verification_method: String,
+        verification_method: DidUrl,
     }
 
     impl PayloadSigner for StubSigner {
@@ -316,7 +316,7 @@ fn sign_registration_attaches_matching_payload_digest() {
             &self.did
         }
 
-        fn verification_method_id(&self) -> &str {
+        fn verification_method_id(&self) -> &DidUrl {
             &self.verification_method
         }
 
@@ -328,19 +328,20 @@ fn sign_registration_attaches_matching_payload_digest() {
                 payload_digest: payload_digest.clone(),
                 created_at: Utc::now(),
                 jws: format!("stub..{}", payload_digest.as_str()),
+                extra: Default::default(),
             })
         }
     }
 
     let signer = StubSigner {
         did: did("alice"),
-        verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+        verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
     };
     let mut registration = sample_wire_registration();
     sign_registration(
         &mut registration,
         &signer,
-        "did:webvh:z6mkfixture:alice.example#key-1",
+        &DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
     )
     .unwrap();
 

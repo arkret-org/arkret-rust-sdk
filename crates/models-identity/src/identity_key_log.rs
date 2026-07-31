@@ -146,7 +146,7 @@ impl DidKeyLogEntry {
         );
         object.insert(
             "verification_method".to_owned(),
-            Value::String(proof.verification_method.clone()),
+            Value::String(proof.verification_method.as_str().to_owned()),
         );
         object.insert(
             "created_at".to_owned(),

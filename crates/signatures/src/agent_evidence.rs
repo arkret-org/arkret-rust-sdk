@@ -826,7 +826,7 @@ mod tests {
         let signer = crate::Ed25519PayloadSigner::from_did_key_seed(
             [24; 32],
             notary_id.clone(),
-            format!("{notary_id}#notary-key"),
+            DidUrl::new(format!("{notary_id}#notary-key")).unwrap(),
         );
         Seal::sign_single(
             RealmId::new("ak:realm:01964137-0000-7000-8000-000000000007").unwrap(),

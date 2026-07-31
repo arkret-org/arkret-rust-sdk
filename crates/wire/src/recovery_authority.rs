@@ -13,8 +13,8 @@ use serde_json::Value;
 
 use crate::error::{Error, Result};
 use crate::{
-    AuthoritySetPolicy, AuthoritySetRef, AuthorizationLease, CbaProofBundle, DeviceId, Did, Event,
-    EventId, EventSubmitContext, GrantId, Hash, LeaseBasisRef, PolicyId,
+    AuthoritySetPolicy, AuthoritySetRef, AuthorizationLease, CbaProofBundle, DeviceId, Did, DidUrl,
+    Event, EventId, EventSubmitContext, GrantId, Hash, LeaseBasisRef, PolicyId,
     RECOVERY_ACCOUNT_AUTHORITY_SET_ID, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId,
     RiskTier, ScopeRef, TransactionId, TypedTrustDomainId,
 };
@@ -113,7 +113,7 @@ impl CanonicalPublicMaterial {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReplacementDevicePossessionProof {
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub alg: String,
     pub transcript_digest: Hash,
     pub signature: String,
@@ -324,7 +324,7 @@ pub enum ServiceSignatureAlgorithm {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryAuthorityTicketAuthData {
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub alg: ServiceSignatureAlgorithm,
     pub signature: String,
     pub signed_fields: Vec<String>,
@@ -632,7 +632,7 @@ pub enum RecoveryModelGenerationRef {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryCompletionAttestationAuthData {
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub alg: String,
     pub signature: String,
     pub signed_fields: Vec<String>,
@@ -822,7 +822,7 @@ mod tests {
                 issuer_role: crate::AuthoritySetIssuerRole::AccountEnrollmentAuthority,
                 allowed_actions: vec!["ak.device.authorize".to_owned()],
                 issuers: vec![crate::AuthoritySetIssuer {
-                    verification_method: crate::DidUrl::new(
+                    verification_method: DidUrl::new(
                         "did:web:accounts.example#device-enrollment-1",
                     )
                     .unwrap(),
@@ -909,8 +909,10 @@ mod tests {
                 result_model_generation_ref: RecoveryModelGenerationRef::CrossSigning(7),
                 completed_at: Utc.with_ymd_and_hms(2026, 7, 28, 12, 0, 0).unwrap(),
                 auth_data: RecoveryCompletionAttestationAuthData {
-                    verification_method: "did:webvh:z6mkfixture:principal.example#signing"
-                        .to_owned(),
+                    verification_method: DidUrl::new(
+                        "did:webvh:z6mkfixture:principal.example#signing",
+                    )
+                    .unwrap(),
                     alg: "EdDSA".to_owned(),
                     signature: "c2lnbmF0dXJl".to_owned(),
                     signed_fields: RECOVERY_COMPLETION_ATTESTATION_SIGNED_FIELDS

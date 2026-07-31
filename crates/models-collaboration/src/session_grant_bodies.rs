@@ -9,8 +9,8 @@ use arkret_models_identity::{
     SessionGrantRecoveryBinding,
 };
 use arkret_wire::{
-    DeviceId, Did, Error, FreshnessState, GrantId, Hash, NonEmptyString, RealmId, Result, ScopeRef,
-    StrandId, canonical,
+    DeviceId, Did, DidUrl, Error, FreshnessState, GrantId, Hash, NonEmptyString, RealmId, Result,
+    ScopeRef, StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -105,7 +105,7 @@ pub struct SessionGrantRequestProof {
     // `proof_kind == agent_key_proof`; the server enforces presence and binds
     // it to the active `ak.agent.key.authorize`. Absent for human proof kinds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verification_method: Option<String>,
+    pub verification_method: Option<DidUrl>,
     // OIDC code-exchange fields. Required at runtime when
     // `proof_kind == oidc_code_exchange` (per
     // `service-operation-dtos.schema.json#/$defs/SessionGrantRequestBody`),
@@ -315,7 +315,7 @@ pub struct SessionGrantRefreshProof {
     #[serde(default, alias = "proof_jws", skip_serializing_if = "Option::is_none")]
     pub signature: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verification_method: Option<String>,
+    pub verification_method: Option<DidUrl>,
 }
 
 /// `ak.gate.account.command.refresh_session_grant` outcome.

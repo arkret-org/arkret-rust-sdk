@@ -29,7 +29,7 @@
 //! object via [`arkret_wire::Proof::canonical_binding_bytes`].
 
 use arkret_canonical::canonical;
-use arkret_wire::{Audience, Event, Hash, PayloadSigner, Proof, proof_kind};
+use arkret_wire::{Audience, DidUrl, Event, Hash, PayloadSigner, Proof, proof_kind};
 use chrono::{DateTime, Utc};
 
 use crate::{Error, Result};
@@ -90,7 +90,7 @@ impl SignEventOptions {
 pub fn sign_event<S: PayloadSigner + ?Sized>(
     event: &mut Event,
     signer: &S,
-    verification_method: &str,
+    verification_method: &DidUrl,
     options: SignEventOptions,
 ) -> Result<()> {
     sign_event_with_digest_suite(
@@ -110,13 +110,13 @@ pub fn sign_event<S: PayloadSigner + ?Sized>(
 pub fn sign_event_with_digest_suite<S: PayloadSigner + ?Sized>(
     event: &mut Event,
     signer: &S,
-    verification_method: &str,
+    verification_method: &DidUrl,
     digest_suite: arkret_canonical::DigestSuite,
     options: SignEventOptions,
 ) -> Result<()> {
     // Refuse to mix proofs from different signers — caller mistake.
     if let Some(existing) = event.proofs.iter().find(|proof| {
-        proof.verification_method != verification_method && proof.kind == proof_kind::DETACHED_JWS
+        &proof.verification_method != verification_method && proof.kind == proof_kind::DETACHED_JWS
     }) {
         return Err(Error::Protocol(format!(
             "sign_event refuses to append: event already carries a detached-jws proof for a \
@@ -141,7 +141,7 @@ pub fn sign_event_with_digest_suite<S: PayloadSigner + ?Sized>(
     let mut proof = Proof {
         kind: proof_kind::DETACHED_JWS.to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: verification_method.to_owned(),
+        verification_method: verification_method.clone(),
         event_digest: payload_digest.clone(),
         created_at,
         domain: options.domain,
@@ -159,7 +159,7 @@ pub fn sign_event_with_digest_suite<S: PayloadSigner + ?Sized>(
     if let Some(slot) = event
         .proofs
         .iter_mut()
-        .find(|proof| proof.verification_method == verification_method)
+        .find(|proof| &proof.verification_method == verification_method)
     {
         *slot = proof;
     } else {
@@ -194,8 +194,8 @@ mod tests {
         Did::new("did:web:alice.example").unwrap()
     }
 
-    fn vm_alice() -> &'static str {
-        "did:web:alice.example#key-1"
+    fn vm_alice() -> DidUrl {
+        DidUrl::new("did:web:alice.example#key-1").unwrap()
     }
 
     fn bob() -> Did {
@@ -238,15 +238,12 @@ mod tests {
     /// `sign_event` tests don't pull the `signer` feature in.
     struct StubPayloadSigner {
         did: Did,
-        kid: String,
+        kid: DidUrl,
     }
 
     impl StubPayloadSigner {
-        fn new(did: Did, kid: impl Into<String>) -> Self {
-            Self {
-                did,
-                kid: kid.into(),
-            }
+        fn new(did: Did, kid: DidUrl) -> Self {
+            Self { did, kid }
         }
     }
 
@@ -255,7 +252,7 @@ mod tests {
             &self.did
         }
 
-        fn verification_method_id(&self) -> &str {
+        fn verification_method_id(&self) -> &DidUrl {
             &self.kid
         }
 
@@ -270,6 +267,7 @@ mod tests {
                 payload_digest,
                 created_at: Utc::now(),
                 jws: stub_jws,
+                extra: BTreeMap::new(),
             })
         }
     }
@@ -278,7 +276,7 @@ mod tests {
     fn sign_event_attaches_one_proof_matching_digest() {
         let mut event = make_event();
         let signer = StubPayloadSigner::new(alice(), vm_alice());
-        sign_event(&mut event, &signer, vm_alice(), SignEventOptions::new()).unwrap();
+        sign_event(&mut event, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
         assert_eq!(event.proofs.len(), 1);
         let digest = event.event_digest().unwrap();
         assert_eq!(event.proofs[0].event_digest.as_str(), digest);
@@ -296,7 +294,7 @@ mod tests {
         sign_event_with_digest_suite(
             &mut event,
             &signer,
-            vm_alice(),
+            &vm_alice(),
             arkret_canonical::DigestSuite::Blake3,
             SignEventOptions::new(),
         )
@@ -311,8 +309,8 @@ mod tests {
         with.executed_by = Some(Did::new("did:web:applet.example").unwrap());
 
         let signer = StubPayloadSigner::new(alice(), vm_alice());
-        sign_event(&mut without, &signer, vm_alice(), SignEventOptions::new()).unwrap();
-        sign_event(&mut with, &signer, vm_alice(), SignEventOptions::new()).unwrap();
+        sign_event(&mut without, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
+        sign_event(&mut with, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
 
         // The signing transcript MUST cover executed_by → the digests
         // and therefore the produced JWS must differ.
@@ -330,8 +328,8 @@ mod tests {
         with.authorization_ref = Some("ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned());
 
         let signer = StubPayloadSigner::new(alice(), vm_alice());
-        sign_event(&mut without, &signer, vm_alice(), SignEventOptions::new()).unwrap();
-        sign_event(&mut with, &signer, vm_alice(), SignEventOptions::new()).unwrap();
+        sign_event(&mut without, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
+        sign_event(&mut with, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
 
         assert_ne!(
             without.proofs[0].event_digest, with.proofs[0].event_digest,
@@ -346,7 +344,7 @@ mod tests {
         let opts = SignEventOptions::new()
             .with_domain("api.example")
             .with_audience(Audience::Single("did:web:svc.example".to_owned()));
-        sign_event(&mut event, &signer, vm_alice(), opts).unwrap();
+        sign_event(&mut event, &signer, &vm_alice(), opts).unwrap();
         assert_eq!(event.proofs[0].domain.as_deref(), Some("api.example"));
         match &event.proofs[0].audience {
             Some(Audience::Single(value)) => assert_eq!(value, "did:web:svc.example"),
@@ -365,7 +363,7 @@ mod tests {
         sign_event(
             &mut event,
             &signer,
-            vm_alice(),
+            &vm_alice(),
             SignEventOptions::new().with_created_at(subsecond),
         )
         .unwrap();
@@ -383,7 +381,7 @@ mod tests {
         sign_event(
             &mut event,
             &signer,
-            vm_alice(),
+            &vm_alice(),
             SignEventOptions::new().with_created_at(pinned_at),
         )
         .unwrap();
@@ -393,7 +391,7 @@ mod tests {
         sign_event(
             &mut event,
             &signer,
-            vm_alice(),
+            &vm_alice(),
             SignEventOptions::new().with_created_at(pinned_at),
         )
         .unwrap();
@@ -408,14 +406,14 @@ mod tests {
         sign_event(
             &mut event,
             &alice_signer,
-            vm_alice(),
+            &vm_alice(),
             SignEventOptions::new(),
         )
         .unwrap();
 
-        let bob_kid = "did:web:bob.example#key-1";
-        let bob_signer = StubPayloadSigner::new(bob(), bob_kid);
-        let err = sign_event(&mut event, &bob_signer, bob_kid, SignEventOptions::new())
+        let bob_kid = DidUrl::new("did:web:bob.example#key-1").unwrap();
+        let bob_signer = StubPayloadSigner::new(bob(), bob_kid.clone());
+        let err = sign_event(&mut event, &bob_signer, &bob_kid, SignEventOptions::new())
             .expect_err("re-signing under a different VM must be rejected");
         let msg = format!("{err}");
         assert!(
@@ -431,7 +429,7 @@ mod tests {
     fn tampered_event_fails_proof_binding_validation() {
         let mut event = make_event();
         let signer = StubPayloadSigner::new(alice(), vm_alice());
-        sign_event(&mut event, &signer, vm_alice(), SignEventOptions::new()).unwrap();
+        sign_event(&mut event, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
         event.validate_proof_bindings().unwrap();
 
         // Payload tamper: the recomputed canonical event digest changes, so

@@ -611,6 +611,8 @@ pub struct DisclosurePolicy {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DidUrl;
+
     use arkret_models_identity::handle::HandleBindingState;
     use arkret_wire::{
         INVITE_RECEIVE_POLICY_SCHEMA, PayloadProof, ReceivePolicyConstraints, ReceivePolicySurface,
@@ -755,8 +757,10 @@ mod tests {
                 proof_purpose: PrincipalLocatorProofPurpose::RecipientServiceAcceptance,
                 proof: DetachedPayloadProof {
                     kind: "detached_jws".to_owned(),
-                    verification_method: "did:webvh:z6mkfixture:ps.bob.example#server-key-1"
-                        .to_owned(),
+                    verification_method: DidUrl::new(
+                        "did:webvh:z6mkfixture:ps.bob.example#server-key-1",
+                    )
+                    .unwrap(),
                     alg: "EdDSA".to_owned(),
                     payload_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
                     created_at: issued_at,
@@ -880,7 +884,8 @@ mod tests {
             proofs: vec![PayloadProof {
                 kind: "detached_jws".to_owned(),
                 alg: "EdDSA".to_owned(),
-                verification_method: "did:webvh:z6mkfixture:issuer.example#key-1".to_owned(),
+                verification_method: DidUrl::new("did:webvh:z6mkfixture:issuer.example#key-1")
+                    .unwrap(),
                 payload_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
                 created_at: resolved_at.to_owned(),
                 domain: None,

@@ -14,13 +14,13 @@
 //! feature, and other backends (HSM, threshold scheme) can layer on the
 //! same trait.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::Utc;
 
 use crate::{
-    Did, Error, Hash, Hlc, MultiSigKind, MultiSignature, NotarySig, PayloadSignature, RealmId,
-    Result, Seal, SealId, ThresholdSigKind, ThresholdSignature, canonical,
+    Did, DidUrl, Error, Hash, Hlc, MultiSigKind, MultiSignature, NotarySig, PayloadSignature,
+    RealmId, Result, Seal, SealId, ThresholdSigKind, ThresholdSignature, canonical,
 };
 
 /// Trait implemented by Seal / notary signers (Ed25519 keypair, HSM,
@@ -32,7 +32,7 @@ pub trait PayloadSigner {
 
     /// The verification method id (e.g. `did:webvh:z6mkfixture:alice.example#key-1`)
     /// the signer will publish as `PayloadSignature.verification_method`.
-    fn verification_method_id(&self) -> &str;
+    fn verification_method_id(&self) -> &DidUrl;
 
     /// Sign arbitrary canonical bytes with the signer's key, producing a
     /// detached JWS plus the matching `payload_digest`. Helpers such as
@@ -411,15 +411,15 @@ fn delta_control_root(delta: &[Hash]) -> Result<Hash> {
 pub struct PartialSignature {
     pub signer_did: Did,
     pub signature: Vec<u8>,
-    pub kid: String,
+    pub kid: DidUrl,
 }
 
 impl PartialSignature {
-    pub fn new(signer_did: Did, signature: Vec<u8>, kid: impl Into<String>) -> Self {
+    pub fn new(signer_did: Did, signature: Vec<u8>, kid: DidUrl) -> Self {
         Self {
             signer_did,
             signature,
-            kid: kid.into(),
+            kid,
         }
     }
 }
@@ -503,12 +503,8 @@ impl ThresholdAggregator {
                 partial.signer_did
             )));
         }
-        if partial.kid.is_empty() {
-            return Err(Error::Protocol(format!(
-                "partial signature from {} has empty verification method id",
-                partial.signer_did
-            )));
-        }
+        // `kid` is a `DidUrl`, so emptiness and "is it a DID URL at all" are
+        // enforced by the type at construction time; no string re-check here.
         self.partials.push(partial);
         Ok(())
     }
@@ -562,6 +558,7 @@ impl ThresholdAggregator {
                 payload_digest: payload_digest.clone(),
                 created_at: Utc::now(),
                 jws: format!("..{encoded_sig}"),
+                extra: BTreeMap::new(),
             });
         }
         Ok(MultiSignature {
@@ -676,6 +673,10 @@ mod tests {
         Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()
     }
 
+    fn alice_kid() -> DidUrl {
+        DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap()
+    }
+
     fn seal_id(byte: u8) -> SealId {
         SealId::new(format!(
             "ak:seal:sha256:{}",
@@ -697,7 +698,7 @@ mod tests {
     /// `arkret-signatures::signer`.
     struct StubSigner {
         did: Did,
-        kid: String,
+        kid: DidUrl,
     }
 
     impl PayloadSigner for StubSigner {
@@ -705,7 +706,7 @@ mod tests {
             &self.did
         }
 
-        fn verification_method_id(&self) -> &str {
+        fn verification_method_id(&self) -> &DidUrl {
             &self.kid
         }
 
@@ -717,6 +718,7 @@ mod tests {
                 payload_digest,
                 created_at: Utc.with_ymd_and_hms(2026, 5, 9, 0, 0, 0).unwrap(),
                 jws: "AAAA.BBBB.CCCC".to_owned(),
+                extra: BTreeMap::new(),
             })
         }
     }
@@ -724,7 +726,7 @@ mod tests {
     fn signer() -> StubSigner {
         StubSigner {
             did: alice(),
-            kid: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+            kid: alice_kid(),
         }
     }
 
@@ -797,7 +799,7 @@ mod tests {
         let alice = signer();
         let bob = StubSigner {
             did: Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
-            kid: "did:webvh:z6mkfixture:bob.example#key-1".to_owned(),
+            kid: bob_kid(),
         };
         let signers: &[&dyn PayloadSigner] = &[&alice, &bob];
         let a = Seal::sign_multi(
@@ -837,8 +839,8 @@ mod tests {
         Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap()
     }
 
-    fn carol() -> Did {
-        Did::new("did:webvh:z6mkfixture:carol.example".to_owned()).unwrap()
+    fn bob_kid() -> DidUrl {
+        DidUrl::new("did:webvh:z6mkfixture:bob.example#key-1").unwrap()
     }
 
     fn fixture_canonical_bytes() -> Vec<u8> {
@@ -854,19 +856,11 @@ mod tests {
     #[test]
     fn threshold_aggregator_collects_and_aggregates() {
         let mut agg = ThresholdAggregator::new(2).unwrap();
-        agg.add_partial(PartialSignature::new(
-            alice(),
-            vec![1u8; 64],
-            "did:webvh:z6mkfixture:alice.example#key-1",
-        ))
-        .unwrap();
+        agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], alice_kid()))
+            .unwrap();
         assert!(!agg.threshold_met());
-        agg.add_partial(PartialSignature::new(
-            bob(),
-            vec![2u8; 64],
-            "did:webvh:z6mkfixture:bob.example#key-1",
-        ))
-        .unwrap();
+        agg.add_partial(PartialSignature::new(bob(), vec![2u8; 64], bob_kid()))
+            .unwrap();
         assert!(agg.threshold_met());
 
         // Aggregate with a passing per-partial verifier.
@@ -885,10 +879,10 @@ mod tests {
     #[test]
     fn threshold_aggregator_rejects_duplicate_signer() {
         let mut agg = ThresholdAggregator::new(2).unwrap();
-        agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], "kid-1"))
+        agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], alice_kid()))
             .unwrap();
         let err = agg
-            .add_partial(PartialSignature::new(alice(), vec![3u8; 64], "kid-1"))
+            .add_partial(PartialSignature::new(alice(), vec![3u8; 64], alice_kid()))
             .unwrap_err();
         assert!(format!("{err}").contains("duplicate partial"));
     }
@@ -896,7 +890,7 @@ mod tests {
     #[test]
     fn threshold_aggregator_aggregate_below_threshold_errors() {
         let mut agg = ThresholdAggregator::new(3).unwrap();
-        agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], "kid-1"))
+        agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], alice_kid()))
             .unwrap();
         let err = agg
             .aggregate(&fixture_canonical_bytes(), |_p, _bytes| Ok(()))
@@ -907,9 +901,9 @@ mod tests {
     #[test]
     fn threshold_aggregator_individual_verification_failure_propagates() {
         let mut agg = ThresholdAggregator::new(2).unwrap();
-        agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], "kid-1"))
+        agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], alice_kid()))
             .unwrap();
-        agg.add_partial(PartialSignature::new(bob(), vec![2u8; 64], "kid-2"))
+        agg.add_partial(PartialSignature::new(bob(), vec![2u8; 64], bob_kid()))
             .unwrap();
         let err = agg
             .aggregate(&fixture_canonical_bytes(), |_p, _bytes| {
@@ -924,7 +918,7 @@ mod tests {
         let mut agg = ThresholdAggregator::new(1).unwrap();
         let err = agg
             .add_partial_verified(
-                PartialSignature::new(alice(), vec![1u8; 64], "kid-1"),
+                PartialSignature::new(alice(), vec![1u8; 64], alice_kid()),
                 |_p| Err(Error::Protocol("scheme verifier said no".to_owned())),
             )
             .unwrap_err();
@@ -935,18 +929,10 @@ mod tests {
     #[test]
     fn seal_sign_threshold_partial_round_trip() {
         let mut agg = ThresholdAggregator::new(2).unwrap();
-        agg.add_partial(PartialSignature::new(
-            alice(),
-            vec![1u8; 64],
-            "did:webvh:z6mkfixture:alice.example#key-1",
-        ))
-        .unwrap();
-        agg.add_partial(PartialSignature::new(
-            bob(),
-            vec![2u8; 64],
-            "did:webvh:z6mkfixture:bob.example#key-1",
-        ))
-        .unwrap();
+        agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], alice_kid()))
+            .unwrap();
+        agg.add_partial(PartialSignature::new(bob(), vec![2u8; 64], bob_kid()))
+            .unwrap();
 
         let a = Seal::sign_threshold_partial(
             realm(),
@@ -973,9 +959,9 @@ mod tests {
     #[test]
     fn seal_sign_threshold_partial_below_threshold_errors() {
         let mut agg = ThresholdAggregator::new(3).unwrap();
-        agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], "kid-1"))
+        agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], alice_kid()))
             .unwrap();
-        agg.add_partial(PartialSignature::new(bob(), vec![2u8; 64], "kid-2"))
+        agg.add_partial(PartialSignature::new(bob(), vec![2u8; 64], bob_kid()))
             .unwrap();
         let err = Seal::sign_threshold_partial(
             realm(),
@@ -990,15 +976,23 @@ mod tests {
     }
 
     #[test]
-    fn partial_signature_rejects_empty_signature_or_kid() {
+    fn partial_signature_rejects_empty_signature() {
         let mut agg = ThresholdAggregator::new(1).unwrap();
         let err = agg
-            .add_partial(PartialSignature::new(alice(), vec![], "kid"))
+            .add_partial(PartialSignature::new(alice(), vec![], alice_kid()))
             .unwrap_err();
         assert!(format!("{err}").contains("empty"));
-        let err = agg
-            .add_partial(PartialSignature::new(carol(), vec![5u8; 64], ""))
-            .unwrap_err();
-        assert!(format!("{err}").contains("empty verification method id"));
+    }
+
+    /// `PartialSignature.kid` is a `DidUrl`, so an empty or non-DID-URL
+    /// verification method id cannot be constructed at all. The runtime
+    /// emptiness check the aggregator used to run was removed with the
+    /// migration; this pins the type-level replacement.
+    #[test]
+    fn partial_signature_kid_cannot_be_empty_or_bare() {
+        assert!(DidUrl::new("").is_err());
+        assert!(DidUrl::new("kid-1").is_err());
+        assert!(DidUrl::new("did:webvh:z6mkfixture:alice.example").is_err());
+        assert!(DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").is_ok());
     }
 }

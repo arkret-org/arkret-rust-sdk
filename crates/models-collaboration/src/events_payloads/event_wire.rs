@@ -32,7 +32,7 @@ pub use arkret_models_crypto::encrypted_envelope::{
 pub use arkret_wire::event_receipt::{
     DeviceReanchorReceiptScope, DeviceReanchorReceiptScopeKind, EventBatchOrdinaryReceiptScope,
     EventBatchReceipt, EventBatchReceiptEvent, EventBatchReceiptFrontier, EventBatchReceiptItem,
-    EventBatchReceiptScope, EventProof, EventProofAudience,
+    EventBatchReceiptScope, EventProofAudience,
 };
 
 /// Counterpart for `spec/v1/artifacts/schemas/erasure-receipt.schema.json#/$defs/subject_ref`.

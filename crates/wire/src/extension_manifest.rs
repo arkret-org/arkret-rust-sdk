@@ -373,7 +373,7 @@ impl ExtensionManifest {
         );
         object.insert(
             "verification_method".to_owned(),
-            Value::String(proof.verification_method.clone()),
+            Value::String(proof.verification_method.as_str().to_owned()),
         );
         object.insert(
             "created_at".to_owned(),
@@ -850,6 +850,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
+    use crate::DidUrl;
 
     struct TestProofVerifier {
         calls: AtomicUsize,
@@ -939,7 +940,8 @@ mod tests {
             },
             proofs: vec![Proof {
                 kind: crate::proof_kind::DETACHED_JWS.to_owned(),
-                verification_method: "did:web:publisher.example#manifest-signing".to_owned(),
+                verification_method: DidUrl::new("did:web:publisher.example#manifest-signing")
+                    .unwrap(),
                 alg: "EdDSA".to_owned(),
                 event_digest: hash(0),
                 created_at: published_at,

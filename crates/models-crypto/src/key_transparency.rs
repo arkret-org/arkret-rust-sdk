@@ -4,6 +4,7 @@
 
 use std::collections::BTreeSet;
 
+use arkret_wire::DidUrl;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -50,7 +51,7 @@ pub struct TransparencyConsistencyProof {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransparencyWitnessSignature {
     pub witness_did: String,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub signature: String,
 }
 

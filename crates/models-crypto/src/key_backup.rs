@@ -134,7 +134,7 @@ impl KeyBackupDeleteDevelopmentProof {
 pub struct KeyBackupDeleteDetachedJwsProof {
     pub kind: String,
     pub issuer: Did,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub jws: String,
 }
 
@@ -2093,7 +2093,7 @@ pub struct RecoveryAuditConfig {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RecoveryPolicyAuthData {
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub signature_algorithm: String,
     pub signature: String,
     pub signed_fields: Vec<String>,
@@ -2425,7 +2425,7 @@ pub enum RecoveryReceiptOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RecoveryReceiptAuthData {
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub signature_algorithm: String,
     pub signature: String,
     pub signed_fields: Vec<String>,

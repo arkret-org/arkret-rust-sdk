@@ -194,7 +194,7 @@ impl AccountabilityGrantPayload {
             ("subject".to_owned(), serde_json::to_value(&self.subject)?),
             (
                 "verification_method".to_owned(),
-                Value::String(self.proof.verification_method.clone()),
+                Value::String(self.proof.verification_method.as_str().to_owned()),
             ),
             (
                 "created_at".to_owned(),

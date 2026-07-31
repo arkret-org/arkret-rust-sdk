@@ -925,7 +925,7 @@ fn proof_audience_covers_expected(proof: Option<&Audience>, expected: Option<&Au
 #[serde(deny_unknown_fields)]
 pub struct Proof {
     pub kind: String,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub alg: String,
     pub event_digest: Hash,
     #[serde(
@@ -956,7 +956,7 @@ pub enum PayloadProofPurpose {
 #[serde(deny_unknown_fields)]
 pub struct PayloadProof {
     pub kind: String,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub alg: String,
     pub payload_digest: Hash,
     #[serde(
@@ -981,11 +981,6 @@ impl PayloadProof {
         if self.alg.is_empty() || self.alg.eq_ignore_ascii_case("none") {
             return Err(Error::Protocol(
                 "proof algorithm must be a concrete registered algorithm".to_owned(),
-            ));
-        }
-        if self.verification_method.is_empty() {
-            return Err(Error::Protocol(
-                "proof verification_method must not be empty".to_owned(),
             ));
         }
         if self.jws.is_empty() {
@@ -1153,7 +1148,7 @@ impl Proof {
         );
         obj.insert(
             "verification_method".to_owned(),
-            Value::String(self.verification_method.clone()),
+            Value::String(self.verification_method.as_str().to_owned()),
         );
         obj.insert(
             "created_at".to_owned(),
@@ -1184,11 +1179,6 @@ impl Proof {
         if self.alg.is_empty() {
             return Err(Error::Protocol(
                 "proof algorithm must not be empty".to_owned(),
-            ));
-        }
-        if self.verification_method.is_empty() {
-            return Err(Error::Protocol(
-                "proof verification_method must not be empty".to_owned(),
             ));
         }
         if self.jws.is_empty() {
@@ -1383,7 +1373,7 @@ impl FactChainEcho {
 pub struct SignatureBindingPayload {
     pub payload_digest: Hash,
     pub actor_id: Did,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
@@ -1415,7 +1405,7 @@ mod tests {
         echo.proofs.push(Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:server.example#key-1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:server.example#key-1").unwrap(),
             event_digest: digest,
             created_at: echo.observed_at,
             domain: None,

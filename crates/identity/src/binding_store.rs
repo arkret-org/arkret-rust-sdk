@@ -30,6 +30,7 @@ use std::sync::Mutex;
 
 use arkret_wire::{Did, DidUrl, Hash, TypedTrustDomainId};
 use chrono::{DateTime, Duration, Utc};
+use serde::{Deserialize, Serialize};
 
 use crate::DidDocument;
 use crate::binding::{
@@ -65,10 +66,36 @@ pub enum BindingStoreError {
 /// Fields are private and the pairing is validated on construction, so a value
 /// of this type is always self-consistent: the document really is the one whose
 /// canonical digest the binding recorded.
-#[derive(Clone, Debug, PartialEq, Eq)]
+///
+/// `Deserialize` routes through [`AcceptedDidBinding::new`] rather than filling
+/// the fields directly, so a persisted pairing is **re-validated on load**: a
+/// store row whose document was edited after it was written fails to
+/// deserialize instead of coming back as a trusted acceptance. The inner
+/// [`VerifiedDidBinding`] independently re-runs its own constructor checks, so
+/// both halves and their relationship are checked on every hop.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct AcceptedDidBinding {
     binding: VerifiedDidBinding,
     document: DidDocument,
+}
+
+/// Wire shape of [`AcceptedDidBinding`]. Kept separate so `Deserialize` is
+/// forced through the validating constructor instead of `#[derive]`.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AcceptedDidBindingWire {
+    binding: VerifiedDidBinding,
+    document: DidDocument,
+}
+
+impl<'de> Deserialize<'de> for AcceptedDidBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = AcceptedDidBindingWire::deserialize(deserializer)?;
+        Self::new(wire.binding, wire.document).map_err(serde::de::Error::custom)
+    }
 }
 
 impl AcceptedDidBinding {
@@ -81,7 +108,7 @@ impl AcceptedDidBinding {
     ) -> Result<Self, BindingStoreError> {
         if &document.id != binding.did() {
             return Err(BindingStoreError::DocumentIdMismatch {
-                document_id: document.id.clone(),
+                document_id: document.id,
                 did: binding.did().clone(),
             });
         }
@@ -327,10 +354,7 @@ pub trait VerifiedDidBindingStore: Send + Sync {
 }
 
 /// Compute an entry's freshness without consulting a store.
-pub fn binding_freshness_at(
-    binding: &VerifiedDidBinding,
-    now: DateTime<Utc>,
-) -> BindingFreshness {
+pub fn binding_freshness_at(binding: &VerifiedDidBinding, now: DateTime<Utc>) -> BindingFreshness {
     if binding.is_hard_expired(now) {
         return BindingFreshness::Expired;
     }
@@ -384,7 +408,9 @@ impl InMemoryVerifiedDidBindingStore {
         self.lock().clear();
     }
 
-    fn lock(&self) -> std::sync::MutexGuard<'_, BTreeMap<VerifiedDidBindingKey, AcceptedDidBinding>> {
+    fn lock(
+        &self,
+    ) -> std::sync::MutexGuard<'_, BTreeMap<VerifiedDidBindingKey, AcceptedDidBinding>> {
         self.entries
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -494,9 +520,7 @@ mod tests {
     use arkret_wire::DidUrl;
 
     use super::*;
-    use crate::binding::{
-        LimitedTrustReason, VerifiedDidBindingDocumentInput, VerifiedDidBindingInput,
-    };
+    use crate::binding::{LimitedTrustReason, VerifiedDidBindingDocumentInput};
 
     const KEY_MATERIAL: &str = "z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH";
 
@@ -612,10 +636,79 @@ mod tests {
         let fixture = Fixture::new();
         let other_did =
             Did::new("did:webvh:z6mkfixture:other.example".to_owned()).expect("valid did");
-        let error =
-            AcceptedDidBinding::new(fixture.accepted().binding().clone(), document_for(&other_did, "key-1"))
-                .unwrap_err();
-        assert!(matches!(error, BindingStoreError::DocumentIdMismatch { .. }));
+        let error = AcceptedDidBinding::new(
+            fixture.accepted().binding().clone(),
+            document_for(&other_did, "key-1"),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            BindingStoreError::DocumentIdMismatch { .. }
+        ));
+    }
+
+    // -- serde round-trip through the validating constructor --
+
+    #[test]
+    fn serde_round_trip_preserves_the_pairing() {
+        let accepted = Fixture::new().accepted();
+        let json = serde_json::to_string(&accepted).expect("serialize");
+        let restored: AcceptedDidBinding = serde_json::from_str(&json).expect("deserialize");
+
+        assert_eq!(restored.binding(), accepted.binding());
+        assert_eq!(restored.document().id, accepted.document().id);
+        assert_eq!(
+            restored.document().verification_methods,
+            accepted.document().verification_methods
+        );
+        // `DidDocument` re-materializes `raw_properties` on the way back in, so
+        // the values are not `==`. What matters is that the pairing invariant
+        // survives: the restored document still hashes to the pinned digest —
+        // which `AcceptedDidBinding::new` just proved by not rejecting it.
+        assert_eq!(
+            &document_canonical_digest(restored.document()).expect("digest"),
+            accepted.binding().document_digest()
+        );
+    }
+
+    #[test]
+    fn deserialization_rejects_a_tampered_document() {
+        // The reason persistence previously had to be split into
+        // `(binding, document)` and rebuilt through `AcceptedDidBinding::new`:
+        // a `Deserialize` that filled the fields directly would let an edited
+        // stored document come back as a trusted acceptance. This one runs the
+        // same digest check, so the split is no longer necessary.
+        let fixture = Fixture::new();
+        let accepted = fixture.accepted();
+        let mut value = serde_json::to_value(&accepted).expect("serialize");
+        value["document"]["verification_methods"] = serde_json::json!({
+            format!("{}#key-1", fixture.did): "z6MkAttackerControlledKeyMaterialValue00000000",
+        });
+
+        let error = serde_json::from_value::<AcceptedDidBinding>(value).unwrap_err();
+        assert!(
+            error.to_string().contains("digest"),
+            "a tampered document must fail the pairing check, got: {error}"
+        );
+    }
+
+    #[test]
+    fn deserialization_rejects_a_document_for_another_did() {
+        let accepted = Fixture::new().accepted();
+        let other_did =
+            Did::new("did:webvh:z6mkfixture:other.example".to_owned()).expect("valid did");
+        let mut value = serde_json::to_value(&accepted).expect("serialize");
+        value["document"]["id"] = serde_json::json!(other_did.as_str());
+        assert!(serde_json::from_value::<AcceptedDidBinding>(value).is_err());
+    }
+
+    #[test]
+    fn deserialization_also_reruns_the_inner_binding_checks() {
+        // Both halves are re-validated, not just their relationship.
+        let accepted = Fixture::new().accepted();
+        let mut value = serde_json::to_value(&accepted).expect("serialize");
+        value["binding"]["method"] = serde_json::json!("web");
+        assert!(serde_json::from_value::<AcceptedDidBinding>(value).is_err());
     }
 
     // -- stale vs hard-expired --

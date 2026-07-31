@@ -35,7 +35,7 @@ use std::fmt;
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical;
-use arkret_wire::{Hash, Proof, SignalEnvelope, proof_kind};
+use arkret_wire::{DidUrl, Hash, Proof, SignalEnvelope, proof_kind};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
@@ -856,7 +856,7 @@ pub use ed25519_jws::{Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier, Veri
 pub fn build_proof_envelope(
     kind: impl Into<String>,
     algorithm: impl Into<String>,
-    verification_method: impl Into<String>,
+    verification_method: DidUrl,
     payload_digest: Hash,
     domain: Option<String>,
     audience: Option<arkret_wire::Audience>,
@@ -865,7 +865,7 @@ pub fn build_proof_envelope(
     Proof {
         kind: kind.into(),
         alg: algorithm.into(),
-        verification_method: verification_method.into(),
+        verification_method,
         event_digest: payload_digest,
         created_at: Utc::now(),
         domain,
@@ -942,7 +942,7 @@ mod tests {
         let dev_proof = build_proof_envelope(
             "dev",
             "EdDSA",
-            "did:webvh:z6mkfixture:alice.example#key-1",
+            DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                 .unwrap(),
             None,
@@ -955,7 +955,7 @@ mod tests {
         let prod_proof = build_proof_envelope(
             proof_kind::DETACHED_JWS,
             "EdDSA",
-            "did:webvh:z6mkfixture:alice.example#key-1",
+            DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                 .unwrap(),
             None,

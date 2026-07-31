@@ -4,8 +4,8 @@
 //! conformance profile and reducer profile registries; do not edit by hand.
 //! Conformance input version: 2026-07-31.6;
 //! sha256=1e2457c77a6f4b45e2e68a7d926fa078fa21b00075d204d5c95623e16b9f8e12; profiles=98.
-//! Reducer input version: 2026-07-31.5;
-//! sha256=000fddceee4c771d4c0b800f9d9fc3121262ef723f14916008dbaf7dfb3d682e; active_profiles=5.
+//! Reducer input version: 2026-07-31.6;
+//! sha256=bc8f19d70ce96842926ddd7fbd9dc91a03c26bc79d0bae054d06bb6fc0d9e217; active_profiles=5.
 
 pub const PROFILE_IDS: &[&str] = &[
     "ak.profile.agent_auth.v1",
@@ -132,7 +132,7 @@ pub const REDUCER_PROFILE_DIGESTS: &[(&str, &str)] = &[
     ),
     (
         "ak.profile.principal_server.v1",
-        "sha256:a37726cb31c83c09c63c456213a8e91d0e06ab74012be8c6b8e94e8bac9eeb5f",
+        "sha256:bc12172da67eee92b6bfcdc611ae7b97894ca8c92303421ef77dd5402e16df0d",
     ),
 ];
 

@@ -478,6 +478,17 @@ impl<'de> Deserialize<'de> for MimiRoomUri {
 }
 
 /// DID URL with a required verification-method fragment.
+///
+/// Mirrors `common-ids.schema.json#/$defs/did_url`
+/// (`^did:[a-z0-9]+:[^\s#?]+#[A-Za-z0-9._:-]+$`): the method-specific
+/// identifier rejects whitespace, `#` and `?`, while the fragment is limited to
+/// `[A-Za-z0-9._:-]`.
+///
+/// Note: a few other v1 schemas spell the fragment as `[^\s]+` / `[^\s#]+`,
+/// which is wider than `common-ids#/$defs/did_url`. That inconsistency is
+/// registered as a spec gap; this type deliberately enforces the strictest of
+/// the published patterns (`common-ids#/$defs/did_url`), which every existing
+/// fixture already satisfies.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -502,9 +513,13 @@ impl DidUrl {
         let Some((identifier, fragment)) = method_specific.split_once('#') else {
             return Err("DID URL must include a verification-method fragment");
         };
+        // `split_once('#')` already cut at the first `#`, so `identifier` can
+        // never carry another one; extra `#` land in `fragment` and are caught
+        // by the fragment charset check below. `?` must be rejected explicitly:
+        // the spec identifier class is `[^\s#?]+`.
         if identifier.is_empty()
             || identifier.chars().any(char::is_whitespace)
-            || identifier.contains('#')
+            || identifier.contains('?')
             || fragment.is_empty()
             || !fragment.chars().all(|character| {
                 character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | ':' | '-')
@@ -537,6 +552,42 @@ impl Deref for DidUrl {
 impl fmt::Display for DidUrl {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(self.as_str())
+    }
+}
+
+impl PartialEq<str> for DidUrl {
+    fn eq(&self, other: &str) -> bool {
+        self.as_str() == other
+    }
+}
+
+impl PartialEq<&str> for DidUrl {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
+
+impl PartialEq<String> for DidUrl {
+    fn eq(&self, other: &String) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl PartialEq<DidUrl> for str {
+    fn eq(&self, other: &DidUrl) -> bool {
+        self == other.as_str()
+    }
+}
+
+impl PartialEq<DidUrl> for &str {
+    fn eq(&self, other: &DidUrl) -> bool {
+        *self == other.as_str()
+    }
+}
+
+impl PartialEq<DidUrl> for String {
+    fn eq(&self, other: &DidUrl) -> bool {
+        self.as_str() == other.as_str()
     }
 }
 
@@ -650,5 +701,185 @@ mod tests {
                 .unwrap(),
             local_id
         );
+    }
+
+    /// DID URL samples that MUST be accepted, matching
+    /// `common-ids.schema.json#/$defs/did_url`.
+    const DID_URL_ACCEPTED: &[&str] = &[
+        "did:webvh:z6mkfixture:alice.example#device-1",
+        "did:web:alice.example#key.1",
+        "did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2#z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
+        "did:webvh:z6mkfixture:alice.example#ak:device:0198c4d2-af00-7000-8000-aabbccddeeff",
+        "did:webvh:z6mkfixture:alice.example#ak_self_signing_v1",
+        "did:webvh:example.test:orgs:org1#k1",
+        "did:key2:abc#k",
+        // The spec identifier class `[^\s#?]+` allows `/`; staying no stricter
+        // than the schema is deliberate.
+        "did:webvh:example.test/tenant1#k1",
+    ];
+
+    /// DID URL samples that MUST be rejected.
+    const DID_URL_REJECTED: &[&str] = &[
+        // Bare DIDs carry no verification-method fragment.
+        "did:webvh:z6mkfixture:alice.example",
+        "did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
+        // Query markers are outside the identifier class `[^\s#?]+`.
+        "did:web:example.com?service=files",
+        "did:web:example.com?service=files#key-1",
+        // Empty fragment / empty identifier.
+        "did:web:example.com#",
+        "did:web:#key-1",
+        // Missing or malformed scheme, method or method-specific identifier.
+        "#key-1",
+        "did:web#key-1",
+        "did::abc#k",
+        "did:WEB:example.com#key-1",
+        "did:web-vh:example.com#key-1",
+        "not-a-did",
+        "",
+        "did:",
+        "ak:device:0198c4d2-af00-7000-8000-aabbccddeeff",
+        "example.com#key-1",
+        // Whitespace anywhere.
+        "did:web:exa mple.com#key-1",
+        "did:web:example.com#key 1",
+        // A second `#` lands in the fragment and fails the fragment charset.
+        "did:web:example.com#a#b",
+        // Fragment charset is `[A-Za-z0-9._:-]`, stricter than the `[^\s]+` /
+        // `[^\s#]+` spelled by some sibling schemas (registered spec gap).
+        "did:web:example.com#key/1",
+        "did:web:example.com#key%201",
+    ];
+
+    #[test]
+    fn did_url_accepts_every_spec_conformant_sample() {
+        for sample in DID_URL_ACCEPTED {
+            let parsed =
+                DidUrl::new(*sample).unwrap_or_else(|error| panic!("{sample:?} rejected: {error}"));
+            assert_eq!(parsed.as_str(), *sample, "round-trip changed {sample:?}");
+        }
+    }
+
+    #[test]
+    fn did_url_rejects_every_non_conformant_sample() {
+        for sample in DID_URL_REJECTED {
+            assert!(
+                DidUrl::new(*sample).is_err(),
+                "{sample:?} must be rejected by DidUrl"
+            );
+        }
+    }
+
+    #[test]
+    fn did_url_rejects_query_markers() {
+        // Regression guard: the identifier segment used to accept `?`, so a
+        // query-bearing DID URL slipped through even though the spec pattern
+        // `[^\s#?]+` forbids it.
+        assert!(DidUrl::new("did:web:example.com?service=files#key-1").is_err());
+        assert!(DidUrl::new("did:webvh:z6mkfixture:alice.example?versionId=1#key-1").is_err());
+    }
+
+    #[test]
+    fn did_url_rejects_repeated_fragment_markers() {
+        // Proves the removed `identifier.contains('#')` branch was dead: the
+        // fragment charset check is what rejects a second `#`.
+        assert!(DidUrl::new("did:web:example.com#a#b").is_err());
+        assert!(DidUrl::new("did:web:example.com#a#").is_err());
+    }
+
+    #[test]
+    fn did_url_keeps_accepting_path_segments() {
+        // D2: the spec identifier class allows `/`; do not tighten this without
+        // tightening `common-ids.schema.json#/$defs/did_url` first.
+        assert!(DidUrl::new("did:webvh:example.test/tenant1#k1").is_ok());
+        assert!(DidUrl::new("did:web:example.test/a/b/c#key-1").is_ok());
+    }
+
+    #[test]
+    fn did_url_serde_round_trips_accepted_samples() {
+        for sample in DID_URL_ACCEPTED {
+            let encoded = format!("\"{sample}\"");
+            let decoded = serde_json::from_str::<DidUrl>(&encoded)
+                .unwrap_or_else(|error| panic!("{sample:?} failed to deserialize: {error}"));
+            assert_eq!(decoded.as_str(), *sample);
+            assert_eq!(
+                serde_json::to_string(&decoded).unwrap(),
+                encoded,
+                "serialization changed {sample:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn did_url_serde_rejects_non_conformant_samples() {
+        for sample in DID_URL_REJECTED {
+            let encoded = format!("\"{sample}\"");
+            assert!(
+                serde_json::from_str::<DidUrl>(&encoded).is_err(),
+                "{sample:?} must fail to deserialize"
+            );
+        }
+    }
+
+    #[test]
+    fn did_and_did_url_value_domains_are_disjoint() {
+        use arkret_identifiers::Did;
+
+        // Every accepted DID URL carries a fragment, so it is never a bare DID.
+        for sample in DID_URL_ACCEPTED {
+            assert!(
+                DidUrl::new(*sample).is_ok(),
+                "{sample:?} must be a valid DidUrl"
+            );
+            assert!(
+                Did::new(*sample).is_err(),
+                "{sample:?} must not be a valid Did"
+            );
+        }
+
+        // Every bare DID is rejected by `DidUrl` for lack of a fragment.
+        const BARE_DIDS: &[&str] = &[
+            "did:web:x",
+            "did:webvh:z6mkfixture:alice.example",
+            "did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
+            "did:webvh:example.test:orgs:org1",
+            "did:webvh:example.test/tenant1",
+        ];
+        for sample in BARE_DIDS {
+            assert!(Did::new(*sample).is_ok(), "{sample:?} must be a valid Did");
+            assert!(
+                DidUrl::new(*sample).is_err(),
+                "{sample:?} must not be a valid DidUrl"
+            );
+        }
+
+        // The two headline cases, spelled out.
+        assert!(Did::new("did:web:x#key-1").is_err());
+        assert!(DidUrl::new("did:web:x#key-1").is_ok());
+        assert!(Did::new("did:web:x").is_ok());
+        assert!(DidUrl::new("did:web:x").is_err());
+    }
+
+    #[test]
+    fn did_url_compares_against_string_types_in_both_directions() {
+        let did_url = DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1").unwrap();
+        let owned = String::from("did:webvh:z6mkfixture:alice.example#device-1");
+        let other = "did:webvh:z6mkfixture:alice.example#device-2";
+
+        // DidUrl on the left.
+        assert!(did_url == *"did:webvh:z6mkfixture:alice.example#device-1");
+        assert!(did_url == "did:webvh:z6mkfixture:alice.example#device-1");
+        assert!(did_url == owned);
+        assert!(did_url != *other);
+        assert!(did_url != other);
+        assert!(did_url != String::from(other));
+
+        // DidUrl on the right.
+        assert!(*"did:webvh:z6mkfixture:alice.example#device-1" == did_url);
+        assert!("did:webvh:z6mkfixture:alice.example#device-1" == did_url);
+        assert!(owned == did_url);
+        assert!(*other != did_url);
+        assert!(other != did_url);
+        assert!(String::from(other) != did_url);
     }
 }

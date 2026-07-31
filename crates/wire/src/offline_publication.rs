@@ -673,7 +673,8 @@ mod tests {
         lease.proofs = vec![PayloadProof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:authority.example#key-1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:authority.example#key-1")
+                .unwrap(),
             payload_digest: digest,
             created_at: lease.issued_at,
             domain: None,
@@ -698,7 +699,8 @@ mod tests {
         receipt.proofs = vec![PayloadProof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:ingress.example#key-1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:ingress.example#key-1")
+                .unwrap(),
             payload_digest: digest,
             created_at: received_at,
             domain: None,
@@ -803,7 +805,7 @@ mod tests {
 
         let mut wrong_issuer = lease_with(RiskTier::Low, instant(12));
         wrong_issuer.proofs[0].verification_method =
-            "did:webvh:z6mkfixture:attacker.example#key-1".to_owned();
+            DidUrl::new("did:webvh:z6mkfixture:attacker.example#key-1").unwrap();
         assert!(wrong_issuer.validate_structural().is_err());
     }
 

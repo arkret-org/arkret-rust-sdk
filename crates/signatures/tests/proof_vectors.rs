@@ -5,6 +5,7 @@
 //! bytes, payload hashes, and Ed25519 signatures below. Drift here is a
 //! breaking protocol change.
 
+use arkret_wire::DidUrl;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -241,7 +242,7 @@ fn dev_proof_vectors_are_rejected_by_production_verifier() {
         let proof = build_proof_envelope(
             v.kind.clone(),
             v.algorithm.clone(),
-            "did:web:test.example#key-1",
+            DidUrl::new("did:web:test.example#key-1").unwrap(),
             dummy_hash.clone(),
             None,
             None,

@@ -1133,6 +1133,8 @@ pub struct MimiProxyDownloadOutcome {
 
 #[cfg(test)]
 mod mimi_consent_tests {
+    use arkret_wire::DidUrl;
+
     use arkret_wire::{Audience, proof_kind};
     use chrono::TimeZone;
     use serde_json::json;
@@ -1154,8 +1156,10 @@ mod mimi_consent_tests {
             signature: PayloadProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 alg: "EdDSA".to_owned(),
-                verification_method: "did:webvh:z6mkfixture:example.com:users:alice#device-1"
-                    .to_owned(),
+                verification_method: DidUrl::new(
+                    "did:webvh:z6mkfixture:example.com:users:alice#device-1",
+                )
+                .unwrap(),
                 payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at,
                 domain: Some("ak:trust_domain:example.com".to_owned()),

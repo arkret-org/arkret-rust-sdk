@@ -14,10 +14,55 @@ pub trait DidResolver {
 #[serde(deny_unknown_fields)]
 pub struct ResolvedVerificationMethodKey {
     pub did: Did,
+    /// Registered exemption from the `DidUrl` migration
+    /// (`did-usage-and-verification.md` §2.2 / §6): this field stays a `String`.
+    ///
+    /// It carries the DID Document's `verificationMethod[].id` **verbatim**, and
+    /// DID Core 1.0 §3.1 explicitly allows that id to be a *relative* DID URL
+    /// (`#key-1`). [`DidUrl::new`] begins with `strip_prefix("did:")`, so typing
+    /// this field as `DidUrl` would make every did:web / did:webvh document that
+    /// publishes relative references hard-fail inside the resolver instead of
+    /// being judged at the policy layer.
+    ///
+    /// The exemption covers **only** values carried verbatim out of a DID
+    /// Document. Before this value is compared against anything on the wire — a
+    /// `Proof.verification_method`, an `auth_data.verification_method`, a
+    /// `binding_proof.verification_method` — it MUST be absolutized into a
+    /// `DidUrl` via [`ResolvedVerificationMethodKey::absolutize`], which is the
+    /// single exit from this exemption.
     pub verification_method: String,
     pub public_key: arkret_signatures::PublicKeyMaterial,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub controller: Option<Did>,
+}
+
+impl ResolvedVerificationMethodKey {
+    /// Absolutize the DID Document reference into a wire-comparable [`DidUrl`].
+    ///
+    /// This is the only sanctioned way to move [`Self::verification_method`] out
+    /// of the exemption described on that field. A relative reference
+    /// (`#key-1`) is resolved against `did`; an already-absolute reference is
+    /// validated as-is and MUST belong to `did`.
+    pub fn absolutize(&self, did: &Did) -> Result<DidUrl> {
+        let reference = self.verification_method.trim();
+        if reference.is_empty() {
+            return Err(Error::Protocol(
+                "verification method reference must not be empty".to_owned(),
+            ));
+        }
+        if let Some(fragment) = reference.strip_prefix('#') {
+            return DidUrl::new(format!("{}#{fragment}", did.as_str()))
+                .map_err(|reason| Error::Protocol(reason.to_owned()));
+        }
+        let absolute =
+            DidUrl::new(reference).map_err(|reason| Error::Protocol(reason.to_owned()))?;
+        if verification_method_did(absolute.as_str())? != *did {
+            return Err(Error::Protocol(format!(
+                "verification method '{absolute}' is not controlled by {did}"
+            )));
+        }
+        Ok(absolute)
+    }
 }
 
 /// Extract the controller DID portion from a DID URL verification method.
@@ -86,7 +131,7 @@ where
 {
     fn resolve_verification_method(
         &self,
-        verification_method: &str,
+        verification_method: &DidUrl,
     ) -> arkret_signatures::Result<arkret_signatures::VerificationMethodDocument> {
         let did = verification_method_did(verification_method).map_err(to_signature_error)?;
         let document = self
@@ -96,9 +141,23 @@ where
         let (method_id, public_key_value) =
             lookup_verification_method_value(&document, verification_method)
                 .map_err(to_signature_error)?;
+        // `method_id` is the DID Document's verbatim reference (possibly the
+        // DID Core relative form). The signatures crate compares it against
+        // wire proofs, so it crosses the exemption boundary here and MUST be
+        // absolutized first.
+        let resolved = ResolvedVerificationMethodKey {
+            did: document.id.clone(),
+            verification_method: method_id,
+            public_key: public_key_material_from_did_document_value(&public_key_value)
+                .map_err(to_signature_error)?,
+            controller: None,
+        };
+        let absolute = resolved
+            .absolutize(&document.id)
+            .map_err(to_signature_error)?;
         Ok(arkret_signatures::VerificationMethodDocument {
             did: document.id,
-            verification_method: method_id,
+            verification_method: absolute,
             public_key_multibase: public_key_value,
             controller: None,
         })
@@ -219,6 +278,24 @@ pub fn event_proof_verification_context_with_digest_suite(
     ))
 }
 
+/// Resolve a verification method reference against a DID document's
+/// `verificationMethod` map.
+///
+/// Lookup order, widest-wins:
+///
+/// 1. the full DID URL as published;
+/// 2. the bare fragment (`key-1`);
+/// 3. the `#`-prefixed fragment (`#key-1`);
+/// 4. the `did:key` single-method shortcut.
+///
+/// Steps 2 and 3 both exist because DID Core 1.0 §3.1 allows
+/// `verificationMethod[].id` to be a *relative* DID URL, and
+/// [`DidDocument`] keeps whatever the wire published verbatim — both spellings
+/// occur in practice. Step 3 was previously missing here while
+/// `crate::verifier`'s lookup had it, so a document storing `"#key-1"` verified
+/// a JWS but failed key resolution; downstream repos papered over the gap with
+/// their own retry. The two lookups are now deliberately identical, and
+/// `crate::verifier::lookups_agree_on_every_document_shape` pins that.
 fn lookup_verification_method_value(
     document: &DidDocument,
     verification_method: &str,
@@ -226,10 +303,14 @@ fn lookup_verification_method_value(
     if let Some(value) = document.verification_methods.get(verification_method) {
         return Ok((verification_method.to_owned(), value.clone()));
     }
-    if let Some(fragment) = verification_method_fragment(verification_method)
-        && let Some(value) = document.verification_methods.get(fragment)
-    {
-        return Ok((fragment.to_owned(), value.clone()));
+    if let Some(fragment) = verification_method_fragment(verification_method) {
+        if let Some(value) = document.verification_methods.get(fragment) {
+            return Ok((fragment.to_owned(), value.clone()));
+        }
+        let relative = format!("#{fragment}");
+        if let Some(value) = document.verification_methods.get(&relative) {
+            return Ok((relative, value.clone()));
+        }
     }
     if document.id.method() == "key"
         && document.verification_methods.len() == 1

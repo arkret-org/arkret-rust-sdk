@@ -326,6 +326,8 @@ fn derive_signal_key(history_secret: &[u8], key_len: usize) -> Result<Zeroizing<
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DidUrl;
+
     use arkret_wire::{
         DeviceId, Did, RealmId, ScopeRef, SealId, SignalClass, SignalKeyRef, SignalProof,
         proof_kind,
@@ -717,7 +719,8 @@ mod tests {
             encrypted_payload: seal.encrypted_payload,
             proof: SignalProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
-                verification_method: "did:webvh:z6mkfixture:alice.example#device-key".to_owned(),
+                verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-key")
+                    .unwrap(),
                 alg: "EdDSA".to_owned(),
                 envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at: binding.sent_at,

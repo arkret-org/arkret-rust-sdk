@@ -17,9 +17,9 @@ use crate::recovery_authority::{
     RecoveryCompletionAttestation, RecoveryModelGenerationRef,
 };
 use crate::{
-    BackupId, BackupSeriesId, DeviceId, Did, EventId, EventInitialSubmission, EventSubmitContext,
-    EventsSubmitBatchRequestBody, Hash, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId,
-    TransactionId,
+    BackupId, BackupSeriesId, DeviceId, Did, DidUrl, EventId, EventInitialSubmission,
+    EventSubmitContext, EventsSubmitBatchRequestBody, Hash, ReceiptId, RecoveryAuthorityTicketId,
+    RecoverySessionId, TransactionId,
 };
 
 pub const MAX_SECURITY_TRANSACTION_TTL: Duration = Duration::hours(24);
@@ -873,7 +873,7 @@ impl SecurityTransactionCreateRequest {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClientStepAttestationAuthData {
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub alg: String,
     pub signature: String,
     pub signed_fields: Vec<String>,
@@ -2132,7 +2132,8 @@ mod tests {
                 attestation_digest,
                 artifact,
                 auth_data: ClientStepAttestationAuthData {
-                    verification_method: "did:webvh:z6mkfixture:alice.example#device".to_owned(),
+                    verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device")
+                        .unwrap(),
                     alg: "EdDSA".to_owned(),
                     signature: "c2ln".to_owned(),
                     signed_fields: CLIENT_STEP_ATTESTATION_SIGNED_FIELDS

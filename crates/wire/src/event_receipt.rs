@@ -199,25 +199,13 @@ impl EventBatchReceipt {
     }
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/event_proof`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EventProof {
-    pub kind: String,
-    pub verification_method: Did,
-    pub alg: String,
-    pub event_digest: Hash,
-    #[serde(
-        serialize_with = "crate::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp"
-    )]
-    pub created_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub domain: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience: Option<EventProofAudience>,
-    pub jws: String,
-}
+// `event-envelope.schema.json#/$defs/event_proof` is modelled by
+// [`crate::primitives::Proof`]. A second, incompatible `EventProof` struct used
+// to live here with `verification_method: Did`, which rejected every legal wire
+// value (the schema pattern requires a `#fragment`). It had zero constructors
+// and zero readers across all repositories, so it was removed rather than
+// migrated; `EventProofAudience` below is still used by
+// `arkret_models_integration::artifacts_applet`.
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -229,6 +217,7 @@ pub enum EventProofAudience {
 #[cfg(test)]
 mod event_batch_receipt_tests {
     use super::*;
+    use crate::DidUrl;
 
     fn hash(byte: u8) -> Hash {
         Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
@@ -287,7 +276,7 @@ mod event_batch_receipt_tests {
             proofs: vec![Proof {
                 kind: "DataIntegrityProof".to_owned(),
                 alg: "EdDSA".to_owned(),
-                verification_method: "did:web:service.example#key-1".to_owned(),
+                verification_method: DidUrl::new("did:web:service.example#key-1").unwrap(),
                 event_digest: hash(0xdd),
                 created_at: Utc::now(),
                 domain: None,

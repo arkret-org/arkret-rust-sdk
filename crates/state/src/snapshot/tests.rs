@@ -1,3 +1,4 @@
+use arkret_wire::DidUrl;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
@@ -74,7 +75,7 @@ fn manifest_for_items(
             witness_attestations: Vec::new(),
         },
         signature: DetachedJwsProof::eddsa(
-            "did:webvh:z6mkfixture:generator.example#snapshot".to_owned(),
+            DidUrl::new("did:webvh:z6mkfixture:generator.example#snapshot").unwrap(),
             hash(2),
             created_at,
             "header..signature".to_owned(),
@@ -331,8 +332,9 @@ fn merkle_verify_rejects_mismatched_leaf_count() {
 
 fn move_sig(payload_digest: Hash) -> PayloadSignature {
     PayloadSignature {
+        extra: Default::default(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:webvh:z6mkfixture:generator.example#k1".to_owned(),
+        verification_method: DidUrl::new("did:webvh:z6mkfixture:generator.example#k1").unwrap(),
         payload_digest,
         created_at: Utc::now(),
         jws: "AAAA.BBBB.CCCC".to_owned(),

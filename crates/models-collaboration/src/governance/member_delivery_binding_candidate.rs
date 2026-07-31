@@ -235,6 +235,8 @@ impl MemberDeliveryBindingCandidate {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DidUrl;
+
     use std::collections::BTreeSet;
 
     use serde_json::json;
@@ -279,7 +281,8 @@ mod tests {
             proofs: vec![Proof {
                 kind: "detached_jws".to_owned(),
                 alg: "EdDSA".to_owned(),
-                verification_method: "did:webvh:z6mkfixture:principal.example#key-1".to_owned(),
+                verification_method: DidUrl::new("did:webvh:z6mkfixture:principal.example#key-1")
+                    .unwrap(),
                 event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
                 created_at: "2026-05-19T00:00:00.000Z".parse().unwrap(),
                 domain: None,

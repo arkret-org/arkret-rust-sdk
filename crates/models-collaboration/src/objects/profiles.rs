@@ -8,8 +8,8 @@ use arkret_canonical::binding_contexts;
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::constants::MORPH_SCHEMA;
 use arkret_wire::{
-    CircleId, DeviceId, Did, Error, Hash, MorphId, ObjectStage, ObjectState, PolicyId, RealmId,
-    Result, StrandId, TypedTrustDomainId, canonical,
+    CircleId, DeviceId, Did, DidUrl, Error, Hash, MorphId, ObjectStage, ObjectState, PolicyId,
+    RealmId, Result, StrandId, TypedTrustDomainId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -401,7 +401,7 @@ fn identity_link_default_status() -> IdentityLinkStatus {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IdentityLinkProof {
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub signature_algorithm: String,
     pub payload_digest: Hash,
     pub signature: String,
