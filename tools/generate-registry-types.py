@@ -330,10 +330,58 @@ def generate_error_codes(artifacts: Path) -> str:
     artifact, digest = load(artifacts / relative)
     rows = sorted(artifact["codes"], key=lambda row: row["code"])
     ensure_unique(rows, "code")
+    contexts = sorted(
+        {
+            context
+            for row in rows
+            for context in row.get("http_status_by_context", {})
+        }
+    )
     lines = header([(relative, artifact, digest)], f"error_codes={len(rows)}")
     lines.extend(
         [
             "use serde::{Deserialize, Serialize};",
+            "",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]",
+            '#[serde(rename_all = "snake_case")]',
+            "pub enum ErrorStatusContext {",
+        ]
+    )
+    for context in contexts:
+        lines.append(f"    {variant(context)},")
+    lines.extend(
+        [
+            "}",
+            "",
+            "impl ErrorStatusContext {",
+            "    pub const ALL: &'static [Self] = &[",
+        ]
+    )
+    for context in contexts:
+        lines.append(f"        Self::{variant(context)},")
+    lines.extend(
+        [
+            "    ];",
+            "",
+            "    pub const fn as_str(self) -> &'static str {",
+            "        match self {",
+        ]
+    )
+    for context in contexts:
+        lines.append(
+            f"            Self::{variant(context)} => {rust_string(context)},"
+        )
+    lines.extend(
+        [
+            "        }",
+            "    }",
+            "}",
+            "",
+            "impl std::fmt::Display for ErrorStatusContext {",
+            "    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {",
+            "        f.write_str(self.as_str())",
+            "    }",
+            "}",
             "",
             "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]",
             '#[serde(rename_all = "snake_case")]',
@@ -351,6 +399,7 @@ def generate_error_codes(artifacts: Path) -> str:
             "pub struct ErrorCodeDescriptor {",
             "    pub code: ErrorCode,",
             "    pub http_status: u16,",
+            "    pub http_status_by_context: &'static [(ErrorStatusContext, u16)],",
             "    pub scope: &'static str,",
             "    pub applies_to: &'static [&'static str],",
             "    pub description: &'static str,",
@@ -412,6 +461,15 @@ def generate_error_codes(artifacts: Path) -> str:
             "    pub fn http_status(self) -> u16 {",
             "        self.descriptor().http_status",
             "    }",
+            "",
+            "    pub fn http_status_in(self, context: ErrorStatusContext) -> u16 {",
+            "        let descriptor = self.descriptor();",
+            "        descriptor",
+            "            .http_status_by_context",
+            "            .iter()",
+            "            .find(|(entry, _)| *entry == context)",
+            "            .map_or(descriptor.http_status, |(_, status)| *status)",
+            "    }",
             "}",
             "",
             "impl std::fmt::Display for ErrorCode {",
@@ -424,11 +482,20 @@ def generate_error_codes(artifacts: Path) -> str:
         ]
     )
     for row in rows:
+        by_context = "&["
+        by_context += ", ".join(
+            f"(ErrorStatusContext::{variant(context)}, {int(status)})"
+            for context, status in sorted(
+                row.get("http_status_by_context", {}).items()
+            )
+        )
+        by_context += "]"
         lines.extend(
             [
                 "    ErrorCodeDescriptor {",
                 f"        code: ErrorCode::{variant(row['code'])},",
                 f"        http_status: {int(row['http_status'])},",
+                f"        http_status_by_context: {by_context},",
                 f"        scope: {rust_string(row['scope'])},",
                 f"        applies_to: {rust_slice(row.get('applies_to'))},",
                 f"        description: {rust_string(row['description'])},",

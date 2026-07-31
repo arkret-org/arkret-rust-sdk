@@ -15,7 +15,12 @@ use serde_json::Value;
 use crate::internal_prelude::*;
 
 /// Query parameters for `ak.self.account.stream.subscribe`.
+///
+/// The read-your-writes barrier travels in the `X-Arkret-Wait-For` header, not
+/// in this request; the closed shape keeps a stale `wait_for` member from being
+/// accepted and then silently ignored.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SyncRequestBody {
     /// Exclusive stream cursor used to resume account-aggregate delivery.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -671,6 +676,20 @@ mod tests {
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("\"after\":\"token123\""));
         assert!(json.contains("\"catchup\":true"));
+    }
+
+    #[test]
+    fn sync_request_rejects_the_retired_wait_for_member() {
+        let accepted: SyncRequestBody =
+            serde_json::from_value(serde_json::json!({"after": "ak:cursor:abc"})).unwrap();
+        assert_eq!(accepted.after.as_deref(), Some("ak:cursor:abc"));
+
+        let error = serde_json::from_value::<SyncRequestBody>(serde_json::json!({
+            "after": "ak:cursor:abc",
+            "wait_for": {"target": {"event_id": "ak:event:01904100-0000-7000-8000-000000000001"}}
+        }))
+        .expect_err("a body-level wait_for must be rejected, not silently dropped");
+        assert!(error.to_string().contains("wait_for"), "{error}");
     }
 
     #[test]

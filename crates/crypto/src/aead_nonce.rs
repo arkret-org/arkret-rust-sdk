@@ -13,7 +13,6 @@ use std::collections::{BTreeMap, VecDeque};
 use arkret_canonical::canonical::{canonical_json_bytes, sha256_bytes, sha256_digest};
 use arkret_models_crypto::EncryptedEnvelopeAad;
 use arkret_wire::{ExporterLabelId, ReasonCode};
-use hkdf::Hkdf;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -187,22 +186,15 @@ pub fn aead_sender_nonce_context_bytes(context: &AeadNonceContext) -> Result<Vec
     Ok(canonical_json_bytes(context)?)
 }
 
-/// Derive a sender nonce prefix from a fixed secret, for tests and adapters
-/// that have no live MLS group.
+/// Derive the §10.1 sender nonce prefix from an epoch exporter secret.
 ///
-/// **This is not `MLS-Exporter` and its output is not the §10.1 prefix.** The
-/// §10.1 formula is `MLS-Exporter(label = "arkret-aead-sender-nonce-prefix-v1",
-/// context = <canonical context bytes>, length = N_AEAD - 8)`, where the label
-/// and the Context are two *separate* exporter parameters; a live integration
-/// MUST call the group's exporter that way (see
-/// `ArkretMlsGroup::content_aead_nonce` / `signal_nonce_prefix` in
-/// `arkret-mls`). This helper is a single-input HKDF-Expand stand-in that folds
-/// both into one `info` so a test can pin deterministic bytes off a fixed
-/// secret; a caller MUST NOT treat the two as interchangeable, and MUST NOT
-/// copy this `info` construction into an exporter call — passing
-/// `label || 0x00 || context` as the exporter Context while also passing the
-/// label counts the label twice and yields a prefix no conformant peer
-/// reproduces.
+/// This is `MLS-Exporter(label = "arkret-aead-sender-nonce-prefix-v1",
+/// context = <canonical context bytes>, length = N_AEAD - 8)`. The label and
+/// the Context are two separate exporter parameters, so the Context is the
+/// canonical context bytes alone. A live integration reaches the same bytes
+/// through its group's exporter (`ArkretMlsGroup::content_aead_nonce` /
+/// `signal_nonce_prefix` in `arkret-mls`); this entry point takes the epoch
+/// exporter secret directly for receivers, adapters and known-answer tests.
 pub fn derive_aead_sender_nonce_prefix(
     exporter_secret: &[u8],
     context: &AeadNonceContext,
@@ -210,16 +202,12 @@ pub fn derive_aead_sender_nonce_prefix(
 ) -> Result<Vec<u8>> {
     let prefix_len = aead_nonce_prefix_len(nonce_len)?;
     let context_bytes = aead_sender_nonce_context_bytes(context)?;
-    let mut info = Vec::with_capacity(AEAD_NONCE_EXPORTER_LABEL.len() + 1 + context_bytes.len());
-    info.extend_from_slice(AEAD_NONCE_EXPORTER_LABEL.as_bytes());
-    info.push(0x00);
-    info.extend_from_slice(&context_bytes);
-
-    let hkdf = Hkdf::<Sha256>::new(None, exporter_secret);
-    let mut prefix = vec![0u8; prefix_len];
-    hkdf.expand(&info, &mut prefix)
-        .map_err(|_| Error::Crypto("AEAD nonce prefix derivation failed".to_owned()))?;
-    Ok(prefix)
+    crate::mls_exporter::mls_exporter_from_secret(
+        exporter_secret,
+        AEAD_NONCE_EXPORTER_LABEL,
+        &context_bytes,
+        prefix_len,
+    )
 }
 
 /// Compose `nonce = sender_nonce_prefix || device_nonce_counter_be64`.
@@ -350,6 +338,57 @@ mod tests {
         }
     }
 
+    fn registered_sender_nonce_prefix_case() -> Value {
+        let fixture =
+            arkret_schema::embedded_json_artifact("fixtures/arkret-private-kdf-fixture.json")
+                .expect("kdf fixture must be embedded");
+        fixture["cases"]
+            .as_array()
+            .expect("kdf fixture must carry cases")
+            .iter()
+            .find(|case| case["name"].as_str() == Some("aead_sender_nonce_prefix_aes128gcm"))
+            .expect("kdf fixture must register the sender nonce prefix vector")
+            .clone()
+    }
+
+    #[test]
+    fn sender_nonce_prefix_matches_the_registered_vector() {
+        let case = registered_sender_nonce_prefix_case();
+        let secret = hex::decode(case["input"]["exporter_secret_hex"].as_str().unwrap()).unwrap();
+        let context: AeadNonceContext = serde_json::from_value(case["input"]["context"].clone())
+            .expect("the registered context must decode into the canonical context type");
+        let nonce_len =
+            usize::try_from(case["input"]["nonce_length_bytes"].as_u64().unwrap()).unwrap();
+        assert_eq!(nonce_len, AEAD_NONCE_AES_GCM_LEN);
+        assert_eq!(
+            AEAD_NONCE_EXPORTER_LABEL,
+            case["input"]["exporter_label"].as_str().unwrap()
+        );
+
+        // The exporter Context is the canonical context bytes alone. Pin them
+        // before the derivation so a canonicalization drift cannot hide behind
+        // a prefix that happens to match over different bytes.
+        assert_eq!(
+            String::from_utf8(aead_sender_nonce_context_bytes(&context).unwrap()).unwrap(),
+            case["expected"]["context_canonical_json"].as_str().unwrap()
+        );
+
+        let prefix = derive_aead_sender_nonce_prefix(&secret, &context, nonce_len).unwrap();
+        assert_eq!(
+            hex::encode(&prefix),
+            case["expected"]["sender_nonce_prefix_hex"]
+                .as_str()
+                .unwrap()
+        );
+
+        let counter =
+            u64::from_str_radix(case["input"]["counter_be64_hex"].as_str().unwrap(), 16).unwrap();
+        assert_eq!(
+            hex::encode(compose_aead_nonce(&prefix, counter)),
+            case["expected"]["nonce_hex"].as_str().unwrap()
+        );
+    }
+
     #[test]
     fn sender_nonce_context_and_replay_are_enforced() {
         const EXPORTER_SECRET: [u8; 32] = [0x24u8; 32];
@@ -360,7 +399,6 @@ mod tests {
             AEAD_NONCE_XCHACHA20_POLY1305_LEN,
         )
         .unwrap();
-        assert_eq!(hex::encode(&prefix), "5d62cff5f7a7befee1e39e3dc287cb67");
 
         let nonce = compose_aead_nonce(&prefix, 7);
         let mut tracker = AeadNonceReplayTracker::new();

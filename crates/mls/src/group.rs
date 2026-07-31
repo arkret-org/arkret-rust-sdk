@@ -1549,32 +1549,8 @@ fn derive_content_key(history_secret: &[u8], key_len: usize) -> Result<Zeroizing
 /// the Signal domain ([`crate::signal`]), which derives its per-epoch key from
 /// the same `history_secret` under a different registered label.
 pub(crate) fn mls_kdf_label(length: usize, label: &str, context: &[u8]) -> Result<Vec<u8>> {
-    let length = u16::try_from(length)
-        .map_err(|_| Error::Crypto("MLS KDF output length exceeds uint16".to_owned()))?;
-    let full_label = format!("MLS 1.0 {label}");
-    let mut encoded = Vec::with_capacity(2 + full_label.len() + context.len() + 8);
-    encoded.extend_from_slice(&length.to_be_bytes());
-    encode_mls_varint(full_label.len(), &mut encoded)?;
-    encoded.extend_from_slice(full_label.as_bytes());
-    encode_mls_varint(context.len(), &mut encoded)?;
-    encoded.extend_from_slice(context);
-    Ok(encoded)
-}
-
-fn encode_mls_varint(value: usize, output: &mut Vec<u8>) -> Result<()> {
-    let value = u32::try_from(value)
-        .map_err(|_| Error::Crypto("MLS vector length exceeds uint32".to_owned()))?;
-    match value {
-        0..=63 => output.push(value as u8),
-        64..=16_383 => output.extend_from_slice(&(value as u16 | 0x4000).to_be_bytes()),
-        16_384..=1_073_741_823 => output.extend_from_slice(&(value | 0x8000_0000).to_be_bytes()),
-        _ => {
-            return Err(Error::Crypto(
-                "MLS vector length exceeds varint range".to_owned(),
-            ));
-        }
-    }
-    Ok(())
+    arkret_crypto::mls_exporter::mls_kdf_label(length, label, context)
+        .map_err(|error| Error::Crypto(error.to_string()))
 }
 
 /// Canonical closed header for the exporter-aead content scheme (§2.10.2).

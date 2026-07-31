@@ -1396,7 +1396,7 @@ pub(super) fn registry_entry<'a>(
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{ErrorCode, REASON_CODE_DESCRIPTORS};
+    use arkret_wire::{ErrorCode, ErrorStatusContext, REASON_CODE_DESCRIPTORS};
 
     use super::*;
 
@@ -1482,6 +1482,69 @@ mod tests {
         embedded.sort_unstable();
         generated.sort_unstable();
         assert_eq!(generated, embedded);
+    }
+
+    #[cfg(feature = "embedded-artifacts")]
+    #[test]
+    fn generated_error_code_context_statuses_match_embedded_registry() {
+        let registry = read_embedded_json_artifact("registry/error-code-registry.json")
+            .expect("embedded error-code-registry must load");
+        let entries = registry
+            .get("codes")
+            .and_then(Value::as_array)
+            .expect("embedded error-code-registry missing codes");
+        let mut contexts_seen = 0usize;
+        for entry in entries {
+            let wire = entry
+                .get("code")
+                .and_then(Value::as_str)
+                .expect("registry code entry missing code");
+            let code = ErrorCode::from_wire(wire)
+                .unwrap_or_else(|| panic!("generated table missing error code {wire}"));
+            let expected = entry
+                .get("http_status_by_context")
+                .and_then(Value::as_object);
+            let generated = code.descriptor().http_status_by_context;
+            let Some(expected) = expected else {
+                assert!(
+                    generated.is_empty(),
+                    "{wire} carries context statuses the registry does not declare"
+                );
+                continue;
+            };
+            assert_eq!(
+                generated.len(),
+                expected.len(),
+                "{wire} context status count drifted from the registry"
+            );
+            for (context, status) in generated {
+                let declared = expected
+                    .get(context.as_str())
+                    .and_then(Value::as_u64)
+                    .unwrap_or_else(|| panic!("{wire} registry missing context {context}"));
+                assert_eq!(u64::from(*status), declared, "{wire} context {context}");
+                assert_eq!(
+                    code.http_status_in(*context),
+                    *status,
+                    "{wire} lookup disagrees with its descriptor for {context}"
+                );
+                contexts_seen += 1;
+            }
+            for context in ErrorStatusContext::ALL {
+                if expected.contains_key(context.as_str()) {
+                    continue;
+                }
+                assert_eq!(
+                    code.http_status_in(*context),
+                    code.http_status(),
+                    "{wire} must fall back to its default status for {context}"
+                );
+            }
+        }
+        assert!(
+            contexts_seen > 0,
+            "registry declares no context-specific statuses; generator coverage is untested"
+        );
     }
 
     #[test]

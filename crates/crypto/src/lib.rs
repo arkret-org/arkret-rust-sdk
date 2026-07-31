@@ -20,6 +20,8 @@ pub mod blob_aead;
 pub mod identity_root;
 #[cfg(feature = "key-verification")]
 pub mod key_verification;
+#[cfg(feature = "aead")]
+pub mod mls_exporter;
 #[cfg(feature = "secret-share")]
 pub mod secret_share;
 #[cfg(feature = "sframe")]
@@ -39,6 +41,8 @@ pub use arkret_signatures::{DetachedSignature, DetachedSignatureBinding, Detache
 pub use cross_signing::*;
 pub use device::*;
 pub use errors::*;
+#[cfg(feature = "aead")]
+pub use mls_exporter::*;
 // `sha256_prefixed` is a `pub(crate)` helper used by the test module via
 // `use super::*`; surface it at the crate root so that path resolves.
 #[cfg(test)]
