@@ -717,8 +717,11 @@ mod tests {
             encrypted_payload: seal.encrypted_payload,
             proof: SignalProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
-                verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-key")
-                    .unwrap(),
+                verification_method: DidUrl::new(format!(
+                    "{}#{}",
+                    parts.sender_actor_id, parts.sender_device_id
+                ))
+                .unwrap(),
                 alg: "EdDSA".to_owned(),
                 envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at: binding.sent_at,
