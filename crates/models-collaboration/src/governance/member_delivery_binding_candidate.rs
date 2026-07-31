@@ -19,7 +19,7 @@
 //!
 //! Any object lacking `proofs[]` MUST NOT be named a candidate.
 use arkret_models_identity::handle::{Handle, HandleHintBindingSource};
-use arkret_wire::{Did, EventId, Hash, Proof, canonical};
+use arkret_wire::{Did, EventId, Hash, Proof, SchemaId, canonical};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -142,6 +142,7 @@ pub struct MemberDeliveryBindingCandidate {
 }
 
 impl MemberDeliveryBindingCandidate {
+    pub const SCHEMA: &'static str = SchemaId::MEMBER_DELIVERY_BINDING_CANDIDATE_V1;
     /// Run the §3.7.3 validator. The check order mirrors the spec so that
     /// audit logs emitted on failure stay aligned with the prose.
     pub fn validate(&self, context: &CandidateValidationContext) -> Result<(), CandidateError> {

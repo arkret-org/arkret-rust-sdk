@@ -19,7 +19,7 @@
 use arkret_models_collaboration::governance::grant_constraint::{
     CapabilitySubject, GrantConstraintSubkind,
 };
-use arkret_wire::{AppletId, CAPABILITY_SCHEMA, GrantId, Hash};
+use arkret_wire::{AppletId, GrantId, Hash, SchemaId};
 
 use super::*;
 
@@ -56,10 +56,11 @@ impl GrantProjection {
     pub(crate) fn from_wire(
         grant: &arkret_models_collaboration::governance::grant_constraint::CapabilityGrant,
     ) -> Result<Self> {
-        if grant.schema != CAPABILITY_SCHEMA {
+        if grant.schema != SchemaId::CAPABILITY_V1 {
             return Err(Error::Protocol(format!(
                 "schema_violation: capability grant schema must be '{}', got '{}'",
-                CAPABILITY_SCHEMA, grant.schema
+                SchemaId::CAPABILITY_V1,
+                grant.schema
             )));
         }
         if grant.actions.is_empty() {
@@ -1527,7 +1528,7 @@ mod capability_grant_builder_tests {
     fn base_grant() -> arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
         arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
-            schema: CAPABILITY_SCHEMA.to_owned(),
+            schema: SchemaId::CAPABILITY_V1.to_owned(),
             realm_id: None,
             issuer: alice(),
             subject: CapabilitySubject::Did(bob()),
@@ -1563,7 +1564,7 @@ mod capability_grant_builder_tests {
             artifact["id"],
             "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa"
         );
-        assert_eq!(artifact["schema"], CAPABILITY_SCHEMA);
+        assert_eq!(artifact["schema"], SchemaId::CAPABILITY_V1);
         assert_eq!(artifact["issuer"], "did:webvh:z6mkfixture:alice.example");
         assert_eq!(artifact["subject"], "did:webvh:z6mkfixture:bob.example");
         assert!(artifact.get("issued_at").is_some());

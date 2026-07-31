@@ -6,7 +6,7 @@ use arkret_wire::{
     AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId, Did,
     DidUrl, Error, EventId, Hash, LeaseBasisRef, NonEmptyString, PolicyId,
     RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID, RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RealmId,
-    RecoverySessionId, Result, ScopeRef, SealBasis, TransactionId, TypedTrustDomainId,
+    RecoverySessionId, Result, SchemaId, ScopeRef, SealBasis, TransactionId, TypedTrustDomainId,
     XExtensionMap,
 };
 use chrono::{DateTime, Utc};
@@ -36,6 +36,10 @@ pub struct KeyBackupPlaintext {
     pub items: Vec<PlaintextItem>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
+}
+
+impl KeyBackupPlaintext {
+    pub const SCHEMA: &'static str = SchemaId::KEY_BACKUP_PLAINTEXT_V1;
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json#/$defs/item_kind`.
@@ -99,6 +103,10 @@ pub struct KeyBackupUnlockProof {
     pub auth_data: KeyBackupUnlockProofAuthData,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
+}
+
+impl KeyBackupUnlockProof {
+    pub const SCHEMA: &'static str = SchemaId::KEY_BACKUP_UNLOCK_PROOF_V1;
 }
 
 /// Counterpart for
@@ -219,6 +227,10 @@ pub enum KeysOperations {
     KeysBackupsDeleteOutcome(KeysBackupsDeleteOutcome),
     BackupSeriesEraseRequestBody(BackupSeriesEraseRequestBody),
     BackupSeriesEraseOutcome(BackupSeriesEraseOutcome),
+}
+
+impl KeysOperations {
+    pub const SCHEMA: &'static str = SchemaId::KEYS_OPERATIONS_V1;
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/algorithm_counts`.

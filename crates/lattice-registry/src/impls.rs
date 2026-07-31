@@ -1,4 +1,5 @@
 use arkret_state::lattice::LatticeKind as SdkLatticeKind;
+use arkret_wire::SchemaId;
 use serde_json::Value;
 
 use super::types::*;
@@ -241,6 +242,11 @@ impl LatticeKind for AgentKey {
 }
 
 pub struct KeyBackupActiveSeries;
+
+impl KeyBackupActiveSeries {
+    pub const SCHEMA: &'static str = SchemaId::KEY_BACKUP_ACTIVE_SERIES_V1;
+}
+
 impl LatticeKind for KeyBackupActiveSeries {
     fn cell_family(&self) -> &'static str {
         "ak.component.key_backup.active_series.v1"
@@ -1142,6 +1148,11 @@ per_subject_lattice!(
 );
 
 pub struct AgentSelectorClaim;
+
+impl AgentSelectorClaim {
+    pub const SCHEMA: &'static str = SchemaId::AGENT_SELECTOR_CLAIM_V1;
+}
+
 impl LatticeKind for AgentSelectorClaim {
     fn cell_family(&self) -> &'static str {
         "ak.component.agent.selector_claim.v1"

@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 use arkret_canonical::base64url::base64url_decode;
 use arkret_canonical::canonical::canonical_json_bytes;
+use arkret_models_collaboration::events_payloads::call::ParticipantBinding;
 use arkret_models_collaboration::objects::media::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
 };
@@ -11,7 +12,6 @@ use arkret_models_collaboration::objects::media::{
 /// signing input (`media-service-binding.md` §3). Equals the v1 binding
 /// `scheme` byte-for-byte; a single `0x00` separates it from the canonical
 /// JSON of the seven authoritative fields.
-pub use arkret_wire::PARTICIPANT_BINDING_SCHEMA as PARTICIPANT_BINDING_LABEL;
 use arkret_wire::{CallId, DeviceId, Did, RealmId};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, VerifyingKey};
@@ -231,7 +231,7 @@ pub fn participant_binding_signing_input(binding: &CallMediaParticipantBinding) 
         realm_id: &binding.realm_id,
     };
     let mut input = Vec::new();
-    input.extend_from_slice(PARTICIPANT_BINDING_LABEL.as_bytes());
+    input.extend_from_slice(ParticipantBinding::SCHEMA.as_bytes());
     input.push(0x00);
     input.extend_from_slice(&canonical_json_bytes(&fields)?);
     Ok(input)
@@ -317,7 +317,7 @@ pub fn verify_call_media_token_outcome(
         ));
     }
 
-    if binding.scheme != arkret_wire::PARTICIPANT_BINDING_SCHEMA {
+    if binding.scheme != ParticipantBinding::SCHEMA {
         return Err(Error::Protocol(format!(
             "participant_binding_invalid: unexpected scheme {:?}",
             binding.scheme
@@ -441,7 +441,7 @@ mod tests {
             backend_token: "opaque-backend-token".to_owned(),
             participant_identity: identity.clone(),
             participant_binding: CallMediaParticipantBinding {
-                scheme: arkret_wire::PARTICIPANT_BINDING_SCHEMA.to_owned(),
+                scheme: ParticipantBinding::SCHEMA.to_owned(),
                 sig: String::new(),
                 issuer_kid: arkret_wire::DidUrl::new(ISSUER_KID).unwrap(),
                 realm_id: request.realm_id.clone(),

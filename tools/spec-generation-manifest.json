@@ -72,6 +72,28 @@
     {
       "generator": "registry-types",
       "outputs": [
+        "crates/wire/src/generated/schema_ids.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "registry/schema-registry.json"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
+        "crates/wire/src/generated/account_data_keys.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "registry/account-data-key-registry.json"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
         "crates/wire/src/generated/service_kinds.rs"
       ],
       "owner": "arkret-wire",

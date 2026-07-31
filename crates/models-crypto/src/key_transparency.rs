@@ -4,8 +4,7 @@
 
 use std::collections::BTreeSet;
 
-use arkret_wire::DidUrl;
-pub use arkret_wire::KEY_TRANSPARENCY_SCHEMA;
+use arkret_wire::{DidUrl, SchemaId};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -68,7 +67,7 @@ pub enum KeyTransparencyError {
 
 impl KeyTransparencyEvidence {
     pub fn validate_structure(&self) -> Result<(), KeyTransparencyError> {
-        if self.schema != KEY_TRANSPARENCY_SCHEMA {
+        if self.schema != SchemaId::KEY_TRANSPARENCY_V1 {
             return Err(KeyTransparencyError::SchemaMismatch);
         }
         if self.inclusion_proof.leaf_count != self.log_head.leaf_count

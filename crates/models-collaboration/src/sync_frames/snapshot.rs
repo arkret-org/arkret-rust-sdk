@@ -1,5 +1,7 @@
 //! Sync, realm, and snapshot schema artifact counterparts.
 
+use arkret_wire::SchemaId;
+
 use crate::internal_prelude::*;
 
 /// Counterpart for
@@ -72,6 +74,10 @@ pub struct RangeCompletenessAttestation {
     pub observed_at: DateTime<Utc>,
     pub witness_attestation: RangeCompletenessAttestationWitnessAttestation,
     pub proofs: Vec<Proof>,
+}
+
+impl RangeCompletenessAttestation {
+    pub const SCHEMA: &'static str = SchemaId::RANGE_COMPLETENESS_ATTESTATION_V1;
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/realm.schema.json#/$defs/cell_lattice`.
@@ -185,6 +191,10 @@ pub struct Snapshot {
     pub created_at: DateTime<Utc>,
     pub authority_binding: SnapshotAuthorityBinding,
     pub signature: PayloadProof,
+}
+
+impl Snapshot {
+    pub const SCHEMA: &'static str = SchemaId::SNAPSHOT_V1;
 }
 
 /// Snapshot acceleration hint returned by event range queries and federation

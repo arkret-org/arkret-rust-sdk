@@ -296,6 +296,7 @@ impl<'de> Deserialize<'de> for DeviceReanchorPayload {
 }
 
 impl DeviceReanchorPayload {
+    pub const SCHEMA: &'static str = SchemaId::DEVICE_REANCHOR_V1;
     pub fn validate(&self) -> std::result::Result<(), &'static str> {
         parse_did_webvh_version_id(self.did_version_id.as_str())?;
         parse_did_webvh_version_id(self.previous_device_generation.as_str())?;
@@ -383,6 +384,7 @@ fn parse_did_webvh_version_id(value: &str) -> std::result::Result<u64, &'static 
 }
 
 use arkret_models_identity::artifacts_device_identity::DeviceEnrollmentAuthorityBinding;
+use arkret_wire::SchemaId;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/device_cross_signing_binding`.

@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    CircleId, Did, DidUrl, EventId, EventProofAudience, Hash, NonEmptyString, RealmId,
+    CircleId, Did, DidUrl, EventId, EventProofAudience, Hash, NonEmptyString, RealmId, SchemaId,
     WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
@@ -327,6 +327,10 @@ pub struct Applet {
     pub manifest: Option<BTreeMap<String, Value>>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
+}
+
+impl Applet {
+    pub const SCHEMA: &'static str = SchemaId::APPLET_V1;
 }
 
 /// Counterpart for

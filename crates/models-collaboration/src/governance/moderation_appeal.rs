@@ -1,6 +1,6 @@
 //! Moderation appeal event payloads.
 
-use arkret_wire::{Did, Error, EventId, EventKind, RealmId, Result, TypedAppealId};
+use arkret_wire::{Did, Error, EventId, EventKind, RealmId, Result, SchemaId, TypedAppealId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 /// Verdict on a moderation appeal (decision payload).
@@ -96,6 +96,7 @@ pub enum ModerationAppealPayload {
 }
 
 impl ModerationAppealPayload {
+    pub const SCHEMA: &'static str = SchemaId::MODERATION_APPEAL_V1;
     /// Companion event kind this payload variant is submitted on.
     pub fn event_kind(&self) -> &'static str {
         match self {

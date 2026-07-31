@@ -794,6 +794,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+    use crate::SchemaId;
 
     fn hash(byte: char) -> Hash {
         Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
@@ -807,7 +808,7 @@ mod tests {
             .unwrap(),
         };
         let authority_set_policy = AuthoritySetPolicy {
-            schema: crate::AUTHORITY_SET_POLICY_SCHEMA.to_owned(),
+            schema: SchemaId::AUTHORITY_SET_POLICY_V1.to_owned(),
             authority_set_id: RECOVERY_ACCOUNT_AUTHORITY_SET_ID.to_owned(),
             policy_kind: crate::AuthoritySetPolicyKind::PrincipalControl,
             scope_ref: scope_ref.clone(),

@@ -417,14 +417,12 @@ where
 mod tests {
     use std::collections::{BTreeMap, BTreeSet};
 
-    use arkret_models_crypto::mls_payloads::{
-        MLS_GOVERNANCE_BINDING_FULL_PROFILE, MlsGovernanceBindingPayload,
-    };
+    use arkret_models_crypto::mls_payloads::MlsGovernanceBindingPayload;
     use arkret_wire::error_codes::{ErrorCode, ReasonCode};
     use arkret_wire::event_envelope::{Event, ScopeRef};
     use arkret_wire::{
         CellRef, Did, DidUrl, Error, EventId, EventRequirements, Hash, Hlc, NotarySig,
-        PayloadSignature, Proof, RealmId, Seal, SealBasis, SealId, SealKind, canonical,
+        PayloadSignature, ProfileId, Proof, RealmId, Seal, SealBasis, SealId, SealKind, canonical,
     };
     use chrono::{TimeZone, Utc};
     use serde_json::json;
@@ -629,7 +627,7 @@ mod tests {
             policy_root,
             capability_root,
             discussion_metadata_digest,
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             "ak.reducer.v1",
         )
         .unwrap();
@@ -691,7 +689,7 @@ mod tests {
             mls_group_id: "YXJrcmV0LW1scy1maXh0dXJl".to_owned(),
             previous_epoch: 0,
             next_epoch: 1,
-            binding_profile: MLS_GOVERNANCE_BINDING_FULL_PROFILE.to_owned(),
+            binding_profile: ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1.to_owned(),
             reducer_profile: fixture.bundle.reducer_profile.clone(),
             trusted_anchor_seal_id: fixture.bundle.trusted_anchor_seal_id.clone(),
             chunk_index: 0,
@@ -865,7 +863,7 @@ mod tests {
             mls_group_id: "YXJrcmV0LW1scy1maXh0dXJl".to_owned(),
             previous_epoch: 3,
             next_epoch: 5,
-            binding_profile: MLS_GOVERNANCE_BINDING_FULL_PROFILE.to_owned(),
+            binding_profile: ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1.to_owned(),
             reducer_profile: "ak.reducer.v1".to_owned(),
             trusted_anchor_seal_id: SealId::new(format!("ak:seal:{}", hash(0).as_str())).unwrap(),
             chunk_index: 0,
@@ -883,7 +881,7 @@ mod tests {
             mls_group_id: "YXJrcmV0LW1scy1maXh0dXJl".to_owned(),
             previous_epoch: 0,
             next_epoch: 0,
-            binding_profile: MLS_GOVERNANCE_BINDING_FULL_PROFILE.to_owned(),
+            binding_profile: ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1.to_owned(),
             reducer_profile: "ak.reducer.v1".to_owned(),
             trusted_anchor_seal_id: SealId::new(format!("ak:seal:{}", hash(0).as_str())).unwrap(),
             chunk_index: 0,
@@ -909,7 +907,7 @@ mod tests {
                 .discussion_metadata_digest()
                 .unwrap()
                 .clone(),
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             "ak.reducer.v1",
         )
         .unwrap();
@@ -1040,7 +1038,7 @@ mod tests {
             fixture.binding.policy_root().clone(),
             fixture.binding.capability_root().unwrap().clone(),
             hash(0xee),
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             "ak.reducer.v1",
         )
         .unwrap();
@@ -1071,7 +1069,7 @@ mod tests {
                 .discussion_metadata_digest()
                 .unwrap()
                 .clone(),
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             "ak.reducer.v1",
         )
         .unwrap();
@@ -1102,7 +1100,7 @@ mod tests {
                 .discussion_metadata_digest()
                 .unwrap()
                 .clone(),
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             "ak.reducer.v1",
         )
         .unwrap();

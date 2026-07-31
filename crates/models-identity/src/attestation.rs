@@ -1,6 +1,6 @@
 //! Structured attestation evidence for audited E2EE and audit agents.
 
-use arkret_wire::{Did, DidUrl, Hash, Proof, RealmId};
+use arkret_wire::{Did, DidUrl, Hash, Proof, RealmId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 /// Attestation chain item format identifier.
@@ -164,4 +164,8 @@ pub struct AuditReleaseAttestation {
     pub created_at: DateTime<Utc>,
 
     pub proofs: Vec<Proof>,
+}
+
+impl AuditReleaseAttestation {
+    pub const SCHEMA: &'static str = SchemaId::AUDIT_RELEASE_ATTESTATION_V1;
 }

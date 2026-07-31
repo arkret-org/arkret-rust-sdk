@@ -2,8 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_wire::constants::SPACE_SCHEMA;
-use arkret_wire::{BlobRef, CircleId, Did, Error, RealmId, Result, SpaceId, SpaceState};
+use arkret_wire::{BlobRef, CircleId, Did, Error, RealmId, Result, SchemaId, SpaceId, SpaceState};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -83,6 +82,7 @@ pub enum ChildScopePolicy {
 }
 
 impl Space {
+    pub const SCHEMA: &'static str = SchemaId::SPACE_V1;
     pub fn new(
         id: SpaceId,
         realm_id: RealmId,
@@ -92,7 +92,7 @@ impl Space {
     ) -> Self {
         Self {
             id,
-            schema: SPACE_SCHEMA.to_owned(),
+            schema: SchemaId::SPACE_V1.to_owned(),
             realm_id,
             default_realm_id: None,
             parent_space_id: None,

@@ -16,7 +16,7 @@ use std::sync::OnceLock;
 /// Re-exported so this module and the wire layer cannot drift apart.
 pub use arkret_wire::NULL_SUBJECT as NULL_CELL_SUBJECT;
 use arkret_wire::{
-    CellRef, Event, EventId, LatticeOp, LatticeOpType, ObservedRemoveMatch, PredicateOp,
+    CellRef, Event, EventId, EventKind, LatticeOp, LatticeOpType, ObservedRemoveMatch, PredicateOp,
     ProjectedCellWrite, ProjectedOp,
 };
 use serde_json::Value;
@@ -183,7 +183,7 @@ pub fn project_registered_cell_writes_with_pre_state(
         // closed to `ak.state.conflict_recovery`; anything else declaring it is
         // a registry error, not a shape to interpret.
         if let Some(cell_ref_rule) = write.get("cell_ref") {
-            if kind != CONFLICT_RECOVERY_KIND {
+            if kind != EventKind::STATE_CONFLICT_RECOVERY {
                 return Err(effect_set_error(
                     &kind,
                     "cell_ref is reserved to ak.state.conflict_recovery",
@@ -414,7 +414,6 @@ fn require_lattice(
 }
 
 /// The only kind whose registered write target is resolved from the payload.
-const CONFLICT_RECOVERY_KIND: &str = "ak.state.conflict_recovery";
 
 /// Canonical dot for the write at `write_index` of this Event.
 fn dot_for(event: &Event, write_index: usize) -> String {

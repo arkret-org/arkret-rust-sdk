@@ -1,13 +1,13 @@
 use arkret_models_identity::ActorProfile;
 use arkret_models_identity::identity_link_cache::compute_policy_frontier_digest;
-use arkret_wire::{ACTOR_PROFILE_SCHEMA, ActorKind, ActorStatus};
+use arkret_wire::{ActorKind, ActorStatus, SchemaId};
 use serde_json::json;
 
 #[test]
 fn actor_profile_rejects_unknown_fields_and_accepts_schema_statuses() {
     let value = json!({
         "id": "ak:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa",
-        "schema": ACTOR_PROFILE_SCHEMA,
+        "schema": SchemaId::ACTOR_PROFILE_V1,
         "principal_id": "did:webvh:z6mkfixture:ghost.example",
         "actor_kind": "integration",
         "display_name": "Ghost",
@@ -26,7 +26,7 @@ fn actor_profile_rejects_unknown_fields_and_accepts_schema_statuses() {
 
     let bad = json!({
         "id": "ak:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa",
-        "schema": ACTOR_PROFILE_SCHEMA,
+        "schema": SchemaId::ACTOR_PROFILE_V1,
         "principal_id": "did:webvh:z6mkfixture:ghost.example",
         "actor_kind": "integration",
         "display_name": "Ghost",

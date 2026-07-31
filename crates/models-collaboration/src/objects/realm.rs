@@ -2,12 +2,11 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::constants::{CORE_SCHEMA_PROFILE, REALM_SCHEMA_ID};
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    BlobRef, ControlProposalDecisionPolicy, Did, DidUrl, Discoverability, EncryptionProfile, Error,
-    FederationPolicy, Hash, HistoryVisibility, JoinRule, PolicyId, RealmId, Result, SecurityClass,
-    StrandId, TypedTrustDomainId, canonical,
+    BlobRef, CORE_SCHEMA_PROFILE, ControlProposalDecisionPolicy, Did, DidUrl, Discoverability,
+    EncryptionProfile, Error, FederationPolicy, Hash, HistoryVisibility, JoinRule, PolicyId,
+    ProfileId, RealmId, Result, SchemaId, SecurityClass, StrandId, TypedTrustDomainId, canonical,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -25,7 +24,6 @@ use crate::objects::relation::RelationProfile;
 /// the Direct Conversation role constants in
 /// [`crate::objects::direct_conversation`]; both Realm roles spell their
 /// profile id exactly once here so no consumer re-types the string.
-pub const PRINCIPAL_CONTROL_REALM_PROFILE: &str = "ak.profile.principal_control_realm.v1";
 pub const PRINCIPAL_CONTROL_PURPOSE_FIELD: &str = "purpose";
 pub const PRINCIPAL_CONTROL_PURPOSE: &str = "principal_control";
 
@@ -48,8 +46,9 @@ pub fn realm_object_is_principal_control(object: &Value) -> bool {
         .get("schema_refs")
         .and_then(Value::as_array)
         .is_some_and(|refs| {
-            refs.iter()
-                .any(|schema_ref| schema_ref.as_str() == Some(PRINCIPAL_CONTROL_REALM_PROFILE))
+            refs.iter().any(|schema_ref| {
+                schema_ref.as_str() == Some(ProfileId::PRINCIPAL_CONTROL_REALM_V1)
+            })
         });
     purpose_marker && profile_marker
 }
@@ -348,6 +347,7 @@ fn default_max_delegation_lifetime_ms() -> u64 {
 }
 
 impl Realm {
+    pub const SCHEMA: &'static str = SchemaId::REALM_V1;
     /// Build a materialized Realm object. The deployment-scope trust domain,
     /// genesis notary value and capability-action registry basis are required
     /// because `ak.realm.create` validates the full Realm object schema and
@@ -371,7 +371,7 @@ impl Realm {
             id,
             // `Realm` is the security-boundary type, so it serializes the
             // Realm schema id, not the container Space id.
-            schema: REALM_SCHEMA_ID.to_owned(),
+            schema: SchemaId::REALM_V1.to_owned(),
             title: title.into(),
             summary: None,
             security_class: None,
@@ -630,7 +630,7 @@ mod tests {
     fn principal_control_role_needs_both_pinned_discriminators() {
         assert!(realm_object_is_principal_control(&serde_json::json!({
             "fields": {"purpose": PRINCIPAL_CONTROL_PURPOSE},
-            "schema_refs": ["ak.schema.realm.v1", PRINCIPAL_CONTROL_REALM_PROFILE]
+            "schema_refs": ["ak.schema.realm.v1", ProfileId::PRINCIPAL_CONTROL_REALM_V1]
         })));
         // Purpose without the profile ref.
         assert!(!realm_object_is_principal_control(&serde_json::json!({
@@ -639,7 +639,7 @@ mod tests {
         })));
         // Profile ref without the purpose discriminator.
         assert!(!realm_object_is_principal_control(&serde_json::json!({
-            "schema_refs": ["ak.schema.realm.v1", PRINCIPAL_CONTROL_REALM_PROFILE]
+            "schema_refs": ["ak.schema.realm.v1", ProfileId::PRINCIPAL_CONTROL_REALM_V1]
         })));
         // A Direct Conversation Realm is the sibling role, never a PCR.
         assert!(!realm_object_is_principal_control(&serde_json::json!({

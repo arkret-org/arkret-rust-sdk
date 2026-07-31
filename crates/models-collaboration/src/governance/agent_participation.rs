@@ -19,7 +19,6 @@ use sha2::{Digest as _, Sha256};
 
 /// Controller-owned account-data type carrying a per-scope participation
 /// selection (AKP-0010 §5.1).
-pub const AGENT_PARTICIPATION_ACCOUNT_DATA_KEY: &str = "ak.agent.participation.v1";
 
 /// Stable grant id for the capability materialized from one Agent
 /// participation selection. Keeping this derivation shared lets the controller

@@ -1,9 +1,7 @@
 use std::collections::HashSet;
 
 use arkret_wire::{
-    DeviceId, Did, EventId, MessageId, NonEmptyString, PROFILE_ATTESTED_AUDIT_E2EE,
-    PROFILE_DISCLOSED_AUDIT_E2EE, PROFILE_E2EE_CLIENT, PROFILE_MLS_MINIMAL_METADATA_REALM, RealmId,
-    StrandId,
+    DeviceId, Did, EventId, MessageId, NonEmptyString, ProfileId, RealmId, SchemaId, StrandId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -235,9 +233,9 @@ impl OpenMentionRoutingHint {
 
 /// Realm profiles that always disable mention-routing sidecars.
 pub const HARDENED_MENTION_ROUTING_PROFILES: &[&str] = &[
-    PROFILE_MLS_MINIMAL_METADATA_REALM,
-    PROFILE_ATTESTED_AUDIT_E2EE,
-    PROFILE_DISCLOSED_AUDIT_E2EE,
+    ProfileId::MLS_MINIMAL_METADATA_REALM_V1,
+    ProfileId::ATTESTED_AUDIT_E2EE_V1,
+    ProfileId::DISCLOSED_AUDIT_E2EE_V1,
 ];
 
 /// Compute the canonical effective mention-routing policy.
@@ -258,7 +256,7 @@ pub fn effective_mention_routing_hint<S: AsRef<str>>(
     if HARDENED_MENTION_ROUTING_PROFILES
         .iter()
         .any(|profile| has_profile(profile))
-        || !has_profile(PROFILE_E2EE_CLIENT)
+        || !has_profile(ProfileId::E2EE_CLIENT_V1)
     {
         return MentionRoutingHint::Disabled;
     }
@@ -847,10 +845,10 @@ mod tests {
         assert_eq!(
             effective_mention_routing_hint(
                 &[
-                    PROFILE_E2EE_CLIENT,
+                    ProfileId::E2EE_CLIENT_V1,
                     "ak.profile.kanban_mvp.v1",
-                    PROFILE_ATTESTED_AUDIT_E2EE,
-                    PROFILE_MLS_MINIMAL_METADATA_REALM,
+                    ProfileId::ATTESTED_AUDIT_E2EE_V1,
+                    ProfileId::MLS_MINIMAL_METADATA_REALM_V1,
                 ],
                 Some("recipient_registered_token")
             ),
@@ -862,17 +860,17 @@ mod tests {
     fn ordinary_e2ee_requires_explicit_known_mention_routing_opt_in() {
         assert_eq!(
             effective_mention_routing_hint(
-                &[PROFILE_E2EE_CLIENT, "ak.profile.kanban_mvp.v1"],
+                &[ProfileId::E2EE_CLIENT_V1, "ak.profile.kanban_mvp.v1"],
                 Some("recipient_registered_token")
             ),
             MentionRoutingHint::RecipientRegisteredToken
         );
         assert_eq!(
-            effective_mention_routing_hint(&[PROFILE_E2EE_CLIENT], None),
+            effective_mention_routing_hint(&[ProfileId::E2EE_CLIENT_V1], None),
             MentionRoutingHint::Disabled
         );
         assert_eq!(
-            effective_mention_routing_hint(&[PROFILE_E2EE_CLIENT], Some("unknown_hint")),
+            effective_mention_routing_hint(&[ProfileId::E2EE_CLIENT_V1], Some("unknown_hint")),
             MentionRoutingHint::Disabled
         );
         assert_eq!(
@@ -1047,6 +1045,10 @@ pub enum PushOperations {
     PushUnregisterDeviceOutcome(PushUnregisterDeviceOutcome),
     PushNotifyRequestBody(PushNotifyRequestBody),
     PushNotifyOutcome(PushNotifyOutcome),
+}
+
+impl PushOperations {
+    pub const SCHEMA: &'static str = SchemaId::PUSH_OPERATIONS_V1;
 }
 
 /// Counterpart for

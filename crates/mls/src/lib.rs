@@ -19,10 +19,10 @@ mod signal;
 pub use arkret_policy::{
     AgentMlsLeafBindingError, AgentMlsSignerClaim, AgentMlsSignerView, AuthorGroupStateView,
     AuthorLeaf, AuthorLeafCredential, MINIMAL_METADATA_MAX_EPOCH_LIFETIME_SECS,
-    MINIMAL_METADATA_REALM_PROFILE, MinimalMetadataAuthorClaim, MinimalMetadataAuthorError,
-    MinimalMetadataAuthorViolation, VerifiedAuthorLeaf, enforce_minimal_metadata_aad,
-    minimal_metadata_epoch_overdue, minimal_metadata_max_epoch_lifetime,
-    verify_minimal_metadata_author, verify_ordinary_agent_mls_binding,
+    MinimalMetadataAuthorClaim, MinimalMetadataAuthorError, MinimalMetadataAuthorViolation,
+    VerifiedAuthorLeaf, enforce_minimal_metadata_aad, minimal_metadata_epoch_overdue,
+    minimal_metadata_max_epoch_lifetime, verify_minimal_metadata_author,
+    verify_ordinary_agent_mls_binding,
 };
 pub use error::MlsError;
 // `Result` stays crate-internal because public signatures resolve it to the
@@ -49,17 +49,17 @@ mod tests {
     use arkret_canonical::base64url_encode;
     use arkret_models_crypto::{
         EncryptedEnvelope, EncryptedEnvelopeAadVisibility, EncryptedEnvelopeKeyAlgorithm,
-        MLS_GOVERNANCE_BINDING_FULL_PROFILE, MLS_GOVERNANCE_BINDING_RELAXED_PROFILE,
         MlsCommitEnvelope, MlsCommitSource, MlsGovernanceBindingPayload,
         MlsGovernanceBindingValidationContext, MlsGroupStateRecord, MlsGroupStateSink,
     };
-    use arkret_wire::{DeviceId, Did, EncryptedPayloadScheme, EventId, Hash, RealmId, SealId};
+    use arkret_wire::{
+        CORE_REDUCER_PROFILE, DeviceId, Did, EncryptedPayloadScheme, EventId, Hash, ProfileId,
+        RealmId, SealId,
+    };
     use chrono::Utc;
 
     use super::*;
     use crate::MlsError as Error;
-
-    const GOVERNANCE_REDUCER_PROFILE: &str = "ak.reducer.v1";
 
     /// Minimal in-crate store test double implementing the two persistence
     /// ports the MLS layer inverts on. The SDK `MemoryCryptoStore` lives in the
@@ -136,8 +136,8 @@ mod tests {
             policy_root,
             governance_hash('c'),
             governance_hash('d'),
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
-            GOVERNANCE_REDUCER_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
+            CORE_REDUCER_PROFILE,
         )
         .unwrap()
     }
@@ -212,8 +212,8 @@ mod tests {
             &current_group_id,
             0,
             0,
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
-            GOVERNANCE_REDUCER_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
+            CORE_REDUCER_PROFILE,
         );
         expected.policy_root = Some(binding.policy_root());
 
@@ -244,8 +244,8 @@ mod tests {
             &group_id,
             0,
             1,
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
-            GOVERNANCE_REDUCER_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
+            CORE_REDUCER_PROFILE,
         );
         expected.policy_root = Some(binding.policy_root());
 
@@ -370,8 +370,8 @@ mod tests {
             &group_id,
             0,
             1,
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
-            GOVERNANCE_REDUCER_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
+            CORE_REDUCER_PROFILE,
         );
 
         let err = group
@@ -396,15 +396,15 @@ mod tests {
             .unwrap();
         let group_id = group.group_id();
         let binding = governance_binding(&group_id, 0, 1, governance_hash('3'))
-            .with_binding_profile(MLS_GOVERNANCE_BINDING_RELAXED_PROFILE)
+            .with_binding_profile(ProfileId::E2EE_RELAXED_V1)
             .unwrap();
         group.update_governance_binding(&binding).unwrap();
         let expected = MlsGovernanceBindingValidationContext::for_commit(
             &group_id,
             0,
             1,
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
-            GOVERNANCE_REDUCER_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
+            CORE_REDUCER_PROFILE,
         );
 
         let err = group
@@ -435,8 +435,8 @@ mod tests {
             &group_id,
             0,
             1,
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
-            GOVERNANCE_REDUCER_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
+            CORE_REDUCER_PROFILE,
         );
         expected.policy_root = Some(&stale_policy_root);
 

@@ -1,5 +1,7 @@
 //! Realm-key request, delivery, durability, and audit event payloads.
 
+use arkret_wire::ProofContextId;
+
 use crate::internal_prelude::*;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_key_scope`.
@@ -237,6 +239,7 @@ impl<'de> Deserialize<'de> for RealmKeySharePayload {
         D: serde::Deserializer<'de>,
     {
         use serde::de::Error as _;
+
         let wire = RealmKeySharePayloadWire::deserialize(deserializer)?;
         // The schema's `oneOf` says exactly one branch and exactly one
         // material; mirroring that here keeps a cross-carried field from being
@@ -298,7 +301,6 @@ impl<'de> Deserialize<'de> for RealmKeySharePayload {
 ///
 /// Registered in `artifacts/registry/proof-context-registry.json`; the
 /// normative transcript is `crypto-media/device-lifecycle.md` §13.0.
-pub const REALM_KEY_SHARE_SENDER_PROOF_CONTEXT: &str = "ak.realm-key-share-sender-proof-v1";
 
 impl RealmKeySharePayload {
     /// Canonical bytes the sender device MUST sign and place in
@@ -327,7 +329,7 @@ impl RealmKeySharePayload {
         covered.remove("sender_device_signature");
         covered.insert(
             "context".to_owned(),
-            Value::String(REALM_KEY_SHARE_SENDER_PROOF_CONTEXT.to_owned()),
+            Value::String(ProofContextId::REALM_KEY_SHARE_SENDER_PROOF_V1.to_owned()),
         );
         Ok(canonical::canonical_json_bytes(&Value::Object(covered))?)
     }
@@ -522,7 +524,7 @@ mod realm_key_share_tests {
         let object = transcript.as_object().unwrap();
         assert_eq!(
             object.get("context").unwrap(),
-            REALM_KEY_SHARE_SENDER_PROOF_CONTEXT
+            ProofContextId::REALM_KEY_SHARE_SENDER_PROOF_V1
         );
         assert!(!object.contains_key("sender_device_signature"));
         for absent in [

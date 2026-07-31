@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use arkret_canonical::canonical;
-use arkret_wire::{Did, DidUrl, ERASURE_RECEIPT_SCHEMA, Error, Hash, PolicyId, RealmId, Result};
+use arkret_wire::{Did, DidUrl, Error, EventKind, Hash, PolicyId, RealmId, Result, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -172,10 +172,12 @@ pub struct ErasureReceipt {
 }
 
 impl ErasureReceipt {
-    pub const EVENT_KIND: &'static str = "ak.audit.erasure_receipt";
+    /// Reducer-input event kind that carries this receipt.
+    pub const EVENT_KIND: &'static str = EventKind::AUDIT_ERASURE_RECEIPT;
+    pub const SCHEMA: &'static str = SchemaId::ERASURE_RECEIPT_V1;
 
     pub fn validate_minimal(&self) -> Result<()> {
-        if self.schema != ERASURE_RECEIPT_SCHEMA {
+        if self.schema != SchemaId::ERASURE_RECEIPT_V1 {
             return Err(Error::Protocol(
                 "erasure receipt schema mismatch".to_owned(),
             ));
@@ -256,7 +258,7 @@ mod erasure_receipt_tests {
     fn receipt(stub: &VerificationStub) -> ErasureReceipt {
         let mut receipt = ErasureReceipt {
             receipt_id: "ak:receipt:01970e58-0004-7000-8000-000000000010".to_owned(),
-            schema: ERASURE_RECEIPT_SCHEMA.to_owned(),
+            schema: SchemaId::ERASURE_RECEIPT_V1.to_owned(),
             issuer: Did::new("did:webvh:z6mkfixture:erasure.example".to_owned()).unwrap(),
             subject: ErasureSubject {
                 kind: ErasureSubjectKind::Event,

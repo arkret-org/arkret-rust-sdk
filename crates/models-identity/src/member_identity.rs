@@ -24,8 +24,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-pub use arkret_wire::MEMBER_IDENTITY_SCHEMA;
-use arkret_wire::{BlobRef, Did, DidUrl, EventId, Hash, RealmId, Result, canonical};
+use arkret_wire::{BlobRef, Did, DidUrl, EventId, Hash, RealmId, Result, SchemaId, canonical};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -58,6 +57,7 @@ pub struct MemberIdentity {
 }
 
 impl MemberIdentity {
+    pub const SCHEMA: &'static str = SchemaId::MEMBER_IDENTITY_V1;
     /// Constructor that fills in the canonical schema discriminator so
     /// callers can't drift from `ak.schema.member_identity.v1`.
     pub fn new(
@@ -69,7 +69,7 @@ impl MemberIdentity {
         proof: MemberIdentityProof,
     ) -> Self {
         Self {
-            schema: MEMBER_IDENTITY_SCHEMA.to_owned(),
+            schema: SchemaId::MEMBER_IDENTITY_V1.to_owned(),
             realm_id,
             actor_id,
             subject_id,

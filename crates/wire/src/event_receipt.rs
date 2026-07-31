@@ -9,10 +9,10 @@ use arkret_identifiers::{Did, EventId, Hash, RealmId, ReceiptId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::canonical;
 use crate::error::{Error, Result};
 use crate::primitives::Proof;
 use crate::wire_strings::NonEmptyString;
+use crate::{SchemaId, canonical};
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-batch-receipt.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -100,6 +100,7 @@ impl EventBatchReceiptEvent {
 }
 
 impl EventBatchReceipt {
+    pub const SCHEMA: &'static str = SchemaId::EVENT_BATCH_RECEIPT_V1;
     /// Sort and deduplicate the receipt's set projection before signing it.
     pub fn canonicalize_events(&mut self) -> Result<()> {
         let mut keyed = self

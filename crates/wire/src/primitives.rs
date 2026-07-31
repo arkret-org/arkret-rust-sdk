@@ -2,6 +2,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use super::*;
+use crate::ProofContextId;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

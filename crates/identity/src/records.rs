@@ -229,7 +229,7 @@ impl DidRegistryReceipt {
     ) -> Result<Self> {
         let created_at = Utc::now();
         let mut receipt = Self {
-            schema: arkret_wire::IDENTITY_RECEIPT_SCHEMA.to_owned(),
+            schema: arkret_wire::SchemaId::IDENTITY_RECEIPT_V1.to_owned(),
             receipt_id,
             did,
             seq,
@@ -315,11 +315,11 @@ impl DidRegistryReceipt {
     /// detached-JWS verification with the registry key resolved via
     /// `resolver`.
     pub fn verify(&self, resolver: &dyn DidResolver) -> Result<()> {
-        if self.schema != arkret_wire::IDENTITY_RECEIPT_SCHEMA {
+        if self.schema != arkret_wire::SchemaId::IDENTITY_RECEIPT_V1 {
             return Err(Error::Protocol(format!(
                 "identity receipt schema '{}' is not {}",
                 self.schema,
-                arkret_wire::IDENTITY_RECEIPT_SCHEMA
+                arkret_wire::SchemaId::IDENTITY_RECEIPT_V1
             )));
         }
         if self.signature.kind != "detached_jws" {

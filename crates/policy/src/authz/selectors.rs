@@ -1,3 +1,5 @@
+use arkret_wire::SchemaId;
+
 use super::*;
 
 const SELECTOR_JSON_MAX_BYTES: usize = 64 * 1024;
@@ -148,6 +150,7 @@ pub enum ResourceSelector {
 }
 
 impl ResourceSelector {
+    pub const SCHEMA: &'static str = SchemaId::RESOURCE_SELECTOR_V1;
     /// Check if this selector matches a target resource.
     pub fn matches(&self, resource: &Resource) -> bool {
         if let Some(realm_id) = self.realm_id()

@@ -10,9 +10,7 @@ use arkret_wire::signal::MAX_SIGNAL_PLAINTEXT_BYTES;
 use arkret_wire::{Error, EventId, MessageId, MessageStreamId, Result, StrandId, canonical};
 use serde::{Deserialize, Serialize};
 
-pub const PROFILE_SIGNAL_MESSAGE_STREAM: &str = "ak.profile.signal_message_stream.v1";
 pub const MESSAGE_STREAM_KIND: &str = "ak.message.stream";
-pub const MESSAGE_STREAM_ACTION_SEND: &str = "ak.message.stream.send";
 pub const MAX_MESSAGE_STREAM_PREVIEW_BYTES: usize = 16 * 1024;
 pub const MAX_MESSAGE_STREAM_FRAMES_PER_SECOND: u32 = 5;
 pub const MAX_MESSAGE_STREAMS_PER_DEVICE: usize = 8;

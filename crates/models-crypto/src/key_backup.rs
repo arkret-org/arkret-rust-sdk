@@ -10,9 +10,10 @@ use arkret_wire::{
     AttestationId, AuthoritySetIssuer, AuthoritySetIssuerRole, AuthorizationLease, BackupId,
     BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupSeriesId, Base64UrlString,
     CbaProofBundle, ControlProposalReceipt, Cursor, DeviceId, Did, DidUrl, Error, Event, EventId,
-    EventInitialSubmission, EventKind, HPKE_SUITES, Hash, LeaseBasisRef, NonEmptyString,
-    PayloadProof, PolicyId, RealmId, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId,
-    Result, TransactionId, TypedTrustDomainId, XExtensionMap,
+    EventInitialSubmission, EventKind, HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash,
+    LeaseBasisRef, NonEmptyString, PayloadProof, PolicyId, RealmId, ReceiptId,
+    RecoveryAuthorityTicketId, RecoverySessionId, Result, SchemaId, ServiceOperationId,
+    TransactionId, TypedTrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -103,10 +104,13 @@ pub struct KeysBackupsList {
 
 /// Signing context of the canonical delete-intent transcript
 /// (`key-management.md` §7.8.1).
+/// Conformance-vector id of the key-backup unlock-proof KAT
+/// (`zh/conformance/conformance-vectors.md`).
+pub const VECTOR_ID_KEY_BACKUP_UNLOCK_PROOF: &str = "ak.vector.key_backup.unlock_proof.v1";
+
 pub const KEY_BACKUP_DELETE_TRANSCRIPT_CONTEXT: &str = "ak.keys.backup_delete.v1";
 
 /// The operation every delete challenge and transcript is bound to.
-pub const KEY_BACKUP_DELETE_OPERATION: &str = "ak.self.keys.backups.resource.delete";
 
 /// High-risk authority proof over the canonical delete-intent transcript
 /// (`high-risk-authority-proof.schema.json`).
@@ -211,7 +215,7 @@ impl KeysBackupsDeleteChallenge {
     pub fn delete_intent_transcript(&self, reason: Option<&str>) -> Value {
         json!({
             "context": KEY_BACKUP_DELETE_TRANSCRIPT_CONTEXT,
-            "operation": KEY_BACKUP_DELETE_OPERATION,
+            "operation": ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_DELETE,
             "request_id": self.request_id.as_str(),
             "principal_id": self.principal_id.as_str(),
             "backup_id": self.backup_id.as_str(),
@@ -301,9 +305,6 @@ pub struct BackupSeriesEraseResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<String>,
 }
-
-pub const BACKUP_SERIES_ERASE_CONFIRMATION_SCHEMA: &str =
-    "ak.schema.backup_series_erase_confirmation.v1";
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -423,7 +424,7 @@ impl BackupSeriesEraseRequestBody {
 
 impl BackupSeriesEraseConfirmation {
     pub fn validate_structural(&self) -> Result<()> {
-        if self.schema != BACKUP_SERIES_ERASE_CONFIRMATION_SCHEMA {
+        if self.schema != SchemaId::BACKUP_SERIES_ERASE_CONFIRMATION_V1 {
             return Err(Error::Protocol(
                 "backup-series erase confirmation schema is invalid".to_owned(),
             ));
@@ -703,6 +704,7 @@ pub struct KeyBackup {
 }
 
 impl KeyBackup {
+    pub const SCHEMA: &'static str = SchemaId::KEY_BACKUP_V1;
     pub fn is_first_did_recovery_backup(&self) -> bool {
         self.backup_kind == BackupKind::DidRecovery && self.series_seq == 0
     }
@@ -832,7 +834,6 @@ pub enum KeyBackupRecipientMethod {
 /// `encryption.hpke_suite` on a `recovery_public_key` envelope denotes this row
 /// (key-backup.schema.json `encryption.hpke_suite`; hpke-suite-registry.json
 /// `role=v1_default_must`).
-pub const DEFAULT_HPKE_SUITE: &str = "ak.hpke_x25519_aead_chacha20poly1305.v1";
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -978,8 +979,11 @@ impl KeyBackupEncryption {
                 }
                 // An explicit hpke_suite (when present) MUST be an active
                 // registry row, and the AEAD MUST equal the selected suite's
-                // aead. Absent selector denotes DEFAULT_HPKE_SUITE.
-                let suite_id = self.hpke_suite.as_deref().unwrap_or(DEFAULT_HPKE_SUITE);
+                // aead. Absent selector denotes HPKE_SUITE_X25519_CHACHA20POLY1305_V1.
+                let suite_id = self
+                    .hpke_suite
+                    .as_deref()
+                    .unwrap_or(HPKE_SUITE_X25519_CHACHA20POLY1305_V1);
                 let suite_aead = active_hpke_suite_aead(suite_id)?.ok_or_else(|| {
                     Error::Protocol(format!(
                         "key backup encryption: hpke_suite `{suite_id}` is not an active \
@@ -1403,6 +1407,7 @@ pub struct RecoveryPolicy {
 }
 
 impl RecoveryPolicy {
+    pub const SCHEMA: &'static str = SchemaId::RECOVERY_POLICY_V1;
     pub fn validate(&self) -> Result<()> {
         if self.schema != "ak.schema.recovery_policy.v1" {
             return Err(Error::Protocol(
@@ -2230,6 +2235,7 @@ pub struct RecoveryReceipt {
 }
 
 impl RecoveryReceipt {
+    pub const SCHEMA: &'static str = SchemaId::RECOVERY_RECEIPT_V1;
     pub const SIGNATURE_TYPE: &'static str = "ak.identity.recovery_receipt.signature.v1";
 
     /// Canonical signature input shared by clients and verifiers.
@@ -2536,7 +2542,7 @@ mod encryption_validate_tests {
         assert!(missing_salt.validate().is_err());
 
         let mut stray_suite = passphrase();
-        stray_suite.hpke_suite = Some(DEFAULT_HPKE_SUITE.to_owned());
+        stray_suite.hpke_suite = Some(HPKE_SUITE_X25519_CHACHA20POLY1305_V1.to_owned());
         assert!(stray_suite.validate().is_err());
     }
 

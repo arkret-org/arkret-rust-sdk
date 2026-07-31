@@ -3,10 +3,9 @@
 use std::collections::BTreeSet;
 
 use arkret_models_identity::actor_profile::ActorProfile;
-pub use arkret_wire::ACCOUNTABILITY_GRANT_SCHEMA;
 use arkret_wire::{
-    Did, Hash, PayloadProof, ProofContextId, Result, WireError, canonical, composite_subject,
-    string_set_digest_component,
+    Did, Hash, PayloadProof, ProofContextId, Result, SchemaId, WireError, canonical,
+    composite_subject, string_set_digest_component,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -122,6 +121,7 @@ pub struct AccountabilityGrantPayload {
 }
 
 impl AccountabilityGrantPayload {
+    pub const SCHEMA: &'static str = SchemaId::ACCOUNTABILITY_GRANT_V1;
     pub fn new(
         issuer: Did,
         subject: Did,
@@ -131,7 +131,7 @@ impl AccountabilityGrantPayload {
         proof: PayloadProof,
     ) -> Self {
         Self {
-            schema: ACCOUNTABILITY_GRANT_SCHEMA.to_owned(),
+            schema: SchemaId::ACCOUNTABILITY_GRANT_V1.to_owned(),
             issuer,
             subject,
             accountability_scope: accountability_scope

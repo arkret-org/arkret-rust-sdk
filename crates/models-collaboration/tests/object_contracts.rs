@@ -8,7 +8,7 @@ use arkret_models_collaboration::objects::realm::{
     CellLatticeDeclaration, NotaryProfile, Realm, SyncEndpoint,
 };
 use arkret_models_collaboration::objects::strand::Strand;
-use arkret_wire::{FederationPolicy, Hash, MORPH_SCHEMA, ObjectStage, ObjectState, STRAND_SCHEMA};
+use arkret_wire::{FederationPolicy, Hash, ObjectStage, ObjectState, SchemaId};
 use chrono::Utc;
 use serde_json::json;
 
@@ -25,7 +25,7 @@ fn strand_constructor_sets_protocol_shape() {
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
     );
 
-    assert_eq!(subject.schema, STRAND_SCHEMA);
+    assert_eq!(subject.schema, SchemaId::STRAND_V1);
     assert!(
         serde_json::to_value(&subject)
             .unwrap()
@@ -447,7 +447,7 @@ fn morph_schema_refs_are_required_non_empty_and_unique() {
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
     );
     let value = serde_json::to_value(&morph).unwrap();
-    assert_eq!(value["schema_refs"], json!([MORPH_SCHEMA]));
+    assert_eq!(value["schema_refs"], json!([SchemaId::MORPH_V1]));
 
     let mut missing = value.clone();
     missing.as_object_mut().unwrap().remove("schema_refs");
@@ -458,7 +458,7 @@ fn morph_schema_refs_are_required_non_empty_and_unique() {
     assert!(serde_json::from_value::<Morph>(empty).is_err());
 
     let mut duplicate = value;
-    duplicate["schema_refs"] = json!([MORPH_SCHEMA, MORPH_SCHEMA]);
+    duplicate["schema_refs"] = json!([SchemaId::MORPH_V1, SchemaId::MORPH_V1]);
     assert!(serde_json::from_value::<Morph>(duplicate).is_err());
 }
 

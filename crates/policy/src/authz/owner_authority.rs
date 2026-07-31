@@ -14,13 +14,12 @@
 //! anyone holding the core one. Both helpers live here, in the single SDK
 //! implementation, so a service cannot grow its own divergent copy.
 
-use arkret_wire::Hash;
+use arkret_wire::{CapabilityActionId, Hash};
 
 use crate::{Error, Result};
 
 /// The Realm-wide owner aggregate. Held either by the current controller of the
 /// Realm authority-root cell or by an ordinary revocable co-owner grant.
-pub const REALM_OWNER_ACTION: &str = "ak.realm.owner";
 
 /// Resolve the registry basis an expansion is anchored to.
 ///
@@ -100,7 +99,7 @@ pub fn owner_may_grant(
     if let Some(profile) = child.profile {
         return Ok(active_profiles.iter().any(|active| active == profile));
     }
-    action_grants_authority_for(REALM_OWNER_ACTION, child_action)
+    action_grants_authority_for(CapabilityActionId::REALM_OWNER, child_action)
 }
 
 /// True when the Realm owner aggregate directly authorizes authoring
@@ -110,7 +109,7 @@ pub fn owner_may_author_event_kind(
     registry_basis: Option<&Hash>,
 ) -> Result<bool> {
     require_registry_basis(registry_basis)?;
-    Ok(descriptor(REALM_OWNER_ACTION)?
+    Ok(descriptor(CapabilityActionId::REALM_OWNER)?
         .target_event_kinds
         .contains(&event_kind))
 }
@@ -133,10 +132,14 @@ mod tests {
 
     #[test]
     fn owner_covers_strand_create_but_not_non_event_actions() {
-        assert!(action_covers_event_kinds(REALM_OWNER_ACTION, "ak.strand.create").unwrap());
+        assert!(
+            action_covers_event_kinds(CapabilityActionId::REALM_OWNER, "ak.strand.create").unwrap()
+        );
         // ak.audit.export is a non-event surface: an empty coverage set must
         // never be satisfied by an aggregate.
-        assert!(!action_covers_event_kinds(REALM_OWNER_ACTION, "ak.audit.export").unwrap());
+        assert!(
+            !action_covers_event_kinds(CapabilityActionId::REALM_OWNER, "ak.audit.export").unwrap()
+        );
     }
 
     #[test]
@@ -146,7 +149,7 @@ mod tests {
         assert!(owner_may_grant("ak.realm_key.share", Some(&basis), &[]).unwrap());
         assert!(owner_may_grant("ak.strand.create", Some(&basis), &[]).unwrap());
         // Owner is self-grantable: that is how a co-owner is appointed.
-        assert!(owner_may_grant(REALM_OWNER_ACTION, Some(&basis), &[]).unwrap());
+        assert!(owner_may_grant(CapabilityActionId::REALM_OWNER, Some(&basis), &[]).unwrap());
     }
 
     #[test]
@@ -156,7 +159,10 @@ mod tests {
         assert!(!owner_may_grant("ak.realm.tombstone", Some(&basis), &[]).unwrap());
         assert!(!owner_may_grant("ak.capability.derived", Some(&basis), &[]).unwrap());
         // ...and they are outside operational coverage too.
-        assert!(!action_covers_event_kinds(REALM_OWNER_ACTION, "ak.realm.destroy").unwrap());
+        assert!(
+            !action_covers_event_kinds(CapabilityActionId::REALM_OWNER, "ak.realm.destroy")
+                .unwrap()
+        );
     }
 
     #[test]
@@ -174,9 +180,13 @@ mod tests {
     fn same_target_event_kind_does_not_confer_grant_authority() {
         // Both map to ak.message.create, but only the core action is in the
         // owner grant-authority set.
-        assert!(action_covers_event_kinds(REALM_OWNER_ACTION, "ak.agent.sidecar.write").unwrap());
         assert!(
-            !action_grants_authority_for(REALM_OWNER_ACTION, "ak.agent.sidecar.write").unwrap()
+            action_covers_event_kinds(CapabilityActionId::REALM_OWNER, "ak.agent.sidecar.write")
+                .unwrap()
+        );
+        assert!(
+            !action_grants_authority_for(CapabilityActionId::REALM_OWNER, "ak.agent.sidecar.write")
+                .unwrap()
         );
     }
 

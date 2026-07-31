@@ -44,7 +44,9 @@ use arkret_models_crypto::key_backup::{
     KeyBackupFrontierGeneration, KeyBackupFrontierRef, KeyBackupKdf, KeyBackupKdfName,
     KeyBackupKdfParams, KeyBackupRecipientMethod,
 };
-use arkret_wire::{BackupId, Base64UrlString, DeviceId, Did, Hash};
+use arkret_wire::{
+    AEAD_PROFILE_XCHACHA20_POLY1305_V1, BackupId, Base64UrlString, DeviceId, Did, Hash,
+};
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use chrono::{DateTime, Utc};
@@ -66,11 +68,10 @@ type Result<T> = std::result::Result<T, KeyBackupError>;
 /// AEAD profile id for the XChaCha20-Poly1305 envelope produced by this
 /// module (key-management.md §7.2). Binds nonce length (24), tag length
 /// (16) and the AAD construction below.
-pub const VAULT_AEAD_PROFILE: &str = "ak.aead.xchacha20_poly1305.v1";
 
 /// `ak.schema.key_backup.v1` schema id, bound into the AEAD AAD so a
 /// ciphertext cannot be replayed under a different schema (§7.1).
-pub const VAULT_SCHEMA_ID: &str = arkret_wire::KEY_BACKUP_SCHEMA;
+pub const VAULT_SCHEMA_ID: &str = arkret_wire::SchemaId::KEY_BACKUP_V1;
 
 /// Length of the producer-generated `aead.nonce_salt` in bytes. Spec
 /// requires at least 128 bits; we use 16 bytes (128 bits).
@@ -349,7 +350,7 @@ impl VaultBinding {
             "backup_version": self.aead_aad.backup_version.as_str(),
             "created_at": format_timestamp_canonical(self.aead_aad.created_at),
             "aead": "xchacha20_poly1305",
-            "aead_profile": VAULT_AEAD_PROFILE,
+            "aead_profile": AEAD_PROFILE_XCHACHA20_POLY1305_V1,
             "nonce_salt": nonce_salt_b64,
         });
         canonical_json_bytes(&transcript)
@@ -778,7 +779,7 @@ pub fn build_key_backup_envelope(
     };
     let aead = KeyBackupAead {
         name: KeyBackupAeadName::Xchacha20Poly1305,
-        aead_profile: Some(VAULT_AEAD_PROFILE.to_owned()),
+        aead_profile: Some(AEAD_PROFILE_XCHACHA20_POLY1305_V1.to_owned()),
         nonce_salt: Some(
             Base64UrlString::new(ciphertext.nonce_salt_b64.clone())
                 .map_err(|error| KeyBackupError::InvalidInput(error.to_owned()))?,

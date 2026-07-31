@@ -2,15 +2,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::base64url::base64url_encode;
-use arkret_wire::constants::{
-    ACCOUNT_DATA_KEY_CONTACTS_ACTOR, ACCOUNT_DATA_KEY_CONTACTS_REALM, ACCOUNT_DATA_KEY_DRAFT,
-    ACCOUNT_DATA_KEY_FILE_TRANSFER, ACCOUNT_DATA_KEY_REMINDER, ACCOUNT_DATA_KEY_SAVED,
-    ACCOUNT_DATA_KEY_SCHEDULED_SEND, ACCOUNT_DATA_KEY_SEARCH_INDEX_MANIFEST,
-    ACCOUNT_DATA_KEY_SNOOZE, FILE_TRANSFER_SCHEMA,
-};
 use arkret_wire::{
-    BlobId, CallId, CircleId, DeviceId, Did, Error, EventId, Hash, Hlc, MessageId, RealmId, Result,
-    ScopeRef, SpaceId, StrandId, canonical,
+    AccountDataKey, BlobId, CallId, CircleId, DeviceId, Did, Error, EventId,
+    HPKE_SUITE_X25519_CHACHA20POLY1305_V1, Hash, Hlc, MessageId, ProfileId, RealmId, Result,
+    SchemaId, ScopeRef, SpaceId, StrandId, canonical,
 };
 use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use chrono_tz::Tz;
@@ -21,17 +16,8 @@ use unicode_normalization::UnicodeNormalization;
 
 use crate::events_payloads::MessageCreatePayload;
 
-pub const PROFILE_CALENDAR_EVENT: &str = "ak.profile.calendar_event.v1";
-pub const PROFILE_PERSONAL_PRODUCTIVITY: &str = "ak.profile.personal_productivity.v1";
-pub const PROFILE_DRAFT_SYNC: &str = "ak.profile.draft_sync.v1";
-pub const PROFILE_FILE_TRANSFER: &str = "ak.profile.file_transfer.v1";
-pub const PROFILE_PINNED_ITEMS: &str = "ak.profile.pinned_items.v1";
 pub const PROFILE_DISAPPEARING_MESSAGES: &str = "ak.profile.disappearing_messages.v1";
-pub const PROFILE_SEARCH_CLIENT_INDEX: &str = "ak.profile.search.client_index.v1";
-pub const PROFILE_SEARCH_BLIND_INDEX: &str = "ak.profile.search.blind_index.v1";
-pub const PROFILE_SEARCH_FORWARD_PRIVATE: &str = "ak.profile.search.forward_private.v1";
 pub const FILE_TRANSFER_KEY_MESSAGE_KIND: &str = "ak.file_transfer.key.v1";
-pub const FILE_TRANSFER_KEY_ENVELOPE_SCHEME: &str = "ak.hpke_x25519_aead_chacha20poly1305.v1";
 
 pub const MAX_CALENDAR_ATTENDEES: usize = 1_000;
 pub const MAX_CALENDAR_RECURRENCE_COUNT: u64 = 10_000;
@@ -1081,7 +1067,7 @@ impl FileTransferRecord {
 
     fn validate_aad_binding(&self) -> Result<()> {
         let aad = &self.encryption.aad;
-        if aad.schema != FILE_TRANSFER_SCHEMA {
+        if aad.schema != SchemaId::FILE_TRANSFER_V1 {
             return Err(Error::Protocol(
                 "file-transfer AAD schema must be ak.schema.file_transfer.v1".to_owned(),
             ));
@@ -1227,7 +1213,7 @@ pub struct FileTransferAad {
 
 impl FileTransferAad {
     pub fn validate(&self) -> Result<()> {
-        if self.schema != FILE_TRANSFER_SCHEMA {
+        if self.schema != SchemaId::FILE_TRANSFER_V1 {
             return Err(Error::Protocol(
                 "file-transfer AAD schema must be ak.schema.file_transfer.v1".to_owned(),
             ));
@@ -1356,7 +1342,7 @@ pub struct FileTransferKeyEnvelope {
 
 impl FileTransferKeyEnvelope {
     pub fn validate(&self) -> Result<()> {
-        if self.scheme != FILE_TRANSFER_KEY_ENVELOPE_SCHEME {
+        if self.scheme != HPKE_SUITE_X25519_CHACHA20POLY1305_V1 {
             return Err(Error::Protocol(
                 "file-transfer key envelope scheme mismatch".to_owned(),
             ));
@@ -1568,17 +1554,21 @@ impl ContactRemark {
 }
 
 pub fn contact_remark_account_data_key(actor_did: &Did) -> String {
-    format!("{ACCOUNT_DATA_KEY_CONTACTS_ACTOR}.{actor_did}")
+    format!(
+        "{accountdatakey_contacts_actor}.{actor_did}",
+        accountdatakey_contacts_actor = AccountDataKey::CONTACTS_ACTOR
+    )
 }
 
 pub fn parse_contact_remark_account_data_key(key: &str) -> Result<Did> {
     let raw = key
-        .strip_prefix(&format!("{ACCOUNT_DATA_KEY_CONTACTS_ACTOR}."))
+        .strip_prefix(&format!(
+            "{accountdatakey_contacts_actor}.",
+            accountdatakey_contacts_actor = AccountDataKey::CONTACTS_ACTOR
+        ))
         .ok_or_else(|| Error::Protocol("invalid contact remark account-data key".to_owned()))?;
     Ok(Did::new(raw.to_owned())?)
 }
-
-pub const ACCOUNT_DATA_BLOCKLIST: &str = "ak.account.blocklist";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1761,7 +1751,10 @@ impl RealmRemark {
 }
 
 pub fn realm_remark_account_data_key(realm_id: &RealmId) -> String {
-    format!("{ACCOUNT_DATA_KEY_CONTACTS_REALM}.{realm_id}")
+    format!(
+        "{accountdatakey_contacts_realm}.{realm_id}",
+        accountdatakey_contacts_realm = AccountDataKey::CONTACTS_REALM
+    )
 }
 
 pub fn realm_id_from_realm_remark_account_data_key(key: &str) -> Option<RealmId> {
@@ -1872,17 +1865,24 @@ pub fn scheduled_send_message_payload_digest(
 
 pub fn reminder_account_data_key(id: &str) -> Result<String> {
     validate_key_segment("reminder id", id)?;
-    Ok(format!("{ACCOUNT_DATA_KEY_REMINDER}:{id}"))
+    Ok(format!(
+        "{accountdatakey_reminders_v1}:{id}",
+        accountdatakey_reminders_v1 = AccountDataKey::REMINDERS_V1
+    ))
 }
 
 pub fn scheduled_send_account_data_key(planned_message_id: &MessageId) -> String {
-    format!("{ACCOUNT_DATA_KEY_SCHEDULED_SEND}:{planned_message_id}")
+    format!(
+        "{accountdatakey_scheduled_send_v1}:{planned_message_id}",
+        accountdatakey_scheduled_send_v1 = AccountDataKey::SCHEDULED_SEND_V1
+    )
 }
 
 pub fn snooze_account_data_key(namespace_key: &[u8], target_ref: &str) -> Result<String> {
     Ok(format!(
-        "{ACCOUNT_DATA_KEY_SNOOZE}:{}",
-        target_key(namespace_key, target_ref)?
+        "{accountdatakey_snooze_v1}:{}",
+        target_key(namespace_key, target_ref)?,
+        accountdatakey_snooze_v1 = AccountDataKey::SNOOZE_V1
     ))
 }
 
@@ -1894,7 +1894,8 @@ pub fn saved_account_data_key(
     let collection_key = collection_key(namespace_key, collection_title)?;
     let target_key = saved_target_key(namespace_key, &collection_key, target_ref)?;
     Ok(format!(
-        "{ACCOUNT_DATA_KEY_SAVED}:{collection_key}:{target_key}"
+        "{accountdatakey_saved_v1}:{collection_key}:{target_key}",
+        accountdatakey_saved_v1 = AccountDataKey::SAVED_V1
     ))
 }
 
@@ -1910,8 +1911,9 @@ pub fn draft_account_data_key(
         DraftKind::StrandField => "strand_field",
     };
     Ok(format!(
-        "{ACCOUNT_DATA_KEY_DRAFT}:{kind}:{}:{draft_slot}",
-        target_key(namespace_key, target_ref)?
+        "{accountdatakey_draft_v1}:{kind}:{}:{draft_slot}",
+        target_key(namespace_key, target_ref)?,
+        accountdatakey_draft_v1 = AccountDataKey::DRAFT_V1
     ))
 }
 
@@ -1920,8 +1922,9 @@ pub fn search_index_manifest_account_data_key(
     realm_id: &RealmId,
 ) -> Result<String> {
     Ok(format!(
-        "{ACCOUNT_DATA_KEY_SEARCH_INDEX_MANIFEST}:{}",
-        realm_key(namespace_key, realm_id.as_str())?
+        "{accountdatakey_search_index_manifest_v1}:{}",
+        realm_key(namespace_key, realm_id.as_str())?,
+        accountdatakey_search_index_manifest_v1 = AccountDataKey::SEARCH_INDEX_MANIFEST_V1
     ))
 }
 
@@ -1938,7 +1941,7 @@ pub fn search_index_shard_key(
         ));
     }
     let material = json!({
-        "profile": PROFILE_SEARCH_CLIENT_INDEX,
+        "profile": ProfileId::SEARCH_CLIENT_INDEX_V1,
         "realm_id": realm_id.as_str(),
         "index_generation": index_generation,
         "shard_seed_digest": canonical::sha256_digest(shard_seed),
@@ -1965,7 +1968,7 @@ pub fn blind_index_token(
     }
     let normalized_term = normalize_search_term(term)?;
     let material = json!({
-        "profile": PROFILE_SEARCH_BLIND_INDEX,
+        "profile": ProfileId::SEARCH_BLIND_INDEX_V1,
         "realm_id": realm_id.as_str(),
         "effective_scope": effective_scope,
         "epoch_id": epoch_id,
@@ -2017,8 +2020,9 @@ where
 pub fn file_transfer_account_data_key(namespace_key: &[u8], transfer_id: &str) -> Result<String> {
     validate_file_transfer_id(transfer_id)?;
     Ok(format!(
-        "{ACCOUNT_DATA_KEY_FILE_TRANSFER}:{}",
-        base64url_encode(hmac_sha256(namespace_key, transfer_id.as_bytes()))
+        "{accountdatakey_file_transfer_v1}:{}",
+        base64url_encode(hmac_sha256(namespace_key, transfer_id.as_bytes())),
+        accountdatakey_file_transfer_v1 = AccountDataKey::FILE_TRANSFER_V1
     ))
 }
 
@@ -2406,6 +2410,7 @@ pub(crate) fn resolve_local_to_instant(
     timezone: Tz,
 ) -> Result<DateTime<Utc>> {
     use chrono::LocalResult;
+
     match timezone.from_local_datetime(&local) {
         LocalResult::Single(instant) => Ok(instant.with_timezone(&Utc)),
         // Fold: two valid instants. RFC 8984 selects the earlier one, which is
@@ -2456,6 +2461,7 @@ fn is_false(value: &bool) -> bool {
 /// covered by fixture tests and MUST stay stable.
 fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
     use hmac::{Hmac, KeyInit, Mac};
+
     let mut mac =
         Hmac::<Sha256>::new_from_slice(key).expect("HMAC-SHA256 accepts keys of any length");
     mac.update(data);
@@ -2464,6 +2470,7 @@ fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::{ProfileId, SchemaId};
     use serde_json::json;
 
     use super::*;
@@ -2737,7 +2744,7 @@ mod tests {
                 aead_profile: "ak.aead.xchacha20_poly1305.v1".to_owned(),
                 nonce: "abc_DEF-012".to_owned(),
                 aad: FileTransferAad {
-                    schema: FILE_TRANSFER_SCHEMA.to_owned(),
+                    schema: SchemaId::FILE_TRANSFER_V1.to_owned(),
                     purpose: "file_transfer".to_owned(),
                     transfer_id: "0123456789abcdefghijkl".to_owned(),
                     origin_device_id: "ak:device:01904100-0000-7000-8000-000000000002".to_owned(),
@@ -2807,7 +2814,7 @@ mod tests {
             nonce: record.encryption.nonce.clone(),
             content_digest: record.content_digest.clone(),
             key_envelope: FileTransferKeyEnvelope {
-                scheme: FILE_TRANSFER_KEY_ENVELOPE_SCHEME.to_owned(),
+                scheme: HPKE_SUITE_X25519_CHACHA20POLY1305_V1.to_owned(),
                 enc: "abc_DEF-012".to_owned(),
                 ciphertext: "def_ABC-345".to_owned(),
                 aad_digest: format!("sha256:{}", "cd".repeat(32)),
@@ -2970,9 +2977,9 @@ mod tests {
         assert_eq!(
             wire["enabled_profile_refs"],
             json!([
-                PROFILE_SEARCH_CLIENT_INDEX,
-                PROFILE_SEARCH_BLIND_INDEX,
-                PROFILE_SEARCH_FORWARD_PRIVATE
+                ProfileId::SEARCH_CLIENT_INDEX_V1,
+                ProfileId::SEARCH_BLIND_INDEX_V1,
+                ProfileId::SEARCH_FORWARD_PRIVATE_V1
             ])
         );
         assert!(wire.get("epoch_id").is_none());

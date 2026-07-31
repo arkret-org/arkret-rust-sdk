@@ -23,12 +23,12 @@
 
 use std::collections::BTreeSet;
 
-// `ENCRYPTED_ENVELOPE_SCHEMA` in a profile's required surface implies the `mls`
-// feature (E2EE ciphertext envelopes can only be produced/consumed with the MLS
-// group crypto compiled in); `KEY_BACKUP_SCHEMA` implies the client-side
-// key-backup crypto feature.
-use arkret_wire::{ENCRYPTED_ENVELOPE_SCHEMA, KEY_BACKUP_SCHEMA};
+use arkret_wire::SchemaId;
 
+// `SchemaId::ENCRYPTED_ENVELOPE_V1` in a profile's required surface implies the `mls`
+// feature (E2EE ciphertext envelopes can only be produced/consumed with the MLS
+// group crypto compiled in); `SchemaId::KEY_BACKUP_V1` implies the client-side
+// key-backup crypto feature.
 use crate::generated::profile_requirements::ProfileRequirementsError;
 use crate::profile_semantics::collect_profile_semantic_requirements;
 
@@ -72,10 +72,10 @@ pub fn implied_features_for_profiles(
         }
     }
     for schema in &requirements.required_schemas {
-        if schema == ENCRYPTED_ENVELOPE_SCHEMA {
+        if schema == SchemaId::ENCRYPTED_ENVELOPE_V1 {
             implied.insert((FEATURE_MLS.to_owned(), schema.clone()));
         }
-        if schema == KEY_BACKUP_SCHEMA {
+        if schema == SchemaId::KEY_BACKUP_V1 {
             implied.insert((FEATURE_BACKUP.to_owned(), schema.clone()));
         }
     }
@@ -162,15 +162,15 @@ mod tests {
             "e2ee_client requires ak.mls.* kinds -> mls feature: {implied:?}"
         );
         assert!(
-            implied
-                .iter()
-                .any(|(feature, by)| feature == FEATURE_MLS && by == ENCRYPTED_ENVELOPE_SCHEMA),
+            implied.iter().any(
+                |(feature, by)| feature == FEATURE_MLS && by == SchemaId::ENCRYPTED_ENVELOPE_V1
+            ),
             "e2ee_client requires encrypted_envelope schema -> mls feature: {implied:?}"
         );
         assert!(
             implied
                 .iter()
-                .any(|(feature, by)| feature == FEATURE_BACKUP && by == KEY_BACKUP_SCHEMA),
+                .any(|(feature, by)| feature == FEATURE_BACKUP && by == SchemaId::KEY_BACKUP_V1),
             "e2ee_client requires key_backup schema -> backup feature: {implied:?}"
         );
     }

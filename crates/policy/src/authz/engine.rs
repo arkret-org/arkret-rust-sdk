@@ -1503,7 +1503,7 @@ pub fn moderation_report_for_policy_outcome(
 #[cfg(test)]
 mod engine_wire_tests {
     use arkret_models_collaboration::governance::grant_constraint::CapabilitySubject;
-    use arkret_wire::{CAPABILITY_SCHEMA, DidUrl, GrantId};
+    use arkret_wire::{DidUrl, GrantId, SchemaId};
     use serde_json::json;
 
     use super::*;
@@ -1543,7 +1543,7 @@ mod engine_wire_tests {
     ) -> arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
         arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
-            schema: CAPABILITY_SCHEMA.to_owned(),
+            schema: SchemaId::CAPABILITY_V1.to_owned(),
             realm_id: None,
             issuer: alice(),
             subject: CapabilitySubject::Did(bob()),

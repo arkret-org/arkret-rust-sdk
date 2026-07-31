@@ -1,16 +1,13 @@
 //! Typed client artifacts carried by terminal security-transaction steps.
 
 use arkret_wire::{
-    ClientStepAttestation, DeviceId, Error, Hash, Result, SecurityTransactionContinueRequest,
-    SecurityTransactionStep, TransactionId,
+    ClientStepAttestation, DeviceId, Error, Hash, Result, SchemaId,
+    SecurityTransactionContinueRequest, SecurityTransactionStep, TransactionId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::RecoveryReceipt;
-
-pub const SECURITY_ROTATION_LOCAL_COMMIT_SCHEMA: &str =
-    "ak.schema.security_rotation_local_commit.v1";
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -29,9 +26,11 @@ pub struct SecurityRotationLocalCommit {
 
 impl SecurityRotationLocalCommit {
     pub fn validate(&self) -> Result<()> {
-        if self.schema != SECURITY_ROTATION_LOCAL_COMMIT_SCHEMA {
+        if self.schema != SchemaId::SECURITY_ROTATION_LOCAL_COMMIT_V1 {
             return Err(Error::Protocol(format!(
-                "security rotation local commit schema must be {SECURITY_ROTATION_LOCAL_COMMIT_SCHEMA}"
+                "security rotation local commit schema must be {schemaid_security_rotation_local_commit_v1}",
+                schemaid_security_rotation_local_commit_v1 =
+                    SchemaId::SECURITY_ROTATION_LOCAL_COMMIT_V1
             )));
         }
         Ok(())

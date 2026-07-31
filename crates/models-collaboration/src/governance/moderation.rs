@@ -2,8 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::constants::MODERATION_REPORT_SCHEMA;
-use arkret_wire::{Did, Hash, RealmId, ScopeRef};
+use arkret_wire::{Did, Hash, RealmId, SchemaId, ScopeRef};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -98,6 +97,7 @@ pub struct ModerationReport {
 }
 
 impl ModerationReport {
+    pub const SCHEMA: &'static str = SchemaId::MODERATION_REPORT_V1;
     pub fn new(
         id: impl Into<String>,
         realm_id: RealmId,
@@ -106,7 +106,7 @@ impl ModerationReport {
         reporter: Did,
     ) -> Self {
         Self {
-            schema: Some(MODERATION_REPORT_SCHEMA.to_owned()),
+            schema: Some(SchemaId::MODERATION_REPORT_V1.to_owned()),
             report_id: id.into(),
             realm_id,
             target_ref: target_ref.into(),

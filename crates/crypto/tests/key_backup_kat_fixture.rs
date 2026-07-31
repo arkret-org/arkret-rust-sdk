@@ -11,11 +11,12 @@
 //! self-certifying determinism tests with spec-anchored bytes.
 
 use arkret_crypto::backup::{
-    VAULT_AEAD_PROFILE, VaultBinding, commitment_digest, decrypt_vault, derive_subkey,
-    derive_vault_kek_with_salt, encrypt_vault_with_nonce_salt,
+    VaultBinding, commitment_digest, decrypt_vault, derive_subkey, derive_vault_kek_with_salt,
+    encrypt_vault_with_nonce_salt,
 };
 use arkret_models_crypto::{BackupKind, KeyBackupDomainSeparationAad};
 use arkret_schema::embedded_json_artifact;
+use arkret_wire::AEAD_PROFILE_XCHACHA20_POLY1305_V1;
 use chacha20poly1305::ChaCha20Poly1305;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chrono::{DateTime, Utc};
@@ -24,7 +25,6 @@ use sha2::{Digest, Sha256};
 
 const FIXTURE_PATH: &str = "fixtures/key-backup-hardening-fixture.json";
 const PASSPHRASE_VECTOR_ID: &str = "ak.vector.key_backup.passphrase_kdf_kat.v1";
-const UNLOCK_VECTOR_ID: &str = "ak.vector.key_backup.unlock_proof.v1";
 
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
@@ -73,7 +73,10 @@ fn unlock_proof_kat_opens_to_the_declared_canonical_plaintext() {
         .iter()
         .find(|case| case["name"].as_str() == Some("unlock_proof"))
         .expect("unlock_proof case present");
-    assert_eq!(case["vector_id"].as_str(), Some(UNLOCK_VECTOR_ID));
+    assert_eq!(
+        case["vector_id"].as_str(),
+        Some(arkret_models_crypto::key_backup::VECTOR_ID_KEY_BACKUP_UNLOCK_PROOF)
+    );
 
     let envelope = &case["envelope"];
     let transcript = &case["crypto_transcript"];
@@ -288,7 +291,7 @@ fn run_kat(kat: &Value) {
     );
     assert_eq!(
         str_field(expected, "aead_profile"),
-        VAULT_AEAD_PROFILE,
+        AEAD_PROFILE_XCHACHA20_POLY1305_V1,
         "{label}: AEAD profile drift"
     );
 

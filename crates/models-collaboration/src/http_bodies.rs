@@ -15,7 +15,8 @@ use arkret_wire::{
     Base64UrlString, BlobRef, CbaProofBundle, ConsentId, ControlProposalReceipt, Cursor, DeviceId,
     Did, Error, Event, EventId, EventInitialSubmission, EventKind, Hash, IngressReceipt,
     MimiRoomUri, MlsGroupId, MorphId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId,
-    RelationId, ReportId, Result, Seal, SealId, SignalEnvelope, SpaceId, StrandId, canonical,
+    RelationId, ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId,
+    StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -960,8 +961,6 @@ pub struct MimiUpdateConsentRequestBody {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-pub const MIMI_UPDATE_CONSENT_OPERATION_ID: &str = "ak.open.mimi.command.update_consent";
-
 impl MimiUpdateConsentRequestBody {
     /// Canonical request value covered by the operation proof. The detached
     /// proof is omitted to avoid a self-referential digest.
@@ -1008,7 +1007,7 @@ impl MimiUpdateConsentRequestBody {
             "context": ProofContextId::MIMI_OPERATION_PROOF_V1,
             "payload_digest": payload_digest,
             "issuer": self.actor_id,
-            "operation_id": MIMI_UPDATE_CONSENT_OPERATION_ID,
+            "operation_id": ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_CONSENT,
             "verification_method": self.signature.verification_method,
             "created_at": canonical::format_timestamp_canonical(self.signature.created_at),
             "domain": domain,

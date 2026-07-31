@@ -1,10 +1,7 @@
 use arkret_canonical::{base64url, canonical};
-use arkret_models_crypto::{
-    EncryptedPayload, MLS_GOVERNANCE_BINDING_FULL_PROFILE, MlsCommitPayload,
-    MlsGovernanceBindingPayload,
-};
+use arkret_models_crypto::{EncryptedPayload, MlsCommitPayload, MlsGovernanceBindingPayload};
 use arkret_schema::{embedded_json_artifact, event_payload_validator_catalog};
-use arkret_wire::{EventId, Hash, RealmId, SealId};
+use arkret_wire::{EventId, Hash, ProfileId, RealmId, SealId};
 
 fn encoding_vector(vector_id: &str) -> serde_json::Value {
     let fixture = embedded_json_artifact("fixtures/encoding-fixture.json").unwrap();
@@ -90,7 +87,7 @@ fn mls_commit_payload_matches_registered_event_schema() {
         hash('2'),
         hash('3'),
         hash('4'),
-        MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+        ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
         "ak.reducer.v1",
     )
     .unwrap();

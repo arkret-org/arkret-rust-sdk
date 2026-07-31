@@ -9,15 +9,13 @@ use arkret_canonical::DigestSuite;
 use arkret_wire::{
     CbaProofBundle, ControlProposalDecision, ControlProposalDecisionPolicy, ControlProposalReceipt,
     Did, Error, Event, EventFederationSubmission, EventId, FederatedDeviceSigningKeyEvidence, Hash,
-    Hlc, RealmId, Result, Seal, SealBasis, SealId,
+    Hlc, RealmId, Result, SchemaId, Seal, SealBasis, SealId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::agent_signer_evidence::{
-    AGENT_SIGNER_EVIDENCE_BUNDLE_SCHEMA, AgentAuthorizationAdmission, AgentSignerEvidenceBundle,
-};
+use crate::agent_signer_evidence::{AgentAuthorizationAdmission, AgentSignerEvidenceBundle};
 
 // ── EventsFrontier 3-way split ──────────────────────────────────────────
 
@@ -772,7 +770,7 @@ impl EventsSubmitFederationRequestBody {
             ));
         }
         let is_anchor_unit = self.events.first().is_some_and(|submission| {
-            submission.event.kind.as_str() == arkret_wire::events::EventKind::REALM_CREATE
+            submission.event.kind.as_str() == arkret_wire::EventKind::REALM_CREATE
         }) && self.events.iter().all(|submission| {
             matches!(
                 &submission.authorization_lease.basis_ref,
@@ -1031,7 +1029,7 @@ impl EventsSubmitFederationRequestBody {
             }
         }
         if let Some(bundle) = &self.agent_signer_evidence_bundle {
-            if bundle.schema.as_str() != AGENT_SIGNER_EVIDENCE_BUNDLE_SCHEMA
+            if bundle.schema.as_str() != SchemaId::AGENT_SIGNER_EVIDENCE_BUNDLE_V1
                 || bundle.evidence.len() > 256
             {
                 return Err(Error::Protocol(
@@ -1091,12 +1089,11 @@ impl EventsSubmitFederationRequestBody {
 #[cfg(test)]
 mod tests {
     use arkret_wire::{
-        AUTHORITY_SET_POLICY_SCHEMA, AuthoritySetAuthorizationRule, AuthoritySetIssuer,
-        AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind,
-        AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease,
-        AuthorizationLeaseId, ControlProposalReceiptKind, DeviceId, DidKey, DidUrl, Hash,
-        IngressReceipt, LeaseBasisRef, NotarySig, PayloadProof, PayloadSignature, ReceiptId,
-        RiskTier, ScopeRef, SealKind,
+        AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
+        AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
+        AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId,
+        ControlProposalReceiptKind, DeviceId, DidKey, DidUrl, Hash, IngressReceipt, LeaseBasisRef,
+        NotarySig, PayloadProof, PayloadSignature, ReceiptId, RiskTier, ScopeRef, SealKind,
     };
     use serde_json::json;
 
@@ -1300,7 +1297,7 @@ mod tests {
     fn federation_submission(event: Event) -> EventFederationSubmission {
         let issued_at: DateTime<Utc> = "2026-07-21T08:00:00.000Z".parse().unwrap();
         let authority_set_policy = AuthoritySetPolicy {
-            schema: AUTHORITY_SET_POLICY_SCHEMA.to_owned(),
+            schema: SchemaId::AUTHORITY_SET_POLICY_V1.to_owned(),
             authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
             policy_kind: AuthoritySetPolicyKind::RealmAdmission,
             scope_ref: event.scope_ref.clone(),

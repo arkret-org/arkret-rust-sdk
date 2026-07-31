@@ -1,7 +1,7 @@
 use arkret_canonical::canonical;
 use arkret_schema::generated::profile_requirements::non_event_grant_authority_rule;
 use arkret_schema::*;
-use arkret_wire::{BUILT_IN_CONFORMANCE_FIXTURES_VERSION, Did, DidUrl, Hash, Proof};
+use arkret_wire::{BUILT_IN_CONFORMANCE_FIXTURES_VERSION, Did, DidUrl, Hash, Proof, SchemaId};
 use serde_json::json;
 
 fn required_profiles() -> [ConformanceProfile; 11] {
@@ -24,21 +24,21 @@ fn required_profiles() -> [ConformanceProfile; 11] {
 fn protocol_schema_registry_publishes_core_json_schemas() {
     let registry = ProtocolSchemaRegistry::default();
     for schema_id in [
-        CURSOR_SCHEMA,
-        STRAND_SCHEMA,
-        SPACE_SCHEMA,
-        VIEW_SCHEMA,
-        EVENT_SCHEMA,
-        CAPABILITY_SCHEMA,
-        ENCRYPTED_ENVELOPE_SCHEMA,
-        ACCOUNT_SUBSCRIBE_FRAME_SCHEMA,
+        SchemaId::CURSOR_V1,
+        SchemaId::STRAND_V1,
+        SchemaId::SPACE_V1,
+        SchemaId::VIEW_V1,
+        SchemaId::EVENT_V1,
+        SchemaId::CAPABILITY_V1,
+        SchemaId::ENCRYPTED_ENVELOPE_V1,
+        SchemaId::ACCOUNT_SUBSCRIBE_FRAME_V1,
     ] {
         assert!(registry.schema(schema_id).is_some(), "{schema_id}");
     }
 
     registry
         .validate_value(
-            ACCOUNT_SUBSCRIBE_FRAME_SCHEMA,
+            SchemaId::ACCOUNT_SUBSCRIBE_FRAME_V1,
             &json!({
                 "kind": "delta",
                 "cursor": "ak:cursor:s1",
@@ -49,11 +49,11 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
         .unwrap();
     assert!(
         registry
-            .validate_value(ACCOUNT_SUBSCRIBE_FRAME_SCHEMA, &json!({"realms": {}}))
+            .validate_value(SchemaId::ACCOUNT_SUBSCRIBE_FRAME_V1, &json!({"realms": {}}))
             .is_err()
     );
 
-    let event_validator = registry.generated_validator(EVENT_SCHEMA).unwrap();
+    let event_validator = registry.generated_validator(SchemaId::EVENT_V1).unwrap();
     for field in [
         "event_id",
         "space_id",
@@ -97,7 +97,7 @@ fn event_value() -> serde_json::Value {
 #[test]
 fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
     let mut registry = ProtocolSchemaRegistry::default();
-    let validator = registry.generated_validator(EVENT_SCHEMA).unwrap();
+    let validator = registry.generated_validator(SchemaId::EVENT_V1).unwrap();
     assert!(validator.fields.iter().any(|field| {
         field.name == "event_id"
             && field.required
@@ -138,14 +138,14 @@ fn schema_registry_fails_closed_for_unknown_security_extensions() {
     let mut event = event_value();
     event["x-security-critical"] = json!({"unknown": true});
 
-    assert!(registry.validate_value(EVENT_SCHEMA, &event).is_err());
+    assert!(registry.validate_value(SchemaId::EVENT_V1, &event).is_err());
     registry.trust_extension_prefix("x-security-critical");
-    registry.validate_value(EVENT_SCHEMA, &event).unwrap();
+    registry.validate_value(SchemaId::EVENT_V1, &event).unwrap();
 
     let mut ordinary = event_value();
     ordinary["x-ui-hint"] = json!({"preserved": true});
     ProtocolSchemaRegistry::default()
-        .validate_value(EVENT_SCHEMA, &ordinary)
+        .validate_value(SchemaId::EVENT_V1, &ordinary)
         .unwrap();
 }
 

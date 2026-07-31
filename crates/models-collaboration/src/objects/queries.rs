@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::{
     Cursor, Did, Error, Facet, FilterOp, NullsOrder, RealmId, RelationDirection, RelationKind,
-    Result, SortDirection, SpaceId, ViewId, ViewKind, ViewRenderer, ViewVisibility,
+    Result, SchemaId, SortDirection, SpaceId, ViewId, ViewKind, ViewRenderer, ViewVisibility,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -159,6 +159,7 @@ pub enum ViewState {
 }
 
 impl View {
+    pub const SCHEMA: &'static str = SchemaId::VIEW_V1;
     pub fn validate_lifecycle(&self) -> Result<()> {
         match (
             self.state.unwrap_or(ViewState::Active),

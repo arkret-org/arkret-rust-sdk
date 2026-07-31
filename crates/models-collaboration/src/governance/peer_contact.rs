@@ -1,8 +1,7 @@
 use arkret_canonical::serde_helpers::optional_canonical_timestamp;
 use arkret_identifiers::{Did, EventId, RealmId};
 use arkret_models_identity::handle::Handle;
-pub use arkret_wire::PEER_CONTACT_DELIVERY_REQUEST_SCHEMA;
-use arkret_wire::{Error, Event, FederatedDeviceSigningKeyEvidence, Result};
+use arkret_wire::{Error, Event, FederatedDeviceSigningKeyEvidence, Result, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -122,6 +121,7 @@ pub struct PeerContactDeliveryRequest {
 }
 
 impl PeerContactDeliveryRequest {
+    pub const SCHEMA: &'static str = SchemaId::PEER_CONTACT_DELIVERY_REQUEST_V1;
     pub fn new(
         contact_event: Event,
         contact_address: PeerContactAddress,
@@ -130,7 +130,7 @@ impl PeerContactDeliveryRequest {
         idempotency_key: impl Into<String>,
     ) -> Self {
         Self {
-            schema: PEER_CONTACT_DELIVERY_REQUEST_SCHEMA.to_owned(),
+            schema: SchemaId::PEER_CONTACT_DELIVERY_REQUEST_V1.to_owned(),
             contact_event,
             contact_address,
             fact_kind,
@@ -141,7 +141,7 @@ impl PeerContactDeliveryRequest {
     }
 
     pub fn validate_minimal(&self) -> Result<()> {
-        if self.schema != PEER_CONTACT_DELIVERY_REQUEST_SCHEMA {
+        if self.schema != SchemaId::PEER_CONTACT_DELIVERY_REQUEST_V1 {
             return Err(Error::Protocol(
                 "peer_contact_delivery_request.schema mismatch".to_owned(),
             ));

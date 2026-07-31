@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use arkret_wire::{Did, Error, Hash, PayloadProof, Result};
+use arkret_wire::{Did, Error, Hash, PayloadProof, ProofContextId, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -14,10 +14,6 @@ pub const ORGANIZATION_REGISTRATION_REFRESH_PATH: &str =
     "/_arkret/root/identity/organization-registrations:refresh";
 pub const ORGANIZATION_REGISTRATION_REVOKE_PATH: &str =
     "/_arkret/root/identity/organization-registrations:revoke";
-pub const ORGANIZATION_REGISTRATION_CONTROL_PURPOSE: &str =
-    "ak.organization-registration-control-proof-v1";
-pub const ORGANIZATION_REGISTRATION_RECEIPT_PROOF_CONTEXT: &str =
-    "ak.organization-registration-receipt-proof-v1";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -109,7 +105,7 @@ impl OrganizationControlProof {
         self.validate()?;
         for proof in &self.proofs {
             let transcript = serde_json::json!({
-                "context": ORGANIZATION_REGISTRATION_CONTROL_PURPOSE,
+                "context": ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1,
                 "challenge_id": challenge_id,
                 "organization_id": organization_id,
                 "local_admin_subject": local_admin_subject,
@@ -193,7 +189,7 @@ impl OrganizationRegistrationChallenge {
         if self.organization_id != request.organization_id
             || self.local_admin_subject != request.local_admin_subject
             || self.requested_scopes != request.requested_scopes
-            || self.purpose != ORGANIZATION_REGISTRATION_CONTROL_PURPOSE
+            || self.purpose != ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1
         {
             return Err(Error::Protocol(
                 "organization registration challenge binding mismatch".to_owned(),
@@ -488,7 +484,7 @@ impl OrganizationRegistrationReceipt {
     /// still need signing-time DID resolution to verify the signature.
     pub fn proof_signing_bytes(&self) -> Result<Vec<u8>> {
         let binding = serde_json::json!({
-            "context": ORGANIZATION_REGISTRATION_RECEIPT_PROOF_CONTEXT,
+            "context": ProofContextId::ORGANIZATION_REGISTRATION_RECEIPT_PROOF_V1,
             "payload_digest": self.proof.payload_digest,
             "issuer_service_id": self.issuer_service_id,
             "registration_receipt_id": self.registration_receipt_id,
@@ -666,7 +662,7 @@ mod tests {
         let base = OrganizationRegistrationChallenge {
             challenge_id: format!("ak:organization-registration-challenge:{}", "a".repeat(64)),
             organization_id: request.organization_id.clone(),
-            purpose: ORGANIZATION_REGISTRATION_CONTROL_PURPOSE.to_owned(),
+            purpose: ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1.to_owned(),
             nonce: "0123456789abcdefghijkl".to_owned(),
             audience: did("did:webvh:zService:service.example"),
             origin: "https://service.example/".to_owned(),
@@ -712,7 +708,7 @@ mod tests {
         let challenge = OrganizationRegistrationChallenge {
             challenge_id: format!("ak:organization-registration-challenge:{}", "a".repeat(64)),
             organization_id: request.organization_id.clone(),
-            purpose: ORGANIZATION_REGISTRATION_CONTROL_PURPOSE.to_owned(),
+            purpose: ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1.to_owned(),
             nonce: "0123456789abcdefghijkl".to_owned(),
             audience: did("did:webvh:zService:service.example"),
             origin: "https://service.example/".to_owned(),
@@ -727,7 +723,7 @@ mod tests {
         let verification_method =
             DidUrl::new(format!("{}#org-control-key-1", request.organization_id)).unwrap();
         let transcript = serde_json::json!({
-            "context": ORGANIZATION_REGISTRATION_CONTROL_PURPOSE,
+            "context": ProofContextId::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1,
             "challenge_id": challenge.challenge_id,
             "organization_id": request.organization_id,
             "local_admin_subject": request.local_admin_subject,

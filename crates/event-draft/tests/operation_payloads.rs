@@ -3,7 +3,7 @@ use arkret_event_draft::{StrandCreateObject, StrandTracksUpdatePayload};
 use arkret_models_collaboration::events_payloads::ObjectCreatePayload;
 use arkret_models_collaboration::objects::profiles::StrandTrackConfig;
 use arkret_schema::event_payload_validator_catalog;
-use arkret_wire::{Did, Patch, RealmId, STRAND_SCHEMA, StrandId};
+use arkret_wire::{Did, Patch, RealmId, SchemaId, StrandId};
 use serde_json::json;
 
 #[test]
@@ -15,7 +15,7 @@ fn object_create_payload_wraps_strand_draft() {
         .with_metadata_title("Incident")
         .with_track("discussion", StrandTrackConfig::discussion_primary());
     let payload = ObjectCreatePayload::new(strand).to_value().unwrap();
-    assert_eq!(payload["object"]["schema"], STRAND_SCHEMA);
+    assert_eq!(payload["object"]["schema"], SchemaId::STRAND_V1);
     assert_eq!(payload["object"]["stage"], "draft");
     assert_eq!(payload["object"]["metadata"]["title"], "Incident");
     canonical::validate_timestamp_canonical(payload["object"]["created_at"].as_str().unwrap())

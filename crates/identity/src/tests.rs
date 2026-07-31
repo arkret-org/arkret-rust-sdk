@@ -1100,7 +1100,7 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
         &verification_method,
     )
     .unwrap();
-    assert_eq!(receipt.schema, arkret_wire::IDENTITY_RECEIPT_SCHEMA);
+    assert_eq!(receipt.schema, arkret_wire::SchemaId::IDENTITY_RECEIPT_V1);
     receipt.verify(&resolver).unwrap();
 
     // Any field tamper breaks the payload digest binding.

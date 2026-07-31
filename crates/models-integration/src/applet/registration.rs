@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use arkret_models_identity::did_document::DidDocument;
 use arkret_wire::{
-    APPLET_PACKAGE_SCHEMA, APPLET_REGISTRATION_EPOCH_TRANSCRIPT_SCHEMA, Did, DidUrl, Error, Hash,
-    PayloadSigner, Proof, Result, XExtensionMap, canonical, proof_kind,
+    Did, DidUrl, Error, EventKind, Hash, PayloadSigner, ProfileId, Proof, Result, SchemaId,
+    XExtensionMap, canonical, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -438,7 +438,8 @@ pub struct WireAppletRegistration {
 }
 
 impl WireAppletRegistration {
-    pub const KIND: &'static str = "ak.applet.registration";
+    /// Durable event kind this registration is published under.
+    pub const KIND: &'static str = EventKind::APPLET_REGISTRATION;
 
     /// Build an unsigned registration. Caller MUST attach `proof` via
     /// [`sign_registration`].
@@ -702,6 +703,7 @@ pub struct AppletRegistrationEpochTranscript {
 }
 
 impl AppletRegistrationEpochTranscript {
+    pub const SCHEMA: &'static str = SchemaId::APPLET_REGISTRATION_EPOCH_TRANSCRIPT_V1;
     pub const DOMAIN_SEPARATOR: &'static [u8] = b"arkret-applet-registration-epoch-v1\n";
 
     pub fn from_package(
@@ -714,9 +716,9 @@ impl AppletRegistrationEpochTranscript {
             ));
         }
         let mut transcript = Self {
-            schema: APPLET_REGISTRATION_EPOCH_TRANSCRIPT_SCHEMA.to_owned(),
+            schema: SchemaId::APPLET_REGISTRATION_EPOCH_TRANSCRIPT_V1.to_owned(),
             derived_registration: AppletRegistrationEpochDerivedRegistration {
-                kind: WireAppletRegistration::KIND.to_owned(),
+                kind: EventKind::APPLET_REGISTRATION.to_owned(),
                 applet_id: package.applet_id.clone(),
                 service_id: package.service_id.clone(),
                 controller_id: package.controller_id.clone(),
@@ -808,12 +810,12 @@ impl AppletRegistrationEpochTranscript {
     }
 
     pub fn validate_normalized(&self) -> Result<()> {
-        if self.schema != APPLET_REGISTRATION_EPOCH_TRANSCRIPT_SCHEMA {
+        if self.schema != SchemaId::APPLET_REGISTRATION_EPOCH_TRANSCRIPT_V1 {
             return Err(Error::Protocol(
                 "applet registration epoch transcript schema mismatch".to_owned(),
             ));
         }
-        if self.derived_registration.kind != WireAppletRegistration::KIND {
+        if self.derived_registration.kind != EventKind::APPLET_REGISTRATION {
             return Err(Error::Protocol(
                 "applet registration epoch transcript kind mismatch".to_owned(),
             ));
@@ -1072,8 +1074,8 @@ pub struct AppletPackage {
 }
 
 impl AppletPackage {
+    pub const SCHEMA: &'static str = SchemaId::APPLET_PACKAGE_V1;
     /// The base profile every Applet package MUST claim.
-    pub const BASE_PROFILE: &'static str = "ak.profile.applet_service.v1";
 
     /// Build an unsigned, unsealed package. Caller MUST
     /// [`seal`](Self::seal) then [`sign`](Self::sign) before publishing.
@@ -1090,14 +1092,14 @@ impl AppletPackage {
     ) -> Self {
         let webhook_key_ref = format!("{}#applet-webhook", service_id.as_str());
         Self {
-            schema: APPLET_PACKAGE_SCHEMA.to_owned(),
+            schema: SchemaId::APPLET_PACKAGE_V1.to_owned(),
             package_id: package_id.into(),
             applet_id: applet_id.into(),
             service_id,
             controller_id,
             base_url: base_url.into(),
             bot_actor_id,
-            claimed_profiles: vec![Self::BASE_PROFILE.to_owned()],
+            claimed_profiles: vec![ProfileId::APPLET_SERVICE_V1.to_owned()],
             protocols,
             namespaces,
             requested_scopes: Vec::new(),
@@ -1224,7 +1226,7 @@ impl AppletPackage {
     }
 
     pub fn validate_wire(&self) -> Result<()> {
-        if self.schema != APPLET_PACKAGE_SCHEMA {
+        if self.schema != SchemaId::APPLET_PACKAGE_V1 {
             return Err(Error::Protocol("applet package schema mismatch".to_owned()));
         }
         if self.package_id.is_empty() || self.applet_id.is_empty() || self.base_url.is_empty() {
@@ -1235,7 +1237,7 @@ impl AppletPackage {
         if !self
             .claimed_profiles
             .iter()
-            .any(|profile| profile == Self::BASE_PROFILE)
+            .any(|profile| profile == ProfileId::APPLET_SERVICE_V1)
         {
             return Err(Error::Protocol(
                 "applet package MUST claim ak.profile.applet_service.v1".to_owned(),

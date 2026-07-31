@@ -461,11 +461,10 @@ pub fn agent_key_pair_proof_request_binding_digest(
 mod tests {
     use arkret_models_collaboration::events_payloads::agent::AgentKeyScope;
     use arkret_wire::{
-        AUTHORITY_SET_POLICY_SCHEMA, AuthoritySetAuthorizationRule, AuthoritySetIssuer,
-        AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind,
-        AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease,
-        AuthorizationLeaseId, DeviceId, EventId, Hlc, LeaseBasisRef, Proof, RealmId, RequestId,
-        RiskTier, SealId,
+        AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
+        AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
+        AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, DeviceId, EventId, Hlc,
+        LeaseBasisRef, Proof, RealmId, RequestId, RiskTier, SchemaId, SealId,
     };
     use chrono::TimeZone;
     use serde_json::json;
@@ -474,7 +473,7 @@ mod tests {
 
     fn initial_submission(event: Event) -> EventInitialSubmission {
         let policy = AuthoritySetPolicy {
-            schema: AUTHORITY_SET_POLICY_SCHEMA.to_owned(),
+            schema: SchemaId::AUTHORITY_SET_POLICY_V1.to_owned(),
             authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
             policy_kind: AuthoritySetPolicyKind::RealmAdmission,
             scope_ref: event.scope_ref.clone(),
@@ -702,11 +701,8 @@ mod tests {
             constraints: vec![],
         };
         let mut disclosure = AgentRequestedScopeDisclosure {
-            schema: arkret_models_collaboration::agent_operations::AGENT_REQUESTED_SCOPE_DISCLOSURE_SCHEMA.to_owned(),
-            request_id: RequestId::new(
-                "ak:request:01970000-0000-7000-8000-000000000021",
-            )
-            .unwrap(),
+            schema: SchemaId::AGENT_REQUESTED_SCOPE_DISCLOSURE_V1.to_owned(),
+            request_id: RequestId::new("ak:request:01970000-0000-7000-8000-000000000021").unwrap(),
             agent_id: agent_id.clone(),
             controller_id: controller_id.clone(),
             requested_scope_digest: agent_requested_scope_digest(

@@ -6,21 +6,18 @@ use arkret_models_collaboration::events_payloads::device_identity::{
     DeviceAuthorizePayload, DeviceOrPrincipalRef,
 };
 use arkret_models_collaboration::governance::accountability::{
-    ACCOUNTABILITY_GRANT_SCHEMA, AccountabilityGrantPayload, AccountabilityScope,
-    AccountabilityScopeKind,
+    AccountabilityGrantPayload, AccountabilityScope, AccountabilityScopeKind,
 };
 use arkret_models_collaboration::governance::circle::EncryptionFloor;
 use arkret_models_collaboration::http_bodies::{
     EventsSubmitBatchRequestBody, EventsSubmitRequestBody,
 };
-use arkret_models_collaboration::objects::realm::{NotaryProfile, Realm};
 // The Realm role markers are owned by the Realm model, next to the sibling
 // Direct Conversation role constants, so the profile id and the `purpose`
 // discriminator are each spelled exactly once in the SDK. Re-exported here
 // because this crate's public bootstrap API has always carried the profile id.
-pub use arkret_models_collaboration::objects::realm::{
-    PRINCIPAL_CONTROL_PURPOSE, PRINCIPAL_CONTROL_REALM_PROFILE,
-};
+pub use arkret_models_collaboration::objects::realm::PRINCIPAL_CONTROL_PURPOSE;
+use arkret_models_collaboration::objects::realm::{NotaryProfile, Realm};
 #[cfg(test)]
 use arkret_models_identity::artifacts_device_identity::{
     DeviceEnrollmentAuthorityBinding, DeviceEnrollmentAuthorityBindingKind,
@@ -32,21 +29,19 @@ use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ord
 use arkret_state::{
     CellRegistry, CellState, LatticeKind, SealedOp, compute_state_root, control_event_set_root,
 };
-use arkret_wire::{
-    AGENT_SELECTOR_CLAIM_SCHEMA, CellRef, Did, Discoverability, EncryptionProfile, Error, Event,
-    EventId, EventInitialSubmission, EventKind, EventRef, EventRequirements, Hash,
-    HistoryVisibility, Hlc, JoinRule, NotarySig, NotaryValue, PayloadProof, PayloadSignature,
-    PayloadSigner, ProjectedCellWrite, ProjectionEffect, REALM_SCHEMA_ID, RealmId, Result,
-    ScopeRef, Seal, SealId, SealKind, SecurityClass, TypedTrustDomainId, composite_subject,
-    proof_kind,
-};
 #[cfg(test)]
 use arkret_wire::{
-    AUTHORITY_SET_POLICY_SCHEMA, AuthoritySetAuthorizationRule, AuthoritySetIssuer,
-    AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource,
-    AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, DeviceId,
-    DidUrl, LeaseBasisRef, NonEmptyString, Proof, RiskTier, SemanticRefProof, SemanticRefProofKind,
-    WireError,
+    AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole, AuthoritySetPolicy,
+    AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind,
+    AuthorizationLease, AuthorizationLeaseId, DeviceId, DidUrl, LeaseBasisRef, NonEmptyString,
+    Proof, RiskTier, SemanticRefProof, SemanticRefProofKind, WireError,
+};
+use arkret_wire::{
+    CellRef, Did, Discoverability, EncryptionProfile, Error, Event, EventId,
+    EventInitialSubmission, EventKind, EventRef, EventRequirements, Hash, HistoryVisibility, Hlc,
+    JoinRule, NotarySig, NotaryValue, PayloadProof, PayloadSignature, PayloadSigner, ProfileId,
+    ProjectedCellWrite, ProjectionEffect, RealmId, Result, SchemaId, ScopeRef, Seal, SealId,
+    SealKind, SecurityClass, TypedTrustDomainId, composite_subject, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -239,10 +234,10 @@ pub fn build_agent_provision_event_drafts<S: PayloadSigner + ?Sized>(
         created_at,
     )?;
     accountability_grant.requirements.schema_profile_refs =
-        vec![ACCOUNTABILITY_GRANT_SCHEMA.to_owned()];
+        vec![SchemaId::ACCOUNTABILITY_GRANT_V1.to_owned()];
 
     let mut selector_payload = AgentSelectorClaim {
-        schema: AGENT_SELECTOR_CLAIM_SCHEMA.to_owned(),
+        schema: SchemaId::AGENT_SELECTOR_CLAIM_V1.to_owned(),
         controller_subject: controller_id.clone(),
         agent_slug: agent_slug.to_owned(),
         subject: agent_id.clone(),
@@ -295,7 +290,8 @@ pub fn build_agent_provision_event_drafts<S: PayloadSigner + ?Sized>(
         selector_value,
         created_at,
     )?;
-    selector_claim.requirements.schema_profile_refs = vec![AGENT_SELECTOR_CLAIM_SCHEMA.to_owned()];
+    selector_claim.requirements.schema_profile_refs =
+        vec![SchemaId::AGENT_SELECTOR_CLAIM_V1.to_owned()];
 
     Ok(AgentProvisionEventDrafts {
         accountability_grant,
@@ -352,8 +348,8 @@ pub fn build_self_principal_pcr_create(
     );
     realm.security_class = Some(SecurityClass::HighAssurance);
     realm.schema_refs = vec![
-        REALM_SCHEMA_ID.to_owned(),
-        PRINCIPAL_CONTROL_REALM_PROFILE.to_owned(),
+        SchemaId::REALM_V1.to_owned(),
+        ProfileId::PRINCIPAL_CONTROL_REALM_V1.to_owned(),
     ];
     realm.default_discoverability = Discoverability::Secret;
     realm.default_join_rule = JoinRule::Closed;
@@ -1363,7 +1359,7 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
     let profile_count = realm
         .schema_refs
         .iter()
-        .filter(|profile| profile.as_str() == PRINCIPAL_CONTROL_REALM_PROFILE)
+        .filter(|profile| profile.as_str() == ProfileId::PRINCIPAL_CONTROL_REALM_V1)
         .count();
     let exact_purpose = realm.fields.len() == 1
         && realm.fields.get("purpose").and_then(Value::as_str) == Some(PRINCIPAL_CONTROL_PURPOSE);
@@ -1372,7 +1368,7 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
         NotaryValue::SingleDid { did, .. } if did == &event.actor_id
     );
     if realm.id != event.realm_id
-        || realm.schema != REALM_SCHEMA_ID
+        || realm.schema != SchemaId::REALM_V1
         || realm.created_by != event.actor_id
         || realm.created_at != event.created_at
         || realm.security_class != Some(SecurityClass::HighAssurance)
@@ -1662,7 +1658,7 @@ mod tests {
     /// checks the actor/scope binding, so the remaining members are fixtures.
     fn submission(event: Event) -> EventInitialSubmission {
         let authority_set_policy = AuthoritySetPolicy {
-            schema: AUTHORITY_SET_POLICY_SCHEMA.to_owned(),
+            schema: SchemaId::AUTHORITY_SET_POLICY_V1.to_owned(),
             authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
             policy_kind: AuthoritySetPolicyKind::RealmAdmission,
             scope_ref: event.scope_ref.clone(),

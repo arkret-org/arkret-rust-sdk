@@ -30,7 +30,6 @@ use crate::error_codes::ReasonCode;
 /// Registered schema id for the field-patch wire format.
 ///
 /// The in-prose name `ak.patch.v1` resolves to this same artifact.
-pub const PATCH_SCHEMA: &str = "ak.schema.patch.v1";
 
 /// Maximum patch-path length in bytes, per spec.
 pub const PATCH_PATH_MAX_BYTES: usize = 1024;

@@ -7,8 +7,8 @@ use std::collections::BTreeMap;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
     AppletId, CircleId, Did, EncryptionProfile, Error, EvaluationClass, Facet, GrantId, Hash,
-    HistoryVisibility, PayloadProof, ProofContextId, RealmId, Result, WireError, XExtensionMap,
-    canonical,
+    HistoryVisibility, PayloadProof, ProofContextId, RealmId, Result, SchemaId, WireError,
+    XExtensionMap, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -482,6 +482,7 @@ pub struct GrantConstraint {
 }
 
 impl GrantConstraint {
+    pub const SCHEMA: &'static str = SchemaId::GRANT_CONSTRAINT_V1;
     pub fn new(constraint_kind: GrantConstraintKind, effect: GrantConstraintEffect) -> Self {
         Self {
             constraint_id: None,

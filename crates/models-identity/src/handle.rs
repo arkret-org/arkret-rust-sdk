@@ -250,8 +250,6 @@ pub enum HandleHintBindingSource {
     RealmPolicy,
 }
 
-pub use arkret_wire::HANDLE_CLAIM_SCHEMA;
-
 #[cfg(test)]
 mod tests {
     use super::*;

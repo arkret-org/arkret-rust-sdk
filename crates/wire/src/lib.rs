@@ -106,20 +106,21 @@ pub use extension_manifest::{
 };
 pub use extension_map::XExtensionMap;
 pub use generated::{
-    AlgorithmSuiteDescriptor, CapabilityActionId, DIGEST_SUITES, EVENT_KIND_COUNT, EXPORTER_LABELS,
-    EventKind, ExporterLabelDescriptor, ExporterLabelId, HPKE_SUITES, MLS_CIPHERSUITES,
-    MLS_EXTENSIONS, MlsExtensionDescriptor, PROOF_CONTEXTS, ProofContextDescriptor, ProofContextId,
-    RELATION_KIND_DESCRIPTORS, SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS,
-    SIGNATURE_ALGORITHMS, ServiceKindDescriptor, ServiceOperationDescriptor, ServiceOperationId,
+    AccountDataKey, AlgorithmSuiteDescriptor, CapabilityActionId, DIGEST_SUITES, EVENT_KIND_COUNT,
+    EXPORTER_LABELS, EventKind, ExporterLabelDescriptor, ExporterLabelId, HPKE_SUITES,
+    MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsExtensionDescriptor, PROOF_CONTEXTS, ProfileId,
+    ProofContextDescriptor, ProofContextId, RELATION_KIND_DESCRIPTORS, SERVICE_KIND_DESCRIPTORS,
+    SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId, ServiceKindDescriptor,
+    ServiceOperationDescriptor, ServiceOperationId,
 };
 pub use http_signature::HttpMessageSignature;
 pub use notary::{ForensicAttribution, NotaryValue};
 pub use object_address::*;
 pub use offline_publication::{
-    AUTHORITY_SET_POLICY_SCHEMA, AnchorUnitLeaseBasis, AnchorUnitLeaseBasisRef,
-    AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole, AuthoritySetPolicy,
-    AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind,
-    AuthorizationLease, IngressReceipt, LeaseBasisRef, RECOVERY_ACCOUNT_AUTHORITY_SET_ID,
+    AnchorUnitLeaseBasis, AnchorUnitLeaseBasisRef, AuthoritySetAuthorizationRule,
+    AuthoritySetIssuer, AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind,
+    AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease,
+    IngressReceipt, LeaseBasisRef, RECOVERY_ACCOUNT_AUTHORITY_SET_ID,
     RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID, RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RiskTier,
     distinct_issuer_count,
 };

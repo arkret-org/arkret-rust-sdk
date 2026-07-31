@@ -473,7 +473,7 @@ pub fn verify_full_realm_range_completeness_with_suite(
     let payload: RangeCompletenessAttestation = attestation_event
         .payload_as()
         .map_err(|error| RangeCompletenessError::SchemaViolation(error.to_string()))?;
-    if payload.schema != arkret_wire::RANGE_COMPLETENESS_ATTESTATION_SCHEMA
+    if payload.schema != arkret_wire::SchemaId::RANGE_COMPLETENESS_ATTESTATION_V1
         || payload.realm_id != *expected_realm
         || payload.issuer != attestation_event.actor_id
     {

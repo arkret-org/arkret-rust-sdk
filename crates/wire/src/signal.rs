@@ -24,7 +24,7 @@ use crate::error::{Error, Result};
 use crate::event_envelope::ScopeRef;
 use crate::generated::ProofContextId;
 use crate::primitives::Audience;
-use crate::{DeviceId, Did, DidUrl, Hash, RealmId, SealId, canonical};
+use crate::{DeviceId, Did, DidUrl, ExporterLabelId, Hash, RealmId, SealId, canonical};
 
 /// Construction identifier of the v1 Signal payload.
 ///
@@ -46,7 +46,7 @@ pub const SIGNAL_AEAD_PURPOSE: &str = "ak.signal.v1";
 /// Taken from the generated exporter-label registry rather than spelled out
 /// here: the label is a wire-breaking domain separator, so it must have
 /// exactly one source.
-pub const SIGNAL_EXPORTER_LABEL: &str = crate::generated::ExporterLabelId::SIGNAL_V1;
+pub const SIGNAL_EXPORTER_LABEL: &str = ExporterLabelId::SIGNAL_V1;
 
 /// Canonical envelope size bound.
 pub const MAX_SIGNAL_ENVELOPE_BYTES: usize = 64 * 1024;

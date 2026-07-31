@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::{
     CircleId, Did, Error, RealmId, ReasonCode, RelationId, RelationKind, RelationState,
-    RelationTruthSourceClass, Result, ScopeRef, standard_relation_kind_metadata,
+    RelationTruthSourceClass, Result, SchemaId, ScopeRef, standard_relation_kind_metadata,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -313,6 +313,7 @@ pub fn enforce_relation_cardinality(
 }
 
 impl Relation {
+    pub const SCHEMA: &'static str = SchemaId::RELATION_V1;
     pub fn validate_endpoints(&self) -> Result<()> {
         if self.from_ref.trim().is_empty() || self.to_ref.trim().is_empty() {
             Err(Error::Protocol(

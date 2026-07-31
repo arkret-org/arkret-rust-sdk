@@ -3,8 +3,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
-use arkret_wire::constants::STRAND_SCHEMA;
-use arkret_wire::{CircleId, Did, Error, ObjectStage, ObjectState, RealmId, Result, StrandId};
+use arkret_wire::{
+    CircleId, Did, Error, ObjectStage, ObjectState, RealmId, Result, SchemaId, StrandId,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -182,6 +183,7 @@ pub struct Strand {
 }
 
 impl Strand {
+    pub const SCHEMA: &'static str = SchemaId::STRAND_V1;
     pub fn new(id: StrandId, realm_id: RealmId, title: impl Into<String>, created_by: Did) -> Self {
         let mut tracks = BTreeMap::new();
         tracks.insert(
@@ -190,7 +192,7 @@ impl Strand {
         );
         Self {
             id,
-            schema: STRAND_SCHEMA.to_owned(),
+            schema: SchemaId::STRAND_V1.to_owned(),
             realm_id,
             scope_circle_id: None,
             schema_refs: None,
@@ -244,7 +246,7 @@ impl Strand {
                     "strand schema_refs must be omitted rather than empty".to_owned(),
                 ));
             }
-            if refs.iter().any(|value| value == STRAND_SCHEMA) {
+            if refs.iter().any(|value| value == SchemaId::STRAND_V1) {
                 return Err(Error::Protocol(
                     "strand schema_refs must not list the container self-schema".to_owned(),
                 ));

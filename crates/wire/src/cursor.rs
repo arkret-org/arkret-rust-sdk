@@ -9,7 +9,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, Result};
+use crate::{Error, Result, SchemaId};
 
 /// Round R2/R3 (2026-05-20) — minimum length of a stateful cursor handle's
 /// base64url alphabet representation. Schema `cursor.schema.json` raises
@@ -101,6 +101,7 @@ pub enum CursorPurpose {
 }
 
 impl Cursor {
+    pub const SCHEMA: &'static str = SchemaId::CURSOR_V1;
     /// Default expiration duration for cursors (7 days).
     pub const DEFAULT_EXPIRATION_MS: i64 = 7 * 24 * 60 * 60 * 1000;
 

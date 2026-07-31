@@ -1,6 +1,8 @@
 //! `ak.self.account.stream.subscribe` NDJSON frame family and validated
 //! batch results.
 
+use arkret_wire::SchemaId;
+
 use crate::internal_prelude::*;
 
 /// One NDJSON frame on `ak.self.account.stream.subscribe`.
@@ -80,6 +82,7 @@ pub enum AccountStreamInterrupt {
 }
 
 impl AccountSubscribeFrame {
+    pub const SCHEMA: &'static str = SchemaId::ACCOUNT_SUBSCRIBE_FRAME_V1;
     /// Parse one NDJSON line. Empty / whitespace-only lines return
     /// `Ok(None)` so callers can chunk-read transparently. Mirrors the
     /// existing `EventsSubscribeFrame::from_ndjson_line` API
@@ -112,8 +115,7 @@ impl AccountSubscribeFrame {
             to_device.validate()?;
         }
         if let Some(bundle) = &self.agent_signer_evidence_bundle
-            && (bundle.schema.as_str()
-                != crate::agent_signer_evidence::AGENT_SIGNER_EVIDENCE_BUNDLE_SCHEMA
+            && (bundle.schema.as_str() != SchemaId::AGENT_SIGNER_EVIDENCE_BUNDLE_V1
                 || bundle.evidence.len() > 256)
         {
             return Err(Error::Protocol(

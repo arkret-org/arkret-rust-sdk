@@ -1,3 +1,4 @@
+use arkret_wire::SchemaId;
 use serde_json::{Value, json};
 
 use super::super::*;
@@ -692,17 +693,17 @@ impl Default for ProtocolSchemaRegistry {
     fn default() -> Self {
         let mut registry = Self::new();
         registry.register(
-            CURSOR_SCHEMA,
+            SchemaId::CURSOR_V1,
             object_schema(
-                CURSOR_SCHEMA,
+                SchemaId::CURSOR_V1,
                 &["v", "iat", "pos"],
                 &[("v", "string"), ("iat", "string"), ("pos", "object")],
             ),
         );
         registry.register(
-            EVENT_SCHEMA,
+            SchemaId::EVENT_V1,
             object_schema(
-                EVENT_SCHEMA,
+                SchemaId::EVENT_V1,
                 &[
                     "event_id",
                     "kind",
@@ -738,18 +739,18 @@ impl Default for ProtocolSchemaRegistry {
                 ],
             ),
         );
-        registry.register(STRAND_SCHEMA, strand_schema_document());
-        registry.register(MORPH_SCHEMA, morph_schema_document());
-        registry.register(SPACE_SCHEMA, space_schema_document());
-        registry.register(VIEW_SCHEMA, view_schema_document());
+        registry.register(SchemaId::STRAND_V1, strand_schema_document());
+        registry.register(SchemaId::MORPH_V1, morph_schema_document());
+        registry.register(SchemaId::SPACE_V1, space_schema_document());
+        registry.register(SchemaId::VIEW_V1, view_schema_document());
         registry.register(
-            EVENT_PAYLOAD_SCHEMA,
-            object_schema(EVENT_PAYLOAD_SCHEMA, &[], &[("type", "string")]),
+            SchemaId::EVENT_PAYLOAD_V1,
+            object_schema(SchemaId::EVENT_PAYLOAD_V1, &[], &[("type", "string")]),
         );
         registry.register(
-            ANCHOR_SCHEMA,
+            SchemaId::SEAL_V1,
             object_schema(
-                ANCHOR_SCHEMA,
+                SchemaId::SEAL_V1,
                 &["id", "realm_id", "frontier", "state_root"],
                 &[
                     ("id", "string"),
@@ -760,17 +761,17 @@ impl Default for ProtocolSchemaRegistry {
             ),
         );
         registry.register(
-            BOTTOM_SCHEMA,
+            SchemaId::BOTTOM_V1,
             object_schema(
-                BOTTOM_SCHEMA,
+                SchemaId::BOTTOM_V1,
                 &["kind", "cells"],
                 &[("kind", "string"), ("cells", "array")],
             ),
         );
         registry.register(
-            SNAPSHOT_SCHEMA,
+            SchemaId::SNAPSHOT_V1,
             object_schema(
-                SNAPSHOT_SCHEMA,
+                SchemaId::SNAPSHOT_V1,
                 &["snapshot_id", "realm_id", "frontier", "state_root"],
                 &[
                     ("snapshot_id", "string"),
@@ -781,9 +782,9 @@ impl Default for ProtocolSchemaRegistry {
             ),
         );
         registry.register(
-            CAPABILITY_SCHEMA,
+            SchemaId::CAPABILITY_V1,
             object_schema(
-                CAPABILITY_SCHEMA,
+                SchemaId::CAPABILITY_V1,
                 &["schema", "id", "issuer", "subject", "actions", "resources"],
                 &[
                     ("schema", "string"),
@@ -796,17 +797,17 @@ impl Default for ProtocolSchemaRegistry {
             ),
         );
         registry.register(
-            PERSONAL_PRODUCTIVITY_SCHEMA,
+            SchemaId::PERSONAL_PRODUCTIVITY_V1,
             object_schema(
-                PERSONAL_PRODUCTIVITY_SCHEMA,
+                SchemaId::PERSONAL_PRODUCTIVITY_V1,
                 &["kind"],
                 &[("kind", "string")],
             ),
         );
         registry.register(
-            DRAFT_SYNC_SCHEMA,
+            SchemaId::DRAFT_SYNC_V1,
             object_schema(
-                DRAFT_SYNC_SCHEMA,
+                SchemaId::DRAFT_SYNC_V1,
                 &[
                     "target_ref",
                     "kind",
@@ -828,9 +829,9 @@ impl Default for ProtocolSchemaRegistry {
             ),
         );
         registry.register(
-            CALENDAR_EVENT_SCHEMA,
+            SchemaId::CALENDAR_EVENT_V1,
             object_schema(
-                CALENDAR_EVENT_SCHEMA,
+                SchemaId::CALENDAR_EVENT_V1,
                 &["start", "end", "timezone", "all_day"],
                 &[
                     ("start", "string"),
@@ -845,17 +846,21 @@ impl Default for ProtocolSchemaRegistry {
             ),
         );
         registry.register(
-            DISAPPEARING_MESSAGES_SCHEMA,
-            object_schema(DISAPPEARING_MESSAGES_SCHEMA, &[], &[("enabled", "boolean")]),
-        );
-        registry.register(
-            SEARCH_SERVICE_SCHEMA,
-            object_schema(SEARCH_SERVICE_SCHEMA, &[], &[("realm_id", "string")]),
-        );
-        registry.register(
-            ENCRYPTED_ENVELOPE_SCHEMA,
+            SchemaId::DISAPPEARING_MESSAGES_V1,
             object_schema(
-                ENCRYPTED_ENVELOPE_SCHEMA,
+                SchemaId::DISAPPEARING_MESSAGES_V1,
+                &[],
+                &[("enabled", "boolean")],
+            ),
+        );
+        registry.register(
+            SchemaId::SEARCH_SERVICE_V1,
+            object_schema(SchemaId::SEARCH_SERVICE_V1, &[], &[("realm_id", "string")]),
+        );
+        registry.register(
+            SchemaId::ENCRYPTED_ENVELOPE_V1,
+            object_schema(
+                SchemaId::ENCRYPTED_ENVELOPE_V1,
                 &[
                     "scheme",
                     "group_id",
@@ -875,9 +880,9 @@ impl Default for ProtocolSchemaRegistry {
             ),
         );
         registry.register(
-            ACCOUNT_SUBSCRIBE_FRAME_SCHEMA,
+            SchemaId::ACCOUNT_SUBSCRIBE_FRAME_V1,
             object_schema(
-                ACCOUNT_SUBSCRIBE_FRAME_SCHEMA,
+                SchemaId::ACCOUNT_SUBSCRIBE_FRAME_V1,
                 &["kind"],
                 &[
                     ("kind", "string"),
@@ -908,7 +913,7 @@ fn object_schema(schema_id: &str, required: &[&str], properties: &[(&str, &str)]
 fn strand_schema_document() -> Value {
     json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": STRAND_SCHEMA,
+        "$id": SchemaId::STRAND_V1,
         "type": "object",
         "required": ["id", "schema", "realm_id", "stage", "tracks", "created_by", "created_at"],
         "not": {
@@ -949,7 +954,7 @@ fn strand_schema_document() -> Value {
 fn morph_schema_document() -> Value {
     json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": MORPH_SCHEMA,
+        "$id": SchemaId::MORPH_V1,
         "type": "object",
         "required": ["schema", "id", "realm_id", "schema_refs", "morph_kind", "created_by", "created_at"],
         "not": {
@@ -1023,7 +1028,7 @@ fn morph_schema_document() -> Value {
 fn space_schema_document() -> Value {
     json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": SPACE_SCHEMA,
+        "$id": SchemaId::SPACE_V1,
         "type": "object",
         "required": ["schema", "id", "space_id", "kind", "title", "created_by", "created_at"],
         "properties": {
@@ -1048,7 +1053,7 @@ fn space_schema_document() -> Value {
 fn view_schema_document() -> Value {
     json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": VIEW_SCHEMA,
+        "$id": SchemaId::VIEW_V1,
         "type": "object",
         "required": ["id", "type", "space_id", "kind", "query", "created_by", "created_at"],
         "properties": {

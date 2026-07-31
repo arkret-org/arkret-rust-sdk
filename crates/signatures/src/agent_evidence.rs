@@ -4,12 +4,14 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::{base64url_decode, canonical};
 use arkret_models_collaboration::agent_signer_evidence::{
-    AGENT_EVIDENCE_FRESHNESS_CONTEXT, AGENT_KEY_COMPONENT, AGENT_SIGNER_EVIDENCE_SCHEMA,
-    AGENT_SIGNING_KEY_BINDING_CONTEXT, AGENT_SIGNING_KEY_BINDING_SCHEMA, AgentAuthorizationStatus,
-    AgentControllerProof, AgentEvidenceFreshnessAttestation, AgentEvidenceSourceProof,
-    AgentSignerEvidence, AgentSigningKeyBinding, AgentSigningPublicKey, KEY_TRANSPARENCY_PROFILE,
+    AGENT_EVIDENCE_FRESHNESS_CONTEXT, AGENT_KEY_COMPONENT, AGENT_SIGNING_KEY_BINDING_CONTEXT,
+    AgentAuthorizationStatus, AgentControllerProof, AgentEvidenceFreshnessAttestation,
+    AgentEvidenceSourceProof, AgentSignerEvidence, AgentSigningKeyBinding, AgentSigningPublicKey,
 };
-use arkret_wire::{CellRef, Did, DidUrl, Event, EventId, Hash, NonEmptyString, RealmId, SealId};
+use arkret_wire::{
+    CellRef, Did, DidUrl, Event, EventId, Hash, NonEmptyString, ProfileId, RealmId, SchemaId,
+    SealId,
+};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::SigningKey;
 use serde_json::Value;
@@ -313,7 +315,7 @@ pub fn build_agent_signing_key_binding(
     };
     let public_key_digest = binding_public_key_digest(&verification_method, &public_key)?;
     let mut binding = AgentSigningKeyBinding {
-        schema: NonEmptyString::new(AGENT_SIGNING_KEY_BINDING_SCHEMA.to_owned())
+        schema: NonEmptyString::new(SchemaId::AGENT_SIGNING_KEY_BINDING_V1.to_owned())
             .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
         agent_id,
         agent_key_id,
@@ -355,7 +357,7 @@ pub fn verify_agent_signing_key_binding(
     expected_binding_digest: &Hash,
     controller_public_key: &PublicKeyMaterial,
 ) -> Result<[u8; 32], AgentEvidenceRejectedReason> {
-    if binding.schema.as_str() != AGENT_SIGNING_KEY_BINDING_SCHEMA
+    if binding.schema.as_str() != SchemaId::AGENT_SIGNING_KEY_BINDING_V1
         || &binding.agent_id != expected_agent_id
         || &binding.agent_key_id != expected_agent_key_id
         || &binding.controller_id != expected_controller_id
@@ -400,7 +402,7 @@ pub fn validate_agent_signer_evidence(
     let Some(evidence) = evidence else {
         return AgentSignerEvidenceVerdict::Unresolved(AgentEvidenceUnresolvedReason::Missing);
     };
-    if evidence.schema.as_str() != AGENT_SIGNER_EVIDENCE_SCHEMA {
+    if evidence.schema.as_str() != SchemaId::AGENT_SIGNER_EVIDENCE_V1 {
         return rejected(AgentEvidenceRejectedReason::SigningKeyMismatch);
     }
     let binding = &evidence.signing_key_binding;
@@ -546,7 +548,7 @@ pub fn validate_agent_signer_evidence(
         let Some(transparency) = evidence.transparency.as_ref() else {
             return AgentSignerEvidenceVerdict::Unresolved(AgentEvidenceUnresolvedReason::Missing);
         };
-        if transparency.profile.as_str() != KEY_TRANSPARENCY_PROFILE
+        if transparency.profile.as_str() != ProfileId::KEY_TRANSPARENCY_V1
             || !context.transparency_verified
         {
             return rejected(AgentEvidenceRejectedReason::AuthorizationConflicted);
@@ -891,7 +893,7 @@ mod tests {
         let authorization_frontier =
             NonEmptyString::new(authorization_seal.id.as_str().to_owned()).unwrap();
         AgentSignerEvidence {
-            schema: NonEmptyString::new(AGENT_SIGNER_EVIDENCE_SCHEMA.to_owned()).unwrap(),
+            schema: NonEmptyString::new(SchemaId::AGENT_SIGNER_EVIDENCE_V1.to_owned()).unwrap(),
             authorization: AgentAuthorizationEvidence {
                 status: AgentAuthorizationStatus::Active,
                 authorized_event_id: binding.agent_key_authorize_event_id.clone(),
@@ -1413,7 +1415,7 @@ mod tests {
         );
 
         evidence.transparency = Some(AgentEvidenceTransparency {
-            profile: NonEmptyString::new(KEY_TRANSPARENCY_PROFILE.to_owned()).unwrap(),
+            profile: NonEmptyString::new(ProfileId::KEY_TRANSPARENCY_V1.to_owned()).unwrap(),
             log_id: NonEmptyString::new("agent-key-log".to_owned()).unwrap(),
             leaf_count: 1,
             tree_root: hash('4'),

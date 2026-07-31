@@ -47,9 +47,9 @@ use serde_json::{Value, json};
 use crate::{Error, Result};
 
 /// Whole-file AEAD scheme id.
-pub const SCHEME_WHOLE_FILE: &str = "ak.blob.whole_file_aead.v1";
+pub const SCHEME_WHOLE_FILE: &str = arkret_wire::BLOB_SCHEME_WHOLE_FILE_AEAD_V1;
 /// Chunked streaming AEAD scheme id (STREAM / OAE2).
-pub const SCHEME_STREAM: &str = "ak.blob.stream_aead.v1";
+pub const SCHEME_STREAM: &str = arkret_wire::BLOB_SCHEME_STREAM_AEAD_V1;
 
 /// XChaCha20-Poly1305 streaming `alg` value.
 pub const ALG_STREAM_XCHACHA: &str = "mls_exporter_aead_xchacha20poly1305_stream";

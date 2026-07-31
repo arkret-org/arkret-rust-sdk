@@ -3,8 +3,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_wire::constants::AGENT_SELECTOR_CLAIM_SCHEMA;
-use arkret_wire::{Did, DidUrl, Error, Hash, PayloadProof, ProofContextId, Result, canonical};
+use arkret_wire::{
+    Did, DidUrl, Error, Hash, PayloadProof, ProofContextId, Result, SchemaId, canonical,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -63,7 +64,7 @@ pub struct DirectoryRestrictedClaimPresentation {
 }
 
 fn default_agent_selector_claim_schema() -> String {
-    AGENT_SELECTOR_CLAIM_SCHEMA.to_owned()
+    SchemaId::AGENT_SELECTOR_CLAIM_V1.to_owned()
 }
 
 /// Signed controller-scoped selector claim for
@@ -165,9 +166,10 @@ impl AgentSelectorClaim {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.schema != AGENT_SELECTOR_CLAIM_SCHEMA {
+        if self.schema != SchemaId::AGENT_SELECTOR_CLAIM_V1 {
             return Err(Error::Protocol(format!(
-                "agent_selector_claim schema must be {AGENT_SELECTOR_CLAIM_SCHEMA}"
+                "agent_selector_claim schema must be {schemaid_agent_selector_claim_v1}",
+                schemaid_agent_selector_claim_v1 = SchemaId::AGENT_SELECTOR_CLAIM_V1
             )));
         }
         validate_agent_slug(&self.agent_slug)?;

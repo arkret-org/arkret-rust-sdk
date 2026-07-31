@@ -296,7 +296,7 @@ impl ServiceRequirements {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{PROFILE_DIRECTORY_SERVICE, TypedTrustDomainId};
+    use arkret_wire::{ProfileId, TypedTrustDomainId};
 
     use super::*;
     use crate::service_description::{
@@ -312,7 +312,7 @@ mod tests {
             trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_kind: ServiceKind::DirectoryService,
             protocol_version: "1.0".to_owned(),
-            supported_profiles: vec![PROFILE_DIRECTORY_SERVICE.to_owned()],
+            supported_profiles: vec![ProfileId::DIRECTORY_SERVICE_V1.to_owned()],
             profile_bindings: Default::default(),
             supported_features: vec![],
             calendar_tzdb_versions: vec![],
@@ -324,7 +324,9 @@ mod tests {
             privacy_derivation: None,
             receive_policy_constraints: None,
             implemented_features: vec![],
-            claimed_profiles: vec![ClaimedProfileEntry::self_claimed(PROFILE_DIRECTORY_SERVICE)],
+            claimed_profiles: vec![ClaimedProfileEntry::self_claimed(
+                ProfileId::DIRECTORY_SERVICE_V1,
+            )],
             verified_profiles: vec![],
             experimental_features: vec![],
             compat_surfaces: vec![],
@@ -339,7 +341,7 @@ mod tests {
                 DirectoryResourceKind::Applet,
                 DirectoryResourceKind::Handle,
             ],
-            discovery_profiles: vec![PROFILE_DIRECTORY_SERVICE.to_owned()],
+            discovery_profiles: vec![ProfileId::DIRECTORY_SERVICE_V1.to_owned()],
             restricted_query_proof: Some(true),
             ingest_modes: vec![DirectoryIngestMode::Push],
             accept_policy_kind: Some(DirectoryAcceptPolicyKind::Open),
@@ -368,7 +370,7 @@ mod tests {
 
         ServiceRequirements::new()
             .service_kind(ServiceKind::DirectoryService)
-            .profile(PROFILE_DIRECTORY_SERVICE)
+            .profile(ProfileId::DIRECTORY_SERVICE_V1)
             .reducer_profile("ak.reducer.v1")
             .schema_profile("ak.schema.core.v1")
             .operation("ak.find.directory.query.search_realms")
@@ -390,7 +392,7 @@ mod tests {
             trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_kind: ServiceKind::DirectoryService,
             protocol_version: "1.0".to_owned(),
-            supported_profiles: vec![PROFILE_DIRECTORY_SERVICE.to_owned()],
+            supported_profiles: vec![ProfileId::DIRECTORY_SERVICE_V1.to_owned()],
             profile_bindings: Default::default(),
             supported_features: vec![],
             calendar_tzdb_versions: vec![],
@@ -417,7 +419,7 @@ mod tests {
                 DirectoryResourceKind::Applet,
                 DirectoryResourceKind::Handle,
             ],
-            discovery_profiles: vec![PROFILE_DIRECTORY_SERVICE.to_owned()],
+            discovery_profiles: vec![ProfileId::DIRECTORY_SERVICE_V1.to_owned()],
             restricted_query_proof: Some(true),
             ingest_modes: vec![DirectoryIngestMode::Push],
             accept_policy_kind: Some(DirectoryAcceptPolicyKind::Open),

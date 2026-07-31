@@ -341,12 +341,12 @@ mod tests {
 
     use super::*;
     use crate::offline_publication::{
-        AUTHORITY_SET_POLICY_SCHEMA, AuthoritySetAuthorizationRule, AuthoritySetIssuer,
-        AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind,
-        AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind,
+        AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
+        AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
+        AuthoritySetSourceKind,
     };
     use crate::{
-        AuthorizationLeaseId, DeviceId, Did, DidUrl, Hash, PayloadProof, RealmId, SealId,
+        AuthorizationLeaseId, DeviceId, Did, DidUrl, Hash, PayloadProof, RealmId, SchemaId, SealId,
         proof_kind,
     };
 
@@ -374,7 +374,7 @@ mod tests {
 
     fn lease_for(intent: &AuthorizationLeaseIssueIntent) -> AuthorizationLease {
         let authority_set_policy = AuthoritySetPolicy {
-            schema: AUTHORITY_SET_POLICY_SCHEMA.to_owned(),
+            schema: SchemaId::AUTHORITY_SET_POLICY_V1.to_owned(),
             authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
             policy_kind: AuthoritySetPolicyKind::RealmAdmission,
             scope_ref: intent.scope_ref.clone(),

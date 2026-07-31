@@ -1,5 +1,6 @@
 //! Call-state and call-participant payloads.
 
+use arkret_wire::{ExporterLabelId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +23,11 @@ pub struct ParticipantBinding {
     pub expires_at: DateTime<Utc>,
     pub issuer_kid: DidUrl,
     pub sig: String,
+}
+
+impl ParticipantBinding {
+    /// AKP-0010 — schema id for the participant_binding signing envelope.
+    pub const SCHEMA: &'static str = "ak.media.participant_binding.v1";
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -392,10 +398,12 @@ pub struct CallRecordingArtifact {
 }
 
 impl CallRecordingArtifact {
+    pub const SCHEMA: &'static str = SchemaId::CALL_RECORDING_ARTIFACT_V1;
     pub fn validate(&self) -> Result<()> {
-        if self.schema != CALL_RECORDING_ARTIFACT_SCHEMA {
+        if self.schema != SchemaId::CALL_RECORDING_ARTIFACT_V1 {
             return schema_violation(format!(
-                "call recording artifact schema must be {CALL_RECORDING_ARTIFACT_SCHEMA}"
+                "call recording artifact schema must be {schemaid_call_recording_artifact_v1}",
+                schemaid_call_recording_artifact_v1 = SchemaId::CALL_RECORDING_ARTIFACT_V1
             ));
         }
         if !self.blob_ref.as_str().starts_with("ak:blob:") {
@@ -408,9 +416,10 @@ impl CallRecordingArtifact {
                 "recording artifact media_type must be type/constraint_subkind",
             );
         }
-        if self.encryption.exporter_label != EXPORTER_LABEL_RTC_RECORDING_KEY {
+        if self.encryption.exporter_label != ExporterLabelId::RTC_RECORDING_KEY_V1 {
             return recording_artifact_pipeline_bypassed(format!(
-                "recording artifact exporter_label must be {EXPORTER_LABEL_RTC_RECORDING_KEY}"
+                "recording artifact exporter_label must be {exporterlabelid_rtc_recording_key_v1}",
+                exporterlabelid_rtc_recording_key_v1 = ExporterLabelId::RTC_RECORDING_KEY_V1
             ));
         }
         if self.encryption.ciphertext_digest != self.ciphertext_digest {

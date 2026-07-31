@@ -22,7 +22,7 @@ use std::fmt;
 
 pub use admin_key::AdminKeyStore;
 use arkret_models_identity::DidDocument;
-use arkret_wire::{DeviceId, Did, DidUrl, NonEmptyString, Proof};
+use arkret_wire::{DeviceId, Did, DidUrl, EventKind, NonEmptyString, Proof};
 use chrono::{DateTime, Duration, Utc};
 pub use claims::*;
 use error::AuthError as Error;
@@ -227,16 +227,13 @@ pub struct SessionPrincipalBinding {
 /// (`key-management.md` §4.1). These events MUST be written into the
 /// principal's dedicated control Realm; resolvers and federation peers
 /// MUST refuse them in any other Realm.
-pub const CX_DEVICE_AUTHORIZED: &str = "ak.device.authorize";
-pub const CX_DEVICE_REVOKED: &str = "ak.device.revoke";
-pub const CX_SESSION_GRANT: &str = "ak.session.grant";
 
 /// Returns `true` when `event_kind` MUST be pinned to a principal
 /// control Realm per `key-management.md` §4.1.
 pub fn is_principal_control_event(event_kind: &str) -> bool {
     matches!(
         event_kind,
-        CX_DEVICE_AUTHORIZED | CX_DEVICE_REVOKED | CX_SESSION_GRANT
+        EventKind::DEVICE_AUTHORIZE | EventKind::DEVICE_REVOKE | EventKind::SESSION_GRANT
     )
 }
 

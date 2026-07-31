@@ -1,5 +1,5 @@
 use arkret_wire::serde_helpers::canonical_timestamp;
-use arkret_wire::{Did, Error, Hash, Result, canonical};
+use arkret_wire::{Did, Error, Hash, Result, SchemaId, canonical};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -71,6 +71,7 @@ pub struct DidKeyLogEntry {
 }
 
 impl DidKeyLogEntry {
+    pub const SCHEMA: &'static str = SchemaId::DID_KEY_LOG_ENTRY_V1;
     /// Build an unsigned entry and seal its `head_event_digest`
     /// (§3.1.3: canonical digest of the entry without `proofs` /
     /// `head_event_digest`). Attach controller proofs afterwards via

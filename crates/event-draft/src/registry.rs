@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::constants::EVENT_SCHEMA;
+use arkret_wire::SchemaId;
 use arkret_wire::events::kinds::EventKind;
 use serde::{Deserialize, Serialize};
 
@@ -97,7 +97,7 @@ impl Default for EventDraftKindRegistry {
         for kind in EventKind::ALL {
             registry.register(EventDraftKindSpec {
                 kind: kind.as_str().to_owned(),
-                schema: EVENT_SCHEMA.to_owned(),
+                schema: SchemaId::EVENT_V1.to_owned(),
                 required_content_fields: required_fields_for_event_kind(kind.as_str()),
             });
         }

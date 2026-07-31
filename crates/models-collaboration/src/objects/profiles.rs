@@ -6,10 +6,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::binding_contexts;
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
-use arkret_wire::constants::MORPH_SCHEMA;
 use arkret_wire::{
     CircleId, DeviceId, Did, DidUrl, Error, Hash, MorphId, ObjectStage, ObjectState, PolicyId,
-    RealmId, Result, StrandId, TypedTrustDomainId, canonical,
+    RealmId, Result, SchemaId, StrandId, TypedTrustDomainId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -310,6 +309,7 @@ pub struct Morph {
 }
 
 impl Morph {
+    pub const SCHEMA: &'static str = SchemaId::MORPH_V1;
     pub fn new(
         id: MorphId,
         realm_id: RealmId,
@@ -318,10 +318,10 @@ impl Morph {
     ) -> Self {
         Self {
             id,
-            schema: MORPH_SCHEMA.to_owned(),
+            schema: SchemaId::MORPH_V1.to_owned(),
             realm_id,
             scope_circle_id: None,
-            schema_refs: vec![MORPH_SCHEMA.to_owned()],
+            schema_refs: vec![SchemaId::MORPH_V1.to_owned()],
             morph_kind: morph_kind.into(),
             facets: BTreeMap::new(),
             metadata: None,
@@ -430,8 +430,9 @@ pub struct IdentityLink {
 }
 
 impl IdentityLink {
+    pub const SCHEMA: &'static str = SchemaId::IDENTITY_LINK_V1;
     pub fn validate_minimal(&self) -> Result<()> {
-        if self.schema != arkret_wire::IDENTITY_LINK_SCHEMA {
+        if self.schema != SchemaId::IDENTITY_LINK_V1 {
             return Err(Error::Protocol(
                 "identity_link schema must be ak.schema.identity_link.v1".to_owned(),
             ));

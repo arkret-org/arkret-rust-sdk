@@ -6,8 +6,8 @@ use std::sync::OnceLock;
 use arkret_wire::base64url::{base64url_decode, base64url_encode};
 use arkret_wire::event_envelope::ScopeRef;
 use arkret_wire::{
-    CircleId, Did, Error, EventId, EventKind, Hash, MlsGroupId, NonEmptyString, RealmId, Result,
-    SealId, SidecarId, canonical,
+    CircleId, Did, Error, EventId, EventKind, Hash, MlsGroupId, NonEmptyString, ProfileId, RealmId,
+    Result, SealId, SidecarId, canonical,
 };
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -17,8 +17,6 @@ pub const MLS_GOVERNANCE_BINDING_VERSION: u8 = 1;
 pub const MLS_GOVERNANCE_BINDING_ENCODING_PROFILE: &str = "cbor-deterministic-rfc8949-v1";
 pub const MLS_GOVERNANCE_BINDING_EXTENSION_TYPE: u16 = 0xF1C0;
 pub const MLS_GOVERNANCE_BINDING_EXTENSION_NAME: &str = "mls_governance_binding";
-pub const MLS_GOVERNANCE_BINDING_FULL_PROFILE: &str = "ak.profile.mls_governance_binding.full.v1";
-pub const MLS_GOVERNANCE_BINDING_RELAXED_PROFILE: &str = "ak.profile.e2ee_relaxed.v1";
 
 /// Sidecar-specific extension of an MLS governance binding.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -239,7 +237,7 @@ impl MlsGovernanceBindingPayload {
             "mls_governance_binding.binding_profile",
             &self.binding_profile,
         )?;
-        if self.binding_profile == MLS_GOVERNANCE_BINDING_FULL_PROFILE {
+        if self.binding_profile == ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1 {
             if self.capability_root.is_none() {
                 return Err(Error::Protocol(
                     "full mls_governance_binding requires capability_root (schema_violation)"
@@ -1530,7 +1528,7 @@ mod tests {
             hash('2'),
             hash('3'),
             hash('4'),
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         )
         .unwrap()
@@ -1549,7 +1547,7 @@ mod tests {
             "membership_frontier": [event(2)],
             "covered_seal_refs": [seal('a')],
             "policy_root": hash('2'),
-            "binding_profile": MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            "binding_profile": ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             "reducer_profile": reducer_profile(),
             "unexpected_field": true
         }))
@@ -1569,7 +1567,7 @@ mod tests {
             hash('2'),
             hash('3'),
             hash('4'),
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         )
         .unwrap();
@@ -1592,7 +1590,7 @@ mod tests {
             "membership_frontier": [event(2)],
             "covered_seal_refs": [seal('a')],
             "policy_root": hash('2'),
-            "binding_profile": MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            "binding_profile": ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             "reducer_profile": reducer_profile(),
         }))
         .unwrap_err();
@@ -1628,7 +1626,7 @@ mod tests {
             hash('5'),
             hash('6'),
             hash('7'),
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         )
         .unwrap();
@@ -1732,7 +1730,7 @@ mod tests {
             hash('5'),
             hash('6'),
             hash('7'),
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         )
         .unwrap()
@@ -1751,7 +1749,7 @@ mod tests {
             binding.mls_group_id(),
             binding.previous_epoch(),
             binding.next_epoch(),
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         )
         .with_sidecar_binding(&sidecar_binding);
@@ -1763,7 +1761,7 @@ mod tests {
             binding.mls_group_id(),
             binding.previous_epoch(),
             binding.next_epoch(),
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         )
         .with_sidecar_binding(&stale);
@@ -1775,7 +1773,7 @@ mod tests {
                         binding.mls_group_id(),
                         binding.previous_epoch(),
                         binding.next_epoch(),
-                        MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+                        ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
                         reducer_profile(),
                     )
                     .without_sidecar_binding(),
@@ -1809,7 +1807,7 @@ mod tests {
             binding.mls_group_id(),
             binding.previous_epoch(),
             binding.next_epoch(),
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         );
         expected.policy_root = Some(binding.policy_root());
@@ -1835,13 +1833,13 @@ mod tests {
     #[test]
     fn mls_governance_binding_rejects_profile_downgrade_in_full_context() {
         let relaxed = full_binding()
-            .with_binding_profile(MLS_GOVERNANCE_BINDING_RELAXED_PROFILE)
+            .with_binding_profile(ProfileId::E2EE_RELAXED_V1)
             .unwrap();
         let expected = MlsGovernanceBindingValidationContext::for_commit(
             relaxed.mls_group_id(),
             relaxed.previous_epoch(),
             relaxed.next_epoch(),
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         );
         let extension = relaxed.to_group_context_extension().unwrap();
@@ -1860,7 +1858,7 @@ mod tests {
             binding.mls_group_id(),
             binding.previous_epoch(),
             binding.next_epoch(),
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         );
         let stale_policy_root = hash('9');

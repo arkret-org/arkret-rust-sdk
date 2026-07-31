@@ -161,126 +161,126 @@ impl ProofContextId {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::AccountHandoffAuthenticationProofV1 => {
-                "ak.account-handoff-authentication-proof-v1"
+                Self::ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_V1
             }
-            Self::AccountabilityGrantProofV1 => "ak.accountability-grant-proof-v1",
+            Self::AccountabilityGrantProofV1 => Self::ACCOUNTABILITY_GRANT_PROOF_V1,
             Self::AgentRequestedScopeDisclosureProofV1 => {
-                "ak.agent-requested-scope-disclosure-proof-v1"
+                Self::AGENT_REQUESTED_SCOPE_DISCLOSURE_PROOF_V1
             }
-            Self::AgentRuntimeKeyPossessionProofV1 => "ak.agent-runtime-key-possession-proof-v1",
-            Self::AgentSelectorClaimProofV1 => "ak.agent-selector-claim-proof-v1",
-            Self::AppletPackageProofV1 => "ak.applet-package-proof-v1",
-            Self::AuditReleaseAttestationProofV1 => "ak.audit-release-attestation-proof-v1",
-            Self::AuditRywReceiptProofV1 => "ak.audit-ryw-receipt-proof-v1",
-            Self::AuthorizationLeaseProofV1 => "ak.authorization-lease-proof-v1",
-            Self::CapabilityGrantProofV1 => "ak.capability-grant-proof-v1",
-            Self::ControlProposalDecisionProofV1 => "ak.control-proposal-decision-proof-v1",
+            Self::AgentRuntimeKeyPossessionProofV1 => Self::AGENT_RUNTIME_KEY_POSSESSION_PROOF_V1,
+            Self::AgentSelectorClaimProofV1 => Self::AGENT_SELECTOR_CLAIM_PROOF_V1,
+            Self::AppletPackageProofV1 => Self::APPLET_PACKAGE_PROOF_V1,
+            Self::AuditReleaseAttestationProofV1 => Self::AUDIT_RELEASE_ATTESTATION_PROOF_V1,
+            Self::AuditRywReceiptProofV1 => Self::AUDIT_RYW_RECEIPT_PROOF_V1,
+            Self::AuthorizationLeaseProofV1 => Self::AUTHORIZATION_LEASE_PROOF_V1,
+            Self::CapabilityGrantProofV1 => Self::CAPABILITY_GRANT_PROOF_V1,
+            Self::ControlProposalDecisionProofV1 => Self::CONTROL_PROPOSAL_DECISION_PROOF_V1,
             Self::ControlProposalMemberReceiptProofV1 => {
-                "ak.control-proposal-member-receipt-proof-v1"
+                Self::CONTROL_PROPOSAL_MEMBER_RECEIPT_PROOF_V1
             }
-            Self::DidContinuityProofV1 => "ak.did-continuity-proof-v1",
-            Self::DidKeyLogEntryProofV1 => "ak.did-key-log-entry-proof-v1",
-            Self::DidWebvhWitnessReceiptProofV1 => "ak.did-webvh-witness-receipt-proof-v1",
-            Self::DirectoryOperationProofV1 => "ak.directory-operation-proof-v1",
-            Self::EventProofV1 => "ak.event-proof-v1",
-            Self::ExtensionManifestProofV1 => "ak.extension-manifest-proof-v1",
-            Self::HandleClaimProofV1 => "ak.handle-claim-proof-v1",
-            Self::IdentityCreationControlProofV1 => "ak.identity-creation-control-proof-v1",
-            Self::IdentityReceiptProofV1 => "ak.identity-receipt-proof-v1",
-            Self::IngressReceiptProofV1 => "ak.ingress-receipt-proof-v1",
+            Self::DidContinuityProofV1 => Self::DID_CONTINUITY_PROOF_V1,
+            Self::DidKeyLogEntryProofV1 => Self::DID_KEY_LOG_ENTRY_PROOF_V1,
+            Self::DidWebvhWitnessReceiptProofV1 => Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1,
+            Self::DirectoryOperationProofV1 => Self::DIRECTORY_OPERATION_PROOF_V1,
+            Self::EventProofV1 => Self::EVENT_PROOF_V1,
+            Self::ExtensionManifestProofV1 => Self::EXTENSION_MANIFEST_PROOF_V1,
+            Self::HandleClaimProofV1 => Self::HANDLE_CLAIM_PROOF_V1,
+            Self::IdentityCreationControlProofV1 => Self::IDENTITY_CREATION_CONTROL_PROOF_V1,
+            Self::IdentityReceiptProofV1 => Self::IDENTITY_RECEIPT_PROOF_V1,
+            Self::IngressReceiptProofV1 => Self::INGRESS_RECEIPT_PROOF_V1,
             Self::JoinApplicationCancelReceiptProofV1 => {
-                "ak.join-application-cancel-receipt-proof-v1"
+                Self::JOIN_APPLICATION_CANCEL_RECEIPT_PROOF_V1
             }
-            Self::JoinApplicationReceiptProofV1 => "ak.join-application-receipt-proof-v1",
+            Self::JoinApplicationReceiptProofV1 => Self::JOIN_APPLICATION_RECEIPT_PROOF_V1,
             Self::JoinApplicationReviewReceiptProofV1 => {
-                "ak.join-application-review-receipt-proof-v1"
+                Self::JOIN_APPLICATION_REVIEW_RECEIPT_PROOF_V1
             }
-            Self::KeypackageClaimRequestProofV1 => "ak.keypackage-claim-request-proof-v1",
+            Self::KeypackageClaimRequestProofV1 => Self::KEYPACKAGE_CLAIM_REQUEST_PROOF_V1,
             Self::MemberDeliveryBindingCandidateProofV1 => {
-                "ak.member-delivery-binding-candidate-proof-v1"
+                Self::MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1
             }
-            Self::MimiOperationProofV1 => "ak.mimi-operation-proof-v1",
+            Self::MimiOperationProofV1 => Self::MIMI_OPERATION_PROOF_V1,
             Self::OrganizationRegistrationControlProofV1 => {
-                "ak.organization-registration-control-proof-v1"
+                Self::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1
             }
             Self::OrganizationRegistrationReceiptProofV1 => {
-                "ak.organization-registration-receipt-proof-v1"
+                Self::ORGANIZATION_REGISTRATION_RECEIPT_PROOF_V1
             }
-            Self::PrincipalLocatorProofV1 => "ak.principal-locator-proof-v1",
+            Self::PrincipalLocatorProofV1 => Self::PRINCIPAL_LOCATOR_PROOF_V1,
             Self::RangeCompletenessAttestationProofV1 => {
-                "ak.range-completeness-attestation-proof-v1"
+                Self::RANGE_COMPLETENESS_ATTESTATION_PROOF_V1
             }
-            Self::RealmJoinCandidateProofV1 => "ak.realm-join-candidate-proof-v1",
-            Self::RealmKeyShareSenderProofV1 => "ak.realm-key-share-sender-proof-v1",
-            Self::ReceiptProofV1 => "ak.receipt-proof-v1",
-            Self::ServiceRegistrationReceiptProofV1 => "ak.service-registration-receipt-proof-v1",
-            Self::SignalProofV1 => "ak.signal-proof-v1",
-            Self::SnapshotProofV1 => "ak.snapshot-proof-v1",
+            Self::RealmJoinCandidateProofV1 => Self::REALM_JOIN_CANDIDATE_PROOF_V1,
+            Self::RealmKeyShareSenderProofV1 => Self::REALM_KEY_SHARE_SENDER_PROOF_V1,
+            Self::ReceiptProofV1 => Self::RECEIPT_PROOF_V1,
+            Self::ServiceRegistrationReceiptProofV1 => Self::SERVICE_REGISTRATION_RECEIPT_PROOF_V1,
+            Self::SignalProofV1 => Self::SIGNAL_PROOF_V1,
+            Self::SnapshotProofV1 => Self::SNAPSHOT_PROOF_V1,
         }
     }
 
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
-            "ak.account-handoff-authentication-proof-v1" => {
+            Self::ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_V1 => {
                 Some(Self::AccountHandoffAuthenticationProofV1)
             }
-            "ak.accountability-grant-proof-v1" => Some(Self::AccountabilityGrantProofV1),
-            "ak.agent-requested-scope-disclosure-proof-v1" => {
+            Self::ACCOUNTABILITY_GRANT_PROOF_V1 => Some(Self::AccountabilityGrantProofV1),
+            Self::AGENT_REQUESTED_SCOPE_DISCLOSURE_PROOF_V1 => {
                 Some(Self::AgentRequestedScopeDisclosureProofV1)
             }
-            "ak.agent-runtime-key-possession-proof-v1" => {
+            Self::AGENT_RUNTIME_KEY_POSSESSION_PROOF_V1 => {
                 Some(Self::AgentRuntimeKeyPossessionProofV1)
             }
-            "ak.agent-selector-claim-proof-v1" => Some(Self::AgentSelectorClaimProofV1),
-            "ak.applet-package-proof-v1" => Some(Self::AppletPackageProofV1),
-            "ak.audit-release-attestation-proof-v1" => Some(Self::AuditReleaseAttestationProofV1),
-            "ak.audit-ryw-receipt-proof-v1" => Some(Self::AuditRywReceiptProofV1),
-            "ak.authorization-lease-proof-v1" => Some(Self::AuthorizationLeaseProofV1),
-            "ak.capability-grant-proof-v1" => Some(Self::CapabilityGrantProofV1),
-            "ak.control-proposal-decision-proof-v1" => Some(Self::ControlProposalDecisionProofV1),
-            "ak.control-proposal-member-receipt-proof-v1" => {
+            Self::AGENT_SELECTOR_CLAIM_PROOF_V1 => Some(Self::AgentSelectorClaimProofV1),
+            Self::APPLET_PACKAGE_PROOF_V1 => Some(Self::AppletPackageProofV1),
+            Self::AUDIT_RELEASE_ATTESTATION_PROOF_V1 => Some(Self::AuditReleaseAttestationProofV1),
+            Self::AUDIT_RYW_RECEIPT_PROOF_V1 => Some(Self::AuditRywReceiptProofV1),
+            Self::AUTHORIZATION_LEASE_PROOF_V1 => Some(Self::AuthorizationLeaseProofV1),
+            Self::CAPABILITY_GRANT_PROOF_V1 => Some(Self::CapabilityGrantProofV1),
+            Self::CONTROL_PROPOSAL_DECISION_PROOF_V1 => Some(Self::ControlProposalDecisionProofV1),
+            Self::CONTROL_PROPOSAL_MEMBER_RECEIPT_PROOF_V1 => {
                 Some(Self::ControlProposalMemberReceiptProofV1)
             }
-            "ak.did-continuity-proof-v1" => Some(Self::DidContinuityProofV1),
-            "ak.did-key-log-entry-proof-v1" => Some(Self::DidKeyLogEntryProofV1),
-            "ak.did-webvh-witness-receipt-proof-v1" => Some(Self::DidWebvhWitnessReceiptProofV1),
-            "ak.directory-operation-proof-v1" => Some(Self::DirectoryOperationProofV1),
-            "ak.event-proof-v1" => Some(Self::EventProofV1),
-            "ak.extension-manifest-proof-v1" => Some(Self::ExtensionManifestProofV1),
-            "ak.handle-claim-proof-v1" => Some(Self::HandleClaimProofV1),
-            "ak.identity-creation-control-proof-v1" => Some(Self::IdentityCreationControlProofV1),
-            "ak.identity-receipt-proof-v1" => Some(Self::IdentityReceiptProofV1),
-            "ak.ingress-receipt-proof-v1" => Some(Self::IngressReceiptProofV1),
-            "ak.join-application-cancel-receipt-proof-v1" => {
+            Self::DID_CONTINUITY_PROOF_V1 => Some(Self::DidContinuityProofV1),
+            Self::DID_KEY_LOG_ENTRY_PROOF_V1 => Some(Self::DidKeyLogEntryProofV1),
+            Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1 => Some(Self::DidWebvhWitnessReceiptProofV1),
+            Self::DIRECTORY_OPERATION_PROOF_V1 => Some(Self::DirectoryOperationProofV1),
+            Self::EVENT_PROOF_V1 => Some(Self::EventProofV1),
+            Self::EXTENSION_MANIFEST_PROOF_V1 => Some(Self::ExtensionManifestProofV1),
+            Self::HANDLE_CLAIM_PROOF_V1 => Some(Self::HandleClaimProofV1),
+            Self::IDENTITY_CREATION_CONTROL_PROOF_V1 => Some(Self::IdentityCreationControlProofV1),
+            Self::IDENTITY_RECEIPT_PROOF_V1 => Some(Self::IdentityReceiptProofV1),
+            Self::INGRESS_RECEIPT_PROOF_V1 => Some(Self::IngressReceiptProofV1),
+            Self::JOIN_APPLICATION_CANCEL_RECEIPT_PROOF_V1 => {
                 Some(Self::JoinApplicationCancelReceiptProofV1)
             }
-            "ak.join-application-receipt-proof-v1" => Some(Self::JoinApplicationReceiptProofV1),
-            "ak.join-application-review-receipt-proof-v1" => {
+            Self::JOIN_APPLICATION_RECEIPT_PROOF_V1 => Some(Self::JoinApplicationReceiptProofV1),
+            Self::JOIN_APPLICATION_REVIEW_RECEIPT_PROOF_V1 => {
                 Some(Self::JoinApplicationReviewReceiptProofV1)
             }
-            "ak.keypackage-claim-request-proof-v1" => Some(Self::KeypackageClaimRequestProofV1),
-            "ak.member-delivery-binding-candidate-proof-v1" => {
+            Self::KEYPACKAGE_CLAIM_REQUEST_PROOF_V1 => Some(Self::KeypackageClaimRequestProofV1),
+            Self::MEMBER_DELIVERY_BINDING_CANDIDATE_PROOF_V1 => {
                 Some(Self::MemberDeliveryBindingCandidateProofV1)
             }
-            "ak.mimi-operation-proof-v1" => Some(Self::MimiOperationProofV1),
-            "ak.organization-registration-control-proof-v1" => {
+            Self::MIMI_OPERATION_PROOF_V1 => Some(Self::MimiOperationProofV1),
+            Self::ORGANIZATION_REGISTRATION_CONTROL_PROOF_V1 => {
                 Some(Self::OrganizationRegistrationControlProofV1)
             }
-            "ak.organization-registration-receipt-proof-v1" => {
+            Self::ORGANIZATION_REGISTRATION_RECEIPT_PROOF_V1 => {
                 Some(Self::OrganizationRegistrationReceiptProofV1)
             }
-            "ak.principal-locator-proof-v1" => Some(Self::PrincipalLocatorProofV1),
-            "ak.range-completeness-attestation-proof-v1" => {
+            Self::PRINCIPAL_LOCATOR_PROOF_V1 => Some(Self::PrincipalLocatorProofV1),
+            Self::RANGE_COMPLETENESS_ATTESTATION_PROOF_V1 => {
                 Some(Self::RangeCompletenessAttestationProofV1)
             }
-            "ak.realm-join-candidate-proof-v1" => Some(Self::RealmJoinCandidateProofV1),
-            "ak.realm-key-share-sender-proof-v1" => Some(Self::RealmKeyShareSenderProofV1),
-            "ak.receipt-proof-v1" => Some(Self::ReceiptProofV1),
-            "ak.service-registration-receipt-proof-v1" => {
+            Self::REALM_JOIN_CANDIDATE_PROOF_V1 => Some(Self::RealmJoinCandidateProofV1),
+            Self::REALM_KEY_SHARE_SENDER_PROOF_V1 => Some(Self::RealmKeyShareSenderProofV1),
+            Self::RECEIPT_PROOF_V1 => Some(Self::ReceiptProofV1),
+            Self::SERVICE_REGISTRATION_RECEIPT_PROOF_V1 => {
                 Some(Self::ServiceRegistrationReceiptProofV1)
             }
-            "ak.signal-proof-v1" => Some(Self::SignalProofV1),
-            "ak.snapshot-proof-v1" => Some(Self::SnapshotProofV1),
+            Self::SIGNAL_PROOF_V1 => Some(Self::SignalProofV1),
+            Self::SNAPSHOT_PROOF_V1 => Some(Self::SnapshotProofV1),
             _ => None,
         }
     }
@@ -325,29 +325,29 @@ impl ExporterLabelId {
 
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::ContentV1 => "ak.content-v1",
-            Self::HistoryV1 => "ak.history-v1",
-            Self::RtcFrameKeyV1 => "ak.rtc-frame-key/v1",
-            Self::RtcRecordingKeyV1 => "ak.rtc-recording-key/v1",
-            Self::RtcTranscriptKeyV1 => "ak.rtc-transcript-key/v1",
-            Self::SignalV1 => "ak.signal-v1",
-            Self::AeadSenderNoncePrefixV1 => "arkret-aead-sender-nonce-prefix-v1",
-            Self::MentionRoutingV1 => "arkret-mention-routing-v1",
-            Self::ReactionRoutingV1 => "arkret-reaction-routing-v1",
+            Self::ContentV1 => Self::CONTENT_V1,
+            Self::HistoryV1 => Self::HISTORY_V1,
+            Self::RtcFrameKeyV1 => Self::RTC_FRAME_KEY_V1,
+            Self::RtcRecordingKeyV1 => Self::RTC_RECORDING_KEY_V1,
+            Self::RtcTranscriptKeyV1 => Self::RTC_TRANSCRIPT_KEY_V1,
+            Self::SignalV1 => Self::SIGNAL_V1,
+            Self::AeadSenderNoncePrefixV1 => Self::AEAD_SENDER_NONCE_PREFIX_V1,
+            Self::MentionRoutingV1 => Self::MENTION_ROUTING_V1,
+            Self::ReactionRoutingV1 => Self::REACTION_ROUTING_V1,
         }
     }
 
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
-            "ak.content-v1" => Some(Self::ContentV1),
-            "ak.history-v1" => Some(Self::HistoryV1),
-            "ak.rtc-frame-key/v1" => Some(Self::RtcFrameKeyV1),
-            "ak.rtc-recording-key/v1" => Some(Self::RtcRecordingKeyV1),
-            "ak.rtc-transcript-key/v1" => Some(Self::RtcTranscriptKeyV1),
-            "ak.signal-v1" => Some(Self::SignalV1),
-            "arkret-aead-sender-nonce-prefix-v1" => Some(Self::AeadSenderNoncePrefixV1),
-            "arkret-mention-routing-v1" => Some(Self::MentionRoutingV1),
-            "arkret-reaction-routing-v1" => Some(Self::ReactionRoutingV1),
+            Self::CONTENT_V1 => Some(Self::ContentV1),
+            Self::HISTORY_V1 => Some(Self::HistoryV1),
+            Self::RTC_FRAME_KEY_V1 => Some(Self::RtcFrameKeyV1),
+            Self::RTC_RECORDING_KEY_V1 => Some(Self::RtcRecordingKeyV1),
+            Self::RTC_TRANSCRIPT_KEY_V1 => Some(Self::RtcTranscriptKeyV1),
+            Self::SIGNAL_V1 => Some(Self::SignalV1),
+            Self::AEAD_SENDER_NONCE_PREFIX_V1 => Some(Self::AeadSenderNoncePrefixV1),
+            Self::MENTION_ROUTING_V1 => Some(Self::MentionRoutingV1),
+            Self::REACTION_ROUTING_V1 => Some(Self::ReactionRoutingV1),
             _ => None,
         }
     }

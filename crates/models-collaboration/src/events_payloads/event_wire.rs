@@ -1,5 +1,7 @@
 //! Event wire schema artifact counterparts.
 
+use arkret_wire::SchemaId;
+
 use crate::internal_prelude::*;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json`.
@@ -22,6 +24,10 @@ pub type PlaintextDataClass = String;
 pub enum DisappearingMessages {
     MessageExpiry(MessageExpiry),
     DisappearingPolicy(DisappearingPolicy),
+}
+
+impl DisappearingMessages {
+    pub const SCHEMA: &'static str = SchemaId::DISAPPEARING_MESSAGES_V1;
 }
 
 pub use arkret_models_crypto::encrypted_envelope::{
@@ -166,4 +172,8 @@ pub struct Message {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,
+}
+
+impl Message {
+    pub const SCHEMA: &'static str = SchemaId::MESSAGE_V1;
 }

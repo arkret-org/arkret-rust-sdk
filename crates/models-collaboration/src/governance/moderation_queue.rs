@@ -1,7 +1,7 @@
 //! Moderation queue vocabulary and queue-item container
 //! (`moderation-queue-item.schema.json`).
 
-use arkret_wire::Did;
+use arkret_wire::{Did, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -81,6 +81,10 @@ pub struct ModerationQueueItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,
+}
+
+impl ModerationQueueItem {
+    pub const SCHEMA: &'static str = SchemaId::MODERATION_QUEUE_ITEM_V1;
 }
 
 #[cfg(test)]

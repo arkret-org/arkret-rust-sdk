@@ -3,10 +3,7 @@
 //! This crate is the sole owner of the conformance descriptor vocabulary;
 //! executable cross-layer vectors live in owner integration tests.
 
-use arkret_wire::{
-    BUILT_IN_CONFORMANCE_FIXTURES_VERSION, CAPABILITY_SCHEMA, CURSOR_SCHEMA,
-    ENCRYPTED_ENVELOPE_SCHEMA, EVENT_SCHEMA, EventKind, VIEW_SCHEMA,
-};
+use arkret_wire::{BUILT_IN_CONFORMANCE_FIXTURES_VERSION, EventKind, SchemaId};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -153,14 +150,14 @@ pub fn profile_conformance_suites() -> Vec<ConformanceSuite> {
             ConformanceProfile::Cursor,
             "cursor-token-binding-and-expiry",
             "Cursor tokens bind positions and reject stale or malformed encodings.",
-            Some(CURSOR_SCHEMA),
+            Some(SchemaId::CURSOR_V1),
             json!({"binds_positions": true, "expires": true, "rejects_malformed": true}),
         ),
         conformance_suite(
             ConformanceProfile::StateResolution,
             "canonical-container-position-event-kinds",
             "Reducer fixtures use canonical container operation kinds.",
-            Some(EVENT_SCHEMA),
+            Some(SchemaId::EVENT_V1),
             json!({
                 "order_independent": true,
                 "requires_merkle_root": true,
@@ -174,21 +171,21 @@ pub fn profile_conformance_suites() -> Vec<ConformanceSuite> {
             ConformanceProfile::Redaction,
             "redaction-preserves-reference-fields",
             "Redaction removes payload while preserving IDs, actor, HLC and semantic refs.",
-            Some(EVENT_SCHEMA),
+            Some(SchemaId::EVENT_V1),
             json!({"preserve": ["event_id", "actor_id", "hlc", "refs"]}),
         ),
         conformance_suite(
             ConformanceProfile::Capability,
             "facet-aware-capability-frontier-validation",
             "Capability checks run at the causal frontier and can fail closed on allowed facets.",
-            Some(CAPABILITY_SCHEMA),
+            Some(SchemaId::CAPABILITY_V1),
             json!({"fail_closed": true, "frontier_bound": true, "allowed_facets": true}),
         ),
         conformance_suite(
             ConformanceProfile::Sync,
             "facet-query-renderer-sync-token-binding",
             "Sync tokens bind principal, device, service, facets, renderer, filter hash and stream positions.",
-            Some(VIEW_SCHEMA),
+            Some(SchemaId::VIEW_V1),
             json!({
                 "binds_filter": true,
                 "binds_positions": true,
@@ -221,7 +218,7 @@ pub fn profile_conformance_suites() -> Vec<ConformanceSuite> {
             ConformanceProfile::Security,
             "proof-policy-and-redaction-fail-closed",
             "Security-sensitive schema extensions, proof bindings and log payloads fail closed.",
-            Some(ENCRYPTED_ENVELOPE_SCHEMA),
+            Some(SchemaId::ENCRYPTED_ENVELOPE_V1),
             json!({"fail_closed_extensions": true, "proof_binding": true, "redact_secrets": true}),
         ),
     ]

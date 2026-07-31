@@ -1,7 +1,7 @@
 use arkret_models_collaboration::events_payloads::{
     MorphCreatePayload, MorphUpdatePayload, StrandCreatePayload, StrandPatchPayload,
 };
-use arkret_wire::EventKind;
+use arkret_wire::{EventKind, SchemaId};
 
 use super::super::snapshot::{patch_fields, patch_state, patch_string, space_state_from_str};
 use super::super::*;
@@ -18,7 +18,7 @@ impl RealmState {
         validate_morph_schema_refs(&schema_refs)?;
         let morph = Morph {
             id: morph_id,
-            schema: crate::MORPH_SCHEMA.to_owned(),
+            schema: SchemaId::MORPH_V1.to_owned(),
             realm_id: event.realm_id.clone(),
             scope_circle_id: object.scope_circle_id,
             schema_refs,
@@ -178,7 +178,7 @@ impl RealmState {
             .unwrap_or(crate::models::SpaceState::Active);
 
         let space = Space {
-            schema: crate::SPACE_SCHEMA.to_owned(),
+            schema: SchemaId::SPACE_V1.to_owned(),
             id,
             realm_id,
             default_realm_id: self.extract_optional_field(object, "default_realm_id"),
@@ -478,7 +478,7 @@ impl RealmState {
         };
         let subject = Strand {
             id: strand_id,
-            schema: crate::STRAND_SCHEMA.to_owned(),
+            schema: SchemaId::STRAND_V1.to_owned(),
             realm_id: event.realm_id.clone(),
             scope_circle_id: object.scope_circle_id,
             schema_refs: object.schema_refs,

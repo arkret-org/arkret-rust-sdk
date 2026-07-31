@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
-use arkret_wire::constants::{PROFILE_ATTESTED_AUDIT_E2EE, PROFILE_DISCLOSED_AUDIT_E2EE};
 use arkret_wire::{
-    Did, Error, EventId, Hash, Proof, RealmId, ReasonCode, Result, TypedTrustDomainId,
+    Did, Error, EventId, Hash, ProfileId, Proof, RealmId, ReasonCode, Result, SchemaId,
+    TypedTrustDomainId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -54,13 +54,14 @@ pub enum AuditAssurance {
 /// Profile that permits temporarily widening the MLS send-pause window
 /// for advisory reasons. Round R2/R3 introduces an **absolute hard
 /// ceiling** of 5 minutes (300_000 ms) on the relaxed window.
-pub const PROFILE_E2EE_RELAXED: &str = "ak.profile.e2ee_relaxed.v1";
 
 /// Compliance profiles that MUST NOT coexist with
-/// [`PROFILE_E2EE_RELAXED`]. Round R2/R3 — declaring both is rejected as
+/// [`ProfileId::E2EE_RELAXED_V1`]. Round R2/R3 — declaring both is rejected as
 /// `e2ee_relaxed_disallowed_in_compliance_profile`.
-pub const E2EE_RELAXED_INCOMPATIBLE_COMPLIANCE_PROFILES: &[&str] =
-    &[PROFILE_ATTESTED_AUDIT_E2EE, PROFILE_DISCLOSED_AUDIT_E2EE];
+pub const E2EE_RELAXED_INCOMPATIBLE_COMPLIANCE_PROFILES: &[&str] = &[
+    ProfileId::ATTESTED_AUDIT_E2EE_V1,
+    ProfileId::DISCLOSED_AUDIT_E2EE_V1,
+];
 
 /// Absolute hard ceiling on the `ak.profile.e2ee_relaxed.v1` send-pause
 /// relaxation window, in milliseconds. Round R2/R3 (2026-05-20).
@@ -92,15 +93,15 @@ pub fn validate_relaxed_window_ms(ms: u32) -> std::result::Result<(), &'static s
 impl AuditAssurance {
     pub fn profile_id(self) -> &'static str {
         match self {
-            AuditAssurance::AttestedHardware => PROFILE_ATTESTED_AUDIT_E2EE,
-            AuditAssurance::DisclosedPolicy => PROFILE_DISCLOSED_AUDIT_E2EE,
+            AuditAssurance::AttestedHardware => ProfileId::ATTESTED_AUDIT_E2EE_V1,
+            AuditAssurance::DisclosedPolicy => ProfileId::DISCLOSED_AUDIT_E2EE_V1,
         }
     }
 
     pub fn from_profile_id(profile: &str) -> Option<Self> {
         match profile {
-            PROFILE_ATTESTED_AUDIT_E2EE => Some(AuditAssurance::AttestedHardware),
-            PROFILE_DISCLOSED_AUDIT_E2EE => Some(AuditAssurance::DisclosedPolicy),
+            ProfileId::ATTESTED_AUDIT_E2EE_V1 => Some(AuditAssurance::AttestedHardware),
+            ProfileId::DISCLOSED_AUDIT_E2EE_V1 => Some(AuditAssurance::DisclosedPolicy),
             _ => None,
         }
     }
@@ -192,6 +193,7 @@ pub struct AuditRywReceipt {
 }
 
 impl AuditRywReceipt {
+    pub const SCHEMA: &'static str = SchemaId::AUDIT_RYW_RECEIPT_V1;
     /// Validate independence vs the declared assurance class. Returns
     /// `Err` when an attested-mode receipt is single-source (which fails
     /// closed per `encryption-and-audit.md` §3.3.1).

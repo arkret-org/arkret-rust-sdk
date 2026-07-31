@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{ActorKind, ActorProfileId, ActorStatus, BlobRef, Did, RealmId};
+use arkret_wire::{ActorKind, ActorProfileId, ActorStatus, BlobRef, Did, RealmId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -37,4 +37,8 @@ pub struct ActorProfile {
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,
+}
+
+impl ActorProfile {
+    pub const SCHEMA: &'static str = SchemaId::ACTOR_PROFILE_V1;
 }

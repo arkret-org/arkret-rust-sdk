@@ -1,5 +1,7 @@
 //! Moderation schema artifact counterparts and event payloads.
 
+use arkret_wire::EventKind;
+
 use crate::internal_prelude::*;
 
 /// Counterpart for `spec/v1/artifacts/schemas/moderation-appeal.schema.json`.
@@ -84,7 +86,6 @@ pub struct SubmitPayload {
 pub type TargetRef = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/moderation-report.schema.json#/$defs/franking_proof`.
-pub const MODERATION_FRANKING_PROOF_KIND: &str = "ak.moderation.franking_proof";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -146,7 +147,7 @@ impl FrankingProof {
     pub const TIME_ANCHOR_MAX_SKEW_SECS: i64 = 300;
 
     pub fn validate_event_time_anchor(&self, anchor: &FrankingProofEventTimeAnchor) -> Result<()> {
-        if self.kind != MODERATION_FRANKING_PROOF_KIND {
+        if self.kind != EventKind::MODERATION_FRANKING_PROOF {
             return Err(Error::Protocol(
                 "franking proof kind must be ak.moderation.franking_proof".to_owned(),
             ));
@@ -214,7 +215,7 @@ mod tests {
 
     fn proof() -> FrankingProof {
         FrankingProof {
-            kind: MODERATION_FRANKING_PROOF_KIND.to_owned(),
+            kind: EventKind::MODERATION_FRANKING_PROOF.to_owned(),
             franking_proof_id: "ak:franking_proof:01904100-0000-7000-8000-000000000111".to_owned(),
             realm_id: realm_id(),
             event_id: event_id("ak:event:01904100-0000-7000-8000-000000000222"),

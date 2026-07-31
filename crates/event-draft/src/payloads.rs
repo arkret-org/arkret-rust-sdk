@@ -9,9 +9,7 @@ use arkret_models_collaboration::objects::profiles::{
 };
 use arkret_models_collaboration::objects::strand::StrandMetadata;
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
-use arkret_wire::{
-    CircleId, Did, ObjectStage, ObjectState, Patch, RealmId, STRAND_SCHEMA, StrandId,
-};
+use arkret_wire::{CircleId, Did, ObjectStage, ObjectState, Patch, RealmId, SchemaId, StrandId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -62,7 +60,7 @@ impl StrandCreateObject {
     pub fn new(id: StrandId, realm_id: RealmId, created_by: Did) -> Self {
         Self {
             id,
-            schema: STRAND_SCHEMA.to_owned(),
+            schema: SchemaId::STRAND_V1.to_owned(),
             realm_id,
             scope_circle_id: None,
             agent_participation: None,

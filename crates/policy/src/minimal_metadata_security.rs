@@ -1,13 +1,13 @@
+use arkret_wire::ProfileId;
 /// Profile id whose Realms are subject to the SEC-08 minimal-metadata
 /// hardening (epoch lifetime ≤ 1h MUST + `aad_visibility=hidden` MUST).
-pub use arkret_models_crypto::MINIMAL_METADATA_REALM_PROFILE;
 use arkret_wire::{Error, Result};
 use chrono::Utc;
 
 /// SEC-08 — maximum MLS epoch lifetime for a `minimal_metadata_realm` Realm,
 /// per `crypto-media/encryption-and-audit.md` §2.9.
 ///
-/// For Realms declaring [`MINIMAL_METADATA_REALM_PROFILE`] the §2.9 SHOULD on
+/// For Realms declaring [`ProfileId::MLS_MINIMAL_METADATA_REALM_V1`] the §2.9 SHOULD on
 /// epoch lifetime is raised to a MUST: a commit MUST be forced at least every
 /// hour to bound within-epoch reaction-frequency observability. Stored as whole
 /// seconds (3600), matching the core crate's numeric-ceiling convention. An
@@ -39,8 +39,9 @@ pub fn enforce_minimal_metadata_aad(
         )
     {
         return Err(Error::Protocol(format!(
-            "{MINIMAL_METADATA_REALM_PROFILE} Realm MUST use aad_visibility=hidden \
-             (encryption-and-audit.md §2.9); got {visibility:?}"
+            "{profileid_mls_minimal_metadata_realm_v1} Realm MUST use aad_visibility=hidden \
+             (encryption-and-audit.md §2.9); got {visibility:?}",
+            profileid_mls_minimal_metadata_realm_v1 = ProfileId::MLS_MINIMAL_METADATA_REALM_V1
         )));
     }
     Ok(())

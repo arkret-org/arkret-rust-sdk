@@ -12,14 +12,16 @@
 use arkret_wire::base64url::base64url_decode;
 use arkret_wire::cell::CellId;
 use arkret_wire::event_envelope::{Event, ScopeRef};
-use arkret_wire::{CellRef, Did, Error, Hash, RealmId, Result, Seal, SealId, canonical};
+use arkret_wire::{
+    CellRef, Did, Error, Hash, ProfileId, RealmId, Result, SchemaId, Seal, SealId, canonical,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::mls_payloads::{
-    MLS_GOVERNANCE_BINDING_FULL_PROFILE, MediaDecryptPolicyValue, MediaPlaintextService,
-    MlsGovernanceBindingPayload, derive_media_decrypt_metadata_digest,
+    MediaDecryptPolicyValue, MediaPlaintextService, MlsGovernanceBindingPayload,
+    derive_media_decrypt_metadata_digest,
 };
 
 pub const MLS_GOVERNANCE_PROOF_BUNDLE_VERSION: u8 = 1;
@@ -75,7 +77,7 @@ impl MlsGovernanceProofRequestBodyBody {
                 "proof request epochs must be 0 -> 0 for genesis or next_epoch = previous_epoch + 1 for a commit",
             );
         }
-        if self.binding_profile != MLS_GOVERNANCE_BINDING_FULL_PROFILE {
+        if self.binding_profile != ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1 {
             return schema("proof request requires the full governance binding profile");
         }
         if self.reducer_profile.trim().is_empty() {
@@ -386,6 +388,7 @@ pub struct MlsGovernanceControlStateValue {
 }
 
 impl MlsGovernanceProofBundle {
+    pub const SCHEMA: &'static str = SchemaId::MLS_GOVERNANCE_PROOF_BUNDLE_V1;
     pub fn recompute_bundle_digest(&self) -> Result<Hash> {
         #[derive(Serialize)]
         struct DigestView<'a> {

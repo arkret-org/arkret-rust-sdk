@@ -6,8 +6,7 @@ use arkret_models_collaboration::events_payloads::ObjectCreatePayload;
 use arkret_models_identity::ActorProfile;
 use arkret_models_integration::{AppletDelegatedEventAuthorization, GhostActorProfileFields};
 use arkret_wire::{
-    ACTOR_PROFILE_SCHEMA, ActorKind, ActorProfileId, AppletId, BlobRef, Did, Event, Hlc, RealmId,
-    ScopeRef,
+    ActorKind, ActorProfileId, AppletId, BlobRef, Did, Event, Hlc, RealmId, SchemaId, ScopeRef,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -128,7 +127,7 @@ impl GhostActorProfileRequest {
         }
         Ok(ActorProfile {
             id: self.id.clone(),
-            schema: ACTOR_PROFILE_SCHEMA.to_owned(),
+            schema: SchemaId::ACTOR_PROFILE_V1.to_owned(),
             realm_id: self.realm_id.clone(),
             principal_id: self.principal_id.clone(),
             actor_kind: ActorKind::Integration,

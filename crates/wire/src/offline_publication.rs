@@ -20,7 +20,8 @@ use crate::event_envelope::ScopeRef;
 use crate::generated::ProofContextId;
 use crate::primitives::{Audience, PayloadProof};
 use crate::{
-    AuthorizationLeaseId, DeviceId, Did, DidUrl, Hash, RealmId, ReceiptId, SealId, canonical,
+    AuthorizationLeaseId, DeviceId, Did, DidUrl, Hash, RealmId, ReceiptId, SchemaId, SealId,
+    canonical,
 };
 
 /// Maximum number of issuer proofs on a lease or receipt
@@ -68,7 +69,6 @@ pub struct AuthoritySetRef {
     pub authority_set_digest: Hash,
 }
 
-pub const AUTHORITY_SET_POLICY_SCHEMA: &str = "ak.schema.authority_set_policy.v1";
 pub const RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID: &str =
     "ak.authority_set.recovery_cross_signing.v1";
 pub const RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID: &str =
@@ -150,7 +150,7 @@ impl AuthoritySetPolicy {
     }
 
     pub fn validate_structural(&self) -> Result<()> {
-        if self.schema != AUTHORITY_SET_POLICY_SCHEMA
+        if self.schema != SchemaId::AUTHORITY_SET_POLICY_V1
             || self.authority_set_id.is_empty()
             || self.source.source_ref.is_empty()
             || self.source.generation_ref.is_empty()
@@ -614,7 +614,7 @@ mod tests {
 
     fn authority_policy() -> AuthoritySetPolicy {
         AuthoritySetPolicy {
-            schema: AUTHORITY_SET_POLICY_SCHEMA.to_owned(),
+            schema: SchemaId::AUTHORITY_SET_POLICY_V1.to_owned(),
             authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
             policy_kind: AuthoritySetPolicyKind::RealmAdmission,
             scope_ref: scope(),

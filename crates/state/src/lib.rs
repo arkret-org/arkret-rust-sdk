@@ -20,7 +20,6 @@ use arkret_models_collaboration::objects::profiles::{
 use arkret_models_collaboration::objects::relation::Relation;
 use arkret_models_collaboration::objects::space::Space;
 use arkret_models_collaboration::objects::strand::{Strand, StrandMetadata};
-use arkret_wire::constants::{MORPH_SCHEMA, SPACE_SCHEMA, STRAND_SCHEMA};
 use arkret_wire::*;
 
 mod base64url {

@@ -1,4 +1,5 @@
 use arkret_schema::*;
+use arkret_wire::EventKind;
 use serde_json::json;
 
 mod models {
@@ -32,10 +33,7 @@ mod models {
     };
 }
 
-mod events {
-    pub use arkret_wire::events::*;
-}
-
+use arkret_wire::SchemaId;
 use models::*;
 
 #[test]
@@ -316,10 +314,18 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
     };
     let registry = schema_registry_from_spec_artifacts(&artifacts_dir).unwrap();
     let catalog = event_payload_validator_catalog_from_spec_artifacts(&artifacts_dir).unwrap();
-    let history_ref = format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/history_visibility_payload");
-    let history_policy_ref =
-        format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/history_sharing_policy_payload");
-    let services_ref = format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/plaintext_visible_services_payload");
+    let history_ref = format!(
+        "{schemaid_event_payload_v1}#/$defs/history_visibility_payload",
+        schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+    );
+    let history_policy_ref = format!(
+        "{schemaid_event_payload_v1}#/$defs/history_sharing_policy_payload",
+        schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+    );
+    let services_ref = format!(
+        "{schemaid_event_payload_v1}#/$defs/plaintext_visible_services_payload",
+        schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+    );
 
     // history_visibility: non-restricted value carries just `{value}`.
     let shared = HistoryVisibilityPayload::new(HistoryVisibility::Shared);
@@ -328,7 +334,7 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
         .unwrap();
     catalog
         .validate_payload(
-            events::EventKind::REALM_HISTORY_VISIBILITY,
+            EventKind::REALM_HISTORY_VISIBILITY,
             &shared.to_value().unwrap(),
         )
         .unwrap();
@@ -370,7 +376,7 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
         .unwrap();
     catalog
         .validate_payload(
-            events::EventKind::REALM_HISTORY_SHARING_POLICY,
+            EventKind::REALM_HISTORY_SHARING_POLICY,
             &history_policy_value,
         )
         .unwrap();

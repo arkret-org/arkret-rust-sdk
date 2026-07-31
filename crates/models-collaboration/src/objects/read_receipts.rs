@@ -6,7 +6,8 @@ use std::fmt;
 use arkret_wire::{
     BlobRef, DeviceId, Did, Error, EventId, Hlc, MessageId, MorphId, NotificationId,
     NotificationKind, NotificationPriority, NotificationState, OpaqueLocalId, ReadCursorId,
-    ReadCursorScope, ReadReceiptScope, RealmId, RelationId, Result, StrandId, ViewId, canonical,
+    ReadCursorScope, ReadReceiptScope, RealmId, RelationId, Result, SchemaId, StrandId, ViewId,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -27,6 +28,7 @@ pub struct ReadCursor {
 }
 
 impl ReadCursor {
+    pub const SCHEMA: &'static str = SchemaId::READ_CURSOR_V1;
     /// Deserialize an inbound read cursor after canonical JSON ingress checks.
     pub fn from_canonical_json_slice(bytes: &[u8]) -> Result<Self> {
         Ok(canonical::from_canonical_json_slice(bytes)?)
@@ -226,6 +228,7 @@ pub struct ReadReceipt {
 }
 
 impl ReadReceipt {
+    pub const SCHEMA: &'static str = SchemaId::READ_RECEIPT_V1;
     /// Deserialize an inbound read receipt after canonical JSON ingress checks.
     pub fn from_canonical_json_slice(bytes: &[u8]) -> Result<Self> {
         Ok(canonical::from_canonical_json_slice(bytes)?)
@@ -609,6 +612,7 @@ impl TryFrom<NotificationWire> for Notification {
 }
 
 impl Notification {
+    pub const SCHEMA: &'static str = SchemaId::NOTIFICATION_V1;
     pub fn validate(&self) -> Result<()> {
         match &self.source {
             NotificationSource::Event(source) => {

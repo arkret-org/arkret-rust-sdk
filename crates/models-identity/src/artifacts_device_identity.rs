@@ -10,10 +10,10 @@ use std::num::NonZeroU64;
 
 use arkret_canonical::binding_contexts;
 use arkret_wire::{
-    AttestationId, Audience, Base64UrlString, DID_WEBVH_WITNESS_RECEIPT_SCHEMA, DeviceId, Did,
-    DidUrl, Error, EventId, Hash, IDENTITY_RECEIPT_SCHEMA, NonEmptyJsonObject, NonEmptyString,
-    PayloadProof, ProofContextId, ProtocolKind, ReceiptId, RecoverySessionId, Result,
-    TransactionId, TypedTrustDomainId, XExtensionMap, canonical,
+    AttestationId, Audience, Base64UrlString, DeviceId, Did, DidUrl, Error, EventId, Hash,
+    NonEmptyJsonObject, NonEmptyString, PayloadProof, ProofContextId, ProtocolKind, ReceiptId,
+    RecoverySessionId, Result, SchemaId, TransactionId, TypedTrustDomainId, XExtensionMap,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -40,6 +40,7 @@ pub struct IdentityReceipt {
 }
 
 impl IdentityReceipt {
+    pub const SCHEMA: &'static str = SchemaId::IDENTITY_RECEIPT_V1;
     /// `sha256(canonical_json(receipt with signature omitted))`.
     pub fn payload_digest(&self) -> Result<Hash> {
         let mut value = serde_json::to_value(self)?;
@@ -93,10 +94,11 @@ impl IdentityReceipt {
     /// Validate the receipt body and the plaintext proof bindings before JWS
     /// verification with the registry service key.
     pub fn validate_proof_binding(&self) -> Result<()> {
-        if self.schema != IDENTITY_RECEIPT_SCHEMA {
+        if self.schema != SchemaId::IDENTITY_RECEIPT_V1 {
             return Err(Error::Protocol(format!(
-                "identity receipt schema '{}' is not {IDENTITY_RECEIPT_SCHEMA}",
-                self.schema
+                "identity receipt schema '{}' is not {schemaid_identity_receipt_v1}",
+                self.schema,
+                schemaid_identity_receipt_v1 = SchemaId::IDENTITY_RECEIPT_V1
             )));
         }
         ReceiptId::new(self.receipt_id.clone())?;
@@ -173,6 +175,7 @@ pub struct DidWebvhWitnessReceipt {
 }
 
 impl DidWebvhWitnessReceipt {
+    pub const SCHEMA: &'static str = SchemaId::DID_WEBVH_WITNESS_RECEIPT_V1;
     pub const PROOF_BINDING_CONTEXT: &'static str =
         ProofContextId::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1;
 
@@ -233,10 +236,11 @@ impl DidWebvhWitnessReceipt {
     }
 
     pub fn validate_proof_binding(&self) -> Result<()> {
-        if self.schema != DID_WEBVH_WITNESS_RECEIPT_SCHEMA {
+        if self.schema != SchemaId::DID_WEBVH_WITNESS_RECEIPT_V1 {
             return Err(Error::Protocol(format!(
-                "did:webvh witness receipt schema '{}' is not {DID_WEBVH_WITNESS_RECEIPT_SCHEMA}",
-                self.schema
+                "did:webvh witness receipt schema '{}' is not {schemaid_did_webvh_witness_receipt_v1}",
+                self.schema,
+                schemaid_did_webvh_witness_receipt_v1 = SchemaId::DID_WEBVH_WITNESS_RECEIPT_V1
             )));
         }
         ReceiptId::new(self.receipt_id.clone())?;
@@ -348,10 +352,10 @@ impl<'de> Deserialize<'de> for IdentityReceiptEvidence {
     {
         let value = Value::deserialize(deserializer)?;
         match value.get("schema").and_then(Value::as_str) {
-            Some(IDENTITY_RECEIPT_SCHEMA) => serde_json::from_value(value)
+            Some(SchemaId::IDENTITY_RECEIPT_V1) => serde_json::from_value(value)
                 .map(Self::Registry)
                 .map_err(serde::de::Error::custom),
-            Some(DID_WEBVH_WITNESS_RECEIPT_SCHEMA) => serde_json::from_value(value)
+            Some(SchemaId::DID_WEBVH_WITNESS_RECEIPT_V1) => serde_json::from_value(value)
                 .map(Self::DidWebvhWitness)
                 .map_err(serde::de::Error::custom),
             Some(schema) => Err(serde::de::Error::custom(format!(
@@ -417,6 +421,7 @@ impl<'de> Deserialize<'de> for CrossSigningPublish {
 }
 
 impl CrossSigningPublish {
+    pub const SCHEMA: &'static str = SchemaId::CROSS_SIGNING_PUBLISH_V1;
     pub fn validate_structure(&self) -> Result<()> {
         if self.self_signing_key.public_key == self.user_signing_key.public_key {
             return Err(Error::Protocol(
@@ -687,7 +692,7 @@ mod tests {
     fn witness_receipt() -> DidWebvhWitnessReceipt {
         let created_at = Utc.with_ymd_and_hms(2026, 7, 29, 0, 0, 0).unwrap();
         let mut receipt = DidWebvhWitnessReceipt {
-            schema: DID_WEBVH_WITNESS_RECEIPT_SCHEMA.to_owned(),
+            schema: SchemaId::DID_WEBVH_WITNESS_RECEIPT_V1.to_owned(),
             receipt_id: "ak:receipt:01984e00-0000-7000-8000-000000000001".to_owned(),
             did: Did::new("did:webvh:z6mkfixture:subject.example").unwrap(),
             version_id: "1-QmFixtureVersion".to_owned(),
@@ -905,6 +910,10 @@ pub struct DeliveryBindingStale {
     pub handover_proof: DeliveryBindingStaleHandoverProof,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
+}
+
+impl DeliveryBindingStale {
+    pub const SCHEMA: &'static str = SchemaId::DELIVERY_BINDING_STALE_V1;
 }
 
 /// Counterpart for

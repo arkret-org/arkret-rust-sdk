@@ -1,6 +1,6 @@
 //! `ak.schema.applet_install_plan.v1` wire object.
 
-use arkret_wire::{AppletId, Did, Error, Hash, Result, ScopeRef, canonical};
+use arkret_wire::{AppletId, Did, Error, Hash, Result, SchemaId, ScopeRef, canonical};
 use serde::{Deserialize, Serialize};
 
 use crate::artifacts_applet::{
@@ -39,6 +39,7 @@ pub struct AppletInstallPlan {
 }
 
 impl AppletInstallPlan {
+    pub const SCHEMA: &'static str = SchemaId::APPLET_INSTALL_PLAN_V1;
     /// Compute the canonical plan digest with `plan_digest` omitted.
     pub fn compute_plan_digest(&self) -> Result<Hash> {
         let mut value = serde_json::to_value(self)?;

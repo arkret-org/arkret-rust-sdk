@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use arkret_canonical::canonical;
 use arkret_identifiers::Did;
-use arkret_wire::DidUrl;
+use arkret_wire::{DidUrl, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -126,6 +126,7 @@ pub enum SdkConformanceClaimError {
 }
 
 impl SdkConformanceClaim {
+    pub const SCHEMA: &'static str = SchemaId::SDK_CONFORMANCE_CLAIM_V1;
     pub fn validate<'a>(
         &self,
         known_clauses: impl IntoIterator<Item = &'a str>,

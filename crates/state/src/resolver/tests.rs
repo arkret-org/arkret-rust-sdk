@@ -1,5 +1,5 @@
 use arkret_wire::event_envelope::ScopeRef;
-use arkret_wire::{EventKind, MessageId};
+use arkret_wire::{EventKind, MessageId, SchemaId};
 use serde_json::json;
 
 use super::*;
@@ -56,9 +56,9 @@ fn morph_event(seq: u64, morph_id: &str, title: &str) -> Event {
         json!({
             "object": {
                 "id": morph_id,
-                "schema": crate::MORPH_SCHEMA,
+                "schema": SchemaId::MORPH_V1,
                 "realm_id": realm_id().as_str(),
-                "schema_refs": [crate::MORPH_SCHEMA],
+                "schema_refs": [SchemaId::MORPH_V1],
                 "morph_kind": "task",
                 "metadata": {"title": title},
                 "stage": "draft",
@@ -88,7 +88,7 @@ fn space_events_create_update_parent_and_tombstone() {
         json!({
             "object": {
                 "id": space_id,
-                "schema": crate::SPACE_SCHEMA,
+                "schema": SchemaId::SPACE_V1,
                 "realm_id": realm_id().as_str(),
                 "kind": "list",
                 "title": "Roadmap",
@@ -151,7 +151,7 @@ fn space_create_event(seq: u64, space_id: &str) -> Event {
         json!({
             "object": {
                 "id": space_id,
-                "schema": crate::SPACE_SCHEMA,
+                "schema": SchemaId::SPACE_V1,
                 "realm_id": realm_id().as_str(),
                 "kind": "board",
                 "title": "Roadmap",
@@ -238,7 +238,7 @@ fn strand_create_event(seq: u64, strand_id: &str) -> Event {
         json!({
             "object": {
                 "id": strand_id,
-                "schema": crate::STRAND_SCHEMA,
+                "schema": SchemaId::STRAND_V1,
                 "realm_id": realm_id().as_str(),
                 "metadata": {"title": "Payment refactor"},
                 "tracks": {"synthesis": {}},
@@ -602,7 +602,7 @@ fn strand_events_create_update_and_default_view_relation() {
         json!({
             "object": {
                 "id": strand_id,
-                "schema": crate::STRAND_SCHEMA,
+                "schema": SchemaId::STRAND_V1,
                 "realm_id": realm_id().as_str(),
                 "metadata": {
                     "title": "Payment refactor",

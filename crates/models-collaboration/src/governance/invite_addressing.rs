@@ -8,8 +8,8 @@ use arkret_models_identity::handle::Handle;
 use arkret_wire::event_envelope::Event;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    BlobRef, Did, Error, EventId, Hash, INVITE_DELIVERY_REQUEST_SCHEMA, InviteLocatorId,
-    InviteReceiveAction, PRINCIPAL_LOCATOR_SCHEMA, RealmId, Result, UnknownInviteAction,
+    BlobRef, Did, Error, EventId, Hash, InviteLocatorId, InviteReceiveAction, RealmId, Result,
+    SchemaId, UnknownInviteAction,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -296,6 +296,7 @@ pub struct PrincipalLocator {
 }
 
 impl PrincipalLocator {
+    pub const SCHEMA: &'static str = SchemaId::PRINCIPAL_LOCATOR_V1;
     pub fn invite_address(&self) -> InviteAddress {
         InviteAddress {
             subject_id: self.subject_id.clone(),
@@ -312,7 +313,7 @@ impl PrincipalLocator {
     }
 
     pub fn validate_minimal(&self) -> Result<()> {
-        if self.schema != PRINCIPAL_LOCATOR_SCHEMA {
+        if self.schema != SchemaId::PRINCIPAL_LOCATOR_V1 {
             return Err(Error::Protocol(
                 "principal_locator.schema mismatch".to_owned(),
             ));
@@ -449,7 +450,7 @@ impl InviteDeliveryRequestBodyBody {
         idempotency_key: impl Into<String>,
     ) -> Self {
         Self {
-            schema: INVITE_DELIVERY_REQUEST_SCHEMA.to_owned(),
+            schema: SchemaId::INVITE_DELIVERY_REQUEST_V1.to_owned(),
             invite_event,
             invite_address,
             introduction_evidence,
@@ -458,7 +459,7 @@ impl InviteDeliveryRequestBodyBody {
     }
 
     pub fn validate_minimal(&self) -> Result<()> {
-        if self.schema != INVITE_DELIVERY_REQUEST_SCHEMA {
+        if self.schema != SchemaId::INVITE_DELIVERY_REQUEST_V1 {
             return Err(Error::Protocol(
                 "invite_delivery_request.schema mismatch".to_owned(),
             ));
@@ -538,6 +539,7 @@ pub struct InviteReceivePolicy {
 }
 
 impl InviteReceivePolicy {
+    pub const SCHEMA: &'static str = SchemaId::INVITE_RECEIVE_POLICY_V1;
     /// Build the fail-closed default from `invite-addressing.md` §5.
     ///
     /// The subject is already a validated DID so callers cannot silently
@@ -545,7 +547,7 @@ impl InviteReceivePolicy {
     #[must_use]
     pub fn spec_default(subject_id: Did) -> Self {
         Self {
-            schema: arkret_wire::INVITE_RECEIVE_POLICY_SCHEMA.to_owned(),
+            schema: SchemaId::INVITE_RECEIVE_POLICY_V1.to_owned(),
             subject_id,
             holder_allowed_introduction_kinds: vec![
                 "locator_ref".to_owned(),
@@ -595,10 +597,7 @@ pub struct DisclosurePolicy {
 #[cfg(test)]
 mod tests {
     use arkret_models_identity::handle::HandleBindingState;
-    use arkret_wire::{
-        DidUrl, INVITE_RECEIVE_POLICY_SCHEMA, PayloadProof, ReceivePolicyConstraints,
-        ReceivePolicySurface,
-    };
+    use arkret_wire::{DidUrl, PayloadProof, ReceivePolicyConstraints, ReceivePolicySurface};
 
     use super::*;
 
@@ -607,7 +606,7 @@ mod tests {
         let subject_id = Did::new("did:web:alice.example").unwrap();
         let policy = InviteReceivePolicy::spec_default(subject_id.clone());
 
-        assert_eq!(policy.schema, INVITE_RECEIVE_POLICY_SCHEMA);
+        assert_eq!(policy.schema, SchemaId::INVITE_RECEIVE_POLICY_V1);
         assert_eq!(policy.subject_id, subject_id);
         assert_eq!(
             policy.holder_allowed_introduction_kinds,
@@ -726,7 +725,7 @@ mod tests {
         let issued_at = test_time();
         let expires_at = issued_at + chrono::Duration::minutes(15);
         let locator = PrincipalLocator {
-            schema: PRINCIPAL_LOCATOR_SCHEMA.to_owned(),
+            schema: SchemaId::PRINCIPAL_LOCATOR_V1.to_owned(),
             subject_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             recipient_service_id: Did::new("did:webvh:z6mkfixture:ps.bob.example").unwrap(),
             recipient_service_kind: None,
@@ -815,7 +814,7 @@ mod tests {
     #[test]
     fn invite_receive_policy_skips_empty_disclosure_fields() {
         let policy = InviteReceivePolicy {
-            schema: INVITE_RECEIVE_POLICY_SCHEMA.to_owned(),
+            schema: SchemaId::INVITE_RECEIVE_POLICY_V1.to_owned(),
             subject_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             holder_allowed_introduction_kinds: vec!["consent_grant".to_owned()],
             explicit_address_behavior: InviteReceiveAction::Quarantine,

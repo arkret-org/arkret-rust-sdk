@@ -1,5 +1,7 @@
 use std::sync::OnceLock;
 
+use arkret_wire::{EventKind, SchemaId};
+
 use super::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -132,7 +134,7 @@ fn event_payload_validator_catalog_from_bundle(
     registry: ProtocolSchemaRegistry,
 ) -> Result<EventPayloadValidatorCatalog> {
     let event_payload_schema = registry
-        .schema(EVENT_PAYLOAD_SCHEMA)
+        .schema(SchemaId::EVENT_PAYLOAD_V1)
         .ok_or_else(|| Error::Protocol("missing event payload schema artifact".to_owned()))?;
     let entries = bundle
         .event_kind_registry
@@ -200,7 +202,10 @@ pub(super) fn payload_schema_ref_for_event_entry(
     }
     let event_kind = entry.get("event_kind").and_then(Value::as_str)?;
     let def_name = payload_def_name_for_event_kind(event_kind, event_payload_schema)?;
-    Some(format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/{def_name}"))
+    Some(format!(
+        "{schemaid_event_payload_v1}#/$defs/{def_name}",
+        schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+    ))
 }
 
 fn payload_def_name_for_event_kind(
@@ -452,7 +457,7 @@ fn required_fields_for_event_kind(
 ) -> Vec<String> {
     let mut required_fields =
         required_fields_for_schema_ref(registry, schema_ref).unwrap_or_default();
-    if event_kind == events::EventKind::INVITE_CREATE {
+    if event_kind == EventKind::INVITE_CREATE {
         for field in [
             "invite_id",
             "invitee",
@@ -626,7 +631,7 @@ mod tests {
         let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
         catalog
             .validate_payload(
-                events::EventKind::STRAND_MOVE,
+                EventKind::STRAND_MOVE,
                 &json!({
                     "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
                     "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
@@ -638,7 +643,7 @@ mod tests {
         assert!(
             catalog
                 .validate_payload(
-                    events::EventKind::STRAND_MOVE,
+                    EventKind::STRAND_MOVE,
                     &json!({
                         "board_space_id": "not-a-space-id",
                         "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
@@ -651,7 +656,7 @@ mod tests {
         assert!(
             catalog
                 .validate_payload(
-                    events::EventKind::STRAND_MOVE,
+                    EventKind::STRAND_MOVE,
                     &json!({
                         "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
                         "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
@@ -872,7 +877,10 @@ mod tests {
         // The strong def wins over the generic fallback.
         assert_eq!(
             catalog.rules["ak.applet.registration"].payload_schema_id,
-            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/applet_registration_payload")
+            format!(
+                "{schemaid_event_payload_v1}#/$defs/applet_registration_payload",
+                schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+            )
         );
         // The legacy `{service_id, namespace, capabilities}` short form is
         // rejected by the strong validator (missing required fields).
@@ -891,7 +899,10 @@ mod tests {
         // resource-discovery kinds.
         assert_eq!(
             catalog.rules["ak.applet.discovery"].payload_schema_id,
-            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/resource_discovery_state_payload")
+            format!(
+                "{schemaid_event_payload_v1}#/$defs/resource_discovery_state_payload",
+                schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+            )
         );
     }
 
@@ -899,19 +910,16 @@ mod tests {
     fn catalog_reports_registered_payload_validators() {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
 
-        assert!(catalog.has_payload_validator(events::EventKind::REALM_KEY_SHARE));
+        assert!(catalog.has_payload_validator(EventKind::REALM_KEY_SHARE));
         assert!(!catalog.has_payload_validator("ak.unknown.test"));
     }
 
     #[test]
     fn selector_claim_resolves_to_its_registered_schema() {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
-        let rule = &catalog.rules[events::EventKind::AGENT_SELECTOR_CLAIM];
+        let rule = &catalog.rules[EventKind::AGENT_SELECTOR_CLAIM];
 
-        assert_eq!(
-            rule.payload_schema_id,
-            arkret_wire::AGENT_SELECTOR_CLAIM_SCHEMA
-        );
+        assert_eq!(rule.payload_schema_id, SchemaId::AGENT_SELECTOR_CLAIM_V1);
         assert!(
             rule.required_fields
                 .contains(&"controller_subject".to_owned())
@@ -920,8 +928,8 @@ mod tests {
         assert!(
             catalog
                 .validate_payload(
-                    events::EventKind::AGENT_SELECTOR_CLAIM,
-                    &json!({"schema": arkret_wire::AGENT_SELECTOR_CLAIM_SCHEMA})
+                    EventKind::AGENT_SELECTOR_CLAIM,
+                    &json!({"schema": SchemaId::AGENT_SELECTOR_CLAIM_V1})
                 )
                 .is_err(),
             "partial selector claims must fail the dedicated schema validator"
@@ -956,7 +964,10 @@ mod tests {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
         assert_eq!(
             catalog.rules["ak.realm.read_receipt_policy"].payload_schema_id,
-            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/read_receipt_policy_payload")
+            format!(
+                "{schemaid_event_payload_v1}#/$defs/read_receipt_policy_payload",
+                schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+            )
         );
         catalog
             .validate_payload(
@@ -974,11 +985,17 @@ mod tests {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
         assert_eq!(
             catalog.rules["ak.realm.join_rule"].payload_schema_id,
-            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/realm_join_rule_payload")
+            format!(
+                "{schemaid_event_payload_v1}#/$defs/realm_join_rule_payload",
+                schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+            )
         );
         assert_eq!(
             catalog.rules["ak.realm.discovery"].payload_schema_id,
-            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/realm_discovery_payload")
+            format!(
+                "{schemaid_event_payload_v1}#/$defs/realm_discovery_payload",
+                schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+            )
         );
 
         for value in [
@@ -1043,7 +1060,10 @@ mod tests {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
         assert_eq!(
             catalog.rules["ak.device.authorize"].payload_schema_id,
-            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/device_authorize_payload")
+            format!(
+                "{schemaid_event_payload_v1}#/$defs/device_authorize_payload",
+                schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+            )
         );
         catalog
             .validate_payload(
@@ -1080,7 +1100,10 @@ mod tests {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
         assert_eq!(
             catalog.rules["ak.realm.organization"].payload_schema_id,
-            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/realm_organization_payload")
+            format!(
+                "{schemaid_event_payload_v1}#/$defs/realm_organization_payload",
+                schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+            )
         );
         let required: BTreeSet<&str> = catalog.rules["ak.realm.organization"]
             .required_fields
@@ -1202,7 +1225,7 @@ mod tests {
         let plan = SchemaEvolutionPlan {
             from_version: "0.1.0".to_owned(),
             to_version: "0.2.0".to_owned(),
-            affected_schemas: vec![EVENT_SCHEMA.to_owned()],
+            affected_schemas: vec![SchemaId::EVENT_V1.to_owned()],
             breaking_changes,
         };
         assert!(matches!(

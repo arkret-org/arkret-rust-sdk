@@ -123,16 +123,16 @@ pub use arkret_models_collaboration::events_payloads::*;
 pub use arkret_models_collaboration::federation;
 pub use arkret_models_collaboration::federation::wire_dtos::*;
 pub use arkret_models_collaboration::governance::accountability::{
-    ACCOUNTABILITY_GRANT_SCHEMA, ACCOUNTABILITY_SCOPE_SET_CONTEXT, AccountabilityGrantPayload,
-    AccountabilityGrantStatus, AccountabilityScope, AccountabilityScopeKind,
+    ACCOUNTABILITY_SCOPE_SET_CONTEXT, AccountabilityGrantPayload, AccountabilityGrantStatus,
+    AccountabilityScope, AccountabilityScopeKind,
 };
 pub use arkret_models_collaboration::governance::agent_artifacts::*;
 pub use arkret_models_collaboration::governance::agent_participation::*;
 pub use arkret_models_collaboration::governance::audit::{
     ABSOLUTE_HARD_CEILING_MS, AccessKind, AuditAssurance, AuditPolicyAccessPayload,
-    AuditRywReceipt, E2EE_RELAXED_INCOMPATIBLE_COMPLIANCE_PROFILES, PROFILE_E2EE_RELAXED,
-    ReceiptIndependence, RywActorFrontierEntry, RywFrontier, RywIssuerRole,
-    is_e2ee_relaxed_compatible_with_compliance, validate_relaxed_window_ms,
+    AuditRywReceipt, E2EE_RELAXED_INCOMPATIBLE_COMPLIANCE_PROFILES, ReceiptIndependence,
+    RywActorFrontierEntry, RywFrontier, RywIssuerRole, is_e2ee_relaxed_compatible_with_compliance,
+    validate_relaxed_window_ms,
 };
 pub use arkret_models_collaboration::governance::authorization::*;
 pub use arkret_models_collaboration::governance::circle::*;
@@ -212,9 +212,8 @@ pub use arkret_models_crypto::encrypted_envelope::{EncryptedPayload, KeyRefObjec
 pub use arkret_models_crypto::http_bodies::*;
 pub use arkret_models_crypto::key_backup::*;
 pub use arkret_models_crypto::key_transparency::{
-    KEY_TRANSPARENCY_SCHEMA, KeyTransparencyError, KeyTransparencyEvidence,
-    TransparencyConsistencyProof, TransparencyInclusionProof, TransparencyLogHead,
-    TransparencyWitnessSignature,
+    KeyTransparencyError, KeyTransparencyEvidence, TransparencyConsistencyProof,
+    TransparencyInclusionProof, TransparencyLogHead, TransparencyWitnessSignature,
 };
 pub use arkret_models_crypto::keys::*;
 pub use arkret_models_crypto::mls_envelopes::{
@@ -226,10 +225,9 @@ pub use arkret_models_discovery::directory::*;
 pub use arkret_models_discovery::directory_artifacts::*;
 pub use arkret_models_discovery::http_bodies::*;
 pub use arkret_models_discovery::presence::{
-    LAST_ACTIVE_BUCKET_FLOOR_SECONDS, PRESENCE_PREFERENCE_ACCOUNT_DATA_KEY,
-    PRESENCE_VISIBILITY_ACCOUNT_DATA_KEY, PresencePreference, PresenceStatus,
-    PresenceValidationError, STATUS_MESSAGE_MAX_CODE_POINTS, aggregate_presence_states,
-    validate_last_active_at, validate_status_message,
+    LAST_ACTIVE_BUCKET_FLOOR_SECONDS, PresencePreference, PresenceStatus, PresenceValidationError,
+    STATUS_MESSAGE_MAX_CODE_POINTS, aggregate_presence_states, validate_last_active_at,
+    validate_status_message,
 };
 pub use arkret_models_discovery::service_description::*;
 pub use arkret_models_discovery::service_requirements::{
@@ -343,12 +341,12 @@ pub use arkret_wire::signer::{PartialSignature, PayloadSigner, ThresholdAggregat
 pub use arkret_wire::string_profiles::*;
 pub use arkret_wire::wire_strings::*;
 pub use arkret_wire::{
-    CapabilityActionId, DIGEST_SUITES, EXPORTER_LABELS, EvaluationClass, ExporterLabelId,
-    HPKE_SUITES, MLS_CIPHERSUITES, MLS_EXTENSIONS, PROOF_CONTEXTS, ProofContextId,
-    QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS, SERVICE_KIND_DESCRIPTORS,
-    SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, ServiceKind, ServiceOperationDescriptor,
-    ServiceOperationId, WireError, XExtensionMap, contains_query_auth_material,
-    error_codes as error, is_query_auth_parameter,
+    AccountDataKey, CapabilityActionId, DIGEST_SUITES, EXPORTER_LABELS, EvaluationClass, EventKind,
+    ExporterLabelId, HPKE_SUITES, MLS_CIPHERSUITES, MLS_EXTENSIONS, PROOF_CONTEXTS, ProfileId,
+    ProofContextId, QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS,
+    SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId,
+    ServiceKind, ServiceOperationDescriptor, ServiceOperationId, WireError, XExtensionMap,
+    contains_query_auth_material, error_codes as error, is_query_auth_parameter,
 };
 pub use sdk_error::{Error, Result};
 pub use sidecar_recovery::{AgentSidecarContextLocator, recover_agent_sidecar_context_locators};

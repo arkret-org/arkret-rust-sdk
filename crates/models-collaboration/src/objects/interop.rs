@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{Did, DidUrl, EventId, Hash, RealmId, StrandId};
+use arkret_wire::{Did, DidUrl, EventId, Hash, RealmId, SchemaId, StrandId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -16,6 +16,10 @@ pub enum MediaOperations {
     MediaIceConfigRequestBody(MediaIceConfigRequestBody),
 }
 
+impl MediaOperations {
+    pub const SCHEMA: &'static str = SchemaId::MEDIA_OPERATIONS_V1;
+}
+
 /// Counterpart for `spec/v1/artifacts/schemas/mimi-interop.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -23,6 +27,10 @@ pub enum MimiInterop {
     ProviderDirectory(ProviderDirectory),
     RoomBinding(RoomBinding),
     ContentMappingReceipt(ContentMappingReceipt),
+}
+
+impl MimiInterop {
+    pub const SCHEMA: &'static str = SchemaId::MIMI_INTEROP_V1;
 }
 
 /// Counterpart for

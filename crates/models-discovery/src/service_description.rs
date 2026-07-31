@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 pub use arkret_models_identity::session_credential::SessionGrantProofKind;
-use arkret_wire::*;
+use arkret_wire::{ProfileId, SchemaId, *};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -254,6 +254,7 @@ pub struct ServiceDescribe {
 }
 
 impl ServiceDescribe {
+    pub const SCHEMA: &'static str = SchemaId::SERVICE_DESCRIBE_V1;
     /// Build a complete development-mode description for a service surface.
     pub fn development(
         service_id: Did,
@@ -369,7 +370,6 @@ impl ServiceDescribe {
                 ErrorCode::SCHEMA_VIOLATION
             )));
         }
-        const JOIN_PROFILE: &str = "ak.profile.candidate.join_policy.v1";
         const JOIN_OPERATIONS: &[&str] = &[
             "ak.self.realm.join_application.command.submit",
             "ak.self.realm.join_application.command.review",
@@ -399,17 +399,18 @@ impl ServiceDescribe {
         if self
             .supported_profiles
             .iter()
-            .any(|profile| profile == JOIN_PROFILE)
+            .any(|profile| profile == ProfileId::CANDIDATE_JOIN_POLICY_V1)
         {
             let carrier = self
                 .profile_bindings
-                .get(JOIN_PROFILE)
+                .get(ProfileId::CANDIDATE_JOIN_POLICY_V1)
                 .map(|binding| binding.carrier.as_str());
             if carrier != Some("profile_private_http_receipt_v1") {
                 return Err(Error::Protocol(format!(
-                    "ServiceDescribe: {JOIN_PROFILE} requires \
+                    "ServiceDescribe: {profileid_candidate_join_policy_v1} requires \
                      profile_bindings carrier=profile_private_http_receipt_v1 ({})",
-                    ErrorCode::SCHEMA_VIOLATION
+                    ErrorCode::SCHEMA_VIOLATION,
+                    profileid_candidate_join_policy_v1 = ProfileId::CANDIDATE_JOIN_POLICY_V1
                 )));
             }
             if JOIN_OPERATIONS.iter().any(|required| {
@@ -424,9 +425,10 @@ impl ServiceDescribe {
                     .any(|feature| feature == required)
             }) {
                 return Err(Error::Protocol(format!(
-                    "ServiceDescribe: {JOIN_PROFILE} requires its complete operation and \
+                    "ServiceDescribe: {profileid_candidate_join_policy_v1} requires its complete operation and \
                      feature surface ({})",
-                    ErrorCode::SCHEMA_VIOLATION
+                    ErrorCode::SCHEMA_VIOLATION,
+                    profileid_candidate_join_policy_v1 = ProfileId::CANDIDATE_JOIN_POLICY_V1
                 )));
             }
         }
@@ -537,7 +539,7 @@ mod tests {
             trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_kind: ServiceKind::DirectoryService,
             protocol_version: PROTOCOL_VERSION.to_owned(),
-            supported_profiles: vec![PROFILE_DIRECTORY_SERVICE.to_owned()],
+            supported_profiles: vec![ProfileId::DIRECTORY_SERVICE_V1.to_owned()],
             profile_bindings: BTreeMap::new(),
             supported_operations: vec!["ak.find.directory.query.describe".to_owned()],
             supported_bindings: vec![],
@@ -549,7 +551,9 @@ mod tests {
             privacy_derivation: None,
             receive_policy_constraints: None,
             implemented_features: vec![],
-            claimed_profiles: vec![ClaimedProfileEntry::self_claimed(PROFILE_DIRECTORY_SERVICE)],
+            claimed_profiles: vec![ClaimedProfileEntry::self_claimed(
+                ProfileId::DIRECTORY_SERVICE_V1,
+            )],
             verified_profiles: vec![],
             experimental_features: vec![],
             compat_surfaces: vec![],
@@ -564,7 +568,7 @@ mod tests {
                 DirectoryResourceKind::Applet,
                 DirectoryResourceKind::Handle,
             ],
-            discovery_profiles: vec![PROFILE_DIRECTORY_SERVICE.to_owned()],
+            discovery_profiles: vec![ProfileId::DIRECTORY_SERVICE_V1.to_owned()],
             restricted_query_proof: Some(true),
             ingest_modes: vec![DirectoryIngestMode::Push],
             accept_policy_kind: Some(DirectoryAcceptPolicyKind::Open),
@@ -597,16 +601,17 @@ mod tests {
 
     #[test]
     fn candidate_join_policy_requires_complete_private_carrier_claim() {
-        const PROFILE: &str = "ak.profile.candidate.join_policy.v1";
         let mut description = ServiceDescribe::development(
             Did::new("did:webvh:z6mkfixture:service.example").unwrap(),
             TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             ServiceKind::PrincipalServer,
         );
-        description.supported_profiles.push(PROFILE.to_owned());
+        description
+            .supported_profiles
+            .push(ProfileId::CANDIDATE_JOIN_POLICY_V1.to_owned());
         assert!(description.validate().is_err());
         description.profile_bindings.insert(
-            PROFILE.to_owned(),
+            ProfileId::CANDIDATE_JOIN_POLICY_V1.to_owned(),
             ProfileBinding {
                 carrier: "profile_private_http_receipt_v1".to_owned(),
             },

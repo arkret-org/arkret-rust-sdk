@@ -8,7 +8,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::MessageId;
+use arkret_wire::{MessageId, SchemaId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -112,4 +112,8 @@ pub enum FormattedBody {
 pub enum ContentBlockPoll {
     PollBlock(PollBlock),
     PollResponseBlock(PollResponseBlock),
+}
+
+impl ContentBlockPoll {
+    pub const SCHEMA: &'static str = SchemaId::CONTENT_BLOCK_POLL_V1;
 }

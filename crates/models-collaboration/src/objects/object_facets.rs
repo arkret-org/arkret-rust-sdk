@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use arkret_wire::SchemaId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -64,6 +65,10 @@ pub struct MorphCustomerRisk {
     pub fields: MorphCustomerRiskFields,
 }
 
+impl MorphCustomerRisk {
+    pub const SCHEMA: &'static str = SchemaId::MORPH_CUSTOMER_RISK_V1;
+}
+
 /// Counterpart for `spec/v1/artifacts/schemas/morph-customer-risk-ext.schema.json`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -89,6 +94,10 @@ pub struct MorphCustomerRiskExt {
     pub fields: Option<MorphCustomerRiskExtFields>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
+}
+
+impl MorphCustomerRiskExt {
+    pub const SCHEMA: &'static str = SchemaId::MORPH_CUSTOMER_RISK_EXT_V1;
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/morph.schema.json#/$defs/facet_config`.
@@ -119,6 +128,10 @@ pub enum Pin {
     PinReorderPayload(PinReorderPayload),
 }
 
+impl Pin {
+    pub const SCHEMA: &'static str = SchemaId::PIN_V1;
+}
+
 /// Counterpart for `spec/v1/artifacts/schemas/query.schema.json`.
 pub type Query = BTreeMap<String, Value>;
 
@@ -135,4 +148,8 @@ pub enum SearchService {
     EncryptedIndexManifest(EncryptedIndexManifest),
     BlindIndexQuery(BlindIndexQuery),
     SearchPolicy(SearchPolicy),
+}
+
+impl SearchService {
+    pub const SCHEMA: &'static str = SchemaId::SEARCH_SERVICE_V1;
 }

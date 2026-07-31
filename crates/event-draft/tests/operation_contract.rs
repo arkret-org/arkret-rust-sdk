@@ -2,9 +2,7 @@ use arkret_event_draft::{
     EventDraftKindRegistry, Operation, OperationEnvelopeBuilder, OperationEventConversion,
 };
 use arkret_identifiers::{Did, Hlc, OperationId, RealmId};
-use arkret_wire::{
-    Audience, DidUrl, EventKind, Hash, OPERATION_SCHEMA, Proof, ProofBindingRequirements, ScopeRef,
-};
+use arkret_wire::{Audience, DidUrl, EventKind, Hash, Proof, ProofBindingRequirements, ScopeRef};
 use chrono::Utc;
 use serde_json::json;
 
@@ -39,7 +37,7 @@ fn operation_serializes_protocol_field_names() {
     );
     assert_eq!(value["object_kind"], "morph");
     assert!(value.get("target_object_id").is_none());
-    assert_eq!(value["schema"], OPERATION_SCHEMA);
+    assert_eq!(value["schema"], Operation::SCHEMA);
 }
 
 #[test]

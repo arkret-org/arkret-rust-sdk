@@ -4,7 +4,9 @@ use std::collections::BTreeSet;
 use std::num::NonZeroU64;
 
 use arkret_canonical::binding_contexts;
-use arkret_wire::{DeviceId, Did, Error, EventId, Hash, Result, TypedTrustDomainId, canonical};
+use arkret_wire::{
+    DeviceId, Did, Error, EventId, Hash, Result, SchemaId, TypedTrustDomainId, canonical,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -92,6 +94,7 @@ impl<'de> Deserialize<'de> for CrossSigningResetPayload {
 }
 
 impl CrossSigningResetPayload {
+    pub const SCHEMA: &'static str = SchemaId::CROSS_SIGNING_RESET_V1;
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         trust_domain: TypedTrustDomainId,

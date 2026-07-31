@@ -6,16 +6,14 @@ use arkret_models_collaboration::objects::queries::{
     ViewQuery, ViewState,
 };
 use arkret_models_collaboration::objects::relation::Relation;
-use arkret_wire::{
-    Facet, Facets, FilterOp, RELATION_SCHEMA, RelationKind, VIEW_SCHEMA, ViewKind, ViewRenderer,
-};
+use arkret_wire::{Facet, Facets, FilterOp, RelationKind, SchemaId, ViewKind, ViewRenderer};
 use chrono::Utc;
 use serde_json::json;
 
 #[test]
 fn relation_requires_exact_wire_endpoints() {
     let relation = Relation {
-        schema: RELATION_SCHEMA.to_owned(),
+        schema: SchemaId::RELATION_V1.to_owned(),
         id: RelationId::new("ak:relation:01904100-0000-7000-8000-7b3bf7d6e46b").unwrap(),
         realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         scope_circle_id: None,
@@ -102,7 +100,7 @@ fn view_supports_renderer_and_facet_config_facades() {
         consistency: None,
     };
     let mut view = View {
-        schema: VIEW_SCHEMA.to_owned(),
+        schema: SchemaId::VIEW_V1.to_owned(),
         id: ViewId::new("ak:view:01904100-0000-7000-8000-848727f328fe").unwrap(),
         realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         kind: ViewKind::Collection,

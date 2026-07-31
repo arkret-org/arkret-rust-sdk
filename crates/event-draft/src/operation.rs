@@ -6,8 +6,8 @@ use arkret_models_crypto::mls_envelopes::{
 };
 use arkret_wire::{
     Audience, CriticalExtension, DeviceMessageId, Did, Event, EventId, EventRef, EventRequirements,
-    GrantId, Hash, Hlc, OPERATION_SCHEMA, OperationId, OperationKind, Proof,
-    ProofBindingRequirements, ProtocolKind, RealmId, ScopeRef, SignatureBindingPayload, canonical,
+    GrantId, Hash, Hlc, OperationId, OperationKind, Proof, ProofBindingRequirements, ProtocolKind,
+    RealmId, ScopeRef, SignatureBindingPayload, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -38,6 +38,9 @@ pub struct Operation {
 }
 
 impl Operation {
+    /// SDK-local operation draft marker. Operation drafts are builder inputs only; they are not an
+    /// Arkret wire schema and MUST be materialized as Event envelopes before submission.
+    pub const SCHEMA: &'static str = "ak.local.operation_draft.v1";
     pub fn create(
         operation_id: OperationId,
         realm_id: RealmId,
@@ -45,7 +48,7 @@ impl Operation {
         payload: Value,
     ) -> Self {
         Self {
-            schema: OPERATION_SCHEMA.to_owned(),
+            schema: Operation::SCHEMA.to_owned(),
             operation_id,
             record_kind: "operation".to_owned(),
             operation_kind: OperationKind::Create,

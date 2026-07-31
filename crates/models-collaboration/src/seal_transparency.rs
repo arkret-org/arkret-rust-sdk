@@ -4,7 +4,7 @@
 //! and `spec/v1/artifacts/schemas/seal-transparency.schema.json`. Migrated
 //! from the `arkret` umbrella (`models::artifacts::self_ops`).
 
-use arkret_wire::{Did, Hash, PayloadProof, RealmId, SealId};
+use arkret_wire::{Did, Hash, PayloadProof, RealmId, SchemaId, SealId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +20,10 @@ pub struct InclusionList {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub signature: PayloadProof,
+}
+
+impl InclusionList {
+    pub const SCHEMA: &'static str = SchemaId::INCLUSION_LIST_V1;
 }
 
 /// Counterpart for
@@ -94,6 +98,10 @@ pub struct SealTransparency {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub logged_at: DateTime<Utc>,
     pub log_signature: PayloadProof,
+}
+
+impl SealTransparency {
+    pub const SCHEMA: &'static str = SchemaId::SEAL_TRANSPARENCY_V1;
 }
 
 #[cfg(test)]

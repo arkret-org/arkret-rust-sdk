@@ -1,10 +1,9 @@
 //! Registry-backed validation for payload-agnostic wire events.
 
-use arkret_wire::Event;
+use arkret_wire::{Event, SchemaId};
 
 use crate::{
-    EVENT_SCHEMA, ProtocolSchemaRegistry, Result, SchemaError,
-    schema_registry_from_default_spec_artifacts,
+    ProtocolSchemaRegistry, Result, SchemaError, schema_registry_from_default_spec_artifacts,
 };
 
 /// Validate an Event envelope against the registered `event-envelope` schema.
@@ -13,7 +12,7 @@ pub fn validate_event_wire_schema(event: &Event) -> Result<()> {
         .map_err(|error| SchemaError::Protocol(format!("event serialization failed: {error}")))?;
     let registry = schema_registry_from_default_spec_artifacts()?
         .unwrap_or_else(ProtocolSchemaRegistry::default);
-    registry.validate_value(EVENT_SCHEMA, &value)
+    registry.validate_value(SchemaId::EVENT_V1, &value)
 }
 
 /// Run the complete Event submit gate: structural checks followed by schema validation.

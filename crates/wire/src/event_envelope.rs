@@ -44,7 +44,7 @@ use crate::events::kinds::EventKind;
 use crate::primitives::{
     Audience, CriticalExtension, Proof, ProofBindingRequirements, SignatureBindingPayload,
 };
-use crate::{DidKey, DidUrl, canonical};
+use crate::{DidKey, DidUrl, SchemaId, canonical};
 
 /// Full canonical Event Envelope bound, measured over the reducer-accepted envelope including
 /// reducer-stamped top-level fields and every producer proof, excluding the read-view `unsigned`.
@@ -634,6 +634,7 @@ pub enum EventSubmitContext {
 }
 
 impl Event {
+    pub const SCHEMA: &'static str = SchemaId::EVENT_V1;
     /// Deserialize an inbound Event Envelope after canonical JSON ingress
     /// checks (NFC strings, duplicate keys, number profile).
     pub fn from_canonical_json_slice(bytes: &[u8]) -> Result<Self> {

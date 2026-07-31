@@ -1,12 +1,11 @@
 use arkret_wire::{
-    DeviceId, Did, Error, EventId, GrantId, PolicyId, RecoveryModelGenerationRef,
+    DeviceId, Did, Error, EventId, EventKind, GrantId, PolicyId, RecoveryModelGenerationRef,
     RecoverySessionId, Result,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub const SIGNED_SESSION_GRANT_KIND: &str = "ak.session.grant";
 pub const RECOVERY_RESTRICTED_SESSION_GRANT_SCOPES: [&str; 9] = [
     "ak.root.identity.recovery_policy.resource.get",
     "ak.root.identity.recovery_session.command.create",
@@ -97,9 +96,10 @@ pub struct SessionGrantCnf {
 
 impl SignedSessionGrantClaims {
     pub fn validate(&self) -> Result<()> {
-        if self.kind != SIGNED_SESSION_GRANT_KIND {
+        if self.kind != EventKind::SESSION_GRANT {
             return Err(Error::Protocol(format!(
-                "session grant kind must be {SIGNED_SESSION_GRANT_KIND}"
+                "session grant kind must be {eventkind_session_grant}",
+                eventkind_session_grant = EventKind::SESSION_GRANT
             )));
         }
         if self.audience.trim().is_empty() {
@@ -160,7 +160,7 @@ mod tests {
 
     fn claims() -> SignedSessionGrantClaims {
         SignedSessionGrantClaims {
-            kind: SIGNED_SESSION_GRANT_KIND.to_owned(),
+            kind: EventKind::SESSION_GRANT.to_owned(),
             grant_id: GrantId::new("ak:grant:01964198-0000-7000-8000-000000000000").unwrap(),
             subject: Did::new("did:web:alice.example").unwrap(),
             audience: "https://app.example.com".to_owned(),

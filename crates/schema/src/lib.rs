@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use arkret_wire::SchemaId;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -13,15 +14,7 @@ mod event_validation;
 pub mod generated;
 pub mod protocol;
 
-pub use arkret_wire::{
-    ACCOUNT_SUBSCRIBE_FRAME_SCHEMA, ANCHOR_SCHEMA, BOTTOM_SCHEMA, CALENDAR_EVENT_SCHEMA,
-    CAPABILITY_SCHEMA, CORE_SCHEMA_PROFILE, CURSOR_SCHEMA, DISAPPEARING_MESSAGES_SCHEMA,
-    DRAFT_SYNC_SCHEMA, ENCRYPTED_ENVELOPE_SCHEMA, EVENT_PAYLOAD_SCHEMA, EVENT_SCHEMA,
-    INVITE_DELIVERY_REQUEST_SCHEMA, INVITE_RECEIVE_POLICY_SCHEMA, MORPH_SCHEMA,
-    PERSONAL_PRODUCTIVITY_SCHEMA, PRINCIPAL_LOCATOR_SCHEMA, PROFILE_ATTESTED_AUDIT_E2EE,
-    PROFILE_DIRECTORY_SERVICE, PROFILE_DISCLOSED_AUDIT_E2EE, REALM_JOIN_CANDIDATE_SCHEMA,
-    SEARCH_SERVICE_SCHEMA, SNAPSHOT_SCHEMA, SPACE_SCHEMA, STRAND_SCHEMA, VIEW_SCHEMA, events,
-};
+pub use arkret_wire::{CORE_SCHEMA_PROFILE, events};
 pub use error::{Error, Result, SchemaError};
 pub use event_cell_contract::{
     EventCellContractContext, EventCellContractError, FrozenPreState, batch_add_tag, or_set_dot,
@@ -47,21 +40,21 @@ pub use conformance::*;
 pub use payloads::*;
 
 pub const CORE_SCHEMA_IDS: &[&str] = &[
-    CURSOR_SCHEMA,
-    STRAND_SCHEMA,
-    SPACE_SCHEMA,
-    VIEW_SCHEMA,
-    EVENT_SCHEMA,
-    EVENT_PAYLOAD_SCHEMA,
-    ANCHOR_SCHEMA,
-    BOTTOM_SCHEMA,
-    SNAPSHOT_SCHEMA,
-    CAPABILITY_SCHEMA,
-    PERSONAL_PRODUCTIVITY_SCHEMA,
-    DRAFT_SYNC_SCHEMA,
-    CALENDAR_EVENT_SCHEMA,
-    DISAPPEARING_MESSAGES_SCHEMA,
-    SEARCH_SERVICE_SCHEMA,
-    ENCRYPTED_ENVELOPE_SCHEMA,
-    ACCOUNT_SUBSCRIBE_FRAME_SCHEMA,
+    SchemaId::CURSOR_V1,
+    SchemaId::STRAND_V1,
+    SchemaId::SPACE_V1,
+    SchemaId::VIEW_V1,
+    SchemaId::EVENT_V1,
+    SchemaId::EVENT_PAYLOAD_V1,
+    SchemaId::SEAL_V1,
+    SchemaId::BOTTOM_V1,
+    SchemaId::SNAPSHOT_V1,
+    SchemaId::CAPABILITY_V1,
+    SchemaId::PERSONAL_PRODUCTIVITY_V1,
+    SchemaId::DRAFT_SYNC_V1,
+    SchemaId::CALENDAR_EVENT_V1,
+    SchemaId::DISAPPEARING_MESSAGES_V1,
+    SchemaId::SEARCH_SERVICE_V1,
+    SchemaId::ENCRYPTED_ENVELOPE_V1,
+    SchemaId::ACCOUNT_SUBSCRIBE_FRAME_V1,
 ];

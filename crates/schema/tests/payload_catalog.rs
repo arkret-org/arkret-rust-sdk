@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
 use arkret_schema::{
-    EVENT_PAYLOAD_SCHEMA, EventPayloadValidatorCatalog, default_spec_artifacts_dir,
-    event_payload_validator_catalog_from_spec_artifacts, events,
+    EventPayloadValidatorCatalog, default_spec_artifacts_dir,
+    event_payload_validator_catalog_from_spec_artifacts,
 };
+use arkret_wire::{EventKind, SchemaId};
 use serde_json::json;
 
 fn live_payload_catalog() -> Option<EventPayloadValidatorCatalog> {
@@ -27,15 +28,24 @@ fn registered_specialized_defs_take_priority_over_name_matches() {
 
     assert_eq!(
         catalog.rules["ak.space.archive"].payload_schema_id,
-        format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/space_state_transition_payload")
+        format!(
+            "{schemaid_event_payload_v1}#/$defs/space_state_transition_payload",
+            schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+        )
     );
     assert_eq!(
         catalog.rules["ak.space.restore"].payload_schema_id,
-        format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/space_state_transition_payload")
+        format!(
+            "{schemaid_event_payload_v1}#/$defs/space_state_transition_payload",
+            schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+        )
     );
     assert_eq!(
         catalog.rules["ak.space.tombstone"].payload_schema_id,
-        format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/space_object_tombstone_payload")
+        format!(
+            "{schemaid_event_payload_v1}#/$defs/space_object_tombstone_payload",
+            schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+        )
     );
 
     catalog
@@ -104,7 +114,10 @@ fn patch_event_family_maps_to_canonical_payloads() {
     for (event_kind, payload_def, payload) in patch_kinds {
         assert_eq!(
             catalog.rules[event_kind].payload_schema_id,
-            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/{payload_def}"),
+            format!(
+                "{schemaid_event_payload_v1}#/$defs/{payload_def}",
+                schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+            ),
             "{event_kind} must use the canonical patch payload schema"
         );
         catalog
@@ -114,7 +127,10 @@ fn patch_event_family_maps_to_canonical_payloads() {
 
     assert_eq!(
         catalog.rules["ak.profile.realm_override"].payload_schema_id,
-        format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/profile_realm_override_payload"),
+        format!(
+            "{schemaid_event_payload_v1}#/$defs/profile_realm_override_payload",
+            schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+        ),
         "ak.profile.realm_override must use the dedicated profile_realm_override_payload schema"
     );
     catalog
@@ -131,7 +147,10 @@ fn patch_event_family_maps_to_canonical_payloads() {
         });
     assert_eq!(
         catalog.rules["ak.strand.tracks.update"].payload_schema_id,
-        format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/generic_standard_payload"),
+        format!(
+            "{schemaid_event_payload_v1}#/$defs/generic_standard_payload",
+            schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+        ),
         "ak.strand.tracks.update has dedicated track-table semantics and must not be folded into object_patch_payload"
     );
     catalog
@@ -232,18 +251,21 @@ fn invite_create_payload_shape_is_enforced() {
     });
 
     assert_eq!(
-        catalog.rules[events::EventKind::INVITE_CREATE].payload_schema_id,
-        format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/invite_payload")
+        catalog.rules[EventKind::INVITE_CREATE].payload_schema_id,
+        format!(
+            "{schemaid_event_payload_v1}#/$defs/invite_payload",
+            schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
+        )
     );
     assert!(
-        catalog.rules[events::EventKind::INVITE_CREATE]
+        catalog.rules[EventKind::INVITE_CREATE]
             .required_fields
             .iter()
             .any(|field| field == "invite_id"),
         "ak.invite.create must require invite_id"
     );
     catalog
-        .validate_payload(events::EventKind::INVITE_CREATE, &payload)
+        .validate_payload(EventKind::INVITE_CREATE, &payload)
         .unwrap_or_else(|err| panic!("ak.invite.create should accept directed invite: {err}"));
 
     let mut missing_invite_id = payload.clone();
@@ -253,7 +275,7 @@ fn invite_create_payload_shape_is_enforced() {
         .remove("invite_id");
     assert!(
         catalog
-            .validate_payload(events::EventKind::INVITE_CREATE, &missing_invite_id)
+            .validate_payload(EventKind::INVITE_CREATE, &missing_invite_id)
             .is_err(),
         "ak.invite.create must reject directed invite payloads without invite_id"
     );
@@ -265,7 +287,7 @@ fn invite_create_payload_shape_is_enforced() {
         .remove("expires_at");
     assert!(
         catalog
-            .validate_payload(events::EventKind::INVITE_CREATE, &missing_expires_at)
+            .validate_payload(EventKind::INVITE_CREATE, &missing_expires_at)
             .is_err(),
         "ak.invite.create must reject directed invite payloads without expires_at"
     );
@@ -295,7 +317,7 @@ fn external_schema_refs_and_enums_are_enforced() {
     });
     catalog
         .validate_payload(
-            events::EventKind::CROSS_SIGNING_PUBLISH,
+            EventKind::CROSS_SIGNING_PUBLISH,
             &json!({
                 "principal_id": "did:webvh:z6mkfixture:alice.example",
                 "trust_domain": "ak:trust_domain:example.net",
@@ -311,7 +333,7 @@ fn external_schema_refs_and_enums_are_enforced() {
     assert!(
         catalog
             .validate_payload(
-                events::EventKind::CROSS_SIGNING_PUBLISH,
+                EventKind::CROSS_SIGNING_PUBLISH,
                 &json!({
                     "principal_id": "did:webvh:z6mkfixture:alice.example",
                     "principal_signing_key": key,

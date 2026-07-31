@@ -8,9 +8,8 @@
 
 use std::collections::BTreeSet;
 
-pub use arkret_wire::AGENT_REQUESTED_SCOPE_DISCLOSURE_SCHEMA;
-use arkret_wire::EventInitialSubmission;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
+use arkret_wire::{EventInitialSubmission, SchemaId};
 
 use crate::agent_signer_evidence::AgentSigningKeyBinding;
 use crate::events_payloads::agent::{
@@ -43,6 +42,7 @@ pub struct AgentRequestedScopeDisclosure {
 }
 
 impl AgentRequestedScopeDisclosure {
+    pub const SCHEMA: &'static str = SchemaId::AGENT_REQUESTED_SCOPE_DISCLOSURE_V1;
     pub fn canonical_bytes_without_proofs(&self) -> Result<Vec<u8>> {
         let mut value = serde_json::to_value(self)?;
         value
@@ -80,7 +80,7 @@ impl AgentRequestedScopeDisclosure {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.schema != AGENT_REQUESTED_SCOPE_DISCLOSURE_SCHEMA {
+        if self.schema != SchemaId::AGENT_REQUESTED_SCOPE_DISCLOSURE_V1 {
             return Err(Error::Protocol(
                 "agent requested-scope disclosure schema is invalid".to_owned(),
             ));
@@ -441,6 +441,10 @@ pub struct AgentPairingBootstrap {
     pub pairing_code: String,
     #[serde(with = "canonical_timestamp")]
     pub pairing_expires_at: DateTime<Utc>,
+}
+
+impl AgentPairingBootstrap {
+    pub const SCHEMA: &'static str = SchemaId::AGENT_PAIRING_BOOTSTRAP_V1;
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1909,6 +1913,10 @@ pub enum AgentOperations {
     AgentSidecarEnsureOutcome(AgentSidecarEnsureOutcome),
     AgentSidecarView(Box<AgentSidecarView>),
     AgentSidecarList(AgentSidecarList),
+}
+
+impl AgentOperations {
+    pub const SCHEMA: &'static str = SchemaId::AGENT_OPERATIONS_V1;
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/key_state`.

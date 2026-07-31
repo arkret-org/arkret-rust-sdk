@@ -12,13 +12,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub const AGENT_SIGNING_KEY_BINDING_SCHEMA: &str = "ak.schema.agent_signing_key_binding.v1";
-pub const AGENT_SIGNER_EVIDENCE_SCHEMA: &str = "ak.schema.agent_signer_evidence.v1";
-pub const AGENT_SIGNER_EVIDENCE_BUNDLE_SCHEMA: &str = "ak.schema.agent_signer_evidence_bundle.v1";
 pub const AGENT_SIGNING_KEY_BINDING_CONTEXT: &str = "ak.agent-signing-key-binding-v1\n";
 pub const AGENT_EVIDENCE_FRESHNESS_CONTEXT: &str = "ak.agent-evidence-freshness-v1\n";
 pub const AGENT_KEY_COMPONENT: &str = "ak.component.agent.key.v1";
-pub const KEY_TRANSPARENCY_PROFILE: &str = "ak.profile.key_transparency.v1";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

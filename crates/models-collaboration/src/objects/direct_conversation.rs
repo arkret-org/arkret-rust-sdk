@@ -5,8 +5,8 @@ use std::collections::BTreeSet;
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
     Did, Discoverability, EncryptionProfile, Error, EventId, FederationPolicy, Hash,
-    HistoryVisibility, JoinRule, ObjectStage, ObjectState, RealmId, Result, SecurityClass,
-    StrandId, TypedTrustDomainId, canonical,
+    HistoryVisibility, JoinRule, ObjectStage, ObjectState, ProfileId, RealmId, Result,
+    SecurityClass, StrandId, TypedTrustDomainId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -21,7 +21,6 @@ use crate::objects::profiles::STRAND_TRACK_NAME_DISCUSSION;
 use crate::objects::realm::{NotaryProfile, Realm};
 use crate::objects::strand::Strand;
 
-pub const DIRECT_CONVERSATION_REALM_PROFILE: &str = "ak.profile.direct_conversation_realm.v1";
 pub const DIRECT_CONVERSATION_REALM_ROLE_FEATURE: &str =
     "ak.feature.direct_conversation_realm_role.v1";
 pub const DIRECT_CONVERSATION_COLLABORATION_ROLE_FIELD: &str = "collaboration_role";
@@ -134,7 +133,7 @@ impl DirectConversationRealmRole {
         let has_profile = realm
             .schema_refs
             .iter()
-            .any(|profile| profile == DIRECT_CONVERSATION_REALM_PROFILE);
+            .any(|profile| profile == ProfileId::DIRECT_CONVERSATION_REALM_V1);
         let has_discriminator = realm
             .fields
             .get(DIRECT_CONVERSATION_COLLABORATION_ROLE_FIELD)
@@ -195,7 +194,7 @@ pub fn direct_conversation_realm_create_payload(
     realm.security_class = Some(SecurityClass::Standard);
     realm
         .schema_refs
-        .push(DIRECT_CONVERSATION_REALM_PROFILE.to_owned());
+        .push(ProfileId::DIRECT_CONVERSATION_REALM_V1.to_owned());
     realm.fields.insert(
         DIRECT_CONVERSATION_COLLABORATION_ROLE_FIELD.to_owned(),
         Value::String(DIRECT_CONVERSATION_COLLABORATION_ROLE.to_owned()),

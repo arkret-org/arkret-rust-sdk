@@ -229,224 +229,224 @@ pub enum ServiceOperationId {
 }
 
 pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
-    "ak.edge.applet.actor.query.resolve",
-    "ak.edge.applet.command.transaction",
-    "ak.edge.applet.query.describe",
-    "ak.edge.applet.query.ping",
-    "ak.edge.applet.query.protocol_metadata",
-    "ak.edge.applet.realm.query.resolve",
-    "ak.edge.applet.third_party_locations.query.list",
-    "ak.edge.applet.third_party_users.query.list",
-    "ak.edge.push.command.notify",
-    "ak.edge.push.command.register_device",
-    "ak.edge.push.command.unregister_device",
-    "ak.find.directory.command.announce",
-    "ak.find.directory.command.takedown_appeal",
-    "ak.find.directory.command.withdraw",
-    "ak.find.directory.push.command.register",
-    "ak.find.directory.query.describe",
-    "ak.find.directory.query.list_handles_for_subject",
-    "ak.find.directory.query.private_contact_discovery",
-    "ak.find.directory.query.resolve_agent_selector",
-    "ak.find.directory.query.resolve_handle",
-    "ak.find.directory.query.resolve_organization",
-    "ak.find.directory.query.resolve_realm",
-    "ak.find.directory.query.resolve_target",
-    "ak.find.directory.query.search_actors",
-    "ak.find.directory.query.search_organizations",
-    "ak.find.directory.query.search_realms",
-    "ak.find.directory.query.search_users",
-    "ak.gate.account.command.authorize_recovery_device",
-    "ak.gate.account.command.enroll_device",
-    "ak.gate.account.command.introspect_session_grant",
-    "ak.gate.account.command.issue_identity_binding_challenge",
-    "ak.gate.account.command.issue_session_grant",
-    "ak.gate.account.command.logout",
-    "ak.gate.account.command.logout_auth_session",
-    "ak.gate.account.command.pair_agent_key",
-    "ak.gate.account.command.pair_device",
-    "ak.gate.account.command.promote_recovery_session_grant",
-    "ak.gate.account.command.refresh_session_grant",
-    "ak.gate.account.command.register",
-    "ak.gate.account.command.revoke_session",
-    "ak.gate.account.exchange.complete_oidc",
-    "ak.gate.account.exchange.create_handoff",
-    "ak.open.agent_pairing.command.submit_runtime_key_request",
-    "ak.open.agent_pairing.query.resolve",
-    "ak.open.agent_pairing.query.runtime_key_request_status",
-    "ak.open.device_pairing.command.stage",
-    "ak.open.device_pairing.query.resolve",
-    "ak.open.device_pairing.query.status",
-    "ak.open.invite_locator.query.resolve",
-    "ak.open.mimi.command.notify",
-    "ak.open.mimi.command.proxy_download",
-    "ak.open.mimi.command.report_abuse",
-    "ak.open.mimi.command.request_consent",
-    "ak.open.mimi.command.submit_message",
-    "ak.open.mimi.command.update_consent",
-    "ak.open.mimi.command.update_room",
-    "ak.open.mimi.exchange.request_key_material",
-    "ak.open.mimi.query.group_info",
-    "ak.open.mimi.query.identifiers",
-    "ak.open.mimi.query.provider_directory",
-    "ak.peer.contacts.command.submit",
-    "ak.peer.events.command.submit",
-    "ak.peer.events.query.describe",
-    "ak.peer.events.query.frontier",
-    "ak.peer.events.query.resolve",
-    "ak.peer.events.query.scan",
-    "ak.peer.events.query.scan_body",
-    "ak.peer.invites.command.submit",
-    "ak.peer.keys.keypackages.command.claim",
-    "ak.peer.keys.keypackages.query.claim",
-    "ak.peer.signal.command.relay",
-    "ak.peer.snapshot.query.manifest_head",
-    "ak.root.identity.command.submit_did_operation",
-    "ak.root.identity.document.resource.get",
-    "ak.root.identity.log.query.list",
-    "ak.root.identity.organization_registration.command.ensure",
-    "ak.root.identity.organization_registration.command.prepare",
-    "ak.root.identity.organization_registration.command.refresh",
-    "ak.root.identity.organization_registration.command.revoke",
-    "ak.root.identity.organization_registration.resource.get",
-    "ak.root.identity.query.resolve",
-    "ak.root.identity.receipts.query.list",
-    "ak.root.identity.recovery_policy.command.publish",
-    "ak.root.identity.recovery_policy.resource.get",
-    "ak.root.identity.recovery_session.command.create",
-    "ak.root.identity.recovery_session.command.submit_proof",
-    "ak.root.identity.recovery_session.resource.get",
-    "ak.root.identity.registry.query.describe",
-    "ak.root.identity.service_registration.command.ensure",
-    "ak.root.identity.service_registration.resource.get",
-    "ak.self.account.command.revoke_cursor",
-    "ak.self.account.command.update_profile",
-    "ak.self.account.query.describe",
-    "ak.self.account.query.viewer",
-    "ak.self.account.stream.subscribe",
-    "ak.self.account_data.query.list",
-    "ak.self.account_data.resource.delete",
-    "ak.self.account_data.resource.get",
-    "ak.self.account_data.resource.replace",
-    "ak.self.agent.command.deactivate",
-    "ak.self.agent.command.pause",
-    "ak.self.agent.command.provision",
-    "ak.self.agent.command.renew_pairing",
-    "ak.self.agent.command.resume",
-    "ak.self.agent.grant.command.attach",
-    "ak.self.agent.grant.resource.delete",
-    "ak.self.agent.participation.resource.get",
-    "ak.self.agent.participation.resource.replace",
-    "ak.self.agent.query.list",
-    "ak.self.agent.resource.get",
-    "ak.self.agent.sidecar.command.ensure",
-    "ak.self.agent.sidecar.query.list",
-    "ak.self.agent.sidecar.resource.get",
-    "ak.self.agent_signer_evidence.query.resolve",
-    "ak.self.applet.command.install",
-    "ak.self.applet.command.revoke",
-    "ak.self.applet.ghost.command.provision",
-    "ak.self.applet.install.command.preview",
-    "ak.self.authorization_leases.command.issue",
-    "ak.self.authz.grants.query.effective",
-    "ak.self.authz.invites.query.list",
-    "ak.self.authz.query.check",
-    "ak.self.blob.command.presign",
-    "ak.self.blob.resource.get",
-    "ak.self.blob.resource.head",
-    "ak.self.blob.upload.create",
-    "ak.self.call.media.exchange.issue_token",
-    "ak.self.circle.command.archive",
-    "ak.self.circle.command.create",
-    "ak.self.circle.command.restore",
-    "ak.self.circle.command.rotate_scope",
-    "ak.self.circle.command.tombstone",
-    "ak.self.circle.member.command.add",
-    "ak.self.circle.member.resource.delete",
-    "ak.self.circle.query.list",
-    "ak.self.circle.resource.get",
-    "ak.self.consent.command.grant",
-    "ak.self.consent.command.request",
-    "ak.self.consent.command.revoke",
-    "ak.self.consent.query.list",
-    "ak.self.consent.resource.get",
-    "ak.self.contact.command.request",
-    "ak.self.contact.command.respond",
-    "ak.self.contact.command.tombstone",
-    "ak.self.contact.query.list",
-    "ak.self.control_proposal_receipts.command.issue",
-    "ak.self.device_messages.command.ack",
-    "ak.self.device_messages.command.send",
-    "ak.self.device_messages.query.list",
-    "ak.self.direct_conversation.command.resolve",
-    "ak.self.events.command.submit",
-    "ak.self.events.command.submit_seal",
-    "ak.self.events.query.describe",
-    "ak.self.events.query.frontier",
-    "ak.self.events.query.mls_governance_proof",
-    "ak.self.events.query.resolve",
-    "ak.self.events.query.scan",
-    "ak.self.events.query.scan_body",
-    "ak.self.events.resource.get",
-    "ak.self.events.stream.subscribe",
-    "ak.self.invite_locator.command.issue",
-    "ak.self.invite_locator.command.revoke",
-    "ak.self.invite_locator.command.rotate",
-    "ak.self.invite_receive_policy.resource.get",
-    "ak.self.invite_receive_policy.resource.replace",
-    "ak.self.keys.backup_series.command.erase",
-    "ak.self.keys.backups.command.issue_delete_challenge",
-    "ak.self.keys.backups.command.unlock",
-    "ak.self.keys.backups.query.list",
-    "ak.self.keys.backups.resource.delete",
-    "ak.self.keys.backups.resource.replace",
-    "ak.self.keys.command.claim",
-    "ak.self.keys.keypackages.command.claim",
-    "ak.self.keys.keypackages.command.consume",
-    "ak.self.keys.keypackages.command.revoke",
-    "ak.self.keys.keypackages.upload.create",
-    "ak.self.keys.query.lookup",
-    "ak.self.keys.upload.create",
-    "ak.self.media.query.ice_config",
-    "ak.self.moderation.command.report",
-    "ak.self.morph.query.list",
-    "ak.self.morph.resource.get",
-    "ak.self.policy.query.check",
-    "ak.self.read_cursor.command.advance",
-    "ak.self.read_cursor.query.list",
-    "ak.self.realm.command.archive",
-    "ak.self.realm.command.destroy",
-    "ak.self.realm.command.freeze",
-    "ak.self.realm.command.tombstone",
-    "ak.self.realm.join_application.audit.query.list",
-    "ak.self.realm.join_application.command.cancel",
-    "ak.self.realm.join_application.command.review",
-    "ak.self.realm.join_application.command.submit",
-    "ak.self.realm.join_application.query.list",
-    "ak.self.realm.join_application.resource.get",
-    "ak.self.realm.moderation_policy.query.effective",
-    "ak.self.realm.moderation_policy.resource.replace",
-    "ak.self.realm.query.export",
-    "ak.self.realm.resource.get",
-    "ak.self.realm_link.command.create",
-    "ak.self.realm_link.query.effective_policy",
-    "ak.self.realm_link.query.list",
-    "ak.self.realm_link.resource.delete",
-    "ak.self.realm_organization.query.list",
-    "ak.self.realm_policy_server.resource.delete",
-    "ak.self.realm_policy_server.resource.get",
-    "ak.self.realm_policy_server.resource.replace",
-    "ak.self.recovery_authority_ticket.command.issue",
-    "ak.self.security_transaction.command.continue",
-    "ak.self.security_transaction.command.create",
-    "ak.self.security_transaction.resource.get",
-    "ak.self.signal.command.send",
-    "ak.self.signal.stream.subscribe",
-    "ak.self.snapshot.query.manifest_head",
-    "ak.self.space.query.list",
-    "ak.self.strand.query.list",
-    "ak.self.views.collection_projection.command.materialize",
-    "ak.server.query.describe",
+    ServiceOperationId::EDGE_APPLET_ACTOR_QUERY_RESOLVE,
+    ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION,
+    ServiceOperationId::EDGE_APPLET_QUERY_DESCRIBE,
+    ServiceOperationId::EDGE_APPLET_QUERY_PING,
+    ServiceOperationId::EDGE_APPLET_QUERY_PROTOCOL_METADATA,
+    ServiceOperationId::EDGE_APPLET_REALM_QUERY_RESOLVE,
+    ServiceOperationId::EDGE_APPLET_THIRD_PARTY_LOCATIONS_QUERY_LIST,
+    ServiceOperationId::EDGE_APPLET_THIRD_PARTY_USERS_QUERY_LIST,
+    ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY,
+    ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
+    ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE,
+    ServiceOperationId::FIND_DIRECTORY_COMMAND_ANNOUNCE,
+    ServiceOperationId::FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL,
+    ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW,
+    ServiceOperationId::FIND_DIRECTORY_PUSH_COMMAND_REGISTER,
+    ServiceOperationId::FIND_DIRECTORY_QUERY_DESCRIBE,
+    ServiceOperationId::FIND_DIRECTORY_QUERY_LIST_HANDLES_FOR_SUBJECT,
+    ServiceOperationId::FIND_DIRECTORY_QUERY_PRIVATE_CONTACT_DISCOVERY,
+    ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_AGENT_SELECTOR,
+    ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_HANDLE,
+    ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_ORGANIZATION,
+    ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_REALM,
+    ServiceOperationId::FIND_DIRECTORY_QUERY_RESOLVE_TARGET,
+    ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_ACTORS,
+    ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_ORGANIZATIONS,
+    ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_REALMS,
+    ServiceOperationId::FIND_DIRECTORY_QUERY_SEARCH_USERS,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_AUTHORIZE_RECOVERY_DEVICE,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_ENROLL_DEVICE,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_LOGOUT,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_LOGOUT_AUTH_SESSION,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_DEVICE,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_PROMOTE_RECOVERY_SESSION_GRANT,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_REFRESH_SESSION_GRANT,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_REGISTER,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION,
+    ServiceOperationId::GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC,
+    ServiceOperationId::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF,
+    ServiceOperationId::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST,
+    ServiceOperationId::OPEN_AGENT_PAIRING_QUERY_RESOLVE,
+    ServiceOperationId::OPEN_AGENT_PAIRING_QUERY_RUNTIME_KEY_REQUEST_STATUS,
+    ServiceOperationId::OPEN_DEVICE_PAIRING_COMMAND_STAGE,
+    ServiceOperationId::OPEN_DEVICE_PAIRING_QUERY_RESOLVE,
+    ServiceOperationId::OPEN_DEVICE_PAIRING_QUERY_STATUS,
+    ServiceOperationId::OPEN_INVITE_LOCATOR_QUERY_RESOLVE,
+    ServiceOperationId::OPEN_MIMI_COMMAND_NOTIFY,
+    ServiceOperationId::OPEN_MIMI_COMMAND_PROXY_DOWNLOAD,
+    ServiceOperationId::OPEN_MIMI_COMMAND_REPORT_ABUSE,
+    ServiceOperationId::OPEN_MIMI_COMMAND_REQUEST_CONSENT,
+    ServiceOperationId::OPEN_MIMI_COMMAND_SUBMIT_MESSAGE,
+    ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_CONSENT,
+    ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_ROOM,
+    ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL,
+    ServiceOperationId::OPEN_MIMI_QUERY_GROUP_INFO,
+    ServiceOperationId::OPEN_MIMI_QUERY_IDENTIFIERS,
+    ServiceOperationId::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY,
+    ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT,
+    ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT,
+    ServiceOperationId::PEER_EVENTS_QUERY_DESCRIBE,
+    ServiceOperationId::PEER_EVENTS_QUERY_FRONTIER,
+    ServiceOperationId::PEER_EVENTS_QUERY_RESOLVE,
+    ServiceOperationId::PEER_EVENTS_QUERY_SCAN,
+    ServiceOperationId::PEER_EVENTS_QUERY_SCAN_BODY,
+    ServiceOperationId::PEER_INVITES_COMMAND_SUBMIT,
+    ServiceOperationId::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM,
+    ServiceOperationId::PEER_KEYS_KEYPACKAGES_QUERY_CLAIM,
+    ServiceOperationId::PEER_SIGNAL_COMMAND_RELAY,
+    ServiceOperationId::PEER_SNAPSHOT_QUERY_MANIFEST_HEAD,
+    ServiceOperationId::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION,
+    ServiceOperationId::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET,
+    ServiceOperationId::ROOT_IDENTITY_LOG_QUERY_LIST,
+    ServiceOperationId::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_ENSURE,
+    ServiceOperationId::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_PREPARE,
+    ServiceOperationId::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_REFRESH,
+    ServiceOperationId::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_REVOKE,
+    ServiceOperationId::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_RESOURCE_GET,
+    ServiceOperationId::ROOT_IDENTITY_QUERY_RESOLVE,
+    ServiceOperationId::ROOT_IDENTITY_RECEIPTS_QUERY_LIST,
+    ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_COMMAND_PUBLISH,
+    ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET,
+    ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE,
+    ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF,
+    ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET,
+    ServiceOperationId::ROOT_IDENTITY_REGISTRY_QUERY_DESCRIBE,
+    ServiceOperationId::ROOT_IDENTITY_SERVICE_REGISTRATION_COMMAND_ENSURE,
+    ServiceOperationId::ROOT_IDENTITY_SERVICE_REGISTRATION_RESOURCE_GET,
+    ServiceOperationId::SELF_ACCOUNT_COMMAND_REVOKE_CURSOR,
+    ServiceOperationId::SELF_ACCOUNT_COMMAND_UPDATE_PROFILE,
+    ServiceOperationId::SELF_ACCOUNT_QUERY_DESCRIBE,
+    ServiceOperationId::SELF_ACCOUNT_QUERY_VIEWER,
+    ServiceOperationId::SELF_ACCOUNT_STREAM_SUBSCRIBE,
+    ServiceOperationId::SELF_ACCOUNT_DATA_QUERY_LIST,
+    ServiceOperationId::SELF_ACCOUNT_DATA_RESOURCE_DELETE,
+    ServiceOperationId::SELF_ACCOUNT_DATA_RESOURCE_GET,
+    ServiceOperationId::SELF_ACCOUNT_DATA_RESOURCE_REPLACE,
+    ServiceOperationId::SELF_AGENT_COMMAND_DEACTIVATE,
+    ServiceOperationId::SELF_AGENT_COMMAND_PAUSE,
+    ServiceOperationId::SELF_AGENT_COMMAND_PROVISION,
+    ServiceOperationId::SELF_AGENT_COMMAND_RENEW_PAIRING,
+    ServiceOperationId::SELF_AGENT_COMMAND_RESUME,
+    ServiceOperationId::SELF_AGENT_GRANT_COMMAND_ATTACH,
+    ServiceOperationId::SELF_AGENT_GRANT_RESOURCE_DELETE,
+    ServiceOperationId::SELF_AGENT_PARTICIPATION_RESOURCE_GET,
+    ServiceOperationId::SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE,
+    ServiceOperationId::SELF_AGENT_QUERY_LIST,
+    ServiceOperationId::SELF_AGENT_RESOURCE_GET,
+    ServiceOperationId::SELF_AGENT_SIDECAR_COMMAND_ENSURE,
+    ServiceOperationId::SELF_AGENT_SIDECAR_QUERY_LIST,
+    ServiceOperationId::SELF_AGENT_SIDECAR_RESOURCE_GET,
+    ServiceOperationId::SELF_AGENT_SIGNER_EVIDENCE_QUERY_RESOLVE,
+    ServiceOperationId::SELF_APPLET_COMMAND_INSTALL,
+    ServiceOperationId::SELF_APPLET_COMMAND_REVOKE,
+    ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION,
+    ServiceOperationId::SELF_APPLET_INSTALL_COMMAND_PREVIEW,
+    ServiceOperationId::SELF_AUTHORIZATION_LEASES_COMMAND_ISSUE,
+    ServiceOperationId::SELF_AUTHZ_GRANTS_QUERY_EFFECTIVE,
+    ServiceOperationId::SELF_AUTHZ_INVITES_QUERY_LIST,
+    ServiceOperationId::SELF_AUTHZ_QUERY_CHECK,
+    ServiceOperationId::SELF_BLOB_COMMAND_PRESIGN,
+    ServiceOperationId::SELF_BLOB_RESOURCE_GET,
+    ServiceOperationId::SELF_BLOB_RESOURCE_HEAD,
+    ServiceOperationId::SELF_BLOB_UPLOAD_CREATE,
+    ServiceOperationId::SELF_CALL_MEDIA_EXCHANGE_ISSUE_TOKEN,
+    ServiceOperationId::SELF_CIRCLE_COMMAND_ARCHIVE,
+    ServiceOperationId::SELF_CIRCLE_COMMAND_CREATE,
+    ServiceOperationId::SELF_CIRCLE_COMMAND_RESTORE,
+    ServiceOperationId::SELF_CIRCLE_COMMAND_ROTATE_SCOPE,
+    ServiceOperationId::SELF_CIRCLE_COMMAND_TOMBSTONE,
+    ServiceOperationId::SELF_CIRCLE_MEMBER_COMMAND_ADD,
+    ServiceOperationId::SELF_CIRCLE_MEMBER_RESOURCE_DELETE,
+    ServiceOperationId::SELF_CIRCLE_QUERY_LIST,
+    ServiceOperationId::SELF_CIRCLE_RESOURCE_GET,
+    ServiceOperationId::SELF_CONSENT_COMMAND_GRANT,
+    ServiceOperationId::SELF_CONSENT_COMMAND_REQUEST,
+    ServiceOperationId::SELF_CONSENT_COMMAND_REVOKE,
+    ServiceOperationId::SELF_CONSENT_QUERY_LIST,
+    ServiceOperationId::SELF_CONSENT_RESOURCE_GET,
+    ServiceOperationId::SELF_CONTACT_COMMAND_REQUEST,
+    ServiceOperationId::SELF_CONTACT_COMMAND_RESPOND,
+    ServiceOperationId::SELF_CONTACT_COMMAND_TOMBSTONE,
+    ServiceOperationId::SELF_CONTACT_QUERY_LIST,
+    ServiceOperationId::SELF_CONTROL_PROPOSAL_RECEIPTS_COMMAND_ISSUE,
+    ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK,
+    ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND,
+    ServiceOperationId::SELF_DEVICE_MESSAGES_QUERY_LIST,
+    ServiceOperationId::SELF_DIRECT_CONVERSATION_COMMAND_RESOLVE,
+    ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT,
+    ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT_SEAL,
+    ServiceOperationId::SELF_EVENTS_QUERY_DESCRIBE,
+    ServiceOperationId::SELF_EVENTS_QUERY_FRONTIER,
+    ServiceOperationId::SELF_EVENTS_QUERY_MLS_GOVERNANCE_PROOF,
+    ServiceOperationId::SELF_EVENTS_QUERY_RESOLVE,
+    ServiceOperationId::SELF_EVENTS_QUERY_SCAN,
+    ServiceOperationId::SELF_EVENTS_QUERY_SCAN_BODY,
+    ServiceOperationId::SELF_EVENTS_RESOURCE_GET,
+    ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE,
+    ServiceOperationId::SELF_INVITE_LOCATOR_COMMAND_ISSUE,
+    ServiceOperationId::SELF_INVITE_LOCATOR_COMMAND_REVOKE,
+    ServiceOperationId::SELF_INVITE_LOCATOR_COMMAND_ROTATE,
+    ServiceOperationId::SELF_INVITE_RECEIVE_POLICY_RESOURCE_GET,
+    ServiceOperationId::SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE,
+    ServiceOperationId::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE,
+    ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE,
+    ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK,
+    ServiceOperationId::SELF_KEYS_BACKUPS_QUERY_LIST,
+    ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_DELETE,
+    ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_REPLACE,
+    ServiceOperationId::SELF_KEYS_COMMAND_CLAIM,
+    ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_CLAIM,
+    ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_CONSUME,
+    ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_REVOKE,
+    ServiceOperationId::SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE,
+    ServiceOperationId::SELF_KEYS_QUERY_LOOKUP,
+    ServiceOperationId::SELF_KEYS_UPLOAD_CREATE,
+    ServiceOperationId::SELF_MEDIA_QUERY_ICE_CONFIG,
+    ServiceOperationId::SELF_MODERATION_COMMAND_REPORT,
+    ServiceOperationId::SELF_MORPH_QUERY_LIST,
+    ServiceOperationId::SELF_MORPH_RESOURCE_GET,
+    ServiceOperationId::SELF_POLICY_QUERY_CHECK,
+    ServiceOperationId::SELF_READ_CURSOR_COMMAND_ADVANCE,
+    ServiceOperationId::SELF_READ_CURSOR_QUERY_LIST,
+    ServiceOperationId::SELF_REALM_COMMAND_ARCHIVE,
+    ServiceOperationId::SELF_REALM_COMMAND_DESTROY,
+    ServiceOperationId::SELF_REALM_COMMAND_FREEZE,
+    ServiceOperationId::SELF_REALM_COMMAND_TOMBSTONE,
+    ServiceOperationId::SELF_REALM_JOIN_APPLICATION_AUDIT_QUERY_LIST,
+    ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL,
+    ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW,
+    ServiceOperationId::SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT,
+    ServiceOperationId::SELF_REALM_JOIN_APPLICATION_QUERY_LIST,
+    ServiceOperationId::SELF_REALM_JOIN_APPLICATION_RESOURCE_GET,
+    ServiceOperationId::SELF_REALM_MODERATION_POLICY_QUERY_EFFECTIVE,
+    ServiceOperationId::SELF_REALM_MODERATION_POLICY_RESOURCE_REPLACE,
+    ServiceOperationId::SELF_REALM_QUERY_EXPORT,
+    ServiceOperationId::SELF_REALM_RESOURCE_GET,
+    ServiceOperationId::SELF_REALM_LINK_COMMAND_CREATE,
+    ServiceOperationId::SELF_REALM_LINK_QUERY_EFFECTIVE_POLICY,
+    ServiceOperationId::SELF_REALM_LINK_QUERY_LIST,
+    ServiceOperationId::SELF_REALM_LINK_RESOURCE_DELETE,
+    ServiceOperationId::SELF_REALM_ORGANIZATION_QUERY_LIST,
+    ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_DELETE,
+    ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_GET,
+    ServiceOperationId::SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE,
+    ServiceOperationId::SELF_RECOVERY_AUTHORITY_TICKET_COMMAND_ISSUE,
+    ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE,
+    ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CREATE,
+    ServiceOperationId::SELF_SECURITY_TRANSACTION_RESOURCE_GET,
+    ServiceOperationId::SELF_SIGNAL_COMMAND_SEND,
+    ServiceOperationId::SELF_SIGNAL_STREAM_SUBSCRIBE,
+    ServiceOperationId::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD,
+    ServiceOperationId::SELF_SPACE_QUERY_LIST,
+    ServiceOperationId::SELF_STRAND_QUERY_LIST,
+    ServiceOperationId::SELF_VIEWS_COLLECTION_PROJECTION_COMMAND_MATERIALIZE,
+    ServiceOperationId::SERVER_QUERY_DESCRIBE,
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1048,679 +1048,709 @@ impl ServiceOperationId {
 
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::EdgeAppletActorQueryResolve => "ak.edge.applet.actor.query.resolve",
-            Self::EdgeAppletCommandTransaction => "ak.edge.applet.command.transaction",
-            Self::EdgeAppletQueryDescribe => "ak.edge.applet.query.describe",
-            Self::EdgeAppletQueryPing => "ak.edge.applet.query.ping",
-            Self::EdgeAppletQueryProtocolMetadata => "ak.edge.applet.query.protocol_metadata",
-            Self::EdgeAppletRealmQueryResolve => "ak.edge.applet.realm.query.resolve",
+            Self::EdgeAppletActorQueryResolve => Self::EDGE_APPLET_ACTOR_QUERY_RESOLVE,
+            Self::EdgeAppletCommandTransaction => Self::EDGE_APPLET_COMMAND_TRANSACTION,
+            Self::EdgeAppletQueryDescribe => Self::EDGE_APPLET_QUERY_DESCRIBE,
+            Self::EdgeAppletQueryPing => Self::EDGE_APPLET_QUERY_PING,
+            Self::EdgeAppletQueryProtocolMetadata => Self::EDGE_APPLET_QUERY_PROTOCOL_METADATA,
+            Self::EdgeAppletRealmQueryResolve => Self::EDGE_APPLET_REALM_QUERY_RESOLVE,
             Self::EdgeAppletThirdPartyLocationsQueryList => {
-                "ak.edge.applet.third_party_locations.query.list"
+                Self::EDGE_APPLET_THIRD_PARTY_LOCATIONS_QUERY_LIST
             }
             Self::EdgeAppletThirdPartyUsersQueryList => {
-                "ak.edge.applet.third_party_users.query.list"
+                Self::EDGE_APPLET_THIRD_PARTY_USERS_QUERY_LIST
             }
-            Self::EdgePushCommandNotify => "ak.edge.push.command.notify",
-            Self::EdgePushCommandRegisterDevice => "ak.edge.push.command.register_device",
-            Self::EdgePushCommandUnregisterDevice => "ak.edge.push.command.unregister_device",
-            Self::FindDirectoryCommandAnnounce => "ak.find.directory.command.announce",
-            Self::FindDirectoryCommandTakedownAppeal => "ak.find.directory.command.takedown_appeal",
-            Self::FindDirectoryCommandWithdraw => "ak.find.directory.command.withdraw",
-            Self::FindDirectoryPushCommandRegister => "ak.find.directory.push.command.register",
-            Self::FindDirectoryQueryDescribe => "ak.find.directory.query.describe",
+            Self::EdgePushCommandNotify => Self::EDGE_PUSH_COMMAND_NOTIFY,
+            Self::EdgePushCommandRegisterDevice => Self::EDGE_PUSH_COMMAND_REGISTER_DEVICE,
+            Self::EdgePushCommandUnregisterDevice => Self::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE,
+            Self::FindDirectoryCommandAnnounce => Self::FIND_DIRECTORY_COMMAND_ANNOUNCE,
+            Self::FindDirectoryCommandTakedownAppeal => {
+                Self::FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL
+            }
+            Self::FindDirectoryCommandWithdraw => Self::FIND_DIRECTORY_COMMAND_WITHDRAW,
+            Self::FindDirectoryPushCommandRegister => Self::FIND_DIRECTORY_PUSH_COMMAND_REGISTER,
+            Self::FindDirectoryQueryDescribe => Self::FIND_DIRECTORY_QUERY_DESCRIBE,
             Self::FindDirectoryQueryListHandlesForSubject => {
-                "ak.find.directory.query.list_handles_for_subject"
+                Self::FIND_DIRECTORY_QUERY_LIST_HANDLES_FOR_SUBJECT
             }
             Self::FindDirectoryQueryPrivateContactDiscovery => {
-                "ak.find.directory.query.private_contact_discovery"
+                Self::FIND_DIRECTORY_QUERY_PRIVATE_CONTACT_DISCOVERY
             }
             Self::FindDirectoryQueryResolveAgentSelector => {
-                "ak.find.directory.query.resolve_agent_selector"
+                Self::FIND_DIRECTORY_QUERY_RESOLVE_AGENT_SELECTOR
             }
-            Self::FindDirectoryQueryResolveHandle => "ak.find.directory.query.resolve_handle",
+            Self::FindDirectoryQueryResolveHandle => Self::FIND_DIRECTORY_QUERY_RESOLVE_HANDLE,
             Self::FindDirectoryQueryResolveOrganization => {
-                "ak.find.directory.query.resolve_organization"
+                Self::FIND_DIRECTORY_QUERY_RESOLVE_ORGANIZATION
             }
-            Self::FindDirectoryQueryResolveRealm => "ak.find.directory.query.resolve_realm",
-            Self::FindDirectoryQueryResolveTarget => "ak.find.directory.query.resolve_target",
-            Self::FindDirectoryQuerySearchActors => "ak.find.directory.query.search_actors",
+            Self::FindDirectoryQueryResolveRealm => Self::FIND_DIRECTORY_QUERY_RESOLVE_REALM,
+            Self::FindDirectoryQueryResolveTarget => Self::FIND_DIRECTORY_QUERY_RESOLVE_TARGET,
+            Self::FindDirectoryQuerySearchActors => Self::FIND_DIRECTORY_QUERY_SEARCH_ACTORS,
             Self::FindDirectoryQuerySearchOrganizations => {
-                "ak.find.directory.query.search_organizations"
+                Self::FIND_DIRECTORY_QUERY_SEARCH_ORGANIZATIONS
             }
-            Self::FindDirectoryQuerySearchRealms => "ak.find.directory.query.search_realms",
-            Self::FindDirectoryQuerySearchUsers => "ak.find.directory.query.search_users",
+            Self::FindDirectoryQuerySearchRealms => Self::FIND_DIRECTORY_QUERY_SEARCH_REALMS,
+            Self::FindDirectoryQuerySearchUsers => Self::FIND_DIRECTORY_QUERY_SEARCH_USERS,
             Self::GateAccountCommandAuthorizeRecoveryDevice => {
-                "ak.gate.account.command.authorize_recovery_device"
+                Self::GATE_ACCOUNT_COMMAND_AUTHORIZE_RECOVERY_DEVICE
             }
-            Self::GateAccountCommandEnrollDevice => "ak.gate.account.command.enroll_device",
+            Self::GateAccountCommandEnrollDevice => Self::GATE_ACCOUNT_COMMAND_ENROLL_DEVICE,
             Self::GateAccountCommandIntrospectSessionGrant => {
-                "ak.gate.account.command.introspect_session_grant"
+                Self::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT
             }
             Self::GateAccountCommandIssueIdentityBindingChallenge => {
-                "ak.gate.account.command.issue_identity_binding_challenge"
+                Self::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE
             }
             Self::GateAccountCommandIssueSessionGrant => {
-                "ak.gate.account.command.issue_session_grant"
+                Self::GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT
             }
-            Self::GateAccountCommandLogout => "ak.gate.account.command.logout",
+            Self::GateAccountCommandLogout => Self::GATE_ACCOUNT_COMMAND_LOGOUT,
             Self::GateAccountCommandLogoutAuthSession => {
-                "ak.gate.account.command.logout_auth_session"
+                Self::GATE_ACCOUNT_COMMAND_LOGOUT_AUTH_SESSION
             }
-            Self::GateAccountCommandPairAgentKey => "ak.gate.account.command.pair_agent_key",
-            Self::GateAccountCommandPairDevice => "ak.gate.account.command.pair_device",
+            Self::GateAccountCommandPairAgentKey => Self::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
+            Self::GateAccountCommandPairDevice => Self::GATE_ACCOUNT_COMMAND_PAIR_DEVICE,
             Self::GateAccountCommandPromoteRecoverySessionGrant => {
-                "ak.gate.account.command.promote_recovery_session_grant"
+                Self::GATE_ACCOUNT_COMMAND_PROMOTE_RECOVERY_SESSION_GRANT
             }
             Self::GateAccountCommandRefreshSessionGrant => {
-                "ak.gate.account.command.refresh_session_grant"
+                Self::GATE_ACCOUNT_COMMAND_REFRESH_SESSION_GRANT
             }
-            Self::GateAccountCommandRegister => "ak.gate.account.command.register",
-            Self::GateAccountCommandRevokeSession => "ak.gate.account.command.revoke_session",
-            Self::GateAccountExchangeCompleteOidc => "ak.gate.account.exchange.complete_oidc",
-            Self::GateAccountExchangeCreateHandoff => "ak.gate.account.exchange.create_handoff",
+            Self::GateAccountCommandRegister => Self::GATE_ACCOUNT_COMMAND_REGISTER,
+            Self::GateAccountCommandRevokeSession => Self::GATE_ACCOUNT_COMMAND_REVOKE_SESSION,
+            Self::GateAccountExchangeCompleteOidc => Self::GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC,
+            Self::GateAccountExchangeCreateHandoff => Self::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF,
             Self::OpenAgentPairingCommandSubmitRuntimeKeyRequest => {
-                "ak.open.agent_pairing.command.submit_runtime_key_request"
+                Self::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST
             }
-            Self::OpenAgentPairingQueryResolve => "ak.open.agent_pairing.query.resolve",
+            Self::OpenAgentPairingQueryResolve => Self::OPEN_AGENT_PAIRING_QUERY_RESOLVE,
             Self::OpenAgentPairingQueryRuntimeKeyRequestStatus => {
-                "ak.open.agent_pairing.query.runtime_key_request_status"
+                Self::OPEN_AGENT_PAIRING_QUERY_RUNTIME_KEY_REQUEST_STATUS
             }
-            Self::OpenDevicePairingCommandStage => "ak.open.device_pairing.command.stage",
-            Self::OpenDevicePairingQueryResolve => "ak.open.device_pairing.query.resolve",
-            Self::OpenDevicePairingQueryStatus => "ak.open.device_pairing.query.status",
-            Self::OpenInviteLocatorQueryResolve => "ak.open.invite_locator.query.resolve",
-            Self::OpenMimiCommandNotify => "ak.open.mimi.command.notify",
-            Self::OpenMimiCommandProxyDownload => "ak.open.mimi.command.proxy_download",
-            Self::OpenMimiCommandReportAbuse => "ak.open.mimi.command.report_abuse",
-            Self::OpenMimiCommandRequestConsent => "ak.open.mimi.command.request_consent",
-            Self::OpenMimiCommandSubmitMessage => "ak.open.mimi.command.submit_message",
-            Self::OpenMimiCommandUpdateConsent => "ak.open.mimi.command.update_consent",
-            Self::OpenMimiCommandUpdateRoom => "ak.open.mimi.command.update_room",
+            Self::OpenDevicePairingCommandStage => Self::OPEN_DEVICE_PAIRING_COMMAND_STAGE,
+            Self::OpenDevicePairingQueryResolve => Self::OPEN_DEVICE_PAIRING_QUERY_RESOLVE,
+            Self::OpenDevicePairingQueryStatus => Self::OPEN_DEVICE_PAIRING_QUERY_STATUS,
+            Self::OpenInviteLocatorQueryResolve => Self::OPEN_INVITE_LOCATOR_QUERY_RESOLVE,
+            Self::OpenMimiCommandNotify => Self::OPEN_MIMI_COMMAND_NOTIFY,
+            Self::OpenMimiCommandProxyDownload => Self::OPEN_MIMI_COMMAND_PROXY_DOWNLOAD,
+            Self::OpenMimiCommandReportAbuse => Self::OPEN_MIMI_COMMAND_REPORT_ABUSE,
+            Self::OpenMimiCommandRequestConsent => Self::OPEN_MIMI_COMMAND_REQUEST_CONSENT,
+            Self::OpenMimiCommandSubmitMessage => Self::OPEN_MIMI_COMMAND_SUBMIT_MESSAGE,
+            Self::OpenMimiCommandUpdateConsent => Self::OPEN_MIMI_COMMAND_UPDATE_CONSENT,
+            Self::OpenMimiCommandUpdateRoom => Self::OPEN_MIMI_COMMAND_UPDATE_ROOM,
             Self::OpenMimiExchangeRequestKeyMaterial => {
-                "ak.open.mimi.exchange.request_key_material"
+                Self::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL
             }
-            Self::OpenMimiQueryGroupInfo => "ak.open.mimi.query.group_info",
-            Self::OpenMimiQueryIdentifiers => "ak.open.mimi.query.identifiers",
-            Self::OpenMimiQueryProviderDirectory => "ak.open.mimi.query.provider_directory",
-            Self::PeerContactsCommandSubmit => "ak.peer.contacts.command.submit",
-            Self::PeerEventsCommandSubmit => "ak.peer.events.command.submit",
-            Self::PeerEventsQueryDescribe => "ak.peer.events.query.describe",
-            Self::PeerEventsQueryFrontier => "ak.peer.events.query.frontier",
-            Self::PeerEventsQueryResolve => "ak.peer.events.query.resolve",
-            Self::PeerEventsQueryScan => "ak.peer.events.query.scan",
-            Self::PeerEventsQueryScanBody => "ak.peer.events.query.scan_body",
-            Self::PeerInvitesCommandSubmit => "ak.peer.invites.command.submit",
-            Self::PeerKeysKeypackagesCommandClaim => "ak.peer.keys.keypackages.command.claim",
-            Self::PeerKeysKeypackagesQueryClaim => "ak.peer.keys.keypackages.query.claim",
-            Self::PeerSignalCommandRelay => "ak.peer.signal.command.relay",
-            Self::PeerSnapshotQueryManifestHead => "ak.peer.snapshot.query.manifest_head",
+            Self::OpenMimiQueryGroupInfo => Self::OPEN_MIMI_QUERY_GROUP_INFO,
+            Self::OpenMimiQueryIdentifiers => Self::OPEN_MIMI_QUERY_IDENTIFIERS,
+            Self::OpenMimiQueryProviderDirectory => Self::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY,
+            Self::PeerContactsCommandSubmit => Self::PEER_CONTACTS_COMMAND_SUBMIT,
+            Self::PeerEventsCommandSubmit => Self::PEER_EVENTS_COMMAND_SUBMIT,
+            Self::PeerEventsQueryDescribe => Self::PEER_EVENTS_QUERY_DESCRIBE,
+            Self::PeerEventsQueryFrontier => Self::PEER_EVENTS_QUERY_FRONTIER,
+            Self::PeerEventsQueryResolve => Self::PEER_EVENTS_QUERY_RESOLVE,
+            Self::PeerEventsQueryScan => Self::PEER_EVENTS_QUERY_SCAN,
+            Self::PeerEventsQueryScanBody => Self::PEER_EVENTS_QUERY_SCAN_BODY,
+            Self::PeerInvitesCommandSubmit => Self::PEER_INVITES_COMMAND_SUBMIT,
+            Self::PeerKeysKeypackagesCommandClaim => Self::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM,
+            Self::PeerKeysKeypackagesQueryClaim => Self::PEER_KEYS_KEYPACKAGES_QUERY_CLAIM,
+            Self::PeerSignalCommandRelay => Self::PEER_SIGNAL_COMMAND_RELAY,
+            Self::PeerSnapshotQueryManifestHead => Self::PEER_SNAPSHOT_QUERY_MANIFEST_HEAD,
             Self::RootIdentityCommandSubmitDidOperation => {
-                "ak.root.identity.command.submit_did_operation"
+                Self::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION
             }
-            Self::RootIdentityDocumentResourceGet => "ak.root.identity.document.resource.get",
-            Self::RootIdentityLogQueryList => "ak.root.identity.log.query.list",
+            Self::RootIdentityDocumentResourceGet => Self::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET,
+            Self::RootIdentityLogQueryList => Self::ROOT_IDENTITY_LOG_QUERY_LIST,
             Self::RootIdentityOrganizationRegistrationCommandEnsure => {
-                "ak.root.identity.organization_registration.command.ensure"
+                Self::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_ENSURE
             }
             Self::RootIdentityOrganizationRegistrationCommandPrepare => {
-                "ak.root.identity.organization_registration.command.prepare"
+                Self::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_PREPARE
             }
             Self::RootIdentityOrganizationRegistrationCommandRefresh => {
-                "ak.root.identity.organization_registration.command.refresh"
+                Self::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_REFRESH
             }
             Self::RootIdentityOrganizationRegistrationCommandRevoke => {
-                "ak.root.identity.organization_registration.command.revoke"
+                Self::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_REVOKE
             }
             Self::RootIdentityOrganizationRegistrationResourceGet => {
-                "ak.root.identity.organization_registration.resource.get"
+                Self::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_RESOURCE_GET
             }
-            Self::RootIdentityQueryResolve => "ak.root.identity.query.resolve",
-            Self::RootIdentityReceiptsQueryList => "ak.root.identity.receipts.query.list",
+            Self::RootIdentityQueryResolve => Self::ROOT_IDENTITY_QUERY_RESOLVE,
+            Self::RootIdentityReceiptsQueryList => Self::ROOT_IDENTITY_RECEIPTS_QUERY_LIST,
             Self::RootIdentityRecoveryPolicyCommandPublish => {
-                "ak.root.identity.recovery_policy.command.publish"
+                Self::ROOT_IDENTITY_RECOVERY_POLICY_COMMAND_PUBLISH
             }
             Self::RootIdentityRecoveryPolicyResourceGet => {
-                "ak.root.identity.recovery_policy.resource.get"
+                Self::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET
             }
             Self::RootIdentityRecoverySessionCommandCreate => {
-                "ak.root.identity.recovery_session.command.create"
+                Self::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE
             }
             Self::RootIdentityRecoverySessionCommandSubmitProof => {
-                "ak.root.identity.recovery_session.command.submit_proof"
+                Self::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF
             }
             Self::RootIdentityRecoverySessionResourceGet => {
-                "ak.root.identity.recovery_session.resource.get"
+                Self::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET
             }
-            Self::RootIdentityRegistryQueryDescribe => "ak.root.identity.registry.query.describe",
+            Self::RootIdentityRegistryQueryDescribe => Self::ROOT_IDENTITY_REGISTRY_QUERY_DESCRIBE,
             Self::RootIdentityServiceRegistrationCommandEnsure => {
-                "ak.root.identity.service_registration.command.ensure"
+                Self::ROOT_IDENTITY_SERVICE_REGISTRATION_COMMAND_ENSURE
             }
             Self::RootIdentityServiceRegistrationResourceGet => {
-                "ak.root.identity.service_registration.resource.get"
+                Self::ROOT_IDENTITY_SERVICE_REGISTRATION_RESOURCE_GET
             }
-            Self::SelfAccountCommandRevokeCursor => "ak.self.account.command.revoke_cursor",
-            Self::SelfAccountCommandUpdateProfile => "ak.self.account.command.update_profile",
-            Self::SelfAccountQueryDescribe => "ak.self.account.query.describe",
-            Self::SelfAccountQueryViewer => "ak.self.account.query.viewer",
-            Self::SelfAccountStreamSubscribe => "ak.self.account.stream.subscribe",
-            Self::SelfAccountDataQueryList => "ak.self.account_data.query.list",
-            Self::SelfAccountDataResourceDelete => "ak.self.account_data.resource.delete",
-            Self::SelfAccountDataResourceGet => "ak.self.account_data.resource.get",
-            Self::SelfAccountDataResourceReplace => "ak.self.account_data.resource.replace",
-            Self::SelfAgentCommandDeactivate => "ak.self.agent.command.deactivate",
-            Self::SelfAgentCommandPause => "ak.self.agent.command.pause",
-            Self::SelfAgentCommandProvision => "ak.self.agent.command.provision",
-            Self::SelfAgentCommandRenewPairing => "ak.self.agent.command.renew_pairing",
-            Self::SelfAgentCommandResume => "ak.self.agent.command.resume",
-            Self::SelfAgentGrantCommandAttach => "ak.self.agent.grant.command.attach",
-            Self::SelfAgentGrantResourceDelete => "ak.self.agent.grant.resource.delete",
-            Self::SelfAgentParticipationResourceGet => "ak.self.agent.participation.resource.get",
+            Self::SelfAccountCommandRevokeCursor => Self::SELF_ACCOUNT_COMMAND_REVOKE_CURSOR,
+            Self::SelfAccountCommandUpdateProfile => Self::SELF_ACCOUNT_COMMAND_UPDATE_PROFILE,
+            Self::SelfAccountQueryDescribe => Self::SELF_ACCOUNT_QUERY_DESCRIBE,
+            Self::SelfAccountQueryViewer => Self::SELF_ACCOUNT_QUERY_VIEWER,
+            Self::SelfAccountStreamSubscribe => Self::SELF_ACCOUNT_STREAM_SUBSCRIBE,
+            Self::SelfAccountDataQueryList => Self::SELF_ACCOUNT_DATA_QUERY_LIST,
+            Self::SelfAccountDataResourceDelete => Self::SELF_ACCOUNT_DATA_RESOURCE_DELETE,
+            Self::SelfAccountDataResourceGet => Self::SELF_ACCOUNT_DATA_RESOURCE_GET,
+            Self::SelfAccountDataResourceReplace => Self::SELF_ACCOUNT_DATA_RESOURCE_REPLACE,
+            Self::SelfAgentCommandDeactivate => Self::SELF_AGENT_COMMAND_DEACTIVATE,
+            Self::SelfAgentCommandPause => Self::SELF_AGENT_COMMAND_PAUSE,
+            Self::SelfAgentCommandProvision => Self::SELF_AGENT_COMMAND_PROVISION,
+            Self::SelfAgentCommandRenewPairing => Self::SELF_AGENT_COMMAND_RENEW_PAIRING,
+            Self::SelfAgentCommandResume => Self::SELF_AGENT_COMMAND_RESUME,
+            Self::SelfAgentGrantCommandAttach => Self::SELF_AGENT_GRANT_COMMAND_ATTACH,
+            Self::SelfAgentGrantResourceDelete => Self::SELF_AGENT_GRANT_RESOURCE_DELETE,
+            Self::SelfAgentParticipationResourceGet => Self::SELF_AGENT_PARTICIPATION_RESOURCE_GET,
             Self::SelfAgentParticipationResourceReplace => {
-                "ak.self.agent.participation.resource.replace"
+                Self::SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE
             }
-            Self::SelfAgentQueryList => "ak.self.agent.query.list",
-            Self::SelfAgentResourceGet => "ak.self.agent.resource.get",
-            Self::SelfAgentSidecarCommandEnsure => "ak.self.agent.sidecar.command.ensure",
-            Self::SelfAgentSidecarQueryList => "ak.self.agent.sidecar.query.list",
-            Self::SelfAgentSidecarResourceGet => "ak.self.agent.sidecar.resource.get",
+            Self::SelfAgentQueryList => Self::SELF_AGENT_QUERY_LIST,
+            Self::SelfAgentResourceGet => Self::SELF_AGENT_RESOURCE_GET,
+            Self::SelfAgentSidecarCommandEnsure => Self::SELF_AGENT_SIDECAR_COMMAND_ENSURE,
+            Self::SelfAgentSidecarQueryList => Self::SELF_AGENT_SIDECAR_QUERY_LIST,
+            Self::SelfAgentSidecarResourceGet => Self::SELF_AGENT_SIDECAR_RESOURCE_GET,
             Self::SelfAgentSignerEvidenceQueryResolve => {
-                "ak.self.agent_signer_evidence.query.resolve"
+                Self::SELF_AGENT_SIGNER_EVIDENCE_QUERY_RESOLVE
             }
-            Self::SelfAppletCommandInstall => "ak.self.applet.command.install",
-            Self::SelfAppletCommandRevoke => "ak.self.applet.command.revoke",
-            Self::SelfAppletGhostCommandProvision => "ak.self.applet.ghost.command.provision",
-            Self::SelfAppletInstallCommandPreview => "ak.self.applet.install.command.preview",
+            Self::SelfAppletCommandInstall => Self::SELF_APPLET_COMMAND_INSTALL,
+            Self::SelfAppletCommandRevoke => Self::SELF_APPLET_COMMAND_REVOKE,
+            Self::SelfAppletGhostCommandProvision => Self::SELF_APPLET_GHOST_COMMAND_PROVISION,
+            Self::SelfAppletInstallCommandPreview => Self::SELF_APPLET_INSTALL_COMMAND_PREVIEW,
             Self::SelfAuthorizationLeasesCommandIssue => {
-                "ak.self.authorization_leases.command.issue"
+                Self::SELF_AUTHORIZATION_LEASES_COMMAND_ISSUE
             }
-            Self::SelfAuthzGrantsQueryEffective => "ak.self.authz.grants.query.effective",
-            Self::SelfAuthzInvitesQueryList => "ak.self.authz.invites.query.list",
-            Self::SelfAuthzQueryCheck => "ak.self.authz.query.check",
-            Self::SelfBlobCommandPresign => "ak.self.blob.command.presign",
-            Self::SelfBlobResourceGet => "ak.self.blob.resource.get",
-            Self::SelfBlobResourceHead => "ak.self.blob.resource.head",
-            Self::SelfBlobUploadCreate => "ak.self.blob.upload.create",
-            Self::SelfCallMediaExchangeIssueToken => "ak.self.call.media.exchange.issue_token",
-            Self::SelfCircleCommandArchive => "ak.self.circle.command.archive",
-            Self::SelfCircleCommandCreate => "ak.self.circle.command.create",
-            Self::SelfCircleCommandRestore => "ak.self.circle.command.restore",
-            Self::SelfCircleCommandRotateScope => "ak.self.circle.command.rotate_scope",
-            Self::SelfCircleCommandTombstone => "ak.self.circle.command.tombstone",
-            Self::SelfCircleMemberCommandAdd => "ak.self.circle.member.command.add",
-            Self::SelfCircleMemberResourceDelete => "ak.self.circle.member.resource.delete",
-            Self::SelfCircleQueryList => "ak.self.circle.query.list",
-            Self::SelfCircleResourceGet => "ak.self.circle.resource.get",
-            Self::SelfConsentCommandGrant => "ak.self.consent.command.grant",
-            Self::SelfConsentCommandRequest => "ak.self.consent.command.request",
-            Self::SelfConsentCommandRevoke => "ak.self.consent.command.revoke",
-            Self::SelfConsentQueryList => "ak.self.consent.query.list",
-            Self::SelfConsentResourceGet => "ak.self.consent.resource.get",
-            Self::SelfContactCommandRequest => "ak.self.contact.command.request",
-            Self::SelfContactCommandRespond => "ak.self.contact.command.respond",
-            Self::SelfContactCommandTombstone => "ak.self.contact.command.tombstone",
-            Self::SelfContactQueryList => "ak.self.contact.query.list",
+            Self::SelfAuthzGrantsQueryEffective => Self::SELF_AUTHZ_GRANTS_QUERY_EFFECTIVE,
+            Self::SelfAuthzInvitesQueryList => Self::SELF_AUTHZ_INVITES_QUERY_LIST,
+            Self::SelfAuthzQueryCheck => Self::SELF_AUTHZ_QUERY_CHECK,
+            Self::SelfBlobCommandPresign => Self::SELF_BLOB_COMMAND_PRESIGN,
+            Self::SelfBlobResourceGet => Self::SELF_BLOB_RESOURCE_GET,
+            Self::SelfBlobResourceHead => Self::SELF_BLOB_RESOURCE_HEAD,
+            Self::SelfBlobUploadCreate => Self::SELF_BLOB_UPLOAD_CREATE,
+            Self::SelfCallMediaExchangeIssueToken => Self::SELF_CALL_MEDIA_EXCHANGE_ISSUE_TOKEN,
+            Self::SelfCircleCommandArchive => Self::SELF_CIRCLE_COMMAND_ARCHIVE,
+            Self::SelfCircleCommandCreate => Self::SELF_CIRCLE_COMMAND_CREATE,
+            Self::SelfCircleCommandRestore => Self::SELF_CIRCLE_COMMAND_RESTORE,
+            Self::SelfCircleCommandRotateScope => Self::SELF_CIRCLE_COMMAND_ROTATE_SCOPE,
+            Self::SelfCircleCommandTombstone => Self::SELF_CIRCLE_COMMAND_TOMBSTONE,
+            Self::SelfCircleMemberCommandAdd => Self::SELF_CIRCLE_MEMBER_COMMAND_ADD,
+            Self::SelfCircleMemberResourceDelete => Self::SELF_CIRCLE_MEMBER_RESOURCE_DELETE,
+            Self::SelfCircleQueryList => Self::SELF_CIRCLE_QUERY_LIST,
+            Self::SelfCircleResourceGet => Self::SELF_CIRCLE_RESOURCE_GET,
+            Self::SelfConsentCommandGrant => Self::SELF_CONSENT_COMMAND_GRANT,
+            Self::SelfConsentCommandRequest => Self::SELF_CONSENT_COMMAND_REQUEST,
+            Self::SelfConsentCommandRevoke => Self::SELF_CONSENT_COMMAND_REVOKE,
+            Self::SelfConsentQueryList => Self::SELF_CONSENT_QUERY_LIST,
+            Self::SelfConsentResourceGet => Self::SELF_CONSENT_RESOURCE_GET,
+            Self::SelfContactCommandRequest => Self::SELF_CONTACT_COMMAND_REQUEST,
+            Self::SelfContactCommandRespond => Self::SELF_CONTACT_COMMAND_RESPOND,
+            Self::SelfContactCommandTombstone => Self::SELF_CONTACT_COMMAND_TOMBSTONE,
+            Self::SelfContactQueryList => Self::SELF_CONTACT_QUERY_LIST,
             Self::SelfControlProposalReceiptsCommandIssue => {
-                "ak.self.control_proposal_receipts.command.issue"
+                Self::SELF_CONTROL_PROPOSAL_RECEIPTS_COMMAND_ISSUE
             }
-            Self::SelfDeviceMessagesCommandAck => "ak.self.device_messages.command.ack",
-            Self::SelfDeviceMessagesCommandSend => "ak.self.device_messages.command.send",
-            Self::SelfDeviceMessagesQueryList => "ak.self.device_messages.query.list",
+            Self::SelfDeviceMessagesCommandAck => Self::SELF_DEVICE_MESSAGES_COMMAND_ACK,
+            Self::SelfDeviceMessagesCommandSend => Self::SELF_DEVICE_MESSAGES_COMMAND_SEND,
+            Self::SelfDeviceMessagesQueryList => Self::SELF_DEVICE_MESSAGES_QUERY_LIST,
             Self::SelfDirectConversationCommandResolve => {
-                "ak.self.direct_conversation.command.resolve"
+                Self::SELF_DIRECT_CONVERSATION_COMMAND_RESOLVE
             }
-            Self::SelfEventsCommandSubmit => "ak.self.events.command.submit",
-            Self::SelfEventsCommandSubmitSeal => "ak.self.events.command.submit_seal",
-            Self::SelfEventsQueryDescribe => "ak.self.events.query.describe",
-            Self::SelfEventsQueryFrontier => "ak.self.events.query.frontier",
-            Self::SelfEventsQueryMlsGovernanceProof => "ak.self.events.query.mls_governance_proof",
-            Self::SelfEventsQueryResolve => "ak.self.events.query.resolve",
-            Self::SelfEventsQueryScan => "ak.self.events.query.scan",
-            Self::SelfEventsQueryScanBody => "ak.self.events.query.scan_body",
-            Self::SelfEventsResourceGet => "ak.self.events.resource.get",
-            Self::SelfEventsStreamSubscribe => "ak.self.events.stream.subscribe",
-            Self::SelfInviteLocatorCommandIssue => "ak.self.invite_locator.command.issue",
-            Self::SelfInviteLocatorCommandRevoke => "ak.self.invite_locator.command.revoke",
-            Self::SelfInviteLocatorCommandRotate => "ak.self.invite_locator.command.rotate",
+            Self::SelfEventsCommandSubmit => Self::SELF_EVENTS_COMMAND_SUBMIT,
+            Self::SelfEventsCommandSubmitSeal => Self::SELF_EVENTS_COMMAND_SUBMIT_SEAL,
+            Self::SelfEventsQueryDescribe => Self::SELF_EVENTS_QUERY_DESCRIBE,
+            Self::SelfEventsQueryFrontier => Self::SELF_EVENTS_QUERY_FRONTIER,
+            Self::SelfEventsQueryMlsGovernanceProof => Self::SELF_EVENTS_QUERY_MLS_GOVERNANCE_PROOF,
+            Self::SelfEventsQueryResolve => Self::SELF_EVENTS_QUERY_RESOLVE,
+            Self::SelfEventsQueryScan => Self::SELF_EVENTS_QUERY_SCAN,
+            Self::SelfEventsQueryScanBody => Self::SELF_EVENTS_QUERY_SCAN_BODY,
+            Self::SelfEventsResourceGet => Self::SELF_EVENTS_RESOURCE_GET,
+            Self::SelfEventsStreamSubscribe => Self::SELF_EVENTS_STREAM_SUBSCRIBE,
+            Self::SelfInviteLocatorCommandIssue => Self::SELF_INVITE_LOCATOR_COMMAND_ISSUE,
+            Self::SelfInviteLocatorCommandRevoke => Self::SELF_INVITE_LOCATOR_COMMAND_REVOKE,
+            Self::SelfInviteLocatorCommandRotate => Self::SELF_INVITE_LOCATOR_COMMAND_ROTATE,
             Self::SelfInviteReceivePolicyResourceGet => {
-                "ak.self.invite_receive_policy.resource.get"
+                Self::SELF_INVITE_RECEIVE_POLICY_RESOURCE_GET
             }
             Self::SelfInviteReceivePolicyResourceReplace => {
-                "ak.self.invite_receive_policy.resource.replace"
+                Self::SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE
             }
-            Self::SelfKeysBackupSeriesCommandErase => "ak.self.keys.backup_series.command.erase",
+            Self::SelfKeysBackupSeriesCommandErase => Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE,
             Self::SelfKeysBackupsCommandIssueDeleteChallenge => {
-                "ak.self.keys.backups.command.issue_delete_challenge"
+                Self::SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE
             }
-            Self::SelfKeysBackupsCommandUnlock => "ak.self.keys.backups.command.unlock",
-            Self::SelfKeysBackupsQueryList => "ak.self.keys.backups.query.list",
-            Self::SelfKeysBackupsResourceDelete => "ak.self.keys.backups.resource.delete",
-            Self::SelfKeysBackupsResourceReplace => "ak.self.keys.backups.resource.replace",
-            Self::SelfKeysCommandClaim => "ak.self.keys.command.claim",
-            Self::SelfKeysKeypackagesCommandClaim => "ak.self.keys.keypackages.command.claim",
-            Self::SelfKeysKeypackagesCommandConsume => "ak.self.keys.keypackages.command.consume",
-            Self::SelfKeysKeypackagesCommandRevoke => "ak.self.keys.keypackages.command.revoke",
-            Self::SelfKeysKeypackagesUploadCreate => "ak.self.keys.keypackages.upload.create",
-            Self::SelfKeysQueryLookup => "ak.self.keys.query.lookup",
-            Self::SelfKeysUploadCreate => "ak.self.keys.upload.create",
-            Self::SelfMediaQueryIceConfig => "ak.self.media.query.ice_config",
-            Self::SelfModerationCommandReport => "ak.self.moderation.command.report",
-            Self::SelfMorphQueryList => "ak.self.morph.query.list",
-            Self::SelfMorphResourceGet => "ak.self.morph.resource.get",
-            Self::SelfPolicyQueryCheck => "ak.self.policy.query.check",
-            Self::SelfReadCursorCommandAdvance => "ak.self.read_cursor.command.advance",
-            Self::SelfReadCursorQueryList => "ak.self.read_cursor.query.list",
-            Self::SelfRealmCommandArchive => "ak.self.realm.command.archive",
-            Self::SelfRealmCommandDestroy => "ak.self.realm.command.destroy",
-            Self::SelfRealmCommandFreeze => "ak.self.realm.command.freeze",
-            Self::SelfRealmCommandTombstone => "ak.self.realm.command.tombstone",
+            Self::SelfKeysBackupsCommandUnlock => Self::SELF_KEYS_BACKUPS_COMMAND_UNLOCK,
+            Self::SelfKeysBackupsQueryList => Self::SELF_KEYS_BACKUPS_QUERY_LIST,
+            Self::SelfKeysBackupsResourceDelete => Self::SELF_KEYS_BACKUPS_RESOURCE_DELETE,
+            Self::SelfKeysBackupsResourceReplace => Self::SELF_KEYS_BACKUPS_RESOURCE_REPLACE,
+            Self::SelfKeysCommandClaim => Self::SELF_KEYS_COMMAND_CLAIM,
+            Self::SelfKeysKeypackagesCommandClaim => Self::SELF_KEYS_KEYPACKAGES_COMMAND_CLAIM,
+            Self::SelfKeysKeypackagesCommandConsume => Self::SELF_KEYS_KEYPACKAGES_COMMAND_CONSUME,
+            Self::SelfKeysKeypackagesCommandRevoke => Self::SELF_KEYS_KEYPACKAGES_COMMAND_REVOKE,
+            Self::SelfKeysKeypackagesUploadCreate => Self::SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE,
+            Self::SelfKeysQueryLookup => Self::SELF_KEYS_QUERY_LOOKUP,
+            Self::SelfKeysUploadCreate => Self::SELF_KEYS_UPLOAD_CREATE,
+            Self::SelfMediaQueryIceConfig => Self::SELF_MEDIA_QUERY_ICE_CONFIG,
+            Self::SelfModerationCommandReport => Self::SELF_MODERATION_COMMAND_REPORT,
+            Self::SelfMorphQueryList => Self::SELF_MORPH_QUERY_LIST,
+            Self::SelfMorphResourceGet => Self::SELF_MORPH_RESOURCE_GET,
+            Self::SelfPolicyQueryCheck => Self::SELF_POLICY_QUERY_CHECK,
+            Self::SelfReadCursorCommandAdvance => Self::SELF_READ_CURSOR_COMMAND_ADVANCE,
+            Self::SelfReadCursorQueryList => Self::SELF_READ_CURSOR_QUERY_LIST,
+            Self::SelfRealmCommandArchive => Self::SELF_REALM_COMMAND_ARCHIVE,
+            Self::SelfRealmCommandDestroy => Self::SELF_REALM_COMMAND_DESTROY,
+            Self::SelfRealmCommandFreeze => Self::SELF_REALM_COMMAND_FREEZE,
+            Self::SelfRealmCommandTombstone => Self::SELF_REALM_COMMAND_TOMBSTONE,
             Self::SelfRealmJoinApplicationAuditQueryList => {
-                "ak.self.realm.join_application.audit.query.list"
+                Self::SELF_REALM_JOIN_APPLICATION_AUDIT_QUERY_LIST
             }
             Self::SelfRealmJoinApplicationCommandCancel => {
-                "ak.self.realm.join_application.command.cancel"
+                Self::SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL
             }
             Self::SelfRealmJoinApplicationCommandReview => {
-                "ak.self.realm.join_application.command.review"
+                Self::SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW
             }
             Self::SelfRealmJoinApplicationCommandSubmit => {
-                "ak.self.realm.join_application.command.submit"
+                Self::SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT
             }
-            Self::SelfRealmJoinApplicationQueryList => "ak.self.realm.join_application.query.list",
+            Self::SelfRealmJoinApplicationQueryList => Self::SELF_REALM_JOIN_APPLICATION_QUERY_LIST,
             Self::SelfRealmJoinApplicationResourceGet => {
-                "ak.self.realm.join_application.resource.get"
+                Self::SELF_REALM_JOIN_APPLICATION_RESOURCE_GET
             }
             Self::SelfRealmModerationPolicyQueryEffective => {
-                "ak.self.realm.moderation_policy.query.effective"
+                Self::SELF_REALM_MODERATION_POLICY_QUERY_EFFECTIVE
             }
             Self::SelfRealmModerationPolicyResourceReplace => {
-                "ak.self.realm.moderation_policy.resource.replace"
+                Self::SELF_REALM_MODERATION_POLICY_RESOURCE_REPLACE
             }
-            Self::SelfRealmQueryExport => "ak.self.realm.query.export",
-            Self::SelfRealmResourceGet => "ak.self.realm.resource.get",
-            Self::SelfRealmLinkCommandCreate => "ak.self.realm_link.command.create",
-            Self::SelfRealmLinkQueryEffectivePolicy => "ak.self.realm_link.query.effective_policy",
-            Self::SelfRealmLinkQueryList => "ak.self.realm_link.query.list",
-            Self::SelfRealmLinkResourceDelete => "ak.self.realm_link.resource.delete",
-            Self::SelfRealmOrganizationQueryList => "ak.self.realm_organization.query.list",
+            Self::SelfRealmQueryExport => Self::SELF_REALM_QUERY_EXPORT,
+            Self::SelfRealmResourceGet => Self::SELF_REALM_RESOURCE_GET,
+            Self::SelfRealmLinkCommandCreate => Self::SELF_REALM_LINK_COMMAND_CREATE,
+            Self::SelfRealmLinkQueryEffectivePolicy => Self::SELF_REALM_LINK_QUERY_EFFECTIVE_POLICY,
+            Self::SelfRealmLinkQueryList => Self::SELF_REALM_LINK_QUERY_LIST,
+            Self::SelfRealmLinkResourceDelete => Self::SELF_REALM_LINK_RESOURCE_DELETE,
+            Self::SelfRealmOrganizationQueryList => Self::SELF_REALM_ORGANIZATION_QUERY_LIST,
             Self::SelfRealmPolicyServerResourceDelete => {
-                "ak.self.realm_policy_server.resource.delete"
+                Self::SELF_REALM_POLICY_SERVER_RESOURCE_DELETE
             }
-            Self::SelfRealmPolicyServerResourceGet => "ak.self.realm_policy_server.resource.get",
+            Self::SelfRealmPolicyServerResourceGet => Self::SELF_REALM_POLICY_SERVER_RESOURCE_GET,
             Self::SelfRealmPolicyServerResourceReplace => {
-                "ak.self.realm_policy_server.resource.replace"
+                Self::SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE
             }
             Self::SelfRecoveryAuthorityTicketCommandIssue => {
-                "ak.self.recovery_authority_ticket.command.issue"
+                Self::SELF_RECOVERY_AUTHORITY_TICKET_COMMAND_ISSUE
             }
             Self::SelfSecurityTransactionCommandContinue => {
-                "ak.self.security_transaction.command.continue"
+                Self::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE
             }
             Self::SelfSecurityTransactionCommandCreate => {
-                "ak.self.security_transaction.command.create"
+                Self::SELF_SECURITY_TRANSACTION_COMMAND_CREATE
             }
-            Self::SelfSecurityTransactionResourceGet => "ak.self.security_transaction.resource.get",
-            Self::SelfSignalCommandSend => "ak.self.signal.command.send",
-            Self::SelfSignalStreamSubscribe => "ak.self.signal.stream.subscribe",
-            Self::SelfSnapshotQueryManifestHead => "ak.self.snapshot.query.manifest_head",
-            Self::SelfSpaceQueryList => "ak.self.space.query.list",
-            Self::SelfStrandQueryList => "ak.self.strand.query.list",
+            Self::SelfSecurityTransactionResourceGet => {
+                Self::SELF_SECURITY_TRANSACTION_RESOURCE_GET
+            }
+            Self::SelfSignalCommandSend => Self::SELF_SIGNAL_COMMAND_SEND,
+            Self::SelfSignalStreamSubscribe => Self::SELF_SIGNAL_STREAM_SUBSCRIBE,
+            Self::SelfSnapshotQueryManifestHead => Self::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD,
+            Self::SelfSpaceQueryList => Self::SELF_SPACE_QUERY_LIST,
+            Self::SelfStrandQueryList => Self::SELF_STRAND_QUERY_LIST,
             Self::SelfViewsCollectionProjectionCommandMaterialize => {
-                "ak.self.views.collection_projection.command.materialize"
+                Self::SELF_VIEWS_COLLECTION_PROJECTION_COMMAND_MATERIALIZE
             }
-            Self::ServerQueryDescribe => "ak.server.query.describe",
+            Self::ServerQueryDescribe => Self::SERVER_QUERY_DESCRIBE,
         }
     }
 
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
-            "ak.edge.applet.actor.query.resolve" => Some(Self::EdgeAppletActorQueryResolve),
-            "ak.edge.applet.command.transaction" => Some(Self::EdgeAppletCommandTransaction),
-            "ak.edge.applet.query.describe" => Some(Self::EdgeAppletQueryDescribe),
-            "ak.edge.applet.query.ping" => Some(Self::EdgeAppletQueryPing),
-            "ak.edge.applet.query.protocol_metadata" => Some(Self::EdgeAppletQueryProtocolMetadata),
-            "ak.edge.applet.realm.query.resolve" => Some(Self::EdgeAppletRealmQueryResolve),
-            "ak.edge.applet.third_party_locations.query.list" => {
+            Self::EDGE_APPLET_ACTOR_QUERY_RESOLVE => Some(Self::EdgeAppletActorQueryResolve),
+            Self::EDGE_APPLET_COMMAND_TRANSACTION => Some(Self::EdgeAppletCommandTransaction),
+            Self::EDGE_APPLET_QUERY_DESCRIBE => Some(Self::EdgeAppletQueryDescribe),
+            Self::EDGE_APPLET_QUERY_PING => Some(Self::EdgeAppletQueryPing),
+            Self::EDGE_APPLET_QUERY_PROTOCOL_METADATA => {
+                Some(Self::EdgeAppletQueryProtocolMetadata)
+            }
+            Self::EDGE_APPLET_REALM_QUERY_RESOLVE => Some(Self::EdgeAppletRealmQueryResolve),
+            Self::EDGE_APPLET_THIRD_PARTY_LOCATIONS_QUERY_LIST => {
                 Some(Self::EdgeAppletThirdPartyLocationsQueryList)
             }
-            "ak.edge.applet.third_party_users.query.list" => {
+            Self::EDGE_APPLET_THIRD_PARTY_USERS_QUERY_LIST => {
                 Some(Self::EdgeAppletThirdPartyUsersQueryList)
             }
-            "ak.edge.push.command.notify" => Some(Self::EdgePushCommandNotify),
-            "ak.edge.push.command.register_device" => Some(Self::EdgePushCommandRegisterDevice),
-            "ak.edge.push.command.unregister_device" => Some(Self::EdgePushCommandUnregisterDevice),
-            "ak.find.directory.command.announce" => Some(Self::FindDirectoryCommandAnnounce),
-            "ak.find.directory.command.takedown_appeal" => {
+            Self::EDGE_PUSH_COMMAND_NOTIFY => Some(Self::EdgePushCommandNotify),
+            Self::EDGE_PUSH_COMMAND_REGISTER_DEVICE => Some(Self::EdgePushCommandRegisterDevice),
+            Self::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE => {
+                Some(Self::EdgePushCommandUnregisterDevice)
+            }
+            Self::FIND_DIRECTORY_COMMAND_ANNOUNCE => Some(Self::FindDirectoryCommandAnnounce),
+            Self::FIND_DIRECTORY_COMMAND_TAKEDOWN_APPEAL => {
                 Some(Self::FindDirectoryCommandTakedownAppeal)
             }
-            "ak.find.directory.command.withdraw" => Some(Self::FindDirectoryCommandWithdraw),
-            "ak.find.directory.push.command.register" => {
+            Self::FIND_DIRECTORY_COMMAND_WITHDRAW => Some(Self::FindDirectoryCommandWithdraw),
+            Self::FIND_DIRECTORY_PUSH_COMMAND_REGISTER => {
                 Some(Self::FindDirectoryPushCommandRegister)
             }
-            "ak.find.directory.query.describe" => Some(Self::FindDirectoryQueryDescribe),
-            "ak.find.directory.query.list_handles_for_subject" => {
+            Self::FIND_DIRECTORY_QUERY_DESCRIBE => Some(Self::FindDirectoryQueryDescribe),
+            Self::FIND_DIRECTORY_QUERY_LIST_HANDLES_FOR_SUBJECT => {
                 Some(Self::FindDirectoryQueryListHandlesForSubject)
             }
-            "ak.find.directory.query.private_contact_discovery" => {
+            Self::FIND_DIRECTORY_QUERY_PRIVATE_CONTACT_DISCOVERY => {
                 Some(Self::FindDirectoryQueryPrivateContactDiscovery)
             }
-            "ak.find.directory.query.resolve_agent_selector" => {
+            Self::FIND_DIRECTORY_QUERY_RESOLVE_AGENT_SELECTOR => {
                 Some(Self::FindDirectoryQueryResolveAgentSelector)
             }
-            "ak.find.directory.query.resolve_handle" => Some(Self::FindDirectoryQueryResolveHandle),
-            "ak.find.directory.query.resolve_organization" => {
+            Self::FIND_DIRECTORY_QUERY_RESOLVE_HANDLE => {
+                Some(Self::FindDirectoryQueryResolveHandle)
+            }
+            Self::FIND_DIRECTORY_QUERY_RESOLVE_ORGANIZATION => {
                 Some(Self::FindDirectoryQueryResolveOrganization)
             }
-            "ak.find.directory.query.resolve_realm" => Some(Self::FindDirectoryQueryResolveRealm),
-            "ak.find.directory.query.resolve_target" => Some(Self::FindDirectoryQueryResolveTarget),
-            "ak.find.directory.query.search_actors" => Some(Self::FindDirectoryQuerySearchActors),
-            "ak.find.directory.query.search_organizations" => {
+            Self::FIND_DIRECTORY_QUERY_RESOLVE_REALM => Some(Self::FindDirectoryQueryResolveRealm),
+            Self::FIND_DIRECTORY_QUERY_RESOLVE_TARGET => {
+                Some(Self::FindDirectoryQueryResolveTarget)
+            }
+            Self::FIND_DIRECTORY_QUERY_SEARCH_ACTORS => Some(Self::FindDirectoryQuerySearchActors),
+            Self::FIND_DIRECTORY_QUERY_SEARCH_ORGANIZATIONS => {
                 Some(Self::FindDirectoryQuerySearchOrganizations)
             }
-            "ak.find.directory.query.search_realms" => Some(Self::FindDirectoryQuerySearchRealms),
-            "ak.find.directory.query.search_users" => Some(Self::FindDirectoryQuerySearchUsers),
-            "ak.gate.account.command.authorize_recovery_device" => {
+            Self::FIND_DIRECTORY_QUERY_SEARCH_REALMS => Some(Self::FindDirectoryQuerySearchRealms),
+            Self::FIND_DIRECTORY_QUERY_SEARCH_USERS => Some(Self::FindDirectoryQuerySearchUsers),
+            Self::GATE_ACCOUNT_COMMAND_AUTHORIZE_RECOVERY_DEVICE => {
                 Some(Self::GateAccountCommandAuthorizeRecoveryDevice)
             }
-            "ak.gate.account.command.enroll_device" => Some(Self::GateAccountCommandEnrollDevice),
-            "ak.gate.account.command.introspect_session_grant" => {
+            Self::GATE_ACCOUNT_COMMAND_ENROLL_DEVICE => Some(Self::GateAccountCommandEnrollDevice),
+            Self::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT => {
                 Some(Self::GateAccountCommandIntrospectSessionGrant)
             }
-            "ak.gate.account.command.issue_identity_binding_challenge" => {
+            Self::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE => {
                 Some(Self::GateAccountCommandIssueIdentityBindingChallenge)
             }
-            "ak.gate.account.command.issue_session_grant" => {
+            Self::GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT => {
                 Some(Self::GateAccountCommandIssueSessionGrant)
             }
-            "ak.gate.account.command.logout" => Some(Self::GateAccountCommandLogout),
-            "ak.gate.account.command.logout_auth_session" => {
+            Self::GATE_ACCOUNT_COMMAND_LOGOUT => Some(Self::GateAccountCommandLogout),
+            Self::GATE_ACCOUNT_COMMAND_LOGOUT_AUTH_SESSION => {
                 Some(Self::GateAccountCommandLogoutAuthSession)
             }
-            "ak.gate.account.command.pair_agent_key" => Some(Self::GateAccountCommandPairAgentKey),
-            "ak.gate.account.command.pair_device" => Some(Self::GateAccountCommandPairDevice),
-            "ak.gate.account.command.promote_recovery_session_grant" => {
+            Self::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY => Some(Self::GateAccountCommandPairAgentKey),
+            Self::GATE_ACCOUNT_COMMAND_PAIR_DEVICE => Some(Self::GateAccountCommandPairDevice),
+            Self::GATE_ACCOUNT_COMMAND_PROMOTE_RECOVERY_SESSION_GRANT => {
                 Some(Self::GateAccountCommandPromoteRecoverySessionGrant)
             }
-            "ak.gate.account.command.refresh_session_grant" => {
+            Self::GATE_ACCOUNT_COMMAND_REFRESH_SESSION_GRANT => {
                 Some(Self::GateAccountCommandRefreshSessionGrant)
             }
-            "ak.gate.account.command.register" => Some(Self::GateAccountCommandRegister),
-            "ak.gate.account.command.revoke_session" => Some(Self::GateAccountCommandRevokeSession),
-            "ak.gate.account.exchange.complete_oidc" => Some(Self::GateAccountExchangeCompleteOidc),
-            "ak.gate.account.exchange.create_handoff" => {
+            Self::GATE_ACCOUNT_COMMAND_REGISTER => Some(Self::GateAccountCommandRegister),
+            Self::GATE_ACCOUNT_COMMAND_REVOKE_SESSION => {
+                Some(Self::GateAccountCommandRevokeSession)
+            }
+            Self::GATE_ACCOUNT_EXCHANGE_COMPLETE_OIDC => {
+                Some(Self::GateAccountExchangeCompleteOidc)
+            }
+            Self::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF => {
                 Some(Self::GateAccountExchangeCreateHandoff)
             }
-            "ak.open.agent_pairing.command.submit_runtime_key_request" => {
+            Self::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST => {
                 Some(Self::OpenAgentPairingCommandSubmitRuntimeKeyRequest)
             }
-            "ak.open.agent_pairing.query.resolve" => Some(Self::OpenAgentPairingQueryResolve),
-            "ak.open.agent_pairing.query.runtime_key_request_status" => {
+            Self::OPEN_AGENT_PAIRING_QUERY_RESOLVE => Some(Self::OpenAgentPairingQueryResolve),
+            Self::OPEN_AGENT_PAIRING_QUERY_RUNTIME_KEY_REQUEST_STATUS => {
                 Some(Self::OpenAgentPairingQueryRuntimeKeyRequestStatus)
             }
-            "ak.open.device_pairing.command.stage" => Some(Self::OpenDevicePairingCommandStage),
-            "ak.open.device_pairing.query.resolve" => Some(Self::OpenDevicePairingQueryResolve),
-            "ak.open.device_pairing.query.status" => Some(Self::OpenDevicePairingQueryStatus),
-            "ak.open.invite_locator.query.resolve" => Some(Self::OpenInviteLocatorQueryResolve),
-            "ak.open.mimi.command.notify" => Some(Self::OpenMimiCommandNotify),
-            "ak.open.mimi.command.proxy_download" => Some(Self::OpenMimiCommandProxyDownload),
-            "ak.open.mimi.command.report_abuse" => Some(Self::OpenMimiCommandReportAbuse),
-            "ak.open.mimi.command.request_consent" => Some(Self::OpenMimiCommandRequestConsent),
-            "ak.open.mimi.command.submit_message" => Some(Self::OpenMimiCommandSubmitMessage),
-            "ak.open.mimi.command.update_consent" => Some(Self::OpenMimiCommandUpdateConsent),
-            "ak.open.mimi.command.update_room" => Some(Self::OpenMimiCommandUpdateRoom),
-            "ak.open.mimi.exchange.request_key_material" => {
+            Self::OPEN_DEVICE_PAIRING_COMMAND_STAGE => Some(Self::OpenDevicePairingCommandStage),
+            Self::OPEN_DEVICE_PAIRING_QUERY_RESOLVE => Some(Self::OpenDevicePairingQueryResolve),
+            Self::OPEN_DEVICE_PAIRING_QUERY_STATUS => Some(Self::OpenDevicePairingQueryStatus),
+            Self::OPEN_INVITE_LOCATOR_QUERY_RESOLVE => Some(Self::OpenInviteLocatorQueryResolve),
+            Self::OPEN_MIMI_COMMAND_NOTIFY => Some(Self::OpenMimiCommandNotify),
+            Self::OPEN_MIMI_COMMAND_PROXY_DOWNLOAD => Some(Self::OpenMimiCommandProxyDownload),
+            Self::OPEN_MIMI_COMMAND_REPORT_ABUSE => Some(Self::OpenMimiCommandReportAbuse),
+            Self::OPEN_MIMI_COMMAND_REQUEST_CONSENT => Some(Self::OpenMimiCommandRequestConsent),
+            Self::OPEN_MIMI_COMMAND_SUBMIT_MESSAGE => Some(Self::OpenMimiCommandSubmitMessage),
+            Self::OPEN_MIMI_COMMAND_UPDATE_CONSENT => Some(Self::OpenMimiCommandUpdateConsent),
+            Self::OPEN_MIMI_COMMAND_UPDATE_ROOM => Some(Self::OpenMimiCommandUpdateRoom),
+            Self::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL => {
                 Some(Self::OpenMimiExchangeRequestKeyMaterial)
             }
-            "ak.open.mimi.query.group_info" => Some(Self::OpenMimiQueryGroupInfo),
-            "ak.open.mimi.query.identifiers" => Some(Self::OpenMimiQueryIdentifiers),
-            "ak.open.mimi.query.provider_directory" => Some(Self::OpenMimiQueryProviderDirectory),
-            "ak.peer.contacts.command.submit" => Some(Self::PeerContactsCommandSubmit),
-            "ak.peer.events.command.submit" => Some(Self::PeerEventsCommandSubmit),
-            "ak.peer.events.query.describe" => Some(Self::PeerEventsQueryDescribe),
-            "ak.peer.events.query.frontier" => Some(Self::PeerEventsQueryFrontier),
-            "ak.peer.events.query.resolve" => Some(Self::PeerEventsQueryResolve),
-            "ak.peer.events.query.scan" => Some(Self::PeerEventsQueryScan),
-            "ak.peer.events.query.scan_body" => Some(Self::PeerEventsQueryScanBody),
-            "ak.peer.invites.command.submit" => Some(Self::PeerInvitesCommandSubmit),
-            "ak.peer.keys.keypackages.command.claim" => Some(Self::PeerKeysKeypackagesCommandClaim),
-            "ak.peer.keys.keypackages.query.claim" => Some(Self::PeerKeysKeypackagesQueryClaim),
-            "ak.peer.signal.command.relay" => Some(Self::PeerSignalCommandRelay),
-            "ak.peer.snapshot.query.manifest_head" => Some(Self::PeerSnapshotQueryManifestHead),
-            "ak.root.identity.command.submit_did_operation" => {
+            Self::OPEN_MIMI_QUERY_GROUP_INFO => Some(Self::OpenMimiQueryGroupInfo),
+            Self::OPEN_MIMI_QUERY_IDENTIFIERS => Some(Self::OpenMimiQueryIdentifiers),
+            Self::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY => Some(Self::OpenMimiQueryProviderDirectory),
+            Self::PEER_CONTACTS_COMMAND_SUBMIT => Some(Self::PeerContactsCommandSubmit),
+            Self::PEER_EVENTS_COMMAND_SUBMIT => Some(Self::PeerEventsCommandSubmit),
+            Self::PEER_EVENTS_QUERY_DESCRIBE => Some(Self::PeerEventsQueryDescribe),
+            Self::PEER_EVENTS_QUERY_FRONTIER => Some(Self::PeerEventsQueryFrontier),
+            Self::PEER_EVENTS_QUERY_RESOLVE => Some(Self::PeerEventsQueryResolve),
+            Self::PEER_EVENTS_QUERY_SCAN => Some(Self::PeerEventsQueryScan),
+            Self::PEER_EVENTS_QUERY_SCAN_BODY => Some(Self::PeerEventsQueryScanBody),
+            Self::PEER_INVITES_COMMAND_SUBMIT => Some(Self::PeerInvitesCommandSubmit),
+            Self::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM => {
+                Some(Self::PeerKeysKeypackagesCommandClaim)
+            }
+            Self::PEER_KEYS_KEYPACKAGES_QUERY_CLAIM => Some(Self::PeerKeysKeypackagesQueryClaim),
+            Self::PEER_SIGNAL_COMMAND_RELAY => Some(Self::PeerSignalCommandRelay),
+            Self::PEER_SNAPSHOT_QUERY_MANIFEST_HEAD => Some(Self::PeerSnapshotQueryManifestHead),
+            Self::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION => {
                 Some(Self::RootIdentityCommandSubmitDidOperation)
             }
-            "ak.root.identity.document.resource.get" => Some(Self::RootIdentityDocumentResourceGet),
-            "ak.root.identity.log.query.list" => Some(Self::RootIdentityLogQueryList),
-            "ak.root.identity.organization_registration.command.ensure" => {
+            Self::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET => {
+                Some(Self::RootIdentityDocumentResourceGet)
+            }
+            Self::ROOT_IDENTITY_LOG_QUERY_LIST => Some(Self::RootIdentityLogQueryList),
+            Self::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_ENSURE => {
                 Some(Self::RootIdentityOrganizationRegistrationCommandEnsure)
             }
-            "ak.root.identity.organization_registration.command.prepare" => {
+            Self::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_PREPARE => {
                 Some(Self::RootIdentityOrganizationRegistrationCommandPrepare)
             }
-            "ak.root.identity.organization_registration.command.refresh" => {
+            Self::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_REFRESH => {
                 Some(Self::RootIdentityOrganizationRegistrationCommandRefresh)
             }
-            "ak.root.identity.organization_registration.command.revoke" => {
+            Self::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_COMMAND_REVOKE => {
                 Some(Self::RootIdentityOrganizationRegistrationCommandRevoke)
             }
-            "ak.root.identity.organization_registration.resource.get" => {
+            Self::ROOT_IDENTITY_ORGANIZATION_REGISTRATION_RESOURCE_GET => {
                 Some(Self::RootIdentityOrganizationRegistrationResourceGet)
             }
-            "ak.root.identity.query.resolve" => Some(Self::RootIdentityQueryResolve),
-            "ak.root.identity.receipts.query.list" => Some(Self::RootIdentityReceiptsQueryList),
-            "ak.root.identity.recovery_policy.command.publish" => {
+            Self::ROOT_IDENTITY_QUERY_RESOLVE => Some(Self::RootIdentityQueryResolve),
+            Self::ROOT_IDENTITY_RECEIPTS_QUERY_LIST => Some(Self::RootIdentityReceiptsQueryList),
+            Self::ROOT_IDENTITY_RECOVERY_POLICY_COMMAND_PUBLISH => {
                 Some(Self::RootIdentityRecoveryPolicyCommandPublish)
             }
-            "ak.root.identity.recovery_policy.resource.get" => {
+            Self::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET => {
                 Some(Self::RootIdentityRecoveryPolicyResourceGet)
             }
-            "ak.root.identity.recovery_session.command.create" => {
+            Self::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE => {
                 Some(Self::RootIdentityRecoverySessionCommandCreate)
             }
-            "ak.root.identity.recovery_session.command.submit_proof" => {
+            Self::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF => {
                 Some(Self::RootIdentityRecoverySessionCommandSubmitProof)
             }
-            "ak.root.identity.recovery_session.resource.get" => {
+            Self::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET => {
                 Some(Self::RootIdentityRecoverySessionResourceGet)
             }
-            "ak.root.identity.registry.query.describe" => {
+            Self::ROOT_IDENTITY_REGISTRY_QUERY_DESCRIBE => {
                 Some(Self::RootIdentityRegistryQueryDescribe)
             }
-            "ak.root.identity.service_registration.command.ensure" => {
+            Self::ROOT_IDENTITY_SERVICE_REGISTRATION_COMMAND_ENSURE => {
                 Some(Self::RootIdentityServiceRegistrationCommandEnsure)
             }
-            "ak.root.identity.service_registration.resource.get" => {
+            Self::ROOT_IDENTITY_SERVICE_REGISTRATION_RESOURCE_GET => {
                 Some(Self::RootIdentityServiceRegistrationResourceGet)
             }
-            "ak.self.account.command.revoke_cursor" => Some(Self::SelfAccountCommandRevokeCursor),
-            "ak.self.account.command.update_profile" => Some(Self::SelfAccountCommandUpdateProfile),
-            "ak.self.account.query.describe" => Some(Self::SelfAccountQueryDescribe),
-            "ak.self.account.query.viewer" => Some(Self::SelfAccountQueryViewer),
-            "ak.self.account.stream.subscribe" => Some(Self::SelfAccountStreamSubscribe),
-            "ak.self.account_data.query.list" => Some(Self::SelfAccountDataQueryList),
-            "ak.self.account_data.resource.delete" => Some(Self::SelfAccountDataResourceDelete),
-            "ak.self.account_data.resource.get" => Some(Self::SelfAccountDataResourceGet),
-            "ak.self.account_data.resource.replace" => Some(Self::SelfAccountDataResourceReplace),
-            "ak.self.agent.command.deactivate" => Some(Self::SelfAgentCommandDeactivate),
-            "ak.self.agent.command.pause" => Some(Self::SelfAgentCommandPause),
-            "ak.self.agent.command.provision" => Some(Self::SelfAgentCommandProvision),
-            "ak.self.agent.command.renew_pairing" => Some(Self::SelfAgentCommandRenewPairing),
-            "ak.self.agent.command.resume" => Some(Self::SelfAgentCommandResume),
-            "ak.self.agent.grant.command.attach" => Some(Self::SelfAgentGrantCommandAttach),
-            "ak.self.agent.grant.resource.delete" => Some(Self::SelfAgentGrantResourceDelete),
-            "ak.self.agent.participation.resource.get" => {
+            Self::SELF_ACCOUNT_COMMAND_REVOKE_CURSOR => Some(Self::SelfAccountCommandRevokeCursor),
+            Self::SELF_ACCOUNT_COMMAND_UPDATE_PROFILE => {
+                Some(Self::SelfAccountCommandUpdateProfile)
+            }
+            Self::SELF_ACCOUNT_QUERY_DESCRIBE => Some(Self::SelfAccountQueryDescribe),
+            Self::SELF_ACCOUNT_QUERY_VIEWER => Some(Self::SelfAccountQueryViewer),
+            Self::SELF_ACCOUNT_STREAM_SUBSCRIBE => Some(Self::SelfAccountStreamSubscribe),
+            Self::SELF_ACCOUNT_DATA_QUERY_LIST => Some(Self::SelfAccountDataQueryList),
+            Self::SELF_ACCOUNT_DATA_RESOURCE_DELETE => Some(Self::SelfAccountDataResourceDelete),
+            Self::SELF_ACCOUNT_DATA_RESOURCE_GET => Some(Self::SelfAccountDataResourceGet),
+            Self::SELF_ACCOUNT_DATA_RESOURCE_REPLACE => Some(Self::SelfAccountDataResourceReplace),
+            Self::SELF_AGENT_COMMAND_DEACTIVATE => Some(Self::SelfAgentCommandDeactivate),
+            Self::SELF_AGENT_COMMAND_PAUSE => Some(Self::SelfAgentCommandPause),
+            Self::SELF_AGENT_COMMAND_PROVISION => Some(Self::SelfAgentCommandProvision),
+            Self::SELF_AGENT_COMMAND_RENEW_PAIRING => Some(Self::SelfAgentCommandRenewPairing),
+            Self::SELF_AGENT_COMMAND_RESUME => Some(Self::SelfAgentCommandResume),
+            Self::SELF_AGENT_GRANT_COMMAND_ATTACH => Some(Self::SelfAgentGrantCommandAttach),
+            Self::SELF_AGENT_GRANT_RESOURCE_DELETE => Some(Self::SelfAgentGrantResourceDelete),
+            Self::SELF_AGENT_PARTICIPATION_RESOURCE_GET => {
                 Some(Self::SelfAgentParticipationResourceGet)
             }
-            "ak.self.agent.participation.resource.replace" => {
+            Self::SELF_AGENT_PARTICIPATION_RESOURCE_REPLACE => {
                 Some(Self::SelfAgentParticipationResourceReplace)
             }
-            "ak.self.agent.query.list" => Some(Self::SelfAgentQueryList),
-            "ak.self.agent.resource.get" => Some(Self::SelfAgentResourceGet),
-            "ak.self.agent.sidecar.command.ensure" => Some(Self::SelfAgentSidecarCommandEnsure),
-            "ak.self.agent.sidecar.query.list" => Some(Self::SelfAgentSidecarQueryList),
-            "ak.self.agent.sidecar.resource.get" => Some(Self::SelfAgentSidecarResourceGet),
-            "ak.self.agent_signer_evidence.query.resolve" => {
+            Self::SELF_AGENT_QUERY_LIST => Some(Self::SelfAgentQueryList),
+            Self::SELF_AGENT_RESOURCE_GET => Some(Self::SelfAgentResourceGet),
+            Self::SELF_AGENT_SIDECAR_COMMAND_ENSURE => Some(Self::SelfAgentSidecarCommandEnsure),
+            Self::SELF_AGENT_SIDECAR_QUERY_LIST => Some(Self::SelfAgentSidecarQueryList),
+            Self::SELF_AGENT_SIDECAR_RESOURCE_GET => Some(Self::SelfAgentSidecarResourceGet),
+            Self::SELF_AGENT_SIGNER_EVIDENCE_QUERY_RESOLVE => {
                 Some(Self::SelfAgentSignerEvidenceQueryResolve)
             }
-            "ak.self.applet.command.install" => Some(Self::SelfAppletCommandInstall),
-            "ak.self.applet.command.revoke" => Some(Self::SelfAppletCommandRevoke),
-            "ak.self.applet.ghost.command.provision" => Some(Self::SelfAppletGhostCommandProvision),
-            "ak.self.applet.install.command.preview" => Some(Self::SelfAppletInstallCommandPreview),
-            "ak.self.authorization_leases.command.issue" => {
+            Self::SELF_APPLET_COMMAND_INSTALL => Some(Self::SelfAppletCommandInstall),
+            Self::SELF_APPLET_COMMAND_REVOKE => Some(Self::SelfAppletCommandRevoke),
+            Self::SELF_APPLET_GHOST_COMMAND_PROVISION => {
+                Some(Self::SelfAppletGhostCommandProvision)
+            }
+            Self::SELF_APPLET_INSTALL_COMMAND_PREVIEW => {
+                Some(Self::SelfAppletInstallCommandPreview)
+            }
+            Self::SELF_AUTHORIZATION_LEASES_COMMAND_ISSUE => {
                 Some(Self::SelfAuthorizationLeasesCommandIssue)
             }
-            "ak.self.authz.grants.query.effective" => Some(Self::SelfAuthzGrantsQueryEffective),
-            "ak.self.authz.invites.query.list" => Some(Self::SelfAuthzInvitesQueryList),
-            "ak.self.authz.query.check" => Some(Self::SelfAuthzQueryCheck),
-            "ak.self.blob.command.presign" => Some(Self::SelfBlobCommandPresign),
-            "ak.self.blob.resource.get" => Some(Self::SelfBlobResourceGet),
-            "ak.self.blob.resource.head" => Some(Self::SelfBlobResourceHead),
-            "ak.self.blob.upload.create" => Some(Self::SelfBlobUploadCreate),
-            "ak.self.call.media.exchange.issue_token" => {
+            Self::SELF_AUTHZ_GRANTS_QUERY_EFFECTIVE => Some(Self::SelfAuthzGrantsQueryEffective),
+            Self::SELF_AUTHZ_INVITES_QUERY_LIST => Some(Self::SelfAuthzInvitesQueryList),
+            Self::SELF_AUTHZ_QUERY_CHECK => Some(Self::SelfAuthzQueryCheck),
+            Self::SELF_BLOB_COMMAND_PRESIGN => Some(Self::SelfBlobCommandPresign),
+            Self::SELF_BLOB_RESOURCE_GET => Some(Self::SelfBlobResourceGet),
+            Self::SELF_BLOB_RESOURCE_HEAD => Some(Self::SelfBlobResourceHead),
+            Self::SELF_BLOB_UPLOAD_CREATE => Some(Self::SelfBlobUploadCreate),
+            Self::SELF_CALL_MEDIA_EXCHANGE_ISSUE_TOKEN => {
                 Some(Self::SelfCallMediaExchangeIssueToken)
             }
-            "ak.self.circle.command.archive" => Some(Self::SelfCircleCommandArchive),
-            "ak.self.circle.command.create" => Some(Self::SelfCircleCommandCreate),
-            "ak.self.circle.command.restore" => Some(Self::SelfCircleCommandRestore),
-            "ak.self.circle.command.rotate_scope" => Some(Self::SelfCircleCommandRotateScope),
-            "ak.self.circle.command.tombstone" => Some(Self::SelfCircleCommandTombstone),
-            "ak.self.circle.member.command.add" => Some(Self::SelfCircleMemberCommandAdd),
-            "ak.self.circle.member.resource.delete" => Some(Self::SelfCircleMemberResourceDelete),
-            "ak.self.circle.query.list" => Some(Self::SelfCircleQueryList),
-            "ak.self.circle.resource.get" => Some(Self::SelfCircleResourceGet),
-            "ak.self.consent.command.grant" => Some(Self::SelfConsentCommandGrant),
-            "ak.self.consent.command.request" => Some(Self::SelfConsentCommandRequest),
-            "ak.self.consent.command.revoke" => Some(Self::SelfConsentCommandRevoke),
-            "ak.self.consent.query.list" => Some(Self::SelfConsentQueryList),
-            "ak.self.consent.resource.get" => Some(Self::SelfConsentResourceGet),
-            "ak.self.contact.command.request" => Some(Self::SelfContactCommandRequest),
-            "ak.self.contact.command.respond" => Some(Self::SelfContactCommandRespond),
-            "ak.self.contact.command.tombstone" => Some(Self::SelfContactCommandTombstone),
-            "ak.self.contact.query.list" => Some(Self::SelfContactQueryList),
-            "ak.self.control_proposal_receipts.command.issue" => {
+            Self::SELF_CIRCLE_COMMAND_ARCHIVE => Some(Self::SelfCircleCommandArchive),
+            Self::SELF_CIRCLE_COMMAND_CREATE => Some(Self::SelfCircleCommandCreate),
+            Self::SELF_CIRCLE_COMMAND_RESTORE => Some(Self::SelfCircleCommandRestore),
+            Self::SELF_CIRCLE_COMMAND_ROTATE_SCOPE => Some(Self::SelfCircleCommandRotateScope),
+            Self::SELF_CIRCLE_COMMAND_TOMBSTONE => Some(Self::SelfCircleCommandTombstone),
+            Self::SELF_CIRCLE_MEMBER_COMMAND_ADD => Some(Self::SelfCircleMemberCommandAdd),
+            Self::SELF_CIRCLE_MEMBER_RESOURCE_DELETE => Some(Self::SelfCircleMemberResourceDelete),
+            Self::SELF_CIRCLE_QUERY_LIST => Some(Self::SelfCircleQueryList),
+            Self::SELF_CIRCLE_RESOURCE_GET => Some(Self::SelfCircleResourceGet),
+            Self::SELF_CONSENT_COMMAND_GRANT => Some(Self::SelfConsentCommandGrant),
+            Self::SELF_CONSENT_COMMAND_REQUEST => Some(Self::SelfConsentCommandRequest),
+            Self::SELF_CONSENT_COMMAND_REVOKE => Some(Self::SelfConsentCommandRevoke),
+            Self::SELF_CONSENT_QUERY_LIST => Some(Self::SelfConsentQueryList),
+            Self::SELF_CONSENT_RESOURCE_GET => Some(Self::SelfConsentResourceGet),
+            Self::SELF_CONTACT_COMMAND_REQUEST => Some(Self::SelfContactCommandRequest),
+            Self::SELF_CONTACT_COMMAND_RESPOND => Some(Self::SelfContactCommandRespond),
+            Self::SELF_CONTACT_COMMAND_TOMBSTONE => Some(Self::SelfContactCommandTombstone),
+            Self::SELF_CONTACT_QUERY_LIST => Some(Self::SelfContactQueryList),
+            Self::SELF_CONTROL_PROPOSAL_RECEIPTS_COMMAND_ISSUE => {
                 Some(Self::SelfControlProposalReceiptsCommandIssue)
             }
-            "ak.self.device_messages.command.ack" => Some(Self::SelfDeviceMessagesCommandAck),
-            "ak.self.device_messages.command.send" => Some(Self::SelfDeviceMessagesCommandSend),
-            "ak.self.device_messages.query.list" => Some(Self::SelfDeviceMessagesQueryList),
-            "ak.self.direct_conversation.command.resolve" => {
+            Self::SELF_DEVICE_MESSAGES_COMMAND_ACK => Some(Self::SelfDeviceMessagesCommandAck),
+            Self::SELF_DEVICE_MESSAGES_COMMAND_SEND => Some(Self::SelfDeviceMessagesCommandSend),
+            Self::SELF_DEVICE_MESSAGES_QUERY_LIST => Some(Self::SelfDeviceMessagesQueryList),
+            Self::SELF_DIRECT_CONVERSATION_COMMAND_RESOLVE => {
                 Some(Self::SelfDirectConversationCommandResolve)
             }
-            "ak.self.events.command.submit" => Some(Self::SelfEventsCommandSubmit),
-            "ak.self.events.command.submit_seal" => Some(Self::SelfEventsCommandSubmitSeal),
-            "ak.self.events.query.describe" => Some(Self::SelfEventsQueryDescribe),
-            "ak.self.events.query.frontier" => Some(Self::SelfEventsQueryFrontier),
-            "ak.self.events.query.mls_governance_proof" => {
+            Self::SELF_EVENTS_COMMAND_SUBMIT => Some(Self::SelfEventsCommandSubmit),
+            Self::SELF_EVENTS_COMMAND_SUBMIT_SEAL => Some(Self::SelfEventsCommandSubmitSeal),
+            Self::SELF_EVENTS_QUERY_DESCRIBE => Some(Self::SelfEventsQueryDescribe),
+            Self::SELF_EVENTS_QUERY_FRONTIER => Some(Self::SelfEventsQueryFrontier),
+            Self::SELF_EVENTS_QUERY_MLS_GOVERNANCE_PROOF => {
                 Some(Self::SelfEventsQueryMlsGovernanceProof)
             }
-            "ak.self.events.query.resolve" => Some(Self::SelfEventsQueryResolve),
-            "ak.self.events.query.scan" => Some(Self::SelfEventsQueryScan),
-            "ak.self.events.query.scan_body" => Some(Self::SelfEventsQueryScanBody),
-            "ak.self.events.resource.get" => Some(Self::SelfEventsResourceGet),
-            "ak.self.events.stream.subscribe" => Some(Self::SelfEventsStreamSubscribe),
-            "ak.self.invite_locator.command.issue" => Some(Self::SelfInviteLocatorCommandIssue),
-            "ak.self.invite_locator.command.revoke" => Some(Self::SelfInviteLocatorCommandRevoke),
-            "ak.self.invite_locator.command.rotate" => Some(Self::SelfInviteLocatorCommandRotate),
-            "ak.self.invite_receive_policy.resource.get" => {
+            Self::SELF_EVENTS_QUERY_RESOLVE => Some(Self::SelfEventsQueryResolve),
+            Self::SELF_EVENTS_QUERY_SCAN => Some(Self::SelfEventsQueryScan),
+            Self::SELF_EVENTS_QUERY_SCAN_BODY => Some(Self::SelfEventsQueryScanBody),
+            Self::SELF_EVENTS_RESOURCE_GET => Some(Self::SelfEventsResourceGet),
+            Self::SELF_EVENTS_STREAM_SUBSCRIBE => Some(Self::SelfEventsStreamSubscribe),
+            Self::SELF_INVITE_LOCATOR_COMMAND_ISSUE => Some(Self::SelfInviteLocatorCommandIssue),
+            Self::SELF_INVITE_LOCATOR_COMMAND_REVOKE => Some(Self::SelfInviteLocatorCommandRevoke),
+            Self::SELF_INVITE_LOCATOR_COMMAND_ROTATE => Some(Self::SelfInviteLocatorCommandRotate),
+            Self::SELF_INVITE_RECEIVE_POLICY_RESOURCE_GET => {
                 Some(Self::SelfInviteReceivePolicyResourceGet)
             }
-            "ak.self.invite_receive_policy.resource.replace" => {
+            Self::SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE => {
                 Some(Self::SelfInviteReceivePolicyResourceReplace)
             }
-            "ak.self.keys.backup_series.command.erase" => {
+            Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE => {
                 Some(Self::SelfKeysBackupSeriesCommandErase)
             }
-            "ak.self.keys.backups.command.issue_delete_challenge" => {
+            Self::SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE => {
                 Some(Self::SelfKeysBackupsCommandIssueDeleteChallenge)
             }
-            "ak.self.keys.backups.command.unlock" => Some(Self::SelfKeysBackupsCommandUnlock),
-            "ak.self.keys.backups.query.list" => Some(Self::SelfKeysBackupsQueryList),
-            "ak.self.keys.backups.resource.delete" => Some(Self::SelfKeysBackupsResourceDelete),
-            "ak.self.keys.backups.resource.replace" => Some(Self::SelfKeysBackupsResourceReplace),
-            "ak.self.keys.command.claim" => Some(Self::SelfKeysCommandClaim),
-            "ak.self.keys.keypackages.command.claim" => Some(Self::SelfKeysKeypackagesCommandClaim),
-            "ak.self.keys.keypackages.command.consume" => {
+            Self::SELF_KEYS_BACKUPS_COMMAND_UNLOCK => Some(Self::SelfKeysBackupsCommandUnlock),
+            Self::SELF_KEYS_BACKUPS_QUERY_LIST => Some(Self::SelfKeysBackupsQueryList),
+            Self::SELF_KEYS_BACKUPS_RESOURCE_DELETE => Some(Self::SelfKeysBackupsResourceDelete),
+            Self::SELF_KEYS_BACKUPS_RESOURCE_REPLACE => Some(Self::SelfKeysBackupsResourceReplace),
+            Self::SELF_KEYS_COMMAND_CLAIM => Some(Self::SelfKeysCommandClaim),
+            Self::SELF_KEYS_KEYPACKAGES_COMMAND_CLAIM => {
+                Some(Self::SelfKeysKeypackagesCommandClaim)
+            }
+            Self::SELF_KEYS_KEYPACKAGES_COMMAND_CONSUME => {
                 Some(Self::SelfKeysKeypackagesCommandConsume)
             }
-            "ak.self.keys.keypackages.command.revoke" => {
+            Self::SELF_KEYS_KEYPACKAGES_COMMAND_REVOKE => {
                 Some(Self::SelfKeysKeypackagesCommandRevoke)
             }
-            "ak.self.keys.keypackages.upload.create" => Some(Self::SelfKeysKeypackagesUploadCreate),
-            "ak.self.keys.query.lookup" => Some(Self::SelfKeysQueryLookup),
-            "ak.self.keys.upload.create" => Some(Self::SelfKeysUploadCreate),
-            "ak.self.media.query.ice_config" => Some(Self::SelfMediaQueryIceConfig),
-            "ak.self.moderation.command.report" => Some(Self::SelfModerationCommandReport),
-            "ak.self.morph.query.list" => Some(Self::SelfMorphQueryList),
-            "ak.self.morph.resource.get" => Some(Self::SelfMorphResourceGet),
-            "ak.self.policy.query.check" => Some(Self::SelfPolicyQueryCheck),
-            "ak.self.read_cursor.command.advance" => Some(Self::SelfReadCursorCommandAdvance),
-            "ak.self.read_cursor.query.list" => Some(Self::SelfReadCursorQueryList),
-            "ak.self.realm.command.archive" => Some(Self::SelfRealmCommandArchive),
-            "ak.self.realm.command.destroy" => Some(Self::SelfRealmCommandDestroy),
-            "ak.self.realm.command.freeze" => Some(Self::SelfRealmCommandFreeze),
-            "ak.self.realm.command.tombstone" => Some(Self::SelfRealmCommandTombstone),
-            "ak.self.realm.join_application.audit.query.list" => {
+            Self::SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE => {
+                Some(Self::SelfKeysKeypackagesUploadCreate)
+            }
+            Self::SELF_KEYS_QUERY_LOOKUP => Some(Self::SelfKeysQueryLookup),
+            Self::SELF_KEYS_UPLOAD_CREATE => Some(Self::SelfKeysUploadCreate),
+            Self::SELF_MEDIA_QUERY_ICE_CONFIG => Some(Self::SelfMediaQueryIceConfig),
+            Self::SELF_MODERATION_COMMAND_REPORT => Some(Self::SelfModerationCommandReport),
+            Self::SELF_MORPH_QUERY_LIST => Some(Self::SelfMorphQueryList),
+            Self::SELF_MORPH_RESOURCE_GET => Some(Self::SelfMorphResourceGet),
+            Self::SELF_POLICY_QUERY_CHECK => Some(Self::SelfPolicyQueryCheck),
+            Self::SELF_READ_CURSOR_COMMAND_ADVANCE => Some(Self::SelfReadCursorCommandAdvance),
+            Self::SELF_READ_CURSOR_QUERY_LIST => Some(Self::SelfReadCursorQueryList),
+            Self::SELF_REALM_COMMAND_ARCHIVE => Some(Self::SelfRealmCommandArchive),
+            Self::SELF_REALM_COMMAND_DESTROY => Some(Self::SelfRealmCommandDestroy),
+            Self::SELF_REALM_COMMAND_FREEZE => Some(Self::SelfRealmCommandFreeze),
+            Self::SELF_REALM_COMMAND_TOMBSTONE => Some(Self::SelfRealmCommandTombstone),
+            Self::SELF_REALM_JOIN_APPLICATION_AUDIT_QUERY_LIST => {
                 Some(Self::SelfRealmJoinApplicationAuditQueryList)
             }
-            "ak.self.realm.join_application.command.cancel" => {
+            Self::SELF_REALM_JOIN_APPLICATION_COMMAND_CANCEL => {
                 Some(Self::SelfRealmJoinApplicationCommandCancel)
             }
-            "ak.self.realm.join_application.command.review" => {
+            Self::SELF_REALM_JOIN_APPLICATION_COMMAND_REVIEW => {
                 Some(Self::SelfRealmJoinApplicationCommandReview)
             }
-            "ak.self.realm.join_application.command.submit" => {
+            Self::SELF_REALM_JOIN_APPLICATION_COMMAND_SUBMIT => {
                 Some(Self::SelfRealmJoinApplicationCommandSubmit)
             }
-            "ak.self.realm.join_application.query.list" => {
+            Self::SELF_REALM_JOIN_APPLICATION_QUERY_LIST => {
                 Some(Self::SelfRealmJoinApplicationQueryList)
             }
-            "ak.self.realm.join_application.resource.get" => {
+            Self::SELF_REALM_JOIN_APPLICATION_RESOURCE_GET => {
                 Some(Self::SelfRealmJoinApplicationResourceGet)
             }
-            "ak.self.realm.moderation_policy.query.effective" => {
+            Self::SELF_REALM_MODERATION_POLICY_QUERY_EFFECTIVE => {
                 Some(Self::SelfRealmModerationPolicyQueryEffective)
             }
-            "ak.self.realm.moderation_policy.resource.replace" => {
+            Self::SELF_REALM_MODERATION_POLICY_RESOURCE_REPLACE => {
                 Some(Self::SelfRealmModerationPolicyResourceReplace)
             }
-            "ak.self.realm.query.export" => Some(Self::SelfRealmQueryExport),
-            "ak.self.realm.resource.get" => Some(Self::SelfRealmResourceGet),
-            "ak.self.realm_link.command.create" => Some(Self::SelfRealmLinkCommandCreate),
-            "ak.self.realm_link.query.effective_policy" => {
+            Self::SELF_REALM_QUERY_EXPORT => Some(Self::SelfRealmQueryExport),
+            Self::SELF_REALM_RESOURCE_GET => Some(Self::SelfRealmResourceGet),
+            Self::SELF_REALM_LINK_COMMAND_CREATE => Some(Self::SelfRealmLinkCommandCreate),
+            Self::SELF_REALM_LINK_QUERY_EFFECTIVE_POLICY => {
                 Some(Self::SelfRealmLinkQueryEffectivePolicy)
             }
-            "ak.self.realm_link.query.list" => Some(Self::SelfRealmLinkQueryList),
-            "ak.self.realm_link.resource.delete" => Some(Self::SelfRealmLinkResourceDelete),
-            "ak.self.realm_organization.query.list" => Some(Self::SelfRealmOrganizationQueryList),
-            "ak.self.realm_policy_server.resource.delete" => {
+            Self::SELF_REALM_LINK_QUERY_LIST => Some(Self::SelfRealmLinkQueryList),
+            Self::SELF_REALM_LINK_RESOURCE_DELETE => Some(Self::SelfRealmLinkResourceDelete),
+            Self::SELF_REALM_ORGANIZATION_QUERY_LIST => Some(Self::SelfRealmOrganizationQueryList),
+            Self::SELF_REALM_POLICY_SERVER_RESOURCE_DELETE => {
                 Some(Self::SelfRealmPolicyServerResourceDelete)
             }
-            "ak.self.realm_policy_server.resource.get" => {
+            Self::SELF_REALM_POLICY_SERVER_RESOURCE_GET => {
                 Some(Self::SelfRealmPolicyServerResourceGet)
             }
-            "ak.self.realm_policy_server.resource.replace" => {
+            Self::SELF_REALM_POLICY_SERVER_RESOURCE_REPLACE => {
                 Some(Self::SelfRealmPolicyServerResourceReplace)
             }
-            "ak.self.recovery_authority_ticket.command.issue" => {
+            Self::SELF_RECOVERY_AUTHORITY_TICKET_COMMAND_ISSUE => {
                 Some(Self::SelfRecoveryAuthorityTicketCommandIssue)
             }
-            "ak.self.security_transaction.command.continue" => {
+            Self::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE => {
                 Some(Self::SelfSecurityTransactionCommandContinue)
             }
-            "ak.self.security_transaction.command.create" => {
+            Self::SELF_SECURITY_TRANSACTION_COMMAND_CREATE => {
                 Some(Self::SelfSecurityTransactionCommandCreate)
             }
-            "ak.self.security_transaction.resource.get" => {
+            Self::SELF_SECURITY_TRANSACTION_RESOURCE_GET => {
                 Some(Self::SelfSecurityTransactionResourceGet)
             }
-            "ak.self.signal.command.send" => Some(Self::SelfSignalCommandSend),
-            "ak.self.signal.stream.subscribe" => Some(Self::SelfSignalStreamSubscribe),
-            "ak.self.snapshot.query.manifest_head" => Some(Self::SelfSnapshotQueryManifestHead),
-            "ak.self.space.query.list" => Some(Self::SelfSpaceQueryList),
-            "ak.self.strand.query.list" => Some(Self::SelfStrandQueryList),
-            "ak.self.views.collection_projection.command.materialize" => {
+            Self::SELF_SIGNAL_COMMAND_SEND => Some(Self::SelfSignalCommandSend),
+            Self::SELF_SIGNAL_STREAM_SUBSCRIBE => Some(Self::SelfSignalStreamSubscribe),
+            Self::SELF_SNAPSHOT_QUERY_MANIFEST_HEAD => Some(Self::SelfSnapshotQueryManifestHead),
+            Self::SELF_SPACE_QUERY_LIST => Some(Self::SelfSpaceQueryList),
+            Self::SELF_STRAND_QUERY_LIST => Some(Self::SelfStrandQueryList),
+            Self::SELF_VIEWS_COLLECTION_PROJECTION_COMMAND_MATERIALIZE => {
                 Some(Self::SelfViewsCollectionProjectionCommandMaterialize)
             }
-            "ak.server.query.describe" => Some(Self::ServerQueryDescribe),
+            Self::SERVER_QUERY_DESCRIBE => Some(Self::ServerQueryDescribe),
             _ => None,
         }
     }

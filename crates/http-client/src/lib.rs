@@ -469,6 +469,7 @@ fn standard_retry_statuses() -> Vec<u16> {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::{ProfileId, SchemaId};
     use reqwest::Method;
     use reqwest::header::{HeaderValue, USER_AGENT};
 
@@ -847,20 +848,17 @@ mod tests {
         };
         use arkret_models_collaboration::objects::blob::BlobUploadMetadata;
         use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
-        use arkret_models_crypto::{
-            MLS_GOVERNANCE_BINDING_FULL_PROFILE, MlsGovernanceProofRequestBodyBody,
-        };
+        use arkret_models_crypto::MlsGovernanceProofRequestBodyBody;
         use arkret_models_discovery::{
             DirectoryPrivateContactDiscoveryOutcome, DirectoryPrivateContactDiscoveryRequestBody,
         };
         use arkret_wire::{
-            AUTHORITY_SET_POLICY_SCHEMA, AuthoritySetAuthorizationRule, AuthoritySetIssuer,
-            AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind,
-            AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease,
-            AuthorizationLeaseId, BlobRef, DeviceId, Did, DidUrl, Event, EventId,
-            EventInitialSubmission, EventRequirements, Hash, Hlc, LeaseBasisRef, MimiRoomUri,
-            NonEmptyString, PayloadProof, RealmId, RiskTier, ScopeRef, SealId, ServiceKind,
-            StrandId, proof_kind,
+            AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
+            AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
+            AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, BlobRef, DeviceId,
+            Did, DidUrl, Event, EventId, EventInitialSubmission, EventRequirements, Hash, Hlc,
+            LeaseBasisRef, MimiRoomUri, NonEmptyString, PayloadProof, RealmId, RiskTier, ScopeRef,
+            SealId, ServiceKind, StrandId, proof_kind,
         };
         use serde_json::{Value, json};
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -920,7 +918,7 @@ mod tests {
             let issued_at: chrono::DateTime<chrono::Utc> =
                 "2026-04-26T00:00:00.000Z".parse().unwrap();
             let authority_set_policy = AuthoritySetPolicy {
-                schema: AUTHORITY_SET_POLICY_SCHEMA.to_owned(),
+                schema: SchemaId::AUTHORITY_SET_POLICY_V1.to_owned(),
                 authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
                 policy_kind: AuthoritySetPolicyKind::RealmAdmission,
                 scope_ref: event.scope_ref.clone(),
@@ -1142,7 +1140,7 @@ mod tests {
                 mls_group_id: "Z3JvdXA".to_owned(),
                 previous_epoch: 0,
                 next_epoch: 0,
-                binding_profile: MLS_GOVERNANCE_BINDING_FULL_PROFILE.to_owned(),
+                binding_profile: ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1.to_owned(),
                 reducer_profile: "ak.reducer.v1".to_owned(),
                 trusted_anchor_seal_id: SealId::new(
                     "ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -1168,7 +1166,7 @@ mod tests {
             assert_eq!(parsed["next_epoch"], 0);
             assert_eq!(
                 parsed["binding_profile"],
-                MLS_GOVERNANCE_BINDING_FULL_PROFILE
+                ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1
             );
         }
 

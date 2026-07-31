@@ -9,15 +9,15 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_wire::{Did, Error, PayloadProof, Result};
+use arkret_wire::{Did, Error, PayloadProof, Result, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::delivery_binding::{DeliveryMode, RecipientServiceKind};
 use crate::handle::{
-    HANDLE_CLAIM_SCHEMA, Handle, HandleBindingState, HandleClaimKind, HandleHintBindingSource,
-    HandleVisibility, validate_handle_claim_subject,
+    Handle, HandleBindingState, HandleClaimKind, HandleHintBindingSource, HandleVisibility,
+    validate_handle_claim_subject,
 };
 
 /// Builder-side member delivery binding offered by a handle claim.
@@ -40,7 +40,7 @@ fn default_hint_recipient_service_kind() -> RecipientServiceKind {
 }
 
 fn default_handle_claim_schema() -> String {
-    HANDLE_CLAIM_SCHEMA.to_owned()
+    SchemaId::HANDLE_CLAIM_V1.to_owned()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -120,6 +120,7 @@ impl Default for HandleClaim {
 }
 
 impl HandleClaim {
+    pub const SCHEMA: &'static str = SchemaId::HANDLE_CLAIM_V1;
     /// Enforce schema `allOf` conditional required fields:
     ///   - `binding_state=verified` ⇒ `handle` + `expires_at`
     ///   - `member_delivery_binding` present ⇒ `handle` + `audience` + `expires_at`, and
@@ -160,7 +161,7 @@ impl HandleClaim {
         now: DateTime<Utc>,
     ) -> Result<()> {
         self.validate()?;
-        if self.schema != HANDLE_CLAIM_SCHEMA {
+        if self.schema != SchemaId::HANDLE_CLAIM_V1 {
             return Err(Error::Protocol("handle claim schema mismatch".to_owned()));
         }
         if self.handle.is_none() {

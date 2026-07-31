@@ -17,7 +17,7 @@ use serde_json::{Map, Value};
 
 use crate::error::{Error, Result};
 use crate::primitives::Proof;
-use crate::{Did, Hash};
+use crate::{Did, Hash, ProofContextId};
 
 pub const MAX_MANIFEST_DEPENDENCY_REFS: usize = 64;
 pub const MAX_MANIFEST_PAYLOAD_SCHEMA_REFS: usize = 256;
@@ -30,7 +30,6 @@ pub const MAX_MANIFEST_CANONICAL_BYTES: u32 = 8_388_608;
 pub const MAX_MANIFEST_ITEM_COUNT: u32 = 4_096;
 pub const MAX_MANIFEST_DEPTH: u32 = 4_096;
 pub const MAX_MANIFEST_OPERATIONS_PER_MINUTE: u32 = 100_000;
-pub const EXTENSION_MANIFEST_PROOF_CONTEXT: &str = "ak.extension-manifest-proof-v1";
 
 /// Protocol layer an extension may declare.
 ///
@@ -357,7 +356,7 @@ impl ExtensionManifest {
         let mut object = Map::new();
         object.insert(
             "context".to_owned(),
-            Value::String(EXTENSION_MANIFEST_PROOF_CONTEXT.to_owned()),
+            Value::String(ProofContextId::EXTENSION_MANIFEST_PROOF_V1.to_owned()),
         );
         object.insert(
             "payload_digest".to_owned(),
@@ -877,7 +876,7 @@ mod tests {
             let value: Value = crate::canonical::from_canonical_json_slice(signing_bytes)?;
             assert_eq!(
                 value["context"],
-                Value::String(EXTENSION_MANIFEST_PROOF_CONTEXT.to_owned())
+                Value::String(ProofContextId::EXTENSION_MANIFEST_PROOF_V1.to_owned())
             );
             if self.reject {
                 return Err(Error::Protocol(

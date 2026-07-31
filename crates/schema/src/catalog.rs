@@ -1,3 +1,5 @@
+use arkret_wire::SchemaId;
+
 use super::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -69,7 +71,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
     vec![
         SchemaValidationVector {
             name: "strand minimal valid".to_owned(),
-            schema_id: STRAND_SCHEMA.to_owned(),
+            schema_id: SchemaId::STRAND_V1.to_owned(),
             input: json!({
                 "schema": "ak.schema.strand.v1",
                 "id": "ak:strand:01904100-0000-7000-8000-b30c13414158",
@@ -84,7 +86,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
         },
         SchemaValidationVector {
             name: "event envelope minimal valid".to_owned(),
-            schema_id: EVENT_SCHEMA.to_owned(),
+            schema_id: SchemaId::EVENT_V1.to_owned(),
             input: json!({
                 "event_id": "ak:event:01904100-0000-7000-8000-a0086f45c575",
                 "kind": "ak.message.create",
@@ -109,7 +111,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
         },
         SchemaValidationVector {
             name: "event envelope rejects untrusted security extension".to_owned(),
-            schema_id: EVENT_SCHEMA.to_owned(),
+            schema_id: SchemaId::EVENT_V1.to_owned(),
             input: json!({
                 "event_id": "ak:event:01904100-0000-7000-8000-a0086f45c575",
                 "space_id": "ak:space:01904100-0000-7000-8000-65c7feb295d7",
@@ -164,7 +166,7 @@ mod tests {
             catalog
                 .entries
                 .iter()
-                .any(|entry| entry.schema_id == EVENT_SCHEMA)
+                .any(|entry| entry.schema_id == SchemaId::EVENT_V1)
         );
     }
 

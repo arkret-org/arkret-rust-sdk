@@ -17,7 +17,7 @@ use serde_json::Value;
 use crate::error::{Error, Result};
 use crate::event_envelope::{Event, SemanticRefProof};
 use crate::seal::Seal;
-use crate::{Did, EventId, Hash, PayloadSignature, RealmId, SealId, canonical};
+use crate::{Did, EventId, Hash, PayloadSignature, RealmId, SchemaId, SealId, canonical};
 
 pub const MAX_BUNDLE_SEALS: usize = 256;
 pub const MAX_BUNDLE_CONTROL_MOVES: usize = 1024;
@@ -46,6 +46,7 @@ pub struct AvailabilityReceipt {
 }
 
 impl AvailabilityReceipt {
+    pub const SCHEMA: &'static str = SchemaId::AVAILABILITY_RECEIPT_V1;
     /// Hash of the canonical receipt bytes with `signature` omitted.
     pub fn payload_digest(&self) -> Result<Hash> {
         let mut json = serde_json::to_value(self)?;

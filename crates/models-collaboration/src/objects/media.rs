@@ -1,9 +1,10 @@
 //! ICE configuration and call media token wire shapes.
 
-use arkret_wire::constants::PARTICIPANT_BINDING_SCHEMA;
 use arkret_wire::{CallId, DeviceId, Did, DidUrl, GrantId, Hash, RealmId, XExtensionMap};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+use crate::events_payloads::call::ParticipantBinding;
 
 /// Domain separator for the canonical ICE configuration signature transcript.
 pub const MEDIA_ICE_CONFIG_SIGNING_LABEL: &str = "ak.media.ice_config.v1";
@@ -246,7 +247,7 @@ pub struct CallMediaParticipantBinding {
 }
 
 impl CallMediaParticipantBinding {
-    pub const SCHEME: &'static str = PARTICIPANT_BINDING_SCHEMA;
+    pub const SCHEME: &'static str = ParticipantBinding::SCHEMA;
 }
 
 /// Detached service signature over the token-exchange response, carried as a

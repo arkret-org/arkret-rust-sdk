@@ -36,6 +36,10 @@ def associated_name(value: str, prefixes: tuple[str, ...] = ()) -> str:
     return re.sub(r"[^A-Za-z0-9]+", "_", value).upper()
 
 
+SCHEMA_ID_PREFIXES = ("ak.schema.", "ak.")
+PROFILE_ID_PREFIXES = ("ak.profile.",)
+
+
 def rust_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 
@@ -46,6 +50,17 @@ def rust_option(value: Any) -> str:
 
 def rust_slice(values: list[str] | None) -> str:
     return "&[" + ", ".join(rust_string(value) for value in (values or [])) + "]"
+
+
+def event_kind_slice(values: list[str] | None) -> str:
+    """Event-kind list rendered as `EventKind::*` references, never raw literals."""
+    return (
+        "&["
+        + ", ".join(
+            f"EventKind::{associated_name(value, ('ak.',))}" for value in (values or [])
+        )
+        + "]"
+    )
 
 
 def header(
@@ -101,7 +116,9 @@ def generate_operations(artifacts: Path) -> str:
         ]
     )
     for row in rows:
-        lines.append(f"    {rust_string(row['operation_id'])},")
+        lines.append(
+            f"    ServiceOperationId::{associated_name(row['operation_id'], ('ak.',))},"
+        )
     lines.extend(
         [
             "];",
@@ -170,7 +187,7 @@ def generate_operations(artifacts: Path) -> str:
     for row in rows:
         lines.append(
             f"            Self::{variant(row['operation_id'], ('ak.',))} => "
-            f"{rust_string(row['operation_id'])},"
+            f"Self::{associated_name(row['operation_id'], ('ak.',))},"
         )
     lines.extend(
         [
@@ -183,7 +200,7 @@ def generate_operations(artifacts: Path) -> str:
     )
     for row in rows:
         lines.append(
-            f"            {rust_string(row['operation_id'])} => "
+            f"            Self::{associated_name(row['operation_id'], ('ak.',))} => "
             f"Some(Self::{variant(row['operation_id'], ('ak.',))}),"
         )
     lines.extend(
@@ -905,7 +922,7 @@ def generate_security_strings(artifacts: Path) -> str:
     for row in proof:
         lines.append(
             f"            Self::{variant(row['context'], ('ak.',))} => "
-            f"{rust_string(row['context'])},"
+            f"Self::{associated_name(row['context'], ('ak.',))},"
         )
     lines.extend(
         [
@@ -918,7 +935,7 @@ def generate_security_strings(artifacts: Path) -> str:
     )
     for row in proof:
         lines.append(
-            f"            {rust_string(row['context'])} => "
+            f"            Self::{associated_name(row['context'], ('ak.',))} => "
             f"Some(Self::{variant(row['context'], ('ak.',))}),"
         )
     lines.extend(
@@ -961,7 +978,7 @@ def generate_security_strings(artifacts: Path) -> str:
     for row in labels:
         lines.append(
             f"            Self::{variant(row['label'], ('ak.', 'arkret-'))} => "
-            f"{rust_string(row['label'])},"
+            f"Self::{associated_name(row['label'], ('ak.', 'arkret-'))},"
         )
     lines.extend(
         [
@@ -974,7 +991,7 @@ def generate_security_strings(artifacts: Path) -> str:
     )
     for row in labels:
         lines.append(
-            f"            {rust_string(row['label'])} => "
+            f"            Self::{associated_name(row['label'], ('ak.', 'arkret-'))} => "
             f"Some(Self::{variant(row['label'], ('ak.', 'arkret-'))}),"
         )
     lines.extend(
@@ -1195,7 +1212,7 @@ def generate_capability_actions(artifacts: Path) -> str:
     for row in rows:
         lines.append(
             f"            Self::{variant(row['action'], ('ak.',))} => "
-            f"{rust_string(row['action'])},"
+            f"Self::{associated_name(row['action'], ('ak.',))},"
         )
     lines.extend(
         [
@@ -1208,7 +1225,7 @@ def generate_capability_actions(artifacts: Path) -> str:
     )
     for row in rows:
         lines.append(
-            f"            {rust_string(row['action'])} => "
+            f"            Self::{associated_name(row['action'], ('ak.',))} => "
             f"Some(Self::{variant(row['action'], ('ak.',))}),"
         )
     lines.extend(
@@ -1241,6 +1258,372 @@ def generate_capability_actions(artifacts: Path) -> str:
             "        Self::from_wire(&raw).ok_or_else(|| {",
             '            serde::de::Error::custom(format!("unknown capability action id: {raw}"))',
             "        })",
+            "    }",
+            "}",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def generate_schema_ids(artifacts: Path) -> str:
+    relative = "registry/schema-registry.json"
+    artifact, digest = load(artifacts / relative)
+    rows = sorted(artifact["schemas"], key=lambda row: row["schema_id"])
+    ensure_unique(rows, "schema_id", SCHEMA_ID_PREFIXES)
+    active = [row for row in rows if row.get("status", "active") == "active"]
+    lines = header(
+        [(relative, artifact, digest)],
+        f"schema_ids={len(rows)}, active={len(active)}",
+    )
+    lines.extend(
+        [
+            "use serde::{Deserialize, Serialize};",
+            "",
+            "/// Registered `ak.schema.*` identifiers. Every schema-id literal the",
+            "/// SDK ships is spelled exactly once, here; owning wire types alias the",
+            "/// associated const as `Type::SCHEMA`.",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "#[repr(usize)]",
+            "pub enum SchemaId {",
+        ]
+    )
+    for row in rows:
+        lines.append(f"    {variant(row['schema_id'], SCHEMA_ID_PREFIXES)},")
+    lines.extend(
+        [
+            "}",
+            "",
+            "impl SchemaId {",
+            "    pub const ALL: &'static [Self] = &[",
+        ]
+    )
+    for row in rows:
+        lines.append(f"        Self::{variant(row['schema_id'], SCHEMA_ID_PREFIXES)},")
+    lines.extend(
+        [
+            "    ];",
+            "",
+            "    /// Rows the registry declares `active`; excludes `candidate` rows.",
+            "    pub const ACTIVE: &'static [Self] = &[",
+        ]
+    )
+    for row in active:
+        lines.append(f"        Self::{variant(row['schema_id'], SCHEMA_ID_PREFIXES)},")
+    lines.extend(["    ];", ""])
+    for row in rows:
+        name = associated_name(row["schema_id"], SCHEMA_ID_PREFIXES)
+        description = row.get("description")
+        if description:
+            lines.append(f"    /// {description}")
+        lines.append(
+            f"    pub const {name}: &'static str = {rust_string(row['schema_id'])};"
+        )
+    lines.extend(
+        [
+            "",
+            "    pub const fn as_str(self) -> &'static str {",
+            "        match self {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            Self::{variant(row['schema_id'], SCHEMA_ID_PREFIXES)} => "
+            f"Self::{associated_name(row['schema_id'], SCHEMA_ID_PREFIXES)},"
+        )
+    lines.extend(
+        [
+            "        }",
+            "    }",
+            "",
+            "    /// Path of the JSON Schema document backing this id, relative to",
+            "    /// `spec/v1/artifacts/`.",
+            "    pub const fn file(self) -> &'static str {",
+            "        match self {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            Self::{variant(row['schema_id'], SCHEMA_ID_PREFIXES)} => "
+            f"{rust_string(row['file'])},"
+        )
+    lines.extend(
+        [
+            "        }",
+            "    }",
+            "",
+            "    pub fn from_wire(value: &str) -> Option<Self> {",
+            "        match value {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            Self::{associated_name(row['schema_id'], SCHEMA_ID_PREFIXES)} => "
+            f"Some(Self::{variant(row['schema_id'], SCHEMA_ID_PREFIXES)}),"
+        )
+    lines.extend(
+        [
+            "            _ => None,",
+            "        }",
+            "    }",
+            "}",
+            "",
+            "impl std::fmt::Display for SchemaId {",
+            "    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {",
+            "        f.write_str(self.as_str())",
+            "    }",
+            "}",
+            "",
+            "impl Serialize for SchemaId {",
+            "    fn serialize<S: serde::Serializer>(",
+            "        &self,",
+            "        serializer: S,",
+            "    ) -> Result<S::Ok, S::Error> {",
+            "        serializer.serialize_str(self.as_str())",
+            "    }",
+            "}",
+            "",
+            "impl<'de> Deserialize<'de> for SchemaId {",
+            "    fn deserialize<D: serde::Deserializer<'de>>(",
+            "        deserializer: D,",
+            "    ) -> Result<Self, D::Error> {",
+            "        let raw = String::deserialize(deserializer)?;",
+            "        Self::from_wire(&raw)",
+            '            .ok_or_else(|| serde::de::Error::custom(format!("unknown schema id: {raw}")))',
+            "    }",
+            "}",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def account_data_key_namespace(pattern: str) -> str:
+    """Literal head of an Account Data key pattern, stripped of separators."""
+    head = pattern.split("<", 1)[0]
+    return head.rstrip(".:")
+
+
+def generate_account_data_keys(artifacts: Path) -> str:
+    relative = "registry/account-data-key-registry.json"
+    artifact, digest = load(artifacts / relative)
+    rows = sorted(
+        (
+            row
+            for row in artifact["account_data_key_patterns"]
+            if row["status"] == "active"
+        ),
+        key=lambda row: row["key_pattern"],
+    )
+    namespaces = [
+        {"key_pattern": row["key_pattern"], "namespace": account_data_key_namespace(row["key_pattern"])}
+        for row in rows
+    ]
+    ensure_unique(namespaces, "namespace", ("ak.",))
+    lines = header([(relative, artifact, digest)], f"account_data_keys={len(rows)}")
+    lines.extend(
+        [
+            "use serde::{Deserialize, Serialize};",
+            "",
+            "/// Registered Account Data key namespaces. The registry rows are key",
+            "/// *patterns*; this type carries the literal head of each pattern, which is",
+            "/// the value clients and servers compare against and the only place the",
+            "/// namespace literal is spelled.",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "#[repr(usize)]",
+            "pub enum AccountDataKey {",
+        ]
+    )
+    for row in namespaces:
+        lines.append(f"    {variant(row['namespace'], ('ak.',))},")
+    lines.extend(
+        [
+            "}",
+            "",
+            "impl AccountDataKey {",
+            "    pub const ALL: &'static [Self] = &[",
+        ]
+    )
+    for row in namespaces:
+        lines.append(f"        Self::{variant(row['namespace'], ('ak.',))},")
+    lines.extend(["    ];", ""])
+    for row, source in zip(namespaces, rows):
+        description = source.get("description")
+        if description:
+            lines.append(f"    /// {description}")
+        lines.append(f"    /// Key pattern: `{source['key_pattern']}`.")
+        lines.append(
+            f"    pub const {associated_name(row['namespace'], ('ak.',))}: &'static str = "
+            f"{rust_string(row['namespace'])};"
+        )
+    lines.extend(
+        [
+            "",
+            "    pub const fn as_str(self) -> &'static str {",
+            "        match self {",
+        ]
+    )
+    for row in namespaces:
+        lines.append(
+            f"            Self::{variant(row['namespace'], ('ak.',))} => "
+            f"Self::{associated_name(row['namespace'], ('ak.',))},"
+        )
+    lines.extend(
+        [
+            "        }",
+            "    }",
+            "",
+            "    /// Whether `value` is this key exactly, or a parameterized key inside",
+            "    /// this namespace (`<namespace>:<...>` or `<namespace>.<...>`).",
+            "    pub fn matches(self, value: &str) -> bool {",
+            "        let namespace = self.as_str();",
+            "        let Some(rest) = value.strip_prefix(namespace) else {",
+            "            return false;",
+            "        };",
+            "        rest.is_empty()",
+            "            || (matches!(rest.as_bytes().first(), Some(b':' | b'.')) && rest.len() > 1)",
+            "    }",
+            "",
+            "    pub fn from_wire(value: &str) -> Option<Self> {",
+            "        match value {",
+        ]
+    )
+    for row in namespaces:
+        lines.append(
+            f"            Self::{associated_name(row['namespace'], ('ak.',))} => "
+            f"Some(Self::{variant(row['namespace'], ('ak.',))}),"
+        )
+    lines.extend(
+        [
+            "            _ => None,",
+            "        }",
+            "    }",
+            "",
+            "    /// Resolve a concrete Account Data key to its registered namespace.",
+            "    pub fn for_key(value: &str) -> Option<Self> {",
+            "        Self::ALL.iter().copied().find(|key| key.matches(value))",
+            "    }",
+            "}",
+            "",
+            "impl std::fmt::Display for AccountDataKey {",
+            "    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {",
+            "        f.write_str(self.as_str())",
+            "    }",
+            "}",
+            "",
+            "impl Serialize for AccountDataKey {",
+            "    fn serialize<S: serde::Serializer>(",
+            "        &self,",
+            "        serializer: S,",
+            "    ) -> Result<S::Ok, S::Error> {",
+            "        serializer.serialize_str(self.as_str())",
+            "    }",
+            "}",
+            "",
+            "impl<'de> Deserialize<'de> for AccountDataKey {",
+            "    fn deserialize<D: serde::Deserializer<'de>>(",
+            "        deserializer: D,",
+            "    ) -> Result<Self, D::Error> {",
+            "        let raw = String::deserialize(deserializer)?;",
+            "        Self::from_wire(&raw).ok_or_else(|| {",
+            '            serde::de::Error::custom(format!("unknown account data key: {raw}"))',
+            "        })",
+            "    }",
+            "}",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def generate_profile_ids(artifacts: Path) -> str:
+    relative = "profiles/conformance-profiles.json"
+    artifact, digest = load(artifacts / relative)
+    ids = sorted(artifact["profile_roles"])
+    rows = [{"profile_id": value} for value in ids]
+    ensure_unique(rows, "profile_id", PROFILE_ID_PREFIXES)
+    lines = header([(relative, artifact, digest)], f"profile_ids={len(rows)}")
+    lines.extend(
+        [
+            "use serde::{Deserialize, Serialize};",
+            "",
+            "/// Declared conformance profile identifiers. Every `ak.profile.*` literal",
+            "/// the SDK ships is spelled exactly once, here.",
+            "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]",
+            "#[repr(usize)]",
+            "pub enum ProfileId {",
+        ]
+    )
+    for row in rows:
+        lines.append(f"    {variant(row['profile_id'], PROFILE_ID_PREFIXES)},")
+    lines.extend(
+        [
+            "}",
+            "",
+            "impl ProfileId {",
+            "    pub const ALL: &'static [Self] = &[",
+        ]
+    )
+    for row in rows:
+        lines.append(f"        Self::{variant(row['profile_id'], PROFILE_ID_PREFIXES)},")
+    lines.extend(["    ];", ""])
+    for row in rows:
+        lines.append(
+            f"    pub const {associated_name(row['profile_id'], PROFILE_ID_PREFIXES)}: "
+            f"&'static str = {rust_string(row['profile_id'])};"
+        )
+    lines.extend(
+        [
+            "",
+            "    pub const fn as_str(self) -> &'static str {",
+            "        match self {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            Self::{variant(row['profile_id'], PROFILE_ID_PREFIXES)} => "
+            f"Self::{associated_name(row['profile_id'], PROFILE_ID_PREFIXES)},"
+        )
+    lines.extend(
+        [
+            "        }",
+            "    }",
+            "",
+            "    pub fn from_wire(value: &str) -> Option<Self> {",
+            "        match value {",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"            Self::{associated_name(row['profile_id'], PROFILE_ID_PREFIXES)} => "
+            f"Some(Self::{variant(row['profile_id'], PROFILE_ID_PREFIXES)}),"
+        )
+    lines.extend(
+        [
+            "            _ => None,",
+            "        }",
+            "    }",
+            "}",
+            "",
+            "impl std::fmt::Display for ProfileId {",
+            "    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {",
+            "        f.write_str(self.as_str())",
+            "    }",
+            "}",
+            "",
+            "impl Serialize for ProfileId {",
+            "    fn serialize<S: serde::Serializer>(",
+            "        &self,",
+            "        serializer: S,",
+            "    ) -> Result<S::Ok, S::Error> {",
+            "        serializer.serialize_str(self.as_str())",
+            "    }",
+            "}",
+            "",
+            "impl<'de> Deserialize<'de> for ProfileId {",
+            "    fn deserialize<D: serde::Deserializer<'de>>(",
+            "        deserializer: D,",
+            "    ) -> Result<Self, D::Error> {",
+            "        let raw = String::deserialize(deserializer)?;",
+            "        Self::from_wire(&raw)",
+            '            .ok_or_else(|| serde::de::Error::custom(format!("unknown profile id: {raw}")))',
             "    }",
             "}",
         ]
@@ -1308,7 +1691,7 @@ def generate_registry_descriptors(artifacts: Path) -> str:
     lines = header(loaded, counts)
     lines.extend(
         [
-            "use arkret_wire::CapabilityActionId;",
+            "use arkret_wire::{CapabilityActionId, EventKind, SchemaId};",
             "use serde::{Deserialize, Serialize};",
             "",
             "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
@@ -1418,7 +1801,7 @@ def generate_registry_descriptors(artifacts: Path) -> str:
                 f"        category: {rust_string(row['category'])},",
                 f"        risk_tier: CapabilityRiskTier::{variant(row['risk_tier'])},",
                 f"        required_constraints: {rust_slice(row['required_constraints'])},",
-                f"        target_event_kinds: {rust_slice(row['target_event_kinds'])},",
+                f"        target_event_kinds: {event_kind_slice(row['target_event_kinds'])},",
                 f"        grant_authority_actions: {rust_slice(row.get('grant_authority_actions') or [])},",
                 f"        profile: {rust_option(row.get('profile'))},",
                 f"        root_control_only: {str(bool(row.get('root_control_only'))).lower()},",
@@ -1439,7 +1822,7 @@ def generate_registry_descriptors(artifacts: Path) -> str:
         lines.extend(
             [
                 "    SchemaDescriptor {",
-                f"        schema_id: {rust_string(row['schema_id'])},",
+                f"        schema_id: SchemaId::{associated_name(row['schema_id'], SCHEMA_ID_PREFIXES)},",
                 f"        file: {rust_string(row['file'])},",
                 "    },",
             ]
@@ -1459,7 +1842,7 @@ def generate_registry_descriptors(artifacts: Path) -> str:
                 f"        scope: {rust_string(row['scope'])},",
                 f"        storage: {rust_string(row['storage'])},",
                 f"        plaintext_schema: {rust_option(row.get('plaintext_schema'))},",
-                f"        write_event_kinds: {rust_slice(row['write_event_kinds'])},",
+                f"        write_event_kinds: {event_kind_slice(row['write_event_kinds'])},",
                 f"        merge_strategy: {rust_string(row['merge_strategy'])},",
                 f"        deletion_mode: {rust_string(row['deletion_mode'])},",
                 "    },",
@@ -1533,6 +1916,11 @@ GENERATORS = {
     "crates/wire/src/error_codes/error_code.rs": generate_error_codes,
     "crates/wire/src/error_codes/reason_code.rs": generate_reason_codes,
     "crates/wire/src/generated/operation_ids.rs": generate_operations,
+    "crates/wire/src/generated/schema_ids.rs": generate_schema_ids,
+    "crates/wire/src/generated/profile_ids.rs": generate_profile_ids,
+    "crates/wire/src/generated/account_data_keys.rs": (
+        generate_account_data_keys
+    ),
     "crates/wire/src/generated/service_kinds.rs": generate_service_kinds,
     "crates/wire/src/generated/relation_kinds.rs": generate_relation_kinds,
     "crates/wire/src/generated/security_strings.rs": (

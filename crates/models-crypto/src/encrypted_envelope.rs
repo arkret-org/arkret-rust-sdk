@@ -4,7 +4,7 @@
 //! carries only routing metadata.
 
 use arkret_canonical::canonical;
-use arkret_wire::{EncryptedPayloadScheme, Error, EventId, Hash, RealmId, Result};
+use arkret_wire::{EncryptedPayloadScheme, Error, EventId, Hash, RealmId, Result, SchemaId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -12,7 +12,6 @@ use serde_json::Value;
 pub const MLS_EXPORTER_AEAD_CONTENT_PURPOSE: &str = "mls_exporter_aead_content";
 
 /// Profile id whose Realms require the minimal-metadata MLS policy.
-pub const MINIMAL_METADATA_REALM_PROFILE: &str = "ak.profile.mls.minimal_metadata_realm.v1";
 
 /// Counterpart for `spec/v1/artifacts/schemas/encrypted-envelope.schema.json`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -111,6 +110,7 @@ pub struct EncryptedEnvelope {
 }
 
 impl EncryptedEnvelope {
+    pub const SCHEMA: &'static str = SchemaId::ENCRYPTED_ENVELOPE_V1;
     pub fn validate(&self) -> Result<()> {
         if !major_minor_version(&self.version) {
             return Err(Error::Protocol(

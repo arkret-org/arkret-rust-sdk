@@ -19,7 +19,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{CellRef, Hash, SealId};
+use crate::{CellRef, Hash, SchemaId, SealId};
 
 /// Free-form structured details object for a Bottom diagnostic.
 ///
@@ -105,6 +105,7 @@ pub struct Bottom {
 }
 
 impl Bottom {
+    pub const SCHEMA: &'static str = SchemaId::BOTTOM_V1;
     /// Construct a minimal bottom diagnostic with required fields.
     pub fn new(kind: BottomKind, cells: Vec<CellRef>) -> Self {
         Self {

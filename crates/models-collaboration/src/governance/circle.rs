@@ -17,11 +17,10 @@ use std::collections::BTreeSet;
 pub use arkret_wire::CircleId;
 /// Canonical schema id for `Circle`.
 ///
-/// Re-export of [`arkret_wire::CIRCLE_SCHEMA_ID`] for code that imports
+/// Re-export of [`arkret_wire::SchemaId::CIRCLE_V1`] for code that imports
 /// types from this module.
-pub use arkret_wire::constants::CIRCLE_SCHEMA_ID as CIRCLE_SCHEMA;
 use arkret_wire::event_envelope::Event;
-use arkret_wire::{Did, EncryptionProfile, EventId, HistoryVisibility, RealmId};
+use arkret_wire::{Did, EncryptionProfile, EventId, HistoryVisibility, RealmId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -801,6 +800,7 @@ pub enum CircleScopeError {
 }
 
 impl Circle {
+    pub const SCHEMA: &'static str = SchemaId::CIRCLE_V1;
     /// Create a Circle struct with required defaults filled in.
     ///
     /// Reducer-derived fields (`mls_group_ref`, `state_changed_at`,
@@ -816,7 +816,7 @@ impl Circle {
     ) -> Self {
         Self {
             id,
-            schema: CIRCLE_SCHEMA.to_owned(),
+            schema: SchemaId::CIRCLE_V1.to_owned(),
             realm_id,
             profile_ref: None,
             title: title.into(),
@@ -904,7 +904,7 @@ mod tests {
         let circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         let json = serde_json::to_value(&circle).unwrap();
         let parsed: Circle = serde_json::from_value(json).unwrap();
-        assert_eq!(parsed.schema, CIRCLE_SCHEMA);
+        assert_eq!(parsed.schema, SchemaId::CIRCLE_V1);
         assert_eq!(parsed.title, "Ops Circle");
         assert_eq!(parsed.profile_ref, circle.profile_ref);
         assert_eq!(parsed.state, CircleState::Active);

@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::{
     Did, Error, GrantId, Hash, InviteId, InviteState, PolicyEffect, PolicyId, PolicyKind, RealmId,
-    Result, XExtensionMap,
+    Result, SchemaId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -47,6 +47,10 @@ pub struct Policy {
         with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub updated_at: Option<DateTime<Utc>>,
+}
+
+impl Policy {
+    pub const SCHEMA: &'static str = SchemaId::POLICY_V1;
 }
 
 /// Discriminator for a [`PolicyRule`] (mirrors `policy.schema.json`
@@ -158,4 +162,8 @@ pub struct Invite {
         with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub updated_at: Option<DateTime<Utc>>,
+}
+
+impl Invite {
+    pub const SCHEMA: &'static str = SchemaId::INVITE_V1;
 }

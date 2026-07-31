@@ -6,7 +6,7 @@ pub use arkret_models_crypto::encrypted_attachment::{
     StreamEncryptionAlgorithm, StreamEncryptionScheme, WholeFileEncryptedAttachment,
     WholeFileEncryptionAlgorithm, WholeFileEncryptionScheme,
 };
-use arkret_wire::{BlobRef, Did, Hash, RealmId};
+use arkret_wire::{BlobRef, Did, Hash, RealmId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -61,6 +61,10 @@ pub struct Blob {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,
+}
+
+impl Blob {
+    pub const SCHEMA: &'static str = SchemaId::BLOB_V1;
 }
 
 /// Compatibility name for consumers that historically imported blob metadata
@@ -205,4 +209,8 @@ pub struct BlobPresignEnvelope {
 pub enum BlobOperations {
     BlobUploadRequestBody(crate::http_bodies::BlobUploadRequestBody),
     BlobUploadOutcome(BlobUploadOutcome),
+}
+
+impl BlobOperations {
+    pub const SCHEMA: &'static str = SchemaId::BLOB_OPERATIONS_V1;
 }

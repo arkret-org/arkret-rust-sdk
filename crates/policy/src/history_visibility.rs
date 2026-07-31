@@ -19,8 +19,7 @@ use arkret_models_collaboration::governance::history_visibility::{
     HistorySharingRestrictedScopeRef, HistorySharingScopeKind, HistoryVisibilityDecision,
     RealmKeyWithheldReasonCode, RestrictedRuleMatch,
 };
-use arkret_models_collaboration::objects::realm::PRINCIPAL_CONTROL_REALM_PROFILE;
-use arkret_wire::HistoryVisibility;
+use arkret_wire::{HistoryVisibility, ProfileId};
 
 pub fn event_time_history_visible(
     visibility: HistoryVisibility,
@@ -332,7 +331,7 @@ pub fn principal_control_realm_history_sharing_policy()
         })?;
     let value = profiles
         .get("profile_requirements")
-        .and_then(|profiles| profiles.get(PRINCIPAL_CONTROL_REALM_PROFILE))
+        .and_then(|profiles| profiles.get(ProfileId::PRINCIPAL_CONTROL_REALM_V1))
         .and_then(|profile| profile.get("history_sharing_policy_fixed_baseline"))
         .and_then(|baseline| baseline.get("value"))
         .ok_or_else(|| {

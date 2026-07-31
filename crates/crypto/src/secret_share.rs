@@ -19,7 +19,7 @@
 //! vocabulary.
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
-use arkret_wire::DeviceId;
+use arkret_wire::{DeviceId, HPKE_SUITE_X25519_CHACHA20POLY1305_V1};
 use hpke::aead::ChaCha20Poly1305;
 use hpke::kdf::HkdfSha256;
 use hpke::kem::X25519HkdfSha256;
@@ -29,15 +29,14 @@ use serde::{Deserialize, Serialize};
 use crate::{Error, Result};
 
 /// Wire `kind` for the secret request (`ak.secret.request`).
-pub const SECRET_REQUEST_KIND: &str = "ak.secret.request";
+pub const SECRET_REQUEST_KIND: &str = arkret_wire::SECRET_REQUEST_KIND;
 /// Wire `kind` for the sealed secret response (`ak.secret.send`).
-pub const SECRET_SEND_KIND: &str = "ak.secret.send";
+pub const SECRET_SEND_KIND: &str = arkret_wire::SECRET_SEND_KIND;
 
 /// HPKE scheme label required on `ak.secret.send` content. Matches the
 /// v1 default-MUST device HPKE suite in `device-lifecycle.md` §4 / the
 /// `ak.hpke_x25519_aead_chacha20poly1305.v1` label used by
 /// file-transfer.schema.json (RFC 9180 base mode).
-pub const HPKE_SECRET_SHARE_SCHEME: &str = "ak.hpke_x25519_aead_chacha20poly1305.v1";
 
 /// `secret_id` for the inkson MLS account secret — the only secret class the
 /// D2D direct-share path ships in v1. Kept here so client and conformance code
@@ -99,7 +98,7 @@ pub struct SecretShareSendContent {
     /// `sender_device_id` and MUST be a non-revoked device of the recipient
     /// principal.
     pub from_device: DeviceId,
-    /// HPKE scheme label; MUST equal [`HPKE_SECRET_SHARE_SCHEME`].
+    /// HPKE scheme label; MUST equal [`HPKE_SUITE_X25519_CHACHA20POLY1305_V1`].
     pub scheme: String,
     /// base64url ephemeral X25519 public key (the RFC 9180 DHKEM encapsulation
     /// `enc`).
@@ -123,9 +122,9 @@ impl SecretShareSendContent {
                 "ak.secret.send.secret_id must not be empty".to_owned(),
             ));
         }
-        if self.scheme != HPKE_SECRET_SHARE_SCHEME {
+        if self.scheme != HPKE_SUITE_X25519_CHACHA20POLY1305_V1 {
             return Err(Error::Protocol(format!(
-                "ak.secret.send.scheme must be {HPKE_SECRET_SHARE_SCHEME}, got {}",
+                "ak.secret.send.scheme must be {HPKE_SUITE_X25519_CHACHA20POLY1305_V1}, got {}",
                 self.scheme
             )));
         }
@@ -355,7 +354,7 @@ mod tests {
             request_id: "req-1".to_owned(),
             secret_id: SECRET_ID_MLS_ACCOUNT.to_owned(),
             from_device: device(),
-            scheme: HPKE_SECRET_SHARE_SCHEME.to_owned(),
+            scheme: HPKE_SUITE_X25519_CHACHA20POLY1305_V1.to_owned(),
             enc: "ZW5j".to_owned(),
             ciphertext: "Y2lwaGVy".to_owned(),
         };

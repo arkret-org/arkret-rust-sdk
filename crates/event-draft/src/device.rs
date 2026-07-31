@@ -21,7 +21,7 @@ pub fn build_cross_signing_publish_event_at(
 ) -> Result<Event> {
     let payload_value = serde_json::to_value(&payload)?;
     let event = Event::new_at(
-        arkret_wire::events::EventKind::CROSS_SIGNING_PUBLISH,
+        arkret_wire::EventKind::CROSS_SIGNING_PUBLISH,
         scope_ref,
         actor_id,
         actor_seq,
@@ -43,7 +43,7 @@ pub fn build_device_authorize_event_at(
 ) -> Result<Event> {
     let payload_value = serde_json::to_value(&payload)?;
     let event = Event::new_at(
-        arkret_wire::events::EventKind::DEVICE_AUTHORIZE,
+        arkret_wire::EventKind::DEVICE_AUTHORIZE,
         scope_ref,
         actor_id,
         actor_seq,

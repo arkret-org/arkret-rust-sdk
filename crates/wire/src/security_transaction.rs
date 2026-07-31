@@ -1635,10 +1635,9 @@ mod tests {
     use super::*;
     use crate::recovery_authority::CanonicalEncoding;
     use crate::{
-        AUTHORITY_SET_POLICY_SCHEMA, AuthoritySetPolicy, AuthoritySetPolicyKind,
-        AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease,
-        AuthorizationLeaseId, DeviceId, Event, Hlc, LeaseBasisRef, RealmId, RiskTier, ScopeRef,
-        SealId,
+        AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
+        AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, DeviceId, Event, Hlc,
+        LeaseBasisRef, RealmId, RiskTier, SchemaId, ScopeRef, SealId,
     };
 
     fn hash(byte: char) -> Hash {
@@ -1711,7 +1710,7 @@ mod tests {
         )
         .unwrap();
         let authority_set_policy = AuthoritySetPolicy {
-            schema: AUTHORITY_SET_POLICY_SCHEMA.to_owned(),
+            schema: SchemaId::AUTHORITY_SET_POLICY_V1.to_owned(),
             authority_set_id: "ak.authority_set.rotation_fixture.v1".to_owned(),
             policy_kind: AuthoritySetPolicyKind::RealmAdmission,
             scope_ref: scope_ref.clone(),

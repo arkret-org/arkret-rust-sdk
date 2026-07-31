@@ -12,7 +12,7 @@ use arkret_models_identity::handle_claim::{DeliveryBindingHint, HandleClaim};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
     BlobRef, Did, Error, EventId, Hash, JoinRule, NonEmptyString, PayloadProof, Proof, RealmId,
-    Result, SealBasis,
+    Result, SchemaId, SealBasis,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -204,6 +204,10 @@ pub struct RealmJoinCandidate {
     pub expires_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proofs: Vec<PayloadProof>,
+}
+
+impl RealmJoinCandidate {
+    pub const SCHEMA: &'static str = SchemaId::REALM_JOIN_CANDIDATE_V1;
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -916,8 +920,7 @@ mod agent_selector_outcome_tests {
 
     use arkret_models_identity::claim_presentation::AgentSelectorClaim;
     use arkret_models_identity::handle::{HandleBindingState, HandleVisibility};
-    use arkret_wire::constants::AGENT_SELECTOR_CLAIM_SCHEMA;
-    use arkret_wire::{Did, DidUrl, Hash, PayloadProof};
+    use arkret_wire::{Did, DidUrl, Hash, PayloadProof, SchemaId};
     use chrono::Utc;
 
     use super::DirectoryAgentSelectorResolutionOutcome;
@@ -928,7 +931,7 @@ mod agent_selector_outcome_tests {
 
     fn selector_claim() -> AgentSelectorClaim {
         AgentSelectorClaim {
-            schema: AGENT_SELECTOR_CLAIM_SCHEMA.to_owned(),
+            schema: SchemaId::AGENT_SELECTOR_CLAIM_V1.to_owned(),
             controller_subject: did("did:webvh:z6mkfixture:example.com:users:alice"),
             agent_slug: "summary".to_owned(),
             subject: did("did:webvh:z6mkfixture:agent.example"),
