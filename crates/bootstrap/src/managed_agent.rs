@@ -1,0 +1,320 @@
+//! Managed Agent Principal Control Realm: canonical control materialization
+//! and the controller-signed Seal built from it.
+
+use std::collections::{BTreeMap, BTreeSet};
+
+use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
+use arkret_state::{
+    CellRegistry, CellState, LatticeKind, SealedOp, compute_state_root, control_event_set_root,
+};
+use arkret_wire::{
+    CellRef, Did, Error, Event, EventKind, Hash, Hlc, NotarySig, NotaryValue, PayloadSignature,
+    PayloadSigner, RealmId, Result, Seal, SealId, SealKind,
+};
+use chrono::Utc;
+use serde_json::Value;
+
+use crate::projection::{CellWriteProjector, direct_projection, validate_realm_create_projection};
+use crate::{PRINCIPAL_CONTROL_PURPOSE, REALM_CREATE_CELL};
+
+/// Complete reducer material needed to construct or validate a
+/// controller-signed managed Agent PCR Event Seal.
+#[derive(Clone, Debug)]
+pub struct ManagedAgentPcrControlMaterial {
+    pub realm_id: RealmId,
+    pub agent_id: Did,
+    pub controller_id: Did,
+    pub authorization_ref: String,
+    pub covered_event_digests: Vec<Hash>,
+    pub state_root: Hash,
+    pub joined: BTreeMap<CellRef, CellState>,
+    /// Sealed effects with their issuer attached, ready for a store that
+    /// must keep ordered-log slots keyed by the real actor.
+    pub event_ops: Vec<(CellRef, IssuedOp)>,
+}
+
+/// Materialize the canonical control state of a managed Agent PCR.
+///
+/// The delegated create Event derives the same canonical genesis leaf set as
+/// every other Realm bootstrap branch. Every later managed PCR Event likewise
+/// contributes exactly what its registered contract projects. Keeping this
+/// materialization in the SDK gives the controller-side Seal builder and
+/// receiver admission one byte-identical state-root implementation.
+pub fn materialize_managed_agent_pcr_control(
+    events: &[Event],
+    project: CellWriteProjector<'_>,
+) -> Result<ManagedAgentPcrControlMaterial> {
+    let managed_cell = CellRef::new(REALM_CREATE_CELL)?;
+    // The create-log cell is a derived target now, so "is this the canonical
+    // genesis Event" is a question only the reducer contract can answer.
+    let mut creates = Vec::new();
+    for event in events {
+        if event.kind != EventKind::REALM_CREATE {
+            continue;
+        }
+        let effects = direct_projection(event, project)?;
+        if effects.iter().any(|effect| effect.cell == managed_cell) {
+            creates.push((event, effects));
+        }
+    }
+    if creates.len() != 1 {
+        return Err(Error::Protocol(
+            "managed Agent PCR material requires exactly one canonical create Event".to_owned(),
+        ));
+    }
+    let (create, create_effects) = &creates[0];
+    let create = *create;
+    let controller_id = create.executed_by.clone().ok_or_else(|| {
+        Error::Protocol("managed Agent PCR create Event omits executed_by".to_owned())
+    })?;
+    let authorization_ref = create.authorization_ref.clone().ok_or_else(|| {
+        Error::Protocol("managed Agent PCR create Event omits authorization_ref".to_owned())
+    })?;
+    let object = create
+        .payload
+        .get("object")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            Error::Protocol("managed Agent PCR create payload omits object".to_owned())
+        })?;
+    if object.get("created_by").and_then(Value::as_str) != Some(create.actor_id.as_str())
+        || object
+            .get("fields")
+            .and_then(Value::as_object)
+            .and_then(|fields| fields.get("purpose"))
+            .and_then(Value::as_str)
+            != Some(PRINCIPAL_CONTROL_PURPOSE)
+    {
+        return Err(Error::Protocol(
+            "managed Agent PCR create actor, created_by, or purpose is inconsistent".to_owned(),
+        ));
+    }
+    let notary = object
+        .get("notary")
+        .cloned()
+        .ok_or_else(|| Error::Protocol("managed Agent PCR create omits notary".to_owned()))?;
+    let notary_value: NotaryValue = serde_json::from_value(notary)?;
+    notary_value.validate()?;
+    if !notary_value.includes_signer_as_primary(&create.actor_id) {
+        return Err(Error::Protocol(
+            "managed Agent PCR notary must be the Agent DID".to_owned(),
+        ));
+    }
+    validate_realm_create_projection(create, create_effects)?;
+
+    // A managed PCR is itself a control-only Realm. Effectless protocol
+    // anchors such as `ak.mls.genesis` still belong to the notarized history:
+    // they change the coverage root even though they do not change a lattice
+    // cell. Omitting them would leave the MLS genesis outside its own
+    // governance anchor.
+    let included = events.iter().collect::<Vec<_>>();
+    if included.iter().any(|event| {
+        event.realm_id != create.realm_id
+            || event.actor_id != create.actor_id
+            || event.executed_by.as_ref() != Some(&controller_id)
+            || event.authorization_ref.as_deref() != Some(authorization_ref.as_str())
+    }) {
+        return Err(Error::Protocol(
+            "managed Agent PCR Event authority or Realm differs from its genesis".to_owned(),
+        ));
+    }
+
+    let mut covered = BTreeSet::new();
+    let mut ops_by_cell = BTreeMap::<CellRef, Vec<SealedOp>>::new();
+    let mut event_ops = Vec::new();
+    for event in included {
+        let move_id = Hash::new(event.event_digest()?)?;
+        if !covered.insert(move_id.clone()) {
+            return Err(Error::Protocol(
+                "managed Agent PCR Event material contains duplicate digests".to_owned(),
+            ));
+        }
+        // Every covered Event -- the create included -- contributes exactly
+        // what its registered contract projects over the signed envelope and
+        // payload. That is what the receiver applies, so deriving anything else
+        // here would fork the root the Seal is compared against.
+        let effects = direct_projection(event, project)?;
+        // One Event may claim an ordered-log slot at most once: two writes on
+        // the same `(cell, issuer_seq)` would share this Event's digest, so the
+        // §4.2 tie-break could not disambiguate them and it is not a collision
+        // between two Events either. Reject before anything reaches a lattice.
+        if let Err(conflict) = ensure_unique_ordered_log_slots(&effects) {
+            return Err(Error::Protocol(format!(
+                "managed Agent PCR Event claims ordered-log slot {}#{} twice",
+                conflict.cell, conflict.issuer_seq
+            )));
+        }
+        let ops = effects
+            .iter()
+            .map(|effect| {
+                (
+                    effect.cell.clone(),
+                    SealedOp::new(move_id.clone(), effect.op.clone()),
+                )
+            })
+            .collect::<Vec<_>>();
+        for (cell, op) in ops {
+            ops_by_cell
+                .entry(cell.clone())
+                .or_default()
+                .push(op.clone());
+            event_ops.push((
+                cell,
+                IssuedOp {
+                    issuer: create.actor_id.clone(),
+                    op,
+                },
+            ));
+        }
+    }
+
+    let registry = arkret_lattice_registry::build_sdk_cell_registry();
+    let mut joined = BTreeMap::new();
+    for (cell, ops) in ops_by_cell {
+        // No pre-sort: every lattice join is commutative, and ordering by the
+        // typed `move_id` string would imply a tie-break `encoding.md` §4.2
+        // forbids (the suite prefix would outrank the digest content).
+        let binding = registry.resolve(&create.realm_id, &cell).map_err(|error| {
+            Error::Protocol(format!("managed Agent PCR cell registry: {error}"))
+        })?;
+        // 9.3.1 keys the log by the envelope `actor_id`; every included Event
+        // is required to carry `create.actor_id`, so the issuer is known.
+        let issued: Vec<IssuedOp> = ops
+            .into_iter()
+            .map(|op| IssuedOp {
+                issuer: create.actor_id.clone(),
+                op,
+            })
+            .collect();
+        if binding.lattice.kind() == LatticeKind::OrderedLog {
+            let report = OrderedLog.join_with_issuer_report(&issued);
+            if !report.fail_closed.is_empty() {
+                return Err(Error::Protocol(format!(
+                    "managed Agent PCR cell {cell} ordered-log slot failed closed"
+                )));
+            }
+            if !report.equivocations.is_empty() {
+                return Err(Error::Protocol(format!(
+                    "managed Agent PCR cell {cell} contains issuer equivocation"
+                )));
+            }
+        }
+        let state = arkret_state::join_cell(binding.lattice.as_ref(), &cell, &issued);
+        if matches!(state, CellState::Bottom(_)) {
+            return Err(Error::Protocol(format!(
+                "managed Agent PCR cell {cell} resolved to Bottom"
+            )));
+        }
+        joined.insert(cell, state);
+    }
+    let state_root = compute_state_root(&joined)
+        .map_err(|error| Error::Protocol(format!("managed Agent PCR state root: {error}")))?;
+    Ok(ManagedAgentPcrControlMaterial {
+        realm_id: create.realm_id.clone(),
+        agent_id: create.actor_id.clone(),
+        controller_id,
+        authorization_ref,
+        covered_event_digests: covered.into_iter().collect(),
+        state_root,
+        joined,
+        event_ops,
+    })
+}
+
+/// Build and sign a managed Agent PCR Seal with the controller device named
+/// by the accepted Agent DID delegation.
+pub fn build_managed_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
+    events: &[Event],
+    predecessor: Option<&Seal>,
+    hlc: Hlc,
+    signer: &S,
+    project: CellWriteProjector<'_>,
+) -> Result<Seal> {
+    let material = materialize_managed_agent_pcr_control(events, project)?;
+    if signer.signer_did() != &material.controller_id {
+        return Err(Error::Protocol(
+            "managed Agent PCR Seal signer must be the delegated controller".to_owned(),
+        ));
+    }
+    let target = material
+        .covered_event_digests
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let (predecessor_refs, current, notary_seq) = match predecessor {
+        Some(seal) => {
+            if seal.realm_id != material.realm_id || seal.covered_event_digests.is_empty() {
+                return Err(Error::Protocol(
+                    "managed Agent PCR predecessor has incompatible Realm or coverage".to_owned(),
+                ));
+            }
+            let current = seal
+                .covered_event_digests
+                .iter()
+                .cloned()
+                .collect::<BTreeSet<_>>();
+            if !current.is_subset(&target) {
+                return Err(Error::Protocol(
+                    "managed Agent PCR predecessor coverage is not a subset of the target"
+                        .to_owned(),
+                ));
+            }
+            (
+                vec![seal.id.clone()],
+                current,
+                seal.notary_seq.checked_add(1).ok_or_else(|| {
+                    Error::Protocol("managed Agent PCR notary sequence overflow".to_owned())
+                })?,
+            )
+        }
+        None => (Vec::new(), BTreeSet::new(), 0),
+    };
+    let delta = target.difference(&current).cloned().collect::<Vec<_>>();
+    if delta.is_empty() {
+        return Err(Error::Protocol(
+            "managed Agent PCR Seal has no new Event delta".to_owned(),
+        ));
+    }
+    let control_root = control_event_set_root(&target)
+        .map_err(|error| Error::Protocol(format!("managed Agent PCR control root: {error}")))?;
+    let completeness_root = arkret_state::control_event_completeness_root(events, &target)
+        .map_err(|error| {
+            Error::Protocol(format!("managed Agent PCR completeness root: {error}"))
+        })?;
+    let sealed_at = Utc::now();
+    let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
+    let mut seal = Seal {
+        id: SealId::new(format!("ak:seal:sha256:{}", "00".repeat(32)))?,
+        realm_id: material.realm_id,
+        predecessor_refs,
+        delta,
+        control_event_set_root: control_root,
+        state_root: material.state_root,
+        completeness_root,
+        notary_seq,
+        data_view_root: None,
+        data_event_set_root: None,
+        availability_root: None,
+        coverage_scope: None,
+        covered_event_digests: material.covered_event_digests,
+        previous_state_root: None,
+        previous_digest_algorithm: None,
+        notary_signature: NotarySig::Single(PayloadSignature {
+            alg: "EdDSA".to_owned(),
+            verification_method: signer.verification_method_id().clone(),
+            payload_digest: zero_hash,
+            created_at: sealed_at,
+            jws: String::new(),
+            extra: Default::default(),
+        }),
+        sealed_at,
+        hlc,
+        kind: SealKind::Compaction,
+    };
+    let canonical_bytes = seal.canonical_bytes_for_id()?;
+    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes)?;
+    seal.notary_signature = NotarySig::Single(signer.sign_payload(&canonical_bytes)?);
+    seal.validate_structural()?;
+    seal.validate_id()?;
+    Ok(seal)
+}
