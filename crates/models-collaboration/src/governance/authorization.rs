@@ -46,10 +46,7 @@ pub struct AuthzCheckOutcome {
     pub notary_status: Option<NotaryStatus>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub cache_expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<String>,
@@ -67,10 +64,7 @@ pub struct GrantList {
     pub grants: Vec<CapabilityGrant>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_digest: Option<Hash>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub evaluated_at: DateTime<Utc>,
 }
 

@@ -49,16 +49,12 @@ pub struct AgentSigningKeyBinding {
     pub public_key: AgentSigningPublicKey,
     pub public_key_digest: Hash,
     pub agent_key_authorize_event_id: EventId,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
     pub controller_id: Did,
@@ -83,24 +79,17 @@ pub struct AgentAuthorizationEvidence {
     pub status: AgentAuthorizationStatus,
     pub authorized_event_id: EventId,
     pub accepted_frontier: NonEmptyString,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub valid_from_frontier: NonEmptyString,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub not_before: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub valid_until_frontier: Option<NonEmptyString>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -117,10 +106,7 @@ pub struct AgentAuthorizationAdmission {
     pub verification_method: DidUrl,
     pub authorization_event_id: EventId,
     pub accepted_frontier: NonEmptyString,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
 }
 
@@ -179,15 +165,9 @@ pub struct AgentEvidenceSourceProof {
 pub struct AgentEvidenceFreshnessAttestation {
     pub source_service_id: Did,
     pub observed_frontier: NonEmptyString,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub source_proof: AgentEvidenceSourceProof,
 }

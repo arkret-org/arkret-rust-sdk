@@ -28,10 +28,7 @@ pub struct MemberDeliveryBinding {
     pub service_endpoint: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub did_document_digest: Option<Hash>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub resolved_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub service_acceptance_ref: Option<EventId>,
@@ -42,8 +39,7 @@ pub struct MemberDeliveryBinding {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
 }

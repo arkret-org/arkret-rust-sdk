@@ -8,11 +8,9 @@
 
 use std::collections::BTreeSet;
 
+pub use arkret_wire::AGENT_REQUESTED_SCOPE_DISCLOSURE_SCHEMA;
 use arkret_wire::EventInitialSubmission;
-use arkret_wire::serde_helpers::{
-    deserialize_canonical_timestamp, deserialize_optional_canonical_timestamp,
-    serialize_canonical_timestamp, serialize_optional_canonical_timestamp,
-};
+use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 
 use crate::agent_signer_evidence::AgentSigningKeyBinding;
 use crate::events_payloads::agent::{
@@ -21,9 +19,6 @@ use crate::events_payloads::agent::{
 use crate::governance::agent_artifacts::{AgentKeyAuthorizationState, GrantSnapshot, PublicKey};
 use crate::http_bodies::{AccountDevicePairOutcome, AccountDevicePairRequestBody};
 use crate::internal_prelude::*;
-
-pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_SCHEMA: &str =
-    "ak.schema.agent_requested_scope_disclosure.v1";
 
 /// Controller-signed, verifier-bound private disclosure of an Agent's
 /// immutable requested-scope ceiling.
@@ -40,15 +35,9 @@ pub struct AgentRequestedScopeDisclosure {
     pub verifier_did: Did,
     pub audience: NonEmptyString,
     pub challenge: NonEmptyString,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub proofs: Vec<Proof>,
 }
@@ -414,10 +403,7 @@ pub struct AgentProvisionComplete {
     pub pairing_request_id: OpaqueLocalId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
 }
 
@@ -434,10 +420,7 @@ pub struct AgentRenewPairingOutcome {
     pub pairing_request_id: OpaqueLocalId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
 }
 
@@ -456,10 +439,7 @@ pub struct AgentPairingBootstrap {
     pub agent_id: Did,
     pub pairing_request_id: OpaqueLocalId,
     pub pairing_code: String,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub pairing_expires_at: DateTime<Utc>,
 }
 
@@ -530,15 +510,13 @@ pub struct AgentProjection {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp",
-        deserialize_with = "deserialize_optional_canonical_timestamp"
+        with = "optional_canonical_timestamp"
     )]
     pub created_at: Option<DateTime<Utc>>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp",
-        deserialize_with = "deserialize_optional_canonical_timestamp"
+        with = "optional_canonical_timestamp"
     )]
     pub updated_at: Option<DateTime<Utc>>,
 }
@@ -665,10 +643,7 @@ pub struct AgentGrantAttachOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentGrantDetachOutcome {
     pub ok: bool,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub revoked_at: DateTime<Utc>,
 }
 
@@ -975,20 +950,15 @@ pub struct AgentSidecar {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp",
-        deserialize_with = "deserialize_optional_canonical_timestamp"
+        with = "optional_canonical_timestamp"
     )]
     pub state_changed_at: Option<DateTime<Utc>>,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp",
-        deserialize_with = "deserialize_optional_canonical_timestamp"
+        with = "optional_canonical_timestamp"
     )]
     pub updated_at: Option<DateTime<Utc>>,
 }
@@ -1966,10 +1936,7 @@ pub struct KeyState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub pairing_expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_request_id: Option<OpaqueLocalId>,
@@ -1978,8 +1945,7 @@ pub struct KeyState {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp",
-        deserialize_with = "deserialize_optional_canonical_timestamp"
+        with = "optional_canonical_timestamp"
     )]
     pub approval_requested_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -22,31 +22,21 @@ pub struct DirectoryPresentedClaim {
     pub issuer: Did,
     pub claim_kind: String,
     pub value: BTreeMap<String, Value>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub refreshed_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub revoked_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub disclosed_fields: BTreeSet<String>,
@@ -64,14 +54,10 @@ pub struct DirectoryRestrictedClaimPresentation {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub jws: String,
 }
@@ -101,22 +87,13 @@ pub struct AgentSelectorClaim {
     pub claim_scope: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub verified_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<String>,

@@ -70,7 +70,7 @@ pub const VAULT_AEAD_PROFILE: &str = "ak.aead.xchacha20_poly1305.v1";
 
 /// `ak.schema.key_backup.v1` schema id, bound into the AEAD AAD so a
 /// ciphertext cannot be replayed under a different schema (§7.1).
-pub const VAULT_SCHEMA_ID: &str = "ak.schema.key_backup.v1";
+pub const VAULT_SCHEMA_ID: &str = arkret_wire::KEY_BACKUP_SCHEMA;
 
 /// Length of the producer-generated `aead.nonce_salt` in bytes. Spec
 /// requires at least 128 bits; we use 16 bytes (128 bits).

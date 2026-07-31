@@ -5,10 +5,9 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::DidUrl;
+pub use arkret_wire::KEY_TRANSPARENCY_SCHEMA;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-pub const KEY_TRANSPARENCY_SCHEMA: &str = "ak.schema.key_transparency.v1";
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

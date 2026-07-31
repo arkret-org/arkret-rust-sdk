@@ -30,15 +30,9 @@ pub struct AgentRuntimeApprovalNotificationData {
     pub kind: AccountNotificationDataKind,
     pub approval_request_id: OpaqueLocalId,
     pub agent_id: Did,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub requested_at: DateTime<Utc>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
 }
 
@@ -444,10 +438,7 @@ pub struct DeviceMessagesSendRequestBody {
 pub struct DeviceMessageTarget {
     pub message_id: DeviceMessageId,
     pub kind: ProtocolKind,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub content: BTreeMap<String, Value>,
 }

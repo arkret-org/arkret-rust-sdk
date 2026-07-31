@@ -130,15 +130,9 @@ pub struct MemberDeliveryBindingCandidate {
     pub member_delivery_binding: DeliveryBindingHint,
     pub issuer_service_id: Did,
     pub audience: String,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     pub source_refs: Vec<EventId>,
     pub proofs: Vec<Proof>,
@@ -235,10 +229,9 @@ impl MemberDeliveryBindingCandidate {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::DidUrl;
-
     use std::collections::BTreeSet;
 
+    use arkret_wire::DidUrl;
     use serde_json::json;
 
     use super::*;

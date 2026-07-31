@@ -58,8 +58,7 @@ pub struct FederationVerifyActorOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default)]

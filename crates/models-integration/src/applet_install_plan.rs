@@ -39,8 +39,6 @@ pub struct AppletInstallPlan {
 }
 
 impl AppletInstallPlan {
-    pub const SCHEMA: &'static str = "ak.schema.applet_install_plan.v1";
-
     /// Compute the canonical plan digest with `plan_digest` omitted.
     pub fn compute_plan_digest(&self) -> Result<Hash> {
         let mut value = serde_json::to_value(self)?;

@@ -117,10 +117,7 @@ pub struct DetachedSignatureBinding {
     pub payload_digest: Hash,
     pub signer: Did,
     pub verification_method: DidUrl,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
@@ -162,10 +159,7 @@ pub struct DetachedSignature {
     pub verification_method: DidUrl,
     pub alg: String,
     pub payload_digest: Hash,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
@@ -270,10 +264,7 @@ impl DidVerificationMethodResolver for StaticDidVerificationMethodResolver {
 pub struct ProofVerificationContext {
     pub actor_id: Did,
     pub expected_payload_digest: Hash,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub now: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,

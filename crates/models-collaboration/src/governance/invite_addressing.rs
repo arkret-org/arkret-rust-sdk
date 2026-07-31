@@ -6,10 +6,7 @@
 
 use arkret_models_identity::handle::Handle;
 use arkret_wire::event_envelope::Event;
-use arkret_wire::serde_helpers::{
-    deserialize_canonical_timestamp, deserialize_optional_canonical_timestamp,
-    serialize_canonical_timestamp, serialize_optional_canonical_timestamp,
-};
+use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
     BlobRef, Did, Error, EventId, Hash, INVITE_DELIVERY_REQUEST_SCHEMA, InviteLocatorId,
     InviteReceiveAction, PRINCIPAL_LOCATOR_SCHEMA, RealmId, Result, UnknownInviteAction,
@@ -197,10 +194,7 @@ pub enum InviteLocatorStatus {
 pub struct InviteLocatorIssueOutcome {
     pub locator_id: InviteLocatorId,
     pub locator_token: String,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub one_time_use: bool,
 }
@@ -211,10 +205,7 @@ pub struct InviteLocatorIssueOutcome {
 pub struct InviteLocatorRevokeOutcome {
     pub locator_id: InviteLocatorId,
     pub status: InviteLocatorStatus,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub revoked_at: DateTime<Utc>,
 }
 
@@ -292,15 +283,9 @@ pub struct PrincipalLocator {
     pub recipient_service_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recipient_service_kind: Option<String>,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub locator_ref_digest: Hash,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -425,8 +410,7 @@ pub enum IntroductionEvidence {
         #[serde(
             default,
             skip_serializing_if = "Option::is_none",
-            serialize_with = "serialize_optional_canonical_timestamp",
-            deserialize_with = "deserialize_optional_canonical_timestamp"
+            with = "optional_canonical_timestamp"
         )]
         resolved_at: Option<DateTime<Utc>>,
     },
@@ -507,8 +491,7 @@ pub struct InviteDeliveryOutcome {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp",
-        deserialize_with = "deserialize_optional_canonical_timestamp"
+        with = "optional_canonical_timestamp"
     )]
     pub received_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -611,11 +594,10 @@ pub struct DisclosurePolicy {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::DidUrl;
-
     use arkret_models_identity::handle::HandleBindingState;
     use arkret_wire::{
-        INVITE_RECEIVE_POLICY_SCHEMA, PayloadProof, ReceivePolicyConstraints, ReceivePolicySurface,
+        DidUrl, INVITE_RECEIVE_POLICY_SCHEMA, PayloadProof, ReceivePolicyConstraints,
+        ReceivePolicySurface,
     };
 
     use super::*;

@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use arkret_wire::{Did, DidUrl, Error, Hash, Result, canonical};
+use arkret_wire::{DID_CONTINUITY_PROOF_SCHEMA, Did, DidUrl, Error, Hash, Result, canonical};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -35,10 +35,7 @@ pub enum DidContinuitySignatureAlgorithm {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DidContinuityTransferProof {
     pub old_did_document_canonical_digest: Hash,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub old_did_document_fetched_at: DateTime<Utc>,
     pub inception_public_key_fingerprint: Hash,
     pub user_oob_confirmation_id: String,
@@ -64,16 +61,10 @@ pub struct DidContinuityProof {
     pub purpose: DidContinuityPurpose,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub audience: Vec<String>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub old_did_document_digest: Option<Hash>,
@@ -84,14 +75,12 @@ pub struct DidContinuityProof {
 }
 
 impl DidContinuityProof {
-    pub const SCHEMA: &'static str = "ak.schema.did_continuity_proof.v1";
     pub const DIGEST_PREFIX: &'static [u8] = b"ak.did-continuity-proof-v1\n";
 
     pub fn validate_minimal(&self) -> Result<()> {
-        if self.schema != Self::SCHEMA {
+        if self.schema != DID_CONTINUITY_PROOF_SCHEMA {
             return Err(Error::Protocol(format!(
-                "DID continuity proof schema must be {} (schema_violation)",
-                Self::SCHEMA
+                "DID continuity proof schema must be {DID_CONTINUITY_PROOF_SCHEMA} (schema_violation)"
             )));
         }
         if self.signature_chain.len() < 2 {
@@ -230,7 +219,7 @@ mod tests {
 
     fn fixture() -> DidContinuityProof {
         DidContinuityProof {
-            schema: DidContinuityProof::SCHEMA.to_owned(),
+            schema: DID_CONTINUITY_PROOF_SCHEMA.to_owned(),
             old_did: Did::new("did:web:old.example").unwrap(),
             new_did: Did::new("did:webvh:new.example").unwrap(),
             purpose: DidContinuityPurpose::PrincipalMethodUpgrade,
@@ -281,7 +270,7 @@ mod tests {
         proof.validate_minimal().unwrap();
 
         let encoded = serde_json::to_value(&proof).unwrap();
-        assert_eq!(encoded["schema"], DidContinuityProof::SCHEMA);
+        assert_eq!(encoded["schema"], DID_CONTINUITY_PROOF_SCHEMA);
         assert_eq!(encoded["signature_chain"][1]["algorithm"], "ML-DSA-65");
 
         let decoded: DidContinuityProof = serde_json::from_value(encoded).unwrap();

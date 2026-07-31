@@ -1,8 +1,7 @@
-use arkret_canonical::serde_helpers::{
-    deserialize_optional_canonical_timestamp, serialize_optional_canonical_timestamp,
-};
+use arkret_canonical::serde_helpers::optional_canonical_timestamp;
 use arkret_identifiers::{Did, EventId, RealmId};
 use arkret_models_identity::handle::Handle;
+pub use arkret_wire::PEER_CONTACT_DELIVERY_REQUEST_SCHEMA;
 use arkret_wire::{Error, Event, FederatedDeviceSigningKeyEvidence, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -10,7 +9,6 @@ use serde::{Deserialize, Serialize};
 use crate::governance::handle_claim::HandleClaim;
 use crate::governance::invite_addressing::PrincipalLocator;
 
-pub const PEER_CONTACT_DELIVERY_REQUEST_SCHEMA: &str = "ak.schema.peer_contact_delivery_request.v1";
 pub const MAX_PEER_CONTACT_SIGNER_KEY_EVIDENCE: usize = 16;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -88,8 +86,7 @@ pub enum ContactIntroductionEvidence {
         #[serde(
             default,
             skip_serializing_if = "Option::is_none",
-            serialize_with = "serialize_optional_canonical_timestamp",
-            deserialize_with = "deserialize_optional_canonical_timestamp"
+            with = "optional_canonical_timestamp"
         )]
         resolved_at: Option<DateTime<Utc>>,
     },
@@ -193,11 +190,9 @@ impl PeerContactDeliveryRequest {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::DidUrl;
-
     use arkret_identifiers::Hash;
     use arkret_models_identity::handle::HandleBindingState;
-    use arkret_wire::PayloadProof;
+    use arkret_wire::{DidUrl, PayloadProof};
 
     use super::*;
 

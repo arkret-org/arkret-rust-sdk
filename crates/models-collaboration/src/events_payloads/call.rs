@@ -16,15 +16,9 @@ pub struct ParticipantBinding {
     pub actor_id: Did,
     pub device_id: String,
     pub participant_identity: String,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub issuer_kid: DidUrl,
     pub sig: String,
@@ -47,10 +41,7 @@ pub struct CallParticipant {
     pub actor_id: Did,
     pub device_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub joined_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub foci_preferred: Option<Vec<String>>,
@@ -75,10 +66,7 @@ pub struct CallParticipantRemoval {
     pub device_id: Option<String>,
     pub action: CallParticipantRemovalAction,
     pub removed_by: Did,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub removed_at: DateTime<Utc>,
 }
 
@@ -105,10 +93,7 @@ pub enum CallModerationDelta {
         observed_tag: EventId,
         actor_id: Did,
         restored_by: Did,
-        #[serde(
-            serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-            deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-        )]
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         restored_at: DateTime<Utc>,
     },
 }
@@ -131,10 +116,7 @@ pub struct CallMuteOverride {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub video_muted: Option<bool>,
     pub changed_by: Did,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub changed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -346,10 +328,7 @@ pub struct CallRecordingEncryption {
 #[serde(deny_unknown_fields)]
 pub struct CallRecordingRetention {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub retention_expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deletion_trigger: Option<CallRecordingDeletionTrigger>,
@@ -368,16 +347,10 @@ pub struct CallRecordingDeletionAudit {
     pub requested_by: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trigger_event_id: Option<EventId>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub requested_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub completed_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub erasure_receipt_ref: Option<String>,
@@ -409,23 +382,17 @@ pub struct CallRecordingArtifact {
     pub retention: CallRecordingRetention,
     pub produced_by: Did,
     pub recording_initiator_capability_ref: GrantId,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deletion_audit: Option<CallRecordingDeletionAudit>,
 }
 
 impl CallRecordingArtifact {
-    pub const SCHEMA: &'static str = CALL_RECORDING_ARTIFACT_SCHEMA;
-
     pub fn validate(&self) -> Result<()> {
-        if self.schema != Self::SCHEMA {
+        if self.schema != CALL_RECORDING_ARTIFACT_SCHEMA {
             return schema_violation(format!(
-                "call recording artifact schema must be {}",
-                Self::SCHEMA
+                "call recording artifact schema must be {CALL_RECORDING_ARTIFACT_SCHEMA}"
             ));
         }
         if !self.blob_ref.as_str().starts_with("ak:blob:") {

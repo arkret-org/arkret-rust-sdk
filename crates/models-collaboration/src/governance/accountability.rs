@@ -3,6 +3,7 @@
 use std::collections::BTreeSet;
 
 use arkret_models_identity::actor_profile::ActorProfile;
+pub use arkret_wire::ACCOUNTABILITY_GRANT_SCHEMA;
 use arkret_wire::{
     Did, Hash, PayloadProof, ProofContextId, Result, WireError, canonical, composite_subject,
     string_set_digest_component,
@@ -11,7 +12,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub const ACCOUNTABILITY_GRANT_SCHEMA: &str = "ak.schema.accountability_grant.v1";
 pub const ACCOUNTABILITY_SCOPE_SET_CONTEXT: &str = "ak.accountability-scope-set-v1";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -112,16 +112,10 @@ pub struct AccountabilityGrantPayload {
     pub issuer: Did,
     pub subject: Did,
     pub accountability_scope: AccountabilityScope,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub not_before: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
     pub grant_status: AccountabilityGrantStatus,
     pub proof: PayloadProof,

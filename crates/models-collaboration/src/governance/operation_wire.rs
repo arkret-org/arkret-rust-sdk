@@ -29,30 +29,22 @@ pub struct Policy {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub not_before: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
     pub created_by: Did,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub updated_at: Option<DateTime<Utc>>,
 }
@@ -153,15 +145,9 @@ pub struct Invite {
     pub capability_grant_refs: Vec<GrantId>,
     pub state: InviteState,
     /// Required by `invite.schema.json` — every invite carries a hard expiry.
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     /// Reducer-derived actor that produced the most recent state update.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -169,8 +155,7 @@ pub struct Invite {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub updated_at: Option<DateTime<Utc>>,
 }

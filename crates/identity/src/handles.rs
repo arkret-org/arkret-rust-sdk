@@ -32,17 +32,11 @@ pub struct PairwiseDidBinding {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope: Option<String>,
     /// When this pairwise binding was created.
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     /// When this pairwise binding expires (if applicable).
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
 }
 
@@ -56,10 +50,7 @@ pub struct PairwiseDidResolutionProof {
     pub scope: Option<String>,
     pub challenge: String,
     pub proof: String,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
 }
 
@@ -255,10 +246,7 @@ pub struct DidMigration {
     /// Migration proof.
     pub proof: String,
     /// Migration time.
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub migrated_at: DateTime<Utc>,
 }
 
@@ -333,10 +321,7 @@ pub struct VerifiedHandleBinding {
     /// (DNS TXT body, well-known body, etc.).
     pub also_known_as_proof: String,
     /// Cache expiry; bindings MUST be re-verified after.
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     /// Digest of the [`ResolverPolicy`] under which this binding was
     /// produced. Bindings with mismatched digests MUST NOT be reused.

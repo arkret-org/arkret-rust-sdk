@@ -17,10 +17,7 @@ pub struct InclusionList {
     pub list_seq: u64,
     pub event_digests: Vec<Hash>,
     pub expiry_seal_count: u64,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub signature: PayloadProof,
 }
@@ -76,10 +73,7 @@ pub struct SealTransparencyAuditorAttestation {
     pub head_entry_digest: Hash,
     pub auditor_id: Did,
     pub checks: SealTransparencyChecks,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub attested_at: DateTime<Utc>,
     pub signature: PayloadProof,
 }
@@ -97,10 +91,7 @@ pub struct SealTransparency {
     pub state_root: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prev_entry_digest: Option<Hash>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub logged_at: DateTime<Utc>,
     pub log_signature: PayloadProof,
 }

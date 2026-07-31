@@ -93,10 +93,7 @@ pub struct ModerationReport {
     pub evidence_refs: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub franking_proof: Option<ModerationFrankingProof>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
 }
 

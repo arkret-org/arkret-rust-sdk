@@ -23,6 +23,12 @@
 
 use std::collections::BTreeSet;
 
+// `ENCRYPTED_ENVELOPE_SCHEMA` in a profile's required surface implies the `mls`
+// feature (E2EE ciphertext envelopes can only be produced/consumed with the MLS
+// group crypto compiled in); `KEY_BACKUP_SCHEMA` implies the client-side
+// key-backup crypto feature.
+use arkret_wire::{ENCRYPTED_ENVELOPE_SCHEMA, KEY_BACKUP_SCHEMA};
+
 use crate::generated::profile_requirements::ProfileRequirementsError;
 use crate::profile_semantics::collect_profile_semantic_requirements;
 
@@ -45,12 +51,6 @@ pub const FEATURE_MLS: &str = "mls";
 /// Cargo feature implied by a client-side key-backup required surface.
 pub const FEATURE_BACKUP: &str = "backup";
 
-/// Schema whose presence in a profile's required surface implies the `mls`
-/// feature (E2EE ciphertext envelopes can only be produced/consumed with the
-/// MLS group crypto compiled in).
-const ENCRYPTED_ENVELOPE_SCHEMA: &str = "ak.schema.encrypted_envelope.v1";
-/// Schema whose presence implies the client-side key-backup crypto feature.
-const KEY_BACKUP_SCHEMA: &str = "ak.schema.key_backup.v1";
 /// Prefix of every MLS group-messaging event kind.
 const MLS_EVENT_KIND_PREFIX: &str = "ak.mls.";
 

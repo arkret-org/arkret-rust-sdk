@@ -2,7 +2,8 @@ use std::collections::BTreeMap;
 
 use arkret_models_identity::did_document::DidDocument;
 use arkret_wire::{
-    Did, DidUrl, Error, Hash, PayloadSigner, Proof, Result, XExtensionMap, canonical, proof_kind,
+    APPLET_PACKAGE_SCHEMA, APPLET_REGISTRATION_EPOCH_TRANSCRIPT_SCHEMA, Did, DidUrl, Error, Hash,
+    PayloadSigner, Proof, Result, XExtensionMap, canonical, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -375,10 +376,7 @@ pub struct AppletRegistrationEpochDerivedRegistration {
     pub receive_signals: bool,
     pub rate_limited: bool,
     pub requested_scopes: Vec<String>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
 }
 
@@ -435,10 +433,7 @@ pub struct WireAppletRegistration {
     pub manifest: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<Proof>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
 }
 
@@ -707,7 +702,6 @@ pub struct AppletRegistrationEpochTranscript {
 }
 
 impl AppletRegistrationEpochTranscript {
-    pub const SCHEMA: &'static str = "ak.schema.applet_registration_epoch_transcript.v1";
     pub const DOMAIN_SEPARATOR: &'static [u8] = b"arkret-applet-registration-epoch-v1\n";
 
     pub fn from_package(
@@ -720,7 +714,7 @@ impl AppletRegistrationEpochTranscript {
             ));
         }
         let mut transcript = Self {
-            schema: Self::SCHEMA.to_owned(),
+            schema: APPLET_REGISTRATION_EPOCH_TRANSCRIPT_SCHEMA.to_owned(),
             derived_registration: AppletRegistrationEpochDerivedRegistration {
                 kind: WireAppletRegistration::KIND.to_owned(),
                 applet_id: package.applet_id.clone(),
@@ -814,7 +808,7 @@ impl AppletRegistrationEpochTranscript {
     }
 
     pub fn validate_normalized(&self) -> Result<()> {
-        if self.schema != Self::SCHEMA {
+        if self.schema != APPLET_REGISTRATION_EPOCH_TRANSCRIPT_SCHEMA {
             return Err(Error::Protocol(
                 "applet registration epoch transcript schema mismatch".to_owned(),
             ));
@@ -1068,15 +1062,9 @@ pub struct AppletPackage {
     /// after all security-relevant fields and evidence are finalized.
     pub registration_epoch: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     /// Controller DID detached proof. `None` until [`sign`](Self::sign).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1084,7 +1072,6 @@ pub struct AppletPackage {
 }
 
 impl AppletPackage {
-    pub const SCHEMA: &'static str = "ak.schema.applet_package.v1";
     /// The base profile every Applet package MUST claim.
     pub const BASE_PROFILE: &'static str = "ak.profile.applet_service.v1";
 
@@ -1103,7 +1090,7 @@ impl AppletPackage {
     ) -> Self {
         let webhook_key_ref = format!("{}#applet-webhook", service_id.as_str());
         Self {
-            schema: Self::SCHEMA.to_owned(),
+            schema: APPLET_PACKAGE_SCHEMA.to_owned(),
             package_id: package_id.into(),
             applet_id: applet_id.into(),
             service_id,
@@ -1237,7 +1224,7 @@ impl AppletPackage {
     }
 
     pub fn validate_wire(&self) -> Result<()> {
-        if self.schema != Self::SCHEMA {
+        if self.schema != APPLET_PACKAGE_SCHEMA {
             return Err(Error::Protocol("applet package schema mismatch".to_owned()));
         }
         if self.package_id.is_empty() || self.applet_id.is_empty() || self.base_url.is_empty() {

@@ -66,15 +66,9 @@ pub struct CryptoSessionRecord {
     pub sender_key: String,
     pub algorithm: String,
     pub state: CryptoSessionState,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub last_used_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message_index_high_watermark: Option<u64>,
@@ -134,10 +128,7 @@ pub struct WithheldKeyRecord {
     /// Mapped `UnableToDecryptReason` for renderer convenience.
     pub reason: UnableToDecryptReason,
     /// Time the withheld notice was observed locally.
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
 }
 
@@ -159,16 +150,10 @@ pub struct SecretGossipRequestBody {
     pub name: String,
     pub requesting_device: DeviceId,
     pub recipient_device: DeviceId,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
 }
 
@@ -251,10 +236,7 @@ pub struct SecretBackupDescriptor {
     pub algorithm: String,
     pub public_key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub last_recovery_at: Option<DateTime<Utc>>,
 }
 
@@ -317,10 +299,7 @@ pub struct KeyLifecycleEvent {
     /// Device that performed the transition.
     pub device_id: DeviceId,
     /// Wall-clock time of the transition.
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub occurred_at: DateTime<Utc>,
     /// Free-form reason / context string.
     pub reason: String,
@@ -387,10 +366,7 @@ pub struct UnableToDecryptRecord {
     pub sender: Did,
     pub reason: UnableToDecryptReason,
     pub encrypted_content: EncryptedPayload,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub first_seen_at: DateTime<Utc>,
 }
 

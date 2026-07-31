@@ -1486,7 +1486,6 @@ impl CapabilityGrantBuilder {
 #[cfg(test)]
 mod capability_grant_builder_tests {
     use arkret_wire::DidUrl;
-
     use serde_json::json;
 
     use super::*;

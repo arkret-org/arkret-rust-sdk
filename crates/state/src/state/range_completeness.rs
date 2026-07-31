@@ -473,7 +473,7 @@ pub fn verify_full_realm_range_completeness_with_suite(
     let payload: RangeCompletenessAttestation = attestation_event
         .payload_as()
         .map_err(|error| RangeCompletenessError::SchemaViolation(error.to_string()))?;
-    if payload.schema != "ak.schema.range_completeness_attestation.v1"
+    if payload.schema != arkret_wire::RANGE_COMPLETENESS_ATTESTATION_SCHEMA
         || payload.realm_id != *expected_realm
         || payload.issuer != attestation_event.actor_id
     {
@@ -544,11 +544,9 @@ pub fn verify_full_realm_range_completeness_with_suite(
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::DidUrl;
-
     use std::collections::BTreeMap;
 
-    use arkret_wire::{EventKind, EventRequirements, Proof, ScopeRef, proof_kind};
+    use arkret_wire::{DidUrl, EventKind, EventRequirements, Proof, ScopeRef, proof_kind};
     use chrono::{TimeZone, Utc};
     use serde_json::{Value, json};
 

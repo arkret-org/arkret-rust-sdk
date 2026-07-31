@@ -219,10 +219,7 @@ pub struct DetachedProof {
     pub verification_method: DidUrl,
     pub alg: SignatureAlg,
     pub payload_digest: Hash,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
@@ -345,10 +342,7 @@ pub struct WidgetTokenScope {
     pub resources: Vec<WireResourceSelector>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_ids: Option<Vec<RealmId>>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_ttl_seconds: Option<u64>,

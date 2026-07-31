@@ -2,6 +2,7 @@
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical::{canonical_json_bytes, sha256_digest};
+pub use arkret_wire::ACCOUNT_DATA_ENCRYPTED_VALUE_SCHEMA;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use hkdf::Hkdf;
@@ -12,7 +13,6 @@ use sha2::Sha256;
 
 use crate::{Error, Result};
 
-pub const ACCOUNT_DATA_ENCRYPTED_VALUE_SCHEMA: &str = "ak.schema.account_data_encrypted_value.v1";
 pub const ACCOUNT_DATA_ENCRYPTED_VALUE_VERSION: &str = "1.0";
 pub const ACCOUNT_DATA_AEAD_PROFILE: &str = "ak.aead.xchacha20_poly1305.v1";
 const ACCOUNT_DATA_HKDF_SALT: &[u8] = b"arkret-account-data-value-hkdf-v1";

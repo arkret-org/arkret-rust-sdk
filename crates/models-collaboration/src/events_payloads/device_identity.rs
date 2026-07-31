@@ -484,10 +484,7 @@ pub struct DeviceRevokePayload {
     pub principal_id: Did,
     pub device_id: DeviceId,
     pub revoked_by: DeviceOrPrincipalRef,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub revoked_at: DateTime<Utc>,
     pub reason: DeviceRevocationReason,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -553,10 +550,7 @@ pub struct DirectConversationBoundPayload {
     pub mls_genesis_event_ref: EventId,
     pub mls_commit_event_ref: EventId,
     pub mls_welcome_event_ref: EventId,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub binding_state: DirectConversationAuthoredBindingState,
     #[serde(default, skip_serializing_if = "Option::is_none")]

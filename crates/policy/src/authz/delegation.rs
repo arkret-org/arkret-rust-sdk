@@ -110,10 +110,7 @@ pub struct Grant {
     #[serde(default)]
     pub constraints: Vec<GrantConstraint>,
     pub revoked: bool,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     /// The authority this grant was issued under (`capabilities.md` §10).
     /// A `realm_root` ref is a rooted terminal; a `grant` ref is an edge, and
@@ -124,10 +121,7 @@ pub struct Grant {
     /// inside `constraints[]`. When both forms are present the stricter
     /// one wins (see [`grant_effective_expiry`]).
     #[serde(default)]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
 }
 
@@ -171,10 +165,7 @@ pub enum GrantConstraint {
     ///   evaluator, not in the pure delegation helper.
     Temporal {
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        #[serde(
-            serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-            deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-        )]
+        #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
         expires_at: Option<DateTime<Utc>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         constraint_subkind: Option<String>,

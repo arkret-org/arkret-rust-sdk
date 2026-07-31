@@ -5,7 +5,7 @@
 //! shared Realm history.
 
 use arkret_canonical as canonical;
-use arkret_wire::serde_helpers::{deserialize_canonical_timestamp, serialize_canonical_timestamp};
+use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
     DeviceId, Did, Error, EventId, GrantId, Hash, PayloadProof, ProofContextId, RealmId, Result,
 };
@@ -145,10 +145,7 @@ pub struct JoinApplicationReceiptUnsigned {
     pub policy_version_digest: Hash,
     pub application_revision_digest: Hash,
     pub private_body_digest: Hash,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub submitted_at: DateTime<Utc>,
 }
 
@@ -169,10 +166,7 @@ pub struct JoinApplicationReceipt {
     pub policy_version_digest: Hash,
     pub application_revision_digest: Hash,
     pub private_body_digest: Hash,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub submitted_at: DateTime<Utc>,
     pub application_receipt_digest: Hash,
     pub proof: PayloadProof,
@@ -311,10 +305,7 @@ pub struct JoinApplicationReviewReceiptUnsigned {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence_refs: Vec<Hash>,
     pub reviewer_capability_proof: JoinApplicationReviewerCapabilityProof,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub reviewed_at: DateTime<Utc>,
 }
 
@@ -341,10 +332,7 @@ pub struct JoinApplicationReviewReceipt {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence_refs: Vec<Hash>,
     pub reviewer_capability_proof: JoinApplicationReviewerCapabilityProof,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub reviewed_at: DateTime<Utc>,
     pub review_receipt_digest: Hash,
     pub proof: PayloadProof,
@@ -456,10 +444,7 @@ pub struct JoinApplicationCancelReceiptUnsigned {
     pub realm_id: RealmId,
     pub application_ref: Hash,
     pub cancelled_by: Did,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub cancelled_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason_text: Option<String>,
@@ -479,10 +464,7 @@ pub struct JoinApplicationCancelReceipt {
     pub realm_id: RealmId,
     pub application_ref: Hash,
     pub cancelled_by: Did,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub cancelled_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason_text: Option<String>,
@@ -603,10 +585,7 @@ pub struct JoinApplicationEntry {
     pub applicant_did: Did,
     pub application_revision_digest: Hash,
     pub policy_version_digest: Hash,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub submitted_at: DateTime<Utc>,
     pub status: JoinApplicationStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -652,10 +631,7 @@ pub enum JoinApplicationAuditAction {
 pub struct JoinApplicationAuditEntry {
     pub action: JoinApplicationAuditAction,
     pub actor_id: Did,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub occurred_at: DateTime<Utc>,
     pub receipt_ref: Hash,
 }
@@ -701,9 +677,7 @@ fn protocol_error<T>(message: impl Into<String>) -> Result<T> {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::DidUrl;
-
-    use arkret_wire::Audience;
+    use arkret_wire::{Audience, DidUrl};
 
     use super::*;
 

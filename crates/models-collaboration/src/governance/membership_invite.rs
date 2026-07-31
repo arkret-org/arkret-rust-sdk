@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use arkret_wire::serde_helpers::{deserialize_canonical_timestamp, serialize_canonical_timestamp};
+use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
     Did, DidUrl, Error, EventId, Hash, InviteId, RealmId, Result, StrandId, XExtensionMap,
     canonical,
@@ -197,10 +197,7 @@ pub struct InviteCreatePayload {
     pub invitee: Did,
     pub invite_delivery_target: InviteDeliveryTarget,
     pub introduction_evidence_digest: Hash,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub expires_at: chrono::DateTime<chrono::Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,

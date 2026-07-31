@@ -60,8 +60,7 @@ pub struct SessionGrantIntrospection {
     #[serde(default)]
     #[serde(
         skip_serializing_if = "Option::is_none",
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
     /// Optional device-id binding. When present, the bearer token can

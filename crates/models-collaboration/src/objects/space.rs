@@ -39,10 +39,7 @@ pub struct Space {
     pub state: Option<SpaceState>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub state_changed_at: Option<DateTime<Utc>>,
     /// AKP-0007 (spec b7d35be) — optional Circle scope binding on the Space
     /// (container). Authorization-transparent: never carries its own
@@ -55,18 +52,14 @@ pub struct Space {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub child_scope_policy: Option<ChildScopePolicy>,
     pub created_by: Did,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub updated_at: Option<DateTime<Utc>>,
 }

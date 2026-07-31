@@ -1,4 +1,4 @@
-use arkret_wire::serde_helpers::{deserialize_canonical_timestamp, serialize_canonical_timestamp};
+use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{Did, Error, Hash, Result, canonical};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -58,10 +58,7 @@ pub struct DidKeyLogEntry {
     /// DID method-specific raw operation object (`minProperties: 1`).
     pub operation_body: serde_json::Map<String, Value>,
     /// Entry creation time (canonical UTC `Z` form on wire).
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     /// Controller proofs over this entry
     /// (`event-envelope.schema.json#/$defs/proof`).

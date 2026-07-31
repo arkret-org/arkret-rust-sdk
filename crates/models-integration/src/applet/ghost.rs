@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
-use arkret_wire::{AppletId, Did, Error, Event, RealmId, Result};
+use arkret_wire::{
+    AppletId, Did, Error, Event, GHOST_ACTOR_PROVISION_REQUEST_SCHEMA, RealmId, Result,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -16,7 +18,7 @@ use crate::artifacts_applet::ExternalRef;
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GhostActorProvisionRequestBody {
-    /// Always [`GhostActorProvisionRequestBody::SCHEMA`].
+    /// Always [`GHOST_ACTOR_PROVISION_REQUEST_SCHEMA`].
     pub schema: String,
     pub applet_id: AppletId,
     pub service_id: Did,
@@ -35,8 +37,6 @@ pub struct GhostActorProvisionRequestBody {
 }
 
 impl GhostActorProvisionRequestBody {
-    pub const SCHEMA: &'static str = "ak.applet.ghost_actor.provision_request.v1";
-
     /// Build a request body with `schema` stamped and no `display_name`.
     /// Add a display name with [`with_display_name`](Self::with_display_name).
     #[allow(clippy::too_many_arguments)]
@@ -53,7 +53,7 @@ impl GhostActorProvisionRequestBody {
         profile_event: Event,
     ) -> Self {
         Self {
-            schema: Self::SCHEMA.to_owned(),
+            schema: GHOST_ACTOR_PROVISION_REQUEST_SCHEMA.to_owned(),
             applet_id,
             service_id,
             ghost_actor_id,
@@ -253,7 +253,7 @@ mod tests {
     #[test]
     fn ghost_provision_request_rejects_missing_event_pair() {
         let value = serde_json::json!({
-            "schema": GhostActorProvisionRequestBody::SCHEMA,
+            "schema": GHOST_ACTOR_PROVISION_REQUEST_SCHEMA,
             "applet_id": "ak:applet:01904100-0000-7000-8000-000000000003",
             "service_id": "did:web:applet.example",
             "ghost_actor_id": "did:web:ghost.example",

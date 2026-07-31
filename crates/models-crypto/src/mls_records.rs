@@ -49,17 +49,11 @@ pub struct MlsKeyPackageRecord {
     /// Bound `claim_id` once `state = claimed`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub claim_id: Option<String>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_signature: Option<Proof>,
@@ -76,9 +70,6 @@ pub struct MlsKeyPackageRecord {
 }
 
 impl MlsKeyPackageRecord {
-    /// Schema id for `ak.mls.keypackage` events / records.
-    pub const SCHEMA: &'static str = "ak.schema.mls_keypackage.v1";
-
     /// Whether the record is currently usable for a Welcome.
     pub fn is_usable(&self) -> bool {
         !matches!(
@@ -117,10 +108,7 @@ pub struct MlsGroupStateRecord {
     pub device_id: DeviceId,
     pub epoch: u64,
     pub serialized_state: Vec<u8>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub updated_at: DateTime<Utc>,
 }
 

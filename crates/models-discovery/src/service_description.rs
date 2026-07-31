@@ -243,10 +243,7 @@ pub struct ServiceDescribe {
     /// materialization. A stale `last_materialized_at` paired with a
     /// fresh `frontier` indicates the projection layer is degraded.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub last_materialized_at: Option<DateTime<Utc>>,
     /// Vendor extensions permitted by the service-describe schema. Keys must
     /// use the reserved `x_<vendor>_*` namespace and are serialized at the
@@ -822,10 +819,7 @@ pub struct BottomDiagnostic {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub details: Option<BottomDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub escalated_at: Option<DateTime<Utc>>,
 }
 
@@ -914,10 +908,7 @@ pub struct EgressPrivateException {
     pub ports: Vec<u16>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub development_mode_only: Option<bool>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
 }
 
@@ -953,10 +944,7 @@ pub struct ClaimedProfileEntry {
     pub profile_id: String,
     pub claim_kind: SelfClaimedKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub claimed_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
@@ -1004,16 +992,10 @@ pub struct VerifiedProfileEntry {
     pub artifact_ref: String,
     pub verifier_did: Did,
     pub signature: String,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub timestamp: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, flatten)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -1190,16 +1172,10 @@ pub struct RateLimitPolicy {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub entries: Vec<RateLimitEntry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub effective_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cache_ttl_seconds: Option<u32>,
@@ -1264,10 +1240,7 @@ pub struct RateLimitEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backoff_hint: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub next_retry_at: Option<DateTime<Utc>>,
     #[serde(default, flatten)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]

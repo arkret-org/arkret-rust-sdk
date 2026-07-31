@@ -109,10 +109,7 @@ pub struct RealmPreview {
     pub history_visibility: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub join_candidates: Vec<RealmJoinCandidate>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
     #[serde(default)]
     pub source_refs: Vec<String>,
@@ -201,15 +198,9 @@ pub struct RealmJoinCandidate {
     /// membership-gated frontier view before joining.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub seal_basis: SealBasis,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proofs: Vec<PayloadProof>,
@@ -318,10 +309,7 @@ pub struct DirectoryTargetResolutionOutcome {
         salvo(schema(value_type = Option<serde_json::Value>))
     )]
     pub join_rule: Option<JoinRule>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<String>,
@@ -372,10 +360,7 @@ pub struct OrganizationPreview {
     pub realms: Vec<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_count: Option<u64>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
     #[serde(default)]
     pub source_refs: Vec<String>,
@@ -444,10 +429,7 @@ pub struct ActorPreview {
     pub organization_did: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
     pub source_refs: Vec<EventId>,
     pub policy_revision: String,
@@ -595,10 +577,7 @@ pub struct DirectoryAgentSelectorResolutionOutcome {
     pub source_refs: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
 }
 
@@ -651,10 +630,7 @@ pub struct DirectoryListHandlesForSubjectRequestBody {
     pub proofs: Vec<Proof>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub as_of: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
@@ -692,8 +668,7 @@ pub struct DirectoryPushRegisterRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
 }
@@ -702,10 +677,7 @@ pub struct DirectoryPushRegisterRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryPushRegisterOutcome {
     pub subscription_id: crate::SubscriptionId,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub effective_at: DateTime<Utc>,
 }
 
@@ -717,10 +689,7 @@ pub struct DirectoryAnnounceRequestBody {
     pub discovery_state: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<String>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
     pub principal_server_did: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -733,16 +702,10 @@ pub struct DirectoryAnnounceRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryAnnounceOutcome {
     pub announce_id: String,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub indexed_at: DateTime<Utc>,
     pub effective_ttl_seconds: u64,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub next_revalidation_after: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
@@ -756,10 +719,7 @@ pub struct DirectoryWithdrawRequestBody {
     pub reason: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub effective_at: Option<DateTime<Utc>>,
 }
 
@@ -767,10 +727,7 @@ pub struct DirectoryWithdrawRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryWithdrawOutcome {
     pub withdrawal_ref: String,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub acked_at: DateTime<Utc>,
 }
 
@@ -799,10 +756,7 @@ pub struct DirectoryTakedownAppealRequestBody {
     /// `sha256:<hex>` digest of the appeal argument / evidence bundle.
     pub argument_digest: Hash,
     pub requested_outcome: DirectoryTakedownAppealOutcomeRequest,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     /// Signature by the resource governance key or an authorized advocate.
     pub governance_proof: BTreeMap<String, Value>,
@@ -817,10 +771,7 @@ pub struct DirectoryTakedownAppealOutcome {
     /// Directory-local audit reference (`appeal:<token>`); not a registered
     /// `ak:<kind>` typed id.
     pub appeal_id: String,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
     /// Signed Directory decision receipt; status pending until adjudicated.
     pub decision_receipt: BTreeMap<String, Value>,
@@ -897,10 +848,7 @@ pub struct DirectoryHandleResolutionOutcome {
     pub handle_claim: Option<HandleClaim>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub as_of: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<String>,
@@ -931,10 +879,7 @@ pub struct DirectorySubjectHandleList {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<String>)))]
     pub primary_handle: Option<Handle>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
@@ -967,14 +912,12 @@ fn is_false(value: &bool) -> bool {
 
 #[cfg(test)]
 mod agent_selector_outcome_tests {
-    use arkret_wire::DidUrl;
-
     use std::collections::BTreeMap;
 
     use arkret_models_identity::claim_presentation::AgentSelectorClaim;
     use arkret_models_identity::handle::{HandleBindingState, HandleVisibility};
     use arkret_wire::constants::AGENT_SELECTOR_CLAIM_SCHEMA;
-    use arkret_wire::{Did, Hash, PayloadProof};
+    use arkret_wire::{Did, DidUrl, Hash, PayloadProof};
     use chrono::Utc;
 
     use super::DirectoryAgentSelectorResolutionOutcome;

@@ -5,15 +5,15 @@
 //!
 //! §5 mandates both fields but defines **no algorithm** for either. Five
 //! services therefore grew five incompatible implementations
-//! (`arkret-work/review/spec-open/2026-07-31-binding-digest-fields-have-no-canonical-computation.md`).
-//! Two failure modes are worth naming, because this module is shaped to make
+//! (`arkret-work/review/spec-open/2026-07-31-binding-digest-fields-have-no-canonical-computation.
+//! md`). Two failure modes are worth naming, because this module is shaped to make
 //! both unrepresentable:
 //!
 //! 1. **Same input, different digest.** Two repos digested the *same five fields* of the *same*
 //!    [`ResolverPolicy`] through the *same* canonical encoder and still disagreed, because one
 //!    wrote `"fail_closed"` by hand and the other wrote `format!("{:?}", fail_mode)` →
-//!    `"FailClosed"`. Here the encoding is explicit and comes from
-//!    [`ResolverFailMode::as_str`]; no [`Debug`] output ever reaches a digest.
+//!    `"FailClosed"`. Here the encoding is explicit and comes from [`ResolverFailMode::as_str`]; no
+//!    [`Debug`] output ever reaches a digest.
 //! 2. **Evidence that carries no evidence.** One repo's `evidence_digest` was a constant plus the
 //!    DID; another set `evidence_digest = document_digest` verbatim. Both satisfied a "records an
 //!    evidence digest" acceptance criterion while committing to nothing. [`EvidenceEnvelope`]

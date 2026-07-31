@@ -2,9 +2,8 @@ use arkret_event_draft::{
     EventDraftKindRegistry, Operation, OperationEnvelopeBuilder, OperationEventConversion,
 };
 use arkret_identifiers::{Did, Hlc, OperationId, RealmId};
-use arkret_wire::DidUrl;
 use arkret_wire::{
-    Audience, EventKind, Hash, OPERATION_SCHEMA, Proof, ProofBindingRequirements, ScopeRef,
+    Audience, DidUrl, EventKind, Hash, OPERATION_SCHEMA, Proof, ProofBindingRequirements, ScopeRef,
 };
 use chrono::Utc;
 use serde_json::json;

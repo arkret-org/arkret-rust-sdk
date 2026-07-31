@@ -7,7 +7,7 @@
 //! all reuse this envelope. Signature production and verification live in
 //! the behavior crates.
 
-use arkret_wire::serde_helpers::{deserialize_canonical_timestamp, serialize_canonical_timestamp};
+use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{Audience, DidUrl, Hash};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -19,10 +19,7 @@ pub struct DetachedPayloadProof {
     pub verification_method: DidUrl,
     pub alg: String,
     pub payload_digest: Hash,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,

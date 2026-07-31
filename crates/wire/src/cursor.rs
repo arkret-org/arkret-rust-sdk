@@ -67,20 +67,14 @@ pub struct Cursor {
     ///
     /// Issuing-service internal field — clients MUST NOT read or depend on
     /// it (`conformance-vectors.md`: cursor opacity).
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: chrono::DateTime<chrono::Utc>,
     /// Expiration instant in the same canonical Arkret profile.
     ///
     /// Issuing-service internal field — clients MUST NOT inspect it (e.g. to
     /// pre-check expiry) or depend on it (`conformance-vectors.md`: cursor
     /// opacity; expiry is signalled by the service via `cursor_expired`).
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: chrono::DateTime<chrono::Utc>,
     /// Stateful cursor handle.
     ///

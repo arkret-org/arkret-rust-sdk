@@ -10,9 +10,10 @@ use std::num::NonZeroU64;
 
 use arkret_canonical::binding_contexts;
 use arkret_wire::{
-    AttestationId, Audience, Base64UrlString, DeviceId, Did, DidUrl, Error, EventId, Hash,
-    NonEmptyJsonObject, NonEmptyString, PayloadProof, ProofContextId, ProtocolKind, ReceiptId,
-    RecoverySessionId, Result, TransactionId, TypedTrustDomainId, XExtensionMap, canonical,
+    AttestationId, Audience, Base64UrlString, DID_WEBVH_WITNESS_RECEIPT_SCHEMA, DeviceId, Did,
+    DidUrl, Error, EventId, Hash, IDENTITY_RECEIPT_SCHEMA, NonEmptyJsonObject, NonEmptyString,
+    PayloadProof, ProofContextId, ProtocolKind, ReceiptId, RecoverySessionId, Result,
+    TransactionId, TypedTrustDomainId, XExtensionMap, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -33,17 +34,12 @@ pub struct IdentityReceipt {
     pub witness_role: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,
-    #[serde(
-        serialize_with = "arkret_wire::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_wire::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub signature: PayloadProof,
 }
 
 impl IdentityReceipt {
-    pub const SCHEMA: &'static str = "ak.schema.identity_receipt.v1";
-
     /// `sha256(canonical_json(receipt with signature omitted))`.
     pub fn payload_digest(&self) -> Result<Hash> {
         let mut value = serde_json::to_value(self)?;
@@ -97,11 +93,10 @@ impl IdentityReceipt {
     /// Validate the receipt body and the plaintext proof bindings before JWS
     /// verification with the registry service key.
     pub fn validate_proof_binding(&self) -> Result<()> {
-        if self.schema != Self::SCHEMA {
+        if self.schema != IDENTITY_RECEIPT_SCHEMA {
             return Err(Error::Protocol(format!(
-                "identity receipt schema '{}' is not {}",
-                self.schema,
-                Self::SCHEMA
+                "identity receipt schema '{}' is not {IDENTITY_RECEIPT_SCHEMA}",
+                self.schema
             )));
         }
         ReceiptId::new(self.receipt_id.clone())?;
@@ -161,10 +156,7 @@ pub struct DidWebvhWitnessReceipt {
     pub witness_did: Did,
     pub witness_verification_method: String,
     pub controlling_organization: Did,
-    #[serde(
-        serialize_with = "arkret_wire::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_wire::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
@@ -173,21 +165,14 @@ pub struct DidWebvhWitnessReceipt {
     pub trust_domain: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,
-    #[serde(
-        serialize_with = "arkret_wire::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_wire::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    #[serde(
-        serialize_with = "arkret_wire::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_wire::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub signature: PayloadProof,
 }
 
 impl DidWebvhWitnessReceipt {
-    pub const SCHEMA: &'static str = "ak.schema.did_webvh_witness_receipt.v1";
     pub const PROOF_BINDING_CONTEXT: &'static str =
         ProofContextId::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1;
 
@@ -248,11 +233,10 @@ impl DidWebvhWitnessReceipt {
     }
 
     pub fn validate_proof_binding(&self) -> Result<()> {
-        if self.schema != Self::SCHEMA {
+        if self.schema != DID_WEBVH_WITNESS_RECEIPT_SCHEMA {
             return Err(Error::Protocol(format!(
-                "did:webvh witness receipt schema '{}' is not {}",
-                self.schema,
-                Self::SCHEMA
+                "did:webvh witness receipt schema '{}' is not {DID_WEBVH_WITNESS_RECEIPT_SCHEMA}",
+                self.schema
             )));
         }
         ReceiptId::new(self.receipt_id.clone())?;
@@ -364,10 +348,10 @@ impl<'de> Deserialize<'de> for IdentityReceiptEvidence {
     {
         let value = Value::deserialize(deserializer)?;
         match value.get("schema").and_then(Value::as_str) {
-            Some(IdentityReceipt::SCHEMA) => serde_json::from_value(value)
+            Some(IDENTITY_RECEIPT_SCHEMA) => serde_json::from_value(value)
                 .map(Self::Registry)
                 .map_err(serde::de::Error::custom),
-            Some(DidWebvhWitnessReceipt::SCHEMA) => serde_json::from_value(value)
+            Some(DID_WEBVH_WITNESS_RECEIPT_SCHEMA) => serde_json::from_value(value)
                 .map(Self::DidWebvhWitness)
                 .map_err(serde::de::Error::custom),
             Some(schema) => Err(serde::de::Error::custom(format!(
@@ -699,7 +683,7 @@ mod tests {
     fn witness_receipt() -> DidWebvhWitnessReceipt {
         let created_at = Utc.with_ymd_and_hms(2026, 7, 29, 0, 0, 0).unwrap();
         let mut receipt = DidWebvhWitnessReceipt {
-            schema: DidWebvhWitnessReceipt::SCHEMA.to_owned(),
+            schema: DID_WEBVH_WITNESS_RECEIPT_SCHEMA.to_owned(),
             receipt_id: "ak:receipt:01984e00-0000-7000-8000-000000000001".to_owned(),
             did: Did::new("did:webvh:z6mkfixture:subject.example").unwrap(),
             version_id: "1-QmFixtureVersion".to_owned(),
@@ -946,16 +930,10 @@ pub struct KeyVerificationContent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub method: Option<ProtocolKind>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub timestamp: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub purpose: Option<KeyVerificationPurpose>,

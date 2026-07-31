@@ -1,6 +1,4 @@
-use arkret_canonical::serde_helpers::{
-    deserialize_canonical_timestamp, serialize_canonical_timestamp,
-};
+use arkret_canonical::serde_helpers::canonical_timestamp;
 use arkret_models_identity::DetachedPayloadProof;
 
 use super::*;
@@ -206,10 +204,7 @@ pub struct DidRegistryReceipt {
     /// outside this audience context when present.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     /// Generic detached-JWS proof
     /// (`event-envelope.schema.json#/$defs/proof`) by the registry
@@ -220,8 +215,6 @@ pub struct DidRegistryReceipt {
 }
 
 impl DidRegistryReceipt {
-    pub const SCHEMA: &'static str = "ak.schema.identity_receipt.v1";
-
     /// Build and sign a receipt with the **registry's** Ed25519 key.
     #[allow(clippy::too_many_arguments)]
     pub fn signed(
@@ -236,7 +229,7 @@ impl DidRegistryReceipt {
     ) -> Result<Self> {
         let created_at = Utc::now();
         let mut receipt = Self {
-            schema: Self::SCHEMA.to_owned(),
+            schema: arkret_wire::IDENTITY_RECEIPT_SCHEMA.to_owned(),
             receipt_id,
             did,
             seq,
@@ -322,11 +315,11 @@ impl DidRegistryReceipt {
     /// detached-JWS verification with the registry key resolved via
     /// `resolver`.
     pub fn verify(&self, resolver: &dyn DidResolver) -> Result<()> {
-        if self.schema != Self::SCHEMA {
+        if self.schema != arkret_wire::IDENTITY_RECEIPT_SCHEMA {
             return Err(Error::Protocol(format!(
                 "identity receipt schema '{}' is not {}",
                 self.schema,
-                Self::SCHEMA
+                arkret_wire::IDENTITY_RECEIPT_SCHEMA
             )));
         }
         if self.signature.kind != "detached_jws" {
@@ -385,10 +378,7 @@ pub struct StaridRegistryRecord {
     pub current_control_key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub receipt: Option<DidRegistryReceipt>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub resolved_at: DateTime<Utc>,
 }
 
@@ -427,10 +417,7 @@ pub struct StaridControlProofRequestBody {
 pub struct StaridControlProofVerification {
     pub did: Did,
     pub verification_method: DidUrl,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub verified_at: DateTime<Utc>,
 }
 

@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use arkret_canonical::canonical;
-use arkret_wire::{Did, DidUrl, Error, Hash, PolicyId, RealmId, Result};
+use arkret_wire::{Did, DidUrl, ERASURE_RECEIPT_SCHEMA, Error, Hash, PolicyId, RealmId, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -136,8 +136,7 @@ pub struct ErasurePeerReceipt {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub acknowledged_at: Option<DateTime<Utc>>,
 }
@@ -156,17 +155,11 @@ pub struct ErasureReceipt {
     pub retained_stub: Option<VerificationStub>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub legal_hold_ref: Option<String>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub completed_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub issued_at: Option<DateTime<Utc>>,
     pub proofs: Vec<ErasureReceiptProof>,
     /// Cross-Principal-Server erasure fanout aggregate status. Absent on
@@ -179,11 +172,10 @@ pub struct ErasureReceipt {
 }
 
 impl ErasureReceipt {
-    pub const SCHEMA: &'static str = "ak.schema.erasure_receipt.v1";
     pub const EVENT_KIND: &'static str = "ak.audit.erasure_receipt";
 
     pub fn validate_minimal(&self) -> Result<()> {
-        if self.schema != Self::SCHEMA {
+        if self.schema != ERASURE_RECEIPT_SCHEMA {
             return Err(Error::Protocol(
                 "erasure receipt schema mismatch".to_owned(),
             ));
@@ -264,7 +256,7 @@ mod erasure_receipt_tests {
     fn receipt(stub: &VerificationStub) -> ErasureReceipt {
         let mut receipt = ErasureReceipt {
             receipt_id: "ak:receipt:01970e58-0004-7000-8000-000000000010".to_owned(),
-            schema: ErasureReceipt::SCHEMA.to_owned(),
+            schema: ERASURE_RECEIPT_SCHEMA.to_owned(),
             issuer: Did::new("did:webvh:z6mkfixture:erasure.example".to_owned()).unwrap(),
             subject: ErasureSubject {
                 kind: ErasureSubjectKind::Event,

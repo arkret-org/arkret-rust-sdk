@@ -4,10 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::serde_helpers::{
-    deserialize_canonical_timestamp, deserialize_optional_canonical_timestamp,
-    serialize_canonical_timestamp, serialize_optional_canonical_timestamp,
-};
+use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
     AppletId, CircleId, Did, EncryptionProfile, Error, EvaluationClass, Facet, GrantId, Hash,
     HistoryVisibility, PayloadProof, ProofContextId, RealmId, Result, WireError, XExtensionMap,
@@ -297,16 +294,10 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub applies_to_actions: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub not_before: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recurrence: Option<GrantConstraintRecurrence>,
@@ -735,23 +726,18 @@ pub struct CapabilityGrant {
     /// root controller's grant from a member re-granting what it holds.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub issuer_authority_refs: Vec<IssuerAuthorityRef>,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp",
-        deserialize_with = "deserialize_optional_canonical_timestamp"
+        with = "optional_canonical_timestamp"
     )]
     pub not_before: Option<DateTime<Utc>>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp",
-        deserialize_with = "deserialize_optional_canonical_timestamp"
+        with = "optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -759,8 +745,7 @@ pub struct CapabilityGrant {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp",
-        deserialize_with = "deserialize_optional_canonical_timestamp"
+        with = "optional_canonical_timestamp"
     )]
     pub updated_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -768,8 +753,7 @@ pub struct CapabilityGrant {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp",
-        deserialize_with = "deserialize_optional_canonical_timestamp"
+        with = "optional_canonical_timestamp"
     )]
     pub revoked_at: Option<DateTime<Utc>>,
     pub proofs: Vec<PayloadProof>,
@@ -835,9 +819,7 @@ impl CapabilityGrant {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::DidUrl;
-
-    use arkret_wire::PayloadProofPurpose;
+    use arkret_wire::{DidUrl, PayloadProofPurpose};
     use serde_json::json;
 
     use super::*;

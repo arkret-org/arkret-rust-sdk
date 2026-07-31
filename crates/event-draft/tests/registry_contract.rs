@@ -2,8 +2,7 @@ use arkret_event_draft::{
     CausalRef, EventDraftKindRegistry, OperationEnvelope, OperationEnvelopeBuilder,
     event_draft_kind_conformance_vectors, required_fields_for_event_kind,
 };
-use arkret_wire::DidUrl;
-use arkret_wire::{Did, EventKind, Hash, Hlc, OperationId, Proof, RealmId, ScopeRef};
+use arkret_wire::{Did, DidUrl, EventKind, Hash, Hlc, OperationId, Proof, RealmId, ScopeRef};
 use serde_json::json;
 
 fn realm_id() -> RealmId {

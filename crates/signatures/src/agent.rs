@@ -27,10 +27,7 @@ use crate::error::{Error, Result};
 pub struct AgentKeyPairProofSigningInput {
     pub audience: String,
     pub challenge: String,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub request_canonical_digest: Hash,
     pub verification_method: DidUrl,

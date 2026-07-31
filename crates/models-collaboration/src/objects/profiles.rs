@@ -285,10 +285,7 @@ pub struct Morph {
     /// preserved on deserialize, omitted by producers (servers populate it).
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub state_changed_at: Option<DateTime<Utc>>,
     /// Business progress axis (spec `morph.schema.json` required `stage`).
     /// Only Strand/Morph carry a `stage`. Distinct from `state` (lifecycle).
@@ -297,24 +294,17 @@ pub struct Morph {
     /// deserialize, omitted by producers (servers populate it).
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub stage_changed_at: Option<DateTime<Utc>>,
     pub created_by: Did,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub updated_at: Option<DateTime<Utc>>,
 }
@@ -429,16 +419,10 @@ pub struct IdentityLink {
     pub mls_group_id: Option<String>,
     pub mls_leaf_index: u64,
     pub mls_epoch: u64,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub effective_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disclosure_policy_id: Option<PolicyId>,
@@ -446,10 +430,8 @@ pub struct IdentityLink {
 }
 
 impl IdentityLink {
-    pub const SCHEMA: &'static str = "ak.schema.identity_link.v1";
-
     pub fn validate_minimal(&self) -> Result<()> {
-        if self.schema != Self::SCHEMA {
+        if self.schema != arkret_wire::IDENTITY_LINK_SCHEMA {
             return Err(Error::Protocol(
                 "identity_link schema must be ak.schema.identity_link.v1".to_owned(),
             ));

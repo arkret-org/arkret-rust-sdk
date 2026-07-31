@@ -1,3 +1,4 @@
+use arkret_wire::DidUrl;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -5,7 +6,6 @@ use serde_json::Value;
 use super::constants::{DETACHED_JWS_ALG_EDDSA, DETACHED_JWS_PROOF_KIND};
 use super::merkle::sha256_digest;
 use crate::{BlobRef, Did, Error, EventId, Hash, Hlc, RealmId, Result, SnapshotId};
-use arkret_wire::DidUrl;
 
 mod base64_url {
     use serde::{Deserialize, Deserializer, Serializer};
@@ -40,10 +40,7 @@ pub struct SnapshotManifest {
     #[serde(default)]
     pub chunks: Vec<SnapshotChunkDescriptor>,
     pub created_by: Did,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub authority_binding: AuthorityBinding,
     pub signature: DetachedJwsProof,
@@ -209,10 +206,7 @@ pub struct AuthorityBinding {
     pub auth_state_digest: Hash,
     #[serde(default)]
     pub auth_frontier: Vec<EventId>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub checked_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub witness_attestations: Vec<crate::models::Proof>,
@@ -234,10 +228,7 @@ pub struct DetachedJwsProof {
     pub verification_method: DidUrl,
     pub alg: String,
     pub payload_digest: Hash,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub jws: String,
 }

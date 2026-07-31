@@ -7,6 +7,11 @@ use arkret_canonical::canonical::canonical_json_bytes;
 use arkret_models_collaboration::objects::media::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
 };
+/// Fixed ASCII domain-separation label that prefixes the participant-binding
+/// signing input (`media-service-binding.md` §3). Equals the v1 binding
+/// `scheme` byte-for-byte; a single `0x00` separates it from the canonical
+/// JSON of the seven authoritative fields.
+pub use arkret_wire::PARTICIPANT_BINDING_SCHEMA as PARTICIPANT_BINDING_LABEL;
 use arkret_wire::{CallId, DeviceId, Did, RealmId};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, VerifyingKey};
@@ -17,12 +22,6 @@ use crate::{Error, Result};
 #[path = "media_ice.rs"]
 mod ice;
 pub use ice::{IceConfig, verify_ice_config_outcome};
-
-/// Fixed ASCII domain-separation label that prefixes the participant-binding
-/// signing input (`media-service-binding.md` §3). Equals the v1 binding
-/// `scheme` byte-for-byte; a single `0x00` separates it from the canonical
-/// JSON of the seven authoritative fields.
-pub const PARTICIPANT_BINDING_LABEL: &str = "ak.media.participant_binding.v1";
 
 // ─── AKP-0010 (R3 spec-sync 2026-05-27) — media token exchange ────────────
 

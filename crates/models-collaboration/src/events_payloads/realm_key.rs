@@ -62,10 +62,7 @@ pub struct RealmKeyRequestPayload {
     pub requested_source_kind: HistoryKeySource,
     pub target_source_ref: RealmKeySourceRef,
     pub target_principal_id: Did,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
 }
 
@@ -118,10 +115,7 @@ pub struct RealmKeyShareAuditPayload {
     pub recipient_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audit_digest: Option<Hash>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub recorded_at: DateTime<Utc>,
 }
 
@@ -196,15 +190,9 @@ pub struct RealmKeySharePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aad_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
 }
 
@@ -370,10 +358,7 @@ pub struct RealmKeyWithheldPayload {
     pub key_scope: RealmKeyScope,
     pub withheld_reason_code: RealmKeyWithheldReasonCode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub created_at: Option<DateTime<Utc>>,
 }
 

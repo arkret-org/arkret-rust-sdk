@@ -24,16 +24,13 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+pub use arkret_wire::MEMBER_IDENTITY_SCHEMA;
 use arkret_wire::{BlobRef, Did, DidUrl, EventId, Hash, RealmId, Result, canonical};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::handle::HandleBindingState;
-
-/// Schema discriminator carried by [`MemberIdentity::schema`]. Matches the
-/// `ak.schema.member_identity.v1` constant in the spec schema.
-pub const MEMBER_IDENTITY_SCHEMA: &str = "ak.schema.member_identity.v1";
 
 /// Realm-scoped, actor-scoped full `member_identity` segment.
 ///
@@ -49,16 +46,12 @@ pub struct MemberIdentity {
     pub actor_id: Did,
     pub subject_id: Did,
     pub display_profile: DisplayProfile,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub asserted_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
     pub proof: MemberIdentityProof,

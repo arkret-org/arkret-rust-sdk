@@ -60,10 +60,7 @@ pub struct LocalServiceIdentity {
     pub active_signing_key_ref: ServiceIdentityKeyRef,
     pub control_key_ref: ServiceIdentityKeyRef,
     pub version_id: String,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub last_verified_at: DateTime<Utc>,
 }
 
@@ -87,10 +84,7 @@ pub struct StoredServiceIdentity {
     pub identity: LocalServiceIdentity,
     pub did_document: ServiceDidDocument,
     pub registration_receipt: ServiceRegistrationReceipt,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub stored_at: DateTime<Utc>,
 }
 
@@ -120,10 +114,7 @@ pub struct ServiceIdentityBundle {
     pub identity: StoredServiceIdentity,
     pub webvh_history: Vec<ServiceWebvhInceptionOperation>,
     pub receipt_chain: Vec<ServiceRegistrationReceipt>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub exported_at: DateTime<Utc>,
 }
 
@@ -184,19 +175,13 @@ pub enum ServiceIdentityState {
     },
     DegradedStored {
         identity: LocalServiceIdentity,
-        #[serde(
-            serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-            deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-        )]
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         retry_at: DateTime<Utc>,
         last_error: String,
     },
     WaitingProvider {
         registration_key: ServiceRegistrationKey,
-        #[serde(
-            serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-            deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-        )]
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         retry_at: DateTime<Utc>,
     },
     RegistrationKeyDrift {
@@ -289,16 +274,10 @@ pub struct ResolvedService {
     pub service_kind: ServiceKind,
     pub endpoint: CanonicalServiceUrl,
     pub supported_operations: Vec<String>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub resolved_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
 }
 

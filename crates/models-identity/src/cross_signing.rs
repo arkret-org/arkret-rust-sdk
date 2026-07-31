@@ -92,8 +92,6 @@ impl<'de> Deserialize<'de> for CrossSigningResetPayload {
 }
 
 impl CrossSigningResetPayload {
-    pub const SCHEMA: &'static str = "ak.schema.cross_signing_reset.v1";
-
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         trust_domain: TypedTrustDomainId,

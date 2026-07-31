@@ -247,10 +247,7 @@ pub struct PresencePreference {
     /// Expiry: past this instant the whole preference is treated as
     /// absent and clients revert to automatic state detection.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub clears_at: Option<DateTime<Utc>>,
 }
 

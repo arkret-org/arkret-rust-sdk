@@ -415,8 +415,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::DidUrl;
-
     use std::collections::{BTreeMap, BTreeSet};
 
     use arkret_models_crypto::mls_payloads::{
@@ -425,8 +423,8 @@ mod tests {
     use arkret_wire::error_codes::{ErrorCode, ReasonCode};
     use arkret_wire::event_envelope::{Event, ScopeRef};
     use arkret_wire::{
-        CellRef, Did, Error, EventId, EventRequirements, Hash, Hlc, NotarySig, PayloadSignature,
-        Proof, RealmId, Seal, SealBasis, SealId, SealKind, canonical,
+        CellRef, Did, DidUrl, Error, EventId, EventRequirements, Hash, Hlc, NotarySig,
+        PayloadSignature, Proof, RealmId, Seal, SealBasis, SealId, SealKind, canonical,
     };
     use chrono::{TimeZone, Utc};
     use serde_json::json;

@@ -4,10 +4,7 @@ use super::*;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthzContext {
     /// Current timestamp for evaluation
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub now: DateTime<Utc>,
     /// Actor making the request
     pub actor_id: Did,
@@ -62,10 +59,7 @@ pub struct AuthzContext {
     pub scope_resource_count: Option<u64>,
     /// Creation time of the target object (for `EditWindow`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub target_created_at: Option<DateTime<Utc>>,
     /// Active Strand track (`discussion` / `synthesis` / profile-defined)
     /// when the operation targets a Strand.
@@ -296,10 +290,7 @@ pub struct PolicyModerationReport {
     pub resource: Resource,
     pub effect: PolicyServerEffect,
     pub reason: String,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
 }
 
@@ -1511,10 +1502,8 @@ pub fn moderation_report_for_policy_outcome(
 
 #[cfg(test)]
 mod engine_wire_tests {
-    use arkret_wire::DidUrl;
-
     use arkret_models_collaboration::governance::grant_constraint::CapabilitySubject;
-    use arkret_wire::{CAPABILITY_SCHEMA, GrantId};
+    use arkret_wire::{CAPABILITY_SCHEMA, DidUrl, GrantId};
     use serde_json::json;
 
     use super::*;

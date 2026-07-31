@@ -172,10 +172,7 @@ pub struct KeyBackupActiveSeries {
     pub series_pointer_version: u64,
     pub previous_series_ids: Vec<BackupSeriesId>,
     pub frontier_ref: KeyBackupActiveSeriesFrontierRef,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     pub auth_data: KeyBackupActiveSeriesAuthData,
     #[serde(flatten)]

@@ -41,10 +41,7 @@ pub struct PayloadSignature {
     pub verification_method: DidUrl,
     pub alg: String,
     pub payload_digest: Hash,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub jws: String,
     /// `seal.schema.json#/$defs/signature` declares `additionalProperties: true`;
@@ -138,10 +135,7 @@ pub struct Seal {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_digest_algorithm: Option<String>,
     pub notary_signature: NotarySig,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub sealed_at: DateTime<Utc>,
     pub hlc: Hlc,
     #[serde(default, skip)]

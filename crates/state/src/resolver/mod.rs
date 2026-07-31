@@ -23,7 +23,7 @@ use crate::{
 };
 
 pub const REDUCER_SNAPSHOT_SCHEMA: &str = "ak.schema.reducer_snapshot.v1";
-pub const REDUCER_SNAPSHOT_PROFILE: &str = "ak.reducer.v1";
+pub use arkret_wire::CORE_REDUCER_PROFILE as REDUCER_SNAPSHOT_PROFILE;
 
 mod snapshot;
 mod state;

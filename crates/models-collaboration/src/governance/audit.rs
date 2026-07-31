@@ -25,10 +25,7 @@ pub struct AuditPolicyAccessPayload {
     pub access_kind: AccessKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub late_recovery_original_event_id: Option<EventId>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
 }
 
@@ -187,10 +184,7 @@ pub struct AuditRywReceipt {
     pub trust_domain: TypedTrustDomainId,
     pub audit_actor_id: Did,
     pub frontier: RywFrontier,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
     pub receipt_independence: ReceiptIndependence,
     pub audit_assurance_class: AuditAssurance,
@@ -198,10 +192,6 @@ pub struct AuditRywReceipt {
 }
 
 impl AuditRywReceipt {
-    /// Canonical schema id and event-kind constant for `ak.audit.ryw_receipt`.
-    pub const SCHEMA: &'static str = "ak.schema.audit_ryw_receipt.v1";
-    pub const EVENT_KIND: &'static str = "ak.audit.ryw_receipt";
-
     /// Validate independence vs the declared assurance class. Returns
     /// `Err` when an attested-mode receipt is single-source (which fails
     /// closed per `encryption-and-audit.md` §3.3.1).

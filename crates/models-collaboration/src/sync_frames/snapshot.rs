@@ -44,10 +44,7 @@ pub struct RangeCompletenessAttestationWitnessAttestationWitnessesItem {
     pub verification_method: DidUrl,
     pub controlling_organization: Did,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub attested_at: Option<DateTime<Utc>>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
@@ -71,10 +68,7 @@ pub struct RangeCompletenessAttestation {
     pub event_range: RangeCompletenessAttestationEventRange,
     pub root: Hash,
     pub count: u64,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
     pub witness_attestation: RangeCompletenessAttestationWitnessAttestation,
     pub proofs: Vec<Proof>,
@@ -166,10 +160,7 @@ pub struct SnapshotAuthorityBinding {
     pub authority_kind: String,
     pub auth_state_digest: Hash,
     pub auth_frontier: Vec<EventId>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub checked_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub witness_attestations: Option<Vec<Proof>>,
@@ -190,10 +181,7 @@ pub struct Snapshot {
     pub verification_hints: Option<SnapshotVerificationHintsValue>,
     pub chunks: Vec<SnapshotChunksItem>,
     pub created_by: Did,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub authority_binding: SnapshotAuthorityBinding,
     pub signature: PayloadProof,
@@ -208,10 +196,7 @@ pub struct SnapshotBootstrap {
     pub state_digest: Hash,
     pub snapshot_frontier: Vec<EventId>,
     pub created_by: Did,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub authority_binding: SnapshotAuthorityBinding,
     pub signature: PayloadProof,

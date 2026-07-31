@@ -2,9 +2,7 @@
 
 use std::num::NonZeroU64;
 
-use arkret_canonical::serde_helpers::{
-    deserialize_canonical_timestamp, serialize_canonical_timestamp,
-};
+use arkret_canonical::serde_helpers::{canonical_timestamp, serialize_canonical_timestamp};
 use arkret_models_crypto::PeerKeyPackageClaimReceipt;
 
 use crate::internal_prelude::*;
@@ -170,10 +168,7 @@ pub struct MlsCommitFailedPayload {
     pub error_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub diagnostic_digest: Option<Hash>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub failed_at: DateTime<Utc>,
 }
 
@@ -306,15 +301,9 @@ pub struct MlsKeypackagePayload {
     pub state: MlsKeyPackageState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub claim_id: Option<NonEmptyString>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub device_signature: SignatureMaterial,
 }
@@ -515,10 +504,7 @@ struct MlsWelcomeClaimEnvelopeWire {
     requester_device_id: Option<DeviceId>,
     nonce: NonEmptyString,
     welcome_digest: Hash,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     created_at: DateTime<Utc>,
     signature: KeyOperationSignature,
 }
@@ -701,10 +687,7 @@ struct MlsWelcomePayloadWire {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     commit_ref: Option<EventId>,
     governance_binding: MlsGovernanceBindingPayload,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     expires_at: DateTime<Utc>,
 }
 

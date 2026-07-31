@@ -250,8 +250,7 @@ pub enum HandleHintBindingSource {
     RealmPolicy,
 }
 
-/// Canonical handle claim shape — matches `handle-claim.schema.json`.
-pub const HANDLE_CLAIM_SCHEMA: &str = "ak.schema.handle_claim.v1";
+pub use arkret_wire::HANDLE_CLAIM_SCHEMA;
 
 #[cfg(test)]
 mod tests {

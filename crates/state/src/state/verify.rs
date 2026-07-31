@@ -722,10 +722,8 @@ pub type ControlMoveRejectMap = BTreeMap<Hash, ControlMoveReject>;
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::DidUrl;
-
-    use arkret_wire::Proof;
     use arkret_wire::event_envelope::{EventRef, ScopeRef};
+    use arkret_wire::{DidUrl, Proof};
     use chrono::{TimeZone, Utc};
     use serde_json::json;
 

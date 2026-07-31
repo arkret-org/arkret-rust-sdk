@@ -75,10 +75,7 @@ pub struct AppletRegistrationPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest: Option<BTreeMap<String, Value>>,
     pub proof: BTreeMap<String, Value>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
 }
 

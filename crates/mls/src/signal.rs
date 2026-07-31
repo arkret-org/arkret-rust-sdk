@@ -326,10 +326,8 @@ fn derive_signal_key(history_secret: &[u8], key_len: usize) -> Result<Zeroizing<
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::DidUrl;
-
     use arkret_wire::{
-        DeviceId, Did, RealmId, ScopeRef, SealId, SignalClass, SignalKeyRef, SignalProof,
+        DeviceId, Did, DidUrl, RealmId, ScopeRef, SealId, SignalClass, SignalKeyRef, SignalProof,
         proof_kind,
     };
     use chrono::{DateTime, Duration, TimeZone, Utc};

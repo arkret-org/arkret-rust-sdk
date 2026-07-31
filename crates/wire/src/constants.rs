@@ -46,11 +46,15 @@ pub const RESOURCE_SELECTOR_SCHEMA: &str = "ak.schema.resource_selector.v1";
 pub const GRANT_CONSTRAINT_SCHEMA: &str = "ak.schema.grant_constraint.v1";
 pub const DEVICE_MESSAGE_SCHEMA: &str = "ak.schema.device_message.v1";
 pub const KEY_BACKUP_SCHEMA: &str = "ak.schema.key_backup.v1";
+pub const KEY_BACKUP_ACTIVE_SERIES_SCHEMA: &str = "ak.schema.key_backup_active_series.v1";
+pub const KEY_BACKUP_PLAINTEXT_SCHEMA: &str = "ak.schema.key_backup_plaintext.v1";
+pub const KEY_BACKUP_UNLOCK_PROOF_SCHEMA: &str = "ak.schema.key_backup_unlock_proof.v1";
 pub const MORPH_SCHEMA: &str = "ak.schema.morph.v1";
 /// AKP-0007 (2026-05-08) — Circle object schema id. See spec
 /// `artifacts/schemas/circle.schema.json`.
 pub const CIRCLE_SCHEMA_ID: &str = "ak.schema.circle.v1";
 pub const MORPH_CUSTOMER_RISK_SCHEMA: &str = "ak.schema.morph.customer_risk.v1";
+pub const MORPH_CUSTOMER_RISK_EXT_SCHEMA: &str = "ak.schema.morph.customer_risk.ext.v1";
 pub const MESSAGE_SCHEMA: &str = "ak.schema.message.v1";
 pub const MODERATION_REPORT_SCHEMA: &str = "ak.schema.moderation_report.v1";
 pub const MODERATION_QUEUE_ITEM_SCHEMA: &str = "ak.schema.moderation_queue_item.v1";
@@ -67,6 +71,82 @@ pub const SEARCH_SERVICE_SCHEMA: &str = "ak.schema.search_service.v1";
 pub const PRINCIPAL_LOCATOR_SCHEMA: &str = "ak.schema.principal_locator.v1";
 pub const INVITE_DELIVERY_REQUEST_SCHEMA: &str = "ak.schema.invite_delivery_request.v1";
 pub const INVITE_RECEIVE_POLICY_SCHEMA: &str = "ak.schema.invite_receive_policy.v1";
+pub const ACCOUNTABILITY_GRANT_SCHEMA: &str = "ak.schema.accountability_grant.v1";
+pub const ACCOUNT_DATA_ENCRYPTED_VALUE_SCHEMA: &str = "ak.schema.account_data_encrypted_value.v1";
+pub const ACCOUNT_DATA_OPERATIONS_SCHEMA: &str = "ak.schema.account_data_operations.v1";
+pub const ACCOUNT_OPERATIONS_SCHEMA: &str = "ak.schema.account_operations.v1";
+pub const AGENT_OPERATIONS_SCHEMA: &str = "ak.schema.agent_operations.v1";
+pub const AGENT_PAIRING_BOOTSTRAP_SCHEMA: &str = "ak.schema.agent_pairing_bootstrap.v1";
+pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_SCHEMA: &str =
+    "ak.schema.agent_requested_scope_disclosure.v1";
+pub const APPLET_SCHEMA: &str = "ak.schema.applet.v1";
+/// `schema` const of `applet-ghost-operations.schema.json`
+/// `#/$defs/ghost_actor_provision_request_body`. Fixed by the DTO schema rather
+/// than registered as a `schema-registry.json` row.
+pub const GHOST_ACTOR_PROVISION_REQUEST_SCHEMA: &str = "ak.applet.ghost_actor.provision_request.v1";
+pub const APPLET_EDGE_OPERATIONS_SCHEMA: &str = "ak.schema.applet_edge_operations.v1";
+pub const APPLET_GHOST_OPERATIONS_SCHEMA: &str = "ak.schema.applet_ghost_operations.v1";
+pub const APPLET_INSTALL_OPERATIONS_SCHEMA: &str = "ak.schema.applet_install_operations.v1";
+pub const APPLET_INSTALL_PLAN_SCHEMA: &str = "ak.schema.applet_install_plan.v1";
+pub const APPLET_PACKAGE_SCHEMA: &str = "ak.schema.applet_package.v1";
+pub const APPLET_REGISTRATION_EPOCH_TRANSCRIPT_SCHEMA: &str =
+    "ak.schema.applet_registration_epoch_transcript.v1";
+pub const APPLET_WIDGET_DECLARATION_SCHEMA: &str = "ak.schema.applet_widget_declaration.v1";
+pub const AUDIT_RYW_RECEIPT_SCHEMA: &str = "ak.schema.audit_ryw_receipt.v1";
+pub const AUTHZ_OPERATIONS_SCHEMA: &str = "ak.schema.authz_operations.v1";
+pub const AVAILABILITY_RECEIPT_SCHEMA: &str = "ak.schema.availability_receipt.v1";
+pub const BLOB_OPERATIONS_SCHEMA: &str = "ak.schema.blob_operations.v1";
+pub const CIRCLE_OPERATIONS_SCHEMA: &str = "ak.schema.circle_operations.v1";
+pub const COMMON_IDS_SCHEMA: &str = "ak.schema.common_ids.v1";
+pub const CONSENT_OPERATIONS_SCHEMA: &str = "ak.schema.consent_operations.v1";
+pub const CONTACT_OPERATIONS_SCHEMA: &str = "ak.schema.contact_operations.v1";
+pub const CONTENT_BLOCK_POLL_SCHEMA: &str = "ak.schema.content_block_poll.v1";
+pub const DELIVERY_BINDING_STALE_SCHEMA: &str = "ak.schema.delivery_binding_stale.v1";
+pub const DEVICE_REANCHOR_SCHEMA: &str = "ak.schema.device_reanchor.v1";
+pub const DID_KEY_LOG_ENTRY_SCHEMA: &str = "ak.schema.did_key_log_entry.v1";
+/// Arkret-layer observation that a named did:webvh witness attested a specific
+/// log versionId. Distinct object family from `IDENTITY_RECEIPT_SCHEMA`; the two
+/// are returned as a tagged union discriminated on `schema`.
+pub const DID_WEBVH_WITNESS_RECEIPT_SCHEMA: &str = "ak.schema.did_webvh_witness_receipt.v1";
+pub const DIRECTORY_OPERATIONS_SCHEMA: &str = "ak.schema.directory_operations.v1";
+pub const EVENT_BATCH_RECEIPT_SCHEMA: &str = "ak.schema.event_batch_receipt.v1";
+/// Canonical handle claim shape — matches `handle-claim.schema.json`.
+pub const HANDLE_CLAIM_SCHEMA: &str = "ak.schema.handle_claim.v1";
+pub const ICE_CONFIG_RESPONSE_SCHEMA: &str = "ak.schema.ice_config_response.v1";
+pub const IDENTITY_RECEIPT_SCHEMA: &str = "ak.schema.identity_receipt.v1";
+pub const INCLUSION_LIST_SCHEMA: &str = "ak.schema.inclusion_list.v1";
+pub const KEYPACKAGE_OPERATIONS_SCHEMA: &str = "ak.schema.keypackage_operations.v1";
+pub const KEYS_OPERATIONS_SCHEMA: &str = "ak.schema.keys_operations.v1";
+pub const KEY_TRANSPARENCY_SCHEMA: &str = "ak.schema.key_transparency.v1";
+pub const LIST_HANDLES_FOR_SUBJECT_RESPONSE_SCHEMA: &str =
+    "ak.schema.list_handles_for_subject_response.v1";
+pub const MEDIA_METADATA_SCHEMA: &str = "ak.schema.media_metadata.v1";
+pub const MEDIA_OPERATIONS_SCHEMA: &str = "ak.schema.media_operations.v1";
+pub const MEMBER_DELIVERY_BINDING_CANDIDATE_SCHEMA: &str =
+    "ak.schema.member_delivery_binding_candidate.v1";
+/// Schema discriminator carried by `MemberIdentity::schema`. Matches the
+/// `ak.schema.member_identity.v1` constant in the spec schema.
+pub const MEMBER_IDENTITY_SCHEMA: &str = "ak.schema.member_identity.v1";
+pub const MIMI_INTEROP_SCHEMA: &str = "ak.schema.mimi_interop.v1";
+pub const MIMI_OPERATIONS_SCHEMA: &str = "ak.schema.mimi_operations.v1";
+pub const MLS_GOVERNANCE_PROOF_BUNDLE_SCHEMA: &str = "ak.schema.mls_governance_proof_bundle.v1";
+pub const PEER_CONTACT_DELIVERY_REQUEST_SCHEMA: &str = "ak.schema.peer_contact_delivery_request.v1";
+pub const PIN_SCHEMA: &str = "ak.schema.pin.v1";
+pub const PUSH_OPERATIONS_SCHEMA: &str = "ak.schema.push_operations.v1";
+pub const QUERY_SCHEMA: &str = "ak.schema.query.v1";
+pub const RANGE_COMPLETENESS_ATTESTATION_SCHEMA: &str =
+    "ak.schema.range_completeness_attestation.v1";
+pub const READ_CURSOR_OPERATIONS_SCHEMA: &str = "ak.schema.read_cursor_operations.v1";
+pub const REALM_LINK_OPERATIONS_SCHEMA: &str = "ak.schema.realm_link_operations.v1";
+pub const REALM_ORGANIZATION_OPERATIONS_SCHEMA: &str = "ak.schema.realm_organization_operations.v1";
+pub const REALM_POLICY_SERVER_OPERATIONS_SCHEMA: &str =
+    "ak.schema.realm_policy_server_operations.v1";
+pub const REALM_READ_OPERATIONS_SCHEMA: &str = "ak.schema.realm_read_operations.v1";
+pub const RSVP_SCHEMA: &str = "ak.schema.rsvp.v1";
+pub const SDK_CONFORMANCE_CLAIM_SCHEMA: &str = "ak.schema.sdk_conformance_claim.v1";
+pub const SEAL_TRANSPARENCY_SCHEMA: &str = "ak.schema.seal_transparency.v1";
+pub const SERVICE_DESCRIBE_SCHEMA: &str = "ak.schema.service_describe.v1";
+pub const SERVICE_OPERATION_DTOS_SCHEMA: &str = "ak.schema.service_operation_dtos.v1";
 
 pub const PROFILE_DIRECTORY_SERVICE: &str = "ak.profile.directory_service.v1";
 pub const PROFILE_E2EE_CLIENT: &str = "ak.profile.e2ee_client.v1";
@@ -77,6 +157,7 @@ pub const PROFILE_DISCLOSED_AUDIT_E2EE: &str = "ak.profile.disclosed_audit.e2ee.
 // Schema ids for the moderation appeal strand and structured attestation evidence.
 pub const MODERATION_APPEAL_SCHEMA: &str = "ak.schema.moderation_appeal.v1";
 pub const AUDIT_RELEASE_ATTESTATION_SCHEMA: &str = "ak.schema.audit_release_attestation.v1";
+pub const CROSS_SIGNING_PUBLISH_SCHEMA: &str = "ak.schema.cross_signing_publish.v1";
 pub const CROSS_SIGNING_RESET_SCHEMA: &str = "ak.schema.cross_signing_reset.v1";
 
 // ── Canonical ak.* event kinds ──────────────────────────────────────────────
@@ -129,6 +210,7 @@ pub const ACCOUNT_DATA_KEY_CONTACTS_REALM: &str = "ak.contacts.realm";
 /// `schema-registry.json` for recovery policy and recovery receipts.
 pub const RECOVERY_POLICY_SCHEMA: &str = "ak.schema.recovery_policy.v1";
 pub const RECOVERY_RECEIPT_SCHEMA: &str = "ak.schema.recovery_receipt.v1";
+pub const RECOVERY_SESSION_SCHEMA: &str = "ak.schema.recovery_session.v1";
 
 pub const PROFILE_AGENT_SIDECAR: &str = "ak.profile.agent_sidecar.v1";
 

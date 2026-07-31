@@ -19,10 +19,7 @@ pub struct StateSnapshot {
     pub messages: BTreeMap<String, ResolvedMessage>,
     pub reactions: BTreeMap<String, ResolvedReaction>,
     pub state_digest: String,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub snapshot_timestamp: chrono::DateTime<chrono::Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tombstone_event_id: Option<EventId>,
@@ -45,10 +42,7 @@ pub struct ReducerSnapshotManifest {
     pub chunk_count: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub chunks: Vec<SnapshotChunkManifest>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: chrono::DateTime<chrono::Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub signatures: Vec<SnapshotSignature>,
@@ -68,10 +62,7 @@ pub struct SnapshotSignature {
     pub alg: String,
     pub verification_method: DidUrl,
     pub payload_digest: String,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: chrono::DateTime<chrono::Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
@@ -99,10 +90,7 @@ impl SnapshotSignature {
 pub struct SnapshotSignatureBindingPayload {
     pub payload_digest: String,
     pub verification_method: DidUrl,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: chrono::DateTime<chrono::Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,

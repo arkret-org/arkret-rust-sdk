@@ -40,10 +40,7 @@ pub struct AppealSubmitPayload {
     pub evidence_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence_visibility: Option<AppealEvidenceVisibility>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
 }
 
@@ -53,10 +50,7 @@ pub struct AppealReviewPayload {
     pub appeal_id: TypedAppealId,
     pub realm_id: RealmId,
     pub reviewer: Did,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub reviewed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notes_ref: Option<String>,
@@ -73,10 +67,7 @@ pub struct AppealDecisionPayload {
     /// Required iff `verdict == Modify`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub modify_decision_ref: Option<EventId>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub decided_at: DateTime<Utc>,
 }
 
@@ -86,10 +77,7 @@ pub struct AppealClosePayload {
     pub appeal_id: TypedAppealId,
     pub realm_id: RealmId,
     pub closer: Did,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub closed_at: DateTime<Utc>,
     #[serde(default)]
     pub auto_closed: bool,
@@ -108,8 +96,6 @@ pub enum ModerationAppealPayload {
 }
 
 impl ModerationAppealPayload {
-    pub const SCHEMA: &'static str = "ak.schema.moderation_appeal.v1";
-
     /// Companion event kind this payload variant is submitted on.
     pub fn event_kind(&self) -> &'static str {
         match self {

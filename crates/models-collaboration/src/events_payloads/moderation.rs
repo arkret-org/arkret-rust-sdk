@@ -18,10 +18,7 @@ pub struct ClosePayload {
     pub appeal_id: AppealId,
     pub realm_id: RealmId,
     pub closer: ActorRef,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub closed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auto_closed: Option<bool>,
@@ -41,10 +38,7 @@ pub struct DecisionPayload {
     pub reason_text_ref: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub modify_decision_ref: Option<EventId>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub decided_at: DateTime<Utc>,
 }
 
@@ -62,10 +56,7 @@ pub struct ReviewPayload {
     pub appeal_id: AppealId,
     pub realm_id: RealmId,
     pub reviewer: ActorRef,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub reviewed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notes_ref: Option<String>,
@@ -85,10 +76,7 @@ pub struct SubmitPayload {
     pub evidence_refs: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence_visibility: Option<EvidenceVisibility>,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
 }
 
@@ -120,10 +108,7 @@ pub struct FrankingProof {
     pub aad_digest: Hash,
     pub sender_claim: FrankingProofSenderClaim,
     pub received_by: Did,
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
     pub replay_nonce: String,
     pub signature: String,
@@ -287,10 +272,7 @@ pub struct ModerationDecisionLiftPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub effective_at: Option<DateTime<Utc>>,
 }
 
@@ -314,10 +296,7 @@ pub struct ModerationDecisionPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub modify_decision_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
-    )]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub effective_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<NullableTimestamp>,

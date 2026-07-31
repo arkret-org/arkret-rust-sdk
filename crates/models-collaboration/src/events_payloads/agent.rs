@@ -1,9 +1,6 @@
 //! Agent-lifecycle and agent-key payloads.
 
-use arkret_wire::serde_helpers::{
-    deserialize_canonical_timestamp, deserialize_optional_canonical_timestamp,
-    serialize_canonical_timestamp, serialize_optional_canonical_timestamp,
-};
+use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -27,15 +24,9 @@ pub struct AgentActionApprovePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub draft_content_digest: Option<Hash>,
     pub approval_nonce: String,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub approved_at: DateTime<Utc>,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
 }
 
@@ -53,10 +44,7 @@ pub struct AgentActionRejectPayload {
     pub controller_id: Did,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub rejected_at: DateTime<Utc>,
 }
 
@@ -73,15 +61,9 @@ pub struct AgentActionRequestPayload {
     pub proposed_action: String,
     pub target: AgentActionTarget,
     pub request_canonical_digest: Hash,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub created_at: DateTime<Utc>,
 }
 
@@ -110,10 +92,7 @@ pub struct AgentDeactivatePayload {
     pub controller_id: Did,
     pub transition: String,
     pub previous_status: String,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub status_changed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -130,15 +109,9 @@ pub struct AgentDraftProposePayload {
     pub proposed_action: String,
     pub target: AgentActionTarget,
     pub content_digest: Hash,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
@@ -293,18 +266,14 @@ pub struct AgentKeyAuthorizePayload {
     pub accountable_principal_id: Did,
     pub agent_key_scope: AgentKeyScope,
     pub audience: Vec<String>,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     /// Optional: absent means the key authorization is non-expiring and
     /// governed solely by revocation (key-management.md §3.6.1).
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp",
-        deserialize_with = "deserialize_optional_canonical_timestamp"
+        with = "optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
     pub approval_evidence: AgentKeyApprovalEvidence,
@@ -389,10 +358,7 @@ pub struct AgentKeyRevokePayload {
     pub agent_id: Did,
     pub key_id: NonEmptyString,
     pub revoked_by: Did,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub revoked_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -407,10 +373,7 @@ pub struct AgentPausePayload {
     pub controller_id: Did,
     pub transition: String,
     pub previous_status: String,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub status_changed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -425,10 +388,7 @@ pub struct AgentResumePayload {
     pub controller_id: Did,
     pub transition: String,
     pub previous_status: String,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub status_changed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sidecar_exposure_ack: Option<AgentSidecarExposureAck>,
@@ -442,10 +402,7 @@ pub struct AgentResumePayload {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentSidecarExposureAck {
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
+    #[serde(with = "canonical_timestamp")]
     pub acknowledged_at: DateTime<Utc>,
     pub acknowledged_by: Did,
     pub sidecar_refs: Vec<ObjectRef>,
