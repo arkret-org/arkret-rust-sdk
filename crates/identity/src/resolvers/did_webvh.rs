@@ -21,6 +21,8 @@ pub struct DidWebvhResolver {
     documents: BTreeMap<Did, DidDocument>,
     logs: BTreeMap<Did, Vec<DidWebvhLogEntry>>,
     raw_logs: BTreeMap<Did, Vec<Value>>,
+    raw_log_bytes: BTreeMap<Did, Vec<u8>>,
+    witness_records: BTreeMap<Did, Vec<Value>>,
     conflicted: std::collections::BTreeSet<Did>,
 }
 
@@ -244,8 +246,78 @@ impl DidWebvhResolver {
             verify_document_matches_webvh_head(document, &verified.head_state)?;
         }
         self.raw_logs.insert(did.clone(), verified.raw_entries);
+        self.raw_log_bytes
+            .insert(did.clone(), response.body.clone());
         self.logs.insert(did.clone(), entries.clone());
         Ok(entries)
+    }
+
+    /// Ingest the `did-witness.json` proof set for an already-ingested log.
+    ///
+    /// The records are verified against the stored controller history before
+    /// they are retained, and they are retained because
+    /// `did-usage-and-verification.md` §5.2 makes the evidence receipt commit to
+    /// the raw witness proof set: without them the resolver could surface a log
+    /// head but no evidence that any witness ever signed it.
+    pub fn ingest_witness_records(&mut self, did: &Did, witness_bytes: &[u8]) -> Result<()> {
+        let log_bytes = self.raw_log_bytes.get(did).ok_or_else(|| {
+            Error::Protocol("did:webvh witness records require an ingested log".to_owned())
+        })?;
+        verify_did_webvh_v1_chain_and_witness_bytes(did, log_bytes, Some(witness_bytes))
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        let records: Vec<Value> = serde_json::from_slice(witness_bytes)?;
+        self.witness_records.insert(did.clone(), records);
+        Ok(())
+    }
+
+    /// The §5.2 method evidence this resolver can surface for `did`.
+    ///
+    /// `history_head` and `version_id` are both the head `versionId`: in
+    /// did:webvh the log head *is* the document version, so surfacing one and
+    /// leaving the other `not_surfaced` would record a resolver failure that did
+    /// not happen.
+    ///
+    /// A witness whose controlling organization is not separately attributed is
+    /// recorded as controlling itself. The organization coordinate exists so an
+    /// "these witnesses turned out to be one organization" determination can
+    /// invalidate selectively (§5.6); recording an unattributed witness as its
+    /// own organization states exactly what is known, and a later merge
+    /// determination updates the attribution.
+    fn method_evidence(&self, did: &Did) -> Result<MethodEvidence> {
+        let Some(head) = self.logs.get(did).and_then(|entries| entries.last()) else {
+            return Ok(MethodEvidence::none());
+        };
+        let mut policy = None;
+        for entry in self.logs.get(did).into_iter().flatten() {
+            if let Some(declared) = parse_did_webvh_witness_policy(&entry.parameters)
+                .map_err(|error| Error::Protocol(error.to_string()))?
+            {
+                policy = Some(declared);
+            }
+        }
+        let mut witnesses = Vec::new();
+        for id in policy.map(|policy| policy.witnesses).unwrap_or_default() {
+            let witness_did = Did::new(id).map_err(|error| Error::Protocol(error.to_string()))?;
+            witnesses.push(WebvhWitnessRow {
+                controlling_organization: witness_did.clone(),
+                witness_did,
+            });
+        }
+        let records = self.witness_records.get(did).cloned().unwrap_or_default();
+        let witness_proofs_digest = Hash::new(arkret_canonical::canonical::sha256_digest(
+            arkret_canonical::canonical::canonical_json_bytes(&records)
+                .map_err(|error| Error::Protocol(error.to_string()))?,
+        ))
+        .map_err(|error| Error::Protocol(error.to_string()))?;
+        Ok(MethodEvidence {
+            proofs: vec![MethodEvidenceProof::WebvhLog(WebvhLogEvidence {
+                history_head: head.version_id.clone(),
+                witnesses,
+                witness_proofs_digest,
+            })],
+            history_head: Some(head.version_id.clone()),
+            version_id: Some(head.version_id.clone()),
+        })
     }
 
     /// Latest verified entry for a previously-ingested DID.
@@ -262,6 +334,8 @@ impl DidWebvhResolver {
         self.documents.remove(did);
         self.logs.remove(did);
         self.raw_logs.remove(did);
+        self.raw_log_bytes.remove(did);
+        self.witness_records.remove(did);
     }
 }
 
@@ -270,7 +344,7 @@ impl DidResolver for DidWebvhResolver {
         did.method() == "webvh" && did_webvh_document_url(did).is_some()
     }
 
-    fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
+    fn resolve_did(&self, did: &Did) -> Result<ResolvedDid> {
         if !self.supports(did) {
             return Err(Error::Protocol(
                 "unsupported DID method for did:webvh resolver".to_owned(),
@@ -281,10 +355,12 @@ impl DidResolver for DidWebvhResolver {
                 "did:webvh history is conflicted; current state is unavailable".to_owned(),
             ));
         }
-        self.documents
+        let document = self
+            .documents
             .get(did)
             .cloned()
-            .ok_or_else(|| Error::Protocol("did:webvh document not cached".to_owned()))
+            .ok_or_else(|| Error::Protocol("did:webvh document not cached".to_owned()))?;
+        Ok(ResolvedDid::new(document, self.method_evidence(did)?))
     }
 }
 

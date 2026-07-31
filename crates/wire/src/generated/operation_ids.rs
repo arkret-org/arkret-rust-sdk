@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/operation-registry.json; version=2026-07-31.14;
-//! sha256=576fb728e17e1b8f9209d2516b2e3464a020adc205f1948a1764dd5868ed2907 Entries: registered=217
+//! Input: registry/operation-registry.json; version=2026-07-31.15;
+//! sha256=d3b566858aa950b56e0931d650bbf42b586356c0603867eaebb08fea86f43ef5 Entries: registered=218
 
 use serde::{Deserialize, Serialize};
 
@@ -174,6 +174,7 @@ pub enum ServiceOperationId {
     SelfInviteReceivePolicyResourceGet,
     SelfInviteReceivePolicyResourceReplace,
     SelfKeysBackupSeriesCommandErase,
+    SelfKeysBackupsCommandIssueDeleteChallenge,
     SelfKeysBackupsCommandUnlock,
     SelfKeysBackupsQueryList,
     SelfKeysBackupsResourceDelete,
@@ -394,6 +395,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     "ak.self.invite_receive_policy.resource.get",
     "ak.self.invite_receive_policy.resource.replace",
     "ak.self.keys.backup_series.command.erase",
+    "ak.self.keys.backups.command.issue_delete_challenge",
     "ak.self.keys.backups.command.unlock",
     "ak.self.keys.backups.query.list",
     "ak.self.keys.backups.resource.delete",
@@ -652,6 +654,7 @@ impl ServiceOperationId {
         Self::SelfInviteReceivePolicyResourceGet,
         Self::SelfInviteReceivePolicyResourceReplace,
         Self::SelfKeysBackupSeriesCommandErase,
+        Self::SelfKeysBackupsCommandIssueDeleteChallenge,
         Self::SelfKeysBackupsCommandUnlock,
         Self::SelfKeysBackupsQueryList,
         Self::SelfKeysBackupsResourceDelete,
@@ -962,6 +965,8 @@ impl ServiceOperationId {
         "ak.self.invite_receive_policy.resource.replace";
     pub const SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE: &'static str =
         "ak.self.keys.backup_series.command.erase";
+    pub const SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE: &'static str =
+        "ak.self.keys.backups.command.issue_delete_challenge";
     pub const SELF_KEYS_BACKUPS_COMMAND_UNLOCK: &'static str =
         "ak.self.keys.backups.command.unlock";
     pub const SELF_KEYS_BACKUPS_QUERY_LIST: &'static str = "ak.self.keys.backups.query.list";
@@ -1283,6 +1288,9 @@ impl ServiceOperationId {
                 "ak.self.invite_receive_policy.resource.replace"
             }
             Self::SelfKeysBackupSeriesCommandErase => "ak.self.keys.backup_series.command.erase",
+            Self::SelfKeysBackupsCommandIssueDeleteChallenge => {
+                "ak.self.keys.backups.command.issue_delete_challenge"
+            }
             Self::SelfKeysBackupsCommandUnlock => "ak.self.keys.backups.command.unlock",
             Self::SelfKeysBackupsQueryList => "ak.self.keys.backups.query.list",
             Self::SelfKeysBackupsResourceDelete => "ak.self.keys.backups.resource.delete",
@@ -1620,6 +1628,9 @@ impl ServiceOperationId {
             }
             "ak.self.keys.backup_series.command.erase" => {
                 Some(Self::SelfKeysBackupSeriesCommandErase)
+            }
+            "ak.self.keys.backups.command.issue_delete_challenge" => {
+                Some(Self::SelfKeysBackupsCommandIssueDeleteChallenge)
             }
             "ak.self.keys.backups.command.unlock" => Some(Self::SelfKeysBackupsCommandUnlock),
             "ak.self.keys.backups.query.list" => Some(Self::SelfKeysBackupsQueryList),
@@ -5029,6 +5040,28 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfKeysBackupsCommandIssueDeleteChallenge,
+        http_method: "POST",
+        http_path: "/_arkret/self/keys/backups/{backup_id}/delete-challenge",
+        grpc: Some("SelfKeys/BackupsIssueDeleteChallenge"),
+        mq: Some("self.keys.backups.command.issue_delete_challenge"),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/keys-operations.schema.json#/$defs/keys_backups_issue_delete_challenge_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/keys-operations.schema.json#/$defs/keys_backups_delete_challenge",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysBackupsCommandUnlock,
         http_method: "POST",
         http_path: "/_arkret/self/keys/backups/{backup_id}/unlock",
@@ -5071,7 +5104,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         grpc: Some("SelfKeys/BackupsDelete"),
         mq: Some("self.keys.backups.resource.delete"),
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
+        idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/keys-operations.schema.json#/$defs/keys_backups_delete_request_body",

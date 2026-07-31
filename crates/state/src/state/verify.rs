@@ -364,6 +364,22 @@ pub fn resolve_projected_write(
             })?;
             let mut op = LatticeOp::empty();
             op.value = Some(post_state);
+            // §9.3.1 makes a `cas_register` set carry the whole value it
+            // supersedes. A direct `set` copies it off the Move's `head_eq`
+            // precondition; here the frozen pre-state *is* that value — it is
+            // what the patch was applied to — so the receiver derives it rather
+            // than trusting a producer claim. A cell no write has reached yet
+            // reads as `null`, which is the initial state, so such a write stays
+            // a chain head.
+            if registry
+                .resolve(realm_id, &write.cell)
+                .map_err(|error| ControlMoveReject::Registry(error.to_string()))?
+                .lattice
+                .kind()
+                == crate::lattice::LatticeKind::CasRegister
+            {
+                op.from = Some(observed.clone());
+            }
             Ok(vec![ProjectionEffect {
                 cell: write.cell.clone(),
                 op,

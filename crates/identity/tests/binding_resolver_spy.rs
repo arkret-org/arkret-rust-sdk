@@ -11,18 +11,19 @@ use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use arkret_identity::binding::{
-    DidBindingPurpose, DidBindingStatus, FreshnessRequirement, VerifiedDidBinding,
-    VerifiedDidBindingDocumentInput,
+    DidBindingPurpose, DidBindingStatus, FreshnessProfile, FreshnessRiskTier, LimitedTrust,
+    StaleBehavior, VerifiedDidBinding, VerifiedDidBindingDocumentInput,
 };
+use arkret_identity::binding_digest::{EvidenceReceipt, MethodEvidence};
 use arkret_identity::binding_store::{
     AcceptedDidBinding, BindingInvalidation, InMemoryVerifiedDidBindingStore,
     VerifiedDidBindingStore,
 };
 use arkret_identity::verifier::{
-    BindingAcceptance, BindingResolveRequest, resolve_and_verify_binding, verify_jws_with_binding,
+    BindingResolveRequest, resolve_and_verify_binding, verify_jws_with_binding,
     verify_jws_with_document,
 };
-use arkret_identity::{DidDocument, DidResolver};
+use arkret_identity::{DidDocument, DidResolver, ResolvedDid, document_canonical_digest};
 use arkret_signatures::jws::sign_jws_ed25519;
 use arkret_wire::{Did, DidUrl, Hash, TypedTrustDomainId};
 use chrono::{DateTime, Duration, Utc};
@@ -98,7 +99,7 @@ impl<R: DidResolver> DidResolver for CountingDidResolver<R> {
         self.inner.supports(did)
     }
 
-    fn resolve_did(&self, did: &Did) -> arkret_identity::Result<DidDocument> {
+    fn resolve_did(&self, did: &Did) -> arkret_identity::Result<ResolvedDid> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         self.inner.resolve_did(did)
     }
@@ -112,18 +113,31 @@ impl DidResolver for FixtureResolver {
         did == &self::did()
     }
 
-    fn resolve_did(&self, did: &Did) -> arkret_identity::Result<DidDocument> {
+    fn resolve_did(&self, did: &Did) -> arkret_identity::Result<ResolvedDid> {
         if did != &self::did() {
             return Err(arkret_identity::IdentityError::Protocol(format!(
                 "fixture resolver does not handle {did}"
             )));
         }
-        Ok(document())
+        Ok(ResolvedDid::proofless(document()))
     }
 }
 
 fn spy() -> CountingDidResolver<FixtureResolver> {
     CountingDidResolver::new(FixtureResolver)
+}
+
+/// A `high` tier profile: 30 minutes fresh, 24 hours hard expiry.
+fn freshness_profile() -> FreshnessProfile {
+    FreshnessProfile {
+        freshness_profile_id: "ak.did_freshness.spy_high.v1".to_owned(),
+        risk_tier: FreshnessRiskTier::High,
+        did_method_selector: vec!["*".to_owned()],
+        fresh_for_seconds: Some(1_800),
+        stale_grace_seconds: None,
+        hard_expiry_seconds: Some(86_400),
+        stale_behavior: StaleBehavior::SynchronousRefreshOrFailClosed,
+    }
 }
 
 fn request() -> BindingResolveRequest {
@@ -133,30 +147,28 @@ fn request() -> BindingResolveRequest {
         purpose: DidBindingPurpose::Principal,
         policy_digest: hash(0x44),
         verification_method: Some(verification_method()),
-        freshness: FreshnessRequirement::fresh_within(Duration::hours(1)),
-        acceptance: BindingAcceptance {
-            evidence_digest: hash(0x33),
-            history_head: Some(hash(0x22)),
-            version_id: Some("1-abc".to_owned()),
-            limited_trust: None,
-            refresh_interval: Some(Duration::minutes(30)),
-            hard_expiry: Some(Duration::hours(24)),
-        },
+        freshness: freshness_profile(),
     }
 }
 
 fn accepted_without_resolver(now: DateTime<Utc>) -> AcceptedDidBinding {
     let document = document();
+    let receipt = EvidenceReceipt::new(
+        did().method(),
+        document_canonical_digest(&document).expect("digest"),
+        &MethodEvidence::none(),
+    );
     let binding = VerifiedDidBinding::from_verified_document(
         &document,
         VerifiedDidBindingDocumentInput {
             trust_domain: trust_domain(),
             purpose: DidBindingPurpose::Principal,
             verification_method: Some(verification_method()),
-            history_head: Some(hash(0x22)),
-            version_id: Some("1-abc".to_owned()),
-            limited_trust: None,
-            evidence_digest: hash(0x33),
+            history_head: None,
+            version_id: None,
+            limited_trust: LimitedTrust::for_proofless_method(None, None).record_for(),
+            evidence_digest: receipt.digest().expect("digest"),
+            evidence_dependencies: receipt.evidence_dependencies().expect("dependencies"),
             policy_digest: hash(0x44),
             verified_at: now,
             refresh_after: Some(now + Duration::minutes(30)),
@@ -165,7 +177,7 @@ fn accepted_without_resolver(now: DateTime<Utc>) -> AcceptedDidBinding {
         },
     )
     .expect("valid binding");
-    AcceptedDidBinding::new(binding, document).expect("consistent pairing")
+    AcceptedDidBinding::new(binding, document, receipt).expect("consistent pairing")
 }
 
 // ============================================================================
@@ -283,7 +295,15 @@ fn a_stale_binding_blocks_a_fresh_authority_call_but_not_a_low_risk_one() {
     let relaxed_store = InMemoryVerifiedDidBindingStore::default();
     let relaxed_spy = spy();
     let mut relaxed = request();
-    relaxed.freshness = FreshnessRequirement::any_accepted();
+    relaxed.freshness = FreshnessProfile {
+        freshness_profile_id: "ak.did_freshness.spy_low.v1".to_owned(),
+        risk_tier: FreshnessRiskTier::Low,
+        did_method_selector: vec!["*".to_owned()],
+        fresh_for_seconds: Some(1_800),
+        stale_grace_seconds: None,
+        hard_expiry_seconds: Some(86_400),
+        stale_behavior: StaleBehavior::AcceptedWithoutNetwork,
+    };
     resolve_and_verify_binding(&relaxed_spy, &relaxed_store, &relaxed, now).expect("first resolve");
     assert_eq!(relaxed_spy.calls(), 1);
     let stale = resolve_and_verify_binding(&relaxed_spy, &relaxed_store, &relaxed, after_refresh)

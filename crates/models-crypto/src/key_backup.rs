@@ -7,16 +7,16 @@ use arkret_canonical::{
     decode_multibase_base58btc, decode_multicodec_varint, encode_multibase_base58btc,
 };
 use arkret_wire::{
-    AuthoritySetIssuer, AuthoritySetIssuerRole, AuthorizationLease, BackupId, BackupObjectRef,
-    BackupRotationBinding, BackupRotationKind, BackupSeriesId, Base64UrlString, CbaProofBundle,
-    ControlProposalReceipt, Cursor, DeviceId, Did, DidUrl, Error, Event, EventId,
-    EventInitialSubmission, EventKind, HPKE_SUITES, Hash, LeaseBasisRef, NonEmptyString, PolicyId,
-    RealmId, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId, Result, TransactionId,
-    TypedTrustDomainId, XExtensionMap,
+    AttestationId, AuthoritySetIssuer, AuthoritySetIssuerRole, AuthorizationLease, BackupId,
+    BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupSeriesId, Base64UrlString,
+    CbaProofBundle, ControlProposalReceipt, Cursor, DeviceId, Did, DidUrl, Error, Event, EventId,
+    EventInitialSubmission, EventKind, HPKE_SUITES, Hash, LeaseBasisRef, NonEmptyString,
+    PayloadProof, PolicyId, RealmId, ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId,
+    Result, TransactionId, TypedTrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::artifacts_keys::{
     KeyBackupUnlockProof, RecoveryIdentityModel, RecoveryModelGenerationRef, RecoveryPolicyRef,
@@ -101,47 +101,149 @@ pub struct KeysBackupsList {
     pub has_more: bool,
 }
 
+/// Signing context of the canonical delete-intent transcript
+/// (`key-management.md` §7.8.1).
+pub const KEY_BACKUP_DELETE_TRANSCRIPT_CONTEXT: &str = "ak.keys.backup_delete.v1";
+
+/// The operation every delete challenge and transcript is bound to.
+pub const KEY_BACKUP_DELETE_OPERATION: &str = "ak.self.keys.backups.resource.delete";
+
+/// High-risk authority proof over the canonical delete-intent transcript
+/// (`high-risk-authority-proof.schema.json`).
+///
+/// Exactly three closed branches, discriminated by `kind`. An ordinary current
+/// device session proof is deliberately **not** a fourth branch: a caller
+/// holding only one is limited to envelopes that are already expired and outside
+/// the active series (`key-management.md` §7.8). The previous open
+/// `serde(untagged)` shape — which also carried a `Development` variant whose
+/// "proof" was an unauthenticated string — is judged dead by the same section.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
+#[serde(tag = "kind", rename_all = "snake_case")]
 pub enum KeyBackupDeleteProof {
-    DetachedJws(KeyBackupDeleteDetachedJwsProof),
-    Development(KeyBackupDeleteDevelopmentProof),
+    /// Principal-control-key proof. The proof's `verification_method` MUST be a
+    /// principal-grade DID control method whose controller DID is byte-identical
+    /// to the transcript's `principal_id`, and that key MUST be a currently
+    /// accepted principal control key at `created_at`. Device, service and
+    /// retired keys are rejected.
+    PrincipalSigning { proof: PayloadProof },
+    /// Device-quorum proof. The wire shape only floors the quorum
+    /// (`threshold >= 2`); the receiver verifies every signature over the same
+    /// canonical transcript, deduplicates by `device_id`, and requires the
+    /// deduplicated valid count to reach `threshold` — which MUST itself equal
+    /// the principal's currently accepted recovery-policy `k`.
+    DeviceQuorum {
+        threshold: u32,
+        signatures: Vec<KeyBackupDeleteQuorumSignature>,
+    },
+    /// Trusted recovery service proof. The service is never a sufficient factor
+    /// on its own: the referenced recovery session MUST be unexpired, unconsumed
+    /// and established by principal signing, recovery unlock or device quorum.
+    TrustedRecoveryService {
+        service_id: Did,
+        recovery_session_id: RecoverySessionId,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        attestation_ref: Option<AttestationId>,
+        proof: PayloadProof,
+    },
 }
 
-pub const KEY_BACKUP_DELETE_DEVELOPMENT_PROOF_KIND: &str = "ak.key_backup.delete.development.v1";
-
+/// One device signature inside a [`KeyBackupDeleteProof::DeviceQuorum`].
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyBackupDeleteDevelopmentProof {
-    pub kind: String,
-    pub value: String,
+pub struct KeyBackupDeleteQuorumSignature {
+    pub device_id: DeviceId,
+    /// Its `verification_method` MUST resolve, at `created_at`, to an authorized
+    /// non-revoked key of exactly this `device_id` under the transcript's
+    /// principal.
+    pub proof: PayloadProof,
 }
 
-impl KeyBackupDeleteDevelopmentProof {
-    pub fn new(value: impl Into<String>) -> Self {
-        Self {
-            kind: KEY_BACKUP_DELETE_DEVELOPMENT_PROOF_KIND.to_owned(),
-            value: value.into(),
-        }
+/// Request body of `ak.self.keys.backups.command.issue_delete_challenge`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeysBackupsIssueDeleteChallengeRequestBody {
+    /// While a challenge for the same `(principal_id, backup_id, request_id)` is
+    /// still valid the service returns that same challenge; a different
+    /// `request_id` mints a new one.
+    pub request_id: Base64UrlString,
+}
+
+/// The server-issued, durable, single-use delete challenge
+/// (`keys-operations.schema.json#/$defs/keys_backups_delete_challenge`).
+///
+/// Every field is materialized by the service — §7.8.1 forbids accepting a
+/// caller-minted nonce — and every one of them is embedded verbatim in the
+/// canonical transcript, so replay, expiry, a different path, a different
+/// audience or a different service all fail closed at signature verification as
+/// well as at challenge lookup.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeysBackupsDeleteChallenge {
+    pub challenge_id: Base64UrlString,
+    pub challenge: Base64UrlString,
+    /// Distinct from `challenge` so the transcript binds two independent
+    /// freshness values.
+    pub nonce: Base64UrlString,
+    pub operation: String,
+    pub principal_id: Did,
+    pub backup_id: BackupId,
+    /// The service base origin this challenge is valid against.
+    pub audience: NonEmptyString,
+    pub service_id: Did,
+    pub request_id: Base64UrlString,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+}
+
+impl KeysBackupsDeleteChallenge {
+    /// The single canonical delete-intent transcript every proof branch signs —
+    /// including every individual signature of a device quorum.
+    ///
+    /// `reason` is encoded as JSON `null` when absent rather than omitted: §7.8.1
+    /// fixes the key set, so an omitted key would make an absent reason and a
+    /// tampered-away reason produce different bytes on different implementations.
+    pub fn delete_intent_transcript(&self, reason: Option<&str>) -> Value {
+        json!({
+            "context": KEY_BACKUP_DELETE_TRANSCRIPT_CONTEXT,
+            "operation": KEY_BACKUP_DELETE_OPERATION,
+            "request_id": self.request_id.as_str(),
+            "principal_id": self.principal_id.as_str(),
+            "backup_id": self.backup_id.as_str(),
+            "reason": reason,
+            "challenge_id": self.challenge_id.as_str(),
+            "challenge": self.challenge.as_str(),
+            "nonce": self.nonce.as_str(),
+            "audience": self.audience.as_str(),
+            "service_id": self.service_id.as_str(),
+            "issued_at": arkret_canonical::canonical::format_timestamp_canonical(self.issued_at),
+            "expires_at": arkret_canonical::canonical::format_timestamp_canonical(self.expires_at),
+        })
+    }
+
+    /// `payload_digest` of the canonical delete-intent transcript.
+    pub fn delete_intent_digest(&self, reason: Option<&str>) -> Result<Hash> {
+        let bytes = arkret_canonical::canonical::canonical_json_bytes(
+            &self.delete_intent_transcript(reason),
+        )
+        .map_err(|error| Error::Protocol(error.to_string()))?;
+        Hash::new(arkret_canonical::canonical::sha256_digest(bytes))
+            .map_err(|error| Error::Protocol(error.to_string()))
     }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyBackupDeleteDetachedJwsProof {
-    pub kind: String,
-    pub issuer: Did,
-    pub verification_method: DidUrl,
-    pub jws: String,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct KeysBackupsDeleteRequestBody {
+    pub request_id: Base64UrlString,
+    /// Exact echo of the server-issued `challenge_id` being consumed.
+    pub challenge_id: Base64UrlString,
     pub proof: KeyBackupDeleteProof,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -1840,7 +1942,7 @@ pub struct RecoveryPublicationAuthorizationRule {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RecoveryTrustedService {
     pub service_id: Did,
-    pub audience: String,
+    pub audience: NonEmptyString,
     pub authorization_verification_method: DidUrl,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attestation_required: Option<bool>,

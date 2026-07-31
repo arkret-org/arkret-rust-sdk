@@ -37,6 +37,7 @@ use crate::binding::{
     DidBindingPurpose, DidBindingStatus, VerifiedDidBinding, VerifiedDidBindingKey,
     document_canonical_digest,
 };
+use crate::binding_digest::EvidenceReceipt;
 
 // ============================================================================
 // Errors
@@ -52,7 +53,11 @@ pub enum BindingStoreError {
     /// The supplied document belongs to a different DID than the binding.
     #[error("pinned document id `{document_id}` does not match the bound DID `{did}`")]
     DocumentIdMismatch { document_id: Did, did: Did },
-    /// The document could not be canonicalized / digested.
+    /// The retained evidence receipt does not re-digest to the binding's
+    /// `evidence_digest`, so the acceptance is not recomputable.
+    #[error("retained evidence receipt digests to {actual}, not the binding digest {expected}")]
+    EvidenceDigestMismatch { expected: Hash, actual: Hash },
+    /// The document or receipt could not be canonicalized / digested.
     #[error("pinned document digest could not be computed: {0}")]
     Digest(String),
 }
@@ -77,6 +82,7 @@ pub enum BindingStoreError {
 pub struct AcceptedDidBinding {
     binding: VerifiedDidBinding,
     document: DidDocument,
+    evidence_receipt: EvidenceReceipt,
 }
 
 /// Wire shape of [`AcceptedDidBinding`]. Kept separate so `Deserialize` is
@@ -86,6 +92,7 @@ pub struct AcceptedDidBinding {
 struct AcceptedDidBindingWire {
     binding: VerifiedDidBinding,
     document: DidDocument,
+    evidence_receipt: EvidenceReceipt,
 }
 
 impl<'de> Deserialize<'de> for AcceptedDidBinding {
@@ -94,17 +101,28 @@ impl<'de> Deserialize<'de> for AcceptedDidBinding {
         D: serde::Deserializer<'de>,
     {
         let wire = AcceptedDidBindingWire::deserialize(deserializer)?;
-        Self::new(wire.binding, wire.document).map_err(serde::de::Error::custom)
+        Self::new(wire.binding, wire.document, wire.evidence_receipt)
+            .map_err(serde::de::Error::custom)
     }
 }
 
 impl AcceptedDidBinding {
-    /// Pair a binding with its pinned document, verifying that the document's
-    /// canonical digest is exactly `binding.document_digest()` and that the
-    /// document belongs to the bound DID.
+    /// Pair a binding with the material it rests on: the pinned document and the
+    /// canonical evidence receipt.
+    ///
+    /// Verifies that the document's canonical digest is exactly
+    /// `binding.document_digest()`, that the document belongs to the bound DID,
+    /// and that the receipt re-digests to `binding.evidence_digest()`.
+    ///
+    /// The receipt is retained rather than discarded after digesting because
+    /// `did-usage-and-verification.md` §5.2 makes "auditable" mean
+    /// "recomputable": a stored acceptance whose evidence digest cannot be
+    /// re-derived from retained material is exactly the unfalsifiable claim the
+    /// canonical receipt exists to prevent.
     pub fn new(
         binding: VerifiedDidBinding,
         document: DidDocument,
+        evidence_receipt: EvidenceReceipt,
     ) -> Result<Self, BindingStoreError> {
         if &document.id != binding.did() {
             return Err(BindingStoreError::DocumentIdMismatch {
@@ -120,7 +138,20 @@ impl AcceptedDidBinding {
                 actual,
             });
         }
-        Ok(Self { binding, document })
+        let recomputed = evidence_receipt
+            .digest()
+            .map_err(|error| BindingStoreError::Digest(error.to_string()))?;
+        if &recomputed != binding.evidence_digest() {
+            return Err(BindingStoreError::EvidenceDigestMismatch {
+                expected: binding.evidence_digest().clone(),
+                actual: recomputed,
+            });
+        }
+        Ok(Self {
+            binding,
+            document,
+            evidence_receipt,
+        })
     }
 
     /// The verified binding.
@@ -133,12 +164,19 @@ impl AcceptedDidBinding {
         &self.document
     }
 
-    /// Return a copy whose binding carries `status`. The document pairing is
-    /// unchanged, so the digest invariant still holds.
+    /// The retained canonical evidence receipt an auditor recomputes the
+    /// binding's `evidence_digest` from.
+    pub fn evidence_receipt(&self) -> &EvidenceReceipt {
+        &self.evidence_receipt
+    }
+
+    /// Return a copy whose binding carries `status`. The document and receipt
+    /// pairings are unchanged, so both digest invariants still hold.
     pub fn with_binding_status(&self, status: DidBindingStatus) -> Self {
         Self {
             binding: self.binding.with_status(status),
             document: self.document.clone(),
+            evidence_receipt: self.evidence_receipt.clone(),
         }
     }
 }
@@ -189,7 +227,16 @@ pub struct BindingInvalidation {
     /// Match the accepted concrete verification method (key rotation).
     pub verification_method: Option<DidUrl>,
     /// Match the pinned history head (witness fork).
-    pub history_head: Option<Hash>,
+    pub history_head: Option<String>,
+    /// Match a witness this binding's evidence depends on (§5.6).
+    ///
+    /// This is the selective-invalidation dimension a digest cannot provide: a
+    /// witness revocation arrives as a witness DID, and `evidence_digest` is
+    /// one-way, so without this the only safe response is the `for_did` sweep
+    /// that also invalidates every unaffected binding of that DID.
+    pub evidence_witness_did: Option<Did>,
+    /// Match a witness controlling organization the evidence depends on (§5.6).
+    pub evidence_witness_organization: Option<Did>,
     /// Match the local trust domain.
     pub trust_domain: Option<TypedTrustDomainId>,
     /// Match the acceptance purpose (controller / service delegation change).
@@ -216,9 +263,30 @@ impl BindingInvalidation {
     }
 
     /// Selector constrained to one history head (witness fork).
-    pub fn for_history_head(history_head: Hash) -> Self {
+    pub fn for_history_head(history_head: String) -> Self {
         Self {
             history_head: Some(history_head),
+            ..Self::default()
+        }
+    }
+
+    /// Selector constrained to one witness DID (witness revocation).
+    ///
+    /// Stores that declare evidence-bearing methods MUST support this lookup:
+    /// §5.6 makes reverse lookup by witness DID the minimum a selective
+    /// invalidation needs.
+    pub fn for_evidence_witness(witness_did: Did) -> Self {
+        Self {
+            evidence_witness_did: Some(witness_did),
+            ..Self::default()
+        }
+    }
+
+    /// Selector constrained to one witness controlling organization (an
+    /// organization merge determination collapses several witnesses into one).
+    pub fn for_evidence_witness_organization(organization: Did) -> Self {
+        Self {
+            evidence_witness_organization: Some(organization),
             ..Self::default()
         }
     }
@@ -250,7 +318,7 @@ impl BindingInvalidation {
     }
 
     /// Narrow the selector to one history head.
-    pub fn with_history_head(mut self, history_head: Hash) -> Self {
+    pub fn with_history_head(mut self, history_head: String) -> Self {
         self.history_head = Some(history_head);
         self
     }
@@ -273,6 +341,8 @@ impl BindingInvalidation {
         self.did.is_none()
             && self.verification_method.is_none()
             && self.history_head.is_none()
+            && self.evidence_witness_did.is_none()
+            && self.evidence_witness_organization.is_none()
             && self.trust_domain.is_none()
             && self.purpose.is_none()
             && self.policy_digest.is_none()
@@ -295,6 +365,22 @@ impl BindingInvalidation {
         }
         if let Some(history_head) = &self.history_head
             && binding.history_head() != Some(history_head)
+        {
+            return false;
+        }
+        if let Some(witness) = &self.evidence_witness_did
+            && !binding
+                .evidence_dependencies()
+                .witness_dids
+                .contains(witness)
+        {
+            return false;
+        }
+        if let Some(organization) = &self.evidence_witness_organization
+            && !binding
+                .evidence_dependencies()
+                .witness_controlling_organizations
+                .contains(organization)
         {
             return false;
         }
@@ -520,7 +606,8 @@ mod tests {
     use arkret_wire::DidUrl;
 
     use super::*;
-    use crate::binding::{LimitedTrustReason, VerifiedDidBindingDocumentInput};
+    use crate::binding::{LimitedTrust, VerifiedDidBindingDocumentInput};
+    use crate::binding_digest::MethodEvidence;
 
     const KEY_MATERIAL: &str = "z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH";
 
@@ -555,7 +642,7 @@ mod tests {
         trust_domain: TypedTrustDomainId,
         purpose: DidBindingPurpose,
         fragment: &'static str,
-        history_head: Option<Hash>,
+        history_head: Option<String>,
         policy_digest: Hash,
         verified_at: DateTime<Utc>,
         refresh_after: Option<DateTime<Utc>>,
@@ -570,7 +657,7 @@ mod tests {
                 trust_domain: trust_domain("local"),
                 purpose: DidBindingPurpose::Principal,
                 fragment: "key-1",
-                history_head: Some(hash(0x22)),
+                history_head: Some("1-abc".to_owned()),
                 policy_digest: hash(0x44),
                 verified_at: Utc::now(),
                 refresh_after: None,
@@ -583,6 +670,15 @@ mod tests {
             let document = document_for(&self.did, self.fragment);
             let verification_method =
                 DidUrl::new(format!("{}#{}", self.did, self.fragment)).expect("valid did url");
+            // The receipt is what the acceptance is built from, so the fixture
+            // derives the digest from it rather than picking a literal: a
+            // hand-written `evidence_digest` is precisely what the store now
+            // refuses.
+            let receipt = EvidenceReceipt::new(
+                self.did.method(),
+                document_canonical_digest(&document).expect("digest"),
+                &MethodEvidence::none(),
+            );
             let binding = VerifiedDidBinding::from_verified_document(
                 &document,
                 VerifiedDidBindingDocumentInput {
@@ -591,11 +687,13 @@ mod tests {
                     verification_method: Some(verification_method),
                     history_head: self.history_head.clone(),
                     version_id: Some("1-abc".to_owned()),
-                    limited_trust: LimitedTrustReason::for_pins(
-                        self.history_head.as_ref(),
+                    limited_trust: LimitedTrust::for_proofless_method(
+                        self.history_head.as_deref(),
                         Some("1-abc"),
-                    ),
-                    evidence_digest: hash(0x33),
+                    )
+                    .record_for(),
+                    evidence_digest: receipt.digest().expect("digest"),
+                    evidence_dependencies: receipt.evidence_dependencies().expect("dependencies"),
                     policy_digest: self.policy_digest.clone(),
                     verified_at: self.verified_at,
                     refresh_after: self.refresh_after,
@@ -604,7 +702,7 @@ mod tests {
                 },
             )
             .expect("valid binding");
-            AcceptedDidBinding::new(binding, document).expect("consistent pairing")
+            AcceptedDidBinding::new(binding, document, receipt).expect("consistent pairing")
         }
     }
 
@@ -624,7 +722,12 @@ mod tests {
         let accepted = fixture.accepted();
         // Hand-build a binding whose digest points at a different document.
         let other = document_for(&fixture.did, "key-2");
-        let error = AcceptedDidBinding::new(accepted.binding().clone(), other).unwrap_err();
+        let error = AcceptedDidBinding::new(
+            accepted.binding().clone(),
+            other,
+            accepted.evidence_receipt().clone(),
+        )
+        .unwrap_err();
         assert!(matches!(
             error,
             BindingStoreError::DocumentDigestMismatch { .. }
@@ -636,9 +739,11 @@ mod tests {
         let fixture = Fixture::new();
         let other_did =
             Did::new("did:webvh:z6mkfixture:other.example".to_owned()).expect("valid did");
+        let accepted = fixture.accepted();
         let error = AcceptedDidBinding::new(
-            fixture.accepted().binding().clone(),
+            accepted.binding().clone(),
             document_for(&other_did, "key-1"),
+            accepted.evidence_receipt().clone(),
         )
         .unwrap_err();
         assert!(matches!(
@@ -809,18 +914,18 @@ mod tests {
     #[test]
     fn witness_fork_invalidates_by_history_head() {
         let mut forked = Fixture::new();
-        forked.history_head = Some(hash(0x22));
+        forked.history_head = Some("1-abc".to_owned());
         forked.fragment = "key-1";
         let mut sound = Fixture::new();
-        sound.history_head = Some(hash(0x77));
+        sound.history_head = Some("2-def".to_owned());
         sound.fragment = "key-2";
         let store = store_with(&[forked, sound]);
 
-        let removed = store.invalidate(&BindingInvalidation::for_history_head(hash(0x22)));
+        let removed = store.invalidate(&BindingInvalidation::for_history_head("1-abc".to_owned()));
         assert_eq!(removed, 1);
         assert_eq!(
             store.snapshot()[0].binding().history_head(),
-            Some(&hash(0x77)),
+            Some("2-def"),
             "only the forked head is dropped"
         );
     }

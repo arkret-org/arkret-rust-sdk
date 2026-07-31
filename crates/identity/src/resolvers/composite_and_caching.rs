@@ -35,7 +35,7 @@ impl DidResolver for DidKeriResolver {
         did.method() == "keri"
     }
 
-    fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
+    fn resolve_did(&self, did: &Did) -> Result<ResolvedDid> {
         if !self.supports(did) {
             return Err(Error::Protocol(
                 "unsupported DID method for did:keri resolver".to_owned(),
@@ -44,6 +44,7 @@ impl DidResolver for DidKeriResolver {
         self.documents
             .get(did)
             .cloned()
+            .map(ResolvedDid::proofless)
             .ok_or_else(|| Error::Protocol("did:keri document not found".to_owned()))
     }
 }
@@ -64,14 +65,17 @@ impl DidResolver for DidKeyResolver {
         did.method() == "key" && did_key_material(did).is_some()
     }
 
-    fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
+    fn resolve_did(&self, did: &Did) -> Result<ResolvedDid> {
         let key = did_key_material(did)
             .ok_or_else(|| Error::Protocol("unsupported did:key form".to_owned()))?;
-        Ok(DidDocument::new(
+        // `did:key` is self-describing: there is no log, no witness set and
+        // nothing to prove beyond the identifier, so the receipt degrades to an
+        // empty proof array rather than to an invented placeholder.
+        Ok(ResolvedDid::proofless(DidDocument::new(
             did.clone(),
             format!("{}#{key}", did.as_str()),
             key,
-        ))
+        )))
     }
 }
 
@@ -122,7 +126,7 @@ impl DidResolver for CompositeDidResolver {
         self.policy.permits(did) && self.resolvers.iter().any(|resolver| resolver.supports(did))
     }
 
-    fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
+    fn resolve_did(&self, did: &Did) -> Result<ResolvedDid> {
         self.policy.validate(did)?;
         self.resolvers
             .iter()
@@ -156,22 +160,22 @@ pub enum Freshness {
 /// Single cached DID resolution.
 ///
 /// `document_hash` is the canonical JSON SHA-256 digest with the `sha256:`
-/// prefix. `log_head` and `version` carry optional `did:webvh` metadata without
-/// affecting cache behaviour.
+/// prefix. The method evidence is cached alongside the document because a cache
+/// hit must be able to produce the same section 5.2 evidence receipt an upstream
+/// resolution would: caching the document alone would silently downgrade every
+/// cached authority acceptance into a proofless one.
 #[derive(Clone, Debug)]
 pub struct CachedResolution {
     /// Cached DID document.
     pub document: DidDocument,
+    /// What the method proved about that document.
+    pub method_evidence: MethodEvidence,
     /// Time when the entry was stored.
     pub cached_at: DateTime<Utc>,
     /// Expiry time (`cached_at + ttl`).
     pub expires_at: DateTime<Utc>,
     /// Canonical SHA-256 digest of the document, including the `sha256:` prefix.
     pub document_hash: String,
-    /// Optional `did:webvh` log head (latest `versionId`).
-    pub log_head: Option<String>,
-    /// Optional document version.
-    pub version: Option<String>,
 }
 
 impl CachedResolution {
@@ -181,15 +185,28 @@ impl CachedResolution {
         cached_at: DateTime<Utc>,
         expires_at: DateTime<Utc>,
     ) -> Result<Self> {
-        let document_hash = document_canonical_hash(&document)?;
+        Self::for_resolution(ResolvedDid::proofless(document), cached_at, expires_at)
+    }
+
+    /// Build a cache entry from a full resolution.
+    pub fn for_resolution(
+        resolved: ResolvedDid,
+        cached_at: DateTime<Utc>,
+        expires_at: DateTime<Utc>,
+    ) -> Result<Self> {
+        let document_hash = document_canonical_hash(&resolved.document)?;
         Ok(Self {
-            document,
+            document: resolved.document,
+            method_evidence: resolved.method_evidence,
             cached_at,
             expires_at,
             document_hash,
-            log_head: None,
-            version: None,
         })
+    }
+
+    /// The cached resolution.
+    pub fn resolved(&self) -> ResolvedDid {
+        ResolvedDid::new(self.document.clone(), self.method_evidence.clone())
     }
 
     /// Return this entry's freshness relative to `now`.
@@ -310,24 +327,24 @@ impl DidResolutionCache {
         self.len() == 0
     }
 
-    /// Return a fresh document and lazily evict an expired entry.
-    pub fn get(&self, did: &Did, now: DateTime<Utc>) -> Option<DidDocument> {
+    /// Return a fresh resolution and lazily evict an expired entry.
+    pub fn get(&self, did: &Did, now: DateTime<Utc>) -> Option<ResolvedDid> {
         self.state
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .get_fresh(did.as_str(), now)
-            .map(|entry| entry.document)
+            .map(|entry| entry.resolved())
     }
 
-    /// Insert a document with an explicit TTL.
+    /// Insert a resolution with an explicit TTL.
     pub fn insert(
         &self,
         did: Did,
-        document: DidDocument,
+        resolved: ResolvedDid,
         now: DateTime<Utc>,
         ttl: chrono::Duration,
     ) -> Result<()> {
-        let entry = CachedResolution::new(document, now, now + ttl)?;
+        let entry = CachedResolution::for_resolution(resolved, now, now + ttl)?;
         self.state
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -479,25 +496,25 @@ impl<R: DidResolver> CachingDidResolver<R> {
         &self,
         did: &Did,
         now: DateTime<Utc>,
-    ) -> Result<(DidDocument, Freshness)> {
+    ) -> Result<(ResolvedDid, Freshness)> {
         // Keep expired entries around so an upstream failure can still fall back
         // to stale data when policy permits it.
         if let Some(entry) = self.cache.peek(did)
             && matches!(entry.freshness_at(now), Freshness::Fresh)
         {
-            return Ok((entry.document, Freshness::Fresh));
+            return Ok((entry.resolved(), Freshness::Fresh));
         }
 
         // Miss or expired entry: resolve upstream.
         match self.inner.resolve_did(did) {
-            Ok(document) => {
+            Ok(resolved) => {
                 self.cache.insert(
                     did.clone(),
-                    document.clone(),
+                    resolved.clone(),
                     now,
                     self.policy.ttl.unwrap_or_default(),
                 )?;
-                Ok((document, Freshness::Missing))
+                Ok((resolved, Freshness::Missing))
             }
             Err(err) => {
                 // Stale fallback is available only in AllowCachedOnError mode.
@@ -505,7 +522,7 @@ impl<R: DidResolver> CachingDidResolver<R> {
                     let stale = self.cache.peek(did);
                     if let Some(entry) = stale {
                         let freshness = entry.freshness_at(now);
-                        return Ok((entry.document, freshness));
+                        return Ok((entry.resolved(), freshness));
                     }
                 }
                 Err(err)
@@ -519,20 +536,20 @@ impl<R: DidResolver> DidResolver for CachingDidResolver<R> {
         self.inner.supports(did)
     }
 
-    fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
+    fn resolve_did(&self, did: &Did) -> Result<ResolvedDid> {
         let now = Utc::now();
-        if let Some(document) = self.cache.get(did, now) {
-            return Ok(document);
+        if let Some(resolved) = self.cache.get(did, now) {
+            return Ok(resolved);
         }
 
-        let document = self.inner.resolve_did(did)?;
+        let resolved = self.inner.resolve_did(did)?;
         self.cache.insert(
             did.clone(),
-            document.clone(),
+            resolved.clone(),
             now,
             self.policy.ttl.unwrap_or_default(),
         )?;
-        Ok(document)
+        Ok(resolved)
     }
 }
 

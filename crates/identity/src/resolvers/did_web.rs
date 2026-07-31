@@ -72,15 +72,19 @@ impl DidResolver for DidWebResolver {
         did.method() == "web" && did_web_document_url(did).is_some()
     }
 
-    fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
+    fn resolve_did(&self, did: &Did) -> Result<ResolvedDid> {
         if !self.supports(did) {
             return Err(Error::Protocol(
                 "unsupported DID method for did:web resolver".to_owned(),
             ));
         }
+        // Bare `did:web` publishes no log and no witness set: its only evidence
+        // is the document served over TLS. The receipt therefore degrades to an
+        // empty proof array rather than to an invented placeholder.
         self.documents
             .get(did)
             .cloned()
+            .map(ResolvedDid::proofless)
             .ok_or_else(|| Error::Protocol("did:web document not found".to_owned()))
     }
 }

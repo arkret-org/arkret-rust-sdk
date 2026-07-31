@@ -1,12 +1,60 @@
 use crate::*;
 
+/// A resolution: the verified document plus the method evidence backing it.
+///
+/// `did-usage-and-verification.md` §5.2 makes this shape normative. webvh log
+/// heads, witness proof sets and consistency material exist only inside the
+/// resolver and cannot be derived from a DID Document, so a resolver contract
+/// that returns the document alone leaves the caller no way to compute an
+/// evidence digest that carries evidence — which is how one deployment ended up
+/// with `evidence_digest == document_digest` and another with a hard-coded
+/// constant. "The caller supplies the evidence digest afterwards" is explicitly
+/// non-conformant; the evidence travels with the resolution or it does not exist.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResolvedDid {
+    pub document: DidDocument,
+    /// What the method itself proves. [`MethodEvidence::none`] for a proofless
+    /// method (`did:key`, bare `did:web`) — the one normative degenerate form.
+    #[serde(default)]
+    pub method_evidence: MethodEvidence,
+}
+
+impl ResolvedDid {
+    /// A resolution by a method that publishes no verifiable evidence.
+    pub fn proofless(document: DidDocument) -> Self {
+        Self {
+            document,
+            method_evidence: MethodEvidence::none(),
+        }
+    }
+
+    /// A resolution carrying the evidence its method published.
+    pub fn new(document: DidDocument, method_evidence: MethodEvidence) -> Self {
+        Self {
+            document,
+            method_evidence,
+        }
+    }
+}
+
 /// Resolve DID documents for one or more DID methods.
 pub trait DidResolver {
     /// Return whether this resolver can handle the DID method or concrete DID.
     fn supports(&self, did: &Did) -> bool;
 
-    /// Resolve a DID document.
-    fn resolve_did(&self, did: &Did) -> Result<DidDocument>;
+    /// Resolve a DID, returning the document **and** its method evidence.
+    fn resolve_did(&self, did: &Did) -> Result<ResolvedDid>;
+
+    /// Resolve a DID and keep only the document.
+    ///
+    /// For call sites that legitimately need nothing but the document (rendering
+    /// a handle, looking up a public key for an ordinary signature check). An
+    /// authority path MUST NOT use it: it drops exactly the material §5.2
+    /// requires the evidence receipt to commit to.
+    fn resolve_did_document(&self, did: &Did) -> Result<DidDocument> {
+        Ok(self.resolve_did(did)?.document)
+    }
 }
 
 /// Public key material resolved from a DID document verification method.
@@ -107,7 +155,7 @@ where
     R: DidResolver + ?Sized,
 {
     let did = verification_method_did(verification_method)?;
-    let document = resolver.resolve_did(&did)?;
+    let document = resolver.resolve_did_document(&did)?;
     resolve_verification_method_key_from_document(&document, verification_method)
 }
 
@@ -136,7 +184,7 @@ where
         let did = verification_method_did(verification_method).map_err(to_signature_error)?;
         let document = self
             .resolver
-            .resolve_did(&did)
+            .resolve_did_document(&did)
             .map_err(to_signature_error)?;
         let (method_id, public_key_value) =
             lookup_verification_method_value(&document, verification_method)

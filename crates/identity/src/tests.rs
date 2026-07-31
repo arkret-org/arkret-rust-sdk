@@ -800,15 +800,21 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
     resolver.push(DidKeyResolver::new());
 
     assert_eq!(
-        resolver.resolve_did(&web).unwrap().verification_methods["owner"],
+        resolver
+            .resolve_did_document(&web)
+            .unwrap()
+            .verification_methods["owner"],
         "web-key"
     );
     assert_eq!(
-        resolver.resolve_did(&keri).unwrap().verification_methods["inception"],
+        resolver
+            .resolve_did_document(&keri)
+            .unwrap()
+            .verification_methods["inception"],
         "keri-key"
     );
 
-    let key_doc = resolver.resolve_did(&key).unwrap();
+    let key_doc = resolver.resolve_did_document(&key).unwrap();
     assert_eq!(key_doc.id, key);
     assert!(
         key_doc
@@ -1112,86 +1118,6 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
         ))
         .unwrap();
     assert!(receipt.verify(&wrong_resolver).is_err());
-}
-
-#[test]
-fn starid_registry_adapter_resolves_records_and_control_proofs() {
-    let registry_key = SigningKey::from_bytes(&[26u8; 32]);
-    let registry = did_web("registry");
-    let registry_vm = DidUrl::new(format!("{registry}#key-1")).unwrap();
-    let mut registry_resolver = DidWebResolver::new();
-    registry_resolver
-        .insert(DidDocument::new(
-            registry.clone(),
-            registry_vm.as_str(),
-            vector_update_key(&registry_key),
-        ))
-        .unwrap();
-
-    let alice = Did::new("did:webvh:zabc:starid.example:users:alice").unwrap();
-    let head = Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
-    let document = DidDocument::new(alice.clone(), "#root", "alice-public-key");
-    let receipt = DidRegistryReceipt::signed(
-        arkret_wire::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000002").unwrap(),
-        alice.clone(),
-        0,
-        head.clone(),
-        registry.clone(),
-        IdentityReceiptWitnessRole::Writer,
-        &registry_key,
-        &registry_vm,
-    )
-    .unwrap();
-    let record = StaridRegistryRecord {
-        did: alice.clone(),
-        registry_did: registry.clone(),
-        document,
-        key_log_head: head.as_str().to_owned(),
-        current_control_key: "#root".to_owned(),
-        receipt: Some(receipt),
-        resolved_at: Utc::now(),
-    };
-
-    let mut adapter = InMemoryStaridRegistryAdapter::new(registry);
-    adapter.insert(record).unwrap();
-    assert_eq!(
-        adapter
-            .resolve_did(&alice)
-            .unwrap()
-            .primary_key()
-            .unwrap()
-            .0,
-        "#root"
-    );
-    assert_eq!(adapter.current_key_log_head(&alice).unwrap(), head.as_str());
-    assert_eq!(adapter.current_control_key(&alice).unwrap(), "#root");
-    adapter
-        .verify_registry_receipt(&alice, &registry_resolver)
-        .unwrap();
-
-    let challenge = "challenge-1";
-    let alice_vm = DidUrl::new(format!("{alice}#root")).unwrap();
-    let proof = starid_control_proof(&alice, &alice_vm, challenge, "alice-public-key");
-    let verified = adapter
-        .verify_control_proof(&StaridControlProofRequestBody {
-            did: alice.clone(),
-            verification_method: alice_vm.clone(),
-            challenge: challenge.to_owned(),
-            proof,
-        })
-        .unwrap();
-    assert_eq!(verified.did, alice);
-
-    assert!(
-        adapter
-            .verify_control_proof(&StaridControlProofRequestBody {
-                did: verified.did,
-                verification_method: alice_vm,
-                challenge: challenge.to_owned(),
-                proof: "bad".to_owned(),
-            })
-            .is_err()
-    );
 }
 
 #[test]

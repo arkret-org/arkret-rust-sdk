@@ -12,8 +12,9 @@ mod handles;
 // the resolver-free / authority verifier split (`did-usage-and-verification.md`
 // §4–§6).
 pub mod binding;
-// Canonical computation of the two §5 digest fields the spec mandates but does
-// not define, so six services stop each inventing their own.
+// The canonical §5 binding contracts (evidence receipt, resolver policy
+// snapshot, evidence dependencies), so six services stop each inventing their
+// own digest inputs.
 pub mod binding_digest;
 pub mod binding_store;
 pub(crate) mod helpers;
@@ -47,13 +48,16 @@ pub(crate) use arkret_wire::{Did, DidUrl, Event, Hash, Proof};
 // `arkret::identity::*` through the umbrella) instead of inventing parallel
 // per-service types.
 pub use binding::{
-    BindingError, DidBindingPurpose, DidBindingStatus, FreshnessRequirement, LimitedTrustReason,
-    VerifiedDidBinding, VerifiedDidBindingDocumentInput, VerifiedDidBindingInput,
-    VerifiedDidBindingKey, document_canonical_digest,
+    BindingError, DidBindingPurpose, DidBindingStatus, FreshnessProfile, FreshnessRequirement,
+    FreshnessRiskTier, LimitedTrust, PinState, StaleBehavior, VerifiedDidBinding,
+    VerifiedDidBindingDocumentInput, VerifiedDidBindingInput, VerifiedDidBindingKey,
+    document_canonical_digest,
 };
 pub use binding_digest::{
-    DigestError, EVIDENCE_DIGEST_VERSION, EvidenceEnvelope, POLICY_DIGEST_VERSION,
-    PolicyDigestInput, normalize_did_method_prefix, policy_digest,
+    BASE_RESOLVER_POLICY_PROFILE, DigestError, EVIDENCE_RECEIPT_KIND, EvidenceDependencies,
+    EvidenceReceipt, MethodEvidence, MethodEvidenceProof, RESOLVER_POLICY_SNAPSHOT_KIND,
+    ResolverPolicyProfile, ResolverPolicySnapshot, WebvhLogEvidence, WebvhWitnessRow,
+    normalize_did_method_prefix, policy_digest,
 };
 pub use binding_store::{
     AcceptedDidBinding, BindingFreshness, BindingInvalidation, BindingStoreError,
@@ -73,9 +77,7 @@ pub use resolvers::*;
 pub(crate) use serde::{Deserialize, Serialize};
 pub(crate) use serde_json::Value;
 pub use verifier::{
-    BindingAcceptance, BindingAcceptanceTerms, BindingEvidenceError, BindingResolveError,
-    BindingResolveRequest, BindingVerifyError, DeferredEvidenceResolveRequest,
-    public_key_material_from_binding, resolve_and_verify_binding,
-    resolve_and_verify_binding_with_evidence, verify_event_proof_with_binding,
+    BindingResolveError, BindingResolveRequest, BindingVerifyError,
+    public_key_material_from_binding, resolve_and_verify_binding, verify_event_proof_with_binding,
     verify_event_proof_with_binding_for_event, verify_jws_with_binding, verify_jws_with_document,
 };

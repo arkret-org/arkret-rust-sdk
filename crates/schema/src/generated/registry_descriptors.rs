@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-07-31.14;
-//! sha256=703dce87d6a3230dd46d6cfd058f5553dc81b0ae2b4492aa20bb44dd0ca8024d Input: registry/
-//! capability-action-registry.json; version=2026-07-31.14;
-//! sha256=54f9d8704ef664d05b0f468a7fb4ff9e1269b54a986eef10cfac70877cad9030 Input: registry/
-//! schema-registry.json; version=2026-07-31.14;
-//! sha256=c137310423e249fb84766711c478b066ed0c67dd2832895ffeff91d0599bb025 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-07-31.15;
+//! sha256=ced660cf2e0a4e232b9cc363a544ad7f53fd13e08af5ead403e2822e336ebdb8 Input: registry/
+//! capability-action-registry.json; version=2026-07-31.15;
+//! sha256=071e95bd1d3577c52646bfd874d7c9245aff8daf821ba4a890591de5490bfdfd Input: registry/
+//! schema-registry.json; version=2026-07-31.15;
+//! sha256=ca974fd5a10b4137d81f6080cb41be5c5029fcb7f3485b4960abe872af722f07 Input: registry/
 //! account-data-key-registry.json; version=2026-07-30;
 //! sha256=9afa80c16d13fcc3bdc5da373e0e1bc6bc5099e06aaccdd560745962023f89a3 Entries: id_kinds=53,
-//! special_forms=9, actions=163, schemas=171, account_data_patterns=24
+//! special_forms=9, actions=163, schemas=173, account_data_patterns=24
 
 use arkret_wire::CapabilityActionId;
 use serde::{Deserialize, Serialize};
@@ -3021,6 +3021,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/device-reanchor.schema.json",
     },
     SchemaDescriptor {
+        schema_id: "ak.schema.did_binding_contracts.v1",
+        file: "schemas/did-binding-contracts.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: "ak.schema.did_continuity_proof.v1",
         file: "schemas/did-continuity-proof.schema.json",
     },
@@ -3091,6 +3095,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: "ak.schema.handle_claim.v1",
         file: "schemas/handle-claim.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: "ak.schema.high_risk_authority_proof.v1",
+        file: "schemas/high-risk-authority-proof.schema.json",
     },
     SchemaDescriptor {
         schema_id: "ak.schema.ice_config_response.v1",

@@ -97,7 +97,7 @@ mod tests {
 
     fn published_key(kid: &str) -> PublishedKey {
         PublishedKey {
-            kid: NonEmptyString::new(kid).unwrap(),
+            kid: DidUrl::new(kid.to_owned()).unwrap(),
             alg: NonEmptyString::new("EdDSA").unwrap(),
             public_key: NonEmptyString::new("z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH")
                 .unwrap(),

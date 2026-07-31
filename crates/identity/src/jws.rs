@@ -185,12 +185,13 @@ pub fn resolve_ed25519_pubkey(
         reason: e.to_string(),
     })?;
 
-    let document = resolver
-        .resolve_did(&did)
-        .map_err(|e| JwsVerifyError::DidResolveFailed {
-            did: did_str.clone(),
-            source: Box::new(e),
-        })?;
+    let document =
+        resolver
+            .resolve_did_document(&did)
+            .map_err(|e| JwsVerifyError::DidResolveFailed {
+                did: did_str.clone(),
+                source: Box::new(e),
+            })?;
 
     // Try full URL first, then fragment-only id, then any single-key
     // shortcut (`did:key:` documents typically have one key whose id
@@ -441,7 +442,7 @@ mod tests {
             did.as_str() == self.did.as_str()
         }
 
-        fn resolve_did(&self, did: &Did) -> crate::Result<DidDocument> {
+        fn resolve_did(&self, did: &Did) -> crate::Result<crate::ResolvedDid> {
             if did.as_str() != self.did.as_str() {
                 return Err(SdkError::Protocol(format!(
                     "stub resolver does not handle {did}"
@@ -449,13 +450,13 @@ mod tests {
             }
             let mut verification_methods = BTreeMap::new();
             verification_methods.insert(format!("{}#k1", self.did), self.material.clone());
-            Ok(DidDocument {
+            Ok(crate::ResolvedDid::proofless(DidDocument {
                 id: self.did.clone(),
                 verification_methods,
                 also_known_as: Vec::new(),
                 updated_at: Some(Utc::now()),
                 raw_properties: BTreeMap::new(),
-            })
+            }))
         }
     }
 

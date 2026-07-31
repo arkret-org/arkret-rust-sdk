@@ -53,7 +53,7 @@ pub struct SdkClaimIssuer {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SdkConformanceProof {
-    pub kid: String,
+    pub kid: DidUrl,
     pub alg: SdkConformanceProofAlgorithm,
     pub signature: String,
 }
@@ -486,7 +486,8 @@ mod tests {
             }],
             build_variants: None,
             proof: SdkConformanceProof {
-                kid: "did:webvh:z6mkfixture:release.example#claim-key-1".to_owned(),
+                kid: DidUrl::new("did:webvh:z6mkfixture:release.example#claim-key-1".to_owned())
+                    .expect("valid did url"),
                 alg: SdkConformanceProofAlgorithm::EdDsa,
                 signature: "A".repeat(43),
             },

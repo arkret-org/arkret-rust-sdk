@@ -65,17 +65,18 @@
 
 use arkret_signatures::{Ed25519DetachedJwsVerifier, PublicKeyMaterial};
 use arkret_wire::{Did, DidUrl, Event, Hash, Proof, TypedTrustDomainId};
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 
 use crate::binding::{
-    BindingError, DidBindingPurpose, DidBindingStatus, FreshnessRequirement, LimitedTrustReason,
-    VerifiedDidBinding, VerifiedDidBindingDocumentInput, VerifiedDidBindingKey,
+    BindingError, DidBindingPurpose, DidBindingStatus, FreshnessProfile, FreshnessRequirement,
+    LimitedTrust, VerifiedDidBinding, VerifiedDidBindingDocumentInput, VerifiedDidBindingKey,
     document_canonical_digest,
 };
+use crate::binding_digest::{DigestError, EvidenceReceipt};
 use crate::binding_store::{
     AcceptedDidBinding, BindingFreshness, BindingStoreError, VerifiedDidBindingStore,
 };
-use crate::{DidDocument, DidResolver};
+use crate::{DidDocument, DidResolver, ResolvedDid};
 
 // ============================================================================
 // Ordinary (resolver-free) verification
@@ -427,189 +428,19 @@ fn lookup_verification_method_material<'a>(
 // Authority path
 // ============================================================================
 
-/// How a resolved document is turned into a [`VerifiedDidBinding`].
-///
-/// The resolver returns only a DID document, so everything the acceptance pins
-/// beyond that document is supplied by the caller — including the method
-/// evidence digest and the limited-trust declaration. Use
-/// [`LimitedTrustReason::for_pins`] to fill `limited_trust` consistently;
-/// [`VerifiedDidBinding::new`] validates it either way.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct BindingAcceptance {
-    /// Digest of the method evidence backing the acceptance (webvh log
-    /// verification result, witness set, controller proof bundle...).
-    pub evidence_digest: Hash,
-    /// Method history head, when the method exposes one.
-    pub history_head: Option<Hash>,
-    /// Method version identifier, when the method exposes one.
-    pub version_id: Option<String>,
-    /// Limited-trust declaration; MUST be `Some` exactly when a pin is missing.
-    pub limited_trust: Option<LimitedTrustReason>,
-    /// Offset from acceptance time to the background-refresh point.
-    pub refresh_interval: Option<Duration>,
-    /// Offset from acceptance time to the hard-expiry point.
-    pub hard_expiry: Option<Duration>,
-}
-
-/// Everything [`BindingAcceptance`] carries **except** the evidence digest.
-///
-/// [`BindingAcceptance::evidence_digest`] must be a finished [`Hash`] before
-/// [`resolve_and_verify_binding`] is called, which means material that only
-/// exists *after* resolution — a service endpoint published by the resolved
-/// document, a witness set returned alongside it — cannot enter the evidence.
-/// This type is the same acceptance terms with that field removed, so
-/// [`resolve_and_verify_binding_with_evidence`] can compute the digest from the
-/// resolved document.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct BindingAcceptanceTerms {
-    /// Method history head, when the method exposes one.
-    pub history_head: Option<Hash>,
-    /// Method version identifier, when the method exposes one.
-    pub version_id: Option<String>,
-    /// Limited-trust declaration; MUST be `Some` exactly when a pin is missing.
-    pub limited_trust: Option<LimitedTrustReason>,
-    /// Offset from acceptance time to the background-refresh point.
-    pub refresh_interval: Option<Duration>,
-    /// Offset from acceptance time to the hard-expiry point.
-    pub hard_expiry: Option<Duration>,
-}
-
-impl BindingAcceptanceTerms {
-    /// Complete these terms with an already-computed evidence digest.
-    pub fn with_evidence_digest(self, evidence_digest: Hash) -> BindingAcceptance {
-        BindingAcceptance {
-            evidence_digest,
-            history_head: self.history_head,
-            version_id: self.version_id,
-            limited_trust: self.limited_trust,
-            refresh_interval: self.refresh_interval,
-            hard_expiry: self.hard_expiry,
-        }
-    }
-}
-
-impl BindingAcceptance {
-    /// This acceptance's terms with the evidence digest dropped.
-    pub fn terms(&self) -> BindingAcceptanceTerms {
-        BindingAcceptanceTerms {
-            history_head: self.history_head.clone(),
-            version_id: self.version_id.clone(),
-            limited_trust: self.limited_trust,
-            refresh_interval: self.refresh_interval,
-            hard_expiry: self.hard_expiry,
-        }
-    }
-}
-
-/// A caller-supplied evidence computation failed.
-///
-/// Deliberately a single opaque message rather than a closed enum: the closure
-/// runs deployment-specific code (endpoint digesting, witness-set assembly) and
-/// the SDK cannot enumerate its failure modes. `From` impls exist for the shapes
-/// callers actually produce, so `?` works inside the closure.
-#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-#[error("{0}")]
-pub struct BindingEvidenceError(String);
-
-impl BindingEvidenceError {
-    /// Wrap a failure message.
-    pub fn new(reason: impl Into<String>) -> Self {
-        Self(reason.into())
-    }
-
-    /// The failure message.
-    pub fn reason(&self) -> &str {
-        &self.0
-    }
-}
-
-impl From<crate::binding_digest::DigestError> for BindingEvidenceError {
-    fn from(error: crate::binding_digest::DigestError) -> Self {
-        Self(error.to_string())
-    }
-}
-
-impl From<BindingError> for BindingEvidenceError {
-    fn from(error: BindingError) -> Self {
-        Self(error.to_string())
-    }
-}
-
-impl From<String> for BindingEvidenceError {
-    fn from(reason: String) -> Self {
-        Self(reason)
-    }
-}
-
-impl From<&str> for BindingEvidenceError {
-    fn from(reason: &str) -> Self {
-        Self(reason.to_owned())
-    }
-}
-
-/// An authority-verification request whose `evidence_digest` is computed
-/// **after** the document is resolved.
-///
-/// Identical to [`BindingResolveRequest`] except that `acceptance` is a
-/// [`BindingAcceptanceTerms`]. Use it with
-/// [`resolve_and_verify_binding_with_evidence`] when the evidence envelope has
-/// to see the resolved document — for instance to bind a service endpoint or a
-/// method proof set that only the resolution produces.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct DeferredEvidenceResolveRequest {
-    /// The bare DID to establish or refresh a binding for.
-    pub did: Did,
-    /// Local trust domain the acceptance is scoped to.
-    pub trust_domain: TypedTrustDomainId,
-    /// The single purpose being authorized.
-    pub purpose: DidBindingPurpose,
-    /// Digest of the resolver / Realm policy in force. Compute it with
-    /// [`crate::binding_digest::PolicyDigestInput`].
-    pub policy_digest: Hash,
-    /// The concrete verification method being accepted, when key-specific.
-    pub verification_method: Option<DidUrl>,
-    /// Freshness this call site demands of a reusable binding.
-    pub freshness: FreshnessRequirement,
-    /// How to turn the resolved document into a binding, minus the evidence.
-    pub acceptance: BindingAcceptanceTerms,
-}
-
-impl DeferredEvidenceResolveRequest {
-    /// The store key this request reads and writes.
-    ///
-    /// Identical to [`BindingResolveRequest::key`]: the evidence digest is not
-    /// a key dimension, so deferring it cannot move an entry.
-    pub fn key(&self) -> VerifiedDidBindingKey {
-        VerifiedDidBindingKey {
-            did: self.did.clone(),
-            trust_domain: self.trust_domain.clone(),
-            purpose: self.purpose,
-            policy_digest: self.policy_digest.clone(),
-            verification_method: self.verification_method.clone(),
-            version_id: self.acceptance.version_id.clone(),
-        }
-    }
-
-    /// Drop the precomputed evidence digest from an eager request.
-    pub fn from_request(request: &BindingResolveRequest) -> Self {
-        Self {
-            did: request.did.clone(),
-            trust_domain: request.trust_domain.clone(),
-            purpose: request.purpose,
-            policy_digest: request.policy_digest.clone(),
-            verification_method: request.verification_method.clone(),
-            freshness: request.freshness,
-            acceptance: request.acceptance.terms(),
-        }
-    }
-}
-
 /// A single authority-verification request.
 ///
 /// Every field is required. `did-usage-and-verification.md` §4 permits reusing
 /// an earlier result "only when it is bound to the same DID, trust domain,
 /// purpose, policy digest and an acceptable freshness", so there is no
 /// `Default` and no implicit trust domain, purpose, policy digest or freshness.
+///
+/// There is deliberately **no** `evidence_digest`, `history_head`, `version_id`
+/// or `limited_trust` member: §5.2 makes all four products of the resolution
+/// itself. A request that carried them would be the "caller supplies the
+/// evidence" shape the spec judges non-conformant — and is exactly how one
+/// deployment shipped `evidence_digest = document_digest` and another a
+/// hard-coded constant.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BindingResolveRequest {
     /// The bare DID to establish or refresh a binding for.
@@ -618,17 +449,17 @@ pub struct BindingResolveRequest {
     pub trust_domain: TypedTrustDomainId,
     /// The single purpose being authorized.
     pub purpose: DidBindingPurpose,
-    /// Digest of the resolver / Realm policy in force. This is the caller's
-    /// snapshot of its [`ResolverPolicy`](crate::ResolverPolicy) (and any Realm
-    /// policy layered on it); a policy revision changes the digest, which
-    /// changes the store key, so a stale-policy binding is never reused.
+    /// Digest of the resolver policy in force. Compute it with
+    /// [`ResolverPolicy::policy_digest`](crate::ResolverPolicy::policy_digest);
+    /// a policy revision changes the digest, which changes the store key, so a
+    /// stale-policy binding is never reused.
     pub policy_digest: Hash,
     /// The concrete verification method being accepted, when key-specific.
     pub verification_method: Option<DidUrl>,
-    /// Freshness this call site demands of a reusable binding.
-    pub freshness: FreshnessRequirement,
-    /// How to turn the resolved document into a binding.
-    pub acceptance: BindingAcceptance,
+    /// The registered freshness profile this call site references (§5.4). It is
+    /// the single source of the reuse threshold, `refresh_after` and
+    /// `expires_at`, so those three can never drift apart.
+    pub freshness: FreshnessProfile,
 }
 
 impl BindingResolveRequest {
@@ -640,7 +471,6 @@ impl BindingResolveRequest {
             purpose: self.purpose,
             policy_digest: self.policy_digest.clone(),
             verification_method: self.verification_method.clone(),
-            version_id: self.acceptance.version_id.clone(),
         }
     }
 }
@@ -668,12 +498,12 @@ pub enum BindingResolveError {
         did: Did,
         available: Vec<String>,
     },
-    /// The caller's post-resolution evidence computation failed.
-    #[error("evidence computation failed for `{did}`: {source}")]
+    /// The canonical evidence receipt could not be built or digested.
+    #[error("evidence receipt failed for `{did}`: {source}")]
     Evidence {
         did: Did,
         #[source]
-        source: BindingEvidenceError,
+        source: DigestError,
     },
     /// The binding failed its internal-consistency checks.
     #[error(transparent)]
@@ -689,13 +519,19 @@ pub enum BindingResolveError {
 /// Order of operations:
 ///
 /// 1. read the binding store under `request.key()`;
-/// 2. on a hit that satisfies `request.freshness`, return it **without calling the resolver**;
+/// 2. on a hit that satisfies the request's freshness profile, return it **without calling the
+///    resolver**;
 /// 3. otherwise call `resolver.resolve_did` **exactly once**, verify the document belongs to the
-///    requested DID (and carries the requested verification method), build the binding and
-///    `accept()` it back into the store.
+///    requested DID (and carries the requested verification method), build the §5.2 evidence
+///    receipt from the resolution, and `accept()` the binding back into the store.
 ///
 /// A hard-expired or invalidated entry reads as a miss, so the next authority
 /// call resolves again — exactly once.
+///
+/// The evidence receipt, its digest, the dependency record and the per-pin
+/// limited-trust states are all derived here from what the resolver returned.
+/// That is the point: there is no caller-facing seam where a placeholder could
+/// be substituted for evidence.
 pub fn resolve_and_verify_binding<R>(
     resolver: &R,
     store: &dyn VerifiedDidBindingStore,
@@ -705,82 +541,30 @@ pub fn resolve_and_verify_binding<R>(
 where
     R: DidResolver + ?Sized,
 {
-    let evidence_digest = request.acceptance.evidence_digest.clone();
-    resolve_and_verify_binding_with_evidence(
-        resolver,
-        store,
-        &DeferredEvidenceResolveRequest::from_request(request),
-        move |_document| Ok(evidence_digest),
-        now,
-    )
-}
-
-/// [`resolve_and_verify_binding`] with the evidence digest computed from the
-/// **resolved document**.
-///
-/// Same operation order and the same "exactly one upstream resolution"
-/// guarantee; the only difference is *when* the evidence digest exists. On a
-/// store hit `evidence` is never called at all — the cached acceptance keeps the
-/// evidence it was originally accepted with, so a reuse cannot silently
-/// re-stamp itself with fresh-looking evidence.
-///
-/// ```no_run
-/// # use arkret_identity::binding_digest::EvidenceEnvelope;
-/// # use arkret_identity::verifier::{DeferredEvidenceResolveRequest, resolve_and_verify_binding_with_evidence};
-/// # use arkret_identity::{DidResolver, VerifiedDidBindingStore};
-/// # fn demo<R: DidResolver>(
-/// #     resolver: &R,
-/// #     store: &dyn VerifiedDidBindingStore,
-/// #     request: &DeferredEvidenceResolveRequest,
-/// #     now: chrono::DateTime<chrono::Utc>,
-/// # ) {
-/// let policy_digest = request.policy_digest.clone();
-/// let accepted = resolve_and_verify_binding_with_evidence(
-///     resolver,
-///     store,
-///     request,
-///     |document| {
-///         // `document` is the freshly resolved, already-verified document, so
-///         // post-resolution material can enter the evidence envelope here.
-///         Ok(EvidenceEnvelope::for_document(document, policy_digest)?
-///             .with_extension("source", "shared_resolver_chain")
-///             .digest()?)
-///     },
-///     now,
-/// );
-/// # let _ = accepted;
-/// # }
-/// ```
-pub fn resolve_and_verify_binding_with_evidence<R, F>(
-    resolver: &R,
-    store: &dyn VerifiedDidBindingStore,
-    request: &DeferredEvidenceResolveRequest,
-    evidence: F,
-    now: DateTime<Utc>,
-) -> Result<AcceptedDidBinding, BindingResolveError>
-where
-    R: DidResolver + ?Sized,
-    F: FnOnce(&DidDocument) -> Result<Hash, BindingEvidenceError>,
-{
+    let requirement = request.freshness.requirement();
     let key = request.key();
     let (hit, freshness) = store.get_with_freshness(&key, now);
     if let Some(accepted) = hit
-        && freshness_satisfies(&freshness, &request.freshness)
+        && freshness_satisfies(&freshness, &requirement)
         && accepted
             .binding()
-            .is_usable_for_authority(&request.freshness, now)
+            .is_usable_for_authority(&requirement, now)
     {
         return Ok(accepted);
     }
 
     // Authority trigger reached: exactly one upstream resolution.
-    let document =
+    let resolved =
         resolver
             .resolve_did(&request.did)
             .map_err(|source| BindingResolveError::Resolve {
                 did: request.did.clone(),
                 source: Box::new(source),
             })?;
+    let ResolvedDid {
+        document,
+        method_evidence,
+    } = resolved;
 
     if document.id != request.did {
         return Err(BindingResolveError::DocumentIssuerMismatch {
@@ -799,12 +583,28 @@ where
         });
     }
 
-    // The evidence digest is computed here — after the document is resolved and
-    // checked — so post-resolution material can enter it.
-    let evidence_digest = evidence(&document).map_err(|source| BindingResolveError::Evidence {
+    let evidence = |source| BindingResolveError::Evidence {
         did: request.did.clone(),
         source,
-    })?;
+    };
+    let document_digest = document_canonical_digest(&document)?;
+    let receipt = EvidenceReceipt::new(document.id.method(), document_digest, &method_evidence);
+    let evidence_digest = receipt.digest().map_err(evidence)?;
+    let evidence_dependencies = receipt.evidence_dependencies().map_err(evidence)?;
+
+    // §5.5: an absent pin is `method_unsupported` only when the method really
+    // publishes nothing. For an evidence-bearing method it is `not_surfaced` —
+    // a resolver failure that must stay visible rather than be laundered into a
+    // terminal method property.
+    let pins = (
+        method_evidence.history_head.as_deref(),
+        method_evidence.version_id.as_deref(),
+    );
+    let limited_trust = if method_evidence.is_proofless() {
+        LimitedTrust::for_proofless_method(pins.0, pins.1)
+    } else {
+        LimitedTrust::for_evidence_bearing_method(pins.0, pins.1)
+    };
 
     let binding = VerifiedDidBinding::from_verified_document(
         &document,
@@ -812,22 +612,20 @@ where
             trust_domain: request.trust_domain.clone(),
             purpose: request.purpose,
             verification_method: request.verification_method.clone(),
-            history_head: request.acceptance.history_head.clone(),
-            version_id: request.acceptance.version_id.clone(),
-            limited_trust: request.acceptance.limited_trust,
+            history_head: method_evidence.history_head.clone(),
+            version_id: method_evidence.version_id.clone(),
+            limited_trust: limited_trust.record_for(),
             evidence_digest,
+            evidence_dependencies,
             policy_digest: request.policy_digest.clone(),
             verified_at: now,
-            refresh_after: request
-                .acceptance
-                .refresh_interval
-                .map(|interval| now + interval),
-            expires_at: request.acceptance.hard_expiry.map(|expiry| now + expiry),
+            refresh_after: request.freshness.refresh_after(now),
+            expires_at: request.freshness.expires_at(now),
             status: DidBindingStatus::Active,
         },
     )?;
 
-    let accepted = AcceptedDidBinding::new(binding, document)?;
+    let accepted = AcceptedDidBinding::new(binding, document, receipt)?;
     store.accept(accepted.clone())?;
     Ok(accepted)
 }
@@ -846,10 +644,12 @@ mod tests {
     use std::collections::BTreeMap;
 
     use arkret_signatures::jws::sign_jws_ed25519;
+    use chrono::Duration;
     use ed25519_dalek::SigningKey;
 
     use super::*;
-    use crate::binding::VerifiedDidBindingDocumentInput;
+    use crate::binding::{FreshnessProfile, VerifiedDidBindingDocumentInput};
+    use crate::binding_digest::{EvidenceReceipt, MethodEvidence};
     use crate::binding_store::InMemoryVerifiedDidBindingStore;
 
     fn hash(seed: u8) -> Hash {
@@ -886,16 +686,22 @@ mod tests {
     }
 
     fn accepted(document: &DidDocument) -> AcceptedDidBinding {
+        let receipt = EvidenceReceipt::new(
+            did().method(),
+            document_canonical_digest(document).expect("digest"),
+            &MethodEvidence::none(),
+        );
         let binding = VerifiedDidBinding::from_verified_document(
             document,
             VerifiedDidBindingDocumentInput {
                 trust_domain: trust_domain(),
                 purpose: DidBindingPurpose::Principal,
                 verification_method: Some(verification_method()),
-                history_head: Some(hash(0x22)),
-                version_id: Some("1-abc".to_owned()),
-                limited_trust: None,
-                evidence_digest: hash(0x33),
+                history_head: None,
+                version_id: None,
+                limited_trust: LimitedTrust::for_proofless_method(None, None).record_for(),
+                evidence_digest: receipt.digest().expect("digest"),
+                evidence_dependencies: receipt.evidence_dependencies().expect("dependencies"),
                 policy_digest: hash(0x44),
                 verified_at: Utc::now(),
                 refresh_after: None,
@@ -904,7 +710,7 @@ mod tests {
             },
         )
         .expect("valid binding");
-        AcceptedDidBinding::new(binding, document.clone()).expect("consistent pairing")
+        AcceptedDidBinding::new(binding, document.clone(), receipt).expect("consistent pairing")
     }
 
     #[test]
@@ -1048,21 +854,23 @@ mod tests {
         let stale = BindingFreshness::Stale {
             age: Duration::minutes(1),
         };
-        assert!(!freshness_satisfies(
-            &stale,
-            &FreshnessRequirement::fresh_within(Duration::hours(1))
-        ));
-        assert!(freshness_satisfies(
-            &stale,
-            &FreshnessRequirement::any_accepted()
-        ));
+        let high = FreshnessRequirement {
+            max_age: Some(Duration::hours(1)),
+            require_fresh: true,
+        };
+        let accepted_only = FreshnessRequirement {
+            max_age: None,
+            require_fresh: false,
+        };
+        assert!(!freshness_satisfies(&stale, &high));
+        assert!(freshness_satisfies(&stale, &accepted_only));
         assert!(!freshness_satisfies(
             &BindingFreshness::Expired,
-            &FreshnessRequirement::any_accepted()
+            &accepted_only
         ));
         assert!(!freshness_satisfies(
             &BindingFreshness::Missing,
-            &FreshnessRequirement::any_accepted()
+            &accepted_only
         ));
     }
 
@@ -1469,11 +1277,12 @@ mod tests {
     }
 
     // ------------------------------------------------------------------
-    // Deferred (post-resolution) evidence
+    // Authority path: evidence comes out of the resolver, not the caller
     // ------------------------------------------------------------------
 
     struct OneShotResolver {
         document: DidDocument,
+        method_evidence: MethodEvidence,
         calls: std::sync::atomic::AtomicUsize,
     }
 
@@ -1481,6 +1290,15 @@ mod tests {
         fn new(document: DidDocument) -> Self {
             Self {
                 document,
+                method_evidence: MethodEvidence::none(),
+                calls: std::sync::atomic::AtomicUsize::new(0),
+            }
+        }
+
+        fn with_evidence(document: DidDocument, method_evidence: MethodEvidence) -> Self {
+            Self {
+                document,
+                method_evidence,
                 calls: std::sync::atomic::AtomicUsize::new(0),
             }
         }
@@ -1495,96 +1313,156 @@ mod tests {
             true
         }
 
-        fn resolve_did(&self, _did: &Did) -> crate::Result<DidDocument> {
+        fn resolve_did(&self, _did: &Did) -> crate::Result<ResolvedDid> {
             self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            Ok(self.document.clone())
+            Ok(ResolvedDid::new(
+                self.document.clone(),
+                self.method_evidence.clone(),
+            ))
         }
     }
 
-    fn deferred_request() -> DeferredEvidenceResolveRequest {
-        DeferredEvidenceResolveRequest {
+    /// A `high` tier profile: no stale window, one hour of freshness.
+    fn high_profile() -> FreshnessProfile {
+        FreshnessProfile {
+            freshness_profile_id: "ak.did_freshness.test_high.v1".to_owned(),
+            risk_tier: crate::binding::FreshnessRiskTier::High,
+            did_method_selector: vec!["*".to_owned()],
+            fresh_for_seconds: Some(3_600),
+            stale_grace_seconds: None,
+            hard_expiry_seconds: Some(86_400),
+            stale_behavior: crate::binding::StaleBehavior::SynchronousRefreshOrFailClosed,
+        }
+    }
+
+    fn request() -> BindingResolveRequest {
+        BindingResolveRequest {
             did: did(),
             trust_domain: trust_domain(),
             purpose: DidBindingPurpose::Principal,
             policy_digest: hash(0x44),
             verification_method: Some(verification_method()),
-            freshness: FreshnessRequirement::fresh_within(Duration::hours(1)),
-            acceptance: BindingAcceptanceTerms {
-                history_head: None,
-                version_id: None,
-                limited_trust: Some(LimitedTrustReason::MethodHasNeitherHistoryNorVersion),
-                refresh_interval: Some(Duration::minutes(30)),
-                hard_expiry: Some(Duration::hours(24)),
-            },
+            freshness: high_profile(),
         }
     }
 
+    fn webvh_evidence() -> MethodEvidence {
+        MethodEvidence {
+            proofs: vec![crate::MethodEvidenceProof::WebvhLog(
+                crate::WebvhLogEvidence {
+                    history_head: "3-QmFixtureHead".to_owned(),
+                    witnesses: vec![crate::WebvhWitnessRow {
+                        witness_did: Did::new("did:webvh:z6mkfixture:witness.example".to_owned())
+                            .expect("valid did"),
+                        controlling_organization: Did::new(
+                            "did:webvh:z6mkfixture:witness.example".to_owned(),
+                        )
+                        .expect("valid did"),
+                    }],
+                    witness_proofs_digest: hash(0x77),
+                },
+            )],
+            history_head: Some("3-QmFixtureHead".to_owned()),
+            version_id: Some("3-QmFixtureHead".to_owned()),
+        }
+    }
+
+    /// The whole point of the resolver channel: the acceptance's evidence digest
+    /// is derived from what the resolver returned, and an auditor recomputes it
+    /// from the retained receipt.
     #[test]
-    fn deferred_evidence_sees_the_resolved_document() {
-        // The teabay constraint: material that only exists after resolution
-        // (an endpoint, a witness set) could not previously enter the evidence.
-        let document = document(&format!("{}#key-1", did()));
-        let resolver = OneShotResolver::new(document.clone());
+    fn the_evidence_digest_is_recomputable_from_the_retained_receipt() {
+        let resolver =
+            OneShotResolver::with_evidence(document(&format!("{}#key-1", did())), webvh_evidence());
         let store = InMemoryVerifiedDidBindingStore::default();
-        let request = deferred_request();
-        let expected = crate::binding_digest::EvidenceEnvelope::for_document(
-            &document,
-            request.policy_digest.clone(),
-        )
-        .expect("envelope")
-        .with_extension("method_count", document.verification_methods.len())
-        .digest()
-        .expect("digest");
+        let accepted =
+            resolve_and_verify_binding(&resolver, &store, &request(), Utc::now()).expect("resolve");
 
-        let accepted = resolve_and_verify_binding_with_evidence(
-            &resolver,
-            &store,
-            &request,
-            |resolved| {
-                Ok(
-                    crate::binding_digest::EvidenceEnvelope::for_document(resolved, hash(0x44))?
-                        .with_extension("method_count", resolved.verification_methods.len())
-                        .digest()?,
-                )
-            },
-            Utc::now(),
-        )
-        .expect("resolve");
-
-        assert_eq!(accepted.binding().evidence_digest(), &expected);
+        assert_eq!(
+            accepted.binding().evidence_digest(),
+            &accepted
+                .evidence_receipt()
+                .digest()
+                .expect("recomputed digest")
+        );
         assert_ne!(
             accepted.binding().evidence_digest(),
             accepted.binding().document_digest(),
             "a canonical evidence digest is never the bare document digest"
         );
+        assert_eq!(
+            accepted.evidence_receipt().document_digest,
+            *accepted.binding().document_digest()
+        );
+    }
+
+    /// §5.6: the dependency record is what makes a witness revocation selective.
+    #[test]
+    fn evidence_dependencies_are_carried_and_index_the_witness() {
+        let resolver =
+            OneShotResolver::with_evidence(document(&format!("{}#key-1", did())), webvh_evidence());
+        let store = InMemoryVerifiedDidBindingStore::default();
+        let accepted =
+            resolve_and_verify_binding(&resolver, &store, &request(), Utc::now()).expect("resolve");
+
+        let witness =
+            Did::new("did:webvh:z6mkfixture:witness.example".to_owned()).expect("valid did");
+        assert_eq!(
+            accepted.binding().evidence_dependencies().witness_dids,
+            vec![witness.clone()]
+        );
+        assert_eq!(
+            store.invalidate(&crate::BindingInvalidation::for_evidence_witness(witness)),
+            1
+        );
+    }
+
+    /// §5.5: an evidence-bearing method that surfaced both pins records no
+    /// limited trust at all; a proofless one records `method_unsupported`.
+    #[test]
+    fn limited_trust_follows_what_the_resolver_surfaced() {
+        let store = InMemoryVerifiedDidBindingStore::default();
+        let pinned = resolve_and_verify_binding(
+            &OneShotResolver::with_evidence(
+                document(&format!("{}#key-1", did())),
+                webvh_evidence(),
+            ),
+            &store,
+            &request(),
+            Utc::now(),
+        )
+        .expect("resolve");
+        assert_eq!(pinned.binding().limited_trust(), None);
+        assert_eq!(pinned.binding().history_head(), Some("3-QmFixtureHead"));
+
+        let proofless_store = InMemoryVerifiedDidBindingStore::default();
+        let proofless = resolve_and_verify_binding(
+            &OneShotResolver::new(document(&format!("{}#key-1", did()))),
+            &proofless_store,
+            &request(),
+            Utc::now(),
+        )
+        .expect("resolve");
+        assert_eq!(
+            proofless.binding().limited_trust(),
+            Some(LimitedTrust {
+                history_head: crate::PinState::MethodUnsupported,
+                version_id: crate::PinState::MethodUnsupported,
+            })
+        );
     }
 
     #[test]
-    fn deferred_evidence_is_not_recomputed_on_a_store_hit() {
-        // A reuse must keep the evidence it was accepted with, and must not
-        // reach the resolver a second time.
-        let document = document(&format!("{}#key-1", did()));
-        let resolver = OneShotResolver::new(document.clone());
+    fn a_store_hit_keeps_its_evidence_and_never_reaches_the_resolver_again() {
+        let resolver =
+            OneShotResolver::with_evidence(document(&format!("{}#key-1", did())), webvh_evidence());
         let store = InMemoryVerifiedDidBindingStore::default();
-        let request = deferred_request();
         let now = Utc::now();
 
-        let first = resolve_and_verify_binding_with_evidence(
-            &resolver,
-            &store,
-            &request,
-            |_| Ok(hash(0x33)),
-            now,
-        )
-        .expect("first acceptance");
-        let second = resolve_and_verify_binding_with_evidence(
-            &resolver,
-            &store,
-            &request,
-            |_| panic!("a store hit must not recompute evidence"),
-            now + Duration::minutes(1),
-        )
-        .expect("store hit");
+        let first = resolve_and_verify_binding(&resolver, &store, &request(), now).expect("first");
+        let second =
+            resolve_and_verify_binding(&resolver, &store, &request(), now + Duration::minutes(1))
+                .expect("store hit");
 
         assert_eq!(resolver.calls(), 1);
         assert_eq!(
@@ -1593,108 +1471,33 @@ mod tests {
         );
     }
 
+    /// The freshness profile is the single source of the reuse threshold,
+    /// `refresh_after` and `expires_at`.
     #[test]
-    fn deferred_evidence_failure_fails_the_acceptance_closed() {
-        let document = document(&format!("{}#key-1", did()));
-        let resolver = OneShotResolver::new(document);
+    fn the_freshness_profile_drives_every_window() {
+        let resolver = OneShotResolver::new(document(&format!("{}#key-1", did())));
         let store = InMemoryVerifiedDidBindingStore::default();
-        let error = resolve_and_verify_binding_with_evidence(
-            &resolver,
-            &store,
-            &deferred_request(),
-            |_| Err(BindingEvidenceError::new("endpoint digest unavailable")),
-            Utc::now(),
-        )
-        .unwrap_err();
-        assert!(matches!(error, BindingResolveError::Evidence { .. }));
-        assert_eq!(store.len(), 0, "a failed evidence step stores nothing");
-    }
-
-    #[test]
-    fn the_eager_and_deferred_paths_produce_the_same_binding() {
-        // `resolve_and_verify_binding` is implemented on top of the deferred
-        // path; this pins that the delegation is behaviour-preserving.
-        let document = document(&format!("{}#key-1", did()));
         let now = Utc::now();
-        let eager_request = BindingResolveRequest {
-            did: did(),
-            trust_domain: trust_domain(),
-            purpose: DidBindingPurpose::Principal,
-            policy_digest: hash(0x44),
-            verification_method: Some(verification_method()),
-            freshness: FreshnessRequirement::fresh_within(Duration::hours(1)),
-            acceptance: deferred_request()
-                .acceptance
-                .with_evidence_digest(hash(0x33)),
-        };
-        assert_eq!(
-            DeferredEvidenceResolveRequest::from_request(&eager_request),
-            deferred_request(),
-        );
-        assert_eq!(eager_request.key(), deferred_request().key());
-
-        let eager_store = InMemoryVerifiedDidBindingStore::default();
-        let eager = resolve_and_verify_binding(
-            &OneShotResolver::new(document.clone()),
-            &eager_store,
-            &eager_request,
-            now,
-        )
-        .expect("eager acceptance");
-
-        let deferred_store = InMemoryVerifiedDidBindingStore::default();
-        let deferred = resolve_and_verify_binding_with_evidence(
-            &OneShotResolver::new(document),
-            &deferred_store,
-            &deferred_request(),
-            |_| Ok(hash(0x33)),
-            now,
-        )
-        .expect("deferred acceptance");
-
-        assert_eq!(eager, deferred);
-    }
-
-    #[test]
-    fn store_is_written_back_on_acceptance() {
-        struct OneShot(DidDocument);
-        impl DidResolver for OneShot {
-            fn supports(&self, _did: &Did) -> bool {
-                true
-            }
-
-            fn resolve_did(&self, _did: &Did) -> crate::Result<DidDocument> {
-                Ok(self.0.clone())
-            }
-        }
-
-        let document = document(&format!("{}#key-1", did()));
-        let store = InMemoryVerifiedDidBindingStore::default();
-        let request = BindingResolveRequest {
-            did: did(),
-            trust_domain: trust_domain(),
-            purpose: DidBindingPurpose::Principal,
-            policy_digest: hash(0x44),
-            verification_method: Some(verification_method()),
-            freshness: FreshnessRequirement::fresh_within(Duration::hours(1)),
-            acceptance: BindingAcceptance {
-                evidence_digest: hash(0x33),
-                history_head: Some(hash(0x22)),
-                version_id: Some("1-abc".to_owned()),
-                limited_trust: None,
-                refresh_interval: Some(Duration::minutes(30)),
-                hard_expiry: Some(Duration::hours(24)),
-            },
-        };
-        let now = Utc::now();
+        let request = request();
         let accepted =
-            resolve_and_verify_binding(&OneShot(document), &store, &request, now).expect("resolve");
-        assert_eq!(store.len(), 1);
+            resolve_and_verify_binding(&resolver, &store, &request, now).expect("resolve");
+
         assert_eq!(accepted.binding().verified_at(), now);
         assert_eq!(
             accepted.binding().refresh_after(),
-            Some(now + Duration::minutes(30))
+            Some(now + Duration::hours(1)),
+            "refresh_after is verified_at + fresh_for_seconds"
         );
+        assert_eq!(
+            accepted.binding().expires_at(),
+            Some(now + Duration::hours(24))
+        );
+        assert_eq!(
+            request.freshness.requirement().max_age,
+            Some(Duration::hours(1)),
+            "max_age is the same fresh_for_seconds, never a second constant"
+        );
+        assert_eq!(store.len(), 1);
         assert!(store.get(&request.key(), now).is_some());
     }
 }

@@ -13,8 +13,8 @@ pub type HierarchyLinkStatus = String;
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/inheritance_policy_status`.
 pub type InheritancePolicyStatus = String;
 
-/// `rebind_authorization` enum for [`DeliveryBindingPolicyPayload`]
-/// (`event-payload.schema.json#/$defs/delivery_binding_policy_payload`).
+/// `rebind_authorization` enum for [`RealmDeliveryBindingPolicyPayload`]
+/// (`event-payload.schema.json#/$defs/realm_delivery_binding_policy_payload`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RebindAuthorization {
@@ -25,7 +25,7 @@ pub enum RebindAuthorization {
     Any,
 }
 
-/// `allowed_recipient_services` value of [`DeliveryBindingPolicyPayload`].
+/// `allowed_recipient_services` value of [`RealmDeliveryBindingPolicyPayload`].
 ///
 /// The spec models this as a `oneOf`: either an allow-list of recipient
 /// service DIDs — where the **empty** list means "reject every recipient
@@ -81,8 +81,95 @@ impl<'de> Deserialize<'de> for AllowedRecipientServices {
     }
 }
 
+/// `mls_send_pause` value of [`RealmPolicyBundlePayload`].
+///
+/// A closed one-value enum rather than a `bool`: `advisory` downgrades the MLS
+/// send pause from MUST to SHOULD and is only accepted when the Realm declares
+/// `ak.profile.e2ee_relaxed.v1`; omitting the field in a later revision reverts
+/// to the strict default, which has no token of its own.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MlsSendPause {
+    Advisory,
+}
+
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/delivery_binding_policy_payload`.
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_policy_bundle_payload`.
+///
+/// Payload of `ak.realm.policy_bundle`: the payload **is** this flat closed
+/// object, not a `state_payload` wrapper. Every revision restates the complete
+/// enabled component set, because the bundle is written wholesale into the
+/// `ak.component.realm.policy_bundle.v1` `cas_register` cell and the Realm
+/// object's derived policy fields re-derive from the latest accepted bundle.
+///
+/// `policy_revision` is strictly monotonic and is what gives this cell family a
+/// generation dimension inside its value — `cas_register` supersession binds by
+/// value, so a family that can otherwise repeat a value needs one
+/// (`event-auth-state-resolution.md` §9.3.1).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmPolicyBundlePayload {
+    pub policy_revision: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_scheme: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_encryption_floor: Option<EncryptionFloor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata_encryption_floor: Option<EncryptionFloor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub durability_policy: Option<DurabilityPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mls_send_pause: Option<MlsSendPause>,
+}
+
+impl RealmPolicyBundlePayload {
+    /// A bundle revision carrying one component set.
+    pub fn new(policy_revision: u64) -> Self {
+        Self {
+            policy_revision,
+            content_scheme: None,
+            content_encryption_floor: None,
+            metadata_encryption_floor: None,
+            durability_policy: None,
+            mls_send_pause: None,
+        }
+    }
+
+    /// `minProperties: 2` — a revision that enables nothing is a
+    /// `schema_violation`, because restating "the complete enabled component
+    /// set" as the empty set would silently disable every component.
+    pub fn validate(&self) -> Result<()> {
+        if self.policy_revision == 0 {
+            return Err(Error::Protocol(
+                "realm_policy_bundle_payload.policy_revision must be >= 1 (schema_violation)"
+                    .to_owned(),
+            ));
+        }
+        if self.content_scheme.is_none()
+            && self.content_encryption_floor.is_none()
+            && self.metadata_encryption_floor.is_none()
+            && self.durability_policy.is_none()
+            && self.mls_send_pause.is_none()
+        {
+            return Err(Error::Protocol(
+                "realm_policy_bundle_payload must declare at least one component beside \
+                 policy_revision (schema_violation)"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        self.validate()?;
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("realm policy bundle payload serialize: {err}")))
+    }
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/
+/// realm_delivery_binding_policy_payload`.
 ///
 /// Payload of `ak.realm.delivery_binding_policy`. Field declaration order
 /// mirrors the spec schema `properties` ordering. `minProperties: 1` in the
@@ -92,7 +179,7 @@ impl<'de> Deserialize<'de> for AllowedRecipientServices {
 /// no such thing as a default delivery-binding policy.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DeliveryBindingPolicyPayload {
+pub struct RealmDeliveryBindingPolicyPayload {
     /// Optional echo of the governed Realm; the authoritative scope is the
     /// enclosing envelope `realm_id`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -116,7 +203,7 @@ pub struct DeliveryBindingPolicyPayload {
     pub expires_after_seconds: Option<u64>,
 }
 
-impl DeliveryBindingPolicyPayload {
+impl RealmDeliveryBindingPolicyPayload {
     pub fn validate(&self) -> Result<()> {
         if self.realm_id.is_none()
             && self.allowed_binding_sources.is_none()
@@ -128,14 +215,14 @@ impl DeliveryBindingPolicyPayload {
             && self.expires_after_seconds.is_none()
         {
             return Err(Error::Protocol(
-                "delivery_binding_policy_payload must declare at least one property \
+                "realm_delivery_binding_policy_payload must declare at least one property \
                  (schema_violation)"
                     .to_owned(),
             ));
         }
         if self.expires_after_seconds == Some(0) {
             return Err(Error::Protocol(
-                "delivery_binding_policy_payload.expires_after_seconds must be >= 1 \
+                "realm_delivery_binding_policy_payload.expires_after_seconds must be >= 1 \
                  (schema_violation)"
                     .to_owned(),
             ));

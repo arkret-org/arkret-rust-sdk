@@ -16,8 +16,8 @@ use std::sync::OnceLock;
 /// Re-exported so this module and the wire layer cannot drift apart.
 pub use arkret_wire::NULL_SUBJECT as NULL_CELL_SUBJECT;
 use arkret_wire::{
-    CellRef, Event, EventId, LatticeOp, LatticeOpType, ObservedRemoveMatch, ProjectedCellWrite,
-    ProjectedOp,
+    CellRef, Event, EventId, LatticeOp, LatticeOpType, ObservedRemoveMatch, PredicateOp,
+    ProjectedCellWrite, ProjectedOp,
 };
 use serde_json::Value;
 use thiserror::Error;
@@ -263,7 +263,16 @@ pub fn project_registered_cell_writes_with_pre_state(
             }
         }
         let dot = or_set_dot(event.event_id.as_str(), write_index);
-        for op in derive_effect_ops(event, write, projection, lattice, &kind, &dot, digest_suite)? {
+        for op in derive_effect_ops(
+            event,
+            write,
+            projection,
+            lattice,
+            &cell,
+            &kind,
+            &dot,
+            digest_suite,
+        )? {
             projected.push(ProjectedCellWrite {
                 cell: cell.clone(),
                 op,
@@ -441,11 +450,35 @@ fn conflict_recovery_cell(
     })
 }
 
+/// The predecessor value a `cas_register` set supersedes.
+///
+/// `event-auth-state-resolution.md` §9.3.1 makes the projector copy the
+/// whole-value `head_eq` precondition the Move asserted on this very cell into
+/// `op.from`, so the join can tell a sequential replacement from a concurrent
+/// sibling without any Seal-DAG input. The rule is global to the lattice, not
+/// registered per cell family, so it lives here rather than in the registry row.
+///
+/// An initial write asserts no predecessor and leaves `from` absent. An explicit
+/// `head_eq null` asserts the *initial* state (the settled value of an absent
+/// cell is `null`), so it is likewise a chain head rather than a predecessor
+/// value.
+fn cas_register_predecessor(event: &Event, cell: &CellRef) -> Option<Value> {
+    event
+        .preconditions
+        .iter()
+        .filter(|precondition| {
+            precondition.cell == *cell && precondition.predicate.op == PredicateOp::HeadEq
+        })
+        .find_map(|precondition| precondition.predicate.value.clone())
+        .filter(|value| !value.is_null())
+}
+
 fn derive_effect_ops(
     event: &Event,
     write: &Value,
     projection: &Value,
     lattice: &str,
+    cell: &CellRef,
     kind: &str,
     dot: &str,
     digest_suite: arkret_canonical::DigestSuite,
@@ -491,6 +524,9 @@ fn derive_effect_ops(
             )?;
             let mut op = LatticeOp::empty();
             op.value = Some(source("value")?);
+            if lattice == "cas_register" {
+                op.from = cas_register_predecessor(event, cell);
+            }
             Ok(vec![ProjectedOp::Direct(op)])
         }
         "apply_patch" => {

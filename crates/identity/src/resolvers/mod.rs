@@ -53,18 +53,18 @@ mod caching_tests {
             did.method() == "key"
         }
 
-        fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
+        fn resolve_did(&self, did: &Did) -> Result<ResolvedDid> {
             self.calls.fetch_add(1, Ordering::SeqCst);
             if self.fail.load(Ordering::SeqCst) {
                 return Err(Error::Protocol("stub resolver forced failure".to_owned()));
             }
             let key = did_key_material(did)
                 .ok_or_else(|| Error::Protocol("stub: unsupported did:key".to_owned()))?;
-            Ok(DidDocument::new(
+            Ok(ResolvedDid::proofless(DidDocument::new(
                 did.clone(),
                 format!("{}#{key}", did.as_str()),
                 key,
-            ))
+            )))
         }
     }
 

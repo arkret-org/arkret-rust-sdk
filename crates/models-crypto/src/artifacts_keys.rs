@@ -15,8 +15,9 @@ use serde_json::Value;
 
 use crate::key_backup::{
     BackupKind, BackupSeriesEraseOutcome, BackupSeriesEraseRequestBody,
-    KeyBackupSignatureAlgorithm, KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody,
-    KeysBackupsList, KeysBackupsReplaceOutcome, ManagedPrincipalBinding, RecoveryProofKind,
+    KeyBackupSignatureAlgorithm, KeysBackupsDeleteChallenge, KeysBackupsDeleteOutcome,
+    KeysBackupsDeleteRequestBody, KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsList,
+    KeysBackupsReplaceOutcome, ManagedPrincipalBinding, RecoveryProofKind,
 };
 use crate::keys::{
     DeviceGenerationStatus, KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome,
@@ -209,6 +210,8 @@ pub enum KeysOperations {
     KeysClaimOutcome(KeysClaimOutcome),
     KeysBackupsReplaceOutcome(KeysBackupsReplaceOutcome),
     KeysBackupsList(KeysBackupsList),
+    KeysBackupsIssueDeleteChallengeRequestBody(KeysBackupsIssueDeleteChallengeRequestBody),
+    KeysBackupsDeleteChallenge(KeysBackupsDeleteChallenge),
     KeysBackupsDeleteRequestBody(KeysBackupsDeleteRequestBody),
     KeysBackupsDeleteOutcome(KeysBackupsDeleteOutcome),
     BackupSeriesEraseRequestBody(BackupSeriesEraseRequestBody),

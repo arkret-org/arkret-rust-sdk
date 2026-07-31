@@ -1623,9 +1623,9 @@ mod tests {
     }
 
     #[test]
-    fn register_seal_batches_distinguish_successors_from_siblings() {
+    fn mv_register_seal_batches_distinguish_successors_from_siblings() {
         let cell = CellRef::new(
-            "ak:cell:ak.component.realm.policy.v1:ak.realm.01js0sp00000000000000000aa".to_owned(),
+            "ak:cell:ak.component.profile.v1:ak.realm.01js0sp00000000000000000aa".to_owned(),
         )
         .unwrap();
         let set = |id, value| {
@@ -1642,7 +1642,7 @@ mod tests {
                 },
             ))
         };
-        let lattice = crate::lattice::CasRegister;
+        let lattice = crate::lattice::MvRegister;
 
         let sequential = vec![vec![set(1, "open")], vec![set(2, "closed")]];
         assert_eq!(
@@ -1655,12 +1655,46 @@ mod tests {
             join_cell_seal_batches(&lattice, &cell, &siblings),
             CellState::Bottom(_)
         ));
+    }
 
-        let duplicate_siblings = vec![vec![set(5, "closed"), set(6, "closed")]];
+    /// A `cas_register` cell is joined over its whole covered history, so the
+    /// predecessors its chain walk binds to are still in the input.
+    #[test]
+    fn cas_register_seal_batches_join_the_whole_history() {
+        let cell = CellRef::new(
+            "ak:cell:ak.component.realm.policy.v1:ak.realm.01js0sp00000000000000000aa".to_owned(),
+        )
+        .unwrap();
+        let set = |id, value: &str, from: Option<&str>| {
+            issued(SealedOp::new(
+                move_id(id),
+                LatticeOp {
+                    op_type: LatticeOpType::Set,
+                    tag: None,
+                    value: Some(json!(value)),
+                    from: from.map(|from| json!(from)),
+                    to: None,
+                    reason: None,
+                    issuer_seq: None,
+                },
+            ))
+        };
+        let lattice = crate::lattice::CasRegister;
+
+        let sequential = vec![
+            vec![set(1, "open", None)],
+            vec![set(2, "closed", Some("open"))],
+        ];
         assert_eq!(
-            join_cell_seal_batches(&lattice, &cell, &duplicate_siblings),
+            join_cell_seal_batches(&lattice, &cell, &sequential),
             CellState::Value(json!("closed"))
         );
+
+        let siblings = vec![vec![set(3, "open", None), set(4, "closed", None)]];
+        assert!(matches!(
+            join_cell_seal_batches(&lattice, &cell, &siblings),
+            CellState::Bottom(_)
+        ));
     }
 }
 
@@ -1684,27 +1718,30 @@ pub fn join_cell(
 
 /// Join accepted operations while preserving frozen-predecessor Seal batches.
 ///
-/// Register writes in a successor Seal causally replace the previous head.
-/// Multiple writes inside one Seal share one predecessor view and therefore
-/// remain sibling heads. Other core lattices consume their full accepted
-/// history because their join already models ordered transitions or
-/// commutative accumulation.
+/// `mv_register` writes in a successor Seal causally replace the previous head,
+/// and multiple writes inside one Seal share one predecessor view and therefore
+/// remain sibling heads; that lattice carries no predecessor on the op, so the
+/// Seal batch is the only causal signal it has. Every other core lattice —
+/// `cas_register` included since §9.3.1 gave its `set` ops an explicit
+/// `op.from` — consumes the full accepted history, because its join already
+/// models ordered supersession, ordered transitions or commutative
+/// accumulation. Truncating `cas_register` to the last batch would strip the
+/// predecessors its chain walk needs and turn every replacement into a dangling
+/// supersession.
 pub fn join_cell_seal_batches(
     lattice: &dyn crate::lattice::Lattice,
     cell: &CellRef,
     batches: &[Vec<IssuedOp>],
 ) -> CellState {
     match lattice.kind() {
-        crate::lattice::LatticeKind::CasRegister | crate::lattice::LatticeKind::MvRegister => {
-            batches
-                .iter()
-                .rev()
-                .find(|ops| !ops.is_empty())
-                .map_or_else(
-                    || lattice.join(cell, &[]),
-                    |ops| join_cell(lattice, cell, ops),
-                )
-        }
+        crate::lattice::LatticeKind::MvRegister => batches
+            .iter()
+            .rev()
+            .find(|ops| !ops.is_empty())
+            .map_or_else(
+                || lattice.join(cell, &[]),
+                |ops| join_cell(lattice, cell, ops),
+            ),
         _ => {
             let ops = batches
                 .iter()

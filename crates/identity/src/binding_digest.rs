@@ -1,84 +1,62 @@
-//! Canonical computation of the two `did-usage-and-verification.md` §5 digest
-//! fields — `policy_digest` and `evidence_digest`.
+//! The canonical `did-usage-and-verification.md` §5 binding contracts.
 //!
-//! # Why this module exists
+//! §5 promises a *recomputable* binding: every digest field has a retained
+//! canonical input object an auditor can re-hash. This module is the single
+//! implementation of those objects, so the five services that used to invent
+//! their own `evidence_digest` / `policy_digest` inputs now share one shape.
 //!
-//! §5 mandates both fields but defines **no algorithm** for either. Five
-//! services therefore grew five incompatible implementations
-//! (`arkret-work/review/spec-open/2026-07-31-binding-digest-fields-have-no-canonical-computation.
-//! md`). Two failure modes are worth naming, because this module is shaped to make
-//! both unrepresentable:
-//!
-//! 1. **Same input, different digest.** Two repos digested the *same five fields* of the *same*
-//!    [`ResolverPolicy`] through the *same* canonical encoder and still disagreed, because one
-//!    wrote `"fail_closed"` by hand and the other wrote `format!("{:?}", fail_mode)` →
-//!    `"FailClosed"`. Here the encoding is explicit and comes from [`ResolverFailMode::as_str`]; no
-//!    [`Debug`] output ever reaches a digest.
-//! 2. **Evidence that carries no evidence.** One repo's `evidence_digest` was a constant plus the
-//!    DID; another set `evidence_digest = document_digest` verbatim. Both satisfied a "records an
-//!    evidence digest" acceptance criterion while committing to nothing. [`EvidenceEnvelope`]
-//!    always binds `document_digest` **and** `policy_digest`, so the degenerate cases are no longer
-//!    reachable through this API.
-//!
-//! # Layering: interoperable core, deployment-local extensions
-//!
-//! A single fixed field list cannot work — deployments legitimately differ
-//! (one gates on `development_mode`, another on a delegated resolver endpoint
-//! and a document size cap). Both digests therefore have a **closed core** the
-//! SDK owns and an **open extension map** the deployment owns:
-//!
-//! | digest | core (SDK) | extensions (deployment) |
+//! | §5 field | canonical input | machine shape |
 //! | --- | --- | --- |
-//! | [`policy_digest`] | every [`ResolverPolicy`] field + [`POLICY_DIGEST_VERSION`] | `deployment` object |
-//! | [`EvidenceEnvelope::digest`] | `document_digest`, `policy_digest`, `method_proofs` + [`EVIDENCE_DIGEST_VERSION`] | `method` object |
+//! | `document_digest` | the resolver's verified normalized document | §5.1, [`document_canonical_digest`](crate::document_canonical_digest) |
+//! | `evidence_digest` | [`EvidenceReceipt`] | `did-binding-contracts.schema.json#/$defs/evidence_receipt` |
+//! | `policy_digest` | [`ResolverPolicySnapshot`] | `#/$defs/resolver_policy_snapshot` |
+//! | `evidence_dependencies` | [`EvidenceDependencies`] | `#/$defs/evidence_dependencies` |
 //!
-//! Two deployments with equal policies and empty extensions produce the **same**
-//! `policy_digest`; any extension change still changes it, so §5's "policy
-//! revision invalidates affected bindings" keeps holding structurally (the
-//! digest is a [`VerifiedDidBindingKey`](crate::VerifiedDidBindingKey)
-//! dimension, so a changed digest makes old acceptances unreachable).
+//! Two shapes are deliberately unrepresentable here:
 //!
-//! # Operator kill switch
+//! 1. **Evidence the caller made up.** [`EvidenceReceipt`] is built from what the resolver returned
+//!    ([`ResolvedDid::method_evidence`](crate::ResolvedDid)), so a constant placeholder or a bare
+//!    copy of `document_digest` cannot be produced through this API. A method that publishes no
+//!    proofs degrades to an empty `method_proofs` array — the one normative degenerate form.
+//! 2. **Language-native enum spellings.** Every token comes from a `&'static str` accessor; no
+//!    `Debug` output reaches a digest. (`"FailClosed"` vs `"fail_closed"` is exactly how one policy
+//!    value produced two digests.)
 //!
-//! [`POLICY_DIGEST_VERSION`] retires every binding across all repos when the SDK
-//! encoding changes. For a *deployment-local* one-step retirement without an SDK
-//! release, use [`PolicyDigestInput::with_deployment_epoch`].
-
-use std::collections::BTreeMap;
+//! `policy_digest` is deliberately **not** nested inside the evidence receipt: a
+//! binding carries both digests side by side, and nesting would couple evidence
+//! invalidation to policy rotation and double-count one dimension.
 
 use arkret_canonical::canonical;
-use arkret_wire::Hash;
+use arkret_wire::{Did, Hash};
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::binding::{BindingError, document_canonical_digest};
-use crate::{DidDocument, ResolverPolicy};
+use crate::binding::BindingError;
+use crate::{ResolverFailMode, ResolverPolicy};
 
 // ============================================================================
-// Version constants
+// Registered kinds
 // ============================================================================
 
-/// Version tag folded into every [`policy_digest`].
-///
-/// Bumping it changes every `policy_digest`, which changes every
-/// [`VerifiedDidBindingKey`](crate::VerifiedDidBindingKey), which retires every
-/// stored acceptance in one step. Bump it whenever the canonical encoding below
-/// changes in any way — adding a core field, renaming one, or changing a token.
-pub const POLICY_DIGEST_VERSION: &str = "ak.did.resolver_policy.v1";
+/// `kind` of the §5.2 canonical evidence receipt.
+pub const EVIDENCE_RECEIPT_KIND: &str = "ak.did.binding_evidence.v1";
 
-/// Version tag folded into every [`EvidenceEnvelope`] digest.
-pub const EVIDENCE_DIGEST_VERSION: &str = "ak.did.binding_evidence.v1";
+/// `kind` of the §5.3 canonical resolver policy snapshot.
+pub const RESOLVER_POLICY_SNAPSHOT_KIND: &str = "ak.did.resolver_policy.v1";
+
+/// The one resolver policy profile v1 registers; its `profile_policy` is the
+/// empty object.
+pub const BASE_RESOLVER_POLICY_PROFILE: &str = "ak.did_resolver_policy_profile.base.v1";
 
 // ============================================================================
 // Errors
 // ============================================================================
 
-/// Failures of a canonical digest computation.
+/// Failures of a canonical §5 contract construction or digest computation.
 ///
-/// Deliberately a `Result` rather than a silent fallback: two of the five
-/// pre-existing implementations degraded a canonicalization failure into
-/// `unwrap_or_default()` (hashing empty bytes) or `expect()` (a panic on a code
-/// path a peer can reach). Neither is acceptable for a value that keys a trust
-/// store.
+/// Deliberately a `Result` rather than a silent fallback: a canonicalization
+/// failure degraded into `unwrap_or_default()` hashes empty bytes, and a value
+/// that keys a trust store must never be produced that way.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum DigestError {
@@ -88,6 +66,15 @@ pub enum DigestError {
     /// The computed digest is not a valid [`Hash`].
     #[error("computed digest is invalid: {0}")]
     InvalidDigest(String),
+    /// A closed set carried a duplicate entry.
+    #[error("{collection} carries duplicate entry `{entry}`")]
+    DuplicateEntry {
+        collection: &'static str,
+        entry: String,
+    },
+    /// A resolver policy cannot be declared as a canonical snapshot.
+    #[error("resolver policy is not declarable: {0}")]
+    UndeclarablePolicy(String),
 }
 
 impl From<DigestError> for BindingError {
@@ -95,6 +82,7 @@ impl From<DigestError> for BindingError {
         match error {
             DigestError::Canonicalization(reason) => Self::Canonicalization(reason),
             DigestError::InvalidDigest(reason) => Self::InvalidDigest(reason),
+            other => Self::Canonicalization(other.to_string()),
         }
     }
 }
@@ -106,19 +94,15 @@ fn digest_of(value: &Value) -> Result<Hash, DigestError> {
         .map_err(|error| DigestError::InvalidDigest(error.to_string()))
 }
 
-// ============================================================================
-// Normalization
-// ============================================================================
-
 /// Normalize a DID method reference to the canonical `did:<method>:` prefix
 /// form.
 ///
 /// Accepts every spelling observed across the downstream repos — `"web"`,
 /// `"did:web"`, `"did:web:"` — and maps all three onto `"did:web:"`, so a
 /// deployment that stores bare method names and one that stores prefixes agree
-/// on the digest. An empty / whitespace-only token normalizes to `"did:"` and is
-/// kept (rather than silently dropped) so a misconfiguration stays visible in
-/// the digest instead of being erased by it.
+/// on the snapshot. An empty token normalizes to `"did:"` and is kept rather
+/// than silently dropped, so a misconfiguration stays visible in the digest
+/// instead of being erased by it.
 pub fn normalize_did_method_prefix(method: &str) -> String {
     let trimmed = method.trim();
     let prefixed = if trimmed.starts_with("did:") {
@@ -133,414 +117,570 @@ pub fn normalize_did_method_prefix(method: &str) -> String {
     }
 }
 
-/// Sort + dedup a normalized token list.
-///
-/// Reordering a config list is not a policy change and MUST NOT retire every
-/// binding; adding or removing an entry is and MUST.
-fn normalized_method_set(methods: &[String]) -> Vec<String> {
-    let mut out = methods
-        .iter()
-        .map(|method| normalize_did_method_prefix(method))
-        .collect::<Vec<_>>();
+fn sorted_unique(
+    collection: &'static str,
+    values: impl IntoIterator<Item = String>,
+) -> Result<Vec<String>, DigestError> {
+    let mut out: Vec<String> = values.into_iter().collect();
     out.sort();
-    out.dedup();
-    out
+    if let Some(duplicate) = out.windows(2).find(|pair| pair[0] == pair[1]) {
+        return Err(DigestError::DuplicateEntry {
+            collection,
+            entry: duplicate[0].clone(),
+        });
+    }
+    Ok(out)
 }
 
-fn trimmed_set(values: &[String]) -> Vec<String> {
-    let mut out = values
-        .iter()
-        .map(|value| value.trim().to_owned())
-        .collect::<Vec<_>>();
-    out.sort();
-    out.dedup();
-    out
-}
-
-fn string_array(values: Vec<String>) -> Value {
-    Value::Array(values.into_iter().map(Value::String).collect())
-}
-
-fn extension_object(extensions: &BTreeMap<String, Value>) -> Value {
-    Value::Object(
-        extensions
-            .iter()
-            .map(|(key, value)| (key.clone(), value.clone()))
-            .collect::<Map<String, Value>>(),
-    )
+fn string_array(values: &[String]) -> Value {
+    Value::Array(values.iter().cloned().map(Value::String).collect())
 }
 
 // ============================================================================
-// policy_digest
+// §5.2 evidence receipt
 // ============================================================================
 
-/// Canonical input to [`policy_digest`]: the SDK-owned [`ResolverPolicy`] core
-/// plus deployment-local dimensions.
+/// One witness row of a `did:webvh` log evidence proof.
 ///
-/// ```
-/// # use arkret_identity::binding_digest::PolicyDigestInput;
-/// # use arkret_identity::ResolverPolicy;
-/// let policy = ResolverPolicy::default();
-/// let digest = PolicyDigestInput::new(&policy)
-///     .with_extension("development_mode", false)
-///     .with_extension("allow_private_networks", false)
-///     .digest()
-///     .expect("policy digest");
-/// assert!(digest.as_str().starts_with("sha256:"));
-/// ```
-#[derive(Clone, Debug)]
-pub struct PolicyDigestInput<'a> {
-    resolver_policy: &'a ResolverPolicy,
-    deployment_extensions: BTreeMap<String, Value>,
-    deployment_epoch: Option<String>,
+/// These rows double as the selective-invalidation coordinates §5.6 requires:
+/// a witness revocation names a `witness_did`, never a digest.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WebvhWitnessRow {
+    pub witness_did: Did,
+    pub controlling_organization: Did,
 }
 
-impl<'a> PolicyDigestInput<'a> {
-    /// Digest input covering only the interoperable [`ResolverPolicy`] core.
-    pub fn new(resolver_policy: &'a ResolverPolicy) -> Self {
-        Self {
-            resolver_policy,
-            deployment_extensions: BTreeMap::new(),
-            deployment_epoch: None,
+/// `did:webvh` method evidence row
+/// (`did-binding-contracts.schema.json#/$defs/webvh_log_evidence`).
+///
+/// `witness_proofs_digest` commits to the canonical raw witness proof set, so
+/// the receipt stays sensitive to any witness signature change even though the
+/// signatures themselves are not carried inline.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WebvhLogEvidence {
+    /// The verified webvh log head (`versionId` / entry-hash form) this binding
+    /// pinned.
+    pub history_head: String,
+    /// Sorted by `witness_did` in UTF-8 byte order; duplicates are rejected.
+    pub witnesses: Vec<WebvhWitnessRow>,
+    pub witness_proofs_digest: Hash,
+}
+
+/// One registered method-evidence proof row.
+///
+/// v1 registers exactly one kind. An unregistered kind cannot be constructed,
+/// which is how "unknown method evidence kind fails closed" is enforced at the
+/// type level rather than at a runtime match.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum MethodEvidenceProof {
+    WebvhLog(WebvhLogEvidence),
+}
+
+impl MethodEvidenceProof {
+    /// The registered row kind token.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::WebvhLog(_) => "webvh_log",
         }
     }
 
-    /// Add one deployment-local policy dimension.
-    ///
-    /// Every switch that can change whether a resolution is admissible belongs
-    /// here — a private-network allowance, a delegated resolver endpoint, a
-    /// document size cap, a development-mode flag. Anything omitted is a switch
-    /// that can flip without retiring the bindings it affected.
-    #[must_use]
-    pub fn with_extension(mut self, key: impl Into<String>, value: impl Into<Value>) -> Self {
-        self.deployment_extensions.insert(key.into(), value.into());
-        self
-    }
-
-    /// Add several deployment-local dimensions at once.
-    #[must_use]
-    pub fn with_extensions(
-        mut self,
-        extensions: impl IntoIterator<Item = (String, Value)>,
-    ) -> Self {
-        self.deployment_extensions.extend(extensions);
-        self
-    }
-
-    /// Set the operator-controlled epoch tag.
-    ///
-    /// This is the deployment-local counterpart of [`POLICY_DIGEST_VERSION`]:
-    /// changing it retires every binding in this deployment in one step,
-    /// without waiting for an SDK release. Use it for incident response
-    /// ("distrust everything accepted before now"), not for routine config.
-    #[must_use]
-    pub fn with_deployment_epoch(mut self, epoch: impl Into<String>) -> Self {
-        self.deployment_epoch = Some(epoch.into());
-        self
-    }
-
-    /// The policy this input digests.
-    pub fn resolver_policy(&self) -> &ResolverPolicy {
-        self.resolver_policy
-    }
-
-    /// The deployment-local dimensions recorded so far.
-    pub fn deployment_extensions(&self) -> &BTreeMap<String, Value> {
-        &self.deployment_extensions
-    }
-
-    /// The canonical object this input digests.
-    ///
-    /// Exposed so a deployment can log or diff exactly what its digest commits
-    /// to — the review entry's core complaint was that the inputs were
-    /// invisible and therefore uncomparable across repos.
-    pub fn canonical_value(&self) -> Value {
-        let policy = self.resolver_policy;
-        let mut object = Map::new();
-        object.insert(
-            "version".to_owned(),
-            Value::String(POLICY_DIGEST_VERSION.to_owned()),
-        );
-        object.insert(
-            "allowed_methods".to_owned(),
-            string_array(normalized_method_set(&policy.allowed_methods)),
-        );
-        object.insert(
-            "default_principal_method".to_owned(),
-            match &policy.default_principal_method {
-                Some(method) => Value::String(normalize_did_method_prefix(method)),
-                None => Value::Null,
-            },
-        );
-        object.insert(
-            "trust_roots".to_owned(),
-            string_array(trimmed_set(&policy.trust_roots)),
-        );
-        object.insert(
-            "ttl_seconds".to_owned(),
-            match policy.ttl {
-                Some(ttl) => Value::from(ttl.num_seconds()),
-                None => Value::Null,
-            },
-        );
-        // Explicit closed token, never `format!("{:?}", ..)`.
-        object.insert(
-            "fail_mode".to_owned(),
-            Value::String(policy.fail_mode.as_str().to_owned()),
-        );
-        object.insert(
-            "deployment".to_owned(),
-            extension_object(&self.deployment_extensions),
-        );
-        if let Some(epoch) = &self.deployment_epoch {
-            object.insert("deployment_epoch".to_owned(), Value::String(epoch.clone()));
+    fn canonical_value(&self) -> Result<Value, DigestError> {
+        match self {
+            Self::WebvhLog(evidence) => {
+                sorted_unique(
+                    "webvh_log.witnesses",
+                    evidence
+                        .witnesses
+                        .iter()
+                        .map(|row| row.witness_did.as_str().to_owned()),
+                )?;
+                let mut rows: Vec<&WebvhWitnessRow> = evidence.witnesses.iter().collect();
+                rows.sort_by(|left, right| {
+                    left.witness_did.as_str().cmp(right.witness_did.as_str())
+                });
+                let mut object = Map::new();
+                object.insert("kind".to_owned(), Value::String("webvh_log".to_owned()));
+                object.insert(
+                    "history_head".to_owned(),
+                    Value::String(evidence.history_head.clone()),
+                );
+                object.insert(
+                    "witnesses".to_owned(),
+                    Value::Array(
+                        rows.into_iter()
+                            .map(|row| {
+                                let mut witness = Map::new();
+                                witness.insert(
+                                    "witness_did".to_owned(),
+                                    Value::String(row.witness_did.as_str().to_owned()),
+                                );
+                                witness.insert(
+                                    "controlling_organization".to_owned(),
+                                    Value::String(row.controlling_organization.as_str().to_owned()),
+                                );
+                                Value::Object(witness)
+                            })
+                            .collect(),
+                    ),
+                );
+                object.insert(
+                    "witness_proofs_digest".to_owned(),
+                    Value::String(evidence.witness_proofs_digest.as_str().to_owned()),
+                );
+                Ok(Value::Object(object))
+            }
         }
-        Value::Object(object)
-    }
-
-    /// SHA-256 over the canonical JSON encoding of [`Self::canonical_value`].
-    pub fn digest(&self) -> Result<Hash, DigestError> {
-        digest_of(&self.canonical_value())
     }
 }
 
-/// Canonical `policy_digest` of a [`ResolverPolicy`] with no deployment-local
-/// dimensions.
+/// What a resolver surfaced about the method backing a resolution, alongside
+/// the document itself.
 ///
-/// Use [`PolicyDigestInput`] directly when the deployment has extra switches;
-/// omitting a switch that gates admissibility means a change to it will not
-/// retire the bindings it affected.
-pub fn policy_digest(resolver_policy: &ResolverPolicy) -> Result<Hash, DigestError> {
-    PolicyDigestInput::new(resolver_policy).digest()
+/// §5.2: webvh log heads, witness proof sets and consistency material exist only
+/// in the resolver's hands and cannot be derived from a DID Document, so the
+/// resolver contract carries them out. A method that publishes no proofs returns
+/// [`MethodEvidence::none`], which is the normative degenerate form — not a
+/// placeholder the caller invents.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MethodEvidence {
+    /// Registered per-method proof rows; empty for proofless methods.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proofs: Vec<MethodEvidenceProof>,
+    /// The method history head pin, when the method exposes one. Surfacing it
+    /// here is what lets §5.5 record `pinned` instead of `not_surfaced`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history_head: Option<String>,
+    /// The method version identifier pin, when the method exposes one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version_id: Option<String>,
 }
 
-// ============================================================================
-// evidence envelope
-// ============================================================================
+impl MethodEvidence {
+    /// The evidence a proofless method (`did:key`, bare `did:web`) surfaces.
+    pub fn none() -> Self {
+        Self::default()
+    }
 
-/// Canonical evidence envelope behind a binding's `evidence_digest`
-/// (`did-usage-and-verification.md` §5: "method evidence 与 resolver / Realm
-/// policy 的绑定").
-///
-/// The core is three-part and method-agnostic:
-///
-/// | member | meaning |
-/// | --- | --- |
-/// | `document_digest` | the pinned document the acceptance rests on |
-/// | `method_proofs` | the method-specific proof set (webvh log head + witness set, controller proof bundle...); `[]` for methods that publish none |
-/// | `policy_digest` | the resolver / Realm policy in force |
-///
-/// A method with no proof set degrades to a commitment over
-/// `document_digest` + `policy_digest` — which is *stronger* than either
-/// pre-existing degenerate form, because a policy change now changes the
-/// evidence digest too, and the value is no longer byte-identical to
-/// `document_digest`.
-///
-/// `method` carries deployment / method-specific material (resolution source,
-/// a locally verified binding flag, a service kind, a source key-state digest).
-/// Anything that is not itself JSON — raw key bytes, for instance — should be
-/// hashed first and carried as its digest string.
-///
-/// ```
-/// # use arkret_identity::binding_digest::EvidenceEnvelope;
-/// # use arkret_wire::Hash;
-/// # let document_digest = Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap();
-/// # let policy_digest = Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap();
-/// let digest = EvidenceEnvelope::new(document_digest, policy_digest)
-///     .with_extension("source", "shared_resolver_chain")
-///     .digest()
-///     .expect("evidence digest");
-/// assert!(digest.as_str().starts_with("sha256:"));
-/// ```
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct EvidenceEnvelope {
-    document_digest: Hash,
-    policy_digest: Hash,
-    method_proofs: Vec<Value>,
-    method_extensions: BTreeMap<String, Value>,
+    /// Whether this method publishes verifiable evidence at all.
+    ///
+    /// §5.5 distinguishes `method_unsupported` (a legitimate terminal state)
+    /// from `not_surfaced` (a resolver that failed to deliver evidence its
+    /// method supports), and that distinction is exactly this predicate.
+    pub fn is_proofless(&self) -> bool {
+        self.proofs.is_empty()
+    }
 }
 
-impl EvidenceEnvelope {
-    /// Envelope over an already-computed document digest.
-    pub fn new(document_digest: Hash, policy_digest: Hash) -> Self {
+/// The §5.2 canonical evidence receipt whose digest is a binding's
+/// `evidence_digest`.
+///
+/// The receipt itself MUST be retained: "auditable" means "recomputable", and an
+/// auditor recomputes the digest from this object.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EvidenceReceipt {
+    /// Canonical lowercase DID method token (`key`, `web`, `webvh`).
+    pub method: String,
+    /// The §5.1 digest of the resolver's verified normalized document
+    /// projection — never the raw response bytes.
+    pub document_digest: Hash,
+    /// Closed per-method proof rows; empty for proofless methods.
+    pub method_proofs: Vec<MethodEvidenceProof>,
+}
+
+impl EvidenceReceipt {
+    /// Build the receipt from what the resolver returned.
+    ///
+    /// This is the only constructor, which is the point: `evidence_digest` can
+    /// no longer be a value the caller made up before resolution happened.
+    pub fn new(method: &str, document_digest: Hash, evidence: &MethodEvidence) -> Self {
         Self {
+            method: method.trim().trim_start_matches("did:").to_lowercase(),
             document_digest,
-            policy_digest,
-            method_proofs: Vec::new(),
-            method_extensions: BTreeMap::new(),
+            method_proofs: evidence.proofs.clone(),
         }
     }
 
-    /// Envelope over a resolved document, computing the canonical document
-    /// digest here so it cannot disagree with the one the binding pins.
-    pub fn for_document(document: &DidDocument, policy_digest: Hash) -> Result<Self, DigestError> {
-        let document_digest = document_canonical_digest(document).map_err(|error| match error {
-            BindingError::InvalidDigest(reason) => DigestError::InvalidDigest(reason),
-            other => DigestError::Canonicalization(other.to_string()),
-        })?;
-        Ok(Self::new(document_digest, policy_digest))
-    }
-
-    /// Append one method-specific proof.
+    /// The canonical object this receipt digests.
     ///
-    /// Order is preserved and significant: a proof set is a sequence (a webvh
-    /// log chain is ordered), so this is not sorted behind the caller's back.
-    #[must_use]
-    pub fn with_method_proof(mut self, proof: impl Into<Value>) -> Self {
-        self.method_proofs.push(proof.into());
-        self
-    }
-
-    /// Append several method-specific proofs, preserving order.
-    #[must_use]
-    pub fn with_method_proofs(mut self, proofs: impl IntoIterator<Item = Value>) -> Self {
-        self.method_proofs.extend(proofs);
-        self
-    }
-
-    /// Add one method / deployment-specific evidence member.
-    #[must_use]
-    pub fn with_extension(mut self, key: impl Into<String>, value: impl Into<Value>) -> Self {
-        self.method_extensions.insert(key.into(), value.into());
-        self
-    }
-
-    /// Add several method / deployment-specific evidence members.
-    #[must_use]
-    pub fn with_extensions(
-        mut self,
-        extensions: impl IntoIterator<Item = (String, Value)>,
-    ) -> Self {
-        self.method_extensions.extend(extensions);
-        self
-    }
-
-    /// The pinned document digest this envelope commits to.
-    pub fn document_digest(&self) -> &Hash {
-        &self.document_digest
-    }
-
-    /// The policy digest this envelope commits to.
-    pub fn policy_digest(&self) -> &Hash {
-        &self.policy_digest
-    }
-
-    /// The recorded method-specific proof set.
-    pub fn method_proofs(&self) -> &[Value] {
-        &self.method_proofs
-    }
-
-    /// The recorded method / deployment-specific members.
-    pub fn method_extensions(&self) -> &BTreeMap<String, Value> {
-        &self.method_extensions
-    }
-
-    /// The canonical object this envelope digests.
-    ///
-    /// Publishing this is what turns "an acceptance records an evidence digest"
-    /// into a *checkable* claim: an auditor can recompute the digest from the
-    /// envelope rather than trusting that the field is non-empty.
-    pub fn canonical_value(&self) -> Value {
+    /// Proof rows are ordered by their own canonical encoding rather than by
+    /// resolver return order, and exact duplicates are rejected: §5.2 forbids
+    /// treating the resolver's ordering as the digest ordering.
+    pub fn canonical_value(&self) -> Result<Value, DigestError> {
+        let mut encoded = self
+            .method_proofs
+            .iter()
+            .map(|proof| {
+                let row = proof.canonical_value()?;
+                canonical::canonical_json_string(&row)
+                    .map_err(|error| DigestError::Canonicalization(error.to_string()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        encoded = sorted_unique("evidence_receipt.method_proofs", encoded)?;
+        let rows = encoded
+            .into_iter()
+            .map(|row| {
+                serde_json::from_str::<Value>(&row)
+                    .map_err(|error| DigestError::Canonicalization(error.to_string()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         let mut object = Map::new();
         object.insert(
-            "version".to_owned(),
-            Value::String(EVIDENCE_DIGEST_VERSION.to_owned()),
+            "kind".to_owned(),
+            Value::String(EVIDENCE_RECEIPT_KIND.to_owned()),
         );
+        object.insert("method".to_owned(), Value::String(self.method.clone()));
         object.insert(
             "document_digest".to_owned(),
             Value::String(self.document_digest.as_str().to_owned()),
         );
+        object.insert("method_proofs".to_owned(), Value::Array(rows));
+        Ok(Value::Object(object))
+    }
+
+    /// `"sha256:" + lowercase_hex(SHA-256(RFC8785_JCS(evidence_receipt)))`.
+    pub fn digest(&self) -> Result<Hash, DigestError> {
+        digest_of(&self.canonical_value()?)
+    }
+
+    /// The §5.6 dependency record mechanically extracted from this receipt.
+    pub fn evidence_dependencies(&self) -> Result<EvidenceDependencies, DigestError> {
+        EvidenceDependencies::from_receipt(self)
+    }
+}
+
+// ============================================================================
+// §5.6 evidence dependencies
+// ============================================================================
+
+/// The structured dependency record a binding carries so witness-level
+/// invalidation can be selective
+/// (`did-binding-contracts.schema.json#/$defs/evidence_dependencies`).
+///
+/// A witness revocation, an organization merge or a falsified consistency proof
+/// arrives as a *coordinate* (witness DID, organization, log head), never as a
+/// digest — digests are one-way, so `evidence_digest` cannot answer "which
+/// bindings depend on witness X". This record can, and a store that declares
+/// evidence-bearing methods MUST index it at least by witness DID.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EvidenceDependencies {
+    /// Sorted, deduplicated; empty for proofless methods.
+    pub witness_dids: Vec<Did>,
+    /// Sorted, deduplicated; empty for proofless methods.
+    pub witness_controlling_organizations: Vec<Did>,
+    /// Sorted, deduplicated; empty for proofless methods.
+    pub history_heads: Vec<String>,
+}
+
+impl EvidenceDependencies {
+    /// Extract the record from a receipt. Purely mechanical — there is no
+    /// caller-supplied dimension, so the record cannot disagree with the
+    /// evidence it indexes.
+    pub fn from_receipt(receipt: &EvidenceReceipt) -> Result<Self, DigestError> {
+        let mut witness_dids = Vec::new();
+        let mut organizations = Vec::new();
+        let mut history_heads = Vec::new();
+        for proof in &receipt.method_proofs {
+            match proof {
+                MethodEvidenceProof::WebvhLog(evidence) => {
+                    history_heads.push(evidence.history_head.clone());
+                    for row in &evidence.witnesses {
+                        witness_dids.push(row.witness_did.as_str().to_owned());
+                        organizations.push(row.controlling_organization.as_str().to_owned());
+                    }
+                }
+            }
+        }
+        Ok(Self {
+            witness_dids: typed_dids(dedup_sorted(witness_dids))?,
+            witness_controlling_organizations: typed_dids(dedup_sorted(organizations))?,
+            history_heads: dedup_sorted(history_heads),
+        })
+    }
+
+    /// Whether this record indexes nothing (a proofless method).
+    pub fn is_empty(&self) -> bool {
+        self.witness_dids.is_empty()
+            && self.witness_controlling_organizations.is_empty()
+            && self.history_heads.is_empty()
+    }
+}
+
+fn dedup_sorted(mut values: Vec<String>) -> Vec<String> {
+    values.sort();
+    values.dedup();
+    values
+}
+
+fn typed_dids(values: Vec<String>) -> Result<Vec<Did>, DigestError> {
+    values
+        .into_iter()
+        .map(|value| {
+            Did::new(value).map_err(|error| DigestError::Canonicalization(error.to_string()))
+        })
+        .collect()
+}
+
+// ============================================================================
+// §5.3 resolver policy snapshot
+// ============================================================================
+
+/// The registered resolver policy profile that selects a snapshot's
+/// `profile_policy` schema.
+///
+/// It is an enum rather than a free string plus an open map precisely because
+/// §5.3 makes the profile a *schema discriminator*: unknown profiles, unknown
+/// fields and missing registered fields all fail closed, which an
+/// `BTreeMap<String, Value>` cannot express. A deployment with extra
+/// admissibility dimensions registers a new profile — and gains a new variant
+/// here — rather than smuggling keys through an open object.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResolverPolicyProfile {
+    /// `ak.did_resolver_policy_profile.base.v1`: `profile_policy` is `{}`.
+    #[default]
+    Base,
+}
+
+impl ResolverPolicyProfile {
+    /// The registered profile id written into the snapshot.
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Base => BASE_RESOLVER_POLICY_PROFILE,
+        }
+    }
+
+    fn profile_policy(self) -> Value {
+        match self {
+            Self::Base => Value::Object(Map::new()),
+        }
+    }
+}
+
+/// The §5.3 canonical resolver policy snapshot whose digest is a binding's
+/// `policy_digest`.
+///
+/// The three required members are the security core of *any* resolver policy —
+/// which methods are accepted, how failures degrade, and which roots are
+/// trusted — and MUST NOT be omitted. Everything a deployment adds beyond them
+/// belongs to a registered profile's closed `profile_policy`; v1 registers only
+/// the base profile, whose `profile_policy` is the empty object.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ResolverPolicySnapshot {
+    profile: ResolverPolicyProfile,
+    accepted_did_methods: Vec<String>,
+    fail_mode: ResolverFailMode,
+    trust_roots: Vec<String>,
+}
+
+impl ResolverPolicySnapshot {
+    /// Declare a policy as a canonical snapshot.
+    ///
+    /// An empty `accepted_did_methods` list is rejected rather than encoded:
+    /// "any method" is a fail-open configuration, and a snapshot that declared
+    /// it would claim a security core it does not have.
+    pub fn new(
+        profile: ResolverPolicyProfile,
+        accepted_did_methods: impl IntoIterator<Item = String>,
+        fail_mode: ResolverFailMode,
+        trust_roots: impl IntoIterator<Item = String>,
+    ) -> Result<Self, DigestError> {
+        let accepted_did_methods = sorted_unique(
+            "resolver_policy_snapshot.accepted_did_methods",
+            accepted_did_methods
+                .into_iter()
+                .map(|method| normalize_did_method_prefix(&method)),
+        )?;
+        if accepted_did_methods.is_empty() {
+            return Err(DigestError::UndeclarablePolicy(
+                "accepted_did_methods must not be empty; an unrestricted method list is fail-open"
+                    .to_owned(),
+            ));
+        }
+        Ok(Self {
+            profile,
+            accepted_did_methods,
+            fail_mode,
+            trust_roots: sorted_unique(
+                "resolver_policy_snapshot.trust_roots",
+                trust_roots.into_iter().map(|root| root.trim().to_owned()),
+            )?,
+        })
+    }
+
+    /// The profile whose closed schema validates `profile_policy`.
+    pub fn profile(&self) -> ResolverPolicyProfile {
+        self.profile
+    }
+
+    /// The normalized, sorted `did:<method>:` prefixes this policy accepts.
+    pub fn accepted_did_methods(&self) -> &[String] {
+        &self.accepted_did_methods
+    }
+
+    /// The declared failure-degradation behavior.
+    pub fn fail_mode(&self) -> ResolverFailMode {
+        self.fail_mode
+    }
+
+    /// The sorted, deduplicated trust roots.
+    pub fn trust_roots(&self) -> &[String] {
+        &self.trust_roots
+    }
+
+    /// The canonical object this snapshot digests.
+    ///
+    /// Publishing it is what turns "the deployment records a policy digest" into
+    /// a checkable claim: an auditor recomputes the digest and verifies that any
+    /// security-relevant configuration change necessarily changes it.
+    pub fn canonical_value(&self) -> Value {
+        let mut object = Map::new();
         object.insert(
-            "method_proofs".to_owned(),
-            Value::Array(self.method_proofs.clone()),
+            "kind".to_owned(),
+            Value::String(RESOLVER_POLICY_SNAPSHOT_KIND.to_owned()),
         );
         object.insert(
-            "policy_digest".to_owned(),
-            Value::String(self.policy_digest.as_str().to_owned()),
+            "policy_profile".to_owned(),
+            Value::String(self.profile.id().to_owned()),
         );
         object.insert(
-            "method".to_owned(),
-            extension_object(&self.method_extensions),
+            "accepted_did_methods".to_owned(),
+            string_array(&self.accepted_did_methods),
         );
+        // Explicit registered token, never `format!("{:?}", ..)`.
+        object.insert(
+            "fail_mode".to_owned(),
+            Value::String(self.fail_mode.as_str().to_owned()),
+        );
+        object.insert("trust_roots".to_owned(), string_array(&self.trust_roots));
+        object.insert("profile_policy".to_owned(), self.profile.profile_policy());
         Value::Object(object)
     }
 
-    /// SHA-256 over the canonical JSON encoding of [`Self::canonical_value`].
+    /// `"sha256:" + lowercase_hex(SHA-256(RFC8785_JCS(policy_snapshot)))`.
     pub fn digest(&self) -> Result<Hash, DigestError> {
         digest_of(&self.canonical_value())
     }
+}
+
+impl Serialize for ResolverPolicySnapshot {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.canonical_value().serialize(serializer)
+    }
+}
+
+impl ResolverPolicy {
+    /// This policy as the §5.3 canonical snapshot under the base profile.
+    ///
+    /// The snapshot carries the three required security-core dimensions.
+    /// `ttl` (the resolution cache lifetime, which §5 explicitly forbids from
+    /// turning an ordinary request into a live resolution) and
+    /// `default_principal_method` (a client-side defaulting convenience for
+    /// method-less principal ids) are not admissibility dimensions of the base
+    /// profile; a deployment that treats any additional switch as one MUST
+    /// register its own profile with a closed `profile_policy` listing it.
+    pub fn policy_snapshot(&self) -> Result<ResolverPolicySnapshot, DigestError> {
+        ResolverPolicySnapshot::new(
+            ResolverPolicyProfile::Base,
+            self.allowed_methods.iter().cloned(),
+            self.fail_mode,
+            self.trust_roots.iter().cloned(),
+        )
+    }
+
+    /// The §5.3 `policy_digest` of this policy.
+    pub fn policy_digest(&self) -> Result<Hash, DigestError> {
+        self.policy_snapshot()?.digest()
+    }
+}
+
+/// The §5.3 `policy_digest` of a [`ResolverPolicy`].
+pub fn policy_digest(resolver_policy: &ResolverPolicy) -> Result<Hash, DigestError> {
+    resolver_policy.policy_digest()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ResolverFailMode;
 
     fn hash(seed: u8) -> Hash {
         Hash::new(format!("sha256:{}", format!("{seed:02x}").repeat(32))).expect("valid hash")
     }
 
-    fn document() -> DidDocument {
-        let did = arkret_wire::Did::new(
-            "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH".to_owned(),
-        )
-        .expect("valid did");
-        DidDocument::new(
-            did.clone(),
-            format!("{did}#k1"),
-            "z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
-        )
+    fn did(name: &str) -> Did {
+        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).expect("valid did")
     }
 
-    // -- policy digest --
+    fn webvh_evidence() -> MethodEvidence {
+        MethodEvidence {
+            proofs: vec![MethodEvidenceProof::WebvhLog(WebvhLogEvidence {
+                history_head: "3-QmFixtureHead".to_owned(),
+                witnesses: vec![
+                    WebvhWitnessRow {
+                        witness_did: did("witness-b"),
+                        controlling_organization: did("org-2"),
+                    },
+                    WebvhWitnessRow {
+                        witness_did: did("witness-a"),
+                        controlling_organization: did("org-1"),
+                    },
+                ],
+                witness_proofs_digest: hash(0x77),
+            })],
+            history_head: Some("3-QmFixtureHead".to_owned()),
+            version_id: Some("3-QmFixtureHead".to_owned()),
+        }
+    }
+
+    // -- policy snapshot --
 
     #[test]
-    fn fail_mode_token_is_explicit_not_debug_derived() {
-        // The concrete divergence the review entry named: one repo emitted the
-        // snake_case token, another `format!("{:?}", ..)`, so one policy value
-        // produced two digests.
+    fn fail_mode_token_is_registered_not_debug_derived() {
         assert_eq!(ResolverFailMode::FailClosed.as_str(), "fail_closed");
-        assert_eq!(
-            ResolverFailMode::AllowCachedOnError.as_str(),
-            "allow_cached_on_error"
-        );
         assert_ne!(
             format!("{:?}", ResolverFailMode::FailClosed),
             ResolverFailMode::FailClosed.as_str(),
             "the Debug spelling must not be the canonical token"
         );
-        let policy = ResolverPolicy::default();
-        let value = PolicyDigestInput::new(&policy).canonical_value();
-        assert_eq!(value["fail_mode"], Value::String("fail_closed".to_owned()));
-    }
-
-    #[test]
-    fn equal_policies_with_no_extensions_agree_across_deployments() {
-        let left = ResolverPolicy::default();
-        let right = ResolverPolicy::default();
+        let snapshot = ResolverPolicy::default()
+            .policy_snapshot()
+            .expect("snapshot");
         assert_eq!(
-            policy_digest(&left).expect("digest"),
-            policy_digest(&right).expect("digest"),
-            "identical policies must be cross-repo comparable"
+            snapshot.canonical_value()["fail_mode"],
+            Value::String("fail_closed".to_owned())
         );
     }
 
     #[test]
-    fn method_list_is_order_insensitive_but_membership_sensitive() {
-        let mut reordered = ResolverPolicy::default();
-        reordered.allowed_methods.reverse();
+    fn snapshot_shape_matches_the_registered_contract() {
+        let value = ResolverPolicy::default()
+            .policy_snapshot()
+            .expect("snapshot")
+            .canonical_value();
         assert_eq!(
-            policy_digest(&ResolverPolicy::default()).expect("digest"),
-            policy_digest(&reordered).expect("digest"),
-            "reordering a config list is not a policy change"
+            value["kind"],
+            Value::String(RESOLVER_POLICY_SNAPSHOT_KIND.to_owned())
         );
-
-        let mut extra = ResolverPolicy::default();
-        extra.allowed_methods.push("did:plc:".to_owned());
-        assert_ne!(
-            policy_digest(&ResolverPolicy::default()).expect("digest"),
-            policy_digest(&extra).expect("digest"),
-            "adding a method IS a policy change"
+        assert_eq!(
+            value["policy_profile"],
+            Value::String(BASE_RESOLVER_POLICY_PROFILE.to_owned())
+        );
+        assert_eq!(value["profile_policy"], Value::Object(Map::new()));
+        assert_eq!(
+            value["accepted_did_methods"],
+            serde_json::json!(["did:key:", "did:web:", "did:webvh:"]),
+            "normalized, sorted, deduplicated"
+        );
+        assert_eq!(value["trust_roots"], serde_json::json!([]));
+        assert_eq!(
+            value.as_object().expect("object").len(),
+            6,
+            "the snapshot is closed: no member beyond the registered six"
         );
     }
 
@@ -552,331 +692,167 @@ mod tests {
 
         let mut bare = ResolverPolicy::default();
         bare.allowed_methods = vec!["webvh".to_owned(), "web".to_owned(), "key".to_owned()];
-        let mut prefixed = ResolverPolicy::default();
-        prefixed.allowed_methods = vec![
-            "did:key:".to_owned(),
-            "did:web:".to_owned(),
-            "did:webvh:".to_owned(),
-        ];
         assert_eq!(
-            policy_digest(&bare).expect("digest"),
-            policy_digest(&prefixed).expect("digest"),
+            bare.policy_digest().expect("digest"),
+            ResolverPolicy::default().policy_digest().expect("digest"),
         );
     }
 
     #[test]
-    fn duplicate_methods_do_not_change_the_digest() {
-        let mut duplicated = ResolverPolicy::default();
-        duplicated.allowed_methods.push("did:web:".to_owned());
-        assert_eq!(
-            policy_digest(&ResolverPolicy::default()).expect("digest"),
-            policy_digest(&duplicated).expect("digest"),
-        );
-    }
-
-    #[test]
-    fn every_resolver_policy_field_is_covered() {
+    fn every_security_core_dimension_changes_the_digest() {
         let base = ResolverPolicy::default();
-        let baseline = policy_digest(&base).expect("digest");
+        let baseline = base.policy_digest().expect("digest");
 
         let mut methods = base.clone();
         methods.allowed_methods = vec!["did:key:".to_owned()];
-        let mut principal = base.clone();
-        principal.default_principal_method = Some("did:web:".to_owned());
         let mut roots = base.clone();
         roots.trust_roots = vec!["https://root.example".to_owned()];
-        let mut ttl = base.clone();
-        ttl.ttl = Some(chrono::Duration::days(1));
-        let mut ttl_off = base.clone();
-        ttl_off.ttl = None;
         let mut fail_mode = base.clone();
         fail_mode.fail_mode = ResolverFailMode::AllowCachedOnError;
 
         for (label, mutated) in [
-            ("allowed_methods", methods),
-            ("default_principal_method", principal),
+            ("accepted_did_methods", methods),
             ("trust_roots", roots),
-            ("ttl", ttl),
-            ("ttl=None", ttl_off),
             ("fail_mode", fail_mode),
         ] {
             assert_ne!(
                 baseline,
-                policy_digest(&mutated).expect("digest"),
+                mutated.policy_digest().expect("digest"),
                 "`{label}` must be part of the policy digest"
             );
         }
     }
 
     #[test]
-    fn deployment_extensions_change_the_digest_and_do_not_collide_with_the_core() {
-        let policy = ResolverPolicy::default();
-        let bare = PolicyDigestInput::new(&policy).digest().expect("digest");
-        let extended = PolicyDigestInput::new(&policy)
-            .with_extension("development_mode", true)
-            .digest()
-            .expect("digest");
-        let flipped = PolicyDigestInput::new(&policy)
-            .with_extension("development_mode", false)
-            .digest()
-            .expect("digest");
-        assert_ne!(bare, extended);
-        assert_ne!(extended, flipped);
+    fn a_fail_open_method_list_is_not_declarable() {
+        let mut open = ResolverPolicy::default();
+        open.allowed_methods.clear();
+        assert!(matches!(
+            open.policy_snapshot(),
+            Err(DigestError::UndeclarablePolicy(_))
+        ));
+    }
 
-        // An extension may reuse a core field name without shadowing it: the
-        // extensions live in their own `deployment` sub-object.
-        let shadow = PolicyDigestInput::new(&policy)
-            .with_extension("fail_mode", "allow_cached_on_error")
-            .canonical_value();
-        assert_eq!(shadow["fail_mode"], Value::String("fail_closed".to_owned()));
+    #[test]
+    fn duplicate_methods_are_rejected_not_silently_merged() {
+        let mut duplicated = ResolverPolicy::default();
+        duplicated.allowed_methods.push("web".to_owned());
+        assert!(matches!(
+            duplicated.policy_snapshot(),
+            Err(DigestError::DuplicateEntry { .. })
+        ));
+    }
+
+    // -- evidence receipt --
+
+    #[test]
+    fn a_proofless_method_degrades_to_an_empty_proof_array() {
+        let receipt = EvidenceReceipt::new("key", hash(0x11), &MethodEvidence::none());
+        let value = receipt.canonical_value().expect("canonical");
+        assert_eq!(value["method_proofs"], serde_json::json!([]));
         assert_eq!(
-            shadow["deployment"]["fail_mode"],
-            Value::String("allow_cached_on_error".to_owned())
+            value["kind"],
+            Value::String(EVIDENCE_RECEIPT_KIND.to_owned())
         );
-    }
-
-    #[test]
-    fn extension_insertion_order_is_irrelevant() {
-        let policy = ResolverPolicy::default();
-        let forward = PolicyDigestInput::new(&policy)
-            .with_extension("a", 1)
-            .with_extension("b", 2)
-            .digest()
-            .expect("digest");
-        let backward = PolicyDigestInput::new(&policy)
-            .with_extension("b", 2)
-            .with_extension("a", 1)
-            .digest()
-            .expect("digest");
-        assert_eq!(forward, backward);
-    }
-
-    #[test]
-    fn deployment_epoch_retires_every_binding_in_one_step() {
-        let policy = ResolverPolicy::default();
-        let before = PolicyDigestInput::new(&policy).digest().expect("digest");
-        let after = PolicyDigestInput::new(&policy)
-            .with_deployment_epoch("2026-07-31-incident")
-            .digest()
-            .expect("digest");
-        assert_ne!(before, after);
-    }
-
-    #[test]
-    fn policy_digest_version_is_folded_in() {
-        let policy = ResolverPolicy::default();
-        assert_eq!(
-            PolicyDigestInput::new(&policy).canonical_value()["version"],
-            Value::String(POLICY_DIGEST_VERSION.to_owned())
-        );
-    }
-
-    // -- evidence envelope --
-
-    #[test]
-    fn evidence_digest_is_never_the_bare_document_digest() {
-        // One pre-existing implementation set `evidence_digest = document_digest`
-        // verbatim, so the field carried zero additional information.
-        let document_digest = hash(0x11);
-        let envelope = EvidenceEnvelope::new(document_digest.clone(), hash(0x22));
-        assert_ne!(envelope.digest().expect("digest"), document_digest);
-    }
-
-    #[test]
-    fn evidence_digest_binds_the_document_and_the_policy() {
-        let base = EvidenceEnvelope::new(hash(0x11), hash(0x22))
-            .digest()
-            .expect("digest");
-        let other_document = EvidenceEnvelope::new(hash(0x33), hash(0x22))
-            .digest()
-            .expect("digest");
-        let other_policy = EvidenceEnvelope::new(hash(0x11), hash(0x44))
-            .digest()
-            .expect("digest");
-        assert_ne!(base, other_document, "document digest must bind");
-        assert_ne!(base, other_policy, "policy digest must bind");
-    }
-
-    #[test]
-    fn evidence_digest_is_not_a_constant_of_the_did() {
-        // The other degenerate pre-existing form was `f(did)` plus two hard-coded
-        // strings: two different documents for the same DID produced one digest.
-        let mut second = document();
-        second.verification_methods.insert(
-            "#key-2".to_owned(),
-            "z6MkfixtureOtherKeyMaterialValue".to_owned(),
-        );
-        let policy = hash(0x22);
-        let first_digest = EvidenceEnvelope::for_document(&document(), policy.clone())
-            .expect("envelope")
-            .digest()
-            .expect("digest");
-        let second_digest = EvidenceEnvelope::for_document(&second, policy)
-            .expect("envelope")
-            .digest()
-            .expect("digest");
         assert_ne!(
-            first_digest, second_digest,
-            "two documents under one DID must not share an evidence digest"
+            receipt.digest().expect("digest"),
+            hash(0x11),
+            "the receipt digest is never the bare document digest"
         );
     }
 
     #[test]
-    fn for_document_matches_the_binding_document_digest() {
-        let document = document();
-        let envelope = EvidenceEnvelope::for_document(&document, hash(0x22)).expect("envelope");
+    fn the_receipt_binds_the_document_and_the_evidence() {
+        let baseline = EvidenceReceipt::new("webvh", hash(0x11), &webvh_evidence())
+            .digest()
+            .expect("digest");
+        let other_document = EvidenceReceipt::new("webvh", hash(0x33), &webvh_evidence())
+            .digest()
+            .expect("digest");
+        assert_ne!(baseline, other_document, "document digest must bind");
+
+        let mut tampered = webvh_evidence();
+        let MethodEvidenceProof::WebvhLog(row) = &mut tampered.proofs[0];
+        row.witness_proofs_digest = hash(0x99);
+        let other_evidence = EvidenceReceipt::new("webvh", hash(0x11), &tampered)
+            .digest()
+            .expect("digest");
+        assert_ne!(baseline, other_evidence, "witness proofs must bind");
+    }
+
+    #[test]
+    fn witness_rows_are_sorted_not_taken_in_resolver_order() {
+        let receipt = EvidenceReceipt::new("webvh", hash(0x11), &webvh_evidence());
+        let value = receipt.canonical_value().expect("canonical");
+        let witnesses = value["method_proofs"][0]["witnesses"]
+            .as_array()
+            .expect("array");
         assert_eq!(
-            envelope.document_digest(),
-            &document_canonical_digest(&document).expect("digest"),
+            witnesses[0]["witness_did"],
+            Value::String(did("witness-a").as_str().to_owned())
         );
-    }
 
-    #[test]
-    fn method_proofs_are_order_significant() {
-        let left = EvidenceEnvelope::new(hash(0x11), hash(0x22))
-            .with_method_proof(serde_json::json!({"log": 1}))
-            .with_method_proof(serde_json::json!({"log": 2}))
-            .digest()
-            .expect("digest");
-        let right = EvidenceEnvelope::new(hash(0x11), hash(0x22))
-            .with_method_proof(serde_json::json!({"log": 2}))
-            .with_method_proof(serde_json::json!({"log": 1}))
-            .digest()
-            .expect("digest");
-        assert_ne!(left, right, "a log chain is a sequence, not a set");
-    }
-
-    #[test]
-    fn method_extensions_bind_and_are_order_insensitive() {
-        let base = EvidenceEnvelope::new(hash(0x11), hash(0x22));
-        let bare = base.clone().digest().expect("digest");
-        let sourced = base
-            .clone()
-            .with_extension("source", "shared_resolver_chain")
-            .digest()
-            .expect("digest");
-        let other_source = base
-            .clone()
-            .with_extension("source", "did_key_local_decode")
-            .digest()
-            .expect("digest");
-        assert_ne!(bare, sourced);
-        assert_ne!(sourced, other_source);
-
-        let forward = base
-            .clone()
-            .with_extension("a", 1)
-            .with_extension("b", 2)
-            .digest()
-            .expect("digest");
-        let backward = base
-            .with_extension("b", 2)
-            .with_extension("a", 1)
-            .digest()
-            .expect("digest");
-        assert_eq!(forward, backward);
-    }
-
-    #[test]
-    fn evidence_envelope_is_recomputable_from_its_canonical_value() {
-        // The audit property: an evidence digest can be re-derived rather than
-        // merely asserted to be non-empty.
-        let envelope = EvidenceEnvelope::new(hash(0x11), hash(0x22))
-            .with_method_proof(serde_json::json!({"witness": "w1"}))
-            .with_extension("source", "shared_resolver_chain");
-        let recomputed = digest_of(&envelope.canonical_value()).expect("digest");
-        assert_eq!(envelope.digest().expect("digest"), recomputed);
-    }
-
-    #[test]
-    fn evidence_version_is_folded_in() {
-        let envelope = EvidenceEnvelope::new(hash(0x11), hash(0x22));
+        let mut reversed = webvh_evidence();
+        let MethodEvidenceProof::WebvhLog(row) = &mut reversed.proofs[0];
+        row.witnesses.reverse();
         assert_eq!(
-            envelope.canonical_value()["version"],
-            Value::String(EVIDENCE_DIGEST_VERSION.to_owned())
+            receipt.digest().expect("digest"),
+            EvidenceReceipt::new("webvh", hash(0x11), &reversed)
+                .digest()
+                .expect("digest"),
+            "resolver return order must not reach the digest"
         );
     }
 
-    // -- coverage of the five pre-existing input sets --
+    #[test]
+    fn duplicate_witnesses_are_rejected() {
+        let mut duplicated = webvh_evidence();
+        let MethodEvidenceProof::WebvhLog(row) = &mut duplicated.proofs[0];
+        let first = row.witnesses[0].clone();
+        row.witnesses.push(first);
+        assert!(matches!(
+            EvidenceReceipt::new("webvh", hash(0x11), &duplicated).digest(),
+            Err(DigestError::DuplicateEntry { .. })
+        ));
+    }
 
     #[test]
-    fn covers_every_downstream_policy_input_set() {
-        // teabay: accepted methods + allow_private_networks + development_mode
-        let policy = ResolverPolicy::default();
-        let teabay = PolicyDigestInput::new(&policy)
-            .with_extension("allow_private_networks", false)
-            .with_extension("development_mode", false);
-        // coauth: deployment profile, delegated resolver, pairwise proof toggle,
-        // loopback relaxation, document size cap.
-        let coauth = PolicyDigestInput::new(&policy)
-            .with_extension("deployment_profile", "organization")
-            .with_extension("principal_method", "did:webvh:")
-            .with_extension("delegated_resolver", Value::Null)
-            .with_extension("proof_required_for_pairwise", true)
-            .with_extension("resolver_allow_loopback", false)
-            .with_extension("did_document_max_bytes", 262_144);
-        // soland: trust domain + development mode + allow list.
-        let soland = PolicyDigestInput::new(&policy)
-            .with_extension("trust_domain", "ak:trust_domain:soland.local")
-            .with_extension("development_mode", false);
-        // bridges / inkson: the ResolverPolicy core alone.
-        let core = PolicyDigestInput::new(&policy);
-
-        let digests = [
-            teabay.digest().expect("digest"),
-            coauth.digest().expect("digest"),
-            soland.digest().expect("digest"),
-            core.digest().expect("digest"),
-        ];
-        for (index, left) in digests.iter().enumerate() {
-            for right in digests.iter().skip(index + 1) {
-                assert_ne!(
-                    left, right,
-                    "distinct deployment dimensions must yield distinct digests"
-                );
-            }
+    fn the_method_token_is_the_bare_lowercase_method() {
+        for spelling in ["webvh", "WEBVH", "did:webvh", " webvh "] {
+            assert_eq!(
+                EvidenceReceipt::new(spelling, hash(0x11), &MethodEvidence::none()).method,
+                "webvh"
+            );
         }
     }
 
     #[test]
-    fn covers_every_downstream_evidence_input_set() {
-        let policy = hash(0x22);
-        let document = document();
+    fn the_receipt_is_recomputable_from_its_canonical_value() {
+        let receipt = EvidenceReceipt::new("webvh", hash(0x11), &webvh_evidence());
+        let recomputed = digest_of(&receipt.canonical_value().expect("canonical")).expect("digest");
+        assert_eq!(receipt.digest().expect("digest"), recomputed);
+    }
 
-        // teabay: provenance members + a conditional service kind.
-        let teabay = EvidenceEnvelope::for_document(&document, policy.clone())
-            .expect("envelope")
-            .with_extension("source", "principal_service_endpoint")
-            .with_extension("purpose", "principal_service_endpoint")
-            .with_extension("service_kind", "media")
-            .digest()
-            .expect("digest");
-        // coauth: an opaque resolver-supplied method evidence subtree.
-        let coauth = EvidenceEnvelope::for_document(&document, policy.clone())
-            .expect("envelope")
-            .with_method_proof(serde_json::json!({"witnesses": ["w1", "w2"], "log_head": "1-abc"}))
-            .with_extension("source", "delegated_resolver")
-            .with_extension("verified_local_binding", true)
-            .with_extension("identity_fact_rejection", Value::Null)
-            .digest()
-            .expect("digest");
-        // bridges: a source key-state digest, hashed to a string first.
-        let bridges = EvidenceEnvelope::for_document(&document, policy.clone())
-            .expect("envelope")
-            .with_extension("source_key_state_digest", hash(0x66).as_str())
-            .digest()
-            .expect("digest");
-        // inkson / soland: no method proof set at all.
-        let plain = EvidenceEnvelope::for_document(&document, policy)
-            .expect("envelope")
-            .digest()
-            .expect("digest");
+    // -- evidence dependencies --
 
-        let digests = [teabay, coauth, bridges, plain];
-        for (index, left) in digests.iter().enumerate() {
-            for right in digests.iter().skip(index + 1) {
-                assert_ne!(left, right);
-            }
-        }
+    #[test]
+    fn dependencies_are_extracted_mechanically_and_sorted() {
+        let receipt = EvidenceReceipt::new("webvh", hash(0x11), &webvh_evidence());
+        let dependencies = receipt.evidence_dependencies().expect("dependencies");
+        assert_eq!(
+            dependencies.witness_dids,
+            vec![did("witness-a"), did("witness-b")]
+        );
+        assert_eq!(
+            dependencies.witness_controlling_organizations,
+            vec![did("org-1"), did("org-2")]
+        );
+        assert_eq!(dependencies.history_heads, vec!["3-QmFixtureHead"]);
+    }
+
+    #[test]
+    fn a_proofless_method_produces_the_empty_dependency_record() {
+        let receipt = EvidenceReceipt::new("key", hash(0x11), &MethodEvidence::none());
+        assert!(receipt.evidence_dependencies().expect("deps").is_empty());
     }
 }

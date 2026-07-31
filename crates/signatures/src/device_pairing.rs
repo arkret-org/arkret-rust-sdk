@@ -128,11 +128,11 @@ pub fn sign_server_device_pairing_challenge(
 ) -> Result<DevicePairingChallengeProof, DevicePairingProofError> {
     validate_public_key(public_key, signing_key.verifying_key().as_bytes())?;
     let (bytes, transcript_digest) = server_device_pairing_transcript(public_key, challenge)?;
-    let verification_method = DeviceId::new(public_key.kid.as_str().to_owned())
+    let kid = DeviceId::new(public_key.kid.as_str().to_owned())
         .map_err(|_| DevicePairingProofError::UnsupportedKey)?;
     Ok(DevicePairingChallengeProof {
         transcript: DevicePairingChallengeTranscriptKind::ServerMediated,
-        verification_method,
+        kid,
         alg: NonEmptyString::new(public_key.alg.as_str().to_owned())
             .map_err(|error| arkret_wire::Error::Protocol(error.to_owned()))?,
         transcript_digest,
@@ -155,7 +155,7 @@ pub fn verify_server_device_pairing_challenge(
     if proof.transcript != DevicePairingChallengeTranscriptKind::ServerMediated {
         return Err(DevicePairingProofError::TranscriptMismatch);
     }
-    if proof.verification_method.as_str() != public_key.kid.as_str() {
+    if proof.kid.as_str() != public_key.kid.as_str() {
         return Err(DevicePairingProofError::VerificationMethodMismatch);
     }
     if proof.alg.as_str() != public_key.alg.as_str() {
@@ -216,11 +216,11 @@ pub fn sign_to_device_pairing_challenge(
     validate_public_key(public_key, signing_key.verifying_key().as_bytes())?;
     let (bytes, transcript_digest) =
         to_device_pairing_transcript(public_key, pairing_code, gate_audience, challenge)?;
-    let verification_method = DeviceId::new(public_key.kid.as_str().to_owned())
+    let kid = DeviceId::new(public_key.kid.as_str().to_owned())
         .map_err(|_| DevicePairingProofError::UnsupportedKey)?;
     Ok(DevicePairingChallengeProof {
         transcript: DevicePairingChallengeTranscriptKind::ToDevice,
-        verification_method,
+        kid,
         alg: NonEmptyString::new(public_key.alg.as_str().to_owned())
             .map_err(|error| arkret_wire::Error::Protocol(error.to_owned()))?,
         transcript_digest,
@@ -245,7 +245,7 @@ pub fn verify_to_device_pairing_challenge(
     if proof.transcript != DevicePairingChallengeTranscriptKind::ToDevice {
         return Err(DevicePairingProofError::TranscriptMismatch);
     }
-    if proof.verification_method.as_str() != public_key.kid.as_str() {
+    if proof.kid.as_str() != public_key.kid.as_str() {
         return Err(DevicePairingProofError::VerificationMethodMismatch);
     }
     if proof.alg.as_str() != public_key.alg.as_str() {

@@ -20,6 +20,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::DidDocument;
+use crate::binding_digest::EvidenceDependencies;
 
 // ============================================================================
 // Closed enums
@@ -159,80 +160,260 @@ impl std::fmt::Display for DidBindingStatus {
     }
 }
 
-/// Why a binding could not pin a full history / version anchor.
-///
-/// `did-usage-and-verification.md` §5 allows `history_head` / `version_id` to be
-/// absent for methods that do not support them — **but the limited-trust
-/// capability MUST be recorded**. This enum is that record; leaving both pins
-/// empty without a reason is rejected by [`VerifiedDidBinding::new`].
+/// The state of one `did-usage-and-verification.md` §5.5 trust pin.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum LimitedTrustReason {
-    /// The method has no verifiable append-only history log (`did:key`,
-    /// plain `did:web`): `history_head` is absent, `version_id` is pinned.
-    MethodHasNoHistoryLog,
-    /// The method exposes a history head but no stable version identifier.
-    MethodHasNoVersionId,
-    /// Neither a history head nor a version identifier could be pinned; the
-    /// binding rests on the document digest and policy alone.
-    MethodHasNeitherHistoryNorVersion,
+pub enum PinState {
+    /// The pin is present on the binding.
+    Pinned,
+    /// The method genuinely has nothing to pin (`did:key` has no history). A
+    /// legitimate terminal state.
+    MethodUnsupported,
+    /// The method supports this pin but the resolver did not deliver it. A
+    /// **failure** state, not an audit note: once the §5.2 resolver channel
+    /// surfaces method evidence, `did:webvh` should never record it.
+    NotSurfaced,
 }
 
-impl LimitedTrustReason {
-    /// Return the reason implied by the supplied pins, or `None` when both are
-    /// pinned (full-trust acceptance).
-    ///
-    /// Callers building a binding from a resolver result should use this to
-    /// fill [`VerifiedDidBindingInput::limited_trust`] instead of guessing;
-    /// [`VerifiedDidBinding::new`] validates the result either way.
-    pub fn for_pins(history_head: Option<&Hash>, version_id: Option<&str>) -> Option<Self> {
-        match (history_head.is_some(), version_id.is_some()) {
-            (true, true) => None,
-            (false, true) => Some(Self::MethodHasNoHistoryLog),
-            (true, false) => Some(Self::MethodHasNoVersionId),
-            (false, false) => Some(Self::MethodHasNeitherHistoryNorVersion),
+impl PinState {
+    /// Registered wire token.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Pinned => "pinned",
+            Self::MethodUnsupported => "method_unsupported",
+            Self::NotSurfaced => "not_surfaced",
         }
+    }
+
+    /// Whether this state claims the pin is present.
+    pub fn is_pinned(self) -> bool {
+        matches!(self, Self::Pinned)
     }
 }
 
+impl std::fmt::Display for PinState {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+/// Per-pin limited-trust record
+/// (`did-binding-contracts.schema.json#/$defs/limited_trust`).
+///
+/// §5.5 replaced the old single "reason" with one state per pin, because the two
+/// pins fail independently and for different reasons: a `did:webvh` binding that
+/// lost only `version_id` because the resolver did not surface it is a resolver
+/// defect, while a `did:key` binding that has no history at all is a terminal
+/// property of the method. Collapsing both into one enum made those
+/// indistinguishable.
+///
+/// The record is omitted entirely when both pins are present; every state MUST
+/// agree with the actual presence of its pin, and [`VerifiedDidBinding::new`]
+/// rejects a binding where it does not.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LimitedTrust {
+    pub history_head: PinState,
+    pub version_id: PinState,
+}
+
+impl LimitedTrust {
+    /// The record implied by the pins a **proofless** method produced.
+    ///
+    /// Absent pins are `method_unsupported`, which is the terminal state
+    /// `did:key` / bare `did:web` legitimately reach.
+    pub fn for_proofless_method(history_head: Option<&str>, version_id: Option<&str>) -> Self {
+        Self {
+            history_head: pin_state(history_head.is_some(), PinState::MethodUnsupported),
+            version_id: pin_state(version_id.is_some(), PinState::MethodUnsupported),
+        }
+    }
+
+    /// The record implied by the pins an **evidence-bearing** method produced.
+    ///
+    /// An absent pin here is `not_surfaced`: the method supports it, so its
+    /// absence is a resolver failure that must stay visible rather than be
+    /// laundered into `method_unsupported`.
+    pub fn for_evidence_bearing_method(
+        history_head: Option<&str>,
+        version_id: Option<&str>,
+    ) -> Self {
+        Self {
+            history_head: pin_state(history_head.is_some(), PinState::NotSurfaced),
+            version_id: pin_state(version_id.is_some(), PinState::NotSurfaced),
+        }
+    }
+
+    /// Whether every pin is present, in which case the record MUST be omitted.
+    pub fn is_fully_pinned(self) -> bool {
+        self.history_head.is_pinned() && self.version_id.is_pinned()
+    }
+
+    /// The record a binding with these pins must carry, or `None` when both are
+    /// pinned.
+    pub fn record_for(self) -> Option<Self> {
+        (!self.is_fully_pinned()).then_some(self)
+    }
+}
+
+fn pin_state(present: bool, absent: PinState) -> PinState {
+    if present { PinState::Pinned } else { absent }
+}
+
 // ============================================================================
-// Freshness requirement
+// Freshness profile and requirement
 // ============================================================================
 
-/// Freshness an authority caller demands of a reusable binding
-/// (`did-usage-and-verification.md` §4, last trigger row).
+/// The risk tier of a registered freshness profile (§5.4).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FreshnessRiskTier {
+    /// Registry-listed accepted-only read / replay paths. Stale is usable and a
+    /// plain request MUST NOT trigger a live fallback.
+    Low,
+    /// Per-operation registered. Stale is usable within a finite grace window,
+    /// against an audited `stale_evidence_used` record and one deduplicated
+    /// background refresh.
+    Medium,
+    /// Never consumes a stale binding: refresh synchronously or fail closed.
+    High,
+}
+
+/// What a call site does with a binding that is past `refresh_after` (§5.4).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StaleBehavior {
+    AcceptedWithoutNetwork,
+    AcceptedAndBackgroundRefresh,
+    SynchronousRefreshOrFailClosed,
+}
+
+/// One registered freshness profile row
+/// (`did-binding-contracts.schema.json#/$defs/freshness_profile`).
 ///
-/// There is no `Default`: the spec requires every authority call site to state
-/// its own freshness policy explicitly, so an omitted requirement cannot
-/// silently degrade into "any cached binding will do".
+/// §5.4 makes every DID authority call site reference exactly one profile id
+/// through its operation / action registration — natural-language tier guessing
+/// ("directory-ish, so any cache will do") is forbidden, and an unknown id is
+/// treated as `high`, never as "anything cached is fine".
+///
+/// `fresh_for_seconds` is the **single** freshness threshold: `refresh_after =
+/// verified_at + fresh_for_seconds` and an authority call's `max_age` is the
+/// same value. Two separately maintained constants are exactly the drift §5.4
+/// forbids, so [`Self::requirement`] is the only way to obtain a
+/// [`FreshnessRequirement`] from a profile.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FreshnessProfile {
+    pub freshness_profile_id: String,
+    pub risk_tier: FreshnessRiskTier,
+    /// `did:<method>:` prefixes this row applies to, or the single `"*"`.
+    pub did_method_selector: Vec<String>,
+    pub fresh_for_seconds: Option<u64>,
+    pub stale_grace_seconds: Option<u64>,
+    pub hard_expiry_seconds: Option<u64>,
+    pub stale_behavior: StaleBehavior,
+}
+
+impl FreshnessProfile {
+    /// The profile an unknown id, an unregistered action or a non-matching
+    /// method selector resolves to.
+    ///
+    /// §5.4: there is **no** path that defaults to "any cached binding will do".
+    /// The fallback is the strictest tier, with a one-hour window so a
+    /// misconfiguration degrades into extra resolutions rather than into
+    /// silently accepted stale authority.
+    pub fn fail_closed_default() -> Self {
+        Self {
+            freshness_profile_id: "ak.did_freshness.unregistered_fail_closed.v1".to_owned(),
+            risk_tier: FreshnessRiskTier::High,
+            did_method_selector: vec!["*".to_owned()],
+            fresh_for_seconds: Some(3_600),
+            stale_grace_seconds: None,
+            hard_expiry_seconds: Some(3_600),
+            stale_behavior: StaleBehavior::SynchronousRefreshOrFailClosed,
+        }
+    }
+
+    /// Whether this row applies to `method` (`did:<method>:` or `*`).
+    pub fn applies_to_method(&self, method: &str) -> bool {
+        let prefix = format!(
+            "did:{}:",
+            method
+                .trim()
+                .trim_start_matches("did:")
+                .trim_end_matches(':')
+        );
+        self.did_method_selector
+            .iter()
+            .any(|selector| selector == "*" || *selector == prefix)
+    }
+
+    /// The freshness this profile demands of a reusable binding.
+    ///
+    /// `max_age` is the oldest verification this tier will consume, which is
+    /// exactly what §5.4 gives each tier:
+    ///
+    /// | tier | oldest consumable | stale? |
+    /// | --- | --- | --- |
+    /// | `high` | `fresh_for_seconds` | never — refresh synchronously or fail closed |
+    /// | `medium` | `stale_grace_seconds` | inside the finite grace window |
+    /// | `low` | unbounded (hard expiry still applies) | yes, and never with a live fallback |
+    ///
+    /// `fresh_for_seconds` stays the single freshness threshold: it is where
+    /// `refresh_after` lands for every tier, and it is the `high` tier's
+    /// `max_age`. A tier that consumes stale bindings is bounded by its grace
+    /// window instead, not by a second independently maintained constant.
+    pub fn requirement(&self) -> FreshnessRequirement {
+        FreshnessRequirement {
+            max_age: match self.risk_tier {
+                FreshnessRiskTier::High => self.max_age(),
+                FreshnessRiskTier::Medium => self.stale_grace(),
+                FreshnessRiskTier::Low => None,
+            },
+            require_fresh: self.risk_tier == FreshnessRiskTier::High,
+        }
+    }
+
+    /// `refresh_after` for a binding verified at `verified_at`.
+    pub fn refresh_after(&self, verified_at: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        self.max_age().map(|window| verified_at + window)
+    }
+
+    /// `expires_at` for a binding verified at `verified_at`.
+    pub fn expires_at(&self, verified_at: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        self.hard_expiry_seconds
+            .and_then(|seconds| Duration::try_seconds(seconds as i64))
+            .map(|window| verified_at + window)
+    }
+
+    fn max_age(&self) -> Option<Duration> {
+        self.fresh_for_seconds
+            .and_then(|seconds| Duration::try_seconds(seconds as i64))
+    }
+
+    fn stale_grace(&self) -> Option<Duration> {
+        self.stale_grace_seconds
+            .and_then(|seconds| Duration::try_seconds(seconds as i64))
+    }
+}
+
+/// Freshness an authority caller demands of a reusable binding
+/// (`did-usage-and-verification.md` §4 / §5.4).
+///
+/// There is no `Default` and no "any accepted" constructor: §5.4 requires every
+/// authority call site to reference a registered [`FreshnessProfile`], so a
+/// requirement is derived from a profile rather than hand-written per call site.
+/// A profile-free construction is exactly how five deployments ended up with
+/// five different thresholds for the same obligation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FreshnessRequirement {
-    /// Maximum age of the *verification* (`now - verified_at`). `None` means
-    /// the age itself is unbounded and only `require_fresh` applies.
+    /// Maximum age of the *verification* (`now - verified_at`), equal to the
+    /// profile's `fresh_for_seconds`. `None` only for a profile that declares no
+    /// freshness threshold at all (a `low` accepted-only row).
     pub max_age: Option<Duration>,
     /// When `true`, a binding past its `refresh_after` point (status `Stale`)
     /// is rejected and the caller refreshes or fails closed.
     pub require_fresh: bool,
-}
-
-impl FreshnessRequirement {
-    /// High-risk authority profile: the binding must not be past
-    /// `refresh_after` and must be no older than `max_age`.
-    pub fn fresh_within(max_age: Duration) -> Self {
-        Self {
-            max_age: Some(max_age),
-            require_fresh: true,
-        }
-    }
-
-    /// Low-risk profile: any non-hard-expired binding is acceptable, including
-    /// a `Stale` one. Used by read paths that MUST NOT live-fallback.
-    pub fn any_accepted() -> Self {
-        Self {
-            max_age: None,
-            require_fresh: false,
-        }
-    }
 }
 
 // ============================================================================
@@ -276,23 +457,23 @@ pub enum BindingError {
         refresh_after: DateTime<Utc>,
         expires_at: DateTime<Utc>,
     },
-    /// A pin is missing but no limited-trust reason was recorded.
+    /// A pin is missing but no limited-trust record was carried.
+    #[error("`{pin}` is not pinned but no limited-trust record was carried")]
+    LimitedTrustNotRecorded { pin: &'static str },
+    /// Both pins are present but a limited-trust record was still carried.
     #[error(
-        "history_head / version_id incomplete but no limited-trust reason was recorded (expected {expected:?})"
+        "limited-trust record {declared:?} carried although history_head and version_id are both pinned"
     )]
-    LimitedTrustNotRecorded { expected: LimitedTrustReason },
-    /// Both pins are present but a limited-trust reason was still claimed.
+    LimitedTrustNotApplicable { declared: LimitedTrust },
+    /// A recorded pin state contradicts the actual presence of that pin.
     #[error(
-        "limited-trust reason {declared:?} recorded although history_head and version_id are both pinned"
-    )]
-    LimitedTrustNotApplicable { declared: LimitedTrustReason },
-    /// The recorded limited-trust reason contradicts the actual pins.
-    #[error(
-        "limited-trust reason {declared:?} contradicts the recorded pins (expected {expected:?})"
+        "limited-trust `{pin}` records `{declared}` but the pin is {}",
+        if *pinned { "present" } else { "absent" }
     )]
     LimitedTrustMismatch {
-        declared: LimitedTrustReason,
-        expected: LimitedTrustReason,
+        pin: &'static str,
+        declared: PinState,
+        pinned: bool,
     },
     /// The DID document could not be canonicalized for digesting.
     #[error("DID document canonicalization failed: {0}")]
@@ -340,15 +521,22 @@ pub struct VerifiedDidBindingInput {
     pub verification_method: Option<DidUrl>,
     /// Canonical digest of the pinned DID document.
     pub document_digest: Hash,
-    /// Method history head, when the method exposes one.
-    pub history_head: Option<Hash>,
+    /// Method history head (`versionId` / entry-hash form), when the method
+    /// exposes one. Typed as the schema types it — a webvh `versionId` is not a
+    /// `<algo>:<hex>` digest, and forcing it into one is why webvh bindings
+    /// could never pin a history head at all.
+    pub history_head: Option<String>,
     /// Method version identifier, when the method exposes one.
     pub version_id: Option<String>,
-    /// Why the pins above are incomplete; MUST be `Some` exactly when at least
-    /// one of them is absent.
-    pub limited_trust: Option<LimitedTrustReason>,
-    /// Digest of the method evidence the acceptance rests on.
+    /// Per-pin limited-trust record; MUST be `Some` exactly when at least one
+    /// pin above is absent (§5.5).
+    pub limited_trust: Option<LimitedTrust>,
+    /// Digest of the canonical evidence receipt the acceptance rests on (§5.2).
     pub evidence_digest: Hash,
+    /// Dependency coordinates mechanically extracted from that receipt, so
+    /// witness-level invalidation can be selective (§5.6).
+    #[serde(default)]
+    pub evidence_dependencies: EvidenceDependencies,
     /// Digest of the resolver / Realm policy in force at acceptance time.
     pub policy_digest: Hash,
     /// When the verification happened.
@@ -371,10 +559,11 @@ pub struct VerifiedDidBindingDocumentInput {
     pub trust_domain: TypedTrustDomainId,
     pub purpose: DidBindingPurpose,
     pub verification_method: Option<DidUrl>,
-    pub history_head: Option<Hash>,
+    pub history_head: Option<String>,
     pub version_id: Option<String>,
-    pub limited_trust: Option<LimitedTrustReason>,
+    pub limited_trust: Option<LimitedTrust>,
     pub evidence_digest: Hash,
+    pub evidence_dependencies: EvidenceDependencies,
     pub policy_digest: Hash,
     pub verified_at: DateTime<Utc>,
     pub refresh_after: Option<DateTime<Utc>>,
@@ -409,7 +598,7 @@ impl VerifiedDidBinding {
     /// 2. a `verification_method` whose DID part is not `did`;
     /// 3. an incoherent freshness window (`expires_at <= verified_at`, `refresh_after <
     ///    verified_at`, `refresh_after > expires_at`);
-    /// 4. a missing `history_head` / `version_id` pin with no recorded [`LimitedTrustReason`] (and
+    /// 4. a missing `history_head` / `version_id` pin with no recorded [`LimitedTrust`] state (and
     ///    vice versa).
     ///
     /// The digest fields are typed [`Hash`] values, so `<algo>:<hex>` validity
@@ -466,20 +655,38 @@ impl VerifiedDidBinding {
             }
         }
 
-        let expected_limited_trust =
-            LimitedTrustReason::for_pins(input.history_head.as_ref(), input.version_id.as_deref());
-        match (expected_limited_trust, input.limited_trust) {
-            (None, None) => {}
-            (Some(expected), None) => {
-                return Err(BindingError::LimitedTrustNotRecorded { expected });
+        // §5.5: the record is omitted exactly when both pins are present, and
+        // every recorded state must agree with the actual presence of its pin.
+        // "missing pin, no record", "fully pinned but a record anyway" and
+        // "record contradicts the pins" are all construction-time rejections —
+        // that consistency is a protocol obligation, not a producer courtesy.
+        let pins = [
+            ("history_head", input.history_head.is_some()),
+            ("version_id", input.version_id.is_some()),
+        ];
+        match input.limited_trust {
+            None => {
+                if let Some((pin, _)) = pins.iter().find(|(_, pinned)| !pinned) {
+                    return Err(BindingError::LimitedTrustNotRecorded { pin });
+                }
             }
-            (None, Some(declared)) => {
-                return Err(BindingError::LimitedTrustNotApplicable { declared });
+            Some(declared) => {
+                if pins.iter().all(|(_, pinned)| *pinned) {
+                    return Err(BindingError::LimitedTrustNotApplicable { declared });
+                }
+                for ((pin, pinned), state) in pins
+                    .iter()
+                    .zip([declared.history_head, declared.version_id])
+                {
+                    if state.is_pinned() != *pinned {
+                        return Err(BindingError::LimitedTrustMismatch {
+                            pin,
+                            declared: state,
+                            pinned: *pinned,
+                        });
+                    }
+                }
             }
-            (Some(expected), Some(declared)) if expected != declared => {
-                return Err(BindingError::LimitedTrustMismatch { declared, expected });
-            }
-            (Some(_), Some(_)) => {}
         }
 
         Ok(Self { inner: input })
@@ -506,6 +713,7 @@ impl VerifiedDidBinding {
             version_id: input.version_id,
             limited_trust: input.limited_trust,
             evidence_digest: input.evidence_digest,
+            evidence_dependencies: input.evidence_dependencies,
             policy_digest: input.policy_digest,
             verified_at: input.verified_at,
             refresh_after: input.refresh_after,
@@ -534,7 +742,6 @@ impl VerifiedDidBinding {
             purpose: self.inner.purpose,
             policy_digest: self.inner.policy_digest.clone(),
             verification_method: self.inner.verification_method.clone(),
-            version_id: self.inner.version_id.clone(),
         }
     }
 
@@ -626,8 +833,8 @@ impl VerifiedDidBinding {
     }
 
     /// Method history head, when pinned.
-    pub fn history_head(&self) -> Option<&Hash> {
-        self.inner.history_head.as_ref()
+    pub fn history_head(&self) -> Option<&str> {
+        self.inner.history_head.as_deref()
     }
 
     /// Method version identifier, when pinned.
@@ -636,11 +843,16 @@ impl VerifiedDidBinding {
     }
 
     /// Recorded limited-trust capability, when the pins are incomplete.
-    pub fn limited_trust(&self) -> Option<LimitedTrustReason> {
+    pub fn limited_trust(&self) -> Option<LimitedTrust> {
         self.inner.limited_trust
     }
 
-    /// Digest of the method evidence behind this acceptance.
+    /// The §5.6 dependency coordinates this acceptance can be invalidated by.
+    pub fn evidence_dependencies(&self) -> &EvidenceDependencies {
+        &self.inner.evidence_dependencies
+    }
+
+    /// Digest of the canonical evidence receipt behind this acceptance (§5.2).
     pub fn evidence_digest(&self) -> &Hash {
         &self.inner.evidence_digest
     }
@@ -681,6 +893,12 @@ impl VerifiedDidBinding {
 ///
 /// Keying by DID alone would silently reuse an acceptance across trust domains
 /// or purposes, which the task's risk section explicitly forbids.
+///
+/// `version_id` is deliberately **not** a key dimension. §5.2 makes it a product
+/// of the resolution, so a caller cannot know it before looking the entry up;
+/// keying on it would make every lookup miss and every rotation file a parallel
+/// entry nobody can reach instead of replacing the one it supersedes. It stays a
+/// binding field and an invalidation dimension.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct VerifiedDidBindingKey {
     pub did: Did,
@@ -688,7 +906,6 @@ pub struct VerifiedDidBindingKey {
     pub purpose: DidBindingPurpose,
     pub policy_digest: Hash,
     pub verification_method: Option<DidUrl>,
-    pub version_id: Option<String>,
 }
 
 #[cfg(test)]
@@ -707,6 +924,22 @@ mod tests {
         Did::new("did:webvh:z6mkfixture:binding.example".to_owned()).expect("valid did")
     }
 
+    /// A `low` accepted-only profile's requirement.
+    fn accepted_only() -> FreshnessRequirement {
+        FreshnessRequirement {
+            max_age: None,
+            require_fresh: false,
+        }
+    }
+
+    /// A `high` profile's requirement over `window`.
+    fn fresh_within(window: Duration) -> FreshnessRequirement {
+        FreshnessRequirement {
+            max_age: Some(window),
+            require_fresh: true,
+        }
+    }
+
     fn input() -> VerifiedDidBindingInput {
         let did = did();
         VerifiedDidBindingInput {
@@ -716,10 +949,11 @@ mod tests {
             trust_domain: trust_domain("local"),
             purpose: DidBindingPurpose::Principal,
             document_digest: hash(0x11),
-            history_head: Some(hash(0x22)),
+            history_head: Some("1-abc".to_owned()),
             version_id: Some("1-abc".to_owned()),
             limited_trust: None,
             evidence_digest: hash(0x33),
+            evidence_dependencies: EvidenceDependencies::default(),
             policy_digest: hash(0x44),
             verified_at: Utc::now(),
             refresh_after: None,
@@ -787,37 +1021,72 @@ mod tests {
     }
 
     #[test]
-    fn rejects_missing_pins_without_a_limited_trust_reason() {
+    fn rejects_missing_pins_without_a_limited_trust_record() {
         let mut input = input();
         input.history_head = None;
         input.version_id = None;
         assert!(matches!(
             VerifiedDidBinding::new(input),
             Err(BindingError::LimitedTrustNotRecorded {
-                expected: LimitedTrustReason::MethodHasNeitherHistoryNorVersion
+                pin: "history_head"
             })
         ));
     }
 
     #[test]
-    fn rejects_a_limited_trust_reason_that_contradicts_the_pins() {
+    fn rejects_a_limited_trust_state_that_contradicts_its_pin() {
         let mut input = input();
         input.history_head = None;
-        input.limited_trust = Some(LimitedTrustReason::MethodHasNoVersionId);
+        input.limited_trust = Some(LimitedTrust {
+            history_head: PinState::Pinned,
+            version_id: PinState::MethodUnsupported,
+        });
         assert!(matches!(
             VerifiedDidBinding::new(input),
-            Err(BindingError::LimitedTrustMismatch { .. })
+            Err(BindingError::LimitedTrustMismatch {
+                pin: "history_head",
+                declared: PinState::Pinned,
+                pinned: false,
+            })
         ));
     }
 
     #[test]
-    fn rejects_a_limited_trust_reason_on_a_fully_pinned_binding() {
+    fn rejects_a_limited_trust_record_on_a_fully_pinned_binding() {
         let mut input = input();
-        input.limited_trust = Some(LimitedTrustReason::MethodHasNoHistoryLog);
+        input.limited_trust = Some(LimitedTrust {
+            history_head: PinState::Pinned,
+            version_id: PinState::Pinned,
+        });
         assert!(matches!(
             VerifiedDidBinding::new(input),
             Err(BindingError::LimitedTrustNotApplicable { .. })
         ));
+    }
+
+    /// The distinction §5.5 exists for: a resolver that failed to surface a pin
+    /// its method supports must not be recorded as a method that has none.
+    #[test]
+    fn pin_states_separate_an_unsupported_method_from_a_silent_resolver() {
+        assert_eq!(
+            LimitedTrust::for_proofless_method(None, None),
+            LimitedTrust {
+                history_head: PinState::MethodUnsupported,
+                version_id: PinState::MethodUnsupported,
+            }
+        );
+        assert_eq!(
+            LimitedTrust::for_evidence_bearing_method(None, Some("1-abc")),
+            LimitedTrust {
+                history_head: PinState::NotSurfaced,
+                version_id: PinState::Pinned,
+            }
+        );
+        assert_eq!(
+            LimitedTrust::for_evidence_bearing_method(Some("1-abc"), Some("1-abc")).record_for(),
+            None,
+            "a fully pinned binding omits the record entirely"
+        );
     }
 
     #[test]
@@ -826,9 +1095,7 @@ mod tests {
         input.status = DidBindingStatus::Deactivated;
         let binding = VerifiedDidBinding::new(input).expect("valid binding");
         assert!(!binding.is_usable_for_ordinary_verification());
-        assert!(
-            !binding.is_usable_for_authority(&FreshnessRequirement::any_accepted(), Utc::now())
-        );
+        assert!(!binding.is_usable_for_authority(&accepted_only(), Utc::now()));
     }
 
     #[test]
@@ -846,19 +1113,14 @@ mod tests {
         let now = input.verified_at + Duration::minutes(30);
         let binding = VerifiedDidBinding::new(input).expect("valid binding");
         assert!(binding.is_usable_for_ordinary_verification());
-        assert!(binding.is_usable_for_authority(&FreshnessRequirement::any_accepted(), now));
-        assert!(
-            !binding.is_usable_for_authority(
-                &FreshnessRequirement::fresh_within(Duration::hours(1)),
-                now
-            )
-        );
+        assert!(binding.is_usable_for_authority(&accepted_only(), now));
+        assert!(!binding.is_usable_for_authority(&fresh_within(Duration::hours(1)), now));
     }
 
     #[test]
     fn max_age_bounds_authority_reuse() {
         let binding = VerifiedDidBinding::new(input()).expect("valid binding");
-        let requirement = FreshnessRequirement::fresh_within(Duration::minutes(10));
+        let requirement = fresh_within(Duration::minutes(10));
         assert!(
             binding.is_usable_for_authority(
                 &requirement,
@@ -921,8 +1183,9 @@ mod tests {
                 verification_method: None,
                 history_head: None,
                 version_id: None,
-                limited_trust: Some(LimitedTrustReason::MethodHasNeitherHistoryNorVersion),
+                limited_trust: Some(LimitedTrust::for_proofless_method(None, None)),
                 evidence_digest: hash(0x55),
+                evidence_dependencies: EvidenceDependencies::default(),
                 policy_digest: hash(0x66),
                 verified_at: Utc::now(),
                 refresh_after: None,

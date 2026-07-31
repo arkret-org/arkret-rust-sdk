@@ -195,21 +195,6 @@ pub struct Realm {
     /// defaults from contract-registry".
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cell_lattices: Vec<CellLatticeDeclaration>,
-    /// Control Move atomic-write constraint (`realm.schema.json`
-    /// `cowrite_policy`; `models/realm-and-space.md` §2.3 field table).
-    /// Optional whitelist of `ak.component.<…>.v<N>` cell-family groups that
-    /// MAY be written by the same Move; empty means "no Realm-specific
-    /// constraint". Carried for wire fidelity only — the spec declares the
-    /// field but has not yet published a normative enforcement rule or
-    /// reason code for it, so the SDK does not evaluate it.
-    ///
-    /// This is *not* a concurrent-Move ordering knob: ordering is
-    /// unconditional per `authz/event-auth-state-resolution.md` §6.3.1
-    /// (canonical total order for exposure, frozen causal predecessor for
-    /// `preconditions[]`) and is implemented in `arkret_state::state::
-    /// deterministic_order`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cowrite_policy: Vec<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retention_policy_id: Option<PolicyId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -425,7 +410,6 @@ impl Realm {
             max_authority_lifetime_ms: default_max_delegation_lifetime_ms(),
             bottom_escalation_after_ms: None,
             cell_lattices: Vec::new(),
-            cowrite_policy: Vec::new(),
             retention_policy_id: None,
             avatar_blob_ref: None,
             created_by,
@@ -496,20 +480,6 @@ impl Realm {
             lattice: lattice.into(),
             bottom,
         });
-        self
-    }
-
-    /// Builder: append one cowrite group — the cell families that MAY be
-    /// written by the same Control Move. Append-only; call once per group.
-    /// Each entry MUST be an `ak.component.<…>.v<N>` identifier
-    /// (`realm.schema.json` `cowrite_policy.items.items`).
-    pub fn with_cowrite_group<I, S>(mut self, cell_families: I) -> Self
-    where
-        I: IntoIterator<Item = S>,
-        S: Into<String>,
-    {
-        self.cowrite_policy
-            .push(cell_families.into_iter().map(Into::into).collect());
         self
     }
 

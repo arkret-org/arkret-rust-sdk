@@ -502,7 +502,10 @@ impl KeyFormat {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PublishedKey {
-    pub kid: NonEmptyString,
+    /// DID URL of a verification method in the principal's current DID document
+    /// or key-log head. A published cross-signing key is a controller key, so
+    /// this is always a DID URL, never a profile-local key label.
+    pub kid: DidUrl,
     pub alg: NonEmptyString,
     pub public_key: NonEmptyString,
     pub key_format: KeyFormat,
@@ -513,14 +516,14 @@ pub struct PublishedKey {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SubordinateSignedKeyBinding {
-    /// PSK DID URL that signed this subordinate key's canonical signing input.
+    /// DID URL of the PSK verification method that signed this subordinate
+    /// key's canonical signing input.
     ///
-    /// `cross-signing-publish.schema.json` calls it a "PSK kid", but the
-    /// official fixture instance is a full DID URL
-    /// (`did:webvh:z6mkfixture:alice.example#psk`) and
-    /// `identity/device-lifecycle.md` §256/§347 require the PSK kid to resolve
-    /// to a `verificationMethod` of the DID head, so §2.2 applies. The schema's
-    /// `minLength: 1` under-constraint is registered as a spec gap.
+    /// `device-lifecycle.md` §5.1 requires this to be **byte-identical** to
+    /// `principal_signing_key.kid`, so the verifying PSK is uniquely determined
+    /// and §5.2.1 step 3 compares before it verifies rather than trial-signing
+    /// against every published key. JSON Schema cannot express the cross-field
+    /// constraint; conformance and receivers enforce it.
     pub verification_method: DidUrl,
     pub alg: NonEmptyString,
     pub signature: NonEmptyString,
@@ -529,7 +532,8 @@ pub struct SubordinateSignedKeyBinding {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SubordinateSignedKey {
-    pub kid: NonEmptyString,
+    /// DID URL of this subordinate key's verification method.
+    pub kid: DidUrl,
     pub alg: NonEmptyString,
     pub public_key: NonEmptyString,
     pub key_format: KeyFormat,

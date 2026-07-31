@@ -26,7 +26,7 @@ use std::time::Duration;
 use arkret_egress_policy::OutboundPolicy;
 use arkret_identity::{
     DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidResolver, DidWebDocumentOutcome, DidWebResolver,
-    DidWebvhDocumentOutcome, DidWebvhLogOutcome, DidWebvhResolver, ResolverFailMode,
+    DidWebvhDocumentOutcome, DidWebvhLogOutcome, DidWebvhResolver, ResolvedDid, ResolverFailMode,
     ResolverPolicy, verify_did_webvh_v1_chain_and_witness_bytes,
 };
 use arkret_wire::Did;
@@ -53,7 +53,7 @@ pub const DEFAULT_HTTP_DID_RESOLVER_MAX_ENTRIES: usize = 1_024;
 /// Cached entry in the HTTP DID resolver.
 #[derive(Clone, Debug)]
 struct CacheEntry {
-    document: DidDocument,
+    resolved: ResolvedDid,
     fetched_at: DateTime<Utc>,
     last_accessed_at: DateTime<Utc>,
 }
@@ -135,7 +135,7 @@ pub struct HttpDidResolver {
     max_cache_entries: usize,
     health_signal: Mutex<HttpDidResolverHealthSignal>,
     runtime: tokio::runtime::Handle,
-    single_flight: SingleFlight<DidDocument>,
+    single_flight: SingleFlight<ResolvedDid>,
 }
 
 impl std::fmt::Debug for HttpDidResolver {
@@ -323,7 +323,7 @@ impl HttpDidResolver {
         }
     }
 
-    fn cached(&self, did: &Did) -> Option<DidDocument> {
+    fn cached(&self, did: &Did) -> Option<ResolvedDid> {
         let mut cache = self.cache.lock().ok()?;
         let entry = cache.get_mut(did)?;
         let age = Utc::now()
@@ -331,13 +331,13 @@ impl HttpDidResolver {
             .num_seconds();
         if age >= 0 && age < self.ttl_secs() {
             entry.last_accessed_at = Utc::now();
-            Some(entry.document.clone())
+            Some(entry.resolved.clone())
         } else {
             None
         }
     }
 
-    fn stale_within_outage(&self, did: &Did) -> Option<DidDocument> {
+    fn stale_within_outage(&self, did: &Did) -> Option<ResolvedDid> {
         let mut cache = self.cache.lock().ok()?;
         let entry = cache.get_mut(did)?;
         let age = Utc::now()
@@ -345,14 +345,14 @@ impl HttpDidResolver {
             .num_seconds();
         if age >= 0 && age <= self.max_stale_secs() {
             entry.last_accessed_at = Utc::now();
-            Some(entry.document.clone())
+            Some(entry.resolved.clone())
         } else {
             cache.remove(did);
             None
         }
     }
 
-    fn cache_put(&self, did: &Did, document: &DidDocument) {
+    fn cache_put(&self, did: &Did, resolved: &ResolvedDid) {
         if let Ok(mut cache) = self.cache.lock() {
             let now = Utc::now();
             let max_stale_secs = self.max_stale_secs();
@@ -372,7 +372,7 @@ impl HttpDidResolver {
             cache.insert(
                 did.clone(),
                 CacheEntry {
-                    document: document.clone(),
+                    resolved: resolved.clone(),
                     fetched_at: now,
                     last_accessed_at: now,
                 },
@@ -448,7 +448,7 @@ impl HttpDidResolver {
         Ok(document)
     }
 
-    async fn resolve_did_webvh(&self, did: &Did) -> Result<DidDocument> {
+    async fn resolve_did_webvh(&self, did: &Did) -> Result<ResolvedDid> {
         let doc_url = DidWebvhResolver::document_url(did)?;
         let log_url = DidWebvhResolver::log_url(did)?;
         // Documents are capped at the spec document limit; the jsonl log
@@ -498,14 +498,25 @@ impl HttpDidResolver {
                 body: log_body,
             },
         )?;
-        Ok(document)
+        // Retain the witness proof set the log declared: it is what the §5.2
+        // evidence receipt commits to, so dropping it after verification would
+        // leave the binding with a log head no witness demonstrably signed.
+        if let Some(witness_body) = &witness_body {
+            resolver.ingest_witness_records(did, witness_body)?;
+        }
+        debug_assert_eq!(document.id, *did);
+        resolver
+            .resolve_did(did)
+            .map_err(|error| Error::Protocol(error.to_string()))
     }
 
-    /// Fetch (and validate) the document for `did`, without cache or
+    /// Fetch (and validate) the resolution for `did`, without cache or
     /// fail-mode handling.
-    async fn fetch_document(&self, did: &Did) -> Result<DidDocument> {
+    async fn fetch_resolution(&self, did: &Did) -> Result<ResolvedDid> {
         match did.method() {
-            "web" => self.resolve_did_web(did).await,
+            // Bare `did:web` publishes no log and no witness set, so its
+            // resolution is proofless by the method's own construction.
+            "web" => self.resolve_did_web(did).await.map(ResolvedDid::proofless),
             "webvh" => self.resolve_did_webvh(did).await,
             other => Err(Error::Protocol(format!(
                 "HttpDidResolver does not support did:{other}"
@@ -517,12 +528,12 @@ impl HttpDidResolver {
     /// cache the fresh document, or apply the policy fail-mode (stale cache
     /// within the outage window vs. fail closed) and update the health
     /// signal.
-    fn finish_resolution(&self, did: &Did, fetched: Result<DidDocument>) -> Result<DidDocument> {
+    fn finish_resolution(&self, did: &Did, fetched: Result<ResolvedDid>) -> Result<ResolvedDid> {
         match fetched {
-            Ok(document) => {
-                self.cache_put(did, &document);
+            Ok(resolved) => {
+                self.cache_put(did, &resolved);
                 self.set_health_signal(HttpDidResolverHealthSignal::Healthy);
-                Ok(document)
+                Ok(resolved)
             }
             Err(err) => match self.policy.fail_mode {
                 ResolverFailMode::AllowCachedOnError => {
@@ -549,14 +560,14 @@ impl HttpDidResolver {
     /// call from async contexts (including single-worker runtimes).
     /// Concurrent resolutions of the same DID share one network fetch
     /// (single-flight).
-    pub async fn resolve_did_async(&self, did: &Did) -> Result<DidDocument> {
+    pub async fn resolve_did_async(&self, did: &Did) -> Result<ResolvedDid> {
         self.policy.validate(did)?;
         if let Some(cached) = self.cached(did) {
             return Ok(cached);
         }
         let fetched = self
             .single_flight
-            .run(did, || self.fetch_document(did))
+            .run(did, || self.fetch_resolution(did))
             .await;
         self.finish_resolution(did, fetched)
     }
@@ -623,7 +634,7 @@ impl DidResolver for HttpDidResolver {
     /// timeout); see [`Self::drive`] for why this is deadlock-free on every
     /// runtime flavor. Async callers should use
     /// [`Self::resolve_did_async`] directly.
-    fn resolve_did(&self, did: &Did) -> arkret_identity::Result<DidDocument> {
+    fn resolve_did(&self, did: &Did) -> arkret_identity::Result<ResolvedDid> {
         // The `DidResolver` trait (owned by arkret-identity) is typed on
         // `IdentityError`; bridge this crate's facade error at the boundary.
         self.drive(self.resolve_did_async(did))
@@ -688,9 +699,9 @@ mod tests {
         let first = Did::new("did:web:first.example").unwrap();
         let second = Did::new("did:web:second.example").unwrap();
         let third = Did::new("did:web:third.example").unwrap();
-        resolver.cache_put(&first, &document(first.clone()));
-        resolver.cache_put(&second, &document(second.clone()));
-        resolver.cache_put(&third, &document(third.clone()));
+        resolver.cache_put(&first, &ResolvedDid::proofless(document(first.clone())));
+        resolver.cache_put(&second, &ResolvedDid::proofless(document(second.clone())));
+        resolver.cache_put(&third, &ResolvedDid::proofless(document(third.clone())));
         assert_eq!(resolver.cached_document_count(), 2);
 
         let expired = resolver

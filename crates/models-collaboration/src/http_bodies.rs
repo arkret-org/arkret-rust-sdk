@@ -1698,7 +1698,14 @@ impl DevicePairingChallengeTranscriptKind {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DevicePairingChallengeProof {
     pub transcript: DevicePairingChallengeTranscriptKind,
-    pub verification_method: DeviceId,
+    /// Device-local key selector — an `ak:device:` id, **not** a DID URL.
+    ///
+    /// Deliberately not named `verification_method`: every other field of that
+    /// name in the protocol resolves to the Arkret verification-method DID URL
+    /// profile (`did-usage-and-verification.md` §2.2.1), and carrying a typed
+    /// device id under that name was the one counterexample. Reusing the old
+    /// name for this value is a hard reject.
+    pub kid: DeviceId,
     pub alg: NonEmptyString,
     pub transcript_digest: Hash,
     pub signature: Base64UrlString,
