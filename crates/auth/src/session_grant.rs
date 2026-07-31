@@ -176,7 +176,7 @@ fn agent_key_proof_unsigned_session_grant_request(
         agent_key_authorization_ref: Some(agent_key_authorization_ref.into()),
         agent_scope_request: Some(agent_scope_request),
         dpop_binding_proof: Some(dpop_binding_proof),
-        applet_delegation: None,
+        applet_authority: None,
         proof: SessionGrantRequestProof {
             proof_kind: SessionGrantProofKind::AgentKeyProof,
             challenge: challenge.into(),
@@ -238,7 +238,7 @@ pub fn holder_proof_session_grant_request(
     device_id: Option<DeviceId>,
     requested_scope: Vec<String>,
     dpop_binding_proof: Option<SessionGrantDpopBindingProof>,
-    applet_delegation: Option<SessionGrantAppletDelegation>,
+    applet_authority: Option<SessionGrantAppletDelegation>,
     proof: SessionGrantProofFields,
 ) -> SessionGrantRequestBody {
     SessionGrantRequestBody {
@@ -248,7 +248,7 @@ pub fn holder_proof_session_grant_request(
         agent_key_authorization_ref: None,
         agent_scope_request: None,
         dpop_binding_proof,
-        applet_delegation,
+        applet_authority,
         proof: proof.into_request_proof(SessionGrantProofKind::PairedDeviceProof),
     }
 }
@@ -259,7 +259,7 @@ pub fn did_proof_session_grant_request(
     device_id: DeviceId,
     requested_scope: Vec<String>,
     dpop_binding_proof: Option<SessionGrantDpopBindingProof>,
-    applet_delegation: Option<SessionGrantAppletDelegation>,
+    applet_authority: Option<SessionGrantAppletDelegation>,
     proof: SessionGrantProofFields,
 ) -> SessionGrantRequestBody {
     SessionGrantRequestBody {
@@ -269,7 +269,7 @@ pub fn did_proof_session_grant_request(
         agent_key_authorization_ref: None,
         agent_scope_request: None,
         dpop_binding_proof,
-        applet_delegation,
+        applet_authority,
         proof: proof.into_request_proof(SessionGrantProofKind::DidBoundSignature),
     }
 }
@@ -298,7 +298,7 @@ pub fn oidc_session_grant_request(
         agent_key_authorization_ref: None,
         agent_scope_request: None,
         dpop_binding_proof: None,
-        applet_delegation: None,
+        applet_authority: None,
         proof: SessionGrantRequestProof {
             proof_kind: SessionGrantProofKind::OidcCodeExchange,
             challenge: challenge.into(),
@@ -337,7 +337,7 @@ pub fn pre_registration_handoff_session_grant_request(
         agent_key_authorization_ref: None,
         agent_scope_request: None,
         dpop_binding_proof: None,
-        applet_delegation: None,
+        applet_authority: None,
         proof: SessionGrantRequestProof {
             proof_kind: SessionGrantProofKind::PreRegistrationHandoff,
             challenge: challenge.into(),

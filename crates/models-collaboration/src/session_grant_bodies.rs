@@ -35,7 +35,7 @@ pub struct SessionGrantRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dpop_binding_proof: Option<SessionGrantDpopBindingProof>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub applet_delegation: Option<SessionGrantAppletDelegation>,
+    pub applet_authority: Option<SessionGrantAppletDelegation>,
     pub proof: SessionGrantRequestProof,
 }
 

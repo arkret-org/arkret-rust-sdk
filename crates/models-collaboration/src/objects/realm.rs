@@ -189,7 +189,7 @@ pub struct Realm {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seal_compaction_max_interval_ms: Option<u64>,
     #[serde(default = "default_max_delegation_lifetime_ms")]
-    pub max_delegation_lifetime_ms: u64,
+    pub max_authority_lifetime_ms: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bottom_escalation_after_ms: Option<u64>,
     /// Lattice declarations per cell_family used in this Realm. Reducer-
@@ -429,7 +429,7 @@ impl Realm {
             proposal_absolute_deadline_ms: None,
             max_proposal_defers: None,
             seal_compaction_max_interval_ms: None,
-            max_delegation_lifetime_ms: default_max_delegation_lifetime_ms(),
+            max_authority_lifetime_ms: default_max_delegation_lifetime_ms(),
             bottom_escalation_after_ms: None,
             cell_lattices: Vec::new(),
             cowrite_policy: Vec::new(),

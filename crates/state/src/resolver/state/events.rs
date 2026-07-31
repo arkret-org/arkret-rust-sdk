@@ -76,10 +76,9 @@ impl RealmState {
     pub(super) fn reduce_generic_state_event(&mut self, event: &Event) -> Result<()> {
         let subject = self.subject_for_event(event)?;
         let family = match event.kind.as_str() {
-            "ak.capability.grant"
-            | "ak.capability.delegate"
-            | "ak.capability.revoke"
-            | "ak.capability.derived" => "ak.capability",
+            "ak.capability.grant" | "ak.capability.revoke" | "ak.capability.derived" => {
+                "ak.capability"
+            }
             "ak.invite.create" | "ak.invite.cancel" | "ak.invite.accept" => "ak.invite",
             "ak.realm.policy" | "ak.policy.set" => "ak.policy",
             other => other,

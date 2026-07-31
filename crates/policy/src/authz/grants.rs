@@ -13,8 +13,8 @@
 //! `schema_violation` semantics: the grant MUST be rejected, never
 //! best-effort evaluated. The early-draft top-level `delegable` boolean is
 //! removed per spec; delegation control is expressed exclusively via a
-//! `constraint_kind = "delegation_control"` constraint with
-//! `max_delegation_depth` (no constraint ⇒ not delegable).
+//! `constraint_kind = "authority_control"` constraint with
+//! `max_authority_depth` (no constraint ⇒ not delegable).
 
 use arkret_models_collaboration::governance::grant_constraint::{
     CapabilitySubject, GrantConstraintSubkind,
@@ -39,7 +39,7 @@ pub(crate) struct GrantProjection {
     pub(crate) capability_action_registry_digest: Option<Hash>,
     pub(crate) resources: Vec<ResourceSelector>,
     pub(crate) constraints: Vec<ConstraintEntry>,
-    pub(crate) parent_grant_id: Option<String>,
+    pub(crate) issuer_authority_grant_refs: Vec<String>,
     pub(crate) not_before: Option<DateTime<Utc>>,
     pub(crate) expires_at: Option<DateTime<Utc>>,
     pub(crate) revoked_by: Option<Did>,
@@ -105,10 +105,16 @@ impl GrantProjection {
             capability_action_registry_digest: grant.capability_action_registry_digest.clone(),
             resources,
             constraints,
-            parent_grant_id: grant
-                .parent_grant_id
-                .as_ref()
-                .map(|id| id.as_str().to_owned()),
+            issuer_authority_grant_refs: grant
+                .issuer_authority_refs
+                .iter()
+                .filter_map(|r| match r {
+                    arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef::Grant { grant_id } => {
+                        Some(grant_id.as_str().to_owned())
+                    }
+                    arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef::RealmRoot { .. } => None,
+                })
+                .collect(),
             not_before: grant.not_before,
             expires_at: grant.expires_at,
             revoked_by: grant.revoked_by.clone(),
@@ -125,23 +131,23 @@ impl GrantProjection {
         }
     }
 
-    /// Effective delegation budget per spec capabilities.md §10: strictest
-    /// `delegation_control` constraint wins; `prohibit_subdelegation` or a
-    /// missing `max_delegation_depth` collapse to 0; no `delegation_control`
-    /// constraint at all means not delegable (depth 0).
-    pub(crate) fn max_delegation_depth(&self) -> u32 {
+    /// Effective re-grant budget per capabilities.md §10: the strictest
+    /// `authority_control` constraint wins; `authority_regrant_allowed=false`
+    /// or a missing `max_authority_depth` collapse to 0; no `authority_control`
+    /// constraint at all means the grant cannot be re-granted (depth 0).
+    pub(crate) fn max_authority_depth(&self) -> u32 {
         let mut depth: Option<u32> = None;
         for entry in &self.constraints {
-            if let Constraint::DelegationControl {
-                max_delegation_depth,
-                prohibit_subdelegation,
+            if let Constraint::AuthorityControl {
+                max_authority_depth,
+                authority_regrant_allowed,
                 ..
             } = &entry.constraint
             {
-                let this = if *prohibit_subdelegation {
-                    0
+                let this = if *authority_regrant_allowed {
+                    max_authority_depth.unwrap_or(0)
                 } else {
-                    max_delegation_depth.unwrap_or(0)
+                    0
                 };
                 depth = Some(depth.map_or(this, |current| current.min(this)));
             }
@@ -216,7 +222,7 @@ pub fn validate_capability_action_registry_binding(
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CapabilityFrontierValidation {
     pub checked_grants: usize,
-    pub max_delegation_depth: u32,
+    pub max_authority_depth: u32,
 }
 
 /// Validate capability frontier invariants before using reduced grants.
@@ -251,7 +257,7 @@ pub fn validate_capability_frontier(
 
     Ok(CapabilityFrontierValidation {
         checked_grants: grants.len(),
-        max_delegation_depth: max_depth,
+        max_authority_depth: max_depth,
     })
 }
 
@@ -305,24 +311,27 @@ fn validate_delegation_chain(
     let mut depth: u32 = 0;
     let mut seen = HashSet::new();
     let mut child = grant;
-    while let Some(parent_id) = &child.parent_grant_id {
+    // A grant may name several authorities. The chain bound is the strictest
+    // one, so walking any single edge is not enough — but the depth a child may
+    // claim is bounded by the tightest ref, which is what this walk reports.
+    while let Some(parent_id) = child.issuer_authority_grant_refs.first() {
         if !seen.insert(child.id.clone()) {
             return Err(Error::Protocol(
-                "capability delegation cycle detected".to_owned(),
+                "capability authority cycle detected".to_owned(),
             ));
         }
         let parent = by_id.get(parent_id).ok_or_else(|| {
             Error::Protocol(format!(
-                "capability grant '{}' references missing parent '{}'",
+                "capability grant '{}' references missing issuer authority '{}'",
                 child.id, parent_id
             ))
         })?;
         depth += 1;
         // Delegation budget per capabilities.md §10: the ancestor at distance
         // `depth` below the starting grant must allow at least `depth` levels
-        // of re-delegation. No delegation_control constraint ⇒ depth 0 ⇒
+        // of re-delegation. No authority_control constraint ⇒ depth 0 ⇒
         // not delegable.
-        let parent_budget = parent.max_delegation_depth();
+        let parent_budget = parent.max_authority_depth();
         if parent_budget == 0 {
             return Err(Error::Protocol(format!(
                 "capability parent '{}' is not delegable",
@@ -331,7 +340,7 @@ fn validate_delegation_chain(
         }
         if parent_budget < depth {
             return Err(Error::Protocol(format!(
-                "capability delegation depth {} exceeds parent '{}' max_delegation_depth {}",
+                "capability delegation depth {} exceeds parent '{}' max_authority_depth {}",
                 depth, parent.id, parent_budget
             )));
         }
@@ -582,7 +591,7 @@ pub fn capability_grant_from_resolved_event(
     if artifact.get("delegable").is_some() {
         return Err(Error::Protocol(
             "schema_violation: top-level 'delegable' is removed; \
-             express delegation via a delegation_control constraint"
+             express delegation via a authority_control constraint"
                 .to_owned(),
         ));
     }
@@ -813,45 +822,45 @@ pub(crate) fn constraint_entries_from_spec(
                 constraints.push(scope);
             }
         }
-        "delegation_control" => match constraint_subkind.as_deref() {
+        "authority_control" => match constraint_subkind.as_deref() {
             None => {
                 reject_unsupported_fields(&["applet_id", "executed_by", "registration_epoch"])?;
-                constraints.push(Constraint::DelegationControl {
-                    max_delegation_depth: u64_field("max_delegation_depth")
+                constraints.push(Constraint::AuthorityControl {
+                    max_authority_depth: u64_field("max_authority_depth")
                         .map(|depth| u32::try_from(depth).unwrap_or(u32::MAX)),
-                    prohibit_subdelegation: bool_field("prohibit_subdelegation"),
+                    authority_regrant_allowed: bool_field("authority_regrant_allowed"),
                     constraint_subkind: None,
                     applet_id: None,
                     executed_by: None,
                     registration_epoch: None,
                 });
             }
-            Some("applet_delegation") => {
+            Some("applet_authority") => {
                 let applet_id = AppletId::new(str_field("applet_id").ok_or_else(|| {
                     Error::Protocol(
-                        "delegation_control.applet_delegation requires applet_id".to_owned(),
+                        "authority_control.applet_authority requires applet_id".to_owned(),
                     )
                 })?)
                 .map_err(Error::from)?;
                 let executed_by = Did::new(str_field("executed_by").ok_or_else(|| {
                     Error::Protocol(
-                        "delegation_control.applet_delegation requires executed_by".to_owned(),
+                        "authority_control.applet_authority requires executed_by".to_owned(),
                     )
                 })?)
                 .map_err(Error::from)?;
                 let registration_epoch =
                     Hash::new(str_field("registration_epoch").ok_or_else(|| {
                         Error::Protocol(
-                            "delegation_control.applet_delegation requires registration_epoch"
+                            "authority_control.applet_authority requires registration_epoch"
                                 .to_owned(),
                         )
                     })?)
                     .map_err(Error::from)?;
-                constraints.push(Constraint::DelegationControl {
-                    max_delegation_depth: u64_field("max_delegation_depth")
+                constraints.push(Constraint::AuthorityControl {
+                    max_authority_depth: u64_field("max_authority_depth")
                         .map(|depth| u32::try_from(depth).unwrap_or(u32::MAX)),
-                    prohibit_subdelegation: bool_field("prohibit_subdelegation"),
-                    constraint_subkind: Some(GrantConstraintSubkind::AppletDelegation),
+                    authority_regrant_allowed: bool_field("authority_regrant_allowed"),
+                    constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
                     applet_id: Some(applet_id),
                     executed_by: Some(executed_by),
                     registration_epoch: Some(registration_epoch),
@@ -859,7 +868,7 @@ pub(crate) fn constraint_entries_from_spec(
             }
             Some(other) => {
                 return Err(Error::Protocol(format!(
-                    "unsupported delegation_control constraint_subkind '{other}'"
+                    "unsupported authority_control constraint_subkind '{other}'"
                 )));
             }
         },
@@ -1318,7 +1327,7 @@ fn parse_iso8601_duration(value: &str) -> Result<ConstraintDuration> {
 /// `capability_grant_payload` wrapper (`{grant_id, grant}`) embedding the
 /// core authority artifact — `schema` / `issued_at` / `proofs` are present
 /// and the removed top-level `delegable` cannot occur; delegation is
-/// expressed via [`CapabilityGrantBuilder::with_delegation_control`].
+/// expressed via [`CapabilityGrantBuilder::with_authority_control`].
 #[derive(Clone, Debug)]
 pub struct CapabilityGrantBuilder {
     /// Producer-signed security scope of the Envelope this builder emits.
@@ -1377,33 +1386,37 @@ impl CapabilityGrantBuilder {
     }
 
     /// Declare the delegation budget for this grant via the canonical
-    /// `delegation_control` constraint (capabilities.md §10). Replaces the
+    /// `authority_control` constraint (capabilities.md §10). Replaces the
     /// ordinary depth-control entry while preserving registered subkinds such
-    /// as `applet_delegation`. The removed
+    /// as `applet_authority`. The removed
     /// top-level `delegable` boolean is intentionally not expressible:
-    /// `max_delegation_depth >= 1` ⇔ delegable, `0` ⇔ not delegable.
-    pub fn with_delegation_control(
+    /// `max_authority_depth >= 1` ⇔ delegable, `0` ⇔ not delegable.
+    pub fn with_authority_control(
         mut self,
-        max_delegation_depth: u32,
-        prohibit_subdelegation: bool,
+        max_authority_depth: u32,
+        authority_regrant_allowed: bool,
     ) -> Self {
         self.grant.constraints.retain(|constraint| {
             constraint.constraint_kind
-                != arkret_models_collaboration::governance::grant_constraint::GrantConstraintKind::DelegationControl
+                != arkret_models_collaboration::governance::grant_constraint::GrantConstraintKind::AuthorityControl
                 || constraint.constraint_subkind.is_some()
         });
         self.grant
             .constraints
-            .push(arkret_models_collaboration::governance::grant_constraint::GrantConstraint::delegation_control(
-                u64::from(max_delegation_depth),
-                prohibit_subdelegation,
+            .push(arkret_models_collaboration::governance::grant_constraint::GrantConstraint::authority_control(
+                u64::from(max_authority_depth),
+                authority_regrant_allowed,
             ));
         self
     }
 
     /// Bind this grant to a parent grant id (chains the delegation).
-    pub fn with_parent_grant_id(mut self, parent_grant_id: GrantId) -> Self {
-        self.grant.parent_grant_id = Some(parent_grant_id);
+    pub fn with_issuer_authority_grant(mut self, grant_id: GrantId) -> Self {
+        self.grant.issuer_authority_refs.push(
+            arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef::Grant {
+                grant_id,
+            },
+        );
         self
     }
 
@@ -1521,7 +1534,7 @@ mod capability_grant_builder_tests {
             resources: vec![serde_json::from_value(json!({"kind": "*"})).unwrap()],
             capability_action_registry_digest: None,
             constraints: Vec::new(),
-            parent_grant_id: None,
+            issuer_authority_refs: Vec::new(),
             issued_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             not_before: None,
             expires_at: None,
@@ -1651,33 +1664,33 @@ mod capability_grant_builder_tests {
     #[test]
     fn capability_grant_builder_encodes_delegation_control_constraint() {
         let event = CapabilityGrantBuilder::new(scope(), alice(), base_grant())
-            .with_delegation_control(2, false)
+            .with_authority_control(2, true)
             .build(1, hlc())
             .unwrap();
         let constraints = event.payload["grant"]["constraints"].as_array().unwrap();
         assert_eq!(constraints.len(), 1);
-        assert_eq!(constraints[0]["constraint_kind"], "delegation_control");
-        assert_eq!(constraints[0]["max_delegation_depth"], 2);
+        assert_eq!(constraints[0]["constraint_kind"], "authority_control");
+        assert_eq!(constraints[0]["max_authority_depth"], 2);
     }
 
     #[test]
     fn delegation_depth_builder_preserves_applet_delegation_subkind() {
         let mut grant = base_grant();
         grant.constraints.push(
-            arkret_models_collaboration::governance::grant_constraint::GrantConstraint::applet_delegation(
+            arkret_models_collaboration::governance::grant_constraint::GrantConstraint::applet_authority(
                 AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
                 Did::new("did:web:calendar.example").unwrap(),
                 Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             ),
         );
         let event = CapabilityGrantBuilder::new(scope(), alice(), grant)
-            .with_delegation_control(2, false)
+            .with_authority_control(2, true)
             .build(1, hlc())
             .unwrap();
         let constraints = event.payload["grant"]["constraints"].as_array().unwrap();
         assert_eq!(constraints.len(), 2);
         assert!(constraints.iter().any(|constraint| {
-            constraint["constraint_subkind"] == "applet_delegation"
+            constraint["constraint_subkind"] == "applet_authority"
                 && constraint["applet_id"] == "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
         }));
     }
@@ -1701,12 +1714,16 @@ mod capability_grant_builder_tests {
         let parent = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000001").unwrap(),
             actions: vec!["ak.message.create".to_owned()],
-            constraints: vec![arkret_models_collaboration::governance::grant_constraint::GrantConstraint::delegation_control(1, false)],
+            constraints: vec![arkret_models_collaboration::governance::grant_constraint::GrantConstraint::authority_control(1, true)],
             ..base_grant()
         };
         let child = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000002").unwrap(),
-            parent_grant_id: Some(parent.id.clone()),
+            issuer_authority_refs: vec![
+                arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef::Grant {
+                    grant_id: parent.id.clone(),
+                },
+            ],
             issuer: bob(),
             subject: CapabilitySubject::Did(
                 Did::new("did:webvh:z6mkfixture:carol.example").unwrap(),
@@ -1717,7 +1734,7 @@ mod capability_grant_builder_tests {
         };
         let validation = validate_capability_frontier(&[parent, child]).unwrap();
         assert_eq!(validation.checked_grants, 2);
-        assert!(validation.max_delegation_depth >= 1);
+        assert!(validation.max_authority_depth >= 1);
     }
 
     #[test]
@@ -1729,7 +1746,11 @@ mod capability_grant_builder_tests {
         };
         let child = arkret_models_collaboration::governance::grant_constraint::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000002").unwrap(),
-            parent_grant_id: Some(parent.id.clone()),
+            issuer_authority_refs: vec![
+                arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef::Grant {
+                    grant_id: parent.id.clone(),
+                },
+            ],
             issuer: bob(),
             subject: CapabilitySubject::Did(
                 Did::new("did:webvh:z6mkfixture:carol.example").unwrap(),
@@ -1906,8 +1927,8 @@ mod capability_grant_builder_tests {
     fn applet_delegation_projects_from_the_registered_spec_shape() {
         let epoch = format!("sha256:{}", "a".repeat(64));
         let entries = constraint_entries_from_spec(&json!({
-            "constraint_kind": "delegation_control",
-            "constraint_subkind": "applet_delegation",
+            "constraint_kind": "authority_control",
+            "constraint_subkind": "applet_authority",
             "effect": "allow",
             "evaluation_class": "grant_local",
             "applet_id": "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb",
@@ -1917,8 +1938,8 @@ mod capability_grant_builder_tests {
         .unwrap();
         assert!(matches!(
             &entries[0].constraint,
-            Constraint::DelegationControl {
-                constraint_subkind: Some(GrantConstraintSubkind::AppletDelegation),
+            Constraint::AuthorityControl {
+                constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
                 applet_id: Some(_),
                 executed_by: Some(_),
                 registration_epoch: Some(_),
@@ -1928,8 +1949,8 @@ mod capability_grant_builder_tests {
 
         assert!(
             constraint_entries_from_spec(&json!({
-                "constraint_kind": "delegation_control",
-                "constraint_subkind": "applet_delegation",
+                "constraint_kind": "authority_control",
+                "constraint_subkind": "applet_authority",
                 "effect": "allow",
                 "applet_id": "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb",
                 "executed_by": "did:web:calendar.example",

@@ -105,10 +105,7 @@ impl RealmState {
             // Per spec event-kind-registry: all `ak.capability.*` kinds
             // declare `cell_subject.field = payload.grant_id` over the shared
             // `ak.component.capability.grant.v1` cell family.
-            "ak.capability.grant"
-            | "ak.capability.delegate"
-            | "ak.capability.revoke"
-            | "ak.capability.derived" => self
+            "ak.capability.grant" | "ak.capability.revoke" | "ak.capability.derived" => self
                 .extract_optional_field::<String>(&event.payload, "grant_id")
                 .ok_or_else(|| {
                     Error::Protocol("capability event requires payload.grant_id".to_owned())

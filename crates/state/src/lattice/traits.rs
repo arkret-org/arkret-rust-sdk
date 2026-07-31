@@ -43,7 +43,6 @@ impl LatticeKind {
         match self {
             Self::OrSet => &[
                 "ak.capability.grant",
-                "ak.capability.delegate",
                 "ak.capability.revoke",
                 "ak.capability.derived",
                 "ak.session.grant",

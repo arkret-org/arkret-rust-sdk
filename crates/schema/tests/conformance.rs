@@ -171,7 +171,7 @@ fn applet_bridge_exposes_exact_non_event_grant_authority_rule() {
         rule.required_registration_event_kind,
         "ak.applet.registration"
     );
-    assert_eq!(rule.required_constraint_subkind, "applet_delegation");
+    assert_eq!(rule.required_constraint_subkind, "applet_authority");
     assert_eq!(rule.subject_binding, "registration.service_id");
     assert!(
         non_event_grant_authority_rule("ak.profile.applet_bridge.v1", "ak.message.create")

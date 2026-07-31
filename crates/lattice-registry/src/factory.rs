@@ -17,7 +17,6 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(ConsentGrant);
     registry.register(ModerationState);
     registry.register(CapabilityGrant);
-    registry.register(CapabilityDelegate);
     registry.register(CapabilityDerived);
     registry.register(SessionGrant);
     registry.register(DeviceAuthorized);

@@ -188,7 +188,7 @@ pub fn validate_delegation_chain_depth(depth: usize) -> Result<()> {
 pub fn validate_delegation_control_depth(depth: u32) -> Result<()> {
     if depth > MAX_DELEGATION_CONTROL_DEPTH {
         return Err(Error::Protocol(format!(
-            "max_delegation_depth exceeds v1 field maximum of {MAX_DELEGATION_CONTROL_DEPTH}"
+            "max_authority_depth exceeds v1 field maximum of {MAX_DELEGATION_CONTROL_DEPTH}"
         )));
     }
     Ok(())

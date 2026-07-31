@@ -131,10 +131,13 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::AuditSessionClose
         | EventKind::AuditSessionNotice
         | EventKind::AuditSessionRequest => EventProductClass::Audit,
-        EventKind::CapabilityDelegate
-        | EventKind::CapabilityDerived
+        EventKind::CapabilityDerived
         | EventKind::CapabilityGrant
+        | EventKind::CapabilityRelinquish
         | EventKind::CapabilityRevoke
+        | EventKind::RealmAuthorityBasisUpdate
+        | EventKind::RealmAuthorityReset
+        | EventKind::RealmOwnerTransfer
         | EventKind::SessionGrant => EventProductClass::Authz,
         EventKind::CallRecordingStart | EventKind::CallState | EventKind::CallSummary => {
             EventProductClass::Call

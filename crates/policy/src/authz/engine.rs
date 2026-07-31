@@ -750,17 +750,17 @@ impl AuthzEngine {
                 }
                 EngineDecision::Allow
             }
-            Constraint::DelegationControl {
-                max_delegation_depth,
-                prohibit_subdelegation,
+            Constraint::AuthorityControl {
+                max_authority_depth,
+                authority_regrant_allowed,
                 ..
             } => {
-                if *prohibit_subdelegation && ctx.delegation_depth > 0 {
+                if !*authority_regrant_allowed && ctx.delegation_depth > 0 {
                     return EngineDecision::Deny {
-                        reason: "subdelegation prohibited".to_owned(),
+                        reason: "authority re-grant is not allowed".to_owned(),
                     };
                 }
-                if let Some(max_depth) = max_delegation_depth
+                if let Some(max_depth) = max_authority_depth
                     && ctx.delegation_depth > *max_depth
                 {
                     return EngineDecision::Deny {
@@ -1560,7 +1560,7 @@ mod engine_wire_tests {
             resources: vec![serde_json::from_value(json!({"kind": "*"})).unwrap()],
             capability_action_registry_digest: None,
             constraints,
-            parent_grant_id: None,
+            issuer_authority_refs: Vec::new(),
             issued_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             not_before: None,
             expires_at: None,

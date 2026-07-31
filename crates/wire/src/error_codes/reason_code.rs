@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-07-31.7;
-//! sha256=d421e5f94e4951966f6a2e56ac9e50d8d90d0888f7d3c326e3be09cd32e4ebf2
-//! Entries: reason_codes=452
+//! Input: registry/error-code-registry.json; version=2026-07-31.8;
+//! sha256=c5765ea61756064087d6fd0858b441dea62cc4217c2e69947818c4c0a4d45913
+//! Entries: reason_codes=454
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -60,6 +60,9 @@ pub enum ReasonCode {
     AuditReleaseRetroactiveScopeForbidden,
     AuditReleaseScopeMismatch,
     AuthIncomplete,
+    AuthorityCycle,
+    AuthorityExpiryWidening,
+    AuthorityRegrantDenied,
     AuthorizedGrantRevoked,
     BackendUnavailable,
     BackupFrontierStale,
@@ -126,8 +129,6 @@ pub enum ReasonCode {
     DeactivationFederationIncomplete,
     DecryptionFailed,
     DecryptionPending,
-    DelegationCycle,
-    DelegationExpiryWidening,
     DelegationRevoked,
     DelegationScopeCustomUnsupported,
     DelegationScopeMismatch,
@@ -177,6 +178,8 @@ pub enum ReasonCode {
     GateCheckFailed,
     GovernanceBindingMismatch,
     GrantExceedsIssuerAuthority,
+    GrantRelinquishNotSubject,
+    GrantRevokeNotAuthorized,
     GrantRevokedBeforeEventFrontier,
     GrantRevokedUpstream,
     GrantValidityWindowEmpty,
@@ -422,7 +425,6 @@ pub enum ReasonCode {
     StrandNotActive,
     StrandNotArchived,
     StructureDepthExceeded,
-    SubdelegationProhibited,
     Superseded,
     SupersededByRepairing,
     ThirdPartyInviteTokenInQuery,
@@ -537,6 +539,9 @@ impl ReasonCode {
         "audit_release_retroactive_scope_forbidden";
     pub const AUDIT_RELEASE_SCOPE_MISMATCH: &'static str = "audit_release_scope_mismatch";
     pub const AUTH_INCOMPLETE: &'static str = "auth_incomplete";
+    pub const AUTHORITY_CYCLE: &'static str = "authority_cycle";
+    pub const AUTHORITY_EXPIRY_WIDENING: &'static str = "authority_expiry_widening";
+    pub const AUTHORITY_REGRANT_DENIED: &'static str = "authority_regrant_denied";
     pub const AUTHORIZED_GRANT_REVOKED: &'static str = "authorized_grant_revoked";
     pub const BACKEND_UNAVAILABLE: &'static str = "backend_unavailable";
     pub const BACKUP_FRONTIER_STALE: &'static str = "backup_frontier_stale";
@@ -620,8 +625,6 @@ impl ReasonCode {
         "deactivation_federation_incomplete";
     pub const DECRYPTION_FAILED: &'static str = "decryption_failed";
     pub const DECRYPTION_PENDING: &'static str = "decryption_pending";
-    pub const DELEGATION_CYCLE: &'static str = "delegation_cycle";
-    pub const DELEGATION_EXPIRY_WIDENING: &'static str = "delegation_expiry_widening";
     pub const DELEGATION_REVOKED: &'static str = "delegation_revoked";
     pub const DELEGATION_SCOPE_CUSTOM_UNSUPPORTED: &'static str =
         "delegation_scope_custom_unsupported";
@@ -688,6 +691,8 @@ impl ReasonCode {
     pub const GATE_CHECK_FAILED: &'static str = "gate_check_failed";
     pub const GOVERNANCE_BINDING_MISMATCH: &'static str = "governance_binding_mismatch";
     pub const GRANT_EXCEEDS_ISSUER_AUTHORITY: &'static str = "grant_exceeds_issuer_authority";
+    pub const GRANT_RELINQUISH_NOT_SUBJECT: &'static str = "grant_relinquish_not_subject";
+    pub const GRANT_REVOKE_NOT_AUTHORIZED: &'static str = "grant_revoke_not_authorized";
     pub const GRANT_REVOKED_BEFORE_EVENT_FRONTIER: &'static str =
         "grant_revoked_before_event_frontier";
     pub const GRANT_REVOKED_UPSTREAM: &'static str = "grant_revoked_upstream";
@@ -973,7 +978,6 @@ impl ReasonCode {
     pub const STRAND_NOT_ACTIVE: &'static str = "strand_not_active";
     pub const STRAND_NOT_ARCHIVED: &'static str = "strand_not_archived";
     pub const STRUCTURE_DEPTH_EXCEEDED: &'static str = "structure_depth_exceeded";
-    pub const SUBDELEGATION_PROHIBITED: &'static str = "subdelegation_prohibited";
     pub const SUPERSEDED: &'static str = "superseded";
     pub const SUPERSEDED_BY_REPAIRING: &'static str = "superseded_by_repairing";
     pub const THIRD_PARTY_INVITE_TOKEN_IN_QUERY: &'static str = "third_party_invite_token_in_query";
@@ -1083,6 +1087,9 @@ impl ReasonCode {
             }
             Self::AuditReleaseScopeMismatch => "audit_release_scope_mismatch",
             Self::AuthIncomplete => "auth_incomplete",
+            Self::AuthorityCycle => "authority_cycle",
+            Self::AuthorityExpiryWidening => "authority_expiry_widening",
+            Self::AuthorityRegrantDenied => "authority_regrant_denied",
             Self::AuthorizedGrantRevoked => "authorized_grant_revoked",
             Self::BackendUnavailable => "backend_unavailable",
             Self::BackupFrontierStale => "backup_frontier_stale",
@@ -1157,8 +1164,6 @@ impl ReasonCode {
             Self::DeactivationFederationIncomplete => "deactivation_federation_incomplete",
             Self::DecryptionFailed => "decryption_failed",
             Self::DecryptionPending => "decryption_pending",
-            Self::DelegationCycle => "delegation_cycle",
-            Self::DelegationExpiryWidening => "delegation_expiry_widening",
             Self::DelegationRevoked => "delegation_revoked",
             Self::DelegationScopeCustomUnsupported => "delegation_scope_custom_unsupported",
             Self::DelegationScopeMismatch => "delegation_scope_mismatch",
@@ -1224,6 +1229,8 @@ impl ReasonCode {
             Self::GateCheckFailed => "gate_check_failed",
             Self::GovernanceBindingMismatch => "governance_binding_mismatch",
             Self::GrantExceedsIssuerAuthority => "grant_exceeds_issuer_authority",
+            Self::GrantRelinquishNotSubject => "grant_relinquish_not_subject",
+            Self::GrantRevokeNotAuthorized => "grant_revoke_not_authorized",
             Self::GrantRevokedBeforeEventFrontier => "grant_revoked_before_event_frontier",
             Self::GrantRevokedUpstream => "grant_revoked_upstream",
             Self::GrantValidityWindowEmpty => "grant_validity_window_empty",
@@ -1499,7 +1506,6 @@ impl ReasonCode {
             Self::StrandNotActive => "strand_not_active",
             Self::StrandNotArchived => "strand_not_archived",
             Self::StructureDepthExceeded => "structure_depth_exceeded",
-            Self::SubdelegationProhibited => "subdelegation_prohibited",
             Self::Superseded => "superseded",
             Self::SupersededByRepairing => "superseded_by_repairing",
             Self::ThirdPartyInviteTokenInQuery => "third_party_invite_token_in_query",
@@ -1613,6 +1619,9 @@ impl ReasonCode {
             }
             "audit_release_scope_mismatch" => Self::AuditReleaseScopeMismatch,
             "auth_incomplete" => Self::AuthIncomplete,
+            "authority_cycle" => Self::AuthorityCycle,
+            "authority_expiry_widening" => Self::AuthorityExpiryWidening,
+            "authority_regrant_denied" => Self::AuthorityRegrantDenied,
             "authorized_grant_revoked" => Self::AuthorizedGrantRevoked,
             "backend_unavailable" => Self::BackendUnavailable,
             "backup_frontier_stale" => Self::BackupFrontierStale,
@@ -1687,8 +1696,6 @@ impl ReasonCode {
             "deactivation_federation_incomplete" => Self::DeactivationFederationIncomplete,
             "decryption_failed" => Self::DecryptionFailed,
             "decryption_pending" => Self::DecryptionPending,
-            "delegation_cycle" => Self::DelegationCycle,
-            "delegation_expiry_widening" => Self::DelegationExpiryWidening,
             "delegation_revoked" => Self::DelegationRevoked,
             "delegation_scope_custom_unsupported" => Self::DelegationScopeCustomUnsupported,
             "delegation_scope_mismatch" => Self::DelegationScopeMismatch,
@@ -1754,6 +1761,8 @@ impl ReasonCode {
             "gate_check_failed" => Self::GateCheckFailed,
             "governance_binding_mismatch" => Self::GovernanceBindingMismatch,
             "grant_exceeds_issuer_authority" => Self::GrantExceedsIssuerAuthority,
+            "grant_relinquish_not_subject" => Self::GrantRelinquishNotSubject,
+            "grant_revoke_not_authorized" => Self::GrantRevokeNotAuthorized,
             "grant_revoked_before_event_frontier" => Self::GrantRevokedBeforeEventFrontier,
             "grant_revoked_upstream" => Self::GrantRevokedUpstream,
             "grant_validity_window_empty" => Self::GrantValidityWindowEmpty,
@@ -2029,7 +2038,6 @@ impl ReasonCode {
             "strand_not_active" => Self::StrandNotActive,
             "strand_not_archived" => Self::StrandNotArchived,
             "structure_depth_exceeded" => Self::StructureDepthExceeded,
-            "subdelegation_prohibited" => Self::SubdelegationProhibited,
             "superseded" => Self::Superseded,
             "superseded_by_repairing" => Self::SupersededByRepairing,
             "third_party_invite_token_in_query" => Self::ThirdPartyInviteTokenInQuery,
@@ -2354,6 +2362,21 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "auth_incomplete",
         applies_to: &["auth_decision"],
         description: "Required refs[role=authorized_by] are not yet accepted at the local frontier; the event MUST be parked until the missing refs converge.",
+    },
+    ReasonCodeDescriptor {
+        code: "authority_cycle",
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "A ak.capability.grant would close a cycle in the authority graph, traversed as a DFS over grant_id edges taken from issuer_authority_refs entries with kind=grant. realm_root refs are rooted terminals and contribute no edge. Reducer MUST reject the grant; evaluation MUST NOT recurse without terminating. See zh/authz/capabilities.md §10.",
+    },
+    ReasonCodeDescriptor {
+        code: "authority_expiry_widening",
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "For some action this grant claims, its effective window is wider than the refs that cover that action allow: it starts before the earliest effective_not_before among them, or ends after the latest effective_expires_at. The bound is evaluated per action, because a global min/max would let an action covered only by a late-window ref borrow an early one. See zh/authz/capabilities.md §10.",
+    },
+    ReasonCodeDescriptor {
+        code: "authority_regrant_denied",
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "A grant was issued from a ref carrying authority_regrant_allowed=false, or declares a max_authority_depth above what its refs leave. With authority_regrant_allowed=false the child's max_authority_depth MUST be 0 and no further grant may name it. See zh/authz/capabilities.md §6 / §10.",
     },
     ReasonCodeDescriptor {
         code: "authorized_grant_revoked",
@@ -2690,16 +2713,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Recipient cannot decrypt the targeted MLS epoch yet; client MUST surface a placeholder and continue retrying within the configured window.",
     },
     ReasonCodeDescriptor {
-        code: "delegation_cycle",
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "A `ak.capability.delegate` would close a cycle in the delegation graph (when traversed by grant_id node DFS). Reducer MUST reject the entire delegation chain to prevent circular authority. See zh/authz/capabilities.md §10.",
-    },
-    ReasonCodeDescriptor {
-        code: "delegation_expiry_widening",
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "A delegated grant's `expires_at` is later than the parent grant's `expires_at`, or `not_before` is earlier than the parent's `not_before`. Delegation MUST NOT widen the parent's validity window. See zh/authz/capabilities.md §10.",
-    },
-    ReasonCodeDescriptor {
         code: "delegation_revoked",
         applies_to: &["auth_decision", "service_call"],
         description: "An applet/service call used a delegated device session that the deactivation/lock fanout revoked (ak.applet.registration delegated devices). The call MUST fail closed. See zh/identity/account-lifecycle.md §7.1.",
@@ -2707,12 +2720,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "delegation_scope_custom_unsupported",
         applies_to: &["event_envelope", "auth_decision"],
-        description: "A grant declared `delegation_scope=custom`, which v1 does not define an evaluable semantics for. The reducer MUST reject (schema_violation) until a future profile assigns custom-scope evaluation rules. See zh/authz/constraint-schema.md §7.",
+        description: "A grant declared `authority_scope=custom`, which v1 does not define an evaluable semantics for. The reducer MUST reject (schema_violation) until a future profile assigns custom-scope evaluation rules. See zh/authz/constraint-schema.md §7.",
     },
     ReasonCodeDescriptor {
         code: "delegation_scope_mismatch",
         applies_to: &["event_envelope", "auth_decision"],
-        description: "A delegated grant violated its parent's `delegation_scope`: `narrowing_only` requires the child resources/actions to be a strict-or-equal subset that narrows at least one axis, and `same_scope` requires the child to match the parent's scope exactly. The reducer MUST reject a child that exceeds or fails to satisfy the declared narrowing discipline. See zh/authz/constraint-schema.md §7.",
+        description: "A delegated grant violated its parent's `authority_scope`: `narrowing_only` requires the child resources/actions to be a strict-or-equal subset that narrows at least one axis, and `same_scope` requires the child to match the parent's scope exactly. The reducer MUST reject a child that exceeds or fails to satisfy the declared narrowing discipline. See zh/authz/constraint-schema.md §7.",
     },
     ReasonCodeDescriptor {
         code: "delivery_binding_handover_proof_invalid",
@@ -2947,6 +2960,16 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "grant_exceeds_issuer_authority",
         applies_to: &["event_envelope", "auth_decision"],
         description: "A first-issue `ak.capability.grant` (no parent_grant_id) attempts to grant actions[] / resources[] that exceed the issuer's own effective capability at the issuing seal basis. Holding the `ak.capability.grant` action alone does not permit minting authority the issuer does not itself hold; reducers MUST fail closed (schema_violation for actions/resources over-scope, failed_precondition when the issuer does not hold the required upper bound at that basis), symmetric to the delegation narrowing rule. See zh/authz/capabilities.md §3.2.",
+    },
+    ReasonCodeDescriptor {
+        code: "grant_relinquish_not_subject",
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "A ak.capability.relinquish named a grant whose subject is not the actor. Relinquish is subject-only precisely so it needs no revoke capability; allowing any other actor would turn it into an unauthorized revocation. The authority-root cell is not a grant and can never be a relinquish target. The rejection MUST NOT disclose whether the target exists.",
+    },
+    ReasonCodeDescriptor {
+        code: "grant_revoke_not_authorized",
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "A ak.capability.revoke passed ordinary action authorization but failed the target guard: the actor is neither the target grant's issuer nor the current root controller of the target grant's own realm_id. Controlling some upstream root reachable through authority_root_refs is deliberately not enough — a co-owner or sibling MUST NOT be able to revoke an upstream or peer grant by holding ak.realm.owner. The rejection MUST NOT disclose whether the target exists or which Realm it belongs to.",
     },
     ReasonCodeDescriptor {
         code: "grant_revoked_before_event_frontier",
@@ -4025,7 +4048,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "selector_governance_wildcard_forbidden",
         applies_to: &["authz", "schema_violation"],
-        description: "Governance-plane resource selector wildcard (e.g. policy:*, schema:*, or a governance object:* selector) was used without the required mitigation (denied by deployment policy, or constrained with max_delegation_depth=0 plus bounded expiry plus admin approval). Receiver MUST reject.",
+        description: "Governance-plane resource selector wildcard (e.g. policy:*, schema:*, or a governance object:* selector) was used without the required mitigation (denied by deployment policy, or constrained with max_authority_depth=0 plus bounded expiry plus admin approval). Receiver MUST reject.",
     },
     ReasonCodeDescriptor {
         code: "selector_too_complex",
@@ -4181,11 +4204,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "structure_depth_exceeded",
         applies_to: &["encoding", "schema_validation"],
         description: "A canonical JSON or deterministic CBOR structure exceeds the v1 maximum nesting depth of 64 (objects and arrays combined, top-level container = depth 1). Receiver MUST reject (top-level schema_violation) before recursive descent can exhaust the stack, and MUST NOT truncate or partially parse. See zh/conformance/scalability-constraints.md section 2.",
-    },
-    ReasonCodeDescriptor {
-        code: "subdelegation_prohibited",
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "A `ak.capability.delegate` was issued from a parent grant carrying `prohibit_subdelegation=true`, or attempts to set the child's `max_delegation_depth` above 0 when the parent prohibits sub-delegation. When `prohibit_subdelegation=true` the child's `max_delegation_depth` MUST be 0; reducers MUST reject any further delegation. See zh/authz/capabilities.md §6 / §10.",
     },
     ReasonCodeDescriptor {
         code: "superseded",

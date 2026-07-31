@@ -149,7 +149,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         NotaryValue::SingleDid { did, .. } if did.as_str() == "did:webvh:z6mkfixture:alice.example"
     ));
     assert!(realm.revocation_freshness_window_ms.is_none());
-    assert_eq!(realm.max_delegation_lifetime_ms, 86_400_000);
+    assert_eq!(realm.max_authority_lifetime_ms, 86_400_000);
     assert!(realm.bottom_escalation_after_ms.is_none());
     assert!(realm.cell_lattices.is_empty());
     assert!(realm.cowrite_policy.is_empty());
@@ -189,7 +189,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         expires_at: None,
     });
     realm.digest_algorithm = canonical::DigestSuite::Blake3;
-    realm.max_delegation_lifetime_ms = 3_600_000;
+    realm.max_authority_lifetime_ms = 3_600_000;
     realm.bottom_escalation_after_ms = Some(120_000);
     realm.updated_by = Some(Did::new("did:webvh:z6mkfixture:bob.example").unwrap());
 
@@ -205,7 +205,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         NotaryValue::Threshold { threshold: 2, .. }
     ));
     assert_eq!(realm.revocation_freshness_window_ms, Some(60_000));
-    assert_eq!(realm.max_delegation_lifetime_ms, 3_600_000);
+    assert_eq!(realm.max_authority_lifetime_ms, 3_600_000);
     assert_eq!(realm.bottom_escalation_after_ms, Some(120_000));
     assert_eq!(realm.cell_lattices.len(), 1);
     assert_eq!(
@@ -235,7 +235,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     assert_eq!(json["notary_profile"], "threshold");
     assert_eq!(json["digest_algorithm"], "blake3");
     assert_eq!(json["revocation_freshness_window_ms"], 60_000);
-    assert_eq!(json["max_delegation_lifetime_ms"], 3_600_000);
+    assert_eq!(json["max_authority_lifetime_ms"], 3_600_000);
     assert_eq!(json["bottom_escalation_after_ms"], 120_000);
     // `realm.schema.json` cowrite_policy is `array<array<component>>` — a
     // whitelist of cell families writable by the same Control Move, not an
@@ -267,8 +267,8 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         realm.revocation_freshness_window_ms
     );
     assert_eq!(
-        restored.max_delegation_lifetime_ms,
-        realm.max_delegation_lifetime_ms
+        restored.max_authority_lifetime_ms,
+        realm.max_authority_lifetime_ms
     );
     assert_eq!(
         restored.bottom_escalation_after_ms,
@@ -304,7 +304,7 @@ fn realm_anchor_fields_include_required_notary() {
     assert!(!obj.contains_key("revocation_freshness_window_ms"));
     assert_eq!(obj.get("digest_algorithm"), Some(&json!("sha256")));
     assert_eq!(
-        obj.get("max_delegation_lifetime_ms"),
+        obj.get("max_authority_lifetime_ms"),
         Some(&json!(86_400_000))
     );
     assert!(!obj.contains_key("bottom_escalation_after_ms"));
@@ -343,11 +343,11 @@ fn realm_digest_algorithm_defaults_and_rejects_unknown_values() {
     let mut json = serde_json::to_value(&realm).unwrap();
     let obj = json.as_object_mut().unwrap();
     obj.remove("digest_algorithm");
-    obj.remove("max_delegation_lifetime_ms");
+    obj.remove("max_authority_lifetime_ms");
 
     let parsed: Realm = serde_json::from_value(json.clone()).unwrap();
     assert_eq!(parsed.digest_algorithm, canonical::DigestSuite::Sha256);
-    assert_eq!(parsed.max_delegation_lifetime_ms, 86_400_000);
+    assert_eq!(parsed.max_authority_lifetime_ms, 86_400_000);
 
     json["digest_algorithm"] = json!("md5");
     assert!(serde_json::from_value::<Realm>(json).is_err());
@@ -535,7 +535,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     });
     realm.digest_algorithm = canonical::DigestSuite::Blake3;
     realm.revocation_freshness_window_ms = Some(30_000);
-    realm.max_delegation_lifetime_ms = 3_600_000;
+    realm.max_authority_lifetime_ms = 3_600_000;
     realm.bottom_escalation_after_ms = Some(120_000);
     realm.cell_lattices.push(CellLatticeDeclaration {
         cell_family: "ak.component.strand.track.v1".to_owned(),
@@ -553,8 +553,8 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     assert!(realm_pos("sync_endpoints") < realm_pos("notary_profile"));
     assert!(realm_pos("notary_profile") < realm_pos("digest_algorithm"));
     assert!(realm_pos("digest_algorithm") < realm_pos("notary"));
-    assert!(realm_pos("revocation_freshness_window_ms") < realm_pos("max_delegation_lifetime_ms"));
-    assert!(realm_pos("max_delegation_lifetime_ms") < realm_pos("bottom_escalation_after_ms"));
+    assert!(realm_pos("revocation_freshness_window_ms") < realm_pos("max_authority_lifetime_ms"));
+    assert!(realm_pos("max_authority_lifetime_ms") < realm_pos("bottom_escalation_after_ms"));
     assert!(realm_pos("bottom_escalation_after_ms") < realm_pos("cell_lattices"));
 
     // Morph — scope/container cluster `scope_circle_id` precedes lifecycle `state`.

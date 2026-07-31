@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/capability-action-registry.json; version=2026-07-31.11;
-//! sha256=25e510ddaf4806cb0c2f5381d10285f6674cdfa5bb855f933767b63e4e6bc2d4 Entries: registered=160
+//! Input: registry/capability-action-registry.json; version=2026-07-31.12;
+//! sha256=cdfffeeb00491be21ed758afc8a47ce6293f7d73d9853429677014ba5ec9f3e4 Entries: registered=163
 
 use serde::{Deserialize, Serialize};
 
@@ -35,9 +35,9 @@ pub enum CapabilityActionId {
     CallScreenShare,
     CallSignalSend,
     CallTranscribe,
-    CapabilityDelegate,
     CapabilityDerived,
     CapabilityGrant,
+    CapabilityRelinquish,
     CapabilityRevoke,
     CircleAudit,
     CircleCreate,
@@ -101,6 +101,8 @@ pub enum CapabilityActionId {
     RealmAdmin,
     RealmAlias,
     RealmArchive,
+    RealmAuthorityBasisUpdate,
+    RealmAuthorityReset,
     RealmCreate,
     RealmDestroy,
     RealmDisappearingPolicy,
@@ -112,6 +114,7 @@ pub enum CapabilityActionId {
     RealmModerationPolicy,
     RealmNotificationAudit,
     RealmOwner,
+    RealmOwnerTransfer,
     RealmPlaintextVisibleServices,
     RealmPreviewPolicy,
     RealmSearchPolicy,
@@ -199,9 +202,9 @@ impl CapabilityActionId {
         Self::CallScreenShare,
         Self::CallSignalSend,
         Self::CallTranscribe,
-        Self::CapabilityDelegate,
         Self::CapabilityDerived,
         Self::CapabilityGrant,
+        Self::CapabilityRelinquish,
         Self::CapabilityRevoke,
         Self::CircleAudit,
         Self::CircleCreate,
@@ -265,6 +268,8 @@ impl CapabilityActionId {
         Self::RealmAdmin,
         Self::RealmAlias,
         Self::RealmArchive,
+        Self::RealmAuthorityBasisUpdate,
+        Self::RealmAuthorityReset,
         Self::RealmCreate,
         Self::RealmDestroy,
         Self::RealmDisappearingPolicy,
@@ -276,6 +281,7 @@ impl CapabilityActionId {
         Self::RealmModerationPolicy,
         Self::RealmNotificationAudit,
         Self::RealmOwner,
+        Self::RealmOwnerTransfer,
         Self::RealmPlaintextVisibleServices,
         Self::RealmPreviewPolicy,
         Self::RealmSearchPolicy,
@@ -361,9 +367,9 @@ impl CapabilityActionId {
     pub const CALL_SCREEN_SHARE: &'static str = "ak.call.screen_share";
     pub const CALL_SIGNAL_SEND: &'static str = "ak.call.signal.send";
     pub const CALL_TRANSCRIBE: &'static str = "ak.call.transcribe";
-    pub const CAPABILITY_DELEGATE: &'static str = "ak.capability.delegate";
     pub const CAPABILITY_DERIVED: &'static str = "ak.capability.derived";
     pub const CAPABILITY_GRANT: &'static str = "ak.capability.grant";
+    pub const CAPABILITY_RELINQUISH: &'static str = "ak.capability.relinquish";
     pub const CAPABILITY_REVOKE: &'static str = "ak.capability.revoke";
     pub const CIRCLE_AUDIT: &'static str = "ak.circle.audit";
     pub const CIRCLE_CREATE: &'static str = "ak.circle.create";
@@ -427,6 +433,8 @@ impl CapabilityActionId {
     pub const REALM_ADMIN: &'static str = "ak.realm.admin";
     pub const REALM_ALIAS: &'static str = "ak.realm.alias";
     pub const REALM_ARCHIVE: &'static str = "ak.realm.archive";
+    pub const REALM_AUTHORITY_BASIS_UPDATE: &'static str = "ak.realm.authority.basis_update";
+    pub const REALM_AUTHORITY_RESET: &'static str = "ak.realm.authority.reset";
     pub const REALM_CREATE: &'static str = "ak.realm.create";
     pub const REALM_DESTROY: &'static str = "ak.realm.destroy";
     pub const REALM_DISAPPEARING_POLICY: &'static str = "ak.realm.disappearing_policy";
@@ -438,6 +446,7 @@ impl CapabilityActionId {
     pub const REALM_MODERATION_POLICY: &'static str = "ak.realm.moderation_policy";
     pub const REALM_NOTIFICATION_AUDIT: &'static str = "ak.realm.notification.audit";
     pub const REALM_OWNER: &'static str = "ak.realm.owner";
+    pub const REALM_OWNER_TRANSFER: &'static str = "ak.realm.owner.transfer";
     pub const REALM_PLAINTEXT_VISIBLE_SERVICES: &'static str =
         "ak.realm.plaintext_visible_services";
     pub const REALM_PREVIEW_POLICY: &'static str = "ak.realm.preview_policy";
@@ -530,9 +539,9 @@ impl CapabilityActionId {
             Self::CallScreenShare => "ak.call.screen_share",
             Self::CallSignalSend => "ak.call.signal.send",
             Self::CallTranscribe => "ak.call.transcribe",
-            Self::CapabilityDelegate => "ak.capability.delegate",
             Self::CapabilityDerived => "ak.capability.derived",
             Self::CapabilityGrant => "ak.capability.grant",
+            Self::CapabilityRelinquish => "ak.capability.relinquish",
             Self::CapabilityRevoke => "ak.capability.revoke",
             Self::CircleAudit => "ak.circle.audit",
             Self::CircleCreate => "ak.circle.create",
@@ -596,6 +605,8 @@ impl CapabilityActionId {
             Self::RealmAdmin => "ak.realm.admin",
             Self::RealmAlias => "ak.realm.alias",
             Self::RealmArchive => "ak.realm.archive",
+            Self::RealmAuthorityBasisUpdate => "ak.realm.authority.basis_update",
+            Self::RealmAuthorityReset => "ak.realm.authority.reset",
             Self::RealmCreate => "ak.realm.create",
             Self::RealmDestroy => "ak.realm.destroy",
             Self::RealmDisappearingPolicy => "ak.realm.disappearing_policy",
@@ -607,6 +618,7 @@ impl CapabilityActionId {
             Self::RealmModerationPolicy => "ak.realm.moderation_policy",
             Self::RealmNotificationAudit => "ak.realm.notification.audit",
             Self::RealmOwner => "ak.realm.owner",
+            Self::RealmOwnerTransfer => "ak.realm.owner.transfer",
             Self::RealmPlaintextVisibleServices => "ak.realm.plaintext_visible_services",
             Self::RealmPreviewPolicy => "ak.realm.preview_policy",
             Self::RealmSearchPolicy => "ak.realm.search_policy",
@@ -697,9 +709,9 @@ impl CapabilityActionId {
             "ak.call.screen_share" => Some(Self::CallScreenShare),
             "ak.call.signal.send" => Some(Self::CallSignalSend),
             "ak.call.transcribe" => Some(Self::CallTranscribe),
-            "ak.capability.delegate" => Some(Self::CapabilityDelegate),
             "ak.capability.derived" => Some(Self::CapabilityDerived),
             "ak.capability.grant" => Some(Self::CapabilityGrant),
+            "ak.capability.relinquish" => Some(Self::CapabilityRelinquish),
             "ak.capability.revoke" => Some(Self::CapabilityRevoke),
             "ak.circle.audit" => Some(Self::CircleAudit),
             "ak.circle.create" => Some(Self::CircleCreate),
@@ -763,6 +775,8 @@ impl CapabilityActionId {
             "ak.realm.admin" => Some(Self::RealmAdmin),
             "ak.realm.alias" => Some(Self::RealmAlias),
             "ak.realm.archive" => Some(Self::RealmArchive),
+            "ak.realm.authority.basis_update" => Some(Self::RealmAuthorityBasisUpdate),
+            "ak.realm.authority.reset" => Some(Self::RealmAuthorityReset),
             "ak.realm.create" => Some(Self::RealmCreate),
             "ak.realm.destroy" => Some(Self::RealmDestroy),
             "ak.realm.disappearing_policy" => Some(Self::RealmDisappearingPolicy),
@@ -774,6 +788,7 @@ impl CapabilityActionId {
             "ak.realm.moderation_policy" => Some(Self::RealmModerationPolicy),
             "ak.realm.notification.audit" => Some(Self::RealmNotificationAudit),
             "ak.realm.owner" => Some(Self::RealmOwner),
+            "ak.realm.owner.transfer" => Some(Self::RealmOwnerTransfer),
             "ak.realm.plaintext_visible_services" => Some(Self::RealmPlaintextVisibleServices),
             "ak.realm.preview_policy" => Some(Self::RealmPreviewPolicy),
             "ak.realm.search_policy" => Some(Self::RealmSearchPolicy),

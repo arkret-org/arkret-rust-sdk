@@ -154,16 +154,6 @@ per_subject_lattice!(
 );
 
 per_subject_lattice!(
-    CapabilityDelegate,
-    "ak.component.capability.delegate.v1",
-    SdkLatticeKind::OrSet,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    "grant_id",
-    &["ak.capability.delegate"]
-);
-
-per_subject_lattice!(
     CapabilityDerived,
     "ak.component.capability.derived.v1",
     SdkLatticeKind::OrSet,

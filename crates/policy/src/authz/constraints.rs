@@ -131,12 +131,15 @@ pub enum Constraint {
         #[serde(skip_serializing_if = "Option::is_none")]
         scope_limitation: Option<ScopeLimitation>,
     },
-    /// Delegation control constraint
-    DelegationControl {
+    /// Re-grant control. `authority_regrant_allowed` is the permission form of
+    /// the retired `prohibit_subdelegation`: it defaults to `true` so an
+    /// `authority_control` constraint that only pins a depth keeps behaving the
+    /// way the prohibition-form default did.
+    AuthorityControl {
         #[serde(skip_serializing_if = "Option::is_none")]
-        max_delegation_depth: Option<u32>,
-        #[serde(default = "default_false")]
-        prohibit_subdelegation: bool,
+        max_authority_depth: Option<u32>,
+        #[serde(default = "default_true")]
+        authority_regrant_allowed: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         constraint_subkind: Option<GrantConstraintSubkind>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -361,6 +364,10 @@ pub enum ApprovalMode {
 
 fn default_rate_limit_scope() -> GrantRateLimitScope {
     GrantRateLimitScope::Global
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn default_false() -> bool {
@@ -790,7 +797,7 @@ impl ConstraintEntry {
             Constraint::Temporal { .. } => ConstraintEffect::Allow,
             Constraint::FieldAccess { effect, .. } => effect.clone(),
             Constraint::KindRestriction { .. } => ConstraintEffect::Allow,
-            Constraint::DelegationControl { .. } => ConstraintEffect::Allow,
+            Constraint::AuthorityControl { .. } => ConstraintEffect::Allow,
             Constraint::RateLimiting { .. } => ConstraintEffect::Allow,
             Constraint::ApprovalWorkflow { .. } => ConstraintEffect::RequireReview,
             Constraint::ClaimBased { .. } => ConstraintEffect::Allow,
@@ -823,7 +830,7 @@ impl ConstraintEntry {
             Constraint::Temporal { .. } => EvaluationClass::Stateless,
             Constraint::FieldAccess { .. } => EvaluationClass::Stateless,
             Constraint::KindRestriction { .. } => EvaluationClass::Stateless,
-            Constraint::DelegationControl { .. } => EvaluationClass::GrantLocal,
+            Constraint::AuthorityControl { .. } => EvaluationClass::GrantLocal,
             Constraint::RateLimiting { .. } => EvaluationClass::External,
             Constraint::ApprovalWorkflow { .. } => EvaluationClass::External,
             Constraint::ClaimBased { .. } => EvaluationClass::External,

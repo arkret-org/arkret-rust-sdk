@@ -44,7 +44,7 @@ pub enum GrantConstraintKind {
     FieldAccess,
     KindRestriction,
     ScopeLimitation,
-    DelegationControl,
+    AuthorityControl,
     Quota,
     ClaimBased,
     Confidentiality,
@@ -75,7 +75,7 @@ pub enum GrantConstraintSubkind {
     EditWindow,
     RedactWindow,
     Session,
-    AppletDelegation,
+    AppletAuthority,
 }
 
 /// Quota counting scope from `grant-constraint.schema.json`.
@@ -395,13 +395,13 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_endpoints: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_delegation_depth: Option<u64>,
+    pub max_authority_depth: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub delegation_path: Vec<Did>,
+    pub authority_path: Vec<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub prohibit_subdelegation: Option<bool>,
+    pub authority_regrant_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delegation_scope: Option<String>,
+    pub authority_scope: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope_expansion_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -544,10 +544,10 @@ impl GrantConstraint {
             blob_presign_scope: None,
             allowed_data_labels: Vec::new(),
             allowed_endpoints: Vec::new(),
-            max_delegation_depth: None,
-            delegation_path: Vec::new(),
-            prohibit_subdelegation: None,
-            delegation_scope: None,
+            max_authority_depth: None,
+            authority_path: Vec::new(),
+            authority_regrant_allowed: None,
+            authority_scope: None,
             scope_expansion_allowed: None,
             parent_reference_required: None,
             applet_id: None,
@@ -594,29 +594,29 @@ impl GrantConstraint {
         }
     }
 
-    pub fn delegation_control(max_delegation_depth: u64, prohibit_subdelegation: bool) -> Self {
+    pub fn authority_control(max_authority_depth: u64, authority_regrant_allowed: bool) -> Self {
         let mut constraint = Self::new(
-            GrantConstraintKind::DelegationControl,
+            GrantConstraintKind::AuthorityControl,
             GrantConstraintEffect::Allow,
         );
-        constraint.max_delegation_depth = Some(max_delegation_depth);
-        constraint.prohibit_subdelegation = Some(prohibit_subdelegation);
+        constraint.max_authority_depth = Some(max_authority_depth);
+        constraint.authority_regrant_allowed = Some(authority_regrant_allowed);
         constraint
     }
 
     /// Build the canonical Applet install grant binding from
     /// `constraint-schema.md` §7.3.
-    pub fn applet_delegation(
+    pub fn applet_authority(
         applet_id: AppletId,
         executed_by: Did,
         registration_epoch: Hash,
     ) -> Self {
         let mut constraint = Self::new(
-            GrantConstraintKind::DelegationControl,
+            GrantConstraintKind::AuthorityControl,
             GrantConstraintEffect::Allow,
         );
         constraint.evaluation_class = Some(EvaluationClass::GrantLocal);
-        constraint.constraint_subkind = Some(GrantConstraintSubkind::AppletDelegation);
+        constraint.constraint_subkind = Some(GrantConstraintSubkind::AppletAuthority);
         constraint.applet_id = Some(applet_id);
         constraint.executed_by = Some(executed_by);
         constraint.registration_epoch = Some(registration_epoch);
@@ -637,7 +637,7 @@ impl GrantConstraint {
         approval.wip_limit_override = Some(false);
         approval.denied_view_kinds = vec!["public_board".to_owned()];
         approval.allowed_tracks = vec!["discussion".to_owned()];
-        approval.max_delegation_depth = Some(1);
+        approval.max_authority_depth = Some(1);
         approval.approval_required = Some(true);
         approval.approval_mode = Some(ApprovalWorkflowMode::BeforeCommit);
         approval.approval_actor_ids = vec![
@@ -653,7 +653,7 @@ impl GrantConstraint {
         claim.constraint_subkind = Some(GrantConstraintSubkind::Claim);
         claim.allowed_object_kinds = vec!["key_backup".to_owned()];
         claim.allowed_facets = vec![Facet::Reviewable];
-        claim.max_delegation_depth = Some(0);
+        claim.max_authority_depth = Some(0);
         claim.approval_required = Some(false);
         claim.required_claims = vec![GrantConstraintClaimRequirement {
             claim_kind: "recovery_operator".to_owned(),
@@ -681,7 +681,7 @@ impl GrantConstraint {
         container_move.wip_limit_override = Some(false);
         container_move.allowed_tracks = vec!["synthesis".to_owned()];
         container_move.denied_tracks = vec!["discussion".to_owned()];
-        container_move.max_delegation_depth = Some(0);
+        container_move.max_authority_depth = Some(0);
         container_move.approval_required = Some(true);
         container_move.approval_mode = Some(ApprovalWorkflowMode::ProposalThenApprove);
         container_move.approval_actor_ids =
@@ -690,6 +690,29 @@ impl GrantConstraint {
 
         vec![approval, claim, container_move]
     }
+}
+
+/// One entry of a grant's `issuer_authority_refs[]`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum IssuerAuthorityRef {
+    /// A grant the issuer holds. The issuer MUST be its subject and the ref
+    /// MUST be active when the child is evaluated.
+    Grant { grant_id: GrantId },
+    /// The Realm authority-root cell — a rooted terminal, never a graph edge.
+    ///
+    /// `controller_epoch_at_issuance` is issuance audit only: comparing it to
+    /// the current epoch would make an owner transfer invalidate every grant
+    /// the previous controller ever signed. `authority_generation` is the field
+    /// that IS compared, because an authority reset advances it precisely so a
+    /// whole tree stops resolving.
+    RealmRoot {
+        realm_id: RealmId,
+        cell_ref: String,
+        controller_epoch_at_issuance: u64,
+        authority_generation: u64,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -706,8 +729,12 @@ pub struct CapabilityGrant {
     pub capability_action_registry_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub constraints: Vec<GrantConstraint>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent_grant_id: Option<GrantId>,
+    /// The authority this grant was issued under (`capabilities.md` §10).
+    /// A `realm_root` entry is a rooted terminal; a `grant` entry is an edge.
+    /// v1 has one grant shape, so this is the only thing that distinguishes a
+    /// root controller's grant from a member re-granting what it holds.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub issuer_authority_refs: Vec<IssuerAuthorityRef>,
     #[serde(
         serialize_with = "serialize_canonical_timestamp",
         deserialize_with = "deserialize_canonical_timestamp"
@@ -833,15 +860,15 @@ mod tests {
 
     #[test]
     fn applet_delegation_uses_registered_delegation_control_shape() {
-        let constraint = GrantConstraint::applet_delegation(
+        let constraint = GrantConstraint::applet_authority(
             AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
             Did::new("did:web:calendar.example").unwrap(),
             Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
         );
         let wire = serde_json::to_value(constraint).unwrap();
 
-        assert_eq!(wire["constraint_kind"], "delegation_control");
-        assert_eq!(wire["constraint_subkind"], "applet_delegation");
+        assert_eq!(wire["constraint_kind"], "authority_control");
+        assert_eq!(wire["constraint_subkind"], "applet_authority");
         assert_eq!(wire["evaluation_class"], "grant_local");
         assert_eq!(wire["executed_by"], "did:web:calendar.example");
         assert!(wire.get("applet_delegation_binding").is_none());
@@ -862,7 +889,7 @@ mod tests {
             resources: vec![serde_json::from_value(json!({"kind": "realm"})).unwrap()],
             capability_action_registry_digest: None,
             constraints: Vec::new(),
-            parent_grant_id: None,
+            issuer_authority_refs: Vec::new(),
             issued_at: fractional,
             not_before: Some(fractional),
             expires_at: Some(fractional),

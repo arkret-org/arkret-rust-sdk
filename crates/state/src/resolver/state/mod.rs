@@ -224,7 +224,6 @@ impl RealmState {
             // Member / capability / invite / policy / read-marker state
             "ak.member.state"
             | "ak.capability.grant"
-            | "ak.capability.delegate"
             | "ak.capability.revoke"
             | "ak.realm.policy"
             | "ak.policy.set"
@@ -368,12 +367,7 @@ impl RealmState {
     pub fn effective_capability(&self, capability_id: &str) -> Option<&ResolvedStateEvent> {
         self.resolved_state
             .get(&format!("ak.capability|{}", capability_id))
-            .filter(|event| {
-                matches!(
-                    event.kind.as_str(),
-                    "ak.capability.grant" | "ak.capability.delegate"
-                )
-            })
+            .filter(|event| matches!(event.kind.as_str(), "ak.capability.grant"))
     }
 
     pub fn capability_allows(&self, capability_id: &str, action: &str) -> bool {

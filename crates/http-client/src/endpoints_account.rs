@@ -107,7 +107,7 @@ where
             agent_key_authorization_ref: None,
             agent_scope_request: None,
             dpop_binding_proof: None,
-            applet_delegation: None,
+            applet_authority: None,
             proof: SessionGrantRequestProof {
                 proof_kind: SessionGrantProofKind::DidBoundSignature,
                 challenge: challenge.to_owned(),
