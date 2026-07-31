@@ -162,6 +162,35 @@ macro_rules! uuid_id_type {
     };
 }
 
+/// Declare every pure-uuidv7 typed id in one block so the crate can also
+/// publish the set of `ak:<kind>:` prefixes it actually implements.
+///
+/// Individual [`uuid_id_type!`] calls cannot be enumerated after expansion —
+/// `KIND_PREFIX` is an inherent associated const with no registry behind it —
+/// so the spec-coverage constants in `arkret-schema` had to repeat the kind
+/// list as hand-written strings. That copy silently fell five kinds behind the
+/// registry (`authorization_lease`, `invite_locator`, `message_stream`,
+/// `recovery_authority_ticket`, `sidecar`). [`DECLARED_UUID_ID_KIND_PREFIXES`]
+/// closes that gap: it is derived from the same literals the types validate
+/// against, so it cannot disagree with them.
+///
+/// Hash-bearing, hybrid and special-form kinds stay on plain [`id_type!`] and
+/// are deliberately absent from this block — they have no `ak:<kind>:<uuidv7>`
+/// wire form and the spec lists them under `special_forms`.
+macro_rules! declare_uuid_id_kinds {
+    ($($name:ident, $prefix:literal;)*) => {
+        $(uuid_id_type!($name, $prefix);)*
+
+        /// Every `ak:<kind>:` prefix this crate ships a typed uuidv7 id for.
+        ///
+        /// Sorted by declaration, deduplicated by construction (two types
+        /// cannot share a prefix without one of them failing to validate the
+        /// other's values). Cross-checked against the spec
+        /// `id-kind-registry.json` by `arkret-schema`.
+        pub const DECLARED_UUID_ID_KIND_PREFIXES: &[&str] = &[$($prefix),*];
+    };
+}
+
 /// Validate a DID scalar against the Round 4 tightened pattern. Method name
 /// MUST be lowercase ASCII alpha + digits only (no `.`/`-`/`_`/`:`);
 /// method-specific-id MUST be non-empty and contain no whitespace, fragment,
@@ -378,26 +407,84 @@ pub fn is_lowercase_uuidv7(value: &str) -> bool {
 }
 
 id_type!(Did, is_did);
+
 // Protocol object IDs use typed prefixes with canonical RFC 9562 UUIDv7
-// payloads. Pure-uuid kinds use `uuid_id_type!` so they persist as native
-// `uuid` columns (bare) while keeping the `ak:<kind>:<uuid>` wire form.
-uuid_id_type!(ActorProfileId, "ak:actor_profile:");
-// AKP-0008/0009 (spec head 37ce729) — personal agent auxiliary typed ids.
-// `agent_id` is a DID scalar, represented by `Did`.
-// Audit release-session + attestation typed ids (id-kind-registry kinds
-// `attestation` / `audit_binding` / `audit_release` / `audit_session`).
-uuid_id_type!(AttestationId, "ak:attestation:");
-uuid_id_type!(AuditBindingId, "ak:audit_binding:");
-uuid_id_type!(AuditReleaseId, "ak:audit_release:");
-uuid_id_type!(AuditSessionId, "ak:audit_session:");
-// RTC call participant id (id-kind-registry kind `rtc_participant`).
-uuid_id_type!(RtcParticipantId, "ak:rtc_participant:");
-// Key-backup hardening (B-C) typed ids.
-uuid_id_type!(BackupSeriesId, "ak:backup_series:");
-uuid_id_type!(RecoverySessionId, "ak:recovery_session:");
-uuid_id_type!(RecoveryAuthorityTicketId, "ak:recovery_authority_ticket:");
-uuid_id_type!(AnnounceId, "ak:announce:");
-uuid_id_type!(AppletId, "ak:applet:");
+// payloads. Pure-uuid kinds go through `declare_uuid_id_kinds!` so they
+// persist as native `uuid` columns (bare) while keeping the
+// `ak:<kind>:<uuid>` wire form — and so the prefix set stays enumerable.
+//
+// Every entry here MUST have an active `id_kinds` row in the spec
+// `registry/id-kind-registry.json`; `arkret-schema` fails closed in both
+// directions.
+declare_uuid_id_kinds! {
+    ActorProfileId, "ak:actor_profile:";
+    // AKP-0008/0009 (spec head 37ce729) — personal agent auxiliary typed ids.
+    // `agent_id` is a DID scalar, represented by `Did`.
+    // Audit release-session + attestation typed ids (id-kind-registry kinds
+    // `attestation` / `audit_binding` / `audit_release` / `audit_session`).
+    AttestationId, "ak:attestation:";
+    AuditBindingId, "ak:audit_binding:";
+    AuditReleaseId, "ak:audit_release:";
+    AuditSessionId, "ak:audit_session:";
+    // RTC call participant id (id-kind-registry kind `rtc_participant`).
+    RtcParticipantId, "ak:rtc_participant:";
+    // Key-backup hardening (B-C) typed ids.
+    BackupSeriesId, "ak:backup_series:";
+    RecoverySessionId, "ak:recovery_session:";
+    RecoveryAuthorityTicketId, "ak:recovery_authority_ticket:";
+    AnnounceId, "ak:announce:";
+    AppletId, "ak:applet:";
+    RealmId, "ak:realm:";
+    SpaceId, "ak:space:";
+    BackupId, "ak:backup:";
+    BatchId, "ak:batch:";
+    BlobId, "ak:blob:";
+    BlockId, "ak:block:";
+    CallId, "ak:call:";
+    ConsentId, "ak:consent:";
+    CapabilityId, "ak:capability:";
+    ChunkId, "ak:chunk:";
+    // AKP-0007 (2026-05-08) — Circle id-kind. Intra-Realm cryptographic
+    // sub-boundary; see spec artifacts/registry/id-kind-registry.json and
+    // zh/models/circle.md.
+    CircleId, "ak:circle:";
+    SidecarId, "ak:sidecar:";
+    ClaimId, "ak:claim:";
+    DeviceMessageId, "ak:device_message:";
+    StrandId, "ak:strand:";
+    FilterId, "ak:filter:";
+    FrameId, "ak:frame:";
+    FrankingProofId, "ak:franking_proof:";
+    MorphId, "ak:morph:";
+    // Round R2/R3 (2026-05-20) — moderation appeal cell key
+    // (`ak:appeal:<uuidv7>`). id-kind-registry kind=appeal; see
+    // schemas/moderation-appeal.schema.json. Named `TypedAppealId` because
+    // `AppealId` is already the plain-string payload alias in
+    // `arkret-models-collaboration`.
+    TypedAppealId, "ak:appeal:";
+    MessageId, "ak:message:";
+    MessageStreamId, "ak:message_stream:";
+    RelationId, "ak:relation:";
+    EventId, "ak:event:";
+    GrantId, "ak:grant:";
+    InviteId, "ak:invite:";
+    InviteLocatorId, "ak:invite_locator:";
+    KeyEventId, "ak:key_event:";
+    AuthorizationLeaseId, "ak:authorization_lease:";
+    DeviceId, "ak:device:";
+    NotificationId, "ak:notification:";
+    PolicyId, "ak:policy:";
+    PresentationId, "ak:presentation:";
+    ReceiptId, "ak:receipt:";
+    ReportId, "ak:report:";
+    ReadCursorId, "ak:read_cursor:";
+    ModerationQueueItemId, "ak:moderation_queue_item:";
+    RequestId, "ak:request:";
+    SnapshotId, "ak:snapshot:";
+    SubscriptionId, "ak:subscription:";
+    TransactionId, "ak:transaction:";
+    ViewId, "ak:view:";
+}
 
 /// Applet identity accepted by the v1 wire protocol: either a service DID or
 /// a typed `ak:applet:<uuidv7>` identifier.
@@ -417,65 +504,18 @@ impl AppletIdentifier {
     }
 }
 
-uuid_id_type!(RealmId, "ak:realm:");
-uuid_id_type!(SpaceId, "ak:space:");
-uuid_id_type!(BackupId, "ak:backup:");
-uuid_id_type!(BatchId, "ak:batch:");
-uuid_id_type!(BlobId, "ak:blob:");
-uuid_id_type!(BlockId, "ak:block:");
-uuid_id_type!(CallId, "ak:call:");
-uuid_id_type!(ConsentId, "ak:consent:");
-uuid_id_type!(CapabilityId, "ak:capability:");
-uuid_id_type!(ChunkId, "ak:chunk:");
-// AKP-0007 (2026-05-08) — Circle id-kind. Intra-Realm cryptographic
-// sub-boundary; see spec artifacts/registry/id-kind-registry.json and
-// zh/models/circle.md.
-uuid_id_type!(CircleId, "ak:circle:");
-uuid_id_type!(SidecarId, "ak:sidecar:");
-uuid_id_type!(ClaimId, "ak:claim:");
-uuid_id_type!(DeviceMessageId, "ak:device_message:");
-uuid_id_type!(StrandId, "ak:strand:");
-uuid_id_type!(FilterId, "ak:filter:");
-uuid_id_type!(FrameId, "ak:frame:");
-uuid_id_type!(FrankingProofId, "ak:franking_proof:");
-uuid_id_type!(MorphId, "ak:morph:");
-// Round R2/R3 (2026-05-20) — moderation appeal cell key (`ak:appeal:<uuidv7>`).
-// id-kind-registry kind=appeal; see schemas/moderation-appeal.schema.json.
-uuid_id_type!(TypedAppealId, "ak:appeal:");
 // Round R2/R3 (2026-05-20) — deployment-scope trust domain identifier.
 // Wire form `ak:trust_domain:<scope>` where scope is lowercase
 // `[a-z0-9._:-]` max 128 chars. NOT a typed-UUIDv7 object id (stays text).
 id_type!(TypedTrustDomainId, is_trust_domain);
-uuid_id_type!(MessageId, "ak:message:");
-uuid_id_type!(MessageStreamId, "ak:message_stream:");
-uuid_id_type!(RelationId, "ak:relation:");
-uuid_id_type!(EventId, "ak:event:");
 // OperationId is hybrid: `ak:operation:<uuidv7>` OR a content hash. No bare
 // uuid form, so it stays a text `id_type!`.
 id_type!(OperationId, |value: &str| is_strict_typed_id(
     value,
     "ak:operation:"
 ) || is_hash(value));
-uuid_id_type!(GrantId, "ak:grant:");
-uuid_id_type!(InviteId, "ak:invite:");
-uuid_id_type!(InviteLocatorId, "ak:invite_locator:");
-uuid_id_type!(KeyEventId, "ak:key_event:");
-uuid_id_type!(AuthorizationLeaseId, "ak:authorization_lease:");
-uuid_id_type!(DeviceId, "ak:device:");
-uuid_id_type!(NotificationId, "ak:notification:");
-uuid_id_type!(PolicyId, "ak:policy:");
-uuid_id_type!(PresentationId, "ak:presentation:");
-uuid_id_type!(ReceiptId, "ak:receipt:");
-uuid_id_type!(ReportId, "ak:report:");
-uuid_id_type!(ReadCursorId, "ak:read_cursor:");
-uuid_id_type!(ModerationQueueItemId, "ak:moderation_queue_item:");
-uuid_id_type!(RequestId, "ak:request:");
-uuid_id_type!(SnapshotId, "ak:snapshot:");
-uuid_id_type!(SubscriptionId, "ak:subscription:");
-uuid_id_type!(TransactionId, "ak:transaction:");
 // BlobRef is hybrid (hash or `ak:blob:` typed) — stays text.
 id_type!(BlobRef, is_blob_ref);
-uuid_id_type!(ViewId, "ak:view:");
 id_type!(Cursor, has_prefix("ak:cursor:"));
 id_type!(DeviceMessageTransactionId, is_device_message_transaction_id);
 

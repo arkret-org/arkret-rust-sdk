@@ -48,7 +48,15 @@ jobs:
       - run: cargo check --all-features
       - run: cargo clippy --all-features --all-targets -- -D warnings
       - run: cargo test --all-features
-      - run: cargo run --example export_openapi --features server
+      # No `export_openapi` step: this repo has never contained that example,
+      # so the job failed at the cargo target-resolution stage on every run and
+      # never reached anything it was meant to check. The SDK consumes the
+      # spec's OpenAPI document (embedded as
+      # crates/schema/src/embedded_openapi.yaml and drift-gated in the
+      # spec-drift job) rather than producing its own; the `openapi` features on
+      # arkret-wire / arkret-identifiers only add `ToSchema` derives for service
+      # crates to assemble downstream, and `cargo check --all-features` above
+      # already compiles them.
 
   wasm:
     name: wasm32 checks
@@ -233,8 +241,13 @@ jobs:
         run: >-
           python tools/generate-operation-coverage-matrix.py --check
           --artifacts ${{ github.workspace }}/arkret-spec/spec/v1/artifacts
+      # Cross-checks the hand-maintained SUPPORTED_* coverage constants in
+      # crates/schema/src/artifacts.rs against the live registries in both
+      # directions. The example this invokes did not exist until 2026-08-01, so
+      # despite the job being declared a hard gate it had never once executed —
+      # see _review_code/review_code.md.
       - name: Run spec_drift_report
         working-directory: arkret-rust-sdk
         env:
           ARKRET_SPEC_ARTIFACTS: ${{ github.workspace }}/arkret-spec/spec/v1/artifacts
-        run: cargo run --example spec_drift_report
+        run: cargo run -p arkret-schema --example spec_drift_report

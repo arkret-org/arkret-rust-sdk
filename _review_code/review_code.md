@@ -1,5 +1,80 @@
 # Regression review log
 
+## 2026-08-01 — two CI gates invoked examples that were never in the repository
+
+- Surface: `.github/workflows/ci.yml` jobs `rust` and `spec-drift`.
+- Regression: the `rust` job ended with `cargo run --example export_openapi --features server`
+  and `spec-drift` ended with `cargo run --example spec_drift_report`. Neither example has ever
+  existed — the only example in the workspace is `crates/crypto/examples/dump_key_backup_kat.rs`.
+  Both steps therefore failed at cargo target resolution, before executing anything. The
+  consequence is not a noisy red build but the opposite: `SpecArtifactBundle::drift_report` — the
+  declared hard gate over the `SUPPORTED_*` spec-coverage constants — had **never once run**, so
+  those constants were free to drift for as long as they have existed.
+- Detection: auditing which SDK types are spec-generated; the CI step referenced a target that
+  could not be found anywhere in the tree.
+- Correction: added `crates/schema/examples/spec_drift_report.rs` (env-var or embedded snapshot,
+  non-zero exit on drift) and pinned the CI invocation to `-p arkret-schema`. Deleted the
+  `export_openapi` step: no crate assembles an OpenAPI document, the `openapi` features only add
+  `ToSchema` derives, and the SDK *consumes* the spec's OpenAPI as an embedded snapshot rather
+  than producing one.
+- First run of the restored gate found: 5 unlisted id kinds (fixed, below), 55 unlisted schemas
+  and 2 event kinds with no payload validator (`ak.relation.tombstone`,
+  `ak.moderation.franking_proof`), plus `ak.profile.candidate.join_policy.v1` requiring
+  `ak.schema.join_policy_operations.v1`, which is absent from `REGISTERED_SCHEMA_IDS`. **The
+  schema and payload-validator findings are open** — they need a coverage-scope decision (19 of
+  the 55 are `ak.schema.websocket_*`, whose binding is `candidate` and gated behind
+  `ak.profile.binding.websocket.v1`, so declaring SDK coverage for them would be false), and
+  padding the constant to force the gate green would reproduce the exact failure this entry
+  records.
+- Prevention dimension: a CI step whose only observable behavior is its own exit code proves
+  nothing about the gate it names. Any job asserting a hard gate must be shown failing on an
+  injected violation at least once; a step that has never printed gate output is not evidence.
+
+## 2026-08-01 — typed-id coverage was a hand-copied string list five kinds behind
+
+- Surface: `arkret-schema::SUPPORTED_ID_KINDS` and `arkret-identifiers`.
+- Regression: the constant that decides whether the SDK covers `id-kind-registry.json` was 47
+  hand-written strings with nothing connecting it to the newtypes it claimed to describe. It had
+  fallen behind on `authorization_lease`, `invite_locator`, `message_stream`,
+  `recovery_authority_ticket` and `sidecar` — all five of which `arkret-identifiers` has shipped
+  typed ids for all along. The mechanism: 53 separate `uuid_id_type!` calls expand to inherent
+  associated `KIND_PREFIX` consts with no registry, so the set is unenumerable and the only way
+  to state it was to retype it.
+- Detection: the first real run of `spec_drift_report` (above).
+- Correction: the calls now go through one `declare_uuid_id_kinds!` block that also emits
+  `DECLARED_UUID_ID_KIND_PREFIXES`; `crates/schema/tests/id_kind_coverage.rs` compares that set
+  with `SUPPORTED_ID_KINDS` in both directions, with a populated-both-sides guard so an emptied
+  side cannot pass vacuously. The five missing kinds were added. `arkret-identifiers` sits below
+  `arkret-wire` in the frozen layering and cannot read the generated descriptors itself, which is
+  why the comparison lives in `arkret-schema` — the lowest crate that sees both sides.
+- Prevention dimension: when a gate needs the set of things a macro declared, the macro must
+  publish that set. A list that can only be kept correct by retyping it will drift, and the drift
+  is invisible precisely because both copies look authoritative.
+
+## 2026-08-01 — the HTTP client was the one spec-derived surface with no drift gate
+
+- Surface: `arkret-http-client`.
+- Regression: `crates/server/src/registry.rs` builds its routing table from
+  `SERVICE_OPERATION_DESCRIPTORS`, so a spec path change moves the server automatically. The
+  client spelled all ~115 distinct paths as string literals across 137 sites and referenced the
+  generated descriptors **zero** times, and the crate had no `tests/` directory at all. A renamed
+  path in `operation-registry.json` would regenerate the descriptors, keep the server correct,
+  and leave the client silently issuing requests to endpoints the protocol no longer defines.
+- Detection: cross-checking which crates consume the generated operation descriptors while
+  auditing the spec-generation surface.
+- Correction: `crates/http-client/tests/operation_path_coverage.rs` extracts every
+  `"/_arkret/…"` literal from the client sources and requires each to normalise onto a registered
+  `http_path`. Templates are compared shape-wise so `format!` with inline captures, positional
+  arguments and plain literals all agree. Four non-endpoint literals are exempted individually
+  with stated reasons, and a companion test deletes exemptions that stop appearing so the list
+  cannot become a blanket suppression. All 115 current paths already matched — the defect was the
+  absence of the gate, not the paths. The gate was verified by injecting a renamed path and
+  confirming it fails.
+- Prevention dimension: "the generated descriptors exist" is not the same as "the code uses
+  them". When one side of a workspace derives a surface from a registry and another hardcodes it,
+  the hardcoded side needs an explicit gate; symmetry of correctness today says nothing about
+  symmetry after the next spec change.
+
 ## 2026-07-31 — `cargo clippy --fix` silently deleted a PartialEq impl from coverage
 
 - Surface: `arkret-wire` `wire_strings.rs`, test

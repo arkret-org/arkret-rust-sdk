@@ -35,6 +35,52 @@ For changes that touch canonical serialization, signed payloads, idempotency or
 authorization, add focused tests that prove the exact digest or conflict
 behavior being changed.
 
+## Spec-derived surfaces
+
+Twelve Rust files and two embedded snapshots are generated from
+`arkret-spec/spec/v1/artifacts` and committed. They carry an `@generated`
+header and must never be hand-edited; `tools/spec-generation-manifest.json` is
+the authoritative list of outputs and their input artifacts.
+
+Regenerate both layers **against the same artifact tree, in the same commit**:
+
+```sh
+./tools/sync-spec-generated.ps1 -ArtifactsDir ../arkret-spec/spec/v1/artifacts
+python tools/refresh-embedded-artifacts.py ../arkret-spec/spec/v1/artifacts
+```
+
+Verify with the matching check modes (both return in seconds and need no
+`cargo`):
+
+```sh
+./tools/sync-spec-generated.ps1 -ArtifactsDir ../arkret-spec/spec/v1/artifacts -Check
+python tools/refresh-embedded-artifacts.py --check ../arkret-spec/spec/v1/artifacts
+```
+
+These are two independent layers — `crates/{policy,wire,schema,lattice-registry}/**/generated/*.rs`
+(compile-time constants) and `crates/schema/src/embedded_artifacts.json`
+(the runtime artifact snapshot) — and they have gone stale to *different*
+spec generations before. Refresh and re-check both. The `sha256=` in a
+generated file's header is the digest of the input *at generation time*, not
+of the current spec, so recompute it against the spec file rather than
+trusting the `version:` line.
+
+Nothing above runs in the pre-commit hook (it needs a spec checkout the hook
+cannot assume), so the enforcement is the `spec-drift` CI job. Run the checks
+yourself before claiming a surface is synchronized.
+
+### Coverage gates layered on top
+
+| Gate | Asserts |
+|---|---|
+| `cargo run -p arkret-schema --example spec_drift_report` | The `SUPPORTED_*` constants in `crates/schema/src/artifacts.rs` match the live registries in both directions. Needs `ARKRET_SPEC_ARTIFACTS`. |
+| `cargo test -p arkret-schema --test id_kind_coverage` | `SUPPORTED_ID_KINDS` matches the typed ids `arkret-identifiers` actually declares. |
+| `cargo test -p arkret-http-client --test operation_path_coverage` | Every `/_arkret/...` path the client sends is a registered operation path. |
+
+When you add a typed id, declare it inside the `declare_uuid_id_kinds!` block
+in `crates/identifiers/src/lib.rs` — scattered `uuid_id_type!` calls are not
+enumerable, which is exactly how the coverage list drifted before.
+
 ## Breaking changes and the downstream compile gate
 
 The fifteen workspace crates share a single version (`shared-version = true`) and
