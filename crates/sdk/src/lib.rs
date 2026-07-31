@@ -84,11 +84,11 @@ pub use arkret_identifiers as identifiers;
 pub use arkret_identifiers::{
     ActorProfileId, AnnounceId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,
     AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
-    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, ConsentId, DeviceId, DeviceMessageId, Did,
-    EventId, FilterId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, InviteLocatorId,
-    KeyEventId, MessageId, MessageStreamId, ModerationQueueItemId, MorphId, NotificationId,
-    OperationId, PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId,
-    RecoveryAuthorityTicketId, RecoverySessionId, RelationId, ReportId, RequestId,
+    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, ConsentId, DeviceId, DeviceMessageId,
+    DeviceMessageTransactionId, Did, EventId, FilterId, FrameId, FrankingProofId, GrantId, Hash,
+    Hlc, InviteId, InviteLocatorId, KeyEventId, MessageId, MessageStreamId, ModerationQueueItemId,
+    MorphId, NotificationId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId,
+    ReceiptId, RecoveryAuthorityTicketId, RecoverySessionId, RelationId, ReportId, RequestId,
     RtcParticipantId, SealId, SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId,
     TransactionId, TypedAppealId, TypedTrustDomainId, ViewId, new_prefixed_uuid7,
 };

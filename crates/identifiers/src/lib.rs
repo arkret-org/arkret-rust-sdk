@@ -477,6 +477,7 @@ uuid_id_type!(TransactionId, "ak:transaction:");
 id_type!(BlobRef, is_blob_ref);
 uuid_id_type!(ViewId, "ak:view:");
 id_type!(Cursor, has_prefix("ak:cursor:"));
+id_type!(DeviceMessageTransactionId, is_device_message_transaction_id);
 
 impl MessageId {
     /// Retype a durable `ak.message.create` Event UUIDv7 as the Message identity.
@@ -499,6 +500,24 @@ fn is_blob_ref(value: &str) -> bool {
 
 fn is_content_addressed<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
     move |value| value.strip_prefix(prefix).is_some_and(is_hash)
+}
+
+/// `device-message.schema.json#/$defs/key_verification_content.transaction_id`:
+/// `^[A-Za-z0-9._~=-]{1,128}$`.
+///
+/// This is a **different namespace** from [`TransactionId`], which is
+/// `ak:transaction:<uuidv7>` and serves the `security-transaction.schema.json`
+/// family. The two share a word, not a value space: `:` is outside the charset
+/// above, so *every* `TransactionId` value violates this pattern. Typing the
+/// device-message field as `TransactionId` therefore made it impossible to
+/// author a conformant `ak.key.verification.*` content — see
+/// `arkret-work/review/code/2026-07-31-sdk-key-verification-transaction-id-off-spec.md`.
+fn is_device_message_transaction_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 128
+        && value.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'~' | b'=' | b'-')
+        })
 }
 
 // Bare `<algo>:<hex>` digest, e.g. an Event's `proof.event_digest`, a Seal
@@ -831,6 +850,40 @@ mod tests {
         let id2 = new_prefixed_uuid7("ak:space:");
         assert_ne!(id, id2);
         assert!(SpaceId::new(id).is_ok());
+    }
+
+    /// `DeviceMessageTransactionId` and `TransactionId` are disjoint value
+    /// spaces, not two spellings of one id.
+    ///
+    /// The regression this pins: `KeyVerificationContent.transaction_id` used to
+    /// be a `TransactionId`, and *every* value of that type violates the
+    /// device-message pattern, so the field could not be given a conformant
+    /// value at all.
+    #[test]
+    fn device_message_transaction_id_and_typed_transaction_id_are_disjoint() {
+        // A bare UUIDv7 is what the wire actually carries, and it is accepted.
+        let bare = "0196419b-0000-7000-8000-000000000000";
+        assert!(DeviceMessageTransactionId::new(bare).is_ok());
+        assert!(TransactionId::new(bare).is_err());
+
+        // The typed transaction id is rejected: `:` is outside the charset.
+        let typed = format!("ak:transaction:{bare}");
+        assert!(TransactionId::new(typed.clone()).is_ok());
+        assert!(DeviceMessageTransactionId::new(typed).is_err());
+
+        // Charset boundaries: the punctuation the pattern allows, and
+        // representative rejects.
+        assert!(DeviceMessageTransactionId::new("aZ0._~=-").is_ok());
+        for rejected in ["", " ", "a b", "a/b", "a+b", "a#b", "sas:1", "\u{4e2d}"] {
+            assert!(
+                DeviceMessageTransactionId::new(rejected).is_err(),
+                "`{rejected}` must be rejected"
+            );
+        }
+
+        // Length bound is 128 inclusive.
+        assert!(DeviceMessageTransactionId::new("a".repeat(128)).is_ok());
+        assert!(DeviceMessageTransactionId::new("a".repeat(129)).is_err());
     }
 
     #[test]

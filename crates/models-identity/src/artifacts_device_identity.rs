@@ -10,10 +10,10 @@ use std::num::NonZeroU64;
 
 use arkret_canonical::binding_contexts;
 use arkret_wire::{
-    AttestationId, Audience, Base64UrlString, DID_WEBVH_WITNESS_RECEIPT_SCHEMA, DeviceId, Did,
-    DidUrl, Error, EventId, Hash, IDENTITY_RECEIPT_SCHEMA, NonEmptyJsonObject, NonEmptyString,
-    PayloadProof, ProofContextId, ProtocolKind, ReceiptId, RecoverySessionId, Result,
-    TransactionId, TypedTrustDomainId, XExtensionMap, canonical,
+    AttestationId, Audience, Base64UrlString, DID_WEBVH_WITNESS_RECEIPT_SCHEMA, DeviceId,
+    DeviceMessageTransactionId, Did, DidUrl, Error, EventId, Hash, IDENTITY_RECEIPT_SCHEMA,
+    NonEmptyJsonObject, NonEmptyString, PayloadProof, ProofContextId, ProtocolKind, ReceiptId,
+    RecoverySessionId, Result, TypedTrustDomainId, XExtensionMap, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -927,7 +927,11 @@ pub struct KeyVerificationContentNewDevicePubkey {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyVerificationContent {
-    pub transaction_id: TransactionId,
+    /// `device-message.schema.json` constrains this to
+    /// `^[A-Za-z0-9._~=-]{1,128}$`, which no `ak:transaction:<uuidv7>` value can
+    /// satisfy — the `:` is outside the charset. This is a different namespace
+    /// from `TransactionId`, not a laxer spelling of it.
+    pub transaction_id: DeviceMessageTransactionId,
     pub from_device: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub methods: Option<ProtocolKindList>,
@@ -1172,8 +1176,12 @@ mod key_verification_tests {
 
     #[test]
     fn key_verification_content_enforces_schema_string_constraints() {
+        // `device-message.schema.json` constrains `transaction_id` to
+        // `^[A-Za-z0-9._~=-]{1,128}$`, so the wire value is a bare UUIDv7. This
+        // fixture used to carry `ak:transaction:<uuidv7>`, which that pattern
+        // rejects — the fixture was as off-spec as the type it exercised.
         let valid = json!({
-            "transaction_id": "ak:transaction:01904100-0000-7000-8000-000000000001",
+            "transaction_id": "01904100-0000-7000-8000-000000000001",
             "from_device": "ak:device:01904100-0000-7000-8000-000000000001",
             "methods": ["ak.key.verification.sas_v1"],
             "pairing_code": "482 913",
@@ -1210,8 +1218,15 @@ mod key_verification_tests {
         long_pairing_code["pairing_code"] = json!("x".repeat(129));
         assert!(serde_json::from_value::<KeyVerificationContent>(long_pairing_code).is_err());
 
-        let mut long_reason = valid;
+        let mut long_reason = valid.clone();
         long_reason["reason"] = json!("x".repeat(257));
         assert!(serde_json::from_value::<KeyVerificationContent>(long_reason).is_err());
+
+        // The prefixed `ak:transaction:` form is not merely unusual here, it is
+        // unrepresentable: `:` is outside the schema charset.
+        let mut typed_transaction_id = valid;
+        typed_transaction_id["transaction_id"] =
+            json!("ak:transaction:01904100-0000-7000-8000-000000000001");
+        assert!(serde_json::from_value::<KeyVerificationContent>(typed_transaction_id).is_err());
     }
 }
