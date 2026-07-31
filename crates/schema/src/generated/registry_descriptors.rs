@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-07-31.13;
-//! sha256=52e0e2edc786e49dbdb0282c6f43f274098d88e2a47b2b437ac57c73c4152de0 Input: registry/
-//! capability-action-registry.json; version=2026-07-31.13;
-//! sha256=c904e124d9e8b47a9eb05aa543e008af9fba3308535462029504b2e119ef062f Input: registry/
-//! schema-registry.json; version=2026-07-31.13;
-//! sha256=4188d25b153b9f91841c51ecdc8b3b4fa6a08f7f129e6b317bb556febc647611 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-07-31.14;
+//! sha256=703dce87d6a3230dd46d6cfd058f5553dc81b0ae2b4492aa20bb44dd0ca8024d Input: registry/
+//! capability-action-registry.json; version=2026-07-31.14;
+//! sha256=54f9d8704ef664d05b0f468a7fb4ff9e1269b54a986eef10cfac70877cad9030 Input: registry/
+//! schema-registry.json; version=2026-07-31.14;
+//! sha256=c137310423e249fb84766711c478b066ed0c67dd2832895ffeff91d0599bb025 Input: registry/
 //! account-data-key-registry.json; version=2026-07-30;
 //! sha256=9afa80c16d13fcc3bdc5da373e0e1bc6bc5099e06aaccdd560745962023f89a3 Entries: id_kinds=53,
 //! special_forms=9, actions=163, schemas=171, account_data_patterns=24
@@ -1492,6 +1492,8 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.realm.moderation_policy",
             "ak.realm.disappearing_policy",
             "ak.realm.search_policy",
+            "ak.organization.moderation_policy",
+            "ak.mimi.room_binding",
         ],
         grant_authority_actions: &[],
         profile: None,
@@ -1608,6 +1610,8 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.realm.search_policy",
             "ak.realm.set_default_strand",
             "ak.applet.registration",
+            "ak.member.state",
+            "ak.mimi.room_binding",
         ],
         grant_authority_actions: &[],
         profile: None,
@@ -1832,9 +1836,11 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.invite.create",
             "ak.invite.revoke",
             "ak.invite.third_party",
+            "ak.member.state",
             "ak.message.create",
             "ak.message.redact",
             "ak.message.revise",
+            "ak.mimi.room_binding",
             "ak.mls.commit",
             "ak.mls.commit_failed",
             "ak.mls.genesis",
@@ -1853,6 +1859,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.morph.schema_migrate",
             "ak.morph.stage.set",
             "ak.morph.update",
+            "ak.organization.moderation_policy",
             "ak.policy.action",
             "ak.policy.rule",
             "ak.policy.set",
