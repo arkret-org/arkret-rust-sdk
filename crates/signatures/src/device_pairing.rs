@@ -338,7 +338,7 @@ mod tests {
         verify_server_device_pairing_challenge(&public_key, &challenge, &proof, verification_time)
             .unwrap();
 
-        let mut tampered = challenge.clone();
+        let mut tampered = challenge;
         tampered.gate_audience = "https://attacker.example".to_owned();
         assert!(matches!(
             verify_server_device_pairing_challenge(

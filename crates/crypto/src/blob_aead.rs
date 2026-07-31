@@ -3,8 +3,8 @@
 //! (whole-file AEAD).
 //!
 //! Implements `crypto-media/media-and-blob.md` §3.2 / §3.3 against the wire
-//! shape in [`blob.schema.json#/$defs/encrypted_attachment`](../../artifacts/schemas/blob.schema.
-//! json).
+//! shape in `blob.schema.json#/$defs/encrypted_attachment` (`artifacts/schemas/blob.schema.
+//! json`).
 //!
 //! This module is security-sensitive. Every §3.3.6 decrypt MUST is mapped to
 //! a dedicated reject path with the spec `reason_code` surfaced via

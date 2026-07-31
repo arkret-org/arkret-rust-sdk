@@ -12,6 +12,10 @@ use serde_json::Value;
 use crate::Result;
 
 /// Build an unsigned controller-executed `ak.agent.key.authorize` Event draft.
+// Every parameter is a distinct protocol-required binding on the authorize
+// Event; collapsing them into one input struct would hide which of them the
+// caller may omit.
+#[allow(clippy::too_many_arguments)]
 pub fn build_agent_key_authorize_event(
     payload: &AgentKeyAuthorizePayload,
     event_id: EventId,
@@ -107,7 +111,7 @@ pub fn build_agent_pause_event(
         transition: "pause".to_owned(),
         previous_status: "active".to_owned(),
         status_changed_at,
-        reason: reason.clone(),
+        reason,
     })?;
     build_agent_lifecycle_event(AgentLifecycleEventInput {
         kind: EventKind::SELF_AGENT_PAUSE,
@@ -185,7 +189,7 @@ pub fn build_agent_deactivate_event(
         transition: "deactivate".to_owned(),
         previous_status: previous_status.to_owned(),
         status_changed_at,
-        reason: reason.clone(),
+        reason,
     })?;
     build_agent_lifecycle_event(AgentLifecycleEventInput {
         kind: EventKind::SELF_AGENT_DEACTIVATE,
@@ -327,7 +331,7 @@ mod tests {
             EventId::new("ak:event:01970000-0000-7000-8000-000000000022".to_owned()).unwrap(),
             scope(),
             agent_id.clone(),
-            controller_id.clone(),
+            controller_id,
             DidUrl::new(format!("{agent_id}#managed-controller")).unwrap(),
             7,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
@@ -435,7 +439,7 @@ mod tests {
         assert_eq!(pause.payload["reason"], "user_requested");
 
         let resume = build_agent_resume_event(
-            agent_id.clone(),
+            agent_id,
             controller_id,
             scope(),
             authorization_ref,
@@ -459,7 +463,7 @@ mod tests {
             resume.actor_id.clone(),
             resume.executed_by.clone().unwrap(),
             scope(),
-            DidUrl::new(resume.authorization_ref.clone().unwrap()).unwrap(),
+            DidUrl::new(resume.authorization_ref.unwrap()).unwrap(),
             AgentLifecycleState::Paused,
             Some("user_requested".to_owned()),
             10,

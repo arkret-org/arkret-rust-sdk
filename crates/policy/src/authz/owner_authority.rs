@@ -76,10 +76,7 @@ pub fn action_grants_authority_for(holder_action: &str, child_action: &str) -> R
         return Ok(true);
     }
     let holder = descriptor(holder_action)?;
-    Ok(holder
-        .grant_authority_actions
-        .iter()
-        .any(|action| *action == child_action))
+    Ok(holder.grant_authority_actions.contains(&child_action))
 }
 
 /// True when the Realm owner aggregate may sign a grant for `child_action`

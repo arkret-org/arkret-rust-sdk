@@ -1,7 +1,7 @@
 //! RFC 7515 detached JWS verifier — Ed25519 only (DID-resolver-driven).
 //!
 //! The verify / DID-resolve / replay-window half of the SDK detached-JWS
-//! surface. It is coupled to the [`DidResolver`](crate::DidResolver) trait and
+//! surface. It is coupled to the [`DidResolver`] trait and
 //! this crate's [`IdentityError`](crate::IdentityError), so it lives here rather
 //! than in `arkret-signatures` (which owns only the resolver-free
 //! `arkret_signatures::jws::sign_jws_ed25519` signer). The umbrella exposes

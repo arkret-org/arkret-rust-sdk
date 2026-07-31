@@ -374,6 +374,9 @@ pub struct UnableToDecryptRecord {
 /// variant corresponds 1:1 with a [`CryptoMachineRequestKind`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+// Plan-queue dispatch union: the variants mirror `CryptoMachineRequestKind`
+// 1:1, and boxing one of them would break that correspondence for callers.
+#[allow(clippy::large_enum_variant)]
 pub enum CryptoMachineRequestBody {
     UploadDeviceKeys(DeviceKeyBundle),
     QueryDeviceKeys {

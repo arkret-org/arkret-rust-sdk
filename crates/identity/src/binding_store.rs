@@ -659,7 +659,10 @@ mod tests {
                 fragment: "key-1",
                 history_head: Some("1-abc".to_owned()),
                 policy_digest: hash(0x44),
-                verified_at: Utc::now(),
+                // A protocol instant is millisecond-precision; taking a raw
+                // `Utc::now()` here would give the fixture sub-millisecond
+                // digits the constructor floors away.
+                verified_at: arkret_canonical::canonical::normalize_timestamp_canonical(Utc::now()),
                 refresh_after: None,
                 expires_at: None,
                 status: DidBindingStatus::Active,

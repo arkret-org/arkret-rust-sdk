@@ -400,7 +400,7 @@ impl Client {
     /// Open the bounded NDJSON Event stream.
     ///
     /// The response is read incrementally where the transport exposes the body
-    /// and after close where it does not — see [`crate::subscribe_body`]. Both
+    /// and after close where it does not — see `subscribe_body`. Both
     /// are the same conformant bounded response; the choice only decides how
     /// soon a frame reaches the caller, and the caller's reconnect loop is
     /// unchanged either way.

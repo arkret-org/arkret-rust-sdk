@@ -478,7 +478,7 @@ pub enum BindingError {
     /// The DID document could not be canonicalized for digesting.
     #[error("DID document canonicalization failed: {0}")]
     Canonicalization(String),
-    /// The computed digest is not a valid [`Hash`].
+    /// The computed digest is not a valid [`Hash`](struct@Hash).
     #[error("computed document digest is invalid: {0}")]
     InvalidDigest(String),
 }
@@ -490,7 +490,7 @@ pub enum BindingError {
 /// Canonical SHA-256 digest of a DID document, byte-identical to the value
 /// stored in [`CachedResolution::document_hash`](crate::CachedResolution) — the
 /// same `canonical_json_bytes` + `sha256_digest` pair, wrapped in the typed
-/// [`Hash`] newtype so it cannot be confused with an arbitrary string.
+/// [`Hash`](struct@Hash) newtype so it cannot be confused with an arbitrary string.
 pub fn document_canonical_digest(document: &DidDocument) -> Result<Hash, BindingError> {
     let bytes = canonical::canonical_json_bytes(document)
         .map_err(|error| BindingError::Canonicalization(error.to_string()))?;
@@ -540,10 +540,19 @@ pub struct VerifiedDidBindingInput {
     /// Digest of the resolver / Realm policy in force at acceptance time.
     pub policy_digest: Hash,
     /// When the verification happened.
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub verified_at: DateTime<Utc>,
     /// Background-refresh point; crossing it only marks the binding `Stale`.
+    #[serde(
+        default,
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
     pub refresh_after: Option<DateTime<Utc>>,
     /// Hard-expiry point; past it the binding no longer exists for readers.
+    #[serde(
+        default,
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     /// Closed acceptance status.
     pub status: DidBindingStatus,
@@ -601,9 +610,23 @@ impl VerifiedDidBinding {
     /// 4. a missing `history_head` / `version_id` pin with no recorded [`LimitedTrust`] state (and
     ///    vice versa).
     ///
-    /// The digest fields are typed [`Hash`] values, so `<algo>:<hex>` validity
+    /// The digest fields are typed [`Hash`](struct@Hash) values, so `<algo>:<hex>` validity
     /// and non-emptiness are already enforced by the identifier layer.
-    pub fn new(input: VerifiedDidBindingInput) -> Result<Self, BindingError> {
+    ///
+    /// The three freshness instants are floored to the canonical millisecond
+    /// precision before anything else, so the window checks below and the
+    /// serialized form agree with the value the binding keeps in memory. A
+    /// caller passing `Utc::now()` would otherwise hold sub-millisecond digits
+    /// that no round-trip through the store can preserve.
+    pub fn new(mut input: VerifiedDidBindingInput) -> Result<Self, BindingError> {
+        input.verified_at = canonical::normalize_timestamp_canonical(input.verified_at);
+        input.refresh_after = input
+            .refresh_after
+            .map(canonical::normalize_timestamp_canonical);
+        input.expires_at = input
+            .expires_at
+            .map(canonical::normalize_timestamp_canonical);
+
         if input.method != input.did.method() {
             return Err(BindingError::MethodMismatch {
                 declared: input.method.clone(),

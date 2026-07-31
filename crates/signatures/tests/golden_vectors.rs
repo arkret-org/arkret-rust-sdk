@@ -37,6 +37,7 @@ fn payload_signer_and_generic_detached_jws_signer_share_one_header_and_signature
     use arkret_identifiers::Did;
     use arkret_signatures::Ed25519PayloadSigner;
     use arkret_signatures::proof::{Ed25519DetachedJwsSigner, EventSigner};
+    use arkret_wire::DidUrl;
     use arkret_wire::signer::PayloadSigner;
 
     let seed = [7u8; 32];
@@ -50,7 +51,8 @@ fn payload_signer_and_generic_detached_jws_signer_share_one_header_and_signature
     let canonical_bytes =
         br#"{"actor_id":"did:web:alice.example","kind":"ak.member.state"}"#.to_vec();
 
-    let payload_signer = Ed25519PayloadSigner::from_did_key_seed(seed, did, vm);
+    let payload_signer =
+        Ed25519PayloadSigner::from_did_key_seed(seed, did, DidUrl::new(vm).unwrap());
     let signature = payload_signer.sign_payload(&canonical_bytes).unwrap();
 
     // The JWS header segment MUST be the canonical alg=EdDSA header.

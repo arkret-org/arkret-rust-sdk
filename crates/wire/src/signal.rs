@@ -459,6 +459,9 @@ impl SignalEnvelope {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+// Tagged wire union; boxing a variant changes the public constructor shape
+// without changing the JSON.
+#[allow(clippy::large_enum_variant)]
 pub enum SignalStreamFrame {
     Signal {
         envelope: SignalEnvelope,

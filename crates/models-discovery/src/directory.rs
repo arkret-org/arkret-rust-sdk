@@ -265,9 +265,9 @@ pub enum TargetKind {
 ///
 /// `address` is a client-agnostic shareable object address in either the
 /// `web+arkret:` URI form or the HTTPS-landing fragment form (see
-/// [`crate::models::object_address::parse_address`]). `token` is present iff
+/// `object_address::parse_address`). `token` is present iff
 /// the address carries `lt=invite` or `lt=preview`; the server MUST bind it to
-/// the resolved object via [`crate::models::object_address::verify_token_target`].
+/// the resolved object via `object_address::verify_token_target`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryResolveTargetRequestBody {

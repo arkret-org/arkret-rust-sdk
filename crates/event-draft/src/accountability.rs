@@ -21,7 +21,7 @@ pub fn accountability_grant_event(
         payload.issuer.clone(),
         actor_seq,
         hlc,
-        payload_value.clone(),
+        payload_value,
     )?;
     if let Some(authorization) = authorization {
         authorization.apply_to_event(&mut event)?;

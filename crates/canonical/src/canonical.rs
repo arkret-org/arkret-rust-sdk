@@ -78,7 +78,7 @@ pub const MAX_CANONICAL_JSON_NESTING_DEPTH: usize = 64;
 /// - duplicate object keys rejected at any depth ([`parse_canonical_json`]);
 /// - every string value / object key rejected if non-NFC or containing an (escaped) `U+FEFF`;
 /// - every JSON number rejected if it falls outside the canonical integer profile or the JSON
-///   safe-integer range (reuses [`write_number`]).
+///   safe-integer range (reuses `write_number`).
 /// - raw input bytes MUST exactly equal the canonical serialization of the parsed value, rejecting
 ///   unsorted object keys, whitespace, alternate string escapes, and non-minimal number forms.
 pub fn validate_canonical_bytes(bytes: &[u8]) -> Result<()> {

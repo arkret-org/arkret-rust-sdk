@@ -561,7 +561,7 @@ fn option_narrowed(child: Option<&String>, parent: Option<&String>) -> bool {
 /// deserialize into the core authority form, is rejected as
 /// `schema_violation`.
 /// Project a single resolved capability event into the spec wire-form
-/// [`CapabilityGrant`]. The reducer runtime (`arkret-state`) owns
+/// `CapabilityGrant`. The reducer runtime (`arkret-state`) owns
 /// `RealmState`; the umbrella SDK iterates its `resolved_state` and calls
 /// this per event, keeping `arkret-policy` free of any dependency on the
 /// state runtime.

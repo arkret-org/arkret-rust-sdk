@@ -63,7 +63,7 @@ pub enum DigestError {
     /// The canonical JSON encoding failed.
     #[error("canonicalization failed: {0}")]
     Canonicalization(String),
-    /// The computed digest is not a valid [`Hash`].
+    /// The computed digest is not a valid [`Hash`](struct@Hash).
     #[error("computed digest is invalid: {0}")]
     InvalidDigest(String),
     /// A closed set carried a duplicate entry.
@@ -690,8 +690,10 @@ mod tests {
         assert_eq!(normalize_did_method_prefix("did:web"), "did:web:");
         assert_eq!(normalize_did_method_prefix(" did:web: "), "did:web:");
 
-        let mut bare = ResolverPolicy::default();
-        bare.allowed_methods = vec!["webvh".to_owned(), "web".to_owned(), "key".to_owned()];
+        let bare = ResolverPolicy {
+            allowed_methods: vec!["webvh".to_owned(), "web".to_owned(), "key".to_owned()],
+            ..Default::default()
+        };
         assert_eq!(
             bare.policy_digest().expect("digest"),
             ResolverPolicy::default().policy_digest().expect("digest"),
@@ -707,7 +709,7 @@ mod tests {
         methods.allowed_methods = vec!["did:key:".to_owned()];
         let mut roots = base.clone();
         roots.trust_roots = vec!["https://root.example".to_owned()];
-        let mut fail_mode = base.clone();
+        let mut fail_mode = base;
         fail_mode.fail_mode = ResolverFailMode::AllowCachedOnError;
 
         for (label, mutated) in [

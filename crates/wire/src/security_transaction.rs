@@ -398,6 +398,9 @@ pub struct EnrollmentAuthorityRecoveryPlan {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+// Untagged wire union; boxing a variant changes the public constructor shape
+// without changing the JSON.
+#[allow(clippy::large_enum_variant)]
 pub enum RecoveryPreparedPlan {
     CrossSigning(CrossSigningRecoveryPlan),
     EnrollmentAuthority(EnrollmentAuthorityRecoveryPlan),
@@ -450,6 +453,9 @@ pub struct BackupRotationPlan {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+// Untagged wire union; boxing a variant changes the public constructor shape
+// without changing the JSON.
+#[allow(clippy::large_enum_variant)]
 pub enum SecurityTransactionPreparedPlan {
     Recovery(RecoveryPreparedPlan),
     SecurityRotation(SecurityRotationPlan),
@@ -524,6 +530,9 @@ pub struct SecurityRotationTransactionCreateRequest {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+// Untagged wire union; boxing a variant changes the public constructor shape
+// without changing the JSON.
+#[allow(clippy::large_enum_variant)]
 pub enum SecurityTransactionCreateRequest {
     Recovery(RecoveryTransactionCreateRequest),
     SecurityRotation(SecurityRotationTransactionCreateRequest),
@@ -1199,12 +1208,12 @@ impl SecurityTransaction {
                     Some(attestation),
                 ) => {
                     attestation.validate_structural()?;
-                    let (binding, plan) = match (&self.binding, &self.prepared_plan) {
-                        (
-                            SecurityTransactionBinding::Recovery(binding),
-                            SecurityTransactionPreparedPlan::Recovery(plan),
-                        ) => (binding, plan),
-                        _ => unreachable!("kind/binding/plan closure was validated above"),
+                    let (
+                        SecurityTransactionBinding::Recovery(binding),
+                        SecurityTransactionPreparedPlan::Recovery(plan),
+                    ) = (&self.binding, &self.prepared_plan)
+                    else {
+                        unreachable!("kind/binding/plan closure was validated above")
                     };
                     let (replacement_device_id, authorize_event_id, result_generation) =
                         match (binding, plan) {
@@ -1525,20 +1534,16 @@ impl SecurityTransaction {
     pub fn recovery_authority_ticket_issue_request(
         &self,
     ) -> Result<RecoveryAuthorityTicketIssueRequest> {
-        let binding = match (&self.kind, &self.binding, &self.prepared_plan) {
-            (
-                SecurityTransactionKind::Recovery,
-                SecurityTransactionBinding::Recovery(RecoveryBinding::EnrollmentAuthority(binding)),
-                SecurityTransactionPreparedPlan::Recovery(
-                    RecoveryPreparedPlan::EnrollmentAuthority(_),
-                ),
-            ) => binding,
-            _ => {
-                return Err(Error::Protocol(
-                    "authority ticket issue request requires an enrollment-authority recovery transaction"
-                        .to_owned(),
-                ));
-            }
+        let (
+            SecurityTransactionKind::Recovery,
+            SecurityTransactionBinding::Recovery(RecoveryBinding::EnrollmentAuthority(binding)),
+            SecurityTransactionPreparedPlan::Recovery(RecoveryPreparedPlan::EnrollmentAuthority(_)),
+        ) = (&self.kind, &self.binding, &self.prepared_plan)
+        else {
+            return Err(Error::Protocol(
+                "authority ticket issue request requires an enrollment-authority recovery transaction"
+                    .to_owned(),
+            ));
         };
         if self.next_required_step != Some(SecurityTransactionStep::IssueAuthorityTicket) {
             return Err(Error::Protocol(
@@ -2146,7 +2151,7 @@ mod tests {
         };
         resource.validate_continue(&valid).unwrap();
 
-        let mut authority_resource = resource.clone();
+        let mut authority_resource = resource;
         authority_resource.next_required_step =
             Some(SecurityTransactionStep::AuthorizeRecoveryDevice);
         let missing_participant = SecurityTransactionContinueRequest {

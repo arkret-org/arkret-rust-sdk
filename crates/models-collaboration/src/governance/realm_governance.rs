@@ -4,7 +4,7 @@
 //! These types model the three new wire payloads that compose the
 //! cross-Realm governance surface:
 //!
-//! - [`RealmLink`] — `ak.realm.link` payload. Typed link between two Realm boundaries, one of eight
+//! - `RealmLink` — `ak.realm.link` payload. Typed link between two Realm boundaries, one of eight
 //!   canonical [`RealmLinkKind`] values.
 //! - [`RealmInheritancePolicy`] — `ak.realm.inheritance_policy` payload. Declares which policy
 //!   names + capability bundles a child Realm inherits from a parent Realm, capped by `max_depth`.

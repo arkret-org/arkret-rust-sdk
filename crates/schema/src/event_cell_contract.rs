@@ -473,6 +473,10 @@ fn cas_register_predecessor(event: &Event, cell: &CellRef) -> Option<Value> {
         .filter(|value| !value.is_null())
 }
 
+// The registry descriptor is destructured into its parts by the caller, and
+// each part is a separate lookup key here; re-bundling them would only move
+// the same arity behind a constructor.
+#[allow(clippy::too_many_arguments)]
 fn derive_effect_ops(
     event: &Event,
     write: &Value,
@@ -2463,7 +2467,7 @@ mod tests {
                 "call_id": call_id,
                 "state_transition": {"from": "ringing", "to": "active"},
                 "focus": {"mode": "sfu", "session_focus": "fra-1"},
-                "roster_delta": {"op": "join", "participant": participant.clone()}
+                "roster_delta": {"op": "join", "participant": participant}
             }),
         );
 
@@ -2525,7 +2529,7 @@ mod tests {
                 "call_id": call_id,
                 "recording_id": recording_id,
                 "capture_kind": "recording",
-                "result": recording_result.clone()
+                "result": recording_result
             }),
         );
         assert_eq!(
@@ -2554,7 +2558,7 @@ mod tests {
                 "call_id": call_id,
                 "recording_id": recording_id,
                 "capture_kind": "transcript",
-                "result": transcript_result.clone()
+                "result": transcript_result
             }),
         );
         assert_eq!(
@@ -2740,7 +2744,10 @@ mod tests {
         let suite = arkret_canonical::DigestSuite::Sha256;
         let baseline = derive_value_projection(&base, rule, suite).unwrap();
 
-        let mutations: [(&str, fn(&mut Event)); 4] = [
+        /// A named single-field mutation applied to an otherwise identical Event.
+        type NamedMutation = (&'static str, fn(&mut Event));
+
+        let mutations: [NamedMutation; 4] = [
             ("expires_at", |event: &mut Event| {
                 event
                     .payload
@@ -2809,7 +2816,7 @@ mod tests {
         assert_ne!(first_value, second_value);
 
         // The commitment is over the complete canonical signed payload.
-        let payload = Value::Object(first.payload.clone().into_iter().collect());
+        let payload = Value::Object(first.payload.into_iter().collect());
         let expected = arkret_canonical::sha256_digest(
             arkret_canonical::canonical_json_bytes(&payload).unwrap(),
         );

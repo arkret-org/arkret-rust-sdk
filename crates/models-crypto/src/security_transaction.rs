@@ -41,6 +41,9 @@ impl SecurityRotationLocalCommit {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
+// Untagged wire union; boxing a variant changes the public constructor shape
+// without changing the JSON.
+#[allow(clippy::large_enum_variant)]
 pub enum ClientStepAttestationArtifact {
     RecoveryReceipt(RecoveryReceipt),
     SecurityRotationLocalCommit(SecurityRotationLocalCommit),

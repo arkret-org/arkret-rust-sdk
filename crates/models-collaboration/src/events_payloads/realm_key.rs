@@ -318,13 +318,10 @@ impl RealmKeySharePayload {
         // optionals are skipped, so no `null` placeholder can reach the
         // transcript. Building the object field-by-field would let the
         // transcript drift from the wire shape whenever the payload changes.
-        let mut covered = match serde_json::to_value(self)? {
-            Value::Object(map) => map,
-            _ => {
-                return Err(Error::Protocol(
-                    "realm key share payload must serialize to a JSON object".to_owned(),
-                ));
-            }
+        let Value::Object(mut covered) = serde_json::to_value(self)? else {
+            return Err(Error::Protocol(
+                "realm key share payload must serialize to a JSON object".to_owned(),
+            ));
         };
         // The signature cannot cover itself.
         covered.remove("sender_device_signature");

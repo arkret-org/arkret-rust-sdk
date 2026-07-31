@@ -378,7 +378,7 @@ pub fn resolve_projected_write(
                 .kind()
                 == crate::lattice::LatticeKind::CasRegister
             {
-                op.from = Some(observed.clone());
+                op.from = Some(observed);
             }
             Ok(vec![ProjectionEffect {
                 cell: write.cell.clone(),

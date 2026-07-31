@@ -1,5 +1,36 @@
 # Regression review log
 
+## 2026-07-31 — `cargo clippy --fix` silently deleted a PartialEq impl from coverage
+
+- Surface: `arkret-wire` `wire_strings.rs`, test
+  `did_url_compares_against_string_types_in_both_directions`.
+- Regression: the MSRV 1.97 cleanup ran `cargo clippy --fix` over the workspace. Clippy's
+  `cmp_owned` rewrote `assert!(did_url != String::from(other))` to `assert!(did_url != other)`
+  in both directions. Each rewritten line became a character-for-character duplicate of the
+  `&str` assertion above it, so the `DidUrl`/`String` `PartialEq` impls the test exists to
+  pin stopped being exercised at all. Clippy's own warning count went to zero and the test
+  still passed, so nothing flagged the loss.
+- Detection: human read of the diff — two visibly identical `assert!` lines in a row. No gate
+  catches this: coverage is line-based and the lines still execute, just against the wrong impl.
+- Correction: reverted both lines and put `#[allow(clippy::cmp_owned)]` on the test with the
+  reason, since the owned operand *is* the subject under test.
+- Prevention dimension: `--fix` output is a patch to review, never a result to accept on the
+  strength of a clean warning count. Lints that "simplify" an expression (`cmp_owned`,
+  `redundant_clone`, `useless_conversion`) are the dangerous class inside test bodies, where
+  the discarded conversion is often the assertion's whole point. Review those hunks
+  individually; a hunk that makes two adjacent assertions identical is the tell.
+- Second finding from the same sweep, downstream: in `inkson`
+  `views/chat/composer.rs`, `useless_conversion` rewrote a closure body inside a Leptos
+  `view!` macro and left `api.sdk_http_client()})` on one line. The rewrite was semantically
+  correct, but `rustfmt` does not format macro interiors, so the damage survived a clean
+  `cargo fmt`. After running `--fix` on a repo with heavy macro usage, read the diff for
+  collapsed delimiters — a formatter pass will not surface them.
+- Cheap mechanical check that would have caught both: after `--fix`, diff each changed file
+  against `HEAD` as sorted sets of trimmed non-blank lines. Pure reformatting and code motion
+  cancel out, so what remains is exactly the lines whose *content* changed — the set worth
+  reading by hand. That is how the 110-line `state/seal.rs` `items_after_test_module` move was
+  confirmed to be a pure relocation.
+
 ## 2026-07-30 — generated FSM bindings still lacked executable transition semantics
 
 - Surface: `arkret-lattice-registry` FSM construction used by Move/Seal verification.

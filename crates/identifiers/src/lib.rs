@@ -289,7 +289,7 @@ fn is_cell_subject_segment(segment: &str) -> bool {
 /// Validate the `ak:trust_domain:<scope>` wire form. Scope MUST be lowercase
 /// `[a-z0-9._:-]` (alphanumerics + dot/dash/underscore/colon), max 128 chars,
 /// non-empty. Round R2/R3 (2026-05-20). Spec: id-kind-registry.json
-/// special_forms[trust_domain]; pattern matches cross-signing-reset.schema.json
+/// `special_forms[trust_domain]`; pattern matches cross-signing-reset.schema.json
 /// `^ak:trust_domain:[a-z0-9][a-z0-9._\-:]{0,127}$`.
 ///
 /// Zero-allocation public validator for the trust-domain wire form. This is

@@ -74,7 +74,7 @@ impl DidKeyLogEntry {
     /// Build an unsigned entry and seal its `head_event_digest`
     /// (§3.1.3: canonical digest of the entry without `proofs` /
     /// `head_event_digest`). Attach controller proofs afterwards via
-    /// [`DidKeyLogEntry::attach_controller_proof`].
+    /// `DidKeyLogEntry::attach_controller_proof`.
     pub fn build(
         did: Did,
         seq: u64,

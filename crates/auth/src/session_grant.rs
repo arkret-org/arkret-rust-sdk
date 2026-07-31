@@ -1,6 +1,6 @@
 //! Session-grant request builders for the human / OIDC login proof kinds.
 //!
-//! Parallels [`crate::agent::agent_key_proof_session_grant_request`] (the agent
+//! Parallels `agent_key_proof_session_grant_request` (the agent
 //! runtime proof kind) so every signature-based `SessionGrantProofKind` has a
 //! first-class SDK constructor and callers do not hand-assemble
 //! `SessionGrantRequestBody`. The signature-based kinds

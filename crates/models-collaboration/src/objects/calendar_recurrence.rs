@@ -68,9 +68,17 @@ pub struct CalendarOccurrence {
     pub local_start: String,
     /// All-day end date, or the local rendering of the elapsed-duration end.
     pub local_end: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
     pub start_instant: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
     pub end_instant: Option<DateTime<Utc>>,
 }
 
@@ -588,10 +596,10 @@ fn recurrence_candidates(
             } else {
                 i64::try_from(dates.len()).map_err(|_| date_overflow())? + i64::from(*position)
             };
-            if let Ok(index) = usize::try_from(index) {
-                if let Some(date) = dates.get(index) {
-                    selected.insert(*date);
-                }
+            if let Ok(index) = usize::try_from(index)
+                && let Some(date) = dates.get(index)
+            {
+                selected.insert(*date);
             }
         }
         dates = selected.into_iter().collect();
@@ -942,8 +950,10 @@ mod tests {
         .expand_occurrences(&request("2026-03-07T00:00:00", "2026-03-10T00:00:00", 100))
         .unwrap();
         assert_eq!(
-            spring.occurrences[1].start_instant.unwrap().to_rfc3339(),
-            "2026-03-08T07:30:00+00:00"
+            arkret_canonical::format_timestamp_canonical(
+                spring.occurrences[1].start_instant.unwrap()
+            ),
+            "2026-03-08T07:30:00.000Z"
         );
         assert_eq!(
             spring.occurrences[1].occurrence,
@@ -960,8 +970,10 @@ mod tests {
         .expand_occurrences(&request("2026-10-31T00:00:00", "2026-11-03T00:00:00", 100))
         .unwrap();
         assert_eq!(
-            fall.occurrences[1].start_instant.unwrap().to_rfc3339(),
-            "2026-11-01T05:30:00+00:00"
+            arkret_canonical::format_timestamp_canonical(
+                fall.occurrences[1].start_instant.unwrap()
+            ),
+            "2026-11-01T05:30:00.000Z"
         );
         assert_eq!(fall.occurrences.len(), 3);
     }

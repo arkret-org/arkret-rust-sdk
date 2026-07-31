@@ -246,8 +246,7 @@ impl DidWebvhResolver {
             verify_document_matches_webvh_head(document, &verified.head_state)?;
         }
         self.raw_logs.insert(did.clone(), verified.raw_entries);
-        self.raw_log_bytes
-            .insert(did.clone(), response.body.clone());
+        self.raw_log_bytes.insert(did.clone(), response.body);
         self.logs.insert(did.clone(), entries.clone());
         Ok(entries)
     }

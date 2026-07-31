@@ -121,7 +121,7 @@ pub const DEFAULT_BACKUP_VERSION: &str = "kb_1";
 /// `key` is the bare Argon2id output — the *root* key. Per
 /// key-management.md §7.1 it MUST NOT be used directly as an AEAD key;
 /// AEAD/nonce/commitment subkeys are derived from it via HKDF with
-/// domain-separated `info` strings (see [`derive_aead_subkey`] etc.).
+/// domain-separated `info` strings (see `derive_aead_subkey` etc.).
 ///
 /// The struct zeroizes `key` on drop and renders its `Debug` with the
 /// key redacted so it never leaks into logs or backtraces.

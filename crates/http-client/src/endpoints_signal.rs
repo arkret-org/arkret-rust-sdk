@@ -101,7 +101,7 @@ impl Client {
     ///
     /// A Signal is momentary — a call invite, a typing indicator — so this is
     /// the rail that suffers most from reading the bounded response only after
-    /// it closes. [`crate::subscribe_body`] reads it incrementally wherever the
+    /// it closes. `subscribe_body` reads it incrementally wherever the
     /// transport exposes the body and falls back only when it does not.
     pub async fn signal_subscribe_frames(&self) -> Result<SignalSubscribeFrameStream> {
         use futures_util::StreamExt;

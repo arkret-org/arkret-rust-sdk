@@ -1349,7 +1349,7 @@ pub fn embedded_error_code_reason_codes() -> Result<Vec<String>> {
 /// sub-reasons carry `applies_to` and live under `reason_codes`. Some curated
 /// `REASON_*` constants (e.g. the Reaction and direct-conversation sub-reasons)
 /// are registered by the spec under `codes` rather than `reason_codes`, so the
-/// cross-check in [`crate::error`] resolves against this union to avoid false
+/// cross-check in `crate::error` resolves against this union to avoid false
 /// drift on the array a given identifier happens to be filed under.
 pub fn embedded_error_code_identifiers() -> Result<BTreeSet<String>> {
     let registry = read_embedded_json_artifact("registry/error-code-registry.json")?;

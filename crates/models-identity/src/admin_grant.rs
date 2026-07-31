@@ -7,7 +7,7 @@
 //! a signed admin operation to the operator's identity.
 //!
 //! This is the pure introspection **data** half of the per-admin signing model;
-//! the KeyStore-backed [`arkret_keystore`]-consuming behavior (addressing signing
+//! the KeyStore-backed `arkret_keystore`-consuming behavior (addressing signing
 //! keys by `(application_id, admin_did)`) lives in `arkret-auth` as
 //! `AdminKeyStore`.
 

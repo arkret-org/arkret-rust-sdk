@@ -470,10 +470,8 @@ impl SealStore for MemorySealStore {
                 .is_some_and(|(current_holder, _, current_fence)| {
                     current_holder == holder && *current_fence == fence
                 });
-        if matches {
-            if let Some((_, lease_until, _)) = inner.signing_leases.get_mut(&key) {
-                *lease_until = i64::MIN;
-            }
+        if matches && let Some((_, lease_until, _)) = inner.signing_leases.get_mut(&key) {
+            *lease_until = i64::MIN;
         }
         Ok(matches)
     }

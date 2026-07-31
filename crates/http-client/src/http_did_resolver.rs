@@ -14,7 +14,7 @@
 //! Concurrency: async callers use [`HttpDidResolver::resolve_did_async`]
 //! (native awaits, no helper threads). The sync [`DidResolver`] impl drives
 //! the same future without deadlocking any runtime flavor (see
-//! [`HttpDidResolver::drive`]). Concurrent resolutions of the same DID are
+//! `HttpDidResolver::drive`). Concurrent resolutions of the same DID are
 //! single-flighted: one network fetch, every waiter shares the result.
 
 use std::collections::BTreeMap;
@@ -163,7 +163,7 @@ impl HttpDidResolver {
     /// [`Self::resolve_did_async`], which awaits the fetch natively.
     /// The sync path blocks the calling thread for the duration of the
     /// fetch (bounded by the request timeout) but never deadlocks; see
-    /// [`Self::drive`] for the runtime-flavor handling.
+    /// `drive` for the runtime-flavor handling.
     pub fn new() -> Result<Self> {
         Self::with_policy(ResolverPolicy::default())
     }
@@ -631,7 +631,7 @@ impl DidResolver for HttpDidResolver {
 
     /// Sync facade over [`Self::resolve_did_async`]. Blocks the calling
     /// thread for the duration of the fetch (bounded by the request
-    /// timeout); see [`Self::drive`] for why this is deadlock-free on every
+    /// timeout); see `drive` for why this is deadlock-free on every
     /// runtime flavor. Async callers should use
     /// [`Self::resolve_did_async`] directly.
     fn resolve_did(&self, did: &Did) -> arkret_identity::Result<ResolvedDid> {

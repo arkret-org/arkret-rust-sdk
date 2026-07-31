@@ -750,7 +750,7 @@ mod tests {
                 proofs: vec![proof],
             },
             local_admin_subject: request.local_admin_subject.clone(),
-            requested_scopes: request.requested_scopes.clone(),
+            requested_scopes: request.requested_scopes,
             handle_attestation: None,
         };
         assert!(

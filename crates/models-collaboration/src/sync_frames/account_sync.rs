@@ -607,7 +607,7 @@ pub struct MemberRosterEntry {
     pub identity_event_ids: Vec<EventId>,
     /// R3.2 rename of the prior `identity_state_digest` roster field.
     /// Digest over effective identity events + visible handle-claim
-    /// digests; see [`member_display_state_digest`].
+    /// digests; see `member_display_state_digest`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub member_display_state_digest: Option<Hash>,
     /// Optional inline effective `ak.member.identity.update` Event

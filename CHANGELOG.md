@@ -13,6 +13,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Raised the minimum supported Rust version from `1.96` to `1.97`, and pinned
+  every CI job and the compile baseline to the same toolchain.
+- `VerifiedDidBindingInput.{verified_at,refresh_after,expires_at}` and
+  `CalendarOccurrence.{start_instant,end_instant}` now serialize through the
+  canonical UTC-millisecond timestamp adapter instead of chrono's default
+  RFC 3339 encoding, matching the rest of the wire surface.
 - Repaired the registry-derived surface gate so it regenerates and checks the
   actual wire-base, policy, and schema outputs, including event kinds.
 - Renamed the Rust enum variant `MediaIceCredentialType::Oauth` to

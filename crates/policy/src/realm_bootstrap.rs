@@ -354,7 +354,7 @@ mod tests {
         assert_eq!(
             proof,
             RealmAuthorityRootProof::StagedGenesis {
-                create_event_id: create.event_id.clone()
+                create_event_id: create.event_id
             }
         );
         assert_eq!(proof.authorization_ref(), REALM_AUTHORITY_ROOT_CELL);

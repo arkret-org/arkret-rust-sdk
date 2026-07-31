@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 /// Wire form: `<prepared-localpart>:<lowercase-A-label-domain>`.
 ///
 /// `acct:<localpart>@<domain>` remains an interop alias only and lives in
-/// [`HandleClaim::handle_aliases`]; the `@` mention sigil is not part of
+/// `HandleClaim::handle_aliases`; the `@` mention sigil is not part of
 /// this field.
 ///
 /// Spec source: `string-profiles.schema.json#/$defs/canonical_handle`.

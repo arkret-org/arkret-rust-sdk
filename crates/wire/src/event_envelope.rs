@@ -1182,7 +1182,7 @@ mod event_wire_surface_tests {
         let event = base_event();
         let baseline = event.event_digest().unwrap();
 
-        let mut stamped = event.clone();
+        let mut stamped = event;
         stamped.actor_kind = Some(EnvelopeActorKind::Agent);
 
         assert_eq!(baseline, stamped.event_digest().unwrap());

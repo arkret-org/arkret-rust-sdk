@@ -152,7 +152,7 @@ pub struct ParsedAddress {
 }
 
 impl ParsedAddress {
-    /// The resolved [`TargetKind`](crate::models::TargetKind)-equivalent class.
+    /// The resolved `TargetKind`-equivalent class.
     pub fn is_realm(&self) -> bool {
         self.strand.is_none()
     }

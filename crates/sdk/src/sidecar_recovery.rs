@@ -63,9 +63,9 @@ pub fn recover_agent_sidecar_context_locators(
         let Some(circle_id) = matching_sidecar_circle(event, &sidecars_by_circle) else {
             continue;
         };
-        let payload = match event.typed_payload::<StrandCreatePayload>(EventKind::STRAND_CREATE) {
-            Ok(payload) => payload,
-            Err(_) => continue,
+        let Ok(payload) = event.typed_payload::<StrandCreatePayload>(EventKind::STRAND_CREATE)
+        else {
+            continue;
         };
         if payload.object.realm_id != event.realm_id
             || payload.object.created_by != event.actor_id
@@ -100,11 +100,11 @@ pub fn recover_agent_sidecar_context_locators(
             {
                 continue;
             }
-            let payload =
-                match event.typed_payload::<RelationCreatePayload>(EventKind::RELATION_CREATE) {
-                    Ok(payload) => payload,
-                    Err(_) => continue,
-                };
+            let Ok(payload) =
+                event.typed_payload::<RelationCreatePayload>(EventKind::RELATION_CREATE)
+            else {
+                continue;
+            };
             if payload.relation.kind != AGENT_SIDECAR_OF {
                 continue;
             }

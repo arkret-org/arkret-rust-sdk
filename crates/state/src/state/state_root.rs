@@ -138,7 +138,7 @@ pub fn verify_state_inclusion_proof(
     let mut width = leaf_count;
     let mut siblings = inclusion_proof.iter();
     while width > 1 {
-        let has_sibling = if index % 2 == 0 {
+        let has_sibling = if index.is_multiple_of(2) {
             index + 1 < width
         } else {
             true
@@ -148,7 +148,7 @@ pub fn verify_state_inclusion_proof(
                 return Ok(false);
             };
             let sibling = raw_from_hash(sibling)?;
-            current = if index % 2 == 0 {
+            current = if index.is_multiple_of(2) {
                 node_hash(current, sibling)
             } else {
                 node_hash(sibling, current)
@@ -303,7 +303,7 @@ mod tests {
         let digest = state_value_leaf_digest(&cell, &value).unwrap();
         assert_eq!(
             digest,
-            hash_from_raw(leaf_hash(&cell, &CellState::Value(value.clone())).unwrap()).unwrap()
+            hash_from_raw(leaf_hash(&cell, &CellState::Value(value)).unwrap()).unwrap()
         );
         assert_ne!(
             digest,

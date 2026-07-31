@@ -2425,7 +2425,7 @@ pub(crate) fn resolve_local_to_instant(
                             .to_owned(),
                     )
                 })?;
-            let offset = before.offset().clone();
+            let offset = *before.offset();
             let utc = local
                 - chrono::TimeDelta::seconds(i64::from(
                     chrono::Offset::fix(&offset).local_minus_utc(),

@@ -256,10 +256,7 @@ mod tests {
         let ops = vec![
             SealedOp::new(move_id(1), set_op(declaration.clone())),
             SealedOp::new(move_id(2), supersede_op(tombstone.clone(), declaration)),
-            SealedOp::new(
-                move_id(3),
-                supersede_op(redeclaration.clone(), tombstone.clone()),
-            ),
+            SealedOp::new(move_id(3), supersede_op(redeclaration.clone(), tombstone)),
         ];
         assert_eq!(
             CasRegister.join(&cell(), &ops),

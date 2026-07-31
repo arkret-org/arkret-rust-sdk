@@ -24,7 +24,7 @@
 //! transitively via `event_digest` (they are top-level Envelope fields).
 //!
 //! The companion verification path is
-//! [`arkret_signatures::verify_eddsa_detached_jws_proof`]
+//! [`crate::proof::verify_eddsa_detached_jws_proof`]
 //! (`crates/signatures/src/proof.rs`), which rebuilds the same binding
 //! object via [`arkret_wire::Proof::canonical_binding_bytes`].
 
@@ -79,7 +79,7 @@ impl SignEventOptions {
 /// `audience` are folded into the [`Proof`] envelope and verified by
 /// [`Proof::validate_binding`].
 ///
-/// The produced [`Proof::payload_digest`] equals
+/// The produced `Proof::payload_digest` equals
 /// [`arkret_wire::Event::event_digest`].
 ///
 /// Refuses to append if `event.proofs` already contains a [`Proof`]

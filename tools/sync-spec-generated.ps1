@@ -99,6 +99,15 @@ try {
         'crates/schema/src/generated',
         'crates/lattice-registry/src/generated'
     )
+    # Directories a generator actually writes into are derived from the manifest
+    # rather than only listed here, so retiring or relocating an output cannot
+    # leave its old directory unscanned. The literals above stay as the floor:
+    # a directory whose last declared output was removed must keep being swept.
+    $generatedRoots = @(
+        $generatedRoots + @(
+            $declaredOutputs | ForEach-Object { ($_ -replace '/[^/]+$', '') }
+        ) | Sort-Object -Unique
+    )
     foreach ($relativeRoot in $generatedRoots) {
         $root = Join-Path $repoRoot $relativeRoot
         if (!(Test-Path -LiteralPath $root)) {
@@ -110,9 +119,19 @@ try {
                 return
             }
             $relative = $_.FullName.Substring($repoRoot.Length + 1).Replace('\', '/')
-            if ($relative -notin $declaredOutputs) {
+            if ($relative -in $declaredOutputs) {
+                return
+            }
+            # A `@generated` file the manifest no longer declares is a leftover
+            # of a retired generator entry. Synchronizing removes it in the same
+            # pass that writes the current outputs, so a generation run leaves
+            # exactly the declared set behind. `-Check` must not mutate the
+            # tracked tree, so there it stays a hard CI failure.
+            if ($Check) {
                 throw "stale or undeclared generated output: $relative"
             }
+            Remove-Item -LiteralPath $_.FullName -Force
+            Write-Host "Removed stale generated output: $relative"
         }
     }
 

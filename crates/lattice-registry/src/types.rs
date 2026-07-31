@@ -125,7 +125,7 @@ impl std::error::Error for LatticeKindError {}
 ///
 /// Each impl owns one `cell_family` (e.g. `ak.component.consent.v1`),
 /// declares the lattice algebra that resolves it (one of the six
-/// spec-normative lattices from [`crate::lattice::LatticeKind`]), and
+/// spec-normative lattices from `arkret_state::lattice::LatticeKind`), and
 /// exposes subject-derivation + post-resolution validation hooks.
 /// Move/Seal receive pipeline iterates sealed Moves, groups effects
 /// by `(cell_family, cell_subject)`, and dispatches to the matching

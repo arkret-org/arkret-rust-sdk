@@ -74,7 +74,7 @@ pub const fn service_routes() -> &'static [ServiceRoute] {
     &SERVICE_ROUTES
 }
 
-/// Application-owned trait the [`router`] factory dispatches to.
+/// Application-owned trait the `router` factory dispatches to.
 ///
 /// Implementations focus on business logic; the factory handles HTTP
 /// dispatch, body deserialization, Idempotency-Key extraction and
@@ -82,7 +82,7 @@ pub const fn service_routes() -> &'static [ServiceRoute] {
 /// trait is object-safe for the `Arc<dyn AppletHandler>` wiring the
 /// router uses.
 pub trait AppletHandler: Send + Sync + 'static {
-    /// Resolve one DID verification method used by the [`router`] factory to authenticate inbound
+    /// Resolve one DID verification method used by the `router` factory to authenticate inbound
     /// `POST /_arkret/edge/applet/transactions` pushes.
     ///
     /// The router resolves both the source service DID's HTTP message
@@ -103,7 +103,7 @@ pub trait AppletHandler: Send + Sync + 'static {
     fn describe(&self) -> Result<ServiceDescribe>;
     /// `POST /_arkret/edge/applet/transactions`
     ///
-    /// The [`router`] factory only dispatches here **after** it has
+    /// The `router` factory only dispatches here **after** it has
     /// verified the inbound HTTP message signature against the source
     /// service DID, independently verified every Event proof, and claimed
     /// the idempotency window for this delivery. A failed verification is

@@ -860,6 +860,12 @@ mod tests {
         assert!(DidUrl::new("did:web:x").is_err());
     }
 
+    // The owned operands are the point: this case exists to exercise the
+    // `DidUrl`/`String` `PartialEq` impls in both directions. Taking clippy's
+    // "compare against the borrow instead" advice would silently collapse each
+    // of those two lines into a duplicate of the `&str` case above it and drop
+    // the impl from coverage.
+    #[allow(clippy::cmp_owned)]
     #[test]
     fn did_url_compares_against_string_types_in_both_directions() {
         let did_url = DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1").unwrap();

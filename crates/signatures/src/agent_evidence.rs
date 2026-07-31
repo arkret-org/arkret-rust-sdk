@@ -340,6 +340,10 @@ pub fn build_agent_signing_key_binding(
     Ok(binding)
 }
 
+// Each `expected_*` parameter is a separate value the caller must have
+// established independently; bundling them would let one unverified field ride
+// in on another's provenance.
+#[allow(clippy::too_many_arguments)]
 pub fn verify_agent_signing_key_binding(
     binding: &AgentSigningKeyBinding,
     expected_agent_id: &Did,
@@ -975,8 +979,8 @@ mod tests {
                 .signing_key_binding
                 .agent_key_authorize_event_id
                 .clone(),
-            transition_event_id: transition_event_id.clone(),
-            transition_key_id: transition_key_id.clone(),
+            transition_event_id,
+            transition_key_id,
             accepted_frontier: frontier,
             seal_id: transition_seal.id.clone(),
             state_root: transition_seal.state_root.clone(),
@@ -1385,7 +1389,7 @@ mod tests {
             AgentSignerEvidenceVerdict::Unresolved(AgentEvidenceUnresolvedReason::Stale)
         );
 
-        let mut rollback_evidence = active.clone();
+        let mut rollback_evidence = active;
         let rollback_head = fixture_seal(hash('9'), "01970e589d21-0006-a13f9c2e", vec![]);
         rollback_evidence.seal_lineage.push(rollback_head);
         let rollback = FixtureValidationContext::new(&binding, &rollback_evidence);

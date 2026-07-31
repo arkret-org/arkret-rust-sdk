@@ -7,7 +7,7 @@
 //!
 //! Naming note: this module's [`LatticeKind`] is the *trait* declaring
 //! which lattice algebra owns a given `cell_family`; the SDK's
-//! [`crate::lattice::LatticeKind`] is the *enum* listing the six
+//! `arkret_state::lattice::LatticeKind` is the *enum* listing the six
 //! normative algebras themselves. Impls below dispatch a `cell_family`
 //! → `crate::lattice::LatticeKind` enum mapping plus a typed
 //! subject-derivation function.

@@ -9,7 +9,7 @@
 //! | counter | grows with | who drives it |
 //! | --- | --- | --- |
 //! | `signature_verify_count` | every signed object ingested | [`verify_jws_with_document`] / [`verify_jws_with_binding`] / [`verify_event_proof_with_binding`] |
-//! | `authority_network_call_count` | §4 trigger scenarios only | [`resolve_and_verify_binding`] / [`resolve_and_verify_binding_with_evidence`] |
+//! | `authority_network_call_count` | §4 trigger scenarios only | [`resolve_and_verify_binding`] |
 //!
 //! # Picking the right ordinary entry point
 //!
@@ -26,7 +26,7 @@
 //! verifications and **0** resolver calls. That property is enforced at the type
 //! level here, not by convention: [`verify_jws_with_document`] and
 //! [`verify_jws_with_binding`] take no
-//! [`DidResolver`](crate::DidResolver) parameter at all, so they physically
+//! [`DidResolver`] parameter at all, so they physically
 //! cannot reach the network. `crates/identity/tests/binding_resolver_spy.rs`
 //! proves the same thing with a counting resolver.
 //!
@@ -141,7 +141,7 @@ pub enum BindingVerifyError {
 /// Verify a detached Ed25519 JWS against an **already-pinned** DID document.
 ///
 /// Zero network calls by construction: this function has no
-/// [`DidResolver`](crate::DidResolver) parameter, so it cannot resolve anything
+/// [`DidResolver`] parameter, so it cannot resolve anything
 /// even by mistake.
 ///
 /// Checks, in order:
@@ -304,7 +304,7 @@ pub fn public_key_material_from_binding(
 /// ([`arkret_signatures::verify_eddsa_detached_jws_proof`]) and only replaces
 /// where the key comes from: the binding's pinned document instead of a live
 /// resolver. Zero network calls by construction — there is no
-/// [`DidResolver`](crate::DidResolver) parameter.
+/// [`DidResolver`] parameter.
 ///
 /// Checks, in order:
 ///
@@ -641,6 +641,15 @@ fn freshness_satisfies(observed: &BindingFreshness, required: &FreshnessRequirem
 
 #[cfg(test)]
 mod tests {
+
+    /// A protocol instant is millisecond-precision, and
+    /// `VerifiedDidBinding::new` floors its freshness window to it. A raw
+    /// `Utc::now()` here would leave a fixture holding sub-millisecond digits
+    /// the binding cannot carry, so window assertions would compare against a
+    /// value no store could return.
+    fn protocol_now() -> DateTime<Utc> {
+        arkret_canonical::canonical::normalize_timestamp_canonical(Utc::now())
+    }
     use std::collections::BTreeMap;
 
     use arkret_signatures::jws::sign_jws_ed25519;
@@ -703,7 +712,7 @@ mod tests {
                 evidence_digest: receipt.digest().expect("digest"),
                 evidence_dependencies: receipt.evidence_dependencies().expect("dependencies"),
                 policy_digest: hash(0x44),
-                verified_at: Utc::now(),
+                verified_at: protocol_now(),
                 refresh_after: None,
                 expires_at: None,
                 status: DidBindingStatus::Active,
@@ -1375,8 +1384,8 @@ mod tests {
         let resolver =
             OneShotResolver::with_evidence(document(&format!("{}#key-1", did())), webvh_evidence());
         let store = InMemoryVerifiedDidBindingStore::default();
-        let accepted =
-            resolve_and_verify_binding(&resolver, &store, &request(), Utc::now()).expect("resolve");
+        let accepted = resolve_and_verify_binding(&resolver, &store, &request(), protocol_now())
+            .expect("resolve");
 
         assert_eq!(
             accepted.binding().evidence_digest(),
@@ -1402,8 +1411,8 @@ mod tests {
         let resolver =
             OneShotResolver::with_evidence(document(&format!("{}#key-1", did())), webvh_evidence());
         let store = InMemoryVerifiedDidBindingStore::default();
-        let accepted =
-            resolve_and_verify_binding(&resolver, &store, &request(), Utc::now()).expect("resolve");
+        let accepted = resolve_and_verify_binding(&resolver, &store, &request(), protocol_now())
+            .expect("resolve");
 
         let witness =
             Did::new("did:webvh:z6mkfixture:witness.example".to_owned()).expect("valid did");
@@ -1429,7 +1438,7 @@ mod tests {
             ),
             &store,
             &request(),
-            Utc::now(),
+            protocol_now(),
         )
         .expect("resolve");
         assert_eq!(pinned.binding().limited_trust(), None);
@@ -1440,7 +1449,7 @@ mod tests {
             &OneShotResolver::new(document(&format!("{}#key-1", did()))),
             &proofless_store,
             &request(),
-            Utc::now(),
+            protocol_now(),
         )
         .expect("resolve");
         assert_eq!(
@@ -1457,7 +1466,7 @@ mod tests {
         let resolver =
             OneShotResolver::with_evidence(document(&format!("{}#key-1", did())), webvh_evidence());
         let store = InMemoryVerifiedDidBindingStore::default();
-        let now = Utc::now();
+        let now = protocol_now();
 
         let first = resolve_and_verify_binding(&resolver, &store, &request(), now).expect("first");
         let second =
@@ -1477,7 +1486,7 @@ mod tests {
     fn the_freshness_profile_drives_every_window() {
         let resolver = OneShotResolver::new(document(&format!("{}#key-1", did())));
         let store = InMemoryVerifiedDidBindingStore::default();
-        let now = Utc::now();
+        let now = protocol_now();
         let request = request();
         let accepted =
             resolve_and_verify_binding(&resolver, &store, &request, now).expect("resolve");

@@ -11,8 +11,8 @@ use crate::http_bodies::AppletTransactionRequestBody;
 /// Applet service transaction with an explicit idempotency key.
 ///
 /// Deduplication of these deliveries lives in one place:
-/// [`arkret_server::IdempotencyWindow`], keyed by the spec 5-tuple
-/// [`arkret_server::IdempotencyIdentity`] (`applet-integration.md`
+/// `arkret_server::IdempotencyWindow`, keyed by the spec 5-tuple
+/// `arkret_server::IdempotencyIdentity` (`applet-integration.md`
 /// §7.3).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletServiceTransaction {

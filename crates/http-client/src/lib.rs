@@ -335,7 +335,7 @@ impl RetryConfig {
 
     /// Spec-default backoff (api-conventions.md §9): first retry ≥ 1000 ms,
     /// factor 2, capped at 60 000 ms, 0–20% jitter, and at most
-    /// [`SPEC_MAX_DEFAULT_RETRIES`] retries (`max_retries` is clamped).
+    /// `SPEC_MAX_DEFAULT_RETRIES` retries (`max_retries` is clamped).
     pub fn standard(max_retries: usize) -> Self {
         Self {
             max_retries: max_retries.min(SPEC_MAX_DEFAULT_RETRIES),

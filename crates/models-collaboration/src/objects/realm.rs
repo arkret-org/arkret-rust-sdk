@@ -528,8 +528,8 @@ impl Realm {
                 "seal_compaction_max_interval_ms must be within 5 minutes..=7 days".to_owned(),
             ));
         }
-        if let Some(policy) = &self.availability_policy {
-            if !(1..=16).contains(&policy.min_holders)
+        if let Some(policy) = &self.availability_policy
+            && (!(1..=16).contains(&policy.min_holders)
                 || policy.holder_roles.is_empty()
                 || policy.applies_to.is_empty()
                 || policy
@@ -543,12 +543,11 @@ impl Realm {
                     .iter()
                     .collect::<std::collections::BTreeSet<_>>()
                     .len()
-                    != policy.applies_to.len()
-            {
-                return Err(Error::Protocol(
-                    "Realm availability_policy violates its bounded unique-set contract".to_owned(),
-                ));
-            }
+                    != policy.applies_to.len())
+        {
+            return Err(Error::Protocol(
+                "Realm availability_policy violates its bounded unique-set contract".to_owned(),
+            ));
         }
         if let Some(policy) = &self.audit_policy {
             let witness_count = policy.range_completeness_witnesses.len();

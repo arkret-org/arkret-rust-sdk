@@ -48,7 +48,7 @@ const CONTENT_KEY_LABEL: &str = arkret_wire::ExporterLabelId::CONTENT_V1;
 
 /// AEAD parameters an `aead_profile` fixes, shared by both MLS-exporter-derived
 /// AEAD domains: `mls_exporter_aead_v1` content (this module) and
-/// `ak.signal_exporter_aead.v1` ([`crate::signal`]).
+/// `ak.signal_exporter_aead.v1` (`crate::signal`).
 ///
 /// `encoding.md` §10.1 splits the `aead_profile` vocabulary by how the key was
 /// obtained, not by which envelope carries it: application-layer HPKE sealing
@@ -1446,8 +1446,8 @@ impl ArkretMlsGroup {
     }
 
     /// Stage an incoming by-reference MLS proposal so a subsequent
-    /// [`apply_commit`] that references it (e.g. a Remove commit produced by
-    /// [`remove_member_by_principal`]) can resolve `MissingProposal`.
+    /// `apply_commit` that references it (e.g. a Remove commit produced by
+    /// `remove_member_by_principal`) can resolve `MissingProposal`.
     ///
     /// The commit envelope produced for Remove carries the proposals
     /// out-of-band in [`MlsRemoveMemberResult::proposals`]; surviving members

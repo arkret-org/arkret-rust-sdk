@@ -72,6 +72,9 @@ pub struct CallParticipantRemoval {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
+// Tagged wire union; boxing a variant changes the public constructor shape
+// without changing the JSON.
+#[allow(clippy::large_enum_variant)]
 pub enum CallRosterDelta {
     Join {
         participant: CallParticipant,

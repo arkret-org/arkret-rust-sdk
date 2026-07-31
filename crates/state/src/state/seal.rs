@@ -89,7 +89,7 @@ impl From<super::store::StoreError> for SealReject {
 /// Apply one Seal per `event-auth-state-resolution.md` §6.3.
 ///
 /// `verify_proofs` and `project_writes` are injected for the same reasons
-/// [`verify_control_move`] takes them: signature verification lives in
+/// `verify_control_move` takes them: signature verification lives in
 /// `arkret-signatures`, and the registry-driven projection evaluator lives in
 /// `arkret-schema`, which this crate may not depend on. `project_writes` is
 /// the *only* source of cell targets and lattice operations — step 10's
@@ -125,6 +125,9 @@ where
 /// the complete closed anchor unit. This layer cannot own that registry-backed
 /// whitelist, but it still requires an empty predecessor view and applies all
 /// other Seal and reducer checks.
+// Four independent stores plus two caller-supplied verification closures; a
+// bundling struct would only move the same arity behind a constructor.
+#[allow(clippy::too_many_arguments)]
 pub fn apply_seal_in_context<VerifyProofs, ProjectWrites>(
     seal: &Seal,
     events: &dyn ControlEventStore,
@@ -298,7 +301,7 @@ where
 /// inside the receiving Seal's predecessor closure, and its two declared
 /// roots must equal the roots the receiver recomputes over that leaf view.
 ///
-/// This is split out of [`verify_control_move`] because it is the only part
+/// This is split out of `verify_control_move` because it is the only part
 /// of §5.1 that needs the Seal DAG; the rest is a pure function of the Event
 /// and the frozen pre-state.
 pub fn verify_seal_basis(
@@ -539,7 +542,7 @@ pub fn control_event_completeness_root(
 
     let mut leaf_data = Vec::with_capacity(by_actor.len());
     for (actor_id, mut actor_events) in by_actor {
-        actor_events.sort_by(|left, right| left.cmp(right));
+        actor_events.sort();
         let from_seq = actor_events
             .first()
             .map(|(sequence, _)| *sequence)
@@ -707,6 +710,59 @@ pub fn view_hash(leaves: &[SealId]) -> Result<Hash, crate::Error> {
     let bytes = canonical::canonical_json_bytes(&json)?;
     Hash::new(canonical::sha256_digest(&bytes))
         .map_err(|e| crate::Error::Protocol(format!("invalid view_hash: {e}")))
+}
+/// Join one cell's ops, routing `ordered_log` to its issuer-aware entry point.
+///
+/// `event-auth-state-resolution.md` §9.3.1 scopes ordered-log sequences to
+/// `(effect.cell, actor_id)`, so this lattice cannot be joined through the
+/// issuer-free `Lattice::join`: that path has no way to separate sub-chains
+/// and would stamp a synthetic issuer into the `state_root` leaf.
+pub fn join_cell(
+    lattice: &dyn crate::lattice::Lattice,
+    cell: &CellRef,
+    ops: &[IssuedOp],
+) -> CellState {
+    if lattice.kind() == crate::lattice::LatticeKind::OrderedLog {
+        return crate::lattice::OrderedLog.join_with_issuers(cell, ops);
+    }
+    let sealed: Vec<SealedOp> = ops.iter().map(|issued| issued.op.clone()).collect();
+    lattice.join(cell, &sealed)
+}
+
+/// Join accepted operations while preserving frozen-predecessor Seal batches.
+///
+/// `mv_register` writes in a successor Seal causally replace the previous head,
+/// and multiple writes inside one Seal share one predecessor view and therefore
+/// remain sibling heads; that lattice carries no predecessor on the op, so the
+/// Seal batch is the only causal signal it has. Every other core lattice —
+/// `cas_register` included since §9.3.1 gave its `set` ops an explicit
+/// `op.from` — consumes the full accepted history, because its join already
+/// models ordered supersession, ordered transitions or commutative
+/// accumulation. Truncating `cas_register` to the last batch would strip the
+/// predecessors its chain walk needs and turn every replacement into a dangling
+/// supersession.
+pub fn join_cell_seal_batches(
+    lattice: &dyn crate::lattice::Lattice,
+    cell: &CellRef,
+    batches: &[Vec<IssuedOp>],
+) -> CellState {
+    match lattice.kind() {
+        crate::lattice::LatticeKind::MvRegister => batches
+            .iter()
+            .rev()
+            .find(|ops| !ops.is_empty())
+            .map_or_else(
+                || lattice.join(cell, &[]),
+                |ops| join_cell(lattice, cell, ops),
+            ),
+        _ => {
+            let ops = batches
+                .iter()
+                .flat_map(|ops| ops.iter().cloned())
+                .collect::<Vec<_>>();
+            join_cell(lattice, cell, &ops)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -936,8 +992,7 @@ mod tests {
             .collect::<BTreeSet<_>>();
         let forward =
             control_event_completeness_root(&[alice.clone(), bob.clone()], &covered).unwrap();
-        let reverse =
-            control_event_completeness_root(&[bob.clone(), alice.clone()], &covered).unwrap();
+        let reverse = control_event_completeness_root(&[bob, alice.clone()], &covered).unwrap();
         assert_eq!(forward, reverse);
         assert_ne!(forward, control_event_set_root(&covered).unwrap());
         assert!(control_event_completeness_root(&[alice], &covered).is_err());
@@ -1695,59 +1750,5 @@ mod tests {
             join_cell_seal_batches(&lattice, &cell, &siblings),
             CellState::Bottom(_)
         ));
-    }
-}
-
-/// Join one cell's ops, routing `ordered_log` to its issuer-aware entry point.
-///
-/// `event-auth-state-resolution.md` §9.3.1 scopes ordered-log sequences to
-/// `(effect.cell, actor_id)`, so this lattice cannot be joined through the
-/// issuer-free [`Lattice::join`]: that path has no way to separate sub-chains
-/// and would stamp a synthetic issuer into the `state_root` leaf.
-pub fn join_cell(
-    lattice: &dyn crate::lattice::Lattice,
-    cell: &CellRef,
-    ops: &[IssuedOp],
-) -> CellState {
-    if lattice.kind() == crate::lattice::LatticeKind::OrderedLog {
-        return crate::lattice::OrderedLog.join_with_issuers(cell, ops);
-    }
-    let sealed: Vec<SealedOp> = ops.iter().map(|issued| issued.op.clone()).collect();
-    lattice.join(cell, &sealed)
-}
-
-/// Join accepted operations while preserving frozen-predecessor Seal batches.
-///
-/// `mv_register` writes in a successor Seal causally replace the previous head,
-/// and multiple writes inside one Seal share one predecessor view and therefore
-/// remain sibling heads; that lattice carries no predecessor on the op, so the
-/// Seal batch is the only causal signal it has. Every other core lattice —
-/// `cas_register` included since §9.3.1 gave its `set` ops an explicit
-/// `op.from` — consumes the full accepted history, because its join already
-/// models ordered supersession, ordered transitions or commutative
-/// accumulation. Truncating `cas_register` to the last batch would strip the
-/// predecessors its chain walk needs and turn every replacement into a dangling
-/// supersession.
-pub fn join_cell_seal_batches(
-    lattice: &dyn crate::lattice::Lattice,
-    cell: &CellRef,
-    batches: &[Vec<IssuedOp>],
-) -> CellState {
-    match lattice.kind() {
-        crate::lattice::LatticeKind::MvRegister => batches
-            .iter()
-            .rev()
-            .find(|ops| !ops.is_empty())
-            .map_or_else(
-                || lattice.join(cell, &[]),
-                |ops| join_cell(lattice, cell, ops),
-            ),
-        _ => {
-            let ops = batches
-                .iter()
-                .flat_map(|ops| ops.iter().cloned())
-                .collect::<Vec<_>>();
-            join_cell(lattice, cell, &ops)
-        }
     }
 }

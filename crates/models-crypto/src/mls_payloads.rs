@@ -974,7 +974,7 @@ impl MediaDecryptPolicyValue {
 /// by the MLS governance binding, satisfying `media-service-binding.md` section 8.2
 /// rule 5.
 ///
-/// The returned [`Hash`] is wire-form (`sha256:<hex>`) and can be passed
+/// The returned [`Hash`](struct@Hash) is wire-form (`sha256:<hex>`) and can be passed
 /// straight to [`MlsGovernanceBindingPayload::with_discussion_metadata_digest`].
 pub fn derive_media_decrypt_metadata_digest(value: &MediaDecryptPolicyValue) -> Result<Hash> {
     let canonical_bytes = canonical::canonical_json_bytes(&value.canonical_value())?;

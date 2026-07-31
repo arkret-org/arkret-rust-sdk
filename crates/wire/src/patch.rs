@@ -295,7 +295,7 @@ impl Patch {
     ///   or present more than once. None of the three degenerates into a no-op.
     ///
     /// Selector segments (`field[key="value"]`) are refused; see
-    /// [`parse_object_path`].
+    /// `parse_object_path`.
     ///
     /// Redactable-field and reducer-managed-field protection run first, per
     /// §4.3.1 step 1: a path hitting either set is rejected immediately.
@@ -548,9 +548,8 @@ fn descend_mut<'a>(
 ) -> Result<&'a mut Value> {
     let mut current = root;
     for segment in segments {
-        let object = match current {
-            Value::Object(object) => object,
-            _ => return Err(not_an_object(path, segment)),
+        let Value::Object(object) = current else {
+            return Err(not_an_object(path, segment));
         };
         if !object.contains_key(segment) {
             if !create_missing {

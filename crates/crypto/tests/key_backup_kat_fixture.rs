@@ -18,7 +18,7 @@ use arkret_models_crypto::{BackupKind, KeyBackupDomainSeparationAad};
 use arkret_schema::embedded_json_artifact;
 use chacha20poly1305::ChaCha20Poly1305;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
-use chrono::{DateTime, SecondsFormat, Utc};
+use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
@@ -77,9 +77,11 @@ fn unlock_proof_kat_opens_to_the_declared_canonical_plaintext() {
 
     let envelope = &case["envelope"];
     let transcript = &case["crypto_transcript"];
-    let created_at = DateTime::parse_from_rfc3339(str_field(envelope, "created_at"))
-        .expect("envelope created_at parses")
-        .to_rfc3339_opts(SecondsFormat::Millis, true);
+    let created_at = arkret_canonical::format_timestamp_canonical(
+        DateTime::parse_from_rfc3339(str_field(envelope, "created_at"))
+            .expect("envelope created_at parses")
+            .with_timezone(&Utc),
+    );
     let aad_value = json!({
         "actor_id": envelope["actor_id"],
         "backup_id": envelope["backup_id"],
@@ -122,7 +124,7 @@ fn unlock_proof_kat_opens_to_the_declared_canonical_plaintext() {
     );
     assert_eq!(tag.len(), 16, "Poly1305 tag length");
 
-    let mut ciphertext_and_tag = ciphertext.clone();
+    let mut ciphertext_and_tag = ciphertext;
     ciphertext_and_tag.extend_from_slice(&tag);
     assert_eq!(
         arkret_canonical::base64url_encode(&ciphertext_and_tag),
