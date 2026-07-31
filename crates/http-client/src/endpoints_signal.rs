@@ -98,65 +98,36 @@ impl Client {
     }
 
     /// Open the cursorless, no-catch-up Signal NDJSON receive rail.
-    #[cfg(not(target_arch = "wasm32"))]
+    ///
+    /// A Signal is momentary — a call invite, a typing indicator — so this is
+    /// the rail that suffers most from reading the bounded response only after
+    /// it closes. [`crate::subscribe_body`] reads it incrementally wherever the
+    /// transport exposes the body and falls back only when it does not.
     pub async fn signal_subscribe_frames(&self) -> Result<SignalSubscribeFrameStream> {
         use futures_util::StreamExt;
-        use tokio_util::codec::{FramedRead, LinesCodec};
-        use tokio_util::io::StreamReader;
 
         let response = self.signal_subscribe_stream().await?;
-        let byte_stream = response
-            .bytes_stream()
-            .map(|chunk| chunk.map_err(std::io::Error::other));
-        let reader = StreamReader::new(byte_stream);
-        let lines = FramedRead::new(
-            reader,
-            LinesCodec::new_with_max_length(crate::MAX_SUBSCRIBE_FRAME_BYTES),
-        );
-        let stream = lines.filter_map(|line_result| async move {
-            match line_result {
-                Ok(line) if line.trim().is_empty() => None,
-                Ok(line) => {
-                    Some(serde_json::from_str::<SignalStreamFrame>(&line).map_err(Error::from))
-                }
-                Err(error) => Some(Err(Error::Protocol(format!(
-                    "signal subscribe line read failed: {error}"
-                )))),
-            }
-        });
+        let inner: BoxSignalSubscribeFrameStream =
+            if crate::subscribe_body::streaming_bodies_available() {
+                Box::pin(
+                    crate::subscribe_body::ndjson_lines(response.bytes_stream()).map(|line| {
+                        line.and_then(|line| {
+                            serde_json::from_str::<SignalStreamFrame>(&line).map_err(Error::from)
+                        })
+                    }),
+                )
+            } else {
+                let frames = crate::subscribe_body::bounded_response_lines(response)
+                    .await?
+                    .into_iter()
+                    .map(|line| {
+                        serde_json::from_str::<SignalStreamFrame>(&line).map_err(Error::from)
+                    })
+                    .collect::<Vec<_>>();
+                Box::pin(futures_util::stream::iter(frames))
+            };
         Ok(SignalSubscribeFrameStream {
-            inner: Box::pin(stream),
-            terminal: false,
-            failed: false,
-        })
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    pub async fn signal_subscribe_frames(&self) -> Result<SignalSubscribeFrameStream> {
-        let response = self.signal_subscribe_stream().await?;
-        let bytes = response
-            .bytes()
-            .await
-            .map_err(crate::client_internals::transport_error)?;
-        if bytes.len() > crate::client_internals::MAX_RESPONSE_BODY_BYTES {
-            return Err(Error::Protocol(
-                "signal subscribe buffered response exceeds limit".to_owned(),
-            ));
-        }
-        let text = std::str::from_utf8(&bytes).map_err(|error| {
-            Error::Protocol(format!("signal subscribe response is not UTF-8: {error}"))
-        })?;
-        let mut frames = Vec::new();
-        for line in text.lines().filter(|line| !line.trim().is_empty()) {
-            if line.len() > crate::MAX_SUBSCRIBE_FRAME_BYTES {
-                return Err(Error::Protocol(
-                    "signal subscribe frame exceeds limit".to_owned(),
-                ));
-            }
-            frames.push(serde_json::from_str::<SignalStreamFrame>(line).map_err(Error::from));
-        }
-        Ok(SignalSubscribeFrameStream {
-            inner: Box::pin(futures_util::stream::iter(frames)),
+            inner,
             terminal: false,
             failed: false,
         })

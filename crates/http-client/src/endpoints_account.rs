@@ -22,7 +22,6 @@ use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeSnapshotResult,
 };
 use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
-#[cfg(not(target_arch = "wasm32"))]
 use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceValidator;
 use arkret_models_discovery::ServiceDescribe;
 use arkret_models_identity::{
@@ -37,19 +36,19 @@ use arkret_wire::{
     PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, PayloadSigner,
 };
 use chrono::{Duration, Utc};
-#[cfg(not(target_arch = "wasm32"))]
-use reqwest::Response;
 use reqwest::header::CONTENT_TYPE;
-use reqwest::{Method, RequestBuilder};
+use reqwest::{Method, RequestBuilder, Response};
 
-use crate::client_internals::{transport_error, trim_ascii};
-use crate::{
-    AccountSubscribeFolder, Client, ClientRequestOptions, Error, MAX_SUBSCRIBE_FRAME_BYTES, Result,
-};
+use crate::client_internals::trim_ascii;
+use crate::{AccountSubscribeFolder, Client, ClientRequestOptions, Error, Result};
 
 #[cfg(not(target_arch = "wasm32"))]
 type BoxAccountSubscribeFrameStream =
     std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<AccountSubscribeFrame>> + Send>>;
+
+#[cfg(target_arch = "wasm32")]
+type BoxAccountSubscribeFrameStream =
+    std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<AccountSubscribeFrame>>>>;
 
 const DID_PROOF_FRESHNESS_WINDOW_SECS: i64 = 300;
 
@@ -129,14 +128,12 @@ where
 }
 
 /// Validated account-subscribe frame stream bound to its request context.
-#[cfg(not(target_arch = "wasm32"))]
 pub struct AccountSubscribeFrameStream {
     inner: BoxAccountSubscribeFrameStream,
     trace: StreamTraceValidator,
     failed: bool,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl AccountSubscribeFrameStream {
     pub async fn next_frame(&mut self) -> Result<Option<AccountSubscribeFrame>> {
         use futures_util::StreamExt;
@@ -362,7 +359,6 @@ impl Client {
         Ok(builder)
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     async fn account_subscribe(
         &self,
         request: &SyncRequestBody,
@@ -456,29 +452,24 @@ impl Client {
 
         let catchup = request.catchup.unwrap_or(false);
         let mut folder = AccountSubscribeFolder::for_request(request);
-        let mut stream = response.bytes_stream();
-        let mut buffer: Vec<u8> = Vec::new();
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(transport_error)?;
-            buffer.extend_from_slice(&chunk);
-            while let Some(newline) = buffer.iter().position(|byte| *byte == b'\n') {
-                let line: Vec<u8> = buffer.drain(..=newline).collect();
-                if let Some(frame) = decode_subscribe_line(&line)?
+        if crate::subscribe_body::streaming_bodies_available() {
+            let lines = crate::subscribe_body::ndjson_lines(response.bytes_stream());
+            let mut lines = std::pin::pin!(lines);
+            while let Some(line) = lines.next().await {
+                if let Some(frame) = decode_subscribe_line(line?.as_bytes())?
                     && push_frame(&mut folder, frame, catchup)?
                 {
                     return finish_folder(folder);
                 }
             }
-            if buffer.len() > MAX_SUBSCRIBE_FRAME_BYTES {
-                return Err(Error::Protocol(
-                    "account subscribe frame exceeds maximum line size".to_owned(),
-                ));
+        } else {
+            for line in crate::subscribe_body::bounded_response_lines(response).await? {
+                if let Some(frame) = decode_subscribe_line(line.as_bytes())?
+                    && push_frame(&mut folder, frame, catchup)?
+                {
+                    return finish_folder(folder);
+                }
             }
-        }
-        // Stream ended; the trailing bytes may hold one last unterminated
-        // frame.
-        if let Some(frame) = decode_subscribe_line(&buffer)? {
-            push_frame(&mut folder, frame, catchup)?;
         }
         finish_folder(folder)
     }
@@ -487,11 +478,6 @@ impl Client {
     /// one [`AccountSubscribeFrame`] per line; transient per-line
     /// decode errors surface as `Err` items but the stream continues
     /// until the underlying HTTP body ends.
-    ///
-    /// Native-only — the wasm32 fetch backend's response streaming
-    /// shape is incompatible with the `bytes_stream` codec pipeline
-    /// used here.
-    #[cfg(not(target_arch = "wasm32"))]
     pub async fn account_subscribe_frames(
         &self,
         request: &SyncRequestBody,
@@ -500,44 +486,40 @@ impl Client {
             .await
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     pub async fn account_subscribe_frames_with_options(
         &self,
         request: &SyncRequestBody,
         options: &ClientRequestOptions,
     ) -> Result<AccountSubscribeFrameStream> {
         use futures_util::StreamExt;
-        use tokio_util::codec::{FramedRead, LinesCodec};
-        use tokio_util::io::StreamReader;
 
         let response = self.account_subscribe(request, options).await?;
-        let byte_stream = response
-            .bytes_stream()
-            .map(|chunk| chunk.map_err(std::io::Error::other));
-        let reader = StreamReader::new(byte_stream);
-        // Bound the per-line buffer so a hostile / misbehaving server that
-        // never emits a newline can't drive unbounded memory growth (DoS).
-        // Matches `account_subscribe_batch`'s 8 MiB cap; over-limit lines
-        // surface as `LinesCodecError::MaxLineLengthExceeded`, mapped to
-        // `Error::Protocol` in the `Err` arm below.
-        let lines = FramedRead::new(
-            reader,
-            LinesCodec::new_with_max_length(MAX_SUBSCRIBE_FRAME_BYTES),
-        );
-        let stream = lines.filter_map(|line_res| async move {
-            match line_res {
-                Ok(line) => match AccountSubscribeFrame::from_ndjson_line(&line) {
-                    Ok(Some(frame)) => Some(Ok(frame)),
-                    Ok(None) => None,
-                    Err(err) => Some(Err(err.into())),
-                },
-                Err(err) => Some(Err(Error::Protocol(format!(
-                    "account subscribe line read failed: {err}"
-                )))),
-            }
-        });
+        let inner: BoxAccountSubscribeFrameStream =
+            if crate::subscribe_body::streaming_bodies_available() {
+                Box::pin(
+                    crate::subscribe_body::ndjson_lines(response.bytes_stream()).filter_map(
+                        |line| async move {
+                            match line.and_then(|line| {
+                                AccountSubscribeFrame::from_ndjson_line(&line).map_err(Error::from)
+                            }) {
+                                Ok(Some(frame)) => Some(Ok(frame)),
+                                Ok(None) => None,
+                                Err(error) => Some(Err(error)),
+                            }
+                        },
+                    ),
+                )
+            } else {
+                let mut frames = Vec::new();
+                for line in crate::subscribe_body::bounded_response_lines(response).await? {
+                    if let Some(frame) = AccountSubscribeFrame::from_ndjson_line(&line)? {
+                        frames.push(Ok(frame));
+                    }
+                }
+                Box::pin(futures_util::stream::iter(frames))
+            };
         Ok(AccountSubscribeFrameStream {
-            inner: Box::pin(stream),
+            inner,
             trace: StreamTraceValidator::new(
                 request.catchup.unwrap_or(false),
                 request.after.clone(),

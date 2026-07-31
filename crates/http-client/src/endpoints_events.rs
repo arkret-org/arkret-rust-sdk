@@ -397,77 +397,46 @@ impl Client {
         self.send_response(builder).await
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
+    /// Open the bounded NDJSON Event stream.
+    ///
+    /// The response is read incrementally where the transport exposes the body
+    /// and after close where it does not — see [`crate::subscribe_body`]. Both
+    /// are the same conformant bounded response; the choice only decides how
+    /// soon a frame reaches the caller, and the caller's reconnect loop is
+    /// unchanged either way.
     pub async fn events_subscribe_frames(
         &self,
         options: &EventsSubscribeOptions,
     ) -> Result<EventsSubscribeFrameStream> {
         use futures_util::StreamExt;
-        use tokio_util::codec::{FramedRead, LinesCodec};
-        use tokio_util::io::StreamReader;
 
         let response = self.events_subscribe_stream_with_options(options).await?;
-        let byte_stream = response
-            .bytes_stream()
-            .map(|chunk| chunk.map_err(std::io::Error::other));
-        let reader = StreamReader::new(byte_stream);
-        let lines = FramedRead::new(
-            reader,
-            LinesCodec::new_with_max_length(crate::MAX_SUBSCRIBE_FRAME_BYTES),
-        );
-        let stream = lines.filter_map(|line_res| async move {
-            match line_res {
-                Ok(line) => match EventsSubscribeFrame::from_ndjson_line(&line) {
-                    Ok(Some(frame)) => Some(Ok(frame)),
-                    Ok(None) => None,
-                    Err(err) => Some(Err(err.into())),
-                },
-                Err(err) => Some(Err(Error::Protocol(format!(
-                    "events subscribe line read failed: {err}"
-                )))),
-            }
-        });
+        let inner: BoxEventsSubscribeFrameStream =
+            if crate::subscribe_body::streaming_bodies_available() {
+                Box::pin(
+                    crate::subscribe_body::ndjson_lines(response.bytes_stream()).filter_map(
+                        |line| async move {
+                            match line.and_then(|line| {
+                                EventsSubscribeFrame::from_ndjson_line(&line).map_err(Error::from)
+                            }) {
+                                Ok(Some(frame)) => Some(Ok(frame)),
+                                Ok(None) => None,
+                                Err(error) => Some(Err(error)),
+                            }
+                        },
+                    ),
+                )
+            } else {
+                let mut frames = Vec::new();
+                for line in crate::subscribe_body::bounded_response_lines(response).await? {
+                    if let Some(frame) = EventsSubscribeFrame::from_ndjson_line(&line)? {
+                        frames.push(Ok(frame));
+                    }
+                }
+                Box::pin(futures_util::stream::iter(frames))
+            };
         Ok(EventsSubscribeFrameStream {
-            inner: Box::pin(stream),
-            trace: StreamTraceValidator::new(
-                options.catchup.unwrap_or(false),
-                options.after.clone(),
-            ),
-            failed: false,
-        })
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    pub async fn events_subscribe_frames(
-        &self,
-        options: &EventsSubscribeOptions,
-    ) -> Result<EventsSubscribeFrameStream> {
-        let response = self.events_subscribe_stream_with_options(options).await?;
-        let bytes = response
-            .bytes()
-            .await
-            .map_err(crate::client_internals::transport_error)?;
-        if bytes.len() > crate::client_internals::MAX_RESPONSE_BODY_BYTES {
-            return Err(Error::Protocol(
-                "events subscribe buffered response exceeds limit".to_owned(),
-            ));
-        }
-        let text = std::str::from_utf8(&bytes).map_err(|error| {
-            Error::Protocol(format!("events subscribe response is not UTF-8: {error}"))
-        })?;
-        let mut frames = Vec::new();
-        for line in text.lines() {
-            if line.len() > crate::MAX_SUBSCRIBE_FRAME_BYTES {
-                return Err(Error::Protocol(
-                    "events subscribe frame exceeds limit".to_owned(),
-                ));
-            }
-            if let Some(frame) = EventsSubscribeFrame::from_ndjson_line(line)? {
-                frames.push(Ok(frame));
-            }
-        }
-        Ok(EventsSubscribeFrameStream {
-            inner: Box::pin(futures_util::stream::iter(frames)),
+            inner,
             trace: StreamTraceValidator::new(
                 options.catchup.unwrap_or(false),
                 options.after.clone(),
