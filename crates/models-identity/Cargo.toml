@@ -24,6 +24,7 @@ openapi = [
 
 [dependencies]
 arkret-canonical = {workspace = true}
+arkret-locale = {workspace = true,features = ["serde"]}
 arkret-wire = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 salvo-oapi = {workspace = true,optional = true}

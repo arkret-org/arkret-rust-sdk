@@ -439,6 +439,7 @@ name = "arkret-models-identity"
 version = "0.3.0"
 dependencies = [
  "arkret-canonical",
+ "arkret-locale",
  "arkret-schema",
  "arkret-wire",
  "chrono",

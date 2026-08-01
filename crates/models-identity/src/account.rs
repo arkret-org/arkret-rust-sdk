@@ -373,6 +373,14 @@ pub struct AccountHandoffOutcome {
     /// naming only. It is not principal identity evidence or authorization.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub account_handle: Handle,
+    /// Authenticated account's private UI-language preference.
+    ///
+    /// This is returned only on the DPoP-bound account-handoff response. It is
+    /// intentionally not part of the public actor profile: clients need it to
+    /// continue the just-completed sign-in in the language the user selected,
+    /// but other Realm members must never observe it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preferred_locale: Option<arkret_locale::UiLocale>,
     pub account_handoff_grant: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -637,6 +645,7 @@ mod account_handoff_tests {
         let mut outcome = AccountHandoffOutcome {
             request_id: handoff_request().request_id,
             account_handle: Handle::parse("alice:example.com").unwrap(),
+            preferred_locale: Some(arkret_locale::UiLocale::En),
             account_handoff_grant: "g".repeat(32),
             expires_at: Utc::now(),
             allowed_operations: ACCOUNT_HANDOFF_ALLOWED_OPERATIONS,
@@ -663,6 +672,7 @@ mod account_handoff_tests {
         let outcome = AccountHandoffOutcome {
             request_id: handoff_request().request_id,
             account_handle: Handle::parse("alice:example.com").unwrap(),
+            preferred_locale: Some(arkret_locale::UiLocale::Zh),
             account_handoff_grant: "g".repeat(32),
             expires_at: Utc::now(),
             allowed_operations: ACCOUNT_HANDOFF_ALLOWED_OPERATIONS,
@@ -677,5 +687,24 @@ mod account_handoff_tests {
             .unwrap()
             .insert("account_handle".to_owned(), json!("not-a-canonical-handle"));
         assert!(serde_json::from_value::<AccountHandoffOutcome>(value).is_err());
+    }
+
+    #[test]
+    fn account_handoff_locale_is_private_typed_metadata() {
+        let outcome = AccountHandoffOutcome {
+            request_id: handoff_request().request_id,
+            account_handle: Handle::parse("alice:example.com").unwrap(),
+            preferred_locale: Some(arkret_locale::UiLocale::En),
+            account_handoff_grant: "g".repeat(32),
+            expires_at: Utc::now(),
+            allowed_operations: ACCOUNT_HANDOFF_ALLOWED_OPERATIONS,
+            binding: AccountHandoffBinding::IdentityCreationBusy { retry_after_ms: 1 },
+        };
+        let value = serde_json::to_value(&outcome).unwrap();
+        assert_eq!(value["preferred_locale"], "en");
+
+        let mut unsupported = value;
+        unsupported["preferred_locale"] = json!("fr");
+        assert!(serde_json::from_value::<AccountHandoffOutcome>(unsupported).is_err());
     }
 }
