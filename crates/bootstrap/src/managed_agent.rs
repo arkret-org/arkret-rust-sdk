@@ -151,7 +151,7 @@ pub fn materialize_managed_agent_pcr_control(
             .map(|effect| {
                 (
                     effect.cell.clone(),
-                    SealedOp::new(move_id.clone(), effect.op.clone()),
+                    SealedOp::from_projection(move_id.clone(), effect),
                 )
             })
             .collect::<Vec<_>>();

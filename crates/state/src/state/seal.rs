@@ -8,7 +8,9 @@ use thiserror::Error;
 
 use super::state_root::{compute_state_root, seal_merkle_root_from_leaf_data};
 use super::store::{CellRegistry, CellStore, ControlEventStore, SealStore};
-use super::verify::verify_control_move_in_context;
+use super::verify::{
+    ControlMoveReject, recovery_capability_is_active, verify_control_move_in_context,
+};
 use crate::lattice::ordered_log::IssuedOp;
 use crate::lattice::{CellState, SealedOp};
 use crate::{CellRef, Hash, ProjectedCellWrite, RealmId, Seal, SealId, canonical};
@@ -232,12 +234,26 @@ where
             context,
         ) {
             Ok(effects) => {
+                verify_recovery_witness(
+                    &event,
+                    &effects,
+                    &seal.realm_id,
+                    &pre_state,
+                    &pred_closure,
+                    seals,
+                    cells,
+                    registry,
+                )
+                .map_err(|reject| SealReject::ControlMoveRejected {
+                    event_digest: digest.as_str().to_owned(),
+                    reason: reject.to_string(),
+                })?;
                 if context == EventSubmitContext::AnchorUnit {
                     for effect in &effects {
                         let cell_ops = staged_anchor_ops.entry(effect.cell.clone()).or_default();
                         cell_ops.push(IssuedOp {
                             issuer: event.actor_id.clone(),
-                            op: SealedOp::new(digest.clone(), effect.op.clone()),
+                            op: SealedOp::from_projection(digest.clone(), effect),
                         });
                         let binding = registry.resolve(&seal.realm_id, &effect.cell)?;
                         staged_anchor_state.insert(
@@ -266,7 +282,7 @@ where
                 effect.cell.clone(),
                 IssuedOp {
                     issuer: event.actor_id.clone(),
-                    op: SealedOp::new(digest.clone(), effect.op.clone()),
+                    op: SealedOp::from_projection(digest.clone(), effect),
                 },
             ));
         }
@@ -295,6 +311,182 @@ where
         rejected_events: Vec::new(),
         post_state_root: recomputed_state,
     })
+}
+
+const DEFAULT_RECOVERY_WITNESS_FRESHNESS_WINDOW_MS: i64 = 86_400_000;
+const MAX_RECOVERY_WITNESS_FRESHNESS_WINDOW_MS: i64 = 604_800_000;
+
+/// Validate the Seal-DAG-dependent §9.5 conflict-recovery conditions.
+///
+/// [`verify_control_move_in_context`] owns the pure checks (registered reset,
+/// target currently in `Bottom`, critical refs). This function owns the checks
+/// that require accepted Seal and cell history: witness reconstruction,
+/// pre-conflict ancestry, capability inclusion, freshness, and revoke lag.
+#[allow(clippy::too_many_arguments)]
+pub fn verify_recovery_witness(
+    event: &Event,
+    effects: &[crate::ProjectionEffect],
+    realm_id: &RealmId,
+    pre_state: &BTreeMap<CellRef, CellState>,
+    predecessor_closure: &BTreeSet<SealId>,
+    seals: &dyn SealStore,
+    cells: &dyn CellStore,
+    registry: &dyn CellRegistry,
+) -> Result<(), ControlMoveReject> {
+    let Some(reset) = effects.iter().find(|effect| effect.recovery_reset) else {
+        return Ok(());
+    };
+    let reject = |reason: &str| ControlMoveReject::FailedPrecondition {
+        cell: reset.cell.as_str().to_owned(),
+        reason: reason.to_owned(),
+    };
+    let capability_ref = event
+        .refs
+        .iter()
+        .find(|reference| reference.role == "recovery_capability" && reference.critical)
+        .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED))?;
+    let witnesses = event
+        .refs
+        .iter()
+        .filter(|reference| reference.role == "state_witness" && reference.critical)
+        .map(|reference| {
+            SealId::new(reference.id.as_str().to_owned())
+                .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if witnesses.is_empty() {
+        return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_MISSING));
+    }
+
+    let CellState::Bottom(bottom) = pre_state
+        .get(&reset.cell)
+        .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM))?
+    else {
+        return Err(reject(
+            arkret_wire::ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM,
+        ));
+    };
+    if bottom.move_ids.is_empty() {
+        return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
+    }
+
+    for witness_id in witnesses {
+        if !predecessor_closure.contains(&witness_id) {
+            return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
+        }
+        let witness = seals
+            .get(&witness_id)
+            .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?
+            .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
+        if &witness.realm_id != realm_id {
+            return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
+        }
+
+        let witness_covered = union_predecessor_covered_events(&[witness_id.clone()], seals)
+            .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
+        let witness_state =
+            effective_state_for_covered_events(&witness_covered, realm_id, cells, registry)
+                .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
+        let witness_root = compute_state_root(&witness_state)
+            .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
+        if witness_root != witness.state_root
+            || !matches!(witness_state.get(&reset.cell), Some(CellState::Value(_)))
+        {
+            return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
+        }
+        if !recovery_capability_is_active(
+            capability_ref.id.as_str(),
+            event.actor_id.as_str(),
+            &witness_state,
+        ) {
+            return Err(reject(
+                arkret_wire::ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED,
+            ));
+        }
+
+        for move_id in &bottom.move_ids {
+            let conflict_seal = predecessor_closure
+                .iter()
+                .filter_map(|seal_id| {
+                    seals
+                        .get(seal_id)
+                        .ok()
+                        .flatten()
+                        .filter(|seal| seal.delta.contains(move_id))
+                })
+                .next()
+                .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
+            let conflict_closure =
+                predecessor_seal_closure(std::slice::from_ref(&conflict_seal.id), seals)
+                    .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
+            if witness_id == conflict_seal.id || !conflict_closure.contains(&witness_id) {
+                return Err(reject(
+                    arkret_wire::ReasonCode::RECOVERY_WITNESS_POST_CONFLICT,
+                ));
+            }
+        }
+
+        let basis = event
+            .seal_basis
+            .as_ref()
+            .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
+        let mut latest_basis_time: Option<chrono::DateTime<chrono::Utc>> = None;
+        for leaf in &basis.leaves {
+            let leaf_closure = predecessor_seal_closure(std::slice::from_ref(leaf), seals)
+                .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
+            if !leaf_closure.contains(&witness_id) {
+                return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
+            }
+            let leaf_time = seals
+                .get(leaf)
+                .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?
+                .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?
+                .sealed_at;
+            latest_basis_time = Some(match latest_basis_time {
+                Some(current) => current.max(leaf_time),
+                None => leaf_time,
+            });
+        }
+        let age_ms = latest_basis_time
+            .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?
+            .signed_duration_since(witness.sealed_at)
+            .num_milliseconds();
+        let freshness_window_ms = recovery_witness_freshness_window_ms(pre_state);
+        if age_ms < 0 || age_ms > freshness_window_ms {
+            return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
+        }
+    }
+
+    if !recovery_capability_is_active(
+        capability_ref.id.as_str(),
+        event.actor_id.as_str(),
+        pre_state,
+    ) {
+        return Err(reject(
+            arkret_wire::ReasonCode::RECOVERY_WITNESS_REVOKE_LAGGING,
+        ));
+    }
+    Ok(())
+}
+
+fn recovery_witness_freshness_window_ms(pre_state: &BTreeMap<CellRef, CellState>) -> i64 {
+    pre_state
+        .iter()
+        .find_map(|(cell, state)| {
+            let cell_id = crate::CellId::parse(cell.as_str()).ok()?;
+            if cell_id.component() != "ak.component.realm.metadata.v1" {
+                return None;
+            }
+            let CellState::Value(value) = state else {
+                return None;
+            };
+            value
+                .get("recovery_witness_freshness_window_ms")
+                .and_then(Value::as_u64)
+                .and_then(|value| i64::try_from(value).ok())
+        })
+        .unwrap_or(DEFAULT_RECOVERY_WITNESS_FRESHNESS_WINDOW_MS)
+        .min(MAX_RECOVERY_WITNESS_FRESHNESS_WINDOW_MS)
 }
 
 /// §5.1 steps 2-4: the Control Move's `seal_basis` must name only Seals
@@ -722,11 +914,32 @@ pub fn join_cell(
     cell: &CellRef,
     ops: &[IssuedOp],
 ) -> CellState {
+    let ops = ops_since_last_recovery_reset(ops);
     if lattice.kind() == crate::lattice::LatticeKind::OrderedLog {
         return crate::lattice::OrderedLog.join_with_issuers(cell, ops);
     }
     let sealed: Vec<SealedOp> = ops.iter().map(|issued| issued.op.clone()).collect();
     lattice.join(cell, &sealed)
+}
+
+/// The cell's join input after `event-auth-state-resolution.md` §9.5: the
+/// suffix beginning at the last accepted recovery reset.
+///
+/// A reset is not a lattice op and does not join. §9.5 exists precisely because
+/// a `bottom=reject` cell in `⊥` cannot be converged by any further ordinary
+/// Move — so a reset that stayed in the join input would be joined **with** the
+/// concurrent branches that produced the `⊥` and the cell would still resolve
+/// to `⊥`. Discarding the prior ops is what "resolve the cell to the single
+/// legal value" means; it is also the only way to express "drop two concurrent
+/// branches" in a model whose join is a least upper bound.
+///
+/// Admission is what keeps this narrow: `resolve_projected_write` accepts a
+/// reset only against a cell already in `⊥`, and only from
+/// `ak.state.conflict_recovery`.
+fn ops_since_last_recovery_reset(ops: &[IssuedOp]) -> &[IssuedOp] {
+    ops.iter()
+        .rposition(|issued| issued.op.recovery_reset)
+        .map_or(ops, |boundary| &ops[boundary..])
 }
 
 /// Join accepted operations while preserving frozen-predecessor Seal batches.
@@ -746,6 +959,14 @@ pub fn join_cell_seal_batches(
     cell: &CellRef,
     batches: &[Vec<IssuedOp>],
 ) -> CellState {
+    // §9.5 first: a recovery reset ends the cell's prior history, so every
+    // batch before the one carrying it stops being an input. Batches accepted
+    // *after* the reset are ordinary writes on the recovered value and stay —
+    // `join_cell` then applies the same boundary inside the surviving batches.
+    let batches = batches
+        .iter()
+        .rposition(|ops| ops.iter().any(|issued| issued.op.recovery_reset))
+        .map_or(batches, |boundary| &batches[boundary..]);
     match lattice.kind() {
         crate::lattice::LatticeKind::MvRegister => batches
             .iter()
@@ -1748,6 +1969,310 @@ mod tests {
         let siblings = vec![vec![set(3, "open", None), set(4, "closed", None)]];
         assert!(matches!(
             join_cell_seal_batches(&lattice, &cell, &siblings),
+            CellState::Bottom(_)
+        ));
+    }
+
+    struct RecoveryWitnessFixture {
+        event: Event,
+        effects: Vec<crate::ProjectionEffect>,
+        pre_state: BTreeMap<CellRef, CellState>,
+        predecessor_closure: BTreeSet<SealId>,
+        seals: MemorySealStore,
+        cells: MemoryCellStore,
+        registry: MemoryCellRegistry,
+        conflict_a_id: SealId,
+    }
+
+    fn recovery_witness_fixture() -> RecoveryWitnessFixture {
+        let seals = MemorySealStore::default();
+        let cells = MemoryCellStore::default();
+        let registry = MemoryCellRegistry::default();
+        let target = CellRef::new(
+            "ak:cell:ak.component.realm.policy.v1:ak.realm.01js0sp00000000000000000aa".to_owned(),
+        )
+        .unwrap();
+        let grant_id = "ak:grant:0196410c-0000-7000-8000-000000000000";
+        let target_move = move_id(0x41);
+        let grant_move = move_id(0x42);
+        let conflict_a_move = move_id(0x51);
+        let conflict_b_move = move_id(0x52);
+        let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
+        let target_value = json!({"policy_revision": 7});
+        let grant_value = json!({
+            "grant_id": grant_id,
+            "subject": actor,
+            "actions": ["ak.state.conflict_recovery"],
+            "resources": [{"kind": "realm", "realm_id": realm()}]
+        });
+
+        let mut target_op = LatticeOp::empty();
+        target_op.op_type = LatticeOpType::Set;
+        target_op.value = Some(target_value.clone());
+        let mut grant_op = LatticeOp::empty();
+        grant_op.op_type = LatticeOpType::Add;
+        grant_op.tag = Some(grant_id.to_owned());
+        grant_op.value = Some(grant_value.clone());
+
+        let witness_id = seal_id(0x40);
+        cells
+            .append_sealed_effects(
+                &realm(),
+                &witness_id,
+                &[
+                    (
+                        target.clone(),
+                        issued(SealedOp::new(target_move.clone(), target_op)),
+                    ),
+                    (
+                        capability_cell(),
+                        issued(SealedOp::new(grant_move.clone(), grant_op)),
+                    ),
+                ],
+            )
+            .unwrap();
+        let witness_state = BTreeMap::from([
+            (target.clone(), CellState::Value(target_value)),
+            (
+                capability_cell(),
+                CellState::Value(json!([{"tag": grant_id, "value": grant_value}])),
+            ),
+        ]);
+        let mut witness = materialized_seal(
+            witness_id.clone(),
+            vec![target_move.clone(), grant_move.clone()],
+        );
+        witness.delta = vec![target_move.clone(), grant_move.clone()];
+        witness.state_root = compute_state_root(&witness_state).unwrap();
+        seals.put(&witness).unwrap();
+
+        let mut conflict_a = materialized_seal(
+            conflict_a_id(),
+            vec![
+                target_move.clone(),
+                grant_move.clone(),
+                conflict_a_move.clone(),
+            ],
+        );
+        conflict_a.predecessor_refs = vec![witness_id.clone()];
+        conflict_a.delta = vec![conflict_a_move.clone()];
+        conflict_a.state_root = witness.state_root.clone();
+        conflict_a.sealed_at += chrono::Duration::seconds(1);
+        seals.put(&conflict_a).unwrap();
+        let mut conflict_b = materialized_seal(
+            seal_id(0x52),
+            vec![target_move, grant_move, conflict_b_move.clone()],
+        );
+        conflict_b.predecessor_refs = vec![witness_id.clone()];
+        conflict_b.delta = vec![conflict_b_move.clone()];
+        conflict_b.state_root = witness.state_root.clone();
+        conflict_b.sealed_at += chrono::Duration::seconds(1);
+        seals.put(&conflict_b).unwrap();
+
+        let mut event = control_move(
+            9,
+            SealBasis {
+                leaves: vec![conflict_a.id.clone(), conflict_b.id.clone()],
+                control_event_set_root: hash(0x61),
+                state_root: hash(0x62),
+            },
+            Vec::new(),
+            vec![
+                EventRef::new(grant_id, "recovery_capability"),
+                EventRef::new(witness_id.as_str(), "state_witness"),
+            ],
+        );
+        event.kind = "ak.state.conflict_recovery".into();
+        let effects = vec![crate::ProjectionEffect::reset(
+            target.clone(),
+            LatticeOp {
+                op_type: LatticeOpType::Set,
+                tag: None,
+                value: Some(json!({"policy_revision": 8})),
+                from: None,
+                to: None,
+                reason: None,
+                issuer_seq: None,
+            },
+        )];
+        let mut bottom =
+            crate::Bottom::new(arkret_wire::BottomKind::Conflict, vec![target.clone()]);
+        bottom.move_ids = vec![conflict_a_move, conflict_b_move];
+        let pre_state = BTreeMap::from([
+            (target, CellState::Bottom(bottom)),
+            (
+                capability_cell(),
+                CellState::Value(json!([{"tag": grant_id, "value": grant_value}])),
+            ),
+        ]);
+        let predecessor_closure =
+            predecessor_seal_closure(&[conflict_a.id.clone(), conflict_b.id.clone()], &seals)
+                .unwrap();
+
+        RecoveryWitnessFixture {
+            event,
+            effects,
+            pre_state,
+            predecessor_closure,
+            seals,
+            cells,
+            registry,
+            conflict_a_id: conflict_a.id,
+        }
+    }
+
+    fn conflict_a_id() -> SealId {
+        seal_id(0x51)
+    }
+
+    #[test]
+    fn conflict_recovery_accepts_a_sealed_pre_conflict_witness() {
+        let fixture = recovery_witness_fixture();
+        verify_recovery_witness(
+            &fixture.event,
+            &fixture.effects,
+            &realm(),
+            &fixture.pre_state,
+            &fixture.predecessor_closure,
+            &fixture.seals,
+            &fixture.cells,
+            &fixture.registry,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn conflict_recovery_rejects_post_conflict_and_revoked_witnesses() {
+        let mut post_conflict = recovery_witness_fixture();
+        post_conflict
+            .event
+            .refs
+            .iter_mut()
+            .find(|reference| reference.role == "state_witness")
+            .unwrap()
+            .id = post_conflict.conflict_a_id.to_string();
+        let error = verify_recovery_witness(
+            &post_conflict.event,
+            &post_conflict.effects,
+            &realm(),
+            &post_conflict.pre_state,
+            &post_conflict.predecessor_closure,
+            &post_conflict.seals,
+            &post_conflict.cells,
+            &post_conflict.registry,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            ControlMoveReject::FailedPrecondition { reason, .. }
+                if reason == arkret_wire::ReasonCode::RECOVERY_WITNESS_POST_CONFLICT
+        ));
+
+        let mut revoked = recovery_witness_fixture();
+        revoked.pre_state.remove(&capability_cell());
+        let error = verify_recovery_witness(
+            &revoked.event,
+            &revoked.effects,
+            &realm(),
+            &revoked.pre_state,
+            &revoked.predecessor_closure,
+            &revoked.seals,
+            &revoked.cells,
+            &revoked.registry,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            ControlMoveReject::FailedPrecondition { reason, .. }
+                if reason == arkret_wire::ReasonCode::RECOVERY_WITNESS_REVOKE_LAGGING
+        ));
+    }
+
+    #[test]
+    fn recovery_freshness_uses_the_realm_default_and_seven_day_ceiling() {
+        assert_eq!(
+            recovery_witness_freshness_window_ms(&BTreeMap::new()),
+            DEFAULT_RECOVERY_WITNESS_FRESHNESS_WINDOW_MS
+        );
+        let metadata = CellRef::new(arkret_wire::REALM_METADATA_CELL.to_owned()).unwrap();
+        let state = BTreeMap::from([(
+            metadata,
+            CellState::Value(json!({"recovery_witness_freshness_window_ms": 999_999_999_i64})),
+        )]);
+        assert_eq!(
+            recovery_witness_freshness_window_ms(&state),
+            MAX_RECOVERY_WITNESS_FRESHNESS_WINDOW_MS
+        );
+    }
+
+    /// `event-auth-state-resolution.md` §9.5 — the recovery reset must produce
+    /// a cell that has actually **left** `⊥`.
+    ///
+    /// Asserting the projected op's shape is not enough, and that is the exact
+    /// gap this covers: the reset used to project as a plain `set` and was fed
+    /// into the same join as the two concurrent branches that caused the `⊥`.
+    /// The op-level assertion stayed green while the cell never recovered, so
+    /// `bottom=reject` cells were permanently dead and the only escape §9.5
+    /// defines did not exist.
+    #[test]
+    fn a_recovery_reset_lifts_a_cas_register_cell_out_of_bottom() {
+        let cell = CellRef::new(
+            "ak:cell:ak.component.realm.policy.v1:ak.realm.01js0sp00000000000000000aa".to_owned(),
+        )
+        .unwrap();
+        let op = |value: &str, from: Option<&str>| LatticeOp {
+            op_type: LatticeOpType::Set,
+            tag: None,
+            value: Some(json!(value)),
+            from: from.map(|from| json!(from)),
+            to: None,
+            reason: None,
+            issuer_seq: None,
+        };
+        let set = |id, value: &str, from: Option<&str>| {
+            issued(SealedOp::new(move_id(id), op(value, from)))
+        };
+        let reset = |id, value: &str| {
+            issued(SealedOp::from_projection(
+                move_id(id),
+                &crate::ProjectionEffect::reset(cell.clone(), op(value, None)),
+            ))
+        };
+        let lattice = crate::lattice::CasRegister;
+
+        let conflicted = vec![vec![set(1, "open", None), set(2, "closed", None)]];
+        assert!(
+            matches!(
+                join_cell_seal_batches(&lattice, &cell, &conflicted),
+                CellState::Bottom(_)
+            ),
+            "precondition: concurrent cas_register writes put the cell in ⊥"
+        );
+
+        let mut recovered = conflicted.clone();
+        recovered.push(vec![reset(3, "closed")]);
+        assert_eq!(
+            join_cell_seal_batches(&lattice, &cell, &recovered),
+            CellState::Value(json!("closed")),
+            "the reset discards both conflicting branches and resolves the cell"
+        );
+
+        // The boundary is a floor, not a freeze: ordinary writes accepted after
+        // the recovery still supersede it, chaining off the recovered value.
+        let mut superseded = recovered.clone();
+        superseded.push(vec![set(4, "archived", Some("closed"))]);
+        assert_eq!(
+            join_cell_seal_batches(&lattice, &cell, &superseded),
+            CellState::Value(json!("archived"))
+        );
+
+        // And an unmarked op with the same shape must NOT recover the cell —
+        // otherwise the gate would pass on a build where the reset marker was
+        // dropped somewhere between projection and the op log.
+        let mut unmarked = conflicted;
+        unmarked.push(vec![set(5, "closed", None)]);
+        assert!(matches!(
+            join_cell_seal_batches(&lattice, &cell, &unmarked),
             CellState::Bottom(_)
         ));
     }

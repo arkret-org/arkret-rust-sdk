@@ -225,6 +225,12 @@ where
     // Step 5: derive every write from kind + payload, then validate its shape
     // against the target cell's lattice.
     let projected = project_writes(event).map_err(ControlMoveReject::ProjectionFailed)?;
+    if projected
+        .iter()
+        .any(|write| matches!(write.op, ProjectedOp::Reset { .. }))
+    {
+        verify_recovery_refs(event)?;
+    }
     let mut effects = Vec::with_capacity(projected.len());
     for write in &projected {
         for effect in resolve_projected_write(write, realm_id, pre_state, registry)? {
@@ -241,6 +247,42 @@ where
         }
     }
     Ok(effects)
+}
+
+/// `event-auth-state-resolution.md` §9.5 condition 1 — the recovery Move MUST
+/// carry its authorization and its pre-conflict anchor as critical `refs[]`.
+///
+/// These are refs, not payload fields, so nothing in the payload schema can
+/// enforce them; without this check a Move that merely names the right kind
+/// resets a cell with no authorization and no anchor at all. Conditions 2–5
+/// (witness inclusion proof, pre-conflict causality, capability sealed under
+/// the witness, freshness / revoke lag) are frontier-dependent and belong to
+/// the Seal-accepting caller, which is the only layer holding the Seal DAG.
+fn verify_recovery_refs(event: &Event) -> Result<(), ControlMoveReject> {
+    let critical_ref = |role: &str| {
+        event
+            .refs
+            .iter()
+            .any(|reference| reference.role == role && reference.critical)
+    };
+    if !critical_ref("recovery_capability") {
+        return Err(ControlMoveReject::FailedPrecondition {
+            cell: event
+                .payload
+                .get("target_cell")
+                .and_then(Value::as_str)
+                .unwrap_or(event.realm_id.as_str())
+                .to_owned(),
+            reason: arkret_wire::ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED.to_owned(),
+        });
+    }
+    if !critical_ref("state_witness") {
+        return Err(ControlMoveReject::FailedPrecondition {
+            cell: event.realm_id.as_str().to_owned(),
+            reason: "recovery_witness_missing".to_owned(),
+        });
+    }
+    Ok(())
 }
 
 /// Resolve one projected write against the frozen pre-state.
@@ -280,10 +322,12 @@ pub fn resolve_projected_write(
         let mut op = LatticeOp::empty();
         op.op_type = LatticeOpType::Set;
         op.value = Some(value.clone());
-        return Ok(vec![ProjectionEffect {
-            cell: write.cell.clone(),
-            op,
-        }]);
+        // Marked as a reset, not merely projected as a `set`. The op vocabulary
+        // is spec-registered and has no `reset` member, so an unmarked op is
+        // indistinguishable from an ordinary write and would be *joined with*
+        // the concurrent branches that put the cell in `⊥` — leaving it in `⊥`
+        // and quietly removing the only escape §9.5 defines.
+        return Ok(vec![ProjectionEffect::reset(write.cell.clone(), op)]);
     }
     let observed = frozen_cell_value(&write.cell, realm_id, pre_state, registry)?;
     match &write.op {
@@ -306,10 +350,7 @@ pub fn resolve_projected_write(
                 binding.lattice.initial_state().unwrap_or(Value::Null)
             });
             op.to = Some(to.clone());
-            Ok(vec![ProjectionEffect {
-                cell: write.cell.clone(),
-                op,
-            }])
+            Ok(vec![ProjectionEffect::join(write.cell.clone(), op)])
         }
         ProjectedOp::ApplyPatch {
             patch,
@@ -380,10 +421,7 @@ pub fn resolve_projected_write(
             {
                 op.from = Some(observed);
             }
-            Ok(vec![ProjectionEffect {
-                cell: write.cell.clone(),
-                op,
-            }])
+            Ok(vec![ProjectionEffect::join(write.cell.clone(), op)])
         }
         ProjectedOp::RemoveObserved { element_match } => Ok(observed_remove_ops(
             &write.cell,
@@ -462,10 +500,7 @@ fn observed_remove_ops(
             let mut op = LatticeOp::empty();
             op.op_type = LatticeOpType::Remove;
             op.tag = Some(tag.to_owned());
-            ProjectionEffect {
-                cell: cell.clone(),
-                op,
-            }
+            ProjectionEffect::join(cell.clone(), op)
         })
         .collect()
 }
@@ -596,6 +631,22 @@ fn find_capability_grant(
     Err(ControlMoveReject::CapabilityDenied(format!(
         "authorized_by grant '{grant_id}' not found in pre-state capability grant cells"
     )))
+}
+
+pub(super) fn recovery_capability_is_active(
+    grant_id: &str,
+    actor_id: &str,
+    pre_state: &BTreeMap<CellRef, CellState>,
+) -> bool {
+    find_capability_grant(grant_id, pre_state).is_ok_and(|grant| {
+        !grant.is_revoked()
+            && grant.subject() == Some(actor_id)
+            && grant
+                .actions
+                .iter()
+                .any(|action| action == arkret_wire::EventKind::STATE_CONFLICT_RECOVERY)
+            && grant.has_resources()
+    })
 }
 
 fn is_capability_grant_cell(cell: &CellRef) -> bool {
@@ -744,10 +795,10 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::lattice::CellState;
+    use crate::lattice::{CellState, SealedOp};
     use crate::state::store::memory::MemoryCellRegistry;
     use crate::{
-        CellRef, Did, EventId, EventRequirements, Hlc, Precondition, PredicateOp, RealmId,
+        CellRef, Did, EventId, EventRequirements, Hash, Hlc, Precondition, PredicateOp, RealmId,
         SealBasis, SealId,
     };
 
@@ -1270,22 +1321,108 @@ mod tests {
         }
     }
 
-    #[test]
-    fn a_reset_resolves_a_cell_that_is_in_bottom() {
-        let event = control_move(vec![], vec![]);
-        let mut pre_state = BTreeMap::new();
-        pre_state.insert(
+    /// The `refs[]` §9.5 condition 1 requires on every recovery Move, matching
+    /// `cba-lattice-fixture.json`'s `conflict_recovery_move` vector.
+    fn recovery_refs() -> Vec<EventRef> {
+        vec![
+            EventRef::new(
+                "ak:grant:019641d2-2000-7000-8000-000000000000",
+                "recovery_capability",
+            ),
+            EventRef::new(
+                format!("ak:seal:sha256:{}", "cc".repeat(32)),
+                "state_witness",
+            ),
+        ]
+    }
+
+    fn recovery_move() -> Event {
+        control_move(vec![], recovery_refs())
+    }
+
+    fn bottom_policy_cell() -> BTreeMap<CellRef, CellState> {
+        BTreeMap::from([(
             cell_realm_policy(),
             CellState::Bottom(crate::Bottom::new(
                 BottomKind::Conflict,
                 vec![cell_realm_policy()],
             )),
+        )])
+    }
+
+    /// Vector case `missing_state_witness`. The anchor is a critical ref, not a
+    /// payload field, so nothing in the payload schema rejects its absence: a
+    /// Move that only named the right kind would otherwise reset a cell with no
+    /// pre-conflict anchor at all.
+    #[test]
+    fn a_reset_without_a_state_witness_ref_is_rejected() {
+        let event = control_move(
+            vec![],
+            vec![EventRef::new(
+                "ak:grant:019641d2-2000-7000-8000-000000000000",
+                "recovery_capability",
+            )],
         );
+
+        let error = verify_control_move(
+            &event,
+            &realm(),
+            &bottom_policy_cell(),
+            &MemoryCellRegistry::new(),
+            ok_proofs,
+            project(vec![reset_write(json!({"policy_revision": 8}))]),
+        )
+        .expect_err("a recovery Move without a state_witness must fail closed");
+
+        assert!(
+            matches!(
+                &error,
+                ControlMoveReject::FailedPrecondition { reason, .. }
+                    if reason == "recovery_witness_missing"
+            ),
+            "unexpected reject: {error:?}"
+        );
+    }
+
+    /// The authorization half of the same condition.
+    #[test]
+    fn a_reset_without_a_recovery_capability_ref_is_rejected() {
+        let event = control_move(
+            vec![],
+            vec![EventRef::new(
+                format!("ak:seal:sha256:{}", "cc".repeat(32)),
+                "state_witness",
+            )],
+        );
+
+        let error = verify_control_move(
+            &event,
+            &realm(),
+            &bottom_policy_cell(),
+            &MemoryCellRegistry::new(),
+            ok_proofs,
+            project(vec![reset_write(json!({"policy_revision": 8}))]),
+        )
+        .expect_err("a recovery Move without a recovery_capability must fail closed");
+
+        assert!(
+            matches!(
+                &error,
+                ControlMoveReject::FailedPrecondition { reason, .. }
+                    if reason == "recovery_capability_not_sealed"
+            ),
+            "unexpected reject: {error:?}"
+        );
+    }
+
+    #[test]
+    fn a_reset_resolves_a_cell_that_is_in_bottom() {
+        let event = recovery_move();
 
         let effects = verify_control_move(
             &event,
             &realm(),
-            &pre_state,
+            &bottom_policy_cell(),
             &MemoryCellRegistry::new(),
             ok_proofs,
             project(vec![reset_write(json!({"policy_revision": 8}))]),
@@ -1295,6 +1432,45 @@ mod tests {
         assert_eq!(effects.len(), 1);
         assert_eq!(effects[0].op.op_type, LatticeOpType::Set);
         assert_eq!(effects[0].op.value, Some(json!({"policy_revision": 8})));
+        assert!(
+            effects[0].recovery_reset,
+            "the projected effect must be marked as the §9.5 reset; a plain `set` \
+             joins with the branches that caused the ⊥ and never leaves it"
+        );
+
+        // The load-bearing assertion: the cell's resolved state, not the shape
+        // of the projected op. The op shape stayed correct throughout the
+        // period when recovery did not actually work.
+        let registry = MemoryCellRegistry::new();
+        let binding = registry.resolve(&realm(), &cell_realm_policy()).unwrap();
+        let digest = |byte: &str| Hash::new(format!("sha256:{}", byte.repeat(32))).unwrap();
+        let conflicting = |byte: &str, value: Value| crate::lattice::ordered_log::IssuedOp {
+            issuer: event.actor_id.clone(),
+            op: SealedOp::new(digest(byte), {
+                let mut op = LatticeOp::empty();
+                op.op_type = LatticeOpType::Set;
+                op.value = Some(value);
+                op
+            }),
+        };
+        let log = vec![
+            conflicting("ab", json!({"policy_revision": 6})),
+            conflicting("cd", json!({"policy_revision": 7})),
+            crate::lattice::ordered_log::IssuedOp {
+                issuer: event.actor_id.clone(),
+                op: SealedOp::from_projection(digest("ef"), &effects[0]),
+            },
+        ];
+        assert!(
+            crate::state::join_cell(binding.lattice.as_ref(), &cell_realm_policy(), &log[..2])
+                .is_bottom(),
+            "precondition: the two concurrent writes are what put the cell in ⊥"
+        );
+        assert_eq!(
+            crate::state::join_cell(binding.lattice.as_ref(), &cell_realm_policy(), &log),
+            CellState::Value(json!({"policy_revision": 8})),
+            "the cell must leave ⊥ and equal the signed resolved_value"
+        );
     }
 
     #[test]
@@ -1303,7 +1479,7 @@ mod tests {
         // ak.state.conflict_recovery would be a general overwrite channel that
         // bypasses every lattice and precondition
         // (`event-auth-state-resolution.md` §9.5).
-        let event = control_move(vec![], vec![]);
+        let event = recovery_move();
         let mut pre_state = BTreeMap::new();
         pre_state.insert(cell_realm_policy(), CellState::Value(policy_prestate()));
 
@@ -1332,7 +1508,7 @@ mod tests {
         // An absent cell is not a cell in bottom. Treating "no entry" as
         // recoverable would let a recovery mint a value for a cell that never
         // conflicted.
-        let event = control_move(vec![], vec![]);
+        let event = recovery_move();
 
         let error = verify_control_move(
             &event,

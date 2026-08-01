@@ -33,7 +33,7 @@ pub use seal::{
     apply_seal_in_context, control_event_completeness_root, control_event_set_root,
     deterministic_order, effective_seal_view, effective_state_at, join_cell,
     join_cell_seal_batches, leaf_union_proof, predecessor_seal_closure,
-    union_predecessor_covered_events, verify_seal_basis, view_hash,
+    union_predecessor_covered_events, verify_recovery_witness, verify_seal_basis, view_hash,
 };
 pub use state_root::{
     EMPTY_STATE_ROOT, StateInclusionProof, compute_state_root, leaf_hash, state_inclusion_proof,

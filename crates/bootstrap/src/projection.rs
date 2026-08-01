@@ -132,7 +132,7 @@ pub(crate) fn state_root_from_projection(
                 .push(IssuedOp {
                     // 9.3.1 keys the ordered log by the envelope `actor_id`.
                     issuer: event.actor_id.clone(),
-                    op: SealedOp::new(move_id.clone(), effect.op.clone()),
+                    op: SealedOp::from_projection(move_id.clone(), effect),
                 });
         }
     }

@@ -58,11 +58,34 @@ use crate::{Bottom, BottomKind, CellRef, Hash, LatticeOp};
 pub struct SealedOp {
     pub move_id: Hash,
     pub op: LatticeOp,
+    /// This op is the §9.5 conflict-recovery reset for its cell.
+    ///
+    /// Carried on the stored op rather than derived at read time: the cell's
+    /// state is recomputed from the op log on every view, so the boundary has
+    /// to survive in the log itself. See [`crate::state::join_cell`], which
+    /// drops every op at or before the last reset.
+    pub recovery_reset: bool,
 }
 
 impl SealedOp {
     pub fn new(move_id: Hash, op: LatticeOp) -> Self {
-        Self { move_id, op }
+        Self {
+            move_id,
+            op,
+            recovery_reset: false,
+        }
+    }
+
+    /// The stored form of one projected effect, carrying its §9.5 reset flag.
+    ///
+    /// Every write-back path goes through here so a reset cannot silently
+    /// degrade into an ordinary `set` between projection and the op log.
+    pub fn from_projection(move_id: Hash, effect: &crate::ProjectionEffect) -> Self {
+        Self {
+            move_id,
+            op: effect.op.clone(),
+            recovery_reset: effect.recovery_reset,
+        }
     }
 }
 

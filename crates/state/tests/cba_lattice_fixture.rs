@@ -7,11 +7,10 @@
 //!   join semantics are implemented directly by [`arkret_state::lattice`]. This test executes every
 //!   declared assertion of those cases against the SDK lattice types, so a join-semantics drift
 //!   fails in the SDK's own CI.
-//! * The sixteen `vectors` entries are dual-plane CBA scenarios (DataEvent vs control Move, seal
-//!   coverage, quarantine, notary faults). They need the full CBA reducer + seal pipeline, which
-//!   the SDK does not host; the cotest state-resolution harness remains their executable owner.
-//!   Here they are pinned as an inventory gate (vector_id + expected block present) so silent
-//!   fixture renames/removals still surface in the SDK.
+//! * Most `vectors` entries are dual-plane CBA scenarios (DataEvent vs control Move, seal
+//!   coverage, quarantine, notary faults). The cotest state-resolution harness remains their
+//!   end-to-end executable owner. The SDK also directly executes the conflict-recovery vector,
+//!   because its verifier and Seal/lattice materializer now own that normative behavior.
 
 use arkret_models_collaboration::governance::realm_governance::{
     REALM_LINK_ALLOWED_TRANSITIONS, REALM_LINK_INITIAL_STATES, REALM_LINK_TERMINAL_STATES,
@@ -23,7 +22,10 @@ use arkret_state::lattice::ordered_log::IssuedOp;
 use arkret_state::lattice::{
     CasRegister, CellState, Counter, Fsm, Lattice, MvRegister, OrderedLog, SealedOp,
 };
-use arkret_wire::{CellRef, Did, Hash, LatticeOp, LatticeOpType, RealmId, ReasonCode};
+use arkret_state::state::join_cell_seal_batches;
+use arkret_wire::{
+    CellRef, Did, Hash, LatticeOp, LatticeOpType, ProjectionEffect, RealmId, ReasonCode,
+};
 use serde_json::{Value, json};
 
 const FIXTURE_PATH: &str = "fixtures/cba-lattice-fixture.json";
@@ -800,4 +802,71 @@ fn dual_plane_vector_inventory_is_pinned() {
             );
         }
     }
+}
+
+/// Execute the fixture's valid §9.5 recovery case through the SDK's actual
+/// Seal-batch materializer. This intentionally reads the target cell and
+/// recovered value from the fixture: a hard-coded lookalike can stay green
+/// while the normative vector drifts.
+#[test]
+fn conflict_recovery_fixture_leaves_bottom_with_the_signed_value() {
+    let fixture = fixture();
+    let vector = fixture["vectors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|vector| {
+            vector["vector_id"].as_str() == Some("ak.vector.cba_lattice.conflict_recovery_move.v1")
+        })
+        .expect("conflict-recovery vector must exist");
+    let valid_case = vector["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"].as_str() == Some("valid_recovery"))
+        .expect("valid_recovery case must exist");
+    assert_eq!(
+        valid_case["expected"]["result"].as_str(),
+        Some("accept_after_valid_seal")
+    );
+
+    let target = CellRef::new(
+        vector["valid_recovery_move"]["payload"]["target_cell"]
+            .as_str()
+            .unwrap()
+            .to_owned(),
+    )
+    .unwrap();
+    assert_eq!(target.as_str(), vector["cell"].as_str().unwrap());
+    let pre_conflict = vector["pre_conflict_value"].clone();
+    let recovered = vector["valid_recovery_move"]["payload"]["resolved_value"].clone();
+    assert_eq!(recovered, valid_case["expected"]["recovered_value"]);
+
+    let issuer = Did::new("did:webvh:z6mkfixture:recovery.example".to_owned()).unwrap();
+    let set = |suffix: &str, value: Value| IssuedOp {
+        issuer: issuer.clone(),
+        op: SealedOp::new(move_id(suffix), op_set(value)),
+    };
+    let reset_effect = ProjectionEffect::reset(target.clone(), op_set(recovered.clone()));
+    let reset = IssuedOp {
+        issuer: issuer.clone(),
+        op: SealedOp::from_projection(move_id("ef"), &reset_effect),
+    };
+
+    let conflicted = vec![vec![
+        set("ab", json!({"policy_revision": 6})),
+        set("cd", pre_conflict),
+    ]];
+    assert!(
+        join_cell_seal_batches(&CasRegister, &target, &conflicted).is_bottom(),
+        "fixture precondition: concurrent policy heads must be bottom"
+    );
+
+    let mut sealed = conflicted;
+    sealed.push(vec![reset]);
+    assert_eq!(
+        join_cell_seal_batches(&CasRegister, &target, &sealed),
+        CellState::Value(recovered),
+        "the valid fixture recovery must leave bottom with payload.resolved_value"
+    );
 }

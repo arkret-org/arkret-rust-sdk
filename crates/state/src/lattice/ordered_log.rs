@@ -904,14 +904,8 @@ mod tests {
     fn same_event_claiming_one_slot_twice_is_rejected() {
         let cell_ref = cell();
         let effects = vec![
-            ProjectionEffect {
-                cell: cell_ref.clone(),
-                op: append(0, json!("one")),
-            },
-            ProjectionEffect {
-                cell: cell_ref,
-                op: append(0, json!("other")),
-            },
+            ProjectionEffect::join(cell_ref.clone(), append(0, json!("one"))),
+            ProjectionEffect::join(cell_ref, append(0, json!("other"))),
         ];
         // Not equivocation and not a digest collision: one malformed Event.
         let conflict = ensure_unique_ordered_log_slots(&effects).unwrap_err();
@@ -922,14 +916,8 @@ mod tests {
     fn distinct_slots_in_one_event_are_accepted() {
         let cell_ref = cell();
         let effects = vec![
-            ProjectionEffect {
-                cell: cell_ref.clone(),
-                op: append(0, json!("one")),
-            },
-            ProjectionEffect {
-                cell: cell_ref,
-                op: append(1, json!("two")),
-            },
+            ProjectionEffect::join(cell_ref.clone(), append(0, json!("one"))),
+            ProjectionEffect::join(cell_ref, append(1, json!("two"))),
         ];
         assert!(ensure_unique_ordered_log_slots(&effects).is_ok());
     }

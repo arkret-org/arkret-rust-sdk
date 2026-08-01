@@ -90,6 +90,39 @@ pub enum PredicateOp {
 pub struct ProjectionEffect {
     pub cell: CellRef,
     pub op: LatticeOp,
+    /// This write is the `event-auth-state-resolution.md` §9.5 recovery reset,
+    /// not an ordinary lattice write.
+    ///
+    /// A reset **replaces** the cell: it is a boundary in that cell's history,
+    /// and every op accepted before it stops being an input to the cell's join.
+    /// The op below still travels as a `set`, because the lattice op vocabulary
+    /// is spec-registered and has no `reset` member — which is exactly why the
+    /// distinction has to live here. Without it the reset is indistinguishable
+    /// from a normal `set` and joins **against** the concurrent branches that
+    /// put the cell in `⊥`, so the cell never leaves `⊥` and the one escape
+    /// path §9.5 defines does not exist.
+    #[serde(default, skip_serializing_if = "core::ops::Not::not")]
+    pub recovery_reset: bool,
+}
+
+impl ProjectionEffect {
+    /// An ordinary lattice write: joins with everything already on the cell.
+    pub fn join(cell: CellRef, op: LatticeOp) -> Self {
+        Self {
+            cell,
+            op,
+            recovery_reset: false,
+        }
+    }
+
+    /// The §9.5 recovery write: a boundary that discards the cell's prior ops.
+    pub fn reset(cell: CellRef, op: LatticeOp) -> Self {
+        Self {
+            cell,
+            op,
+            recovery_reset: true,
+        }
+    }
 }
 
 /// A projected operation before the frozen pre-state is consulted.
@@ -169,10 +202,7 @@ impl ProjectedCellWrite {
     /// The resolved write when the projection needs no pre-state.
     pub fn as_direct(&self) -> Option<ProjectionEffect> {
         match &self.op {
-            ProjectedOp::Direct(op) => Some(ProjectionEffect {
-                cell: self.cell.clone(),
-                op: op.clone(),
-            }),
+            ProjectedOp::Direct(op) => Some(ProjectionEffect::join(self.cell.clone(), op.clone())),
             _ => None,
         }
     }
