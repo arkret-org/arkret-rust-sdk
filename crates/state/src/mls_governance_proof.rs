@@ -339,29 +339,47 @@ where
     Ok(())
 }
 
+/// `encryption-and-audit.md` §2.5.1 — the `policy_root` leaf filter.
+///
+/// Exposed because §2.5.2's `M` reconstruction enumerates the *same* leaf set
+/// ([`crate::mls_move::required_governance_seals_at`]). Two copies of this
+/// predicate would let the root a commit attests and the coverage a DataEvent
+/// is gated on drift apart silently.
+#[must_use]
+pub fn is_mls_policy_root_component(component: &str) -> bool {
+    (component.starts_with("ak.component.realm.")
+        && (component.contains("policy")
+            || matches!(
+                component,
+                "ak.component.realm.join_rule.v1"
+                    | "ak.component.realm.history_visibility.v1"
+                    | "ak.component.realm.media_service.v1"
+                    | "ak.component.realm.policy_bundle.v1"
+                    | "ak.component.realm.plaintext_visible_services.v1"
+            )))
+        || (component.starts_with("ak.component.circle.")
+            && ["policy", "history", "encryption", "lifecycle"]
+                .iter()
+                .any(|marker| component.contains(marker)))
+}
+
+/// `encryption-and-audit.md` §2.5.1 — the `capability_root` leaf filter.
+/// Shared with §2.5.2's `M` reconstruction; see
+/// [`is_mls_policy_root_component`].
+#[must_use]
+pub fn is_mls_capability_root_component(component: &str) -> bool {
+    component.starts_with("ak.component.capability.")
+}
+
 pub fn derive_mls_policy_root(control_state: &BTreeMap<CellRef, CellState>) -> Result<Hash> {
     filtered_control_state_root(control_state, |cell| {
-        let component = cell.component();
-        (component.starts_with("ak.component.realm.")
-            && (component.contains("policy")
-                || matches!(
-                    component,
-                    "ak.component.realm.join_rule.v1"
-                        | "ak.component.realm.history_visibility.v1"
-                        | "ak.component.realm.media_service.v1"
-                        | "ak.component.realm.policy_bundle.v1"
-                        | "ak.component.realm.plaintext_visible_services.v1"
-                )))
-            || (component.starts_with("ak.component.circle.")
-                && ["policy", "history", "encryption", "lifecycle"]
-                    .iter()
-                    .any(|marker| component.contains(marker)))
+        is_mls_policy_root_component(cell.component())
     })
 }
 
 pub fn derive_mls_capability_root(control_state: &BTreeMap<CellRef, CellState>) -> Result<Hash> {
     filtered_control_state_root(control_state, |cell| {
-        cell.component().starts_with("ak.component.capability.")
+        is_mls_capability_root_component(cell.component())
     })
 }
 
