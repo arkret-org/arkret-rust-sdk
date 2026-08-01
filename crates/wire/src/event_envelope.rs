@@ -691,7 +691,20 @@ impl Event {
     }
 
     pub fn event_digest(&self) -> Result<String> {
-        Ok(canonical::canonical_sha256(&self.digest_payload()?)?)
+        self.event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+    }
+
+    /// Compute the Event digest with the trusted Realm digest suite.
+    ///
+    /// The suite is supplied by the caller because the Event is not trusted
+    /// until its proof has been verified; it must not be inferred from the
+    /// Event payload.
+    pub fn event_digest_with_digest_suite(
+        &self,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<String> {
+        let bytes = canonical::canonical_json_bytes(&self.digest_payload()?)?;
+        Ok(canonical::digest(digest_suite, &bytes))
     }
 
     /// Structural (payload-agnostic) submit gate.
@@ -813,7 +826,15 @@ impl Event {
     /// Checks each proof's `event_digest` matches the canonical event digest,
     /// and that each proof is structurally valid.
     pub fn validate_proof_bindings(&self) -> Result<()> {
-        let digest = self.event_digest()?;
+        self.validate_proof_bindings_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+    }
+
+    /// Validate proof bindings with the trusted Realm digest suite.
+    pub fn validate_proof_bindings_with_digest_suite(
+        &self,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        let digest = self.event_digest_with_digest_suite(digest_suite)?;
         let expected_hash = Hash::new(digest)?;
         for proof in &self.proofs {
             proof.validate()?;
@@ -833,7 +854,22 @@ impl Event {
         audience: Option<Audience>,
         requirements: ProofBindingRequirements,
     ) -> Result<()> {
-        let expected_hash = Hash::new(self.event_digest()?)?;
+        self.validate_proof_bindings_with_context_and_digest_suite(
+            domain,
+            audience,
+            requirements,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+    }
+
+    pub fn validate_proof_bindings_with_context_and_digest_suite(
+        &self,
+        domain: Option<String>,
+        audience: Option<Audience>,
+        requirements: ProofBindingRequirements,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        let expected_hash = Hash::new(self.event_digest_with_digest_suite(digest_suite)?)?;
         for proof in &self.proofs {
             let expected = SignatureBindingPayload {
                 payload_digest: expected_hash.clone(),

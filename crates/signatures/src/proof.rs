@@ -159,7 +159,34 @@ pub fn verify_eddsa_detached_jws_proof(
     actor_id: &arkret_wire::Did,
     public_key: &PublicKeyMaterial,
 ) -> std::result::Result<(), VerifierError> {
-    verify_eddsa_detached_jws_proof_inner(proof, canonical_bytes, actor_id, public_key)
+    verify_eddsa_detached_jws_proof_with_digest_suite(
+        proof,
+        canonical_bytes,
+        actor_id,
+        public_key,
+        arkret_canonical::DigestSuite::Sha256,
+    )
+}
+
+/// Verify a detached Event proof with the trusted Realm digest suite.
+///
+/// The suite is explicit because an Event payload is not trusted until its
+/// proof has verified. Callers must resolve it from accepted Realm state (or
+/// the verified genesis authoring context), never infer it from the Event.
+pub fn verify_eddsa_detached_jws_proof_with_digest_suite(
+    proof: &Proof,
+    canonical_bytes: &[u8],
+    actor_id: &arkret_wire::Did,
+    public_key: &PublicKeyMaterial,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> std::result::Result<(), VerifierError> {
+    verify_eddsa_detached_jws_proof_inner(
+        proof,
+        canonical_bytes,
+        actor_id,
+        public_key,
+        digest_suite,
+    )
 }
 
 /// Verify a [`SignalEnvelope`] against the sending device's key.
@@ -205,6 +232,7 @@ fn verify_eddsa_detached_jws_proof_inner(
     canonical_bytes: &[u8],
     actor_id: &arkret_wire::Did,
     public_key: &PublicKeyMaterial,
+    digest_suite: arkret_canonical::DigestSuite,
 ) -> std::result::Result<(), VerifierError> {
     if canonical_bytes.is_empty() {
         return Err(VerifierError::Encoding(
@@ -217,7 +245,7 @@ fn verify_eddsa_detached_jws_proof_inner(
             proof.alg
         )));
     }
-    let expected = canonical::sha256_digest(canonical_bytes);
+    let expected = canonical::digest(digest_suite, canonical_bytes);
     use subtle::ConstantTimeEq;
     if !bool::from(
         proof
@@ -1070,6 +1098,46 @@ mod tests {
             verifier
                 .verify_detached_jws(&crit_tampered, &tampered[..tampered.len() - 1], &public_key)
                 .is_err()
+        );
+    }
+
+    #[cfg(feature = "signer")]
+    #[test]
+    fn event_proof_verifier_requires_the_explicit_realm_digest_suite() {
+        let actor = arkret_wire::Did::new("did:web:blake.example".to_owned()).unwrap();
+        let verification_method = DidUrl::new("did:web:blake.example#key-1".to_owned()).unwrap();
+        let canonical_bytes = canonical::canonical_json_bytes(&json!({"realm": "blake"})).unwrap();
+        let digest = Hash::new(canonical::digest(
+            arkret_canonical::DigestSuite::Blake3,
+            &canonical_bytes,
+        ))
+        .unwrap();
+        let signer = Ed25519DetachedJwsSigner::from_seed([23u8; 32], verification_method.as_str());
+        let mut proof = build_proof_envelope(
+            proof_kind::DETACHED_JWS,
+            "EdDSA",
+            verification_method,
+            digest,
+            None,
+            None,
+            "",
+        );
+        let binding = proof.canonical_binding_bytes(&actor).unwrap();
+        proof.jws = signer.sign_detached_jws(&binding);
+        let public_key = PublicKeyMaterial::Ed25519Raw {
+            bytes: signer.verifying_key().to_bytes().to_vec(),
+        };
+
+        verify_eddsa_detached_jws_proof_with_digest_suite(
+            &proof,
+            &canonical_bytes,
+            &actor,
+            &public_key,
+            arkret_canonical::DigestSuite::Blake3,
+        )
+        .unwrap();
+        assert!(
+            verify_eddsa_detached_jws_proof(&proof, &canonical_bytes, &actor, &public_key).is_err()
         );
     }
 }

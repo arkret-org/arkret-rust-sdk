@@ -7,10 +7,10 @@
 //!   join semantics are implemented directly by [`arkret_state::lattice`]. This test executes every
 //!   declared assertion of those cases against the SDK lattice types, so a join-semantics drift
 //!   fails in the SDK's own CI.
-//! * Most `vectors` entries are dual-plane CBA scenarios (DataEvent vs control Move, seal
-//!   coverage, quarantine, notary faults). The cotest state-resolution harness remains their
-//!   end-to-end executable owner. The SDK also directly executes the conflict-recovery vector,
-//!   because its verifier and Seal/lattice materializer now own that normative behavior.
+//! * Most `vectors` entries are dual-plane CBA scenarios (DataEvent vs control Move, seal coverage,
+//!   quarantine, notary faults). The cotest state-resolution harness remains their end-to-end
+//!   executable owner. The SDK also directly executes the conflict-recovery vector, because its
+//!   verifier and Seal/lattice materializer now own that normative behavior.
 
 use arkret_models_collaboration::governance::realm_governance::{
     REALM_LINK_ALLOWED_TRANSITIONS, REALM_LINK_INITIAL_STATES, REALM_LINK_TERMINAL_STATES,
