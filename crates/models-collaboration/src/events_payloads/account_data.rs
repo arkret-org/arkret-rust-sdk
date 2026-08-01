@@ -4,18 +4,40 @@ use serde::de;
 
 use crate::internal_prelude::*;
 
-pub const PRIVATE_VIEW_ACCOUNT_DATA_PREFIX: &str = "ak.views.private.";
-pub const NOTIFICATION_INBOX_ACCOUNT_DATA_PREFIX: &str = "ak.notifications.inbox.";
-
+/// `ak.views.private.<view_id>` per the account-data key registry. The
+/// namespace literal is spelled only in the generated [`AccountDataKey`].
 pub fn private_view_account_data_key(view_id: &ViewId) -> String {
-    format!("{PRIVATE_VIEW_ACCOUNT_DATA_PREFIX}{}", view_id.as_str())
+    format!("{}.{}", AccountDataKey::VIEWS_PRIVATE, view_id.as_str())
 }
 
+/// Inverse of [`private_view_account_data_key`]. `None` for any key outside
+/// the namespace or whose tail is not a canonical `ak:view:` id, so a caller
+/// enumerating the account-data surface never invents a View id.
+pub fn private_view_account_data_key_view_id(account_data_key: &str) -> Option<ViewId> {
+    account_data_key
+        .strip_prefix(AccountDataKey::VIEWS_PRIVATE)?
+        .strip_prefix('.')
+        .and_then(|view_id| ViewId::new(view_id.to_owned()).ok())
+}
+
+/// `ak.notifications.inbox.<notification_id>` per the account-data key
+/// registry.
 pub fn notification_inbox_account_data_key(notification_id: &NotificationId) -> String {
     format!(
-        "{NOTIFICATION_INBOX_ACCOUNT_DATA_PREFIX}{}",
+        "{}.{}",
+        AccountDataKey::NOTIFICATIONS_INBOX,
         notification_id.as_str()
     )
+}
+
+/// Inverse of [`notification_inbox_account_data_key`].
+pub fn notification_inbox_account_data_key_notification_id(
+    account_data_key: &str,
+) -> Option<NotificationId> {
+    account_data_key
+        .strip_prefix(AccountDataKey::NOTIFICATIONS_INBOX)?
+        .strip_prefix('.')
+        .and_then(|notification_id| NotificationId::new(notification_id.to_owned()).ok())
 }
 
 /// Presence-aware account-data body.
@@ -170,6 +192,56 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn registry_scoped_account_data_keys_round_trip() {
+        let view_id =
+            ViewId::new("ak:view:0196419b-0000-7000-8000-000000000001".to_owned()).unwrap();
+        let key = private_view_account_data_key(&view_id);
+        assert_eq!(
+            key,
+            "ak.views.private.ak:view:0196419b-0000-7000-8000-000000000001"
+        );
+        assert_eq!(private_view_account_data_key_view_id(&key), Some(view_id));
+
+        let notification_id =
+            NotificationId::new("ak:notification:0196419b-0000-7000-8000-000000000002".to_owned())
+                .unwrap();
+        let key = notification_inbox_account_data_key(&notification_id);
+        assert_eq!(
+            key,
+            "ak.notifications.inbox.ak:notification:0196419b-0000-7000-8000-000000000002"
+        );
+        assert_eq!(
+            notification_inbox_account_data_key_notification_id(&key),
+            Some(notification_id)
+        );
+    }
+
+    #[test]
+    fn registry_scoped_account_data_key_parsers_reject_foreign_and_malformed_keys() {
+        for key in [
+            "ak.views.private",
+            "ak.views.private.",
+            "ak.views.private.ak:realm:0196419b-0000-7000-8000-000000000001",
+            "ak.views.private.not-a-typed-id",
+            "ak.notifications.inbox.ak:view:0196419b-0000-7000-8000-000000000001",
+        ] {
+            assert_eq!(private_view_account_data_key_view_id(key), None, "{key}");
+        }
+        for key in [
+            "ak.notifications.inbox",
+            "ak.notifications.inbox.",
+            "ak.notifications.inbox.ak:view:0196419b-0000-7000-8000-000000000001",
+            "ak.views.private.ak:notification:0196419b-0000-7000-8000-000000000001",
+        ] {
+            assert_eq!(
+                notification_inbox_account_data_key_notification_id(key),
+                None,
+                "{key}"
+            );
+        }
+    }
 
     #[test]
     fn account_data_set_payload_matches_current_spec_shape() {

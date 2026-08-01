@@ -14,7 +14,10 @@ use serde_json::{Value, json};
 use sha2::Sha256;
 use unicode_normalization::UnicodeNormalization;
 
-use crate::events_payloads::MessageCreatePayload;
+use crate::events_payloads::{
+    MessageCreatePayload, notification_inbox_account_data_key_notification_id,
+    private_view_account_data_key_view_id,
+};
 
 pub const PROFILE_DISAPPEARING_MESSAGES: &str = "ak.profile.disappearing_messages.v1";
 pub const FILE_TRANSFER_KEY_MESSAGE_KIND: &str = "ak.file_transfer.key.v1";
@@ -2073,15 +2076,40 @@ pub fn realm_key(namespace_key: &[u8], realm_id: &str) -> Result<String> {
 }
 
 pub fn validate_private_account_data_key(key: &str) -> Result<()> {
-    if let Some(realm_id) = key.strip_prefix("ak.contacts.realm.") {
+    if let Some(realm_id) = strip_dotted_namespace(key, AccountDataKey::CONTACTS_REALM) {
         return RealmId::new(realm_id.to_owned()).map(|_| ()).map_err(|_| {
             Error::Protocol("realm remark key must be ak.contacts.realm.<realm_id>".to_owned())
         });
     }
-    if let Some(actor_id) = key.strip_prefix("ak.contacts.actor.") {
+    if let Some(actor_id) = strip_dotted_namespace(key, AccountDataKey::CONTACTS_ACTOR) {
         return Did::new(actor_id.to_owned()).map(|_| ()).map_err(|_| {
             Error::Protocol("contact remark key must be ak.contacts.actor.<did>".to_owned())
         });
+    }
+    // `ak.views.private` / `ak.notifications.inbox` carry a full typed id in
+    // the tail, exactly like the two `ak.contacts.*` namespaces above. The
+    // `contains_raw_object_ref` rule below governs only the HMAC-derived
+    // productivity namespaces, so it MUST NOT be applied here: the registry
+    // accepts the existence-leak these two key patterns imply
+    // (zh/models/views.md §3.1, zh/discovery/client-preferences.md §3.2).
+    if strip_dotted_namespace(key, AccountDataKey::VIEWS_PRIVATE).is_some() {
+        return if private_view_account_data_key_view_id(key).is_some() {
+            Ok(())
+        } else {
+            Err(Error::Protocol(
+                "private view key must be ak.views.private.<view_id>".to_owned(),
+            ))
+        };
+    }
+    if strip_dotted_namespace(key, AccountDataKey::NOTIFICATIONS_INBOX).is_some() {
+        return if notification_inbox_account_data_key_notification_id(key).is_some() {
+            Ok(())
+        } else {
+            Err(Error::Protocol(
+                "notification inbox key must be ak.notifications.inbox.<notification_id>"
+                    .to_owned(),
+            ))
+        };
     }
     if let Some(id) = key.strip_prefix("ak.reminders.v1:") {
         return if !id.is_empty() && !contains_raw_object_ref(id) {
@@ -2137,6 +2165,14 @@ pub fn validate_private_account_data_key(key: &str) -> Result<()> {
         };
     }
     private_key_error()
+}
+
+/// Tail of a registered account-data namespace whose key pattern separates the
+/// namespace from its parameter with `.`. The registry namespaces themselves
+/// never carry a trailing separator, so it is spelled once here instead of at
+/// every call site.
+fn strip_dotted_namespace<'a>(key: &'a str, namespace: &str) -> Option<&'a str> {
+    key.strip_prefix(namespace)?.strip_prefix('.')
 }
 
 fn private_key_error() -> Result<()> {
@@ -2709,6 +2745,56 @@ mod tests {
         assert!(transfer.starts_with("ak.file_transfer.v1:"));
         assert!(!transfer.contains(transfer_id));
         validate_private_account_data_key(&transfer).unwrap();
+    }
+
+    #[test]
+    fn private_key_validator_accepts_typed_id_tail_namespaces() {
+        let view_id =
+            arkret_wire::ViewId::new("ak:view:0196419b-0000-7000-8000-000000000001".to_owned())
+                .unwrap();
+        let notification_id = arkret_wire::NotificationId::new(
+            "ak:notification:0196419b-0000-7000-8000-000000000002".to_owned(),
+        )
+        .unwrap();
+
+        // The raw `ak:view:` id in the tail is registry-sanctioned here, so
+        // the derived-key rule that rejects it elsewhere must not fire.
+        validate_private_account_data_key(&crate::events_payloads::private_view_account_data_key(
+            &view_id,
+        ))
+        .unwrap();
+        validate_private_account_data_key(
+            &crate::events_payloads::notification_inbox_account_data_key(&notification_id),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn private_key_validator_rejects_malformed_typed_id_tails() {
+        for (key, expected) in [
+            ("ak.views.private", "must not leak raw typed refs"),
+            ("ak.views.private.", "ak.views.private.<view_id>"),
+            (
+                "ak.views.private.ak:realm:0196419b-0000-7000-8000-000000000001",
+                "ak.views.private.<view_id>",
+            ),
+            ("ak.notifications.inbox", "must not leak raw typed refs"),
+            (
+                "ak.notifications.inbox.",
+                "ak.notifications.inbox.<notification_id>",
+            ),
+            (
+                "ak.notifications.inbox.ak:view:0196419b-0000-7000-8000-000000000001",
+                "ak.notifications.inbox.<notification_id>",
+            ),
+        ] {
+            let err = validate_private_account_data_key(key).unwrap_err();
+            assert!(
+                err.to_string().contains(expected),
+                "{key}: {}",
+                err.to_string()
+            );
+        }
     }
 
     #[test]

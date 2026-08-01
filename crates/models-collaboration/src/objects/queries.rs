@@ -160,6 +160,100 @@ pub enum ViewState {
 
 impl View {
     pub const SCHEMA: &'static str = SchemaId::VIEW_V1;
+
+    /// Full `ak.schema.view.v1` object check: schema id, the `kind` ↔ typed
+    /// config mutual exclusion, the per-kind renderer whitelist, and the
+    /// shared lifecycle rule (`views.md` §3.1).
+    ///
+    /// Deserialization alone is not enough — `deny_unknown_fields` cannot
+    /// express "exactly the config matching `kind`". A private View never
+    /// reaches a reducer, so this is the only place its definition is checked
+    /// at all; see [`View::validate_private_account_data`].
+    pub fn validate(&self) -> Result<()> {
+        if self.schema != Self::SCHEMA {
+            return Err(Error::Protocol(format!(
+                "view schema must be {}",
+                Self::SCHEMA
+            )));
+        }
+        let present = [
+            (
+                "collection",
+                self.collection.is_some(),
+                ViewKind::Collection,
+            ),
+            ("timeline", self.timeline.is_some(), ViewKind::Timeline),
+            ("graph", self.graph.is_some(), ViewKind::Graph),
+            ("document", self.document.is_some(), ViewKind::Document),
+            ("dashboard", self.dashboard.is_some(), ViewKind::Composite),
+        ];
+        for (field, is_present, owning_kind) in present {
+            match (is_present, owning_kind == self.kind) {
+                (true, false) => {
+                    return Err(Error::Protocol(format!(
+                        "view kind {:?} must not carry the {field} config",
+                        self.kind
+                    )));
+                }
+                (false, true) => {
+                    return Err(Error::Protocol(format!(
+                        "view kind {:?} requires the {field} config",
+                        self.kind
+                    )));
+                }
+                _ => {}
+            }
+        }
+        if self
+            .dashboard
+            .as_ref()
+            .is_some_and(|dashboard| dashboard.widgets.is_empty())
+        {
+            return Err(Error::Protocol(
+                "composite view dashboard requires at least one widget".to_owned(),
+            ));
+        }
+        if let Some(renderer) = self.renderer
+            && !self.kind.allows_renderer(renderer)
+        {
+            return Err(Error::Protocol(format!(
+                "view kind {:?} does not allow renderer {renderer:?}",
+                self.kind
+            )));
+        }
+        self.validate_lifecycle()
+    }
+
+    /// Additional rules for a View carried as `ak.views.private.<view_id>`
+    /// encrypted account data (`views.md` §3.1, `client-preferences.md` §3.2).
+    ///
+    /// The server only ever sees ciphertext here, so nothing downstream can
+    /// re-check any of this — the holder's client is the only enforcement
+    /// point.
+    pub fn validate_private_account_data(&self, account_data_key: &str) -> Result<()> {
+        self.validate()?;
+        if self.visibility != Some(ViewVisibility::Private) {
+            return Err(Error::Protocol(
+                "private account-data view requires visibility=private".to_owned(),
+            ));
+        }
+        // `state_changed_at` is reducer-derived and `tombstoned` is the shared
+        // View terminal. A private View is removed by physically deleting its
+        // account-data key, and a published shared View can never be demoted
+        // back to private, so neither may appear here.
+        if self.state == Some(ViewState::Tombstoned) {
+            return Err(Error::Protocol(
+                "private account-data view must not carry the shared tombstoned state".to_owned(),
+            ));
+        }
+        if crate::events_payloads::private_view_account_data_key(&self.id) != account_data_key {
+            return Err(Error::Protocol(
+                "private view must be stored under ak.views.private.<its own view_id>".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn validate_lifecycle(&self) -> Result<()> {
         match (
             self.state.unwrap_or(ViewState::Active),

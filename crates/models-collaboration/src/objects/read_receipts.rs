@@ -623,6 +623,183 @@ impl Notification {
     }
 }
 
+/// Inbox state a client may synchronize cross-device under
+/// `ak.notifications.inbox.<notification_id>`.
+///
+/// Deliberately narrower than [`NotificationState`]: `read` / `unread` stay
+/// derived from the read cursor and MUST NOT be written to this key
+/// (`zh/discovery/client-preferences.md` §3.2).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NotificationInboxState {
+    Dismissed,
+    Archived,
+}
+
+impl From<NotificationInboxState> for NotificationState {
+    fn from(state: NotificationInboxState) -> Self {
+        match state {
+            NotificationInboxState::Dismissed => Self::Dismissed,
+            NotificationInboxState::Archived => Self::Archived,
+        }
+    }
+}
+
+/// Plaintext behind the encrypted `ak.notifications.inbox.<notification_id>`
+/// account-data value.
+///
+/// The registry stores this key as a `cas_register`, so concurrent devices
+/// converge by re-reading and re-merging rather than by server-side ordering;
+/// [`NotificationInboxValue::compare_precedence`] is that merge rule.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NotificationInboxValue {
+    pub notification_id: NotificationId,
+    pub state: NotificationInboxState,
+    pub updated_hlc: Hlc,
+    pub origin_device_id: DeviceId,
+}
+
+impl NotificationInboxValue {
+    /// Decode a stored value and enforce the spec's binding between the
+    /// account-data key and the value it carries. A value whose
+    /// `notification_id` disagrees with its key is rejected rather than
+    /// silently re-keyed.
+    pub fn from_account_data(account_data_key: &str, value: &Value) -> Result<Self> {
+        let notification_id =
+            crate::events_payloads::notification_inbox_account_data_key_notification_id(
+                account_data_key,
+            )
+            .ok_or_else(|| {
+                Error::Protocol(
+                    "notification inbox key must be ak.notifications.inbox.<notification_id>"
+                        .to_owned(),
+                )
+            })?;
+        let decoded: Self = serde_json::from_value(value.clone())
+            .map_err(|error| Error::Protocol(format!("notification inbox value: {error}")))?;
+        if decoded.notification_id != notification_id {
+            return Err(Error::Protocol(
+                "notification inbox value must bind its own account-data key".to_owned(),
+            ));
+        }
+        Ok(decoded)
+    }
+
+    /// Account-data key this value belongs under.
+    pub fn account_data_key(&self) -> String {
+        crate::events_payloads::notification_inbox_account_data_key(&self.notification_id)
+    }
+
+    /// Merge order for two writes to the same notification: HLC first, then a
+    /// deterministic `device_id` tie-break so every device elects the same
+    /// winner without further coordination.
+    pub fn compare_precedence(&self, other: &Self) -> Result<std::cmp::Ordering> {
+        if self.notification_id != other.notification_id {
+            return Err(Error::Protocol(
+                "notification inbox merge requires the same notification_id".to_owned(),
+            ));
+        }
+        match arkret_wire::hlc::compare_hlc(self.updated_hlc.as_str(), other.updated_hlc.as_str())?
+        {
+            std::cmp::Ordering::Equal => Ok(self
+                .origin_device_id
+                .as_str()
+                .cmp(other.origin_device_id.as_str())),
+            other => Ok(other),
+        }
+    }
+}
+
+#[cfg(test)]
+mod notification_inbox_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    const NOTIFICATION_ID: &str = "ak:notification:019fa233-5ab8-75c0-8497-376bafe172a4";
+
+    fn value(state: &str, hlc: &str, device_ordinal: u8) -> Value {
+        json!({
+            "notification_id": NOTIFICATION_ID,
+            "state": state,
+            "updated_hlc": hlc,
+            "origin_device_id": format!("ak:device:019fa233-5ab8-75c0-8497-3760000000{device_ordinal:02}")
+        })
+    }
+
+    fn key() -> String {
+        format!("ak.notifications.inbox.{NOTIFICATION_ID}")
+    }
+
+    #[test]
+    fn inbox_value_binds_its_own_key() {
+        let decoded = NotificationInboxValue::from_account_data(
+            &key(),
+            &value("dismissed", "01970e589d21-0001-a13f9c2e", 1),
+        )
+        .unwrap();
+        assert_eq!(decoded.state, NotificationInboxState::Dismissed);
+        assert_eq!(decoded.account_data_key(), key());
+
+        let foreign_key =
+            "ak.notifications.inbox.ak:notification:019fa233-5ab8-75c0-8497-376bafe172a5";
+        assert!(
+            NotificationInboxValue::from_account_data(
+                foreign_key,
+                &value("archived", "01970e589d21-0001-a13f9c2e", 1)
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn inbox_value_rejects_read_cursor_derived_states() {
+        for state in ["read", "unread"] {
+            assert!(
+                NotificationInboxValue::from_account_data(
+                    &key(),
+                    &value(state, "01970e589d21-0001-a13f9c2e", 1)
+                )
+                .is_err(),
+                "{state}"
+            );
+        }
+    }
+
+    #[test]
+    fn inbox_merge_uses_hlc_then_device_tie_break() {
+        let older = NotificationInboxValue::from_account_data(
+            &key(),
+            &value("dismissed", "01970e589d21-0001-a13f9c2e", 2),
+        )
+        .unwrap();
+        let newer = NotificationInboxValue::from_account_data(
+            &key(),
+            &value("archived", "01970e589d22-0000-a13f9c2e", 1),
+        )
+        .unwrap();
+        assert_eq!(
+            older.compare_precedence(&newer).unwrap(),
+            std::cmp::Ordering::Less
+        );
+
+        let same_hlc_higher_device = NotificationInboxValue::from_account_data(
+            &key(),
+            &value("archived", "01970e589d21-0001-a13f9c2e", 3),
+        )
+        .unwrap();
+        assert_eq!(
+            older.compare_precedence(&same_hlc_higher_device).unwrap(),
+            std::cmp::Ordering::Less
+        );
+        assert_eq!(
+            same_hlc_higher_device.compare_precedence(&older).unwrap(),
+            std::cmp::Ordering::Greater
+        );
+    }
+}
+
 #[cfg(test)]
 mod notification_tests {
     use serde_json::json;

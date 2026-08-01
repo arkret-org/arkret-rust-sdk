@@ -207,7 +207,7 @@ pub use crate::generated::relation_kinds::{
     RELATION_KIND_DESCRIPTORS, RelationKind, RelationKindDescriptor, RelationTruthSourceClass,
     STANDARD_RELATION_KIND_METADATA, StandardRelationKindMetadata, standard_relation_kind_metadata,
 };
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ViewKind {
     Collection,
@@ -247,7 +247,7 @@ impl ViewKind {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ViewRenderer {
     Board,
@@ -269,7 +269,7 @@ pub enum ViewRenderer {
 
 /// View sharing visibility (spec e10b6ad, view.schema.json). Private views are
 /// actor-private account data; shared views are canonical Space objects.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ViewVisibility {
     Private,

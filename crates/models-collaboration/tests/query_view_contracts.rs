@@ -1,12 +1,15 @@
 use std::collections::BTreeMap;
 
 use arkret_identifiers::{Did, RealmId, RelationId, ViewId};
+use arkret_models_collaboration::events_payloads::private_view_account_data_key;
 use arkret_models_collaboration::objects::queries::{
     CollectionConfig, CollectionGrouping, CollectionItemRender, FieldFilter, Filter, View,
     ViewQuery, ViewState,
 };
 use arkret_models_collaboration::objects::relation::Relation;
-use arkret_wire::{Facet, Facets, FilterOp, RelationKind, SchemaId, ViewKind, ViewRenderer};
+use arkret_wire::{
+    Facet, Facets, FilterOp, RelationKind, SchemaId, ViewKind, ViewRenderer, ViewVisibility,
+};
 use chrono::Utc;
 use serde_json::json;
 
@@ -80,6 +83,99 @@ fn facets_accept_name_lists_and_config_maps() {
         serde_json::to_value(configs).unwrap()["renderable"]["renderers"][0],
         "card"
     );
+}
+
+fn collection_view() -> View {
+    View {
+        schema: SchemaId::VIEW_V1.to_owned(),
+        id: ViewId::new("ak:view:01904100-0000-7000-8000-848727f328fe").unwrap(),
+        realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
+        kind: ViewKind::Collection,
+        visibility: None,
+        state: None,
+        state_changed_at: None,
+        renderer: Some(ViewRenderer::Board),
+        title: Some("Board".to_owned()),
+        query: ViewQuery {
+            realm_ids: vec![RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
+            object_kinds: Vec::new(),
+            morph_kinds: Vec::new(),
+            facets: Vec::new(),
+            seal_ref: None,
+            filters: Vec::new(),
+            relation: None,
+            context: None,
+            order_by: Vec::new(),
+            projection: Vec::new(),
+            cursor: None,
+            limit: None,
+            consistency: None,
+        },
+        visible_fields: Vec::new(),
+        layout: None,
+        collection: Some(CollectionConfig::default()),
+        timeline: None,
+        graph: None,
+        document: None,
+        dashboard: None,
+        sort: Vec::new(),
+        created_by: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+        created_at: Utc::now(),
+        updated_by: None,
+        updated_at: None,
+    }
+}
+
+#[test]
+fn view_validate_enforces_kind_config_exclusivity_and_renderer_whitelist() {
+    let mut view = collection_view();
+    view.validate().unwrap();
+
+    // A config belonging to another kind is rejected even though serde
+    // accepts the field.
+    view.timeline = Some(BTreeMap::new());
+    assert!(view.validate().is_err());
+    view.timeline = None;
+
+    // The matching config is mandatory, not optional.
+    view.collection = None;
+    assert!(view.validate().is_err());
+    view.collection = Some(CollectionConfig::default());
+
+    view.renderer = Some(ViewRenderer::Thread);
+    assert!(view.validate().is_err());
+    view.renderer = Some(ViewRenderer::Custom);
+    view.validate().unwrap();
+
+    view.schema = "ak.schema.view.v2".to_owned();
+    assert!(view.validate().is_err());
+}
+
+#[test]
+fn private_account_data_view_binds_visibility_state_and_key() {
+    let mut view = collection_view();
+    let key = private_view_account_data_key(&view.id);
+
+    // A shared-visibility definition must never be stored under the
+    // private account-data key.
+    assert!(view.validate_private_account_data(&key).is_err());
+    view.visibility = Some(ViewVisibility::Shared);
+    assert!(view.validate_private_account_data(&key).is_err());
+
+    view.visibility = Some(ViewVisibility::Private);
+    view.validate_private_account_data(&key).unwrap();
+
+    // Another View's key would let a client silently re-home a definition.
+    let foreign_key = private_view_account_data_key(
+        &ViewId::new("ak:view:01904100-0000-7000-8000-848727f328ff").unwrap(),
+    );
+    assert!(view.validate_private_account_data(&foreign_key).is_err());
+
+    // `tombstoned` is the shared terminal; a private View is removed by
+    // physically deleting its account-data key.
+    view.state = Some(ViewState::Tombstoned);
+    view.state_changed_at = Some(Utc::now());
+    assert!(view.validate_private_account_data(&key).is_err());
 }
 
 #[test]
