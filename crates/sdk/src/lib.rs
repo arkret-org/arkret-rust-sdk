@@ -188,6 +188,7 @@ pub use arkret_models_collaboration::runtime_identity::*;
 pub use arkret_models_collaboration::seal_transparency::*;
 pub use arkret_models_collaboration::session_grant_bodies::*;
 pub use arkret_models_collaboration::signal_message_stream::*;
+pub use arkret_models_collaboration::signal_plaintext::*;
 pub use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountStreamInterrupt, AccountSubscribeBatch, AccountSubscribeFrame,
     AccountSubscribeFrameKind, AccountSubscribeRealms, AccountSubscribeReconnectAfter,
@@ -208,7 +209,9 @@ pub use arkret_models_collaboration::sync_frames::stream_trace::{
     StreamTraceValidator,
 };
 pub use arkret_models_crypto::artifacts_keys::*;
-pub use arkret_models_crypto::encrypted_envelope::{EncryptedPayload, KeyRefObject};
+pub use arkret_models_crypto::encrypted_envelope::{
+    AadVisibilityCeiling, EncryptedPayload, KeyRefObject,
+};
 pub use arkret_models_crypto::http_bodies::*;
 pub use arkret_models_crypto::key_backup::*;
 pub use arkret_models_crypto::key_transparency::{

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-07-31.17;
-//! sha256=9fecfd171cff6ecf81bd545cd0c3616a60ef48fe979d7b1db37ed5d6991479c4 Entries: schema_ids=174,
-//! active=173
+//! Input: registry/schema-registry.json; version=2026-08-01.2;
+//! sha256=aa23cbf2b0e10d18d8a58553fafe20c4953af57a5cda8e4cb2e7973f770a4b92 Entries: schema_ids=176,
+//! active=175
 
 use serde::{Deserialize, Serialize};
 
@@ -158,8 +158,10 @@ pub enum SchemaId {
     ServiceOperationDtosV1,
     SignalEnvelopeV1,
     SignalMessageStreamV1,
+    SignalPresenceV1,
     SignalRelayV1,
     SignalStreamFrameV1,
+    SignalTypingV1,
     SnapshotV1,
     SpaceV1,
     StrandV1,
@@ -336,8 +338,10 @@ impl SchemaId {
         Self::ServiceOperationDtosV1,
         Self::SignalEnvelopeV1,
         Self::SignalMessageStreamV1,
+        Self::SignalPresenceV1,
         Self::SignalRelayV1,
         Self::SignalStreamFrameV1,
+        Self::SignalTypingV1,
         Self::SnapshotV1,
         Self::SpaceV1,
         Self::StrandV1,
@@ -513,8 +517,10 @@ impl SchemaId {
         Self::ServiceOperationDtosV1,
         Self::SignalEnvelopeV1,
         Self::SignalMessageStreamV1,
+        Self::SignalPresenceV1,
         Self::SignalRelayV1,
         Self::SignalStreamFrameV1,
+        Self::SignalTypingV1,
         Self::SnapshotV1,
         Self::SpaceV1,
         Self::StrandV1,
@@ -869,6 +875,7 @@ impl SchemaId {
     /// Closed request/response DTO bundle for self-surface read cursor operations
     /// (ak.self.read_cursor.*); see zh/discovery/read-receipts.md.
     pub const READ_CURSOR_OPERATIONS_V1: &'static str = "ak.schema.read_cursor_operations.v1";
+    /// Closed decrypted Signal payload profile for ak.receipt.read timeline read hints.
     pub const READ_RECEIPT_V1: &'static str = "ak.schema.read_receipt.v1";
     pub const REALM_V1: &'static str = "ak.schema.realm.v1";
     /// Time-bounded routing hint returned by Realm discovery / resolve paths for selecting a
@@ -944,11 +951,16 @@ impl SchemaId {
     /// Closed decrypted Signal payload profile for transient Message generation keyframe, delta,
     /// and abort frames.
     pub const SIGNAL_MESSAGE_STREAM_V1: &'static str = "ak.schema.signal_message_stream.v1";
+    /// Closed decrypted Signal payload profile for ak.presence state, status message and activity
+    /// bucket.
+    pub const SIGNAL_PRESENCE_V1: &'static str = "ak.schema.signal_presence.v1";
     /// Bounded single-hop peer relay request and opaque outcome for encrypted SignalEnvelope
     /// values.
     pub const SIGNAL_RELAY_V1: &'static str = "ak.schema.signal_relay.v1";
     /// Closed data/control frame union for ak.self.signal.stream.subscribe.
     pub const SIGNAL_STREAM_FRAME_V1: &'static str = "ak.schema.signal_stream_frame.v1";
+    /// Closed decrypted Signal payload profile for ak.typing Strand composition indicators.
+    pub const SIGNAL_TYPING_V1: &'static str = "ak.schema.signal_typing.v1";
     pub const SNAPSHOT_V1: &'static str = "ak.schema.snapshot.v1";
     pub const SPACE_V1: &'static str = "ak.schema.space.v1";
     pub const STRAND_V1: &'static str = "ak.schema.strand.v1";
@@ -1160,8 +1172,10 @@ impl SchemaId {
             Self::ServiceOperationDtosV1 => Self::SERVICE_OPERATION_DTOS_V1,
             Self::SignalEnvelopeV1 => Self::SIGNAL_ENVELOPE_V1,
             Self::SignalMessageStreamV1 => Self::SIGNAL_MESSAGE_STREAM_V1,
+            Self::SignalPresenceV1 => Self::SIGNAL_PRESENCE_V1,
             Self::SignalRelayV1 => Self::SIGNAL_RELAY_V1,
             Self::SignalStreamFrameV1 => Self::SIGNAL_STREAM_FRAME_V1,
+            Self::SignalTypingV1 => Self::SIGNAL_TYPING_V1,
             Self::SnapshotV1 => Self::SNAPSHOT_V1,
             Self::SpaceV1 => Self::SPACE_V1,
             Self::StrandV1 => Self::STRAND_V1,
@@ -1371,8 +1385,10 @@ impl SchemaId {
             Self::ServiceOperationDtosV1 => "schemas/service-operation-dtos.schema.json",
             Self::SignalEnvelopeV1 => "schemas/signal-envelope.schema.json",
             Self::SignalMessageStreamV1 => "schemas/signal-message-stream.schema.json",
+            Self::SignalPresenceV1 => "schemas/signal-presence.schema.json",
             Self::SignalRelayV1 => "schemas/signal-relay.schema.json",
             Self::SignalStreamFrameV1 => "schemas/signal-stream-frame.schema.json",
+            Self::SignalTypingV1 => "schemas/signal-typing.schema.json",
             Self::SnapshotV1 => "schemas/snapshot.schema.json",
             Self::SpaceV1 => "schemas/space.schema.json",
             Self::StrandV1 => "schemas/strand.schema.json",
@@ -1570,8 +1586,10 @@ impl SchemaId {
             Self::SERVICE_OPERATION_DTOS_V1 => Some(Self::ServiceOperationDtosV1),
             Self::SIGNAL_ENVELOPE_V1 => Some(Self::SignalEnvelopeV1),
             Self::SIGNAL_MESSAGE_STREAM_V1 => Some(Self::SignalMessageStreamV1),
+            Self::SIGNAL_PRESENCE_V1 => Some(Self::SignalPresenceV1),
             Self::SIGNAL_RELAY_V1 => Some(Self::SignalRelayV1),
             Self::SIGNAL_STREAM_FRAME_V1 => Some(Self::SignalStreamFrameV1),
+            Self::SIGNAL_TYPING_V1 => Some(Self::SignalTypingV1),
             Self::SNAPSHOT_V1 => Some(Self::SnapshotV1),
             Self::SPACE_V1 => Some(Self::SpaceV1),
             Self::STRAND_V1 => Some(Self::StrandV1),

@@ -38,6 +38,16 @@ pub enum CallSignalKind {
 #[serde(deny_unknown_fields)]
 pub struct CallSignalPlaintext {
     pub kind: CallSignalPlaintextKind,
+    /// Signal-rail dedupe component, third member of the
+    /// `(sender_device_id, scope_ref, payload_sequence)` triple
+    /// (`sync/signal.md` §1.1).
+    ///
+    /// It coexists with [`Self::seq`] and neither may be omitted: `seq` is the
+    /// per-call anti-rollback sequence monotonic over
+    /// `(realm_id, call_id, actor_id, device_id)`, while this one is monotonic
+    /// per sender device and signed scope across every Signal the device sends.
+    /// Substituting one for the other degrades the receiver dedupe triple.
+    pub payload_sequence: u64,
     pub call_id: CallId,
     pub signal_kind: CallSignalKind,
     pub seq: u64,
@@ -47,6 +57,7 @@ pub struct CallSignalPlaintext {
 
 impl CallSignalPlaintext {
     pub fn new(
+        payload_sequence: u64,
         call_id: CallId,
         signal_kind: CallSignalKind,
         seq: u64,
@@ -54,6 +65,7 @@ impl CallSignalPlaintext {
     ) -> Self {
         Self {
             kind: CallSignalPlaintextKind::CallSignal,
+            payload_sequence,
             call_id,
             signal_kind,
             seq,
@@ -85,6 +97,7 @@ mod tests {
     fn call_signal_plaintext_is_closed_and_requires_data() {
         let valid = json!({
             "kind": "ak.call.signal",
+            "payload_sequence": 11,
             "call_id": call_id(),
             "signal_kind": "candidate",
             "seq": 3,
@@ -92,14 +105,22 @@ mod tests {
         });
         let decoded: CallSignalPlaintext = serde_json::from_value(valid.clone()).unwrap();
         assert_eq!(decoded.seq, 3);
+        // The two sequences are independent axes; carrying one is not carrying
+        // the other.
+        assert_eq!(decoded.payload_sequence, 11);
 
         let mut missing_data = valid.clone();
         missing_data.as_object_mut().unwrap().remove("data");
         assert!(serde_json::from_value::<CallSignalPlaintext>(missing_data).is_err());
 
-        let mut legacy = valid.clone();
-        legacy["payload_sequence"] = json!(3);
-        assert!(serde_json::from_value::<CallSignalPlaintext>(legacy).is_err());
+        for required in ["payload_sequence", "seq"] {
+            let mut missing = valid.clone();
+            missing.as_object_mut().unwrap().remove(required);
+            assert!(
+                serde_json::from_value::<CallSignalPlaintext>(missing).is_err(),
+                "{required} must not be omissible"
+            );
+        }
 
         let mut extra = valid;
         extra["actor_id"] = json!("did:webvh:z6mkfixture:alice.example");

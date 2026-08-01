@@ -43,7 +43,7 @@ pub struct JoinPolicyQuestion {
     pub disclosed_in_directory: Option<bool>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct JoinPolicyPayloadGatesItem {
     pub gate_id: String,
     pub kind: String,
@@ -83,7 +83,7 @@ pub struct JoinPolicyDirectoryHint {
     pub challenge_kinds_displayed: Option<Vec<JoinPolicyDirectoryChallengeKind>>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct JoinPolicyPayload {
     pub gates: Vec<JoinPolicyPayloadGatesItem>,
     pub combinator: String,

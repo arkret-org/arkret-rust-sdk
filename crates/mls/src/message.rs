@@ -1,5 +1,5 @@
 use arkret_models_crypto::{
-    EncryptedEnvelope, EncryptedEnvelopeAad, EncryptedEnvelopeAadVisibility,
+    AadVisibilityCeiling, EncryptedEnvelope, EncryptedEnvelopeAad, EncryptedEnvelopeAadVisibility,
     EncryptedEnvelopeGroupStateRef, EncryptedEnvelopeKeyAlgorithm, EncryptedEnvelopeKeyRef,
     EncryptedPayload,
 };
@@ -17,12 +17,23 @@ pub struct EncryptedMessage {
 
 pub use arkret_models_crypto::parse_and_validate_encrypted_envelope;
 
+/// Assemble the encrypted envelope for an already-sealed payload.
+///
+/// `ceiling` is the Realm's accepted `aad_visibility` ceiling. It is a required
+/// parameter, not an option with a permissive default: a caller that has not
+/// resolved the Realm component passes
+/// `AadVisibilityCeiling::from_declared(None)`, which is the `hidden` ceiling.
+/// An envelope wider than the ceiling fails construction here rather than
+/// travelling and being rejected by the peer — the sender is the one party that
+/// can still choose a narrower disclosure.
 pub fn encrypted_envelope_from_payload(
     payload: &EncryptedPayload,
     aad: EncryptedEnvelopeAad,
     visibility: EncryptedEnvelopeAadVisibility,
+    ceiling: AadVisibilityCeiling,
     group_state_ref: impl Into<String>,
 ) -> Result<EncryptedEnvelope> {
+    ceiling.check(visibility)?;
     if payload.aad.as_ref() != Some(&aad) {
         return Err(Error::Protocol(
             "encrypted envelope aad does not match the aad bound at encryption time".to_owned(),

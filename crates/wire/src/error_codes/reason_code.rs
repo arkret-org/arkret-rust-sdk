@@ -1,13 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-07-31.8;
-//! sha256=c5765ea61756064087d6fd0858b441dea62cc4217c2e69947818c4c0a4d45913
-//! Entries: reason_codes=454
+//! Input: registry/error-code-registry.json; version=2026-08-01.1;
+//! sha256=b872891b5668e7a7188c01782553b0a21c1d2e02d86ed0ac0f33533bd0653d1c
+//! Entries: reason_codes=455
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ReasonCode {
+    AadVisibilityPolicyViolation,
     AbuseCluster,
     AbuseNetwork,
     AbuseReview,
@@ -473,6 +474,7 @@ pub struct ReasonCodeDescriptor {
 }
 
 impl ReasonCode {
+    pub const AAD_VISIBILITY_POLICY_VIOLATION: &'static str = "aad_visibility_policy_violation";
     pub const ABUSE_CLUSTER: &'static str = "abuse_cluster";
     pub const ABUSE_NETWORK: &'static str = "abuse_network";
     pub const ABUSE_REVIEW: &'static str = "abuse_review";
@@ -1021,6 +1023,7 @@ impl ReasonCode {
 
     pub fn as_str(&self) -> &str {
         match self {
+            Self::AadVisibilityPolicyViolation => "aad_visibility_policy_violation",
             Self::AbuseCluster => "abuse_cluster",
             Self::AbuseNetwork => "abuse_network",
             Self::AbuseReview => "abuse_review",
@@ -1553,6 +1556,7 @@ impl ReasonCode {
 
     pub fn from_wire(value: &str) -> Self {
         match value {
+            "aad_visibility_policy_violation" => Self::AadVisibilityPolicyViolation,
             "abuse_cluster" => Self::AbuseCluster,
             "abuse_network" => Self::AbuseNetwork,
             "abuse_review" => Self::AbuseReview,
@@ -2103,6 +2107,11 @@ impl<'de> Deserialize<'de> for ReasonCode {
 }
 
 pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
+    ReasonCodeDescriptor {
+        code: "aad_visibility_policy_violation",
+        applies_to: &["event_envelope", "state_resolution"],
+        description: "Sub-reason for failed_precondition when an encrypted envelope declares an aad_visibility_event_id wider than the Realm ceiling in ak.realm.policy_bundle payload aad_visibility.event_id (disclosure order hidden < routing_digest < opaque_id; an absent component means the hidden ceiling). Receivers and reducers MUST reject and MUST NOT silently downgrade the envelope to hidden. See zh/crypto-media/encryption-and-audit.md §2.8.",
+    },
     ReasonCodeDescriptor {
         code: "abuse_cluster",
         applies_to: &["moderation_decision"],

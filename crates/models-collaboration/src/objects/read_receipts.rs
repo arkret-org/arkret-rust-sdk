@@ -6,8 +6,7 @@ use std::fmt;
 use arkret_wire::{
     BlobRef, DeviceId, Did, Error, EventId, Hlc, MessageId, MorphId, NotificationId,
     NotificationKind, NotificationPriority, NotificationState, OpaqueLocalId, ReadCursorId,
-    ReadCursorScope, ReadReceiptScope, RealmId, RelationId, Result, SchemaId, StrandId, ViewId,
-    canonical,
+    ReadCursorScope, RealmId, RelationId, Result, SchemaId, StrandId, ViewId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -212,28 +211,11 @@ mod read_cursor_merge_tests {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ReadReceipt {
-    pub receipt_kind: String,
-    pub schema: String,
-    pub realm_id: RealmId,
-    pub actor_id: Did,
-    pub event_id: EventId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hlc: Option<Hlc>,
-    pub read_scope: ReadReceiptScope,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-}
-
-impl ReadReceipt {
-    pub const SCHEMA: &'static str = SchemaId::READ_RECEIPT_V1;
-    /// Deserialize an inbound read receipt after canonical JSON ingress checks.
-    pub fn from_canonical_json_slice(bytes: &[u8]) -> Result<Self> {
-        Ok(canonical::from_canonical_json_slice(bytes)?)
-    }
-}
+/// `ak.receipt.read` is a Signal plaintext profile, not a durable object, so
+/// its type lives with the rest of the Signal plaintext family. Re-exported
+/// here because the read-receipt policy types it is governed by are in this
+/// module.
+pub use crate::signal_plaintext::ReadReceipt;
 
 /// Whether compliant clients generate read receipts for a Realm.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

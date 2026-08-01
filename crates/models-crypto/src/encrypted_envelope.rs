@@ -4,7 +4,9 @@
 //! carries only routing metadata.
 
 use arkret_canonical::canonical;
-use arkret_wire::{EncryptedPayloadScheme, Error, EventId, Hash, RealmId, Result, SchemaId};
+use arkret_wire::{
+    EncryptedPayloadScheme, Error, EventId, Hash, RealmId, ReasonCode, Result, SchemaId,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -44,13 +46,78 @@ impl EncryptedEnvelopeAad {
     }
 }
 
+/// Disclosure axis of `encrypted-envelope.schema.json#/properties/
+/// aad_visibility_event_id`.
+///
+/// The derived `Ord` **is** the normative disclosure order
+/// `hidden < routing_digest < opaque_id`
+/// (`crypto-media/encryption-and-audit.md` §2.8), so variant declaration order
+/// is wire-significant here and is pinned by
+/// `aad_visibility_disclosure_order_is_normative`. Everything that compares two
+/// visibilities MUST go through this ordering rather than re-deriving a rank.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EncryptedEnvelopeAadVisibility {
+    /// Fail-closed default: what a Realm that has not declared the
+    /// `aad_visibility` policy component permits.
+    #[default]
     Hidden,
     RoutingDigest,
     OpaqueId,
+}
+
+/// Realm ceiling on [`EncryptedEnvelopeAadVisibility`], resolved from the
+/// `aad_visibility` component of the accepted `ak.realm.policy_bundle`.
+///
+/// This is the shared judgement entry for services and clients
+/// (`crypto-media/encryption-and-audit.md` §§2.3.2 / 2.8). It exists as a
+/// distinct type so the absent-component case has to be *resolved* rather than
+/// skipped: [`Self::from_declared`] takes an `Option` and maps `None` to
+/// [`EncryptedEnvelopeAadVisibility::Hidden`], so "the Realm did not declare a
+/// ceiling" can never be spelled as "do not check". An envelope narrower than
+/// the ceiling is always fine; only a wider one is a violation, and it MUST be
+/// rejected rather than silently downgraded.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct AadVisibilityCeiling(EncryptedEnvelopeAadVisibility);
+
+impl AadVisibilityCeiling {
+    /// Resolve the ceiling from the Realm's declared component value.
+    ///
+    /// `None` means the Realm carries no `aad_visibility` component, which is
+    /// the `hidden` ceiling — not an exemption.
+    pub fn from_declared(declared: Option<EncryptedEnvelopeAadVisibility>) -> Self {
+        Self(declared.unwrap_or_default())
+    }
+
+    pub fn value(self) -> EncryptedEnvelopeAadVisibility {
+        self.0
+    }
+
+    /// Whether `envelope` is at or below this ceiling.
+    pub fn permits(self, envelope: EncryptedEnvelopeAadVisibility) -> bool {
+        envelope <= self.0
+    }
+
+    /// Reject an envelope that discloses more than the Realm declared.
+    ///
+    /// The error text carries `aad_visibility_policy_violation` so every
+    /// enforcement point reports the one registered sub-reason of
+    /// `failed_precondition`. Callers MUST NOT recover by rewriting the
+    /// envelope to `hidden`: a silent downgrade leaves the sender believing its
+    /// disclosure level took effect and the receiver believing policy held.
+    pub fn check(self, envelope: EncryptedEnvelopeAadVisibility) -> Result<()> {
+        if self.permits(envelope) {
+            return Ok(());
+        }
+        Err(Error::Protocol(format!(
+            "{}: encrypted envelope aad_visibility_event_id {:?} is wider than the Realm ceiling \
+             {:?}",
+            ReasonCode::AAD_VISIBILITY_POLICY_VIOLATION,
+            envelope,
+            self.0
+        )))
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -437,4 +504,43 @@ struct EncryptedPayloadDigestMetadata<'a> {
     pub epoch: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub aad: Option<&'a EncryptedEnvelopeAad>,
+}
+
+#[cfg(test)]
+mod aad_visibility_tests {
+    use super::*;
+
+    #[test]
+    fn aad_visibility_disclosure_order_is_normative() {
+        use EncryptedEnvelopeAadVisibility::{Hidden, OpaqueId, RoutingDigest};
+        // `encryption-and-audit.md` §2.8: hidden < routing_digest < opaque_id.
+        // The derived Ord is the only spelling of this order, so pin it here
+        // rather than letting a variant reshuffle silently widen a ceiling.
+        assert!(Hidden < RoutingDigest);
+        assert!(RoutingDigest < OpaqueId);
+        assert_eq!(EncryptedEnvelopeAadVisibility::default(), Hidden);
+    }
+
+    #[test]
+    fn absent_component_resolves_to_the_hidden_ceiling() {
+        use EncryptedEnvelopeAadVisibility::{Hidden, OpaqueId, RoutingDigest};
+        let undeclared = AadVisibilityCeiling::from_declared(None);
+        assert_eq!(undeclared.value(), Hidden);
+        undeclared
+            .check(Hidden)
+            .expect("hidden is at the default ceiling");
+        for wider in [RoutingDigest, OpaqueId] {
+            let error = undeclared.check(wider).unwrap_err().to_string();
+            assert!(error.contains("aad_visibility_policy_violation"), "{error}");
+        }
+    }
+
+    #[test]
+    fn a_narrower_envelope_is_always_accepted() {
+        use EncryptedEnvelopeAadVisibility::{Hidden, OpaqueId, RoutingDigest};
+        let ceiling = AadVisibilityCeiling::from_declared(Some(RoutingDigest));
+        ceiling.check(Hidden).expect("narrower discloses less");
+        ceiling.check(RoutingDigest).expect("at the ceiling");
+        assert!(ceiling.check(OpaqueId).is_err());
+    }
 }

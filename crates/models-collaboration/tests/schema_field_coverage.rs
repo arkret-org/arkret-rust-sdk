@@ -120,3 +120,145 @@ fn the_gate_detects_a_dto_missing_a_declared_field() {
         "the coverage comparison must notice a dropped field, got {missing:?}"
     );
 }
+
+/// Spec artifact holding the Event payload `$defs`.
+const EVENT_PAYLOAD: &str = "schemas/event-payload.schema.json";
+
+/// `ak.realm.policy_bundle` is a `cas_register`: a revision restates the
+/// complete enabled component set, so a payload type that is behind the schema
+/// does not merely fail to express a component — it **clears** it on every
+/// write. The set comparison is therefore a correctness gate, not tidiness.
+///
+/// The 2026-08-01 ruling is exactly this failure: the payload carried five of
+/// the fifteen declared components, so `join_policy`, `audit_policy`,
+/// `aad_visibility` and the rest were unwritable and any bundle authored
+/// through the SDK wiped them.
+#[test]
+fn realm_policy_bundle_payload_matches_its_schema_definition() {
+    let fully_populated: arkret_models_collaboration::events_payloads::RealmPolicyBundlePayload =
+        serde_json::from_value(json!({
+            "policy_revision": 4,
+            "content_scheme": "mls_exporter_aead_v1",
+            "content_encryption_floor": "e2ee_required",
+            "metadata_encryption_floor": "e2ee_required",
+            "aad_visibility": { "event_id": "routing_digest" },
+            "durability_policy": { "mode": "none" },
+            "mls_send_pause": "advisory",
+            "relaxed_window_max_ms": 60000,
+            "media_service_decrypts": true,
+            "join_policy": {
+                "gates": [{ "gate_id": "open", "kind": "allow_all" }],
+                "combinator": "all"
+            },
+            "agent_participation": {
+                "native_agent": {
+                    "reply": true,
+                    "accept_third_party_mention": false,
+                    "act_on_behalf": false
+                }
+            },
+            "account_deactivation": { "member_action": "leave_all" },
+            "availability_policy": {
+                "min_holders": 1,
+                "holder_roles": ["notary"],
+                "applies_to": ["seal_include"]
+            },
+            "audit_policy": {
+                "range_completeness_witnesses": ["did:web:witness.example"],
+                "witnessed_min_attestations": 1,
+                "witness_independence": "distinct_did"
+            },
+            "preauth": { "require_consent": true }
+        }))
+        .expect("every schema-declared component is accepted by the typed bundle payload");
+
+    assert_dto_matches_schema(
+        EVENT_PAYLOAD,
+        "realm_policy_bundle_payload",
+        &fully_populated,
+    );
+}
+
+/// Field names declared by a standalone schema artifact's top-level
+/// `properties`.
+fn root_property_names(artifact: &str) -> BTreeSet<String> {
+    let schema = arkret_schema::embedded_json_artifact(artifact)
+        .unwrap_or_else(|error| panic!("embedded artifact {artifact} failed to load: {error}"));
+    schema
+        .get("properties")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_else(|| panic!("{artifact}#/properties is missing"))
+        .keys()
+        .cloned()
+        .collect()
+}
+
+fn assert_profile_matches_schema<T: Serialize>(artifact: &str, fully_populated: &T) {
+    let declared = root_property_names(artifact);
+    let carried = serialized_field_names(fully_populated);
+    assert_eq!(
+        declared, carried,
+        "{artifact} and its typed profile disagree on the closed field set"
+    );
+}
+
+/// Every registered Signal plaintext profile carries exactly its closed
+/// schema's fields — in particular both members of the §1.1 common minimum,
+/// `kind` and `payload_sequence`.
+///
+/// The 2026-08-01 ruling removed the durable-object leftovers from
+/// `ak.receipt.read` and added `payload_sequence` to `ak.call.signal`; this is
+/// what keeps a profile from drifting back into hand-topped-up fields.
+#[test]
+fn signal_plaintext_profiles_match_their_closed_schemas() {
+    use arkret_models_collaboration::signal_plaintext::{
+        PresencePlaintext, ReadReceipt, TypingPlaintext,
+    };
+
+    let receipt: ReadReceipt = serde_json::from_value(json!({
+        "kind": "ak.receipt.read",
+        "payload_sequence": 9,
+        "actor_id": "did:web:alice.example",
+        "event_id": "ak:event:01904100-0000-7000-8000-000000000001",
+        "hlc": "01970e589d21-0001-a13f9c2e",
+        "read_scope": {"kind": "realm"}
+    }))
+    .expect("read receipt accepts every declared field");
+    assert_profile_matches_schema("schemas/read-receipt.schema.json", &receipt);
+
+    let presence: PresencePlaintext = serde_json::from_value(json!({
+        "kind": "ak.presence",
+        "payload_sequence": 2,
+        "actor_id": "did:web:alice.example",
+        "state": "online",
+        "status_message": "back in ten",
+        "last_active_at": "2026-08-01T00:00:00.000Z",
+        "ttl_ms": 30000
+    }))
+    .expect("presence accepts every declared field");
+    assert_profile_matches_schema("schemas/signal-presence.schema.json", &presence);
+
+    let typing: TypingPlaintext = serde_json::from_value(json!({
+        "kind": "ak.typing",
+        "payload_sequence": 3,
+        "strand_id": "ak:strand:01904100-0000-7000-8000-000000000002",
+        "track_name": "discussion",
+        "typing": true,
+        "ttl_ms": 5000
+    }))
+    .expect("typing accepts every declared field");
+    assert_profile_matches_schema("schemas/signal-typing.schema.json", &typing);
+
+    let call: arkret_models_collaboration::call_signal::CallSignalPlaintext =
+        serde_json::from_value(json!({
+            "kind": "ak.call.signal",
+            "payload_sequence": 4,
+            "call_id": "ak:call:01904100-0000-7000-8000-000000000003",
+            "signal_kind": "candidate",
+            "seq": 1,
+            "data": {"candidate": "opaque"}
+        }))
+        .expect("call signal accepts every declared field");
+    assert_profile_matches_schema("schemas/call-signal-plaintext.schema.json", &call);
+}

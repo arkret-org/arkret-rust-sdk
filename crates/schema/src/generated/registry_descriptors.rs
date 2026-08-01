@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/id-kind-registry.json; version=2026-07-31.17;
-//! sha256=96ed41817ab15f360186f87324dee60d1bb10fd57db8428e1fa101607e7b6664 Input: registry/
-//! capability-action-registry.json; version=2026-07-31.17;
-//! sha256=b63912bd604bceac6a0c70c5b1f401d3b30aef7044168f2ea9cafa5cc62d6dec Input: registry/
-//! schema-registry.json; version=2026-07-31.17;
-//! sha256=9fecfd171cff6ecf81bd545cd0c3616a60ef48fe979d7b1db37ed5d6991479c4 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-08-01.2;
+//! sha256=38cd83c60e1080e6af9a20355c1f01ebef404d88cec56f829c044d1d6379c9cd Input: registry/
+//! capability-action-registry.json; version=2026-08-01.2;
+//! sha256=bab8be9df3e14da8ca702b26d49a4d4dd7234022f44b7ec487f6e02099f8328e Input: registry/
+//! schema-registry.json; version=2026-08-01.2;
+//! sha256=aa23cbf2b0e10d18d8a58553fafe20c4953af57a5cda8e4cb2e7973f770a4b92 Input: registry/
 //! account-data-key-registry.json; version=2026-07-30;
 //! sha256=9afa80c16d13fcc3bdc5da373e0e1bc6bc5099e06aaccdd560745962023f89a3 Entries: id_kinds=53,
-//! special_forms=9, actions=163, schemas=173, account_data_patterns=24
+//! special_forms=9, actions=163, schemas=175, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, EventKind, SchemaId};
 use serde::{Deserialize, Serialize};
@@ -3381,12 +3381,20 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/signal-message-stream.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::SIGNAL_PRESENCE_V1,
+        file: "schemas/signal-presence.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::SIGNAL_RELAY_V1,
         file: "schemas/signal-relay.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::SIGNAL_STREAM_FRAME_V1,
         file: "schemas/signal-stream-frame.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::SIGNAL_TYPING_V1,
+        file: "schemas/signal-typing.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::SNAPSHOT_V1,

@@ -2,6 +2,12 @@
 
 use std::collections::BTreeSet;
 
+use arkret_models_crypto::encrypted_envelope::{
+    AadVisibilityCeiling, EncryptedEnvelopeAadVisibility,
+};
+
+use crate::events_payloads::join_policy::JoinPolicyPayload;
+use crate::governance::agent_participation::AgentParticipationPolicy;
 use crate::governance::delivery_binding::BindingSource;
 use crate::internal_prelude::*;
 
@@ -93,6 +99,79 @@ pub enum MlsSendPause {
     Advisory,
 }
 
+/// `account_deactivation.member_action` of [`RealmPolicyBundlePayload`].
+///
+/// The single authority for this closed enum and its disposition semantics is
+/// `identity/account-lifecycle.md` §7.1. Absent component means
+/// `leave_self_initiated`; an unrecognized value fails closed to
+/// `retain_membership` rather than to the default, which is why the enum is
+/// closed and a parse failure is not resolved by substituting the default.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccountDeactivationMemberAction {
+    LeaveSelfInitiated,
+    RetainMembership,
+    LeaveAll,
+}
+
+/// `account_deactivation` component of [`RealmPolicyBundlePayload`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmAccountDeactivationPolicy {
+    pub member_action: AccountDeactivationMemberAction,
+}
+
+impl RealmAccountDeactivationPolicy {
+    /// Disposition for a Realm that declared the component, or the
+    /// `leave_self_initiated` default when it did not.
+    pub fn member_action_or_default(component: Option<Self>) -> AccountDeactivationMemberAction {
+        component.map_or(
+            AccountDeactivationMemberAction::LeaveSelfInitiated,
+            |policy| policy.member_action,
+        )
+    }
+}
+
+/// `preauth` component of [`RealmPolicyBundlePayload`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmPreauthPolicy {
+    /// When true, every invite into this Realm MUST pass the holder consent
+    /// admission gate in `identity/consent-model.md` §6.1 before the invite
+    /// Control Move is submitted. It MUST NOT be read as permission for a
+    /// cross-Realm CBA precondition.
+    pub require_consent: bool,
+}
+
+/// `aad_visibility` component of [`RealmPolicyBundlePayload`].
+///
+/// One registered axis in v1, matching the single encrypted-envelope
+/// discriminator `aad_visibility_event_id`. Closed, so an unregistered axis
+/// name is a wire-parse `schema_violation`: a new axis needs a real envelope
+/// field, not just a policy key.
+///
+/// The value is a **ceiling**, not an equality. Resolve it through
+/// [`AadVisibilityCeiling::from_declared`] so the absent-component case is the
+/// `hidden` ceiling rather than an unchecked one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmAadVisibilityPolicy {
+    pub event_id: EncryptedEnvelopeAadVisibility,
+}
+
+/// Absolute ceiling on `relaxed_window_max_ms`
+/// (`crypto-media/encryption-and-audit.md` §2.4.1).
+///
+/// Deliberately **not** enforced by the wire type: the schema leaves the field
+/// unbounded above so an over-ceiling value reaches the reducer and surfaces as
+/// `relaxed_window_exceeds_ceiling`. A type that clamped or rejected here would
+/// turn that into `schema_violation`, or worse, into a silent truncation.
+pub const RELAXED_WINDOW_MAX_MS_CEILING: u64 = 300_000;
+
+/// Default removed-member decryption window when `relaxed_window_max_ms` is
+/// absent.
+pub const RELAXED_WINDOW_DEFAULT_MS: u64 = 30_000;
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_policy_bundle_payload`.
 ///
@@ -102,12 +181,22 @@ pub enum MlsSendPause {
 /// `ak.component.realm.policy_bundle.v1` `cas_register` cell and the Realm
 /// object's derived policy fields re-derive from the latest accepted bundle.
 ///
+/// The closed property set is exactly the Realm policy components that have
+/// **no** independent facet Event kind. Components that own their own kind and
+/// cell (`ak.realm.join_rule`, `ak.realm.history_visibility`,
+/// `ak.realm.read_receipt_policy`, `ak.realm.media_service`, …) are written by
+/// those events and already reach `policy_root` through the
+/// `ak.component.realm.*policy*` leaf filter; echoing them here would create a
+/// second, drifting truth.
+///
 /// `policy_revision` is strictly monotonic and is what gives this cell family a
 /// generation dimension inside its value — `cas_register` supersession binds by
 /// value, so a family that can otherwise repeat a value needs one
 /// (`event-auth-state-resolution.md` §9.3.1).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+// Field declaration order is byte-for-byte the `properties` order of
+// `event-payload.schema.json#/$defs/realm_policy_bundle_payload`.
 pub struct RealmPolicyBundlePayload {
     pub policy_revision: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -117,22 +206,110 @@ pub struct RealmPolicyBundlePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata_encryption_floor: Option<EncryptionFloor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aad_visibility: Option<RealmAadVisibilityPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub durability_policy: Option<DurabilityPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_send_pause: Option<MlsSendPause>,
+    /// Declared `ak.profile.e2ee_relaxed.v1` removed-member decryption window.
+    /// Absent means [`RELAXED_WINDOW_DEFAULT_MS`].
+    ///
+    /// A value above [`RELAXED_WINDOW_MAX_MS_CEILING`] is representable on
+    /// purpose: the reducer and every receiver reject it with
+    /// `relaxed_window_exceeds_ceiling`, and MUST NOT silently clamp it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relaxed_window_max_ms: Option<u64>,
+    /// Whether a media service listed in `plaintext_visible_services` may
+    /// decrypt call media. Absent means `false`. One of three conditions that
+    /// MUST all hold (`crypto-media/media-service-binding.md` §8.2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub media_service_decrypts: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub join_policy: Option<JoinPolicyPayload>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_participation: Option<AgentParticipationPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_deactivation: Option<RealmAccountDeactivationPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub availability_policy: Option<RealmAvailabilityPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audit_policy: Option<RealmAuditPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preauth: Option<RealmPreauthPolicy>,
 }
 
 impl RealmPolicyBundlePayload {
     /// A bundle revision carrying one component set.
+    ///
+    /// Every component starts absent, and absent means **disabled**: the cell
+    /// is a `cas_register`, so a revision restates the complete enabled set and
+    /// anything not written here is cleared. Authors building the next revision
+    /// start from the currently accepted bundle
+    /// ([`Self::restate`]) rather than from this constructor.
     pub fn new(policy_revision: u64) -> Self {
         Self {
             policy_revision,
             content_scheme: None,
             content_encryption_floor: None,
             metadata_encryption_floor: None,
+            aad_visibility: None,
             durability_policy: None,
             mls_send_pause: None,
+            relaxed_window_max_ms: None,
+            media_service_decrypts: None,
+            join_policy: None,
+            agent_participation: None,
+            account_deactivation: None,
+            availability_policy: None,
+            audit_policy: None,
+            preauth: None,
         }
+    }
+
+    /// The next revision of an accepted bundle, carrying every component
+    /// forward.
+    ///
+    /// This is the only safe way to author a follow-up revision. Because
+    /// `ak.component.realm.policy_bundle.v1` is a `cas_register`, a revision
+    /// that writes only the components it means to change **clears** the rest.
+    /// For `aad_visibility` that failure is especially quiet: dropping it
+    /// lowers the ceiling back to `hidden`, every `routing_digest` envelope
+    /// starts being rejected, and it presents as "dedupe suddenly broke"
+    /// rather than as a policy edit.
+    pub fn restate(&self, policy_revision: u64) -> Self {
+        Self {
+            policy_revision,
+            ..self.clone()
+        }
+    }
+
+    /// Resolved Realm ceiling for encrypted-envelope `aad_visibility_event_id`.
+    ///
+    /// An absent component is the `hidden` ceiling, never "unchecked".
+    pub fn aad_visibility_ceiling(&self) -> AadVisibilityCeiling {
+        AadVisibilityCeiling::from_declared(self.aad_visibility.map(|policy| policy.event_id))
+    }
+
+    /// Effective removed-member decryption window.
+    ///
+    /// Only meaningful once the value has passed the reducer's ceiling check;
+    /// this deliberately does not clamp.
+    pub fn relaxed_window_ms(&self) -> u64 {
+        self.relaxed_window_max_ms
+            .unwrap_or(RELAXED_WINDOW_DEFAULT_MS)
+    }
+
+    /// Whether `relaxed_window_max_ms` is above the absolute ceiling.
+    ///
+    /// Callers reject with `relaxed_window_exceeds_ceiling`; they MUST NOT
+    /// truncate to the ceiling and continue.
+    pub fn relaxed_window_exceeds_ceiling(&self) -> bool {
+        self.relaxed_window_max_ms
+            .is_some_and(|value| value > RELAXED_WINDOW_MAX_MS_CEILING)
+    }
+
+    pub fn media_service_decrypts(&self) -> bool {
+        self.media_service_decrypts.unwrap_or(false)
     }
 
     /// `minProperties: 2` — a revision that enables nothing is a
@@ -145,12 +322,7 @@ impl RealmPolicyBundlePayload {
                     .to_owned(),
             ));
         }
-        if self.content_scheme.is_none()
-            && self.content_encryption_floor.is_none()
-            && self.metadata_encryption_floor.is_none()
-            && self.durability_policy.is_none()
-            && self.mls_send_pause.is_none()
-        {
+        if self.declared_component_count() == 0 {
             return Err(Error::Protocol(
                 "realm_policy_bundle_payload must declare at least one component beside \
                  policy_revision (schema_violation)"
@@ -158,6 +330,19 @@ impl RealmPolicyBundlePayload {
             ));
         }
         Ok(())
+    }
+
+    /// Components declared beside `policy_revision`.
+    ///
+    /// Derived from the serialized object rather than from a hand-maintained
+    /// chain of `is_none()` tests: a new component added to the struct is
+    /// counted automatically, so `minProperties` cannot go stale the way it
+    /// did when the payload carried five of the fifteen components.
+    fn declared_component_count(&self) -> usize {
+        serde_json::to_value(self)
+            .ok()
+            .and_then(|value| value.as_object().map(|object| object.len()))
+            .map_or(0, |len| len.saturating_sub(1))
     }
 
     pub fn to_value(&self) -> Result<Value> {
@@ -821,5 +1006,101 @@ mod realm_organization_tests {
         // not deserialize into the relationship-statement strong type.
         let legacy = json!({ "organization_ref": "did:webvh:z6mkfixture:org.example" });
         assert!(serde_json::from_value::<RealmOrganizationPayload>(legacy).is_err());
+    }
+}
+
+#[cfg(test)]
+mod realm_policy_bundle_tests {
+    use super::*;
+
+    fn declared_bundle() -> RealmPolicyBundlePayload {
+        let mut bundle = RealmPolicyBundlePayload::new(3);
+        bundle.aad_visibility = Some(RealmAadVisibilityPolicy {
+            event_id: EncryptedEnvelopeAadVisibility::RoutingDigest,
+        });
+        bundle.media_service_decrypts = Some(true);
+        bundle
+    }
+
+    #[test]
+    fn restating_a_revision_carries_every_component_forward() {
+        // The cas_register hazard: a next revision that only writes what it
+        // changes clears everything else. `restate` is the safe author path.
+        let accepted = declared_bundle();
+        let next = accepted.restate(4);
+        assert_eq!(next.policy_revision, 4);
+        assert_eq!(next.aad_visibility, accepted.aad_visibility);
+        assert!(next.media_service_decrypts());
+
+        // Dropping `aad_visibility` silently lowers the ceiling to hidden, and
+        // presents downstream as "dedupe suddenly broke" rather than as a
+        // policy edit — which is exactly why `restate` exists.
+        let mut forgetful = RealmPolicyBundlePayload::new(4);
+        forgetful.media_service_decrypts = Some(true);
+        assert_eq!(
+            forgetful.aad_visibility_ceiling().value(),
+            EncryptedEnvelopeAadVisibility::Hidden
+        );
+    }
+
+    #[test]
+    fn an_undeclared_aad_visibility_component_is_the_hidden_ceiling() {
+        let bundle = declared_bundle();
+        bundle
+            .aad_visibility_ceiling()
+            .check(EncryptedEnvelopeAadVisibility::RoutingDigest)
+            .expect("at the declared ceiling");
+        assert!(
+            bundle
+                .aad_visibility_ceiling()
+                .check(EncryptedEnvelopeAadVisibility::OpaqueId)
+                .is_err()
+        );
+
+        let mut undeclared = RealmPolicyBundlePayload::new(1);
+        undeclared.mls_send_pause = Some(MlsSendPause::Advisory);
+        let error = undeclared
+            .aad_visibility_ceiling()
+            .check(EncryptedEnvelopeAadVisibility::RoutingDigest)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("aad_visibility_policy_violation"), "{error}");
+    }
+
+    #[test]
+    fn an_over_ceiling_relaxed_window_survives_the_type_and_is_flagged() {
+        // 300001 MUST reach the reducer as relaxed_window_exceeds_ceiling, so
+        // the type neither rejects nor clamps it.
+        let mut bundle = RealmPolicyBundlePayload::new(2);
+        bundle.relaxed_window_max_ms = Some(RELAXED_WINDOW_MAX_MS_CEILING + 1);
+        bundle
+            .validate()
+            .expect("an over-ceiling window is not a schema_violation");
+        assert_eq!(
+            bundle.relaxed_window_ms(),
+            RELAXED_WINDOW_MAX_MS_CEILING + 1,
+            "the value must not be truncated to the ceiling"
+        );
+        assert!(bundle.relaxed_window_exceeds_ceiling());
+
+        let mut at_ceiling = RealmPolicyBundlePayload::new(2);
+        at_ceiling.relaxed_window_max_ms = Some(RELAXED_WINDOW_MAX_MS_CEILING);
+        assert!(!at_ceiling.relaxed_window_exceeds_ceiling());
+
+        let absent = declared_bundle();
+        assert_eq!(absent.relaxed_window_ms(), RELAXED_WINDOW_DEFAULT_MS);
+    }
+
+    #[test]
+    fn a_revision_that_enables_nothing_is_a_schema_violation() {
+        assert!(RealmPolicyBundlePayload::new(1).validate().is_err());
+        assert!(RealmPolicyBundlePayload::new(0).validate().is_err());
+        // The min-properties count is derived from the serialized object, so a
+        // component added later is counted without editing `validate`.
+        let mut only_preauth = RealmPolicyBundlePayload::new(1);
+        only_preauth.preauth = Some(RealmPreauthPolicy {
+            require_consent: true,
+        });
+        only_preauth.validate().unwrap();
     }
 }

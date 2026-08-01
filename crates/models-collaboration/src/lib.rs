@@ -29,6 +29,7 @@ pub mod runtime_identity;
 pub mod seal_transparency;
 pub mod session_grant_bodies;
 pub mod signal_message_stream;
+pub mod signal_plaintext;
 pub mod sync_frames;
 
 pub use events_payloads::{

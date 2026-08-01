@@ -48,9 +48,10 @@ pub const ARKRET_MLS_ALGORITHM: &str = "ak.mls.v1";
 mod tests {
     use arkret_canonical::base64url_encode;
     use arkret_models_crypto::{
-        EncryptedEnvelope, EncryptedEnvelopeAadVisibility, EncryptedEnvelopeKeyAlgorithm,
-        MlsCommitEnvelope, MlsCommitSource, MlsGovernanceBindingPayload,
-        MlsGovernanceBindingValidationContext, MlsGroupStateRecord, MlsGroupStateSink,
+        AadVisibilityCeiling, EncryptedEnvelope, EncryptedEnvelopeAadVisibility,
+        EncryptedEnvelopeKeyAlgorithm, MlsCommitEnvelope, MlsCommitSource,
+        MlsGovernanceBindingPayload, MlsGovernanceBindingValidationContext, MlsGroupStateRecord,
+        MlsGroupStateSink,
     };
     use arkret_wire::{
         CORE_REDUCER_PROFILE, DeviceId, Did, EncryptedPayloadScheme, EventId, Hash, ProfileId,
@@ -1261,6 +1262,7 @@ mod tests {
             &payload,
             aad,
             EncryptedEnvelopeAadVisibility::Hidden,
+            AadVisibilityCeiling::from_declared(None),
             commit_ref,
         )
         .unwrap();
@@ -1321,6 +1323,7 @@ mod tests {
                 "ak.strand.update",
             ),
             EncryptedEnvelopeAadVisibility::Hidden,
+            AadVisibilityCeiling::from_declared(None),
             commit_ref,
         );
         assert!(mismatch.is_err());
@@ -1447,6 +1450,7 @@ mod tests {
             &payload,
             envelope_aad,
             EncryptedEnvelopeAadVisibility::Hidden,
+            AadVisibilityCeiling::from_declared(None),
             group_state_ref,
         )
         .unwrap();
