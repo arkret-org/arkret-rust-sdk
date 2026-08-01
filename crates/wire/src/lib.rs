@@ -60,6 +60,7 @@ pub mod service_kind;
 pub mod signal;
 pub mod signer;
 pub mod string_profiles;
+pub mod websocket_binding;
 pub mod wire_strings;
 
 pub use applet_revoke_mode::AppletRevokeMode;
@@ -178,4 +179,12 @@ pub use signal::{
 };
 pub use signer::{PartialSignature, PayloadSigner, ThresholdAggregator};
 pub use string_profiles::*;
+pub use websocket_binding::{
+    WEBSOCKET_AUTH_METHOD_TOKEN, WEBSOCKET_AUTH_REPLAY_CONTEXT, WEBSOCKET_AUTHENTICATION,
+    WEBSOCKET_AUTHENTICATION_DEADLINE_MS, WEBSOCKET_HARD_MAX_FRAME_BYTES,
+    WEBSOCKET_REPLAY_LEDGER_RETENTION_SECONDS, WEBSOCKET_SUBPROTOCOL, WebSocketChallengeRecord,
+    WebSocketCloseCode, WebSocketDpopClaims, WebSocketDpopProof, WebSocketDpopProtectedHeader,
+    WebSocketDpopPublicJwk, WebSocketOperationId, WebSocketReplayLedgerKey,
+    WebSocketTransportError, canonical_http_origin, validate_websocket_base_url,
+};
 pub use wire_strings::*;

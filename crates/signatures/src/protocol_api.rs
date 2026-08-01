@@ -55,7 +55,18 @@ pub mod realm_organization;
 #[path = "jws.rs"]
 pub mod jws;
 
+// `challenge_dpop_session_v1` for the WebSocket binding extension. Kept next to
+// (never merged into) the HTTP DPoP module: the two validator contexts must
+// stay separate, see `websocket_auth`'s module documentation.
+#[path = "websocket_auth.rs"]
+pub mod websocket_auth;
 use std::collections::BTreeMap;
+
+pub use websocket_auth::{
+    VerifiedWebSocketAuth, WebSocketAuthError, WebSocketAuthProof, WebSocketAuthProofRequest,
+    WebSocketAuthVerificationRequest, build_websocket_auth_proof, verify_websocket_auth_proof,
+    websocket_holder_thumbprint, websocket_session_grant_hash,
+};
 
 #[path = "error.rs"]
 pub mod error;

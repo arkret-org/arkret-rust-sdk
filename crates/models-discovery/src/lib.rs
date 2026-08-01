@@ -13,6 +13,7 @@ pub mod presence;
 pub mod service_description;
 pub mod service_requirements;
 pub mod verified_profiles;
+pub mod websocket_binding;
 
 pub use directory::*;
 pub use directory_artifacts::*;
@@ -22,3 +23,7 @@ pub use presence::*;
 pub use service_description::*;
 pub use service_requirements::*;
 pub use verified_profiles::*;
+pub use websocket_binding::{
+    WebSocketBindingAuthentication, WebSocketBindingDescriptor, WebSocketBindingKind,
+    WebSocketBindingProfile, WebSocketBindingSubprotocol, select_websocket_binding,
+};

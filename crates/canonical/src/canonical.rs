@@ -152,6 +152,22 @@ fn validate_canonical_string(s: &str) -> Result<()> {
 /// the parsed value and compares the result to the original bytes. Any mismatch
 /// means the ingress bytes were not the unique Arkret canonical JSON form.
 pub fn parse_canonical_json(bytes: &[u8]) -> Result<Value> {
+    let value = parse_json_rejecting_duplicate_keys(bytes)?;
+    validate_canonical_bytes_match(bytes, &value)?;
+    Ok(value)
+}
+
+/// Parse inbound JSON bytes with the duplicate-key, nesting-depth, ingress-size
+/// and BOM rules of [`parse_canonical_json`], but **without** requiring the
+/// bytes to be the canonical serialization.
+///
+/// This is the ingress primitive for wire formats whose member order is fixed
+/// by a schema rather than by canonical key sorting — the
+/// `ak.profile.binding.websocket.v1` connection frames
+/// (`zh/sync/websocket-binding.md` §4: "解析器必须在 schema validation 前拒绝
+/// duplicate member") are the only such format in v1. Anything that is signed,
+/// digested or compared byte-for-byte MUST keep using [`parse_canonical_json`].
+pub fn parse_json_rejecting_duplicate_keys(bytes: &[u8]) -> Result<Value> {
     // scalability-constraints.md §2: a single envelope over 1 MiB MUST be
     // rejected. Enforce the cap before any BOM scan / parse work so an
     // oversized input cannot be materialised into a `Value`.
@@ -175,7 +191,6 @@ pub fn parse_canonical_json(bytes: &[u8]) -> Result<Value> {
     let value = serde::de::DeserializeSeed::deserialize(CanonicalValueSeed { depth: 1 }, &mut de)
         .map_err(canonical_parse_error)?;
     de.end().map_err(canonical_parse_error)?;
-    validate_canonical_bytes_match(bytes, &value)?;
     Ok(value)
 }
 

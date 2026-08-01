@@ -10,3 +10,5 @@ pub mod account_sync;
 pub mod client_sync;
 pub mod snapshot;
 pub mod stream_trace;
+pub mod websocket_binding;
+pub mod websocket_session;
