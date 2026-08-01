@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 
 use arkret_wire::{
     Base64UrlString, DeviceId, Did, DidUrl, FederatedDeviceSigningKeyEvidence, Hash,
-    NonEmptyString, Proof, RealmId, StrandId, TypedTrustDomainId,
+    NonEmptyString, RealmId, StrandId, TypedTrustDomainId,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -180,13 +180,57 @@ pub struct KeyPackagesUploadOutcome {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum KeyPackageClaimProofKind {
+    #[serde(rename = "detached_jws")]
+    DetachedJws,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum KeyPackageClaimProofAlgorithm {
+    #[serde(rename = "EdDSA")]
+    EdDsa,
+    #[serde(rename = "ES256")]
+    Es256,
+    #[serde(rename = "ML-DSA-65")]
+    MlDsa65,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum KeyPackageClaimProofPurpose {
+    #[serde(rename = "holder_acceptance")]
+    HolderAcceptance,
+}
+
+/// Exact-one self KeyPackage claim authorization proof. The dedicated shape
+/// makes `domain`, a non-DID audience, and an unregistered proof purpose
+/// unrepresentable.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeyPackageClaimProof {
+    pub kind: KeyPackageClaimProofKind,
+    pub verification_method: DidUrl,
+    pub alg: KeyPackageClaimProofAlgorithm,
+    pub payload_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+    pub audience: Did,
+    pub proof_purpose: KeyPackageClaimProofPurpose,
+    pub jws: String,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct KeyPackagesClaimRequestBody {
     pub target_principal_id: Did,
     pub intended_realm_id: RealmId,
     pub requester: Did,
     pub required_capabilities: Vec<String>,
-    pub claim_nonce: String,
+    pub claim_nonce: Base64UrlString,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -199,8 +243,76 @@ pub struct KeyPackagesClaimRequestBody {
     pub strand_id: Option<StrandId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
+    pub proofs: [KeyPackageClaimProof; 1],
+}
+
+impl KeyPackagesClaimRequestBody {
+    /// The protocol payload digest removes `proofs` entirely and preserves
+    /// every actually present optional request member.
+    pub fn payload_digest(&self) -> Result<Hash, arkret_wire::Error> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .expect("KeyPackagesClaimRequestBody serializes as an object")
+            .remove("proofs");
+        Hash::new(arkret_canonical::canonical_sha256(&value)?)
+            .map_err(|error| arkret_wire::Error::Protocol(error.to_string()))
+    }
+
+    pub fn proof_binding_bytes(&self) -> Result<Vec<u8>, arkret_wire::Error> {
+        let proof = &self.proofs[0];
+        Ok(arkret_canonical::canonical_json_bytes(
+            &serde_json::json!({
+                "context": "ak.keypackage-claim-request-proof-v1",
+                "payload_digest": proof.payload_digest,
+                "requester": self.requester,
+                "target_principal_id": self.target_principal_id,
+                "intended_realm_id": self.intended_realm_id,
+                "claim_nonce": self.claim_nonce,
+                "verification_method": proof.verification_method,
+                "created_at": arkret_canonical::format_timestamp_canonical(proof.created_at),
+                "proof_purpose": "holder_acceptance",
+                "audience": proof.audience,
+            }),
+        )?)
+    }
+
+    pub fn validate_proof_shape(
+        &self,
+        authority_service_id: &Did,
+        verifier_now: DateTime<Utc>,
+    ) -> Result<Vec<u8>, arkret_wire::Error> {
+        let nonce = arkret_canonical::base64url_decode(self.claim_nonce.as_str())?;
+        if !(22..=128).contains(&self.claim_nonce.as_str().len()) || nonce.len() < 16 {
+            return Err(arkret_wire::Error::Protocol(
+                "claim_nonce must be 22..=128 canonical base64url characters carrying at least 128 bits"
+                    .to_owned(),
+            ));
+        }
+        let proof = &self.proofs[0];
+        if &proof.audience != authority_service_id
+            || proof.payload_digest != self.payload_digest()?
+            || !proof
+                .verification_method
+                .as_str()
+                .starts_with(&format!("{}#", self.requester))
+            || proof.created_at > verifier_now + Duration::seconds(60)
+            || proof.created_at >= self.expires_at
+            || self.expires_at > proof.created_at + Duration::seconds(300)
+            || verifier_now >= self.expires_at
+        {
+            return Err(arkret_wire::Error::Protocol(
+                "KeyPackage self-claim proof binding or freshness is invalid".to_owned(),
+            ));
+        }
+        let parts = proof.jws.split('.').collect::<Vec<_>>();
+        if parts.len() != 3 || !parts[1].is_empty() {
+            return Err(arkret_wire::Error::Protocol(
+                "KeyPackage self-claim proof must be a compact detached JWS".to_owned(),
+            ));
+        }
+        self.proof_binding_bytes()
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

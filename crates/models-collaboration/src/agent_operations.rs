@@ -19,6 +19,195 @@ use crate::governance::agent_artifacts::{AgentKeyAuthorizationState, GrantSnapsh
 use crate::http_bodies::{AccountDevicePairOutcome, AccountDevicePairRequestBody};
 use crate::internal_prelude::*;
 
+pub const AGENT_RUNTIME_KEY_POSSESSION_PROOF_CONTEXT: &str =
+    "ak.agent-runtime-key-possession-proof-v1";
+pub const AGENT_RUNTIME_KEY_BINDING_KIND: &str = "ak.agent.runtime_key_binding.v1";
+pub const AGENT_KEY_PAIRING_REQUEST_BINDING_KIND: &str = "ak.agent.key_pairing_request_binding.v1";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum AgentRuntimeKeyPossessionProofKind {
+    #[serde(rename = "agent_runtime_key_possession")]
+    AgentRuntimeKeyPossession,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum AgentRuntimeKeyAlgorithm {
+    #[serde(rename = "EdDSA")]
+    EdDsa,
+}
+
+/// Closed proof that a runtime controls the proposed Agent Ed25519 key and
+/// possesses the authoritative one-time pairing secret.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentRuntimeKeyPossessionProof {
+    pub kind: AgentRuntimeKeyPossessionProofKind,
+    pub verification_method: DidUrl,
+    pub alg: AgentRuntimeKeyAlgorithm,
+    pub challenge: OpaqueLocalId,
+    pub audience: Did,
+    #[serde(with = "canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    #[serde(with = "canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+    pub runtime_key_binding_digest: Hash,
+    pub transcript_digest: Hash,
+    pub signature: Base64UrlString,
+}
+
+#[derive(Serialize)]
+#[serde(deny_unknown_fields)]
+struct AgentRuntimeKeyBinding<'a> {
+    kind: &'static str,
+    agent_id: &'a Did,
+    pairing_request_id: &'a OpaqueLocalId,
+    verification_method: &'a DidUrl,
+    public_key_digest: Hash,
+    attestation_digest: Hash,
+}
+
+/// Sole SDK helper for the stable identity of a runtime-key request.
+pub fn agent_runtime_key_binding_digest(
+    agent_id: &Did,
+    pairing_request_id: &OpaqueLocalId,
+    verification_method: &DidUrl,
+    public_key: &PublicKey,
+    runtime_attestation: Option<&AgentKeyAuthorizePayloadRuntimeAttestation>,
+) -> Result<Hash> {
+    let public_key_digest = Hash::new(canonical::canonical_sha256(public_key)?)
+        .map_err(|error| Error::Protocol(error.to_string()))?;
+    let attestation = runtime_attestation
+        .map(serde_json::to_value)
+        .transpose()?
+        .unwrap_or(Value::Null);
+    let attestation_digest = Hash::new(canonical::canonical_sha256(&attestation)?)
+        .map_err(|error| Error::Protocol(error.to_string()))?;
+    let binding = AgentRuntimeKeyBinding {
+        kind: AGENT_RUNTIME_KEY_BINDING_KIND,
+        agent_id,
+        pairing_request_id,
+        verification_method,
+        public_key_digest,
+        attestation_digest,
+    };
+    Hash::new(canonical::canonical_sha256(&binding)?)
+        .map_err(|error| Error::Protocol(error.to_string()))
+}
+
+impl AgentRuntimeKeyPossessionProof {
+    pub fn canonical_transcript_bytes(&self, pairing_code: &str) -> Result<Vec<u8>> {
+        Ok(canonical::canonical_json_bytes(&serde_json::json!({
+            "context": AGENT_RUNTIME_KEY_POSSESSION_PROOF_CONTEXT,
+            "kind": "agent_runtime_key_possession",
+            "verification_method": self.verification_method,
+            "alg": "EdDSA",
+            "challenge": self.challenge,
+            "audience": self.audience,
+            "created_at": canonical::format_timestamp_canonical(self.created_at),
+            "expires_at": canonical::format_timestamp_canonical(self.expires_at),
+            "pairing_code": pairing_code,
+            "runtime_key_binding_digest": self.runtime_key_binding_digest,
+        }))?)
+    }
+
+    pub fn wire_digest(&self) -> Result<Hash> {
+        Hash::new(canonical::canonical_sha256(self)?)
+            .map_err(|error| Error::Protocol(error.to_string()))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn validate_shape(
+        &self,
+        agent_id: &Did,
+        pairing_request_id: &OpaqueLocalId,
+        verification_method: &DidUrl,
+        public_key: &PublicKey,
+        expected_binding_digest: &Hash,
+        pairing_code: &str,
+        pairing_expires_at: DateTime<Utc>,
+        verifier_now: DateTime<Utc>,
+    ) -> Result<Vec<u8>> {
+        if public_key.kty.as_str() != "OKP"
+            || public_key.alg.as_str() != "EdDSA"
+            || public_key.kid.as_str() != verification_method.as_str()
+            || &self.verification_method != verification_method
+            || &self.challenge != pairing_request_id
+            || self.runtime_key_binding_digest != *expected_binding_digest
+            || !verification_method
+                .as_str()
+                .starts_with(&format!("{agent_id}#"))
+        {
+            return Err(Error::Protocol(
+                "Agent runtime key proof/request binding mismatch".to_owned(),
+            ));
+        }
+        let public_key_bytes = arkret_canonical::base64url_decode(public_key.key.as_str())?;
+        let signature_bytes = arkret_canonical::base64url_decode(self.signature.as_str())?;
+        if public_key_bytes.len() != 32
+            || signature_bytes.len() != 64
+            || arkret_canonical::base64url_encode(&public_key_bytes) != public_key.key.as_str()
+            || arkret_canonical::base64url_encode(&signature_bytes) != self.signature.as_str()
+        {
+            return Err(Error::Protocol(
+                "Agent runtime key or signature is not canonical Ed25519 material".to_owned(),
+            ));
+        }
+        if self.created_at > verifier_now + chrono::Duration::seconds(60)
+            || self.created_at >= self.expires_at
+            || self.expires_at > self.created_at + chrono::Duration::seconds(300)
+            || self.expires_at > pairing_expires_at
+            || verifier_now >= self.expires_at
+        {
+            return Err(Error::Protocol(
+                "Agent runtime key proof freshness window is invalid".to_owned(),
+            ));
+        }
+        let transcript = self.canonical_transcript_bytes(pairing_code)?;
+        let transcript_digest = Hash::new(canonical::sha256_digest(&transcript))
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        if transcript_digest != self.transcript_digest {
+            return Err(Error::Protocol(
+                "Agent runtime key proof transcript digest mismatch".to_owned(),
+            ));
+        }
+        Ok(transcript)
+    }
+}
+
+/// Sole SDK helper for the controller approval digest. It deliberately binds
+/// the current PoP wire digest, so refreshing a proof invalidates stale UI
+/// approval prompts without changing the stable runtime identity.
+#[allow(clippy::too_many_arguments)]
+pub fn agent_key_pairing_request_binding_digest(
+    operation_id: &str,
+    controller_id: &Did,
+    agent_id: &Did,
+    pairing_request_id: &OpaqueLocalId,
+    pairing_code: &str,
+    pairing_expires_at: DateTime<Utc>,
+    audience: &Did,
+    runtime_key_binding_digest: &Hash,
+    proof: &AgentRuntimeKeyPossessionProof,
+) -> Result<Hash> {
+    let value = serde_json::json!({
+        "kind": AGENT_KEY_PAIRING_REQUEST_BINDING_KIND,
+        "operation_id": operation_id,
+        "controller_id": controller_id,
+        "agent_id": agent_id,
+        "pairing_request_id": pairing_request_id,
+        "pairing_code": pairing_code,
+        "expires_at": pairing_expires_at,
+        "audience": audience,
+        "runtime_key_binding_digest": runtime_key_binding_digest,
+        "proof_of_possession_digest": proof.wire_digest()?,
+    });
+    Hash::new(canonical::canonical_sha256(&value)?)
+        .map_err(|error| Error::Protocol(error.to_string()))
+}
+
 /// Controller-signed, verifier-bound private disclosure of an Agent's
 /// immutable requested-scope ceiling.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -135,7 +324,7 @@ pub struct AgentKeyPairRequestBody {
     pub agent_id: Did,
     pub verification_method: DidUrl,
     pub public_key: PublicKey,
-    pub proof_of_possession: NonEmptyJsonObject,
+    pub proof_of_possession: AgentRuntimeKeyPossessionProof,
     pub requested_scope_disclosure: AgentRequestedScopeDisclosure,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
@@ -161,7 +350,7 @@ pub struct AgentRuntimeApprovalRequestBody {
     pub agent_id: Did,
     pub verification_method: DidUrl,
     pub public_key: PublicKey,
-    pub proof_of_possession: NonEmptyJsonObject,
+    pub proof_of_possession: AgentRuntimeKeyPossessionProof,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
 }
@@ -179,7 +368,7 @@ pub struct AgentRuntimeApprovalControllerProjection {
     pub agent_id: Did,
     pub verification_method: DidUrl,
     pub public_key: PublicKey,
-    pub proof_of_possession: NonEmptyJsonObject,
+    pub proof_of_possession: AgentRuntimeKeyPossessionProof,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
 }
@@ -1989,10 +2178,21 @@ mod tests {
             "public_key": {
                 "kty": "OKP",
                 "kid": "did:webvh:z6mkfixture:agent.example#runtime-key-1",
-                "alg": "Ed25519",
+                "alg": "EdDSA",
                 "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
             },
-            "proof_of_possession": { "signature": "c2ln" },
+            "proof_of_possession": {
+                "kind": "agent_runtime_key_possession",
+                "verification_method": "did:webvh:z6mkfixture:agent.example#runtime-key-1",
+                "alg": "EdDSA",
+                "challenge": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
+                "audience": "did:webvh:z6mkfixture:service.example",
+                "created_at": "2026-07-20T00:00:00.000Z",
+                "expires_at": "2026-07-20T00:05:00.000Z",
+                "runtime_key_binding_digest": format!("sha256:{}", "1".repeat(64)),
+                "transcript_digest": format!("sha256:{}", "2".repeat(64)),
+                "signature": arkret_canonical::base64url_encode([3_u8; 64])
+            },
             "runtime_attestation": runtime_attestation
         })
     }

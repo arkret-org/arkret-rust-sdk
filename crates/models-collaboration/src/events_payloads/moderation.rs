@@ -317,9 +317,43 @@ pub struct ModerationReportPayload {
     pub description: Option<String>,
     pub reporter: Did,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<ModerationReportProvenance>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_provider: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence_refs: Option<Vec<ObjectRef>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence_package: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub franking_proof: Option<BTreeMap<String, Value>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModerationReportProvenance {
+    #[serde(rename = "self")]
+    SelfAuthored,
+    MimiFacade,
+}
+
+impl ModerationReportPayload {
+    pub fn validate_provenance(&self, actor_id: &Did) -> std::result::Result<(), &'static str> {
+        match self.provenance {
+            None | Some(ModerationReportProvenance::SelfAuthored) => {
+                if self.source_provider.is_some() || actor_id != &self.reporter {
+                    return Err(
+                        "self-authored moderation report must be authored by reporter and omit source_provider",
+                    );
+                }
+            }
+            Some(ModerationReportProvenance::MimiFacade) => {
+                if self.source_provider.is_none() || actor_id == &self.reporter {
+                    return Err(
+                        "MIMI facade moderation report requires source_provider and service authorship",
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
 }

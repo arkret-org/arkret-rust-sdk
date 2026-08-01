@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{Did, DidUrl, EventId, Hash, RealmId, SchemaId, StrandId};
+use arkret_wire::{Did, EventId, Hash, PayloadProof, RealmId, SchemaId, StrandId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -62,47 +62,81 @@ pub type MimiUri = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/mimi-interop.schema.json#/$defs/provider_directory`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ProviderDirectoryMimi {
     pub protocol_draft: String,
     pub content_draft: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub room_policy_draft: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub identifier_draft: Option<String>,
+    pub room_policy_draft: String,
+    pub identifier_draft: String,
     pub base_url: String,
     pub provider_id: MimiUri,
+    pub endpoints: Vec<ProviderDirectoryEndpoint>,
     pub features: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mls_cipher_suites: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content_profiles: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub room_policy_components: Option<Vec<String>>,
+    pub mls_cipher_suites: Vec<String>,
+    pub content_profiles: Vec<String>,
+    pub room_policy_components: Vec<String>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub extra: BTreeMap<String, Value>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ProviderDirectoryProof {
-    pub verification_method: DidUrl,
-    pub signature: String,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+/// One signed feature-to-path row in a MIMI provider directory.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ProviderDirectoryEndpoint {
+    pub endpoint_id: String,
+    pub relative_path: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(transparent)]
+pub struct ProviderDirectoryProof(pub PayloadProof);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ProviderDirectory {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub schema: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_id: Option<Did>,
+    pub schema: String,
+    pub service_id: Did,
     pub service_kind: String,
     pub supported_profiles: Vec<String>,
     pub mimi: ProviderDirectoryMimi,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof: Option<ProviderDirectoryProof>,
+    pub proof: ProviderDirectoryProof,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub extra: BTreeMap<String, Value>,
+}
+
+impl ProviderDirectory {
+    /// Exact signed projection from `mimi-interop.md` section 3.1. Draft
+    /// extensions and the proof wrapper are deliberately excluded.
+    pub fn unsigned_projection(&self) -> Value {
+        serde_json::json!({
+            "context": "ak.mimi.provider_directory.v1",
+            "schema": self.schema,
+            "service_id": self.service_id,
+            "service_kind": self.service_kind,
+            "supported_profiles": self.supported_profiles,
+            "mimi": {
+                "protocol_draft": self.mimi.protocol_draft,
+                "content_draft": self.mimi.content_draft,
+                "room_policy_draft": self.mimi.room_policy_draft,
+                "identifier_draft": self.mimi.identifier_draft,
+                "base_url": self.mimi.base_url,
+                "provider_id": self.mimi.provider_id,
+                "endpoints": self.mimi.endpoints,
+                "features": self.mimi.features,
+                "mls_cipher_suites": self.mimi.mls_cipher_suites,
+                "content_profiles": self.mimi.content_profiles,
+                "room_policy_components": self.mimi.room_policy_components,
+            }
+        })
+    }
+
+    pub fn unsigned_projection_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
+        arkret_canonical::canonical_json_bytes(&self.unsigned_projection())
+    }
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/mimi-interop.schema.json#/$defs/room_binding`.

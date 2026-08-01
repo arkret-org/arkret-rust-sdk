@@ -1682,14 +1682,30 @@ mod tests {
         async fn mimi_provider_directory_gets_canonical_path_with_filters() {
             let (client, capture) = spawn_capture_server(
                 r#"{
+                    "schema":"ak.schema.mimi_interop.v1",
+                    "service_id":"did:web:mimi.example.test",
                     "service_kind":"mimi_provider",
-                    "supported_profiles":[],
+                    "supported_profiles":["ak.profile.mimi_interop.v1"],
                     "mimi":{
                         "protocol_draft":"draft-ietf-mimi-protocol-04",
                         "content_draft":"draft-ietf-mimi-content-04",
+                        "room_policy_draft":"draft-ietf-mimi-room-policy-03",
+                        "identifier_draft":"draft-kohbrok-mimi-identifiers-01",
                         "base_url":"https://mimi.example.test",
                         "provider_id":"provider-a",
-                        "features":[]
+                        "endpoints":[{"endpoint_id":"mimi_v1","relative_path":"/messages"}],
+                        "features":["mimi_v1"],
+                        "mls_cipher_suites":["MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519"],
+                        "content_profiles":["application/mimi-content"],
+                        "room_policy_components":["membership"]
+                    },
+                    "proof":{
+                        "kind":"detached_jws",
+                        "verification_method":"did:web:mimi.example.test#notary-key",
+                        "alg":"EdDSA",
+                        "payload_digest":"sha256:0000000000000000000000000000000000000000000000000000000000000000",
+                        "created_at":"2026-08-01T00:00:00.000Z",
+                        "jws":"eyJhbGciOiJFZERTQSJ9..c2ln"
                     }
                 }"#,
             )
@@ -1702,7 +1718,7 @@ mod tests {
                 .unwrap();
             assert_eq!(response.service_kind, "mimi_provider");
             assert_eq!(response.mimi.provider_id, "provider-a");
-            assert!(response.mimi.features.is_empty());
+            assert_eq!(response.mimi.features, ["mimi_v1"]);
 
             let raw = capture.await.unwrap();
             let (request_line, _headers, _body) = split_request(&raw);

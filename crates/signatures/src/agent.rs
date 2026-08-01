@@ -6,60 +6,22 @@ use arkret_canonical::{base64url_decode, canonical};
 pub use arkret_models_collaboration::agent_operations::agent_requested_scope_digest;
 use arkret_models_collaboration::agent_operations::{
     AgentKeyPairRequestBody, AgentPairingBootstrap, AgentRequestedScopeDisclosure,
-    AgentRuntimeApprovalRequestBody,
+    AgentRuntimeApprovalRequestBody, AgentRuntimeKeyAlgorithm, AgentRuntimeKeyPossessionProof,
+    AgentRuntimeKeyPossessionProofKind,
+    agent_runtime_key_binding_digest as model_agent_runtime_key_binding_digest,
 };
 use arkret_models_collaboration::agent_signer_evidence::AgentSigningKeyBinding;
 use arkret_models_collaboration::events_payloads::agent::AgentKeyAuthorizePayloadRuntimeAttestation;
 use arkret_models_collaboration::governance::agent_artifacts::PublicKey;
 use arkret_wire::{
-    Did, DidUrl, Event, EventInitialSubmission, EventKind, Hash, NonEmptyJsonObject,
-    NonEmptyString, ServiceOperationId,
+    Base64UrlString, Did, DidUrl, Event, EventInitialSubmission, EventKind, Hash, NonEmptyString,
 };
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signer, SigningKey};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::error::{Error, Result};
-
-/// Canonical transcript signed by an agent runtime when pairing its key.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct AgentKeyPairProofSigningInput {
-    pub audience: String,
-    pub challenge: String,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub request_canonical_digest: Hash,
-    pub verification_method: DidUrl,
-}
-
-impl AgentKeyPairProofSigningInput {
-    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
-        canonical::canonical_json_bytes(self).map_err(Into::into)
-    }
-
-    pub fn canonical_digest(&self) -> Result<Hash> {
-        Ok(Hash::new(canonical::sha256_digest(
-            self.canonical_bytes()?,
-        ))?)
-    }
-}
-
-pub fn agent_key_pair_proof_signing_input(
-    verification_method: DidUrl,
-    challenge: impl Into<String>,
-    audience: impl Into<String>,
-    expires_at: DateTime<Utc>,
-    request_canonical_digest: Hash,
-) -> AgentKeyPairProofSigningInput {
-    AgentKeyPairProofSigningInput {
-        audience: audience.into(),
-        challenge: challenge.into(),
-        expires_at,
-        request_canonical_digest,
-        verification_method,
-    }
-}
 
 /// A runtime-key request body together with the digest of its generated
 /// public key. The digest is reused by the controller-side authorize event.
@@ -75,6 +37,7 @@ pub struct RuntimeKeyRequestBuilder<'a> {
     signing_key: &'a SigningKey,
     bootstrap: AgentPairingBootstrap,
     verification_method: String,
+    proof_created_at: DateTime<Utc>,
     proof_expires_at: DateTime<Utc>,
     runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
 }
@@ -96,6 +59,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
             signing_key,
             bootstrap,
             verification_method,
+            proof_created_at: Utc::now(),
             proof_expires_at,
             runtime_attestation: None,
         }
@@ -113,6 +77,14 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         self
     }
 
+    /// Override the verifier-visible proof creation time, primarily for
+    /// deterministic protocol vectors.
+    #[must_use]
+    pub fn proof_created_at(mut self, proof_created_at: DateTime<Utc>) -> Self {
+        self.proof_created_at = proof_created_at;
+        self
+    }
+
     #[must_use]
     pub fn runtime_attestation(
         mut self,
@@ -127,7 +99,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         Ok(serde_json::json!({
             "kty": "OKP",
             "kid": self.verification_method,
-            "alg": "Ed25519",
+            "alg": "EdDSA",
             "key": arkret_canonical::base64url_encode(self.signing_key.verifying_key().to_bytes()),
         }))
     }
@@ -205,10 +177,17 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         })
     }
 
-    fn request_material(&self) -> Result<(PublicKey, Hash, NonEmptyJsonObject)> {
+    fn request_material(&self) -> Result<(PublicKey, Hash, AgentRuntimeKeyPossessionProof)> {
         let public_key_value = self.public_key()?;
         let public_key: PublicKey = serde_json::from_value(public_key_value.clone())?;
         let public_key_digest = agent_runtime_public_key_digest(&public_key_value)?;
+        let proof_created_at =
+            DateTime::<Utc>::from_timestamp_millis(self.proof_created_at.timestamp_millis())
+                .ok_or_else(|| {
+                    Error::Protocol(
+                        "agent key proof created_at is outside the wire timestamp range".into(),
+                    )
+                })?;
         let proof_expires_at =
             DateTime::<Utc>::from_timestamp_millis(self.proof_expires_at.timestamp_millis())
                 .ok_or_else(|| {
@@ -216,33 +195,49 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
                         "agent key proof expires_at is outside the wire timestamp range".into(),
                     )
                 })?;
-        let request_digest = agent_key_pair_proof_request_binding_digest(
-            &self.bootstrap.pairing_request_id,
+        if proof_created_at >= proof_expires_at
+            || proof_expires_at > proof_created_at + chrono::Duration::seconds(300)
+            || proof_expires_at > self.bootstrap.pairing_expires_at
+        {
+            return Err(Error::Protocol(
+                "agent key proof lifetime must be within the live pairing window and at most 300 seconds"
+                    .to_owned(),
+            ));
+        }
+        let verification_method = DidUrl::new(self.verification_method.clone())
+            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+        let runtime_key_binding_digest = model_agent_runtime_key_binding_digest(
             &self.bootstrap.agent_id,
-            &self.verification_method,
-            &public_key_value,
-            self.runtime_attestation
-                .as_ref()
-                .map(serde_json::to_value)
-                .transpose()?
-                .as_ref(),
-        )?;
-        let signing_input = agent_key_pair_proof_signing_input(
-            DidUrl::new(self.verification_method.clone())
-                .map_err(|reason| Error::Protocol(reason.to_owned()))?,
-            self.bootstrap.pairing_request_id.clone(),
-            self.bootstrap.service_id.to_string(),
-            proof_expires_at,
-            request_digest.clone(),
+            &self.bootstrap.pairing_request_id,
+            &verification_method,
+            &public_key,
+            self.runtime_attestation.as_ref(),
         );
-        let signature = self.signing_key.sign(&signing_input.canonical_bytes()?);
-        let proof_of_possession = serde_json::from_value(serde_json::json!({
-            "challenge": self.bootstrap.pairing_request_id,
-            "audience": self.bootstrap.service_id,
-            "request_canonical_digest": request_digest,
-            "expires_at": arkret_canonical::format_timestamp_canonical(proof_expires_at),
-            "signature": arkret_canonical::base64url_encode(signature.to_bytes()),
-        }))?;
+        let runtime_key_binding_digest =
+            runtime_key_binding_digest.map_err(|error| Error::Protocol(error.to_string()))?;
+        let mut proof_of_possession = AgentRuntimeKeyPossessionProof {
+            kind: AgentRuntimeKeyPossessionProofKind::AgentRuntimeKeyPossession,
+            verification_method,
+            alg: AgentRuntimeKeyAlgorithm::EdDsa,
+            challenge: self.bootstrap.pairing_request_id.clone(),
+            audience: self.bootstrap.service_id.clone(),
+            expires_at: proof_expires_at,
+            created_at: proof_created_at,
+            runtime_key_binding_digest,
+            transcript_digest: Hash::new(format!("sha256:{}", "0".repeat(64)))
+                .map_err(|reason| Error::Protocol(reason.to_string()))?,
+            signature: Base64UrlString::new("AA")
+                .map_err(|reason| Error::Protocol(reason.to_owned()))?,
+        };
+        let transcript = proof_of_possession
+            .canonical_transcript_bytes(&self.bootstrap.pairing_code)
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        proof_of_possession.transcript_digest = Hash::new(canonical::sha256_digest(&transcript))
+            .map_err(|reason| Error::Protocol(reason.to_string()))?;
+        let signature = self.signing_key.sign(&transcript);
+        proof_of_possession.signature =
+            Base64UrlString::new(arkret_canonical::base64url_encode(signature.to_bytes()))
+                .map_err(|reason| Error::Protocol(reason.to_owned()))?;
         Ok((public_key, public_key_digest, proof_of_possession))
     }
 
@@ -282,32 +277,6 @@ fn validate_pairing_authorize_event(authorize_event: &Event, agent_id: &Did) -> 
 }
 
 #[derive(Serialize)]
-struct AgentKeyPairingRequestBinding<'a> {
-    kind: &'static str,
-    operation_id: &'static str,
-    controller_id: &'a str,
-    agent_id: &'a str,
-    verification_method: &'a str,
-    runtime_public_key_digest: &'a str,
-    pairing_request_id: &'a str,
-    pairing_code: &'a str,
-    expires_at: &'a str,
-    audience: &'a str,
-}
-
-#[derive(Serialize)]
-struct AgentKeyPairProofRequestBinding<'a> {
-    kind: &'static str,
-    operation_id: &'static str,
-    pairing_request_id: &'a str,
-    agent_id: &'a str,
-    verification_method: &'a str,
-    public_key: &'a Value,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    runtime_attestation: Option<&'a Value>,
-}
-
-#[derive(Serialize)]
 struct AgentRuntimeKeyBinding<'a> {
     agent_id: &'a str,
     attestation_digest: &'a str,
@@ -333,14 +302,10 @@ pub fn agent_runtime_public_key_digest(public_key: &impl Serialize) -> Result<Ha
             "agent runtime public_key.kty must be OKP".to_owned(),
         ));
     }
-    if key.alg.as_str() != "Ed25519" && key.alg.as_str() != "EdDSA" {
+    if !matches!(key.alg.as_str(), "EdDSA" | "Ed25519") {
         return Err(Error::Protocol(
-            "agent runtime public_key.alg must be Ed25519 or EdDSA".to_owned(),
-        ));
-    }
-    if key.kid.trim().is_empty() {
-        return Err(Error::Protocol(
-            "agent runtime public_key.kid must not be empty".to_owned(),
+            "agent public_key.alg must be EdDSA (runtime PoP) or Ed25519 (raw signer binding)"
+                .to_owned(),
         ));
     }
     if base64url_decode(key.key.as_bytes())?.len() != 32 {
@@ -395,65 +360,6 @@ pub fn agent_runtime_key_binding_digest_from_digests(
         public_key_digest: public_key_digest.as_str(),
         verification_method,
     })?)
-    .map_err(Error::from)
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn agent_key_pairing_request_binding_digest(
-    controller_id: &Did,
-    agent_id: &Did,
-    verification_method: &str,
-    runtime_public_key_digest: &Hash,
-    pairing_request_id: &str,
-    pairing_code: &str,
-    pairing_expires_at: &str,
-    audience: &str,
-) -> Result<Hash> {
-    // The pairing binding has a protocol-specific timestamp spelling.  Do not
-    // let database precision or an equivalent RFC 3339 offset change a signed
-    // digest for the same millisecond.
-    let parsed_expires_at = DateTime::parse_from_rfc3339(pairing_expires_at).map_err(|error| {
-        Error::Protocol(format!(
-            "agent pairing_expires_at must be RFC 3339: {error}"
-        ))
-    })?;
-    let pairing_expires_at =
-        canonical::format_timestamp_canonical(parsed_expires_at.with_timezone(&Utc));
-    Hash::new(canonical::canonical_sha256(
-        &AgentKeyPairingRequestBinding {
-            kind: "ak.agent.key_pairing_request_binding.v1",
-            operation_id: ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
-            controller_id: controller_id.as_str(),
-            agent_id: agent_id.as_str(),
-            verification_method,
-            runtime_public_key_digest: runtime_public_key_digest.as_str(),
-            pairing_request_id,
-            pairing_code,
-            expires_at: &pairing_expires_at,
-            audience,
-        },
-    )?)
-    .map_err(Error::from)
-}
-
-pub fn agent_key_pair_proof_request_binding_digest(
-    pairing_request_id: &str,
-    agent_id: &Did,
-    verification_method: &str,
-    public_key: &Value,
-    runtime_attestation: Option<&Value>,
-) -> Result<Hash> {
-    Hash::new(canonical::canonical_sha256(
-        &AgentKeyPairProofRequestBinding {
-            kind: "ak.agent.key_pair_proof_of_possession_request.v1",
-            operation_id: ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
-            pairing_request_id,
-            agent_id: agent_id.as_str(),
-            verification_method,
-            public_key,
-            runtime_attestation,
-        },
-    )?)
     .map_err(Error::from)
 }
 
@@ -530,7 +436,7 @@ mod tests {
         let public_key = json!({
             "alg": "EdDSA",
             "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-            "kid": "runtime-1",
+            "kid": "did:webvh:z6mkagent:agent.example#runtime-1",
             "kty": "OKP"
         });
 
@@ -547,7 +453,7 @@ mod tests {
 
         assert_eq!(
             public_key_digest.as_str(),
-            "sha256:7bfcb9251367ab71fd32c19fc23c11b46ddbc371b52fcb5a75eaa1a79f5f463b"
+            "sha256:3f8b93f88218363d5d1c236b3f52ccb173c25545de57e3e5122fca676dab728f"
         );
         assert_eq!(
             attestation_digest.as_str(),
@@ -555,7 +461,7 @@ mod tests {
         );
         assert_eq!(
             binding_digest.as_str(),
-            "sha256:1dd1a4f03dfc6086a43ae3f0e1eca877c9040c25fd95fc48d1b278568306fb06"
+            "sha256:a2d4f27ec366e970e2f4f7853414c2ce3ec266d720bc77c0fcb0a513e86bd3f7"
         );
     }
 
@@ -565,13 +471,13 @@ mod tests {
         let first = json!({
             "alg": "EdDSA",
             "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-            "kid": "runtime-1",
+            "kid": "did:webvh:z6mkagent:agent.example#runtime-1",
             "kty": "OKP"
         });
         let second = json!({
             "alg": "EdDSA",
             "key": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-            "kid": "runtime-1",
+            "kid": "did:webvh:z6mkagent:agent.example#runtime-1",
             "kty": "OKP"
         });
         let digest = |public_key: &Value| {
@@ -585,59 +491,6 @@ mod tests {
             .unwrap()
         };
         assert_ne!(digest(&first), digest(&second));
-    }
-
-    #[test]
-    fn pairing_request_binding_normalizes_expiry_to_utc_milliseconds() {
-        let controller_id = Did::new("did:webvh:z6mkcontroller:controller.example").unwrap();
-        let agent_id = Did::new("did:webvh:z6mkagent:agent.example").unwrap();
-        let public_key_digest =
-            Hash::new("sha256:7bfcb9251367ab71fd32c19fc23c11b46ddbc371b52fcb5a75eaa1a79f5f463b")
-                .unwrap();
-        let digest = |expires_at: &str| {
-            agent_key_pairing_request_binding_digest(
-                &controller_id,
-                &agent_id,
-                "did:webvh:z6mkagent:agent.example#runtime-1",
-                &public_key_digest,
-                "pairing_request:01964137-0000-7000-8000-000000000000",
-                "fixture-pairing-code",
-                expires_at,
-                "https://pair.example/_arkret/gate/account/agent-key-pair",
-            )
-            .unwrap()
-        };
-
-        let canonical = digest("2026-07-17T13:50:07.734Z");
-        assert_eq!(
-            canonical.as_str(),
-            "sha256:efa5a4362f7e9da83f03aaa986faeac77140d8b15e8e62c8842d4a78c5eb6661"
-        );
-        assert_eq!(canonical, digest("2026-07-17T13:50:07.734997Z"));
-        assert_eq!(canonical, digest("2026-07-17T21:50:07.734+08:00"));
-    }
-
-    #[test]
-    fn pairing_request_binding_rejects_invalid_expiry() {
-        let controller_id = Did::new("did:webvh:z6mkcontroller:controller.example").unwrap();
-        let agent_id = Did::new("did:webvh:z6mkagent:agent.example").unwrap();
-        let public_key_digest =
-            Hash::new("sha256:7bfcb9251367ab71fd32c19fc23c11b46ddbc371b52fcb5a75eaa1a79f5f463b")
-                .unwrap();
-
-        assert!(
-            agent_key_pairing_request_binding_digest(
-                &controller_id,
-                &agent_id,
-                "did:webvh:z6mkagent:agent.example#runtime-1",
-                &public_key_digest,
-                "pairing_request:01964137-0000-7000-8000-000000000000",
-                "fixture-pairing-code",
-                "2026-07-17 13:50:07.734",
-                "https://pair.example/_arkret/gate/account/agent-key-pair",
-            )
-            .is_err()
-        );
     }
 
     #[test]
@@ -659,31 +512,29 @@ mod tests {
                 .parse::<DateTime<Utc>>()
                 .unwrap(),
         };
-        let request = RuntimeKeyRequestBuilder::new(&signing_key, bootstrap)
-            .build_approval_request()
-            .unwrap();
-        let proof = request.body.proof_of_possession.as_map();
-        let proof_expires_at = proof["expires_at"]
-            .as_str()
-            .unwrap()
+        let proof_created_at = "2026-07-14T14:40:00.123456Z"
             .parse::<DateTime<Utc>>()
             .unwrap();
-        let request_digest =
-            Hash::new(proof["request_canonical_digest"].as_str().unwrap()).unwrap();
-        let signing_input = agent_key_pair_proof_signing_input(
-            request.body.verification_method.clone(),
-            proof["challenge"].as_str().unwrap(),
-            proof["audience"].as_str().unwrap(),
-            proof_expires_at,
-            request_digest,
-        );
-        let signature = base64url_decode(proof["signature"].as_str().unwrap()).unwrap();
+        let request = RuntimeKeyRequestBuilder::new(&signing_key, bootstrap)
+            .proof_created_at(proof_created_at)
+            .build_approval_request()
+            .unwrap();
+        let proof = &request.body.proof_of_possession;
+        let transcript = proof.canonical_transcript_bytes("12345678").unwrap();
+        let signature = base64url_decode(proof.signature.as_str()).unwrap();
         let signature = ed25519_dalek::Signature::from_slice(&signature).unwrap();
 
-        assert_eq!(proof["expires_at"], "2026-07-14T14:43:48.784Z");
+        assert_eq!(
+            arkret_canonical::format_timestamp_canonical(proof.expires_at),
+            "2026-07-14T14:43:48.784Z"
+        );
+        assert_eq!(
+            arkret_canonical::format_timestamp_canonical(proof.created_at),
+            "2026-07-14T14:40:00.123Z"
+        );
         signing_key
             .verifying_key()
-            .verify(&signing_input.canonical_bytes().unwrap(), &signature)
+            .verify(&transcript, &signature)
             .expect("signature must bind the timestamp sent on the wire");
     }
 
@@ -713,8 +564,10 @@ mod tests {
             .unwrap(),
             requested_scope,
             verifier_did: service_id.clone(),
-            audience: NonEmptyString::new(ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY)
-                .unwrap(),
+            audience: NonEmptyString::new(
+                arkret_wire::ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY,
+            )
+            .unwrap(),
             challenge: NonEmptyString::new(pairing_request_id).unwrap(),
             issued_at,
             expires_at: issued_at + chrono::Duration::minutes(5),
@@ -750,7 +603,9 @@ mod tests {
             pairing_code: "12345678".to_owned(),
             pairing_expires_at: issued_at + chrono::Duration::minutes(5),
         };
-        let builder = RuntimeKeyRequestBuilder::new(&signing_key, bootstrap);
+        let builder = RuntimeKeyRequestBuilder::new(&signing_key, bootstrap)
+            .proof_created_at(issued_at)
+            .proof_expires_at(issued_at + chrono::Duration::minutes(5));
 
         let approval = builder.build_approval_request().unwrap();
         let pairing = builder
