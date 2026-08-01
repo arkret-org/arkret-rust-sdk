@@ -1,11 +1,11 @@
-//! Capability delegation chain check — pure, in-memory predicates.
+//! Capability authority-chain checks — pure, in-memory predicates.
 //!
-//! This module hosts the *runtime* delegation-chain helpers that soland's
+//! This module hosts the runtime authority-chain helpers that soland's
 //! `AuthzEngine` (and any other consumer — inkson for client-side pre-validation,
 //! sodmin for admin feedback) needs to enforce capabilities.md §10:
 //!
-//! - Re-delegation MUST NOT widen the action scope (`ActionsNotHeld`).
-//! - Re-delegation MUST NOT widen the resource scope (`ResourceOutOfScope`).
+//! - Re-granting MUST NOT widen the action scope (`ActionsNotHeld`).
+//! - Re-granting MUST NOT widen the resource scope (`ResourceOutOfScope`).
 //! - Child `expires_at` MUST be no later than parent `expires_at` (`OverExpire`).
 //! - The caller MUST be the parent grant subject (`NotGrantHolder`).
 //! - The parent grant must exist (`ParentNotFound`), not be revoked (`ParentRevoked`) and not be
@@ -20,7 +20,7 @@
 //! The two shapes are siblings, not alternatives: typically a capability
 //! event resolves into a
 //! `arkret_models_collaboration::governance::grant_constraint::CapabilityGrant`, then projects down
-//! to a `Grant` for fast in-memory check / delegation enforcement. The
+//! to a `Grant` for fast in-memory authority enforcement. The
 //! fields critical to re-granting — `issuer_authority_refs` and `expires_at` — live
 //! on both shapes verbatim per
 //! `arkret-spec/spec/v1/zh/authz/capabilities.md` §3 + §10.
@@ -43,7 +43,7 @@ use crate::authz::ConstraintDuration;
 ///
 /// The ref type is the whole difference between "the root controller issued
 /// this" and "someone re-granted what they hold" — v1 carries no separate
-/// delegation event, cell family or wire bit.
+/// separate child-grant event, cell family or wire bit.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum IssuerAuthorityRef {
@@ -117,6 +117,13 @@ pub struct Grant {
     /// revoking the grant it names invalidates this one at read time.
     #[serde(default)]
     pub issuer_authority_refs: Vec<IssuerAuthorityRef>,
+    /// Reducer-derived absolute distance from an authority root.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authority_depth: Option<u64>,
+    /// Reducer-derived identities of the roots reached by this grant.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub authority_root_refs:
+        Vec<arkret_models_collaboration::governance::grant_constraint::AuthorityRootRef>,
     /// Top-level convenience denormalization of the temporal constraint
     /// inside `constraints[]`. When both forms are present the stricter
     /// one wins (see [`grant_effective_expiry`]).
@@ -162,7 +169,7 @@ pub enum GrantConstraint {
     ///   once the edit window closes only if this flag is `true`). When `message_redact_window` is
     ///   declared it is authoritative for redact and the flag no longer changes the redact verdict.
     ///   Enforcement (which requires the target Message `created_at`) lives in the service-side
-    ///   evaluator, not in the pure delegation helper.
+    ///   evaluator, not in the pure authority helper.
     Temporal {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -196,17 +203,19 @@ pub enum GrantConstraint {
     AllowedObjectFacets { facets: Vec<String> },
     /// Runtime mirror of the spec `max_operations` + `period` constraint
     /// used by high-risk burst surfaces such as
-    /// `ak.message.mention.broadcast`. The pure delegation helper only
+    /// `ak.message.mention.broadcast`. The pure authority helper only
     /// preserves and validates shape; concrete counter enforcement is done
     /// by the service-side evaluator for the relevant action.
     RateLimiting { max_operations: u64, period: String },
-    /// Delegation control. Ordinary delegation uses `max_authority_depth`;
+    /// Re-grant control. Ordinary child grants use `max_authority_depth`;
     /// Applet install grants use the registered
     /// `constraint_subkind=applet_authority` fields from
     /// `constraint-schema.md` §7.3.
     AuthorityControl {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         max_authority_depth: Option<u32>,
+        #[serde(default, skip_serializing_if = "is_false")]
+        authority_regrant_allowed: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         constraint_subkind: Option<GrantConstraintSubkind>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -230,29 +239,29 @@ pub enum GrantDecisionVerdict {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum AppletDelegationBindingError {
+pub enum AppletAuthorityBindingError {
     Missing,
     AppletIdMismatch,
     ExecutedByMismatch,
     RegistrationEpochMismatch,
 }
 
-impl std::fmt::Display for AppletDelegationBindingError {
+impl std::fmt::Display for AppletAuthorityBindingError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Missing => write!(f, "applet delegation binding constraint is missing"),
-            Self::AppletIdMismatch => write!(f, "applet delegation applet_id mismatch"),
-            Self::ExecutedByMismatch => write!(f, "applet delegation executed_by mismatch"),
+            Self::Missing => write!(f, "applet authority binding constraint is missing"),
+            Self::AppletIdMismatch => write!(f, "applet authority applet_id mismatch"),
+            Self::ExecutedByMismatch => write!(f, "applet authority executed_by mismatch"),
             Self::RegistrationEpochMismatch => {
-                write!(f, "applet delegation registration_epoch mismatch")
+                write!(f, "applet authority registration_epoch mismatch")
             }
         }
     }
 }
 
-impl std::error::Error for AppletDelegationBindingError {}
+impl std::error::Error for AppletAuthorityBindingError {}
 
-/// A request to issue a delegated grant. See [`create_delegated_grant`].
+/// A request to issue a delegated grant. See [`create_authority_grant`].
 #[derive(Clone, Debug)]
 pub struct GrantRequestDraft {
     pub realm_id: String,
@@ -265,13 +274,13 @@ pub struct GrantRequestDraft {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-/// Why a delegation request was rejected.
+/// Why an authority grant request was rejected.
 ///
 /// Surfaced through HTTP by soland as `parent_revoked` / `parent_expired` /
 /// `not_grant_holder` / `capability_not_held` / `capability_over_expire` /
 /// `resource_out_of_scope`. See capabilities.md §10.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum DelegationError {
+pub enum AuthorityGrantError {
     /// Parent grant_id is unknown.
     ParentNotFound,
     /// Parent grant exists but is revoked (directly or via cascade).
@@ -279,10 +288,10 @@ pub enum DelegationError {
     /// Parent grant exists but its effective expiry is already in the past.
     ParentExpired,
     /// Caller is not the subject of the parent grant — only the holder of a
-    /// capability MAY further delegate it.
+    /// capability MAY issue another child grant from it.
     NotGrantHolder,
     /// Delegated `actions[]` carries one or more actions the parent doesn't
-    /// hold. capabilities.md §10 (re-delegation must not widen action scope) — wire form
+    /// hold. capabilities.md §10 (re-granting must not widen action scope) — wire form
     /// `capability_not_held`.
     ActionsNotHeld { offending: Vec<String> },
     /// Child `expires_at` is later than parent (or child unset while parent
@@ -295,7 +304,7 @@ pub enum DelegationError {
     ResourceOutOfScope,
     /// Parent grant's `max_authority_depth` leaves no room for another
     /// child, or the child failed to seal the decremented depth.
-    DelegationDepthExceeded,
+    AuthorityDepthExceeded,
     /// Aggregate-admin expansion cannot be evaluated against the exact
     /// registry snapshot bound by the parent/child grant.
     RegistryBasisUnavailable,
@@ -333,14 +342,17 @@ pub fn is_grant_expired(grant: &Grant, now: DateTime<Utc>) -> bool {
     grant_effective_expiry(grant).is_some_and(|expiry| now >= expiry)
 }
 
-/// Returns the strictest delegation-depth ceiling carried by a grant.
+/// Returns the strictest authority-depth ceiling carried by a grant.
 ///
-/// `None` means the grant did not opt into a finite delegation-depth seal.
+/// `None` means the grant did not opt into a finite authority-depth seal.
 /// When present, child grants must carry a `AuthorityControl` constraint no
-/// greater than `parent_depth - 1`; a parent depth of zero cannot delegate.
+/// greater than `parent_depth - 1`; a parent depth of zero cannot issue a child grant.
 pub fn max_authority_depth(grant: &Grant) -> Option<u32> {
-    grant
-        .constraints
+    max_authority_depth_from_constraints(&grant.constraints)
+}
+
+fn max_authority_depth_from_constraints(constraints: &[GrantConstraint]) -> Option<u32> {
+    constraints
         .iter()
         .filter_map(|constraint| match constraint {
             GrantConstraint::AuthorityControl {
@@ -352,12 +364,32 @@ pub fn max_authority_depth(grant: &Grant) -> Option<u32> {
         .min()
 }
 
-pub fn validate_applet_delegation_binding(
+/// Returns whether every authority-control constraint explicitly permits the
+/// grant to act as an issuer authority. The field is fail-closed: a missing
+/// value deserializes to `false`, as required by constraint-schema.md §7.2.
+pub fn authority_regrant_allowed(grant: &Grant) -> bool {
+    let mut saw_authority_control = false;
+    for constraint in &grant.constraints {
+        if let GrantConstraint::AuthorityControl {
+            authority_regrant_allowed,
+            ..
+        } = constraint
+        {
+            saw_authority_control = true;
+            if !authority_regrant_allowed {
+                return false;
+            }
+        }
+    }
+    saw_authority_control
+}
+
+pub fn validate_applet_authority_binding(
     grant: &Grant,
     applet_id: &str,
     executed_by: &str,
     registration_epoch: &str,
-) -> Result<(), AppletDelegationBindingError> {
+) -> Result<(), AppletAuthorityBindingError> {
     let Some(binding) = grant
         .constraints
         .iter()
@@ -376,25 +408,25 @@ pub fn validate_applet_delegation_binding(
             _ => None,
         })
     else {
-        return Err(AppletDelegationBindingError::Missing);
+        return Err(AppletAuthorityBindingError::Missing);
     };
     let Some(binding_applet_id) = binding.0 else {
-        return Err(AppletDelegationBindingError::Missing);
+        return Err(AppletAuthorityBindingError::Missing);
     };
     let Some(binding_executed_by) = binding.1 else {
-        return Err(AppletDelegationBindingError::Missing);
+        return Err(AppletAuthorityBindingError::Missing);
     };
     let Some(binding_registration_epoch) = binding.2 else {
-        return Err(AppletDelegationBindingError::Missing);
+        return Err(AppletAuthorityBindingError::Missing);
     };
     if binding_applet_id.as_str() != applet_id {
-        return Err(AppletDelegationBindingError::AppletIdMismatch);
+        return Err(AppletAuthorityBindingError::AppletIdMismatch);
     }
     if binding_executed_by.as_str() != executed_by {
-        return Err(AppletDelegationBindingError::ExecutedByMismatch);
+        return Err(AppletAuthorityBindingError::ExecutedByMismatch);
     }
     if binding_registration_epoch.as_str() != registration_epoch {
-        return Err(AppletDelegationBindingError::RegistrationEpochMismatch);
+        return Err(AppletAuthorityBindingError::RegistrationEpochMismatch);
     }
     Ok(())
 }
@@ -427,15 +459,15 @@ pub fn resource_within(parent: &str, child: &str) -> bool {
 ///
 /// `grants` is treated as a flat slice; lookup is O(N) per hop. For a hot
 /// path with many grants, the caller may prefer to build a `BTreeMap` once
-/// and call [`delegation_chain_intact_map`] directly.
-pub fn delegation_chain_intact(grants: &[Grant], grant_id: &str, now: DateTime<Utc>) -> bool {
+/// and call [`authority_chain_intact_map`] directly.
+pub fn authority_chain_intact(grants: &[Grant], grant_id: &str, now: DateTime<Utc>) -> bool {
     let map: BTreeMap<&str, &Grant> = grants.iter().map(|g| (g.grant_id.as_str(), g)).collect();
-    delegation_chain_intact_map(&map, grant_id, now)
+    authority_chain_intact_map(&map, grant_id, now)
 }
 
-/// `BTreeMap`-keyed variant of [`delegation_chain_intact`] for callers that
+/// `BTreeMap`-keyed variant of [`authority_chain_intact`] for callers that
 /// already maintain an id → grant lookup (e.g. soland's `AuthzEngine`).
-pub fn delegation_chain_intact_map<G>(
+pub fn authority_chain_intact_map<G>(
     snapshot: &BTreeMap<&str, G>,
     grant_id: &str,
     now: DateTime<Utc>,
@@ -471,7 +503,7 @@ where
     true
 }
 
-/// Validate a re-delegation request against its parent grant.
+/// Validate a re-grant request against its issuer-authority grants.
 ///
 /// Returns the constructed (but not yet stored) child [`Grant`] on success.
 /// Caller is responsible for `grant_id` generation and persistence — this
@@ -484,22 +516,22 @@ where
 /// - delegated actions MUST be a subset of parent's
 /// - delegated expiry MUST NOT exceed parent's effective expiry
 /// - resource MUST NOT widen parent's scope
-pub fn create_delegated_grant(
+pub fn create_authority_grant(
     parent_id: &str,
     requested: &GrantRequestDraft,
     parents: &[Grant],
     now: DateTime<Utc>,
-) -> Result<Grant, DelegationError> {
+) -> Result<Grant, AuthorityGrantError> {
     let parent = parents
         .iter()
         .find(|g| g.grant_id == parent_id)
-        .ok_or(DelegationError::ParentNotFound)?;
+        .ok_or(AuthorityGrantError::ParentNotFound)?;
 
     if parent.revoked {
-        return Err(DelegationError::ParentRevoked);
+        return Err(AuthorityGrantError::ParentRevoked);
     }
     if parent.subject != requested.issuer {
-        return Err(DelegationError::NotGrantHolder);
+        return Err(AuthorityGrantError::NotGrantHolder);
     }
     let parent_binding_relevant = parent.capability_action_registry_digest.is_some()
         || parent.actions.iter().any(|action| {
@@ -511,7 +543,7 @@ pub fn create_delegated_grant(
             &parent.actions,
             parent.capability_action_registry_digest.as_ref(),
         )
-        .map_err(|_| DelegationError::RegistryBasisUnavailable)?;
+        .map_err(|_| AuthorityGrantError::RegistryBasisUnavailable)?;
     }
     let child_binding_relevant = requested.capability_action_registry_digest.is_some()
         || requested.actions.iter().any(|action| {
@@ -523,20 +555,20 @@ pub fn create_delegated_grant(
             &requested.actions,
             requested.capability_action_registry_digest.as_ref(),
         )
-        .map_err(|_| DelegationError::RegistryBasisUnavailable)?;
+        .map_err(|_| AuthorityGrantError::RegistryBasisUnavailable)?;
     }
     if let (Some(child_basis), Some(parent_basis)) = (
         requested.capability_action_registry_digest.as_ref(),
         parent.capability_action_registry_digest.as_ref(),
     ) && child_basis != parent_basis
     {
-        return Err(DelegationError::RegistryBasisUnavailable);
+        return Err(AuthorityGrantError::RegistryBasisUnavailable);
     }
     let parent_effective_expiry = grant_effective_expiry(parent);
     if let Some(parent_expiry) = parent_effective_expiry
         && parent_expiry <= now
     {
-        return Err(DelegationError::ParentExpired);
+        return Err(AuthorityGrantError::ParentExpired);
     }
 
     let parent_actions_wildcard = parent.actions.iter().any(|action| action == "*");
@@ -557,17 +589,40 @@ pub fn create_delegated_grant(
             // action twice.
             offending.sort();
             offending.dedup();
-            return Err(DelegationError::ActionsNotHeld { offending });
+            return Err(AuthorityGrantError::ActionsNotHeld { offending });
         }
     }
 
     if !resource_within(&parent.resource, &requested.resource) {
-        return Err(DelegationError::ResourceOutOfScope);
+        return Err(AuthorityGrantError::ResourceOutOfScope);
+    }
+
+    let has_authority_control = parent
+        .constraints
+        .iter()
+        .any(|constraint| matches!(constraint, GrantConstraint::AuthorityControl { .. }));
+    if !has_authority_control {
+        return Err(AuthorityGrantError::AuthorityDepthExceeded);
+    }
+
+    let parent_allows_further_regrant = authority_regrant_allowed(parent);
+    let mut child_constraints = requested.constraints.clone();
+    if !parent_allows_further_regrant
+        && max_authority_depth_from_constraints(&child_constraints).is_none()
+    {
+        child_constraints.push(GrantConstraint::AuthorityControl {
+            max_authority_depth: Some(0),
+            authority_regrant_allowed: false,
+            constraint_subkind: None,
+            applet_id: None,
+            executed_by: None,
+            registration_epoch: None,
+        });
     }
 
     if let Some(parent_depth) = max_authority_depth(parent) {
         if parent_depth == 0 {
-            return Err(DelegationError::DelegationDepthExceeded);
+            return Err(AuthorityGrantError::AuthorityDepthExceeded);
         }
         let child = Grant {
             grant_id: String::new(),
@@ -577,25 +632,33 @@ pub fn create_delegated_grant(
             resource: requested.resource.clone(),
             actions: requested.actions.clone(),
             capability_action_registry_digest: requested.capability_action_registry_digest.clone(),
-            constraints: requested.constraints.clone(),
+            constraints: child_constraints.clone(),
             revoked: false,
             created_at: now,
             issuer_authority_refs: vec![IssuerAuthorityRef::Grant {
                 grant_id: parent_id.to_owned(),
             }],
+            authority_depth: None,
+            authority_root_refs: Vec::new(),
             expires_at: requested.expires_at,
         };
         match max_authority_depth(&child) {
-            Some(child_depth) if child_depth <= parent_depth.saturating_sub(1) => {}
-            _ => return Err(DelegationError::DelegationDepthExceeded),
+            Some(child_depth)
+                if child_depth <= parent_depth.saturating_sub(1)
+                    && (parent_allows_further_regrant || child_depth == 0) => {}
+            _ => return Err(AuthorityGrantError::AuthorityDepthExceeded),
         }
+    } else if !parent_allows_further_regrant
+        && max_authority_depth_from_constraints(&child_constraints).is_some_and(|depth| depth > 0)
+    {
+        return Err(AuthorityGrantError::AuthorityDepthExceeded);
     }
 
     if let Some(parent_expiry) = parent_effective_expiry {
         match requested.expires_at {
-            None => return Err(DelegationError::OverExpire),
+            None => return Err(AuthorityGrantError::OverExpire),
             Some(child_expiry) if child_expiry > parent_expiry => {
-                return Err(DelegationError::OverExpire);
+                return Err(AuthorityGrantError::OverExpire);
             }
             _ => {}
         }
@@ -609,12 +672,14 @@ pub fn create_delegated_grant(
         resource: requested.resource.clone(),
         actions: requested.actions.clone(),
         capability_action_registry_digest: requested.capability_action_registry_digest.clone(),
-        constraints: requested.constraints.clone(),
+        constraints: child_constraints,
         revoked: false,
         created_at: now,
         issuer_authority_refs: vec![IssuerAuthorityRef::Grant {
             grant_id: parent_id.to_owned(),
         }],
+        authority_depth: None,
+        authority_root_refs: Vec::new(),
         expires_at: requested.expires_at,
     })
 }
@@ -682,6 +747,8 @@ mod tests {
                 controller_epoch_at_issuance: 0,
                 authority_generation: 0,
             }],
+            authority_depth: Some(1),
+            authority_root_refs: Vec::new(),
             expires_at: None,
         }
     }
@@ -709,12 +776,25 @@ mod tests {
             issuer_authority_refs: vec![IssuerAuthorityRef::Grant {
                 grant_id: parent.to_owned(),
             }],
+            authority_depth: None,
+            authority_root_refs: Vec::new(),
             expires_at,
         }
     }
 
+    fn permit_regrant(grant: &mut Grant) {
+        grant.constraints.push(GrantConstraint::AuthorityControl {
+            max_authority_depth: None,
+            authority_regrant_allowed: true,
+            constraint_subkind: None,
+            applet_id: None,
+            executed_by: None,
+            registration_epoch: None,
+        });
+    }
+
     #[test]
-    fn happy_path_root_plus_one_delegation_chain_intact() {
+    fn happy_path_root_plus_one_authority_chain_intact() {
         let root = root_grant("g1", &["read"], "ak:realm:1");
         let child = child_grant(
             "g2",
@@ -727,8 +807,8 @@ mod tests {
         );
         let grants = vec![root, child];
         let now = Utc::now();
-        assert!(delegation_chain_intact(&grants, "g1", now));
-        assert!(delegation_chain_intact(&grants, "g2", now));
+        assert!(authority_chain_intact(&grants, "g1", now));
+        assert!(authority_chain_intact(&grants, "g2", now));
     }
 
     #[test]
@@ -746,8 +826,8 @@ mod tests {
         );
         let grants = vec![root, child];
         let now = Utc::now();
-        assert!(!delegation_chain_intact(&grants, "g1", now));
-        assert!(!delegation_chain_intact(&grants, "g2", now));
+        assert!(!authority_chain_intact(&grants, "g1", now));
+        assert!(!authority_chain_intact(&grants, "g2", now));
     }
 
     #[test]
@@ -765,14 +845,15 @@ mod tests {
             None,
         );
         let grants = vec![root, child];
-        assert!(!delegation_chain_intact(&grants, "g1", now));
-        assert!(!delegation_chain_intact(&grants, "g2", now));
+        assert!(!authority_chain_intact(&grants, "g1", now));
+        assert!(!authority_chain_intact(&grants, "g2", now));
     }
 
     #[test]
-    fn create_delegated_grant_happy_path() {
+    fn create_authority_grant_happy_path() {
         let now = Utc::now();
         let mut root = root_grant("g1", &["read", "send"], "ak:realm:1");
+        permit_regrant(&mut root);
         root.expires_at = Some(now + Duration::hours(1));
         let parents = vec![root];
         let req = GrantRequestDraft {
@@ -785,7 +866,7 @@ mod tests {
             constraints: Vec::new(),
             expires_at: Some(now + Duration::minutes(30)),
         };
-        let child = create_delegated_grant("g1", &req, &parents, now).expect("valid delegation");
+        let child = create_authority_grant("g1", &req, &parents, now).expect("valid authority");
         assert_eq!(
             child.issuer_authority_refs,
             vec![IssuerAuthorityRef::Grant {
@@ -797,10 +878,11 @@ mod tests {
     }
 
     #[test]
-    fn aggregate_admin_delegation_preserves_registry_basis() {
+    fn aggregate_admin_authority_preserves_registry_basis() {
         let now = Utc::now();
         let digest = super::super::current_capability_action_registry_digest().unwrap();
         let mut root = root_grant("g1", &["ak.realm.admin"], "ak:realm:1");
+        permit_regrant(&mut root);
         root.capability_action_registry_digest = Some(digest.clone());
         let request = GrantRequestDraft {
             realm_id: "ak:realm:1".to_owned(),
@@ -812,15 +894,16 @@ mod tests {
             constraints: Vec::new(),
             expires_at: None,
         };
-        let child = create_delegated_grant("g1", &request, &[root], now).unwrap();
+        let child = create_authority_grant("g1", &request, &[root], now).unwrap();
         assert_eq!(child.capability_action_registry_digest, Some(digest));
     }
 
     #[test]
-    fn aggregate_admin_delegation_rejects_missing_child_basis() {
+    fn aggregate_admin_authority_rejects_missing_child_basis() {
         let now = Utc::now();
         let digest = super::super::current_capability_action_registry_digest().unwrap();
         let mut root = root_grant("g1", &["ak.realm.admin"], "ak:realm:1");
+        permit_regrant(&mut root);
         root.capability_action_registry_digest = Some(digest);
         let request = GrantRequestDraft {
             realm_id: "ak:realm:1".to_owned(),
@@ -833,15 +916,16 @@ mod tests {
             expires_at: None,
         };
         assert!(matches!(
-            create_delegated_grant("g1", &request, &[root], now),
-            Err(DelegationError::RegistryBasisUnavailable)
+            create_authority_grant("g1", &request, &[root], now),
+            Err(AuthorityGrantError::RegistryBasisUnavailable)
         ));
     }
 
     #[test]
-    fn create_delegated_grant_rejects_over_expire() {
+    fn create_authority_grant_rejects_over_expire() {
         let now = Utc::now();
         let mut root = root_grant("g1", &["read"], "ak:realm:1");
+        permit_regrant(&mut root);
         root.expires_at = Some(now + Duration::hours(1));
         let parents = vec![root];
         let req = GrantRequestDraft {
@@ -856,8 +940,8 @@ mod tests {
             expires_at: Some(now + Duration::hours(2)),
         };
         assert!(matches!(
-            create_delegated_grant("g1", &req, &parents, now),
-            Err(DelegationError::OverExpire)
+            create_authority_grant("g1", &req, &parents, now),
+            Err(AuthorityGrantError::OverExpire)
         ));
 
         // Also reject when child has no expiry but parent does.
@@ -866,13 +950,13 @@ mod tests {
             ..req
         };
         assert!(matches!(
-            create_delegated_grant("g1", &req_none, &parents, now),
-            Err(DelegationError::OverExpire)
+            create_authority_grant("g1", &req_none, &parents, now),
+            Err(AuthorityGrantError::OverExpire)
         ));
     }
 
     #[test]
-    fn create_delegated_grant_rejects_actions_overreach() {
+    fn create_authority_grant_rejects_actions_overreach() {
         let now = Utc::now();
         let root = root_grant("g1", &["read"], "ak:realm:1");
         let parents = vec![root];
@@ -887,9 +971,9 @@ mod tests {
             constraints: Vec::new(),
             expires_at: None,
         };
-        let err = create_delegated_grant("g1", &req, &parents, now).unwrap_err();
+        let err = create_authority_grant("g1", &req, &parents, now).unwrap_err();
         match err {
-            DelegationError::ActionsNotHeld { offending } => {
+            AuthorityGrantError::ActionsNotHeld { offending } => {
                 assert_eq!(offending, vec!["delete".to_owned(), "send".to_owned()]);
             }
             other => panic!("expected ActionsNotHeld, got {other:?}"),
@@ -897,7 +981,7 @@ mod tests {
     }
 
     #[test]
-    fn create_delegated_grant_rejects_resource_out_of_scope() {
+    fn create_authority_grant_rejects_resource_out_of_scope() {
         let now = Utc::now();
         let root = root_grant("g1", &["read"], "ak:realm:1");
         let parents = vec![root];
@@ -913,17 +997,18 @@ mod tests {
             expires_at: None,
         };
         assert!(matches!(
-            create_delegated_grant("g1", &req, &parents, now),
-            Err(DelegationError::ResourceOutOfScope)
+            create_authority_grant("g1", &req, &parents, now),
+            Err(AuthorityGrantError::ResourceOutOfScope)
         ));
     }
 
     #[test]
-    fn create_delegated_grant_decrements_max_delegation_depth() {
+    fn create_authority_grant_decrements_max_authority_depth() {
         let now = Utc::now();
         let mut root = root_grant("g1", &["read"], "ak:realm:1");
         root.constraints.push(GrantConstraint::AuthorityControl {
             max_authority_depth: Some(1),
+            authority_regrant_allowed: true,
             constraint_subkind: None,
             applet_id: None,
             executed_by: None,
@@ -941,13 +1026,14 @@ mod tests {
             expires_at: None,
         };
         assert!(matches!(
-            create_delegated_grant("g1", &base_req, &parents, now),
-            Err(DelegationError::DelegationDepthExceeded)
+            create_authority_grant("g1", &base_req, &parents, now),
+            Err(AuthorityGrantError::AuthorityDepthExceeded)
         ));
 
         let narrowed_req = GrantRequestDraft {
             constraints: vec![GrantConstraint::AuthorityControl {
                 max_authority_depth: Some(0),
+                authority_regrant_allowed: false,
                 constraint_subkind: None,
                 applet_id: None,
                 executed_by: None,
@@ -956,16 +1042,62 @@ mod tests {
             ..base_req
         };
         let child =
-            create_delegated_grant("g1", &narrowed_req, &parents, now).expect("depth sealed");
+            create_authority_grant("g1", &narrowed_req, &parents, now).expect("depth sealed");
         assert_eq!(max_authority_depth(&child), Some(0));
     }
 
     #[test]
-    fn create_delegated_grant_rejects_when_parent_depth_is_exhausted() {
+    fn create_authority_grant_seals_child_when_parent_disallows_further_regrant() {
+        let now = Utc::now();
+        let mut root = root_grant("g1", &["read"], "ak:realm:1");
+        root.constraints.push(GrantConstraint::AuthorityControl {
+            max_authority_depth: Some(2),
+            authority_regrant_allowed: false,
+            constraint_subkind: None,
+            applet_id: None,
+            executed_by: None,
+            registration_epoch: None,
+        });
+        let request = GrantRequestDraft {
+            realm_id: "ak:realm:1".to_owned(),
+            issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            subject: "did:webvh:z6mkfixture:carol".to_owned(),
+            resource: "ak:realm:1".to_owned(),
+            actions: vec!["read".to_owned()],
+            capability_action_registry_digest: None,
+            constraints: Vec::new(),
+            expires_at: None,
+        };
+
+        let child = create_authority_grant("g1", &request, &[root], now)
+            .expect("the immediate child is allowed but must be terminal");
+        assert_eq!(max_authority_depth(&child), Some(0));
+        assert!(!authority_regrant_allowed(&child));
+    }
+
+    #[test]
+    fn authority_regrant_allowed_defaults_false_on_wire() {
+        let constraint: GrantConstraint = serde_json::from_value(serde_json::json!({
+            "constraint_kind": "authority_control",
+            "max_authority_depth": 1
+        }))
+        .unwrap();
+        assert!(matches!(
+            constraint,
+            GrantConstraint::AuthorityControl {
+                authority_regrant_allowed: false,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn create_authority_grant_rejects_when_parent_depth_is_exhausted() {
         let now = Utc::now();
         let mut root = root_grant("g1", &["read"], "ak:realm:1");
         root.constraints.push(GrantConstraint::AuthorityControl {
             max_authority_depth: Some(0),
+            authority_regrant_allowed: true,
             constraint_subkind: None,
             applet_id: None,
             executed_by: None,
@@ -981,6 +1113,7 @@ mod tests {
             capability_action_registry_digest: None,
             constraints: vec![GrantConstraint::AuthorityControl {
                 max_authority_depth: Some(0),
+                authority_regrant_allowed: false,
                 constraint_subkind: None,
                 applet_id: None,
                 executed_by: None,
@@ -989,19 +1122,19 @@ mod tests {
             expires_at: None,
         };
         assert!(matches!(
-            create_delegated_grant("g1", &req, &parents, now),
-            Err(DelegationError::DelegationDepthExceeded)
+            create_authority_grant("g1", &req, &parents, now),
+            Err(AuthorityGrantError::AuthorityDepthExceeded)
         ));
     }
 
     #[test]
-    fn create_delegated_grant_rejects_non_holder() {
+    fn create_authority_grant_rejects_non_holder() {
         let now = Utc::now();
         let root = root_grant("g1", &["read"], "ak:realm:1");
         let parents = vec![root];
         let req = GrantRequestDraft {
             realm_id: "ak:realm:1".to_owned(),
-            // Bob is the parent's subject; Eve trying to delegate is not.
+            // Bob is the parent's subject; Eve trying to issue the child grant is not.
             issuer: "did:webvh:z6mkfixture:eve".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ak:realm:1".to_owned(),
@@ -1011,8 +1144,8 @@ mod tests {
             expires_at: None,
         };
         assert!(matches!(
-            create_delegated_grant("g1", &req, &parents, now),
-            Err(DelegationError::NotGrantHolder)
+            create_authority_grant("g1", &req, &parents, now),
+            Err(AuthorityGrantError::NotGrantHolder)
         ));
     }
 
@@ -1040,16 +1173,16 @@ mod tests {
         );
         // Pre-condition: all three chain-intact.
         let intact = vec![root.clone(), middle.clone(), leaf.clone()];
-        assert!(delegation_chain_intact(&intact, "g1", now));
-        assert!(delegation_chain_intact(&intact, "g2", now));
-        assert!(delegation_chain_intact(&intact, "g3", now));
+        assert!(authority_chain_intact(&intact, "g1", now));
+        assert!(authority_chain_intact(&intact, "g2", now));
+        assert!(authority_chain_intact(&intact, "g3", now));
 
         // Revoke the middle grant; root still intact, middle + leaf broken.
         middle.revoked = true;
         let broken = vec![root, middle, leaf];
-        assert!(delegation_chain_intact(&broken, "g1", now));
-        assert!(!delegation_chain_intact(&broken, "g2", now));
-        assert!(!delegation_chain_intact(&broken, "g3", now));
+        assert!(authority_chain_intact(&broken, "g1", now));
+        assert!(!authority_chain_intact(&broken, "g2", now));
+        assert!(!authority_chain_intact(&broken, "g3", now));
     }
 
     #[test]
@@ -1122,8 +1255,8 @@ mod tests {
             expires_at: None,
         };
         assert!(matches!(
-            create_delegated_grant("g-missing", &req, &parents, now),
-            Err(DelegationError::ParentNotFound)
+            create_authority_grant("g-missing", &req, &parents, now),
+            Err(AuthorityGrantError::ParentNotFound)
         ));
     }
 
@@ -1187,10 +1320,11 @@ mod tests {
     }
 
     #[test]
-    fn applet_delegation_round_trips_only_the_registered_wire_shape() {
+    fn applet_authority_round_trips_only_the_registered_wire_shape() {
         let registration_epoch = Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap();
         let constraint = GrantConstraint::AuthorityControl {
             max_authority_depth: None,
+            authority_regrant_allowed: false,
             constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
             applet_id: Some(
                 AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
@@ -1214,28 +1348,29 @@ mod tests {
     }
 
     #[test]
-    fn applet_delegation_binding_must_match_epoch_subject_and_applet() {
+    fn applet_authority_binding_must_match_epoch_subject_and_applet() {
         let mut grant = root_grant("g1", &["ak.message.create"], "ak:realm:1");
         let applet_id = "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb";
         let registration_epoch = format!("sha256:{}", "a".repeat(64));
         assert!(matches!(
-            validate_applet_delegation_binding(
+            validate_applet_authority_binding(
                 &grant,
                 applet_id,
                 "did:webvh:z6mkfixture:svc.example",
                 &registration_epoch
             ),
-            Err(AppletDelegationBindingError::Missing)
+            Err(AppletAuthorityBindingError::Missing)
         ));
         grant.constraints.push(GrantConstraint::AuthorityControl {
             max_authority_depth: None,
+            authority_regrant_allowed: false,
             constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
             applet_id: Some(AppletId::new(applet_id).unwrap()),
             executed_by: Some(Did::new("did:webvh:z6mkfixture:svc.example").unwrap()),
             registration_epoch: Some(Hash::new(registration_epoch.clone()).unwrap()),
         });
         assert!(
-            validate_applet_delegation_binding(
+            validate_applet_authority_binding(
                 &grant,
                 applet_id,
                 "did:webvh:z6mkfixture:svc.example",
@@ -1245,13 +1380,13 @@ mod tests {
         );
         let different_epoch = format!("sha256:{}", "b".repeat(64));
         assert!(matches!(
-            validate_applet_delegation_binding(
+            validate_applet_authority_binding(
                 &grant,
                 applet_id,
                 "did:webvh:z6mkfixture:svc.example",
                 &different_epoch
             ),
-            Err(AppletDelegationBindingError::RegistrationEpochMismatch)
+            Err(AppletAuthorityBindingError::RegistrationEpochMismatch)
         ));
     }
 }

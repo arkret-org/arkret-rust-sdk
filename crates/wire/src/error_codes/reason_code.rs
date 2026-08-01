@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-01.1;
-//! sha256=b872891b5668e7a7188c01782553b0a21c1d2e02d86ed0ac0f33533bd0653d1c
-//! Entries: reason_codes=455
+//! Input: registry/error-code-registry.json; version=2026-08-01.3;
+//! sha256=9b04e988ea9e137d3f8a28097a5748e8d5ceac615722063c8d84ca2dc28211d9
+//! Entries: reason_codes=454
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -64,6 +64,8 @@ pub enum ReasonCode {
     AuthorityCycle,
     AuthorityExpiryWidening,
     AuthorityRegrantDenied,
+    AuthorityScopeCustomUnsupported,
+    AuthorityScopeMismatch,
     AuthorizedGrantRevoked,
     BackendUnavailable,
     BackupFrontierStale,
@@ -131,8 +133,6 @@ pub enum ReasonCode {
     DecryptionFailed,
     DecryptionPending,
     DelegationRevoked,
-    DelegationScopeCustomUnsupported,
-    DelegationScopeMismatch,
     DeliveryBindingHandoverProofInvalid,
     DeliveryBindingHandoverRateLimited,
     DeliveryBindingInvalid,
@@ -260,7 +260,6 @@ pub enum ReasonCode {
     MinimalMetadataAuthorCredentialInvalid,
     MinimalMetadataPresignForbidden,
     Misinformation,
-    MissingParentReference,
     MlsGovernanceBindingStale,
     MlsSendPauseAdvisoryRequiresE2eeRelaxedProfile,
     ModerationControlLifted,
@@ -544,6 +543,9 @@ impl ReasonCode {
     pub const AUTHORITY_CYCLE: &'static str = "authority_cycle";
     pub const AUTHORITY_EXPIRY_WIDENING: &'static str = "authority_expiry_widening";
     pub const AUTHORITY_REGRANT_DENIED: &'static str = "authority_regrant_denied";
+    pub const AUTHORITY_SCOPE_CUSTOM_UNSUPPORTED: &'static str =
+        "authority_scope_custom_unsupported";
+    pub const AUTHORITY_SCOPE_MISMATCH: &'static str = "authority_scope_mismatch";
     pub const AUTHORIZED_GRANT_REVOKED: &'static str = "authorized_grant_revoked";
     pub const BACKEND_UNAVAILABLE: &'static str = "backend_unavailable";
     pub const BACKUP_FRONTIER_STALE: &'static str = "backup_frontier_stale";
@@ -628,9 +630,6 @@ impl ReasonCode {
     pub const DECRYPTION_FAILED: &'static str = "decryption_failed";
     pub const DECRYPTION_PENDING: &'static str = "decryption_pending";
     pub const DELEGATION_REVOKED: &'static str = "delegation_revoked";
-    pub const DELEGATION_SCOPE_CUSTOM_UNSUPPORTED: &'static str =
-        "delegation_scope_custom_unsupported";
-    pub const DELEGATION_SCOPE_MISMATCH: &'static str = "delegation_scope_mismatch";
     pub const DELIVERY_BINDING_HANDOVER_PROOF_INVALID: &'static str =
         "delivery_binding_handover_proof_invalid";
     pub const DELIVERY_BINDING_HANDOVER_RATE_LIMITED: &'static str =
@@ -791,7 +790,6 @@ impl ReasonCode {
     pub const MINIMAL_METADATA_PRESIGN_FORBIDDEN: &'static str =
         "minimal_metadata_presign_forbidden";
     pub const MISINFORMATION: &'static str = "misinformation";
-    pub const MISSING_PARENT_REFERENCE: &'static str = "missing_parent_reference";
     pub const MLS_GOVERNANCE_BINDING_STALE: &'static str = "mls_governance_binding_stale";
     pub const MLS_SEND_PAUSE_ADVISORY_REQUIRES_E2EE_RELAXED_PROFILE: &'static str =
         "mls_send_pause_advisory_requires_e2ee_relaxed_profile";
@@ -1093,6 +1091,8 @@ impl ReasonCode {
             Self::AuthorityCycle => "authority_cycle",
             Self::AuthorityExpiryWidening => "authority_expiry_widening",
             Self::AuthorityRegrantDenied => "authority_regrant_denied",
+            Self::AuthorityScopeCustomUnsupported => "authority_scope_custom_unsupported",
+            Self::AuthorityScopeMismatch => "authority_scope_mismatch",
             Self::AuthorizedGrantRevoked => "authorized_grant_revoked",
             Self::BackendUnavailable => "backend_unavailable",
             Self::BackupFrontierStale => "backup_frontier_stale",
@@ -1168,8 +1168,6 @@ impl ReasonCode {
             Self::DecryptionFailed => "decryption_failed",
             Self::DecryptionPending => "decryption_pending",
             Self::DelegationRevoked => "delegation_revoked",
-            Self::DelegationScopeCustomUnsupported => "delegation_scope_custom_unsupported",
-            Self::DelegationScopeMismatch => "delegation_scope_mismatch",
             Self::DeliveryBindingHandoverProofInvalid => "delivery_binding_handover_proof_invalid",
             Self::DeliveryBindingHandoverRateLimited => "delivery_binding_handover_rate_limited",
             Self::DeliveryBindingInvalid => "delivery_binding_invalid",
@@ -1327,7 +1325,6 @@ impl ReasonCode {
             }
             Self::MinimalMetadataPresignForbidden => "minimal_metadata_presign_forbidden",
             Self::Misinformation => "misinformation",
-            Self::MissingParentReference => "missing_parent_reference",
             Self::MlsGovernanceBindingStale => "mls_governance_binding_stale",
             Self::MlsSendPauseAdvisoryRequiresE2eeRelaxedProfile => {
                 "mls_send_pause_advisory_requires_e2ee_relaxed_profile"
@@ -1626,6 +1623,8 @@ impl ReasonCode {
             "authority_cycle" => Self::AuthorityCycle,
             "authority_expiry_widening" => Self::AuthorityExpiryWidening,
             "authority_regrant_denied" => Self::AuthorityRegrantDenied,
+            "authority_scope_custom_unsupported" => Self::AuthorityScopeCustomUnsupported,
+            "authority_scope_mismatch" => Self::AuthorityScopeMismatch,
             "authorized_grant_revoked" => Self::AuthorizedGrantRevoked,
             "backend_unavailable" => Self::BackendUnavailable,
             "backup_frontier_stale" => Self::BackupFrontierStale,
@@ -1701,8 +1700,6 @@ impl ReasonCode {
             "decryption_failed" => Self::DecryptionFailed,
             "decryption_pending" => Self::DecryptionPending,
             "delegation_revoked" => Self::DelegationRevoked,
-            "delegation_scope_custom_unsupported" => Self::DelegationScopeCustomUnsupported,
-            "delegation_scope_mismatch" => Self::DelegationScopeMismatch,
             "delivery_binding_handover_proof_invalid" => Self::DeliveryBindingHandoverProofInvalid,
             "delivery_binding_handover_rate_limited" => Self::DeliveryBindingHandoverRateLimited,
             "delivery_binding_invalid" => Self::DeliveryBindingInvalid,
@@ -1860,7 +1857,6 @@ impl ReasonCode {
             }
             "minimal_metadata_presign_forbidden" => Self::MinimalMetadataPresignForbidden,
             "misinformation" => Self::Misinformation,
-            "missing_parent_reference" => Self::MissingParentReference,
             "mls_governance_binding_stale" => Self::MlsGovernanceBindingStale,
             "mls_send_pause_advisory_requires_e2ee_relaxed_profile" => {
                 Self::MlsSendPauseAdvisoryRequiresE2eeRelaxedProfile
@@ -2388,6 +2384,16 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A grant was issued from a ref carrying authority_regrant_allowed=false, or declares a max_authority_depth above what its refs leave. With authority_regrant_allowed=false the child's max_authority_depth MUST be 0 and no further grant may name it. See zh/authz/capabilities.md §6 / §10.",
     },
     ReasonCodeDescriptor {
+        code: "authority_scope_custom_unsupported",
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "A grant declared `authority_scope=custom`, which v1 does not define an evaluable semantics for. The reducer MUST reject (schema_violation) until a future profile assigns custom-scope evaluation rules. See zh/authz/constraint-schema.md §7.",
+    },
+    ReasonCodeDescriptor {
+        code: "authority_scope_mismatch",
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "A child grant violated its issuer authority's `authority_scope`: `narrowing_only` requires the child resources/actions to be a strict-or-equal subset that narrows at least one axis, and `same_scope` requires the child to match the issuer authority's scope exactly. The reducer MUST reject a child that exceeds or fails to satisfy the declared narrowing discipline. See zh/authz/constraint-schema.md §7.",
+    },
+    ReasonCodeDescriptor {
         code: "authorized_grant_revoked",
         applies_to: &["authz", "event_auth_state"],
         description: "The grant referenced by refs[role=authorized_by] or an ancestor grant in its delegation chain has been revoked, superseded, expired, or tombstoned.",
@@ -2727,16 +2733,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "An applet/service call used a delegated device session that the deactivation/lock fanout revoked (ak.applet.registration delegated devices). The call MUST fail closed. See zh/identity/account-lifecycle.md §7.1.",
     },
     ReasonCodeDescriptor {
-        code: "delegation_scope_custom_unsupported",
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "A grant declared `authority_scope=custom`, which v1 does not define an evaluable semantics for. The reducer MUST reject (schema_violation) until a future profile assigns custom-scope evaluation rules. See zh/authz/constraint-schema.md §7.",
-    },
-    ReasonCodeDescriptor {
-        code: "delegation_scope_mismatch",
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "A delegated grant violated its parent's `authority_scope`: `narrowing_only` requires the child resources/actions to be a strict-or-equal subset that narrows at least one axis, and `same_scope` requires the child to match the parent's scope exactly. The reducer MUST reject a child that exceeds or fails to satisfy the declared narrowing discipline. See zh/authz/constraint-schema.md §7.",
-    },
-    ReasonCodeDescriptor {
         code: "delivery_binding_handover_proof_invalid",
         applies_to: &["service_call", "auth_decision"],
         description: "A federation delivery-binding handover response carried a proof that does not verify against the Realm Event graph, handover_frontier, actor_id, new_recipient_service_id, or effective delivery binding policy. Sender MUST stop redirection and MUST NOT fall back to DID Document routing. See zh/sync/federation.md §4.1.",
@@ -2963,12 +2959,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
             "state_resolution",
             "federation_transaction",
         ],
-        description: "An MLS commit's mls_governance_binding GroupContext extension declares a policy_root (or realm policy digest) that does not match the policy root the group's epoch chain is genesis-bound to. The receiver MUST reject the commit - and, on a federation push, the batch - rather than advance an epoch under a forged or stale governance binding. See zh/crypto-media/encryption-and-audit.md §2.5.1.",
+        description: "An MLS commit's mls_governance_binding GroupContext extension does not match the governance state the group's epoch chain is bound to: a policy_root (or realm policy digest) differing from the genesis-bound policy root, or a covered_seal_refs entry outside the commit's seal_basis predecessor closure - including the Seal that admits the commit itself, which no Control Move can attest. The receiver MUST reject the commit - and, on a federation push, the batch - rather than advance an epoch under a forged or stale governance binding. See zh/crypto-media/encryption-and-audit.md §2.5.1.",
     },
     ReasonCodeDescriptor {
         code: "grant_exceeds_issuer_authority",
         applies_to: &["event_envelope", "auth_decision"],
-        description: "A first-issue `ak.capability.grant` (no parent_grant_id) attempts to grant actions[] / resources[] that exceed the issuer's own effective capability at the issuing seal basis. Holding the `ak.capability.grant` action alone does not permit minting authority the issuer does not itself hold; reducers MUST fail closed (schema_violation for actions/resources over-scope, failed_precondition when the issuer does not hold the required upper bound at that basis), symmetric to the delegation narrowing rule. See zh/authz/capabilities.md §3.2.",
+        description: "An `ak.capability.grant` attempts to grant actions[] / resources[] that exceed the union of its `issuer_authority_refs[]` at the issuing seal basis. Holding the `ak.capability.grant` action alone does not permit minting authority the issuer does not itself hold; reducers MUST fail closed (schema_violation for actions/resources over-scope, failed_precondition when the issuer does not hold the required upper bound at that basis). See zh/authz/capabilities.md §3.2.",
     },
     ReasonCodeDescriptor {
         code: "grant_relinquish_not_subject",
@@ -3374,11 +3370,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: "misinformation",
         applies_to: &["moderation_report"],
         description: "Standard moderation reason: misleading / false information posing harm.",
-    },
-    ReasonCodeDescriptor {
-        code: "missing_parent_reference",
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "A delegated grant whose parent carries `parent_reference_required=true` omitted the explicit `parent_grant_id` / `refs[role=authorized_by]` linkage back to the parent grant. The reducer MUST reject so the delegation chain stays explicitly anchored. See zh/authz/constraint-schema.md §7 / zh/authz/capabilities.md §10.",
     },
     ReasonCodeDescriptor {
         code: "mls_governance_binding_stale",

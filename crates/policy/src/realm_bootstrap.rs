@@ -10,7 +10,12 @@
 //! controller holds effective `ak.realm.owner`
 //! (`models/realm-and-space.md` section 2.5).
 
-use arkret_wire::{Did, Error, Event, EventId, EventKind, Hash, REALM_AUTHORITY_ROOT_CELL, Result};
+use arkret_models_collaboration::events_payloads::{
+    RealmAuthorityBasisUpdatePayload, RealmAuthorityResetPayload, RealmOwnerTransferPayload,
+};
+use arkret_wire::{
+    Did, Error, Event, EventId, EventKind, Hash, Hlc, REALM_AUTHORITY_ROOT_CELL, Result, ScopeRef,
+};
 use serde::{Deserialize, Serialize};
 
 /// Closed set of initial Realm facets that may follow the create Event.
@@ -65,6 +70,126 @@ impl RealmAuthorityRootValue {
             && self.controller_epoch == 0
             && self.authority_generation == 0
     }
+}
+
+fn build_realm_authority_event<T: Serialize>(
+    kind: &'static str,
+    scope_ref: ScopeRef,
+    actor_id: Did,
+    actor_seq: u64,
+    hlc: Hlc,
+    payload: &T,
+) -> Result<Event> {
+    let mut event = Event::new(
+        kind,
+        scope_ref,
+        actor_id,
+        actor_seq,
+        hlc,
+        serde_json::to_value(payload)?,
+    )?;
+    event.authorization_ref = Some(REALM_AUTHORITY_ROOT_CELL.to_owned());
+    Ok(event)
+}
+
+/// Build an unsigned `ak.realm.owner.transfer` Event with the mandatory root
+/// authorization reference.
+pub fn build_realm_owner_transfer_event(
+    scope_ref: ScopeRef,
+    actor_id: Did,
+    actor_seq: u64,
+    hlc: Hlc,
+    payload: RealmOwnerTransferPayload,
+) -> Result<Event> {
+    if scope_ref.realm_id() != &payload.realm_id
+        || payload.patch.controller_epoch == 0
+        || !payload
+            .expected_state_digest
+            .as_str()
+            .starts_with("sha256:")
+    {
+        return Err(Error::Protocol(
+            "schema_violation: invalid Realm owner transfer payload".to_owned(),
+        ));
+    }
+    let proof = serde_json::to_value(&payload.successor_acceptance)?;
+    if match proof {
+        serde_json::Value::String(value) => value.is_empty(),
+        serde_json::Value::Object(value) => value.is_empty(),
+        _ => true,
+    } {
+        return Err(Error::Protocol(
+            "schema_violation: successor_acceptance must be non-empty".to_owned(),
+        ));
+    }
+    build_realm_authority_event(
+        EventKind::REALM_OWNER_TRANSFER,
+        scope_ref,
+        actor_id,
+        actor_seq,
+        hlc,
+        &payload,
+    )
+}
+
+/// Build an unsigned destructive `ak.realm.authority.reset` Event.
+pub fn build_realm_authority_reset_event(
+    scope_ref: ScopeRef,
+    actor_id: Did,
+    actor_seq: u64,
+    hlc: Hlc,
+    payload: RealmAuthorityResetPayload,
+) -> Result<Event> {
+    if scope_ref.realm_id() != &payload.realm_id
+        || payload.patch.authority_generation == 0
+        || payload.destructive_confirmation != EventKind::REALM_AUTHORITY_RESET
+        || !payload
+            .expected_state_digest
+            .as_str()
+            .starts_with("sha256:")
+    {
+        return Err(Error::Protocol(
+            "schema_violation: invalid Realm authority reset payload".to_owned(),
+        ));
+    }
+    build_realm_authority_event(
+        EventKind::REALM_AUTHORITY_RESET,
+        scope_ref,
+        actor_id,
+        actor_seq,
+        hlc,
+        &payload,
+    )
+}
+
+/// Build an unsigned `ak.realm.authority.basis_update` Event after verifying
+/// that this SDK can resolve the requested registry snapshot.
+pub fn build_realm_authority_basis_update_event(
+    scope_ref: ScopeRef,
+    actor_id: Did,
+    actor_seq: u64,
+    hlc: Hlc,
+    payload: RealmAuthorityBasisUpdatePayload,
+) -> Result<Event> {
+    if scope_ref.realm_id() != &payload.realm_id
+        || !payload
+            .expected_state_digest
+            .as_str()
+            .starts_with("sha256:")
+    {
+        return Err(Error::Protocol(
+            "schema_violation: invalid Realm authority basis update payload".to_owned(),
+        ));
+    }
+    crate::require_registry_basis(Some(&payload.patch.capability_action_registry_digest))?;
+    build_realm_authority_event(
+        EventKind::REALM_AUTHORITY_BASIS_UPDATE,
+        scope_ref,
+        actor_id,
+        actor_seq,
+        hlc,
+        &payload,
+    )
 }
 
 /// How an Event proves it speaks for the Realm authority root.
@@ -359,5 +484,102 @@ mod tests {
         );
         assert_eq!(proof.authorization_ref(), REALM_AUTHORITY_ROOT_CELL);
         assert!(staged_root_authorization(&history_sharing_followup()).is_err());
+    }
+
+    #[test]
+    fn authority_transition_builders_stamp_the_root_authorization() {
+        let scope = ScopeRef::Realm {
+            realm_id: RealmId::new(REALM).unwrap(),
+        };
+        let actor = Did::new(ACTOR).unwrap();
+        let expected = format!("sha256:{}", "1".repeat(64));
+        let successor = "did:web:successor.example";
+        let transfer: RealmOwnerTransferPayload = serde_json::from_value(json!({
+            "realm_id": REALM,
+            "expected_state_digest": expected,
+            "patch": {"controller_id": successor, "controller_epoch": 1},
+            "successor_acceptance": "detached-successor-proof"
+        }))
+        .unwrap();
+        let event = build_realm_owner_transfer_event(
+            scope.clone(),
+            actor.clone(),
+            2,
+            Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
+            transfer,
+        )
+        .unwrap();
+        assert_eq!(event.kind.as_str(), EventKind::REALM_OWNER_TRANSFER);
+        assert_eq!(
+            event.authorization_ref.as_deref(),
+            Some(REALM_AUTHORITY_ROOT_CELL)
+        );
+
+        let reset: RealmAuthorityResetPayload = serde_json::from_value(json!({
+            "realm_id": REALM,
+            "expected_state_digest": format!("sha256:{}", "2".repeat(64)),
+            "patch": {"authority_generation": 1},
+            "destructive_confirmation": EventKind::REALM_AUTHORITY_RESET
+        }))
+        .unwrap();
+        let event = build_realm_authority_reset_event(
+            scope.clone(),
+            actor.clone(),
+            3,
+            Hlc::new("01970e589d21-0003-a13f9c2e").unwrap(),
+            reset,
+        )
+        .unwrap();
+        assert_eq!(event.kind.as_str(), EventKind::REALM_AUTHORITY_RESET);
+        assert_eq!(
+            event.authorization_ref.as_deref(),
+            Some(REALM_AUTHORITY_ROOT_CELL)
+        );
+
+        let basis: RealmAuthorityBasisUpdatePayload = serde_json::from_value(json!({
+            "realm_id": REALM,
+            "expected_state_digest": format!("sha256:{}", "3".repeat(64)),
+            "patch": {
+                "capability_action_registry_digest": crate::current_capability_action_registry_digest()
+                    .unwrap()
+            }
+        }))
+        .unwrap();
+        let event = build_realm_authority_basis_update_event(
+            scope,
+            actor,
+            4,
+            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+            basis,
+        )
+        .unwrap();
+        assert_eq!(event.kind.as_str(), EventKind::REALM_AUTHORITY_BASIS_UPDATE);
+        assert_eq!(
+            event.authorization_ref.as_deref(),
+            Some(REALM_AUTHORITY_ROOT_CELL)
+        );
+    }
+
+    #[test]
+    fn reset_builder_rejects_missing_destructive_confirmation() {
+        let payload: RealmAuthorityResetPayload = serde_json::from_value(json!({
+            "realm_id": REALM,
+            "expected_state_digest": format!("sha256:{}", "4".repeat(64)),
+            "patch": {"authority_generation": 1},
+            "destructive_confirmation": "RESET"
+        }))
+        .unwrap();
+        assert!(
+            build_realm_authority_reset_event(
+                ScopeRef::Realm {
+                    realm_id: RealmId::new(REALM).unwrap()
+                },
+                Did::new(ACTOR).unwrap(),
+                5,
+                Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
+                payload,
+            )
+            .is_err()
+        );
     }
 }

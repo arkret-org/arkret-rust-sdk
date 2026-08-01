@@ -125,14 +125,13 @@ pub enum Constraint {
         #[serde(skip_serializing_if = "Option::is_none")]
         scope_limitation: Option<ScopeLimitation>,
     },
-    /// Re-grant control. `authority_regrant_allowed` is the permission form of
-    /// the retired `prohibit_subdelegation`: it defaults to `true` so an
-    /// `authority_control` constraint that only pins a depth keeps behaving the
-    /// way the prohibition-form default did.
+    /// Re-grant control. `authority_regrant_allowed` defaults to `false` per
+    /// `constraint-schema.md` §7.2, so a grant must opt in explicitly before it
+    /// can be named by another grant's `issuer_authority_refs`.
     AuthorityControl {
         #[serde(skip_serializing_if = "Option::is_none")]
         max_authority_depth: Option<u32>,
-        #[serde(default = "default_true")]
+        #[serde(default)]
         authority_regrant_allowed: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         constraint_subkind: Option<GrantConstraintSubkind>,
@@ -358,10 +357,6 @@ pub enum ApprovalMode {
 
 fn default_rate_limit_scope() -> GrantRateLimitScope {
     GrantRateLimitScope::Global
-}
-
-fn default_true() -> bool {
-    true
 }
 
 fn default_false() -> bool {

@@ -673,19 +673,13 @@ mod tests {
     /// `event-payload.schema.json#/$defs/*` entry, so the SDK event-payload
     /// catalog legitimately carries no validator rule for them:
     ///
-    /// - `ak.relation.tombstone` — `relation.schema.json`
-    /// - `ak.moderation.franking_proof` — `moderation-report.schema.json`
     /// - `ak.read_cursor.advance` — `read-cursor-operations.schema.json` (actor-private,
     ///   `reducer_input:false`)
     ///
     /// Any *new* active standard kind that neither resolves to an event-payload
     /// def nor is added here MUST make [`catalog_covers_every_active_standard_kind`]
     /// fail closed, forcing an explicit wiring decision.
-    const KINDS_WITHOUT_EVENT_PAYLOAD_VALIDATOR: &[&str] = &[
-        "ak.moderation.franking_proof",
-        "ak.read_cursor.advance",
-        "ak.relation.tombstone",
-    ];
+    const KINDS_WITHOUT_EVENT_PAYLOAD_VALIDATOR: &[&str] = &["ak.read_cursor.advance"];
 
     /// D6 fail-closed guard: every active standard event kind in the spec
     /// registry either resolves to an explicit payload validator (via

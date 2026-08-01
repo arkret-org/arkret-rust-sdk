@@ -49,5 +49,5 @@ remainder of the catalog is represented by the generated
 | --- | --- | --- |
 | `ak.profile.personal_agent_provisioning.v1` | ✓ implemented | Typed HTTP operations live in `arkret-http-client`; managed-agent provisioning drafts live in `arkret-bootstrap`; lifecycle Event drafts live in `arkret-event-draft`; runtime key proofs live in `arkret-signatures`. |
 | `ak.profile.agent_auth.v1` | ✓ implemented | S-1 signing-key + S-2 session-key binding and controller-grant verification on every agent Event envelope. |
-| `ak.profile.agent_delegation_policy.v1` | ✓ implemented | Delegation grants gated by `ak.profile.agent_delegation_policy.v1` via `arkret_policy::authz::delegation`; controller can revoke without rotating the agent key. |
+| `ak.profile.agent_delegation_policy.v1` | ✓ implemented | Agent authority grants are gated by `ak.profile.agent_delegation_policy.v1` via `arkret_policy::authz::authority`; controller can revoke without rotating the agent key. |
 | `ak.profile.agent_sidecar.v1` | ✓ implemented | First-class `SidecarId`, ensure/get/list DTOs, derived access readiness, hosted view state and per-exchange private echo projection; backing Circle remains an internal MLS binding. |

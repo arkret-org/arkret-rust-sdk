@@ -23,9 +23,9 @@ pub struct AuthzContext {
     /// Fields being written
     #[serde(default)]
     pub write_fields: Vec<String>,
-    /// Current delegation depth of the grant being evaluated. Root grants are depth 0.
+    /// Current authority depth of the grant being evaluated. Root grants are depth 0.
     #[serde(default)]
-    pub delegation_depth: u32,
+    pub authority_depth: u32,
     /// Operation count already observed in the current rate-limit window.
     #[serde(default)]
     pub rate_limit_count: Option<u64>,
@@ -133,7 +133,7 @@ impl AuthzContext {
             facets: Vec::new(),
             read_fields: Vec::new(),
             write_fields: Vec::new(),
-            delegation_depth: 0,
+            authority_depth: 0,
             rate_limit_count: None,
             verified_claims: Vec::new(),
             revoked_claim_ids: Vec::new(),
@@ -190,9 +190,9 @@ impl AuthzContext {
         self
     }
 
-    /// Set current delegation depth for delegation-control constraints.
-    pub fn with_delegation_depth(mut self, depth: u32) -> Self {
-        self.delegation_depth = depth;
+    /// Set current authority depth for authority-control constraints.
+    pub fn with_authority_depth(mut self, depth: u32) -> Self {
+        self.authority_depth = depth;
         self
     }
 
@@ -741,28 +741,9 @@ impl AuthzEngine {
                 }
                 EngineDecision::Allow
             }
-            Constraint::AuthorityControl {
-                max_authority_depth,
-                authority_regrant_allowed,
-                ..
-            } => {
-                if !*authority_regrant_allowed && ctx.delegation_depth > 0 {
-                    return EngineDecision::Deny {
-                        reason: "authority re-grant is not allowed".to_owned(),
-                    };
-                }
-                if let Some(max_depth) = max_authority_depth
-                    && ctx.delegation_depth > *max_depth
-                {
-                    return EngineDecision::Deny {
-                        reason: format!(
-                            "delegation depth {} exceeds max {}",
-                            ctx.delegation_depth, max_depth
-                        ),
-                    };
-                }
-                EngineDecision::Allow
-            }
+            // Authority control constrains issuance of child grants. It does
+            // not narrow use of the current grant's business actions.
+            Constraint::AuthorityControl { .. } => EngineDecision::Allow,
             Constraint::RateLimiting {
                 max_operations,
                 period,
@@ -1294,7 +1275,7 @@ impl AuthzEngine {
             frontier_digest,
             field_digest,
             request_digest,
-            ctx.delegation_depth,
+            ctx.authority_depth,
             ctx.rate_limit_count,
             ctx.encryption_level,
             claims_digest,
@@ -1551,7 +1532,19 @@ mod engine_wire_tests {
             resources: vec![serde_json::from_value(json!({"kind": "*"})).unwrap()],
             capability_action_registry_digest: None,
             constraints,
-            issuer_authority_refs: Vec::new(),
+            issuer_authority_refs: vec![
+                arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef::RealmRoot {
+                    realm_id: RealmId::new(
+                        "ak:realm:01904100-0000-7000-8000-65c7feb295d7",
+                    )
+                    .unwrap(),
+                    cell_ref: "ak:cell:ak.component.realm.authority_root.v1:null".to_owned(),
+                    controller_epoch_at_issuance: 0,
+                    authority_generation: 0,
+                },
+            ],
+            authority_depth: None,
+            authority_root_refs: Vec::new(),
             issued_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             not_before: None,
             expires_at: None,

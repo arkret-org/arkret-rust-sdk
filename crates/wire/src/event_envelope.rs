@@ -71,8 +71,8 @@ pub const MAX_EVENT_REFS: usize = 128;
 pub const MAX_AUTHORIZED_BY_REFS: usize = 64;
 pub const MAX_ACTOR_SEQ_SIBLINGS: usize = 16;
 pub const MAX_ACTOR_SEQ_TOTAL_SIBLINGS: usize = 64;
-pub const MAX_DELEGATION_CHAIN_DEPTH: usize = 4;
-pub const MAX_DELEGATION_CONTROL_DEPTH: u32 = 4;
+pub const MAX_AUTHORITY_CHAIN_DEPTH: usize = 4;
+pub const MAX_AUTHORITY_CONTROL_DEPTH: u32 = 4;
 
 pub const EVENT_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
 
@@ -176,19 +176,19 @@ pub fn validate_actor_seq_total_sibling_count(count: usize) -> Result<()> {
     Ok(())
 }
 
-pub fn validate_delegation_chain_depth(depth: usize) -> Result<()> {
-    if depth > MAX_DELEGATION_CHAIN_DEPTH {
+pub fn validate_authority_chain_depth(depth: usize) -> Result<()> {
+    if depth > MAX_AUTHORITY_CHAIN_DEPTH {
         return Err(Error::Protocol(format!(
-            "delegation chain depth exceeds v1 maximum of {MAX_DELEGATION_CHAIN_DEPTH}"
+            "authority chain depth exceeds v1 maximum of {MAX_AUTHORITY_CHAIN_DEPTH}"
         )));
     }
     Ok(())
 }
 
-pub fn validate_delegation_control_depth(depth: u32) -> Result<()> {
-    if depth > MAX_DELEGATION_CONTROL_DEPTH {
+pub fn validate_authority_control_depth(depth: u32) -> Result<()> {
+    if depth > MAX_AUTHORITY_CONTROL_DEPTH {
         return Err(Error::Protocol(format!(
-            "max_authority_depth exceeds v1 field maximum of {MAX_DELEGATION_CONTROL_DEPTH}"
+            "max_authority_depth exceeds v1 field maximum of {MAX_AUTHORITY_CONTROL_DEPTH}"
         )));
     }
     Ok(())

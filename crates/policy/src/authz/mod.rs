@@ -1,5 +1,5 @@
 //! Capability-based authorization: selectors, constraints, evaluation
-//! primitives, the grant projection / delegation-chain helpers, the
+//! primitives, the grant projection / authority-chain helpers, the
 //! evaluation engine, and the approval-strand workflow.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -15,8 +15,8 @@ use crate::models::Facet;
 use crate::{Did, Error, RealmId, Result};
 
 mod approval;
+pub mod authority;
 mod constraints;
-pub mod delegation;
 mod engine;
 mod grants;
 mod owner_authority;

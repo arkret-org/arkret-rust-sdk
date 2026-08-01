@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    Did, Event, EventId, EventRequirements, Hlc, MAX_ACTOR_SEQ_SIBLINGS, MAX_AUTHORIZED_BY_REFS,
-    MAX_DELEGATION_CHAIN_DEPTH, MAX_DELEGATION_CONTROL_DEPTH, MAX_EVENT_ENVELOPE_BYTES,
+    Did, Event, EventId, EventRequirements, Hlc, MAX_ACTOR_SEQ_SIBLINGS, MAX_AUTHORITY_CHAIN_DEPTH,
+    MAX_AUTHORITY_CONTROL_DEPTH, MAX_AUTHORIZED_BY_REFS, MAX_EVENT_ENVELOPE_BYTES,
     MAX_EVENT_PREV_REFS, MAX_EVENT_REFS, MAX_EVENT_RESOLVE, MAX_EVENT_SUBMIT_BATCH, RealmId,
     ScopeRef, prev_frontier_digest, validate_actor_seq_sibling_count,
-    validate_authorized_by_ref_count, validate_delegation_chain_depth,
-    validate_delegation_control_depth, validate_event_envelope_byte_len, validate_event_prev_refs,
+    validate_authority_chain_depth, validate_authority_control_depth,
+    validate_authorized_by_ref_count, validate_event_envelope_byte_len, validate_event_prev_refs,
     validate_event_ref_count, validate_event_submit_batch_count,
 };
 use serde_json::json;
@@ -110,8 +110,8 @@ fn event_scalability_limits_match_v1_profile() {
     assert_eq!(MAX_EVENT_PREV_REFS, 128);
     assert_eq!(MAX_EVENT_REFS, 128);
     assert_eq!(MAX_AUTHORIZED_BY_REFS, 64);
-    assert_eq!(MAX_DELEGATION_CHAIN_DEPTH, 4);
-    assert_eq!(MAX_DELEGATION_CONTROL_DEPTH, 4);
+    assert_eq!(MAX_AUTHORITY_CHAIN_DEPTH, 4);
+    assert_eq!(MAX_AUTHORITY_CONTROL_DEPTH, 4);
 }
 
 #[test]
@@ -126,10 +126,10 @@ fn event_scalability_helpers_reject_over_limits() {
     assert!(validate_authorized_by_ref_count(MAX_AUTHORIZED_BY_REFS + 1).is_err());
     validate_actor_seq_sibling_count(MAX_ACTOR_SEQ_SIBLINGS).unwrap();
     assert!(validate_actor_seq_sibling_count(MAX_ACTOR_SEQ_SIBLINGS + 1).is_err());
-    validate_delegation_chain_depth(MAX_DELEGATION_CHAIN_DEPTH).unwrap();
-    assert!(validate_delegation_chain_depth(MAX_DELEGATION_CHAIN_DEPTH + 1).is_err());
-    validate_delegation_control_depth(MAX_DELEGATION_CONTROL_DEPTH).unwrap();
-    assert!(validate_delegation_control_depth(MAX_DELEGATION_CONTROL_DEPTH + 1).is_err());
+    validate_authority_chain_depth(MAX_AUTHORITY_CHAIN_DEPTH).unwrap();
+    assert!(validate_authority_chain_depth(MAX_AUTHORITY_CHAIN_DEPTH + 1).is_err());
+    validate_authority_control_depth(MAX_AUTHORITY_CONTROL_DEPTH).unwrap();
+    assert!(validate_authority_control_depth(MAX_AUTHORITY_CONTROL_DEPTH + 1).is_err());
 
     let prev_refs = (0..MAX_EVENT_PREV_REFS)
         .map(|index| format!("ak:event:01904100-0000-7000-8000-{index:012x}"))

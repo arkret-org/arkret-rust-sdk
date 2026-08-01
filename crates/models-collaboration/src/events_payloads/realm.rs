@@ -19,6 +19,60 @@ pub type HierarchyLinkStatus = String;
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/inheritance_policy_status`.
 pub type InheritancePolicyStatus = String;
 
+/// Patch carried by `ak.realm.owner.transfer`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmOwnerTransferPatch {
+    pub controller_id: Did,
+    pub controller_epoch: u64,
+}
+
+/// Counterpart for
+/// `event-payload.schema.json#/$defs/realm_owner_transfer_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmOwnerTransferPayload {
+    pub realm_id: RealmId,
+    pub expected_state_digest: Hash,
+    pub patch: RealmOwnerTransferPatch,
+    pub successor_acceptance: SignatureMaterial,
+}
+
+/// Patch carried by `ak.realm.authority.reset`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmAuthorityResetPatch {
+    pub authority_generation: u64,
+}
+
+/// Counterpart for
+/// `event-payload.schema.json#/$defs/realm_authority_reset_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmAuthorityResetPayload {
+    pub realm_id: RealmId,
+    pub expected_state_digest: Hash,
+    pub patch: RealmAuthorityResetPatch,
+    pub destructive_confirmation: String,
+}
+
+/// Patch carried by `ak.realm.authority.basis_update`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmAuthorityBasisUpdatePatch {
+    pub capability_action_registry_digest: Hash,
+}
+
+/// Counterpart for
+/// `event-payload.schema.json#/$defs/realm_authority_basis_update_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmAuthorityBasisUpdatePayload {
+    pub realm_id: RealmId,
+    pub expected_state_digest: Hash,
+    pub patch: RealmAuthorityBasisUpdatePatch,
+}
+
 /// `rebind_authorization` enum for [`RealmDeliveryBindingPolicyPayload`]
 /// (`event-payload.schema.json#/$defs/realm_delivery_binding_policy_payload`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

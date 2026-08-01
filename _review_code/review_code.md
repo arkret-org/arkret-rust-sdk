@@ -352,3 +352,30 @@
   remains dependency-free.
 - Prevention dimension: every wire-model feature that derives a transitive schema must forward
   schema support to newly introduced field types; validate the feature combination directly.
+
+## 2026-08-01 — authority controls retained the retired permission semantics
+
+- Surface: policy constraint deserialization, child-grant authoring, and capability-frontier
+  validation.
+- Regression: `authority_regrant_allowed` still defaulted to `true`, the frontier walker followed
+  only the first grant ref, and ordinary action evaluation compared absolute chain depth against
+  the grant-local remaining-hop budget. This both widened omitted booleans and rejected valid
+  multi-parent authority unions or valid uses of terminal child grants.
+- Correction: the permission now defaults fail-closed to `false`; child issuance applies the
+  parent constraint as a terminal-depth seal; frontier validation recursively walks every typed
+  grant ref, validates union action/resource coverage and derived audit depth, and ordinary action
+  evaluation no longer treats an issuance-only constraint as a business-action deny.
+- Prevention dimension: remaining-hop budgets and absolute audit depth are distinct quantities;
+  multi-parent protocol graphs require an explicit all-edge oracle and cannot be validated by a
+  single `first()` walk.
+
+## 2026-08-01 — payload-validator exceptions outlived their spec gaps
+
+- Surface: `arkret-schema` active Event payload coverage gate.
+- Regression: after the spec added closed payload validators for `ak.moderation.franking_proof`
+  and `ak.relation.tombstone`, the SDK still listed both kinds as documented no-validator
+  exceptions, making the drift gate fail against the current embedded registry.
+- Correction: remove the two stale exceptions; only the actor-private
+  `ak.read_cursor.advance` sibling-schema case remains.
+- Prevention dimension: an exception inventory is bidirectional: it must fail when a new gap
+  appears and when a formerly justified exception becomes obsolete.
