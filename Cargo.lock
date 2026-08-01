@@ -343,6 +343,7 @@ dependencies = [
 name = "arkret-locale"
 version = "0.3.0"
 dependencies = [
+ "salvo-oapi",
  "serde",
 ]
 

@@ -22,8 +22,12 @@ default = []
 # dependency-free for callers that only need the parser; clients that persist
 # the locale (inkson's translation dictionaries) opt in.
 serde = ["dep:serde"]
+# OpenAPI schema support stays opt-in alongside serialization so framework-free
+# consumers retain the crate's dependency-free default graph.
+openapi = ["serde", "dep:salvo-oapi"]
 
 [dependencies]
+salvo-oapi = {workspace = true,optional = true}
 serde = {workspace = true,optional = true}
 
 [lints]

@@ -18,6 +18,7 @@ default = []
 # wire/identifier newtypes and enables salvo-oapi's chrono schemas.
 openapi = [
     "dep:salvo-oapi",
+    "arkret-locale/openapi",
     "arkret-wire/openapi",
     "salvo-oapi/chrono",
 ]

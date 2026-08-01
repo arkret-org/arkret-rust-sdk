@@ -28,6 +28,7 @@
 /// itself speak should keep the raw BCP 47 tag alongside this value.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
 pub enum UiLocale {
     /// English — the reference locale and the terminal fallback.

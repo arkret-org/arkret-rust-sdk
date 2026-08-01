@@ -340,3 +340,15 @@
 - Prevention dimension: a protocol ceiling is a bound, never a substitute for an unresolved
   effective policy. DTOs that omit policy inputs must not pass `protocol_maximum()` to an
   exact-policy validator.
+
+## 2026-08-01 — shared UI locale omitted its opt-in OpenAPI schema
+
+- Surface: `arkret-locale::UiLocale` as embedded by `AccountHandoffOutcome`.
+- Regression: `arkret-models-identity/openapi` derived `ToSchema` for the handoff outcome but did
+  not enable or provide schema support for the newly shared locale enum, so current Soland and
+  Inkson mains failed to compile with `UiLocale: ToSchema` missing.
+- Correction: add an opt-in `arkret-locale/openapi` feature, derive `ToSchema` only under that
+  feature, and forward it from `arkret-models-identity/openapi`. The locale crate's default graph
+  remains dependency-free.
+- Prevention dimension: every wire-model feature that derives a transitive schema must forward
+  schema support to newly introduced field types; validate the feature combination directly.
