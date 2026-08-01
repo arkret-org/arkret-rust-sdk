@@ -340,6 +340,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "arkret-locale"
+version = "0.3.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "arkret-mls"
 version = "0.3.0"
 dependencies = [

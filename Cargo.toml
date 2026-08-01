@@ -12,6 +12,7 @@ members = [
     "crates/identity",
     "crates/keystore",
     "crates/lattice-registry",
+    "crates/locale",
     "crates/mls",
     "crates/models-collaboration",
     "crates/models-crypto",
@@ -41,6 +42,7 @@ default-members = [
     "crates/identity",
     "crates/keystore",
     "crates/lattice-registry",
+    "crates/locale",
     "crates/mls",
     "crates/models-collaboration",
     "crates/models-crypto",
@@ -94,6 +96,7 @@ arkret-hlc = {version = "0.3.0",path = "crates/hlc",default-features = false}
 arkret-mls = {version = "0.3.0",path = "crates/mls",default-features = false}
 arkret-http-client = {version = "0.3.0",path = "crates/http-client",default-features = false}
 arkret-identifiers = {version = "0.3.0",path = "crates/identifiers",default-features = false}
+arkret-locale = {version = "0.3.0",path = "crates/locale",default-features = false}
 arkret-identity = {version = "0.3.0",path = "crates/identity",default-features = false}
 arkret-keystore = {version = "0.3.0",path = "crates/keystore",default-features = false}
 arkret-lattice-registry = {version = "0.3.0",path = "crates/lattice-registry",default-features = false}

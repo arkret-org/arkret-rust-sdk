@@ -1,0 +1,30 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+categories = ["internationalization"]
+description = "The single UI-locale vocabulary and resolution order shared by Arkret services and clients."
+edition = "2024"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+keywords = ["arkret", "locale", "i18n", "bcp47"]
+license = "Apache-2.0"
+name = "arkret-locale"
+readme = "README.md"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
+rust-version.workspace = true
+version.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = []
+# `Serialize`/`Deserialize` on `UiLocale`. Off by default so the crate stays
+# dependency-free for callers that only need the parser; clients that persist
+# the locale (inkson's translation dictionaries) opt in.
+serde = ["dep:serde"]
+
+[dependencies]
+serde = {workspace = true,optional = true}
+
+[lints]
+workspace = true
