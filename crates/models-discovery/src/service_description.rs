@@ -1090,7 +1090,7 @@ pub enum CompatSurfaceKind {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SupportedBinding {
-    pub kind: String,
+    pub kind: BindingKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_url: Option<String>,
     #[serde(default, flatten)]
@@ -1099,9 +1099,9 @@ pub struct SupportedBinding {
 }
 
 impl SupportedBinding {
-    pub fn new(kind: impl Into<String>) -> Self {
+    pub fn new(kind: BindingKind) -> Self {
         Self {
-            kind: kind.into(),
+            kind,
             base_url: None,
             extra: BTreeMap::new(),
         }

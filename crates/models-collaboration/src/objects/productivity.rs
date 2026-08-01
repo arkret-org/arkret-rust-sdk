@@ -2789,11 +2789,7 @@ mod tests {
             ),
         ] {
             let err = validate_private_account_data_key(key).unwrap_err();
-            assert!(
-                err.to_string().contains(expected),
-                "{key}: {}",
-                err.to_string()
-            );
+            assert!(err.to_string().contains(expected), "{key}: {err}");
         }
     }
 

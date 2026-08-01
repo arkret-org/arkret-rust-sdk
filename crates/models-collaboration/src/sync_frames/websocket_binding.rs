@@ -806,7 +806,7 @@ fn validate_compact_jws(value: &str) -> Result<()> {
                     .chars()
                     .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
         });
-    if !shaped || length < WEBSOCKET_MIN_PROOF_CHARS || length > WEBSOCKET_MAX_PROOF_CHARS {
+    if !shaped || !(WEBSOCKET_MIN_PROOF_CHARS..=WEBSOCKET_MAX_PROOF_CHARS).contains(&length) {
         return Err(Error::Protocol(
             "WebSocket dpop_proof must be a compact JWS of base64url segments".to_owned(),
         ));

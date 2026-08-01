@@ -9,7 +9,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Wire-breaking, no compatibility shim
 
-- None recorded in the current unreleased line.
+- Renamed `ServiceRegistrationReceipt.receipt_id` to the spec-defined
+  `registration_receipt_id` and changed it to `ServiceRegistrationReceiptId`;
+  `AppletInstallPlan.plan_id` now uses `PlanId`.
+- Replaced open strings with generated closed-registry types for service binding
+  kinds and collaboration message tracks.
 
 ### Changed
 
@@ -26,6 +30,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   unchanged.
 - Expanded coverage policy from `crates/sdk` to the full workspace and enabled
   patch coverage reporting.
+- Replaced the hand-maintained schema-coverage list with generated active-schema
+  descriptors, generated the closed binding/track/authority registries and
+  operation-to-error mappings, and made drift checks symmetric against the live
+  spec registries.
 
 ### Security
 

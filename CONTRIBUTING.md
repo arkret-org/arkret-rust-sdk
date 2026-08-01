@@ -37,10 +37,11 @@ behavior being changed.
 
 ## Spec-derived surfaces
 
-Twelve Rust files and two embedded snapshots are generated from
-`arkret-spec/spec/v1/artifacts` and committed. They carry an `@generated`
-header and must never be hand-edited; `tools/spec-generation-manifest.json` is
-the authoritative list of outputs and their input artifacts.
+The Rust outputs and embedded snapshots listed in
+`tools/spec-generation-manifest.json` are generated from
+`arkret-spec/spec/v1/artifacts` and committed. Generated Rust files carry an
+`@generated` header and must never be hand-edited; the manifest is the
+authoritative list of outputs and their input artifacts.
 
 Regenerate both layers **against the same artifact tree, in the same commit**:
 
@@ -73,7 +74,7 @@ yourself before claiming a surface is synchronized.
 
 | Gate | Asserts |
 |---|---|
-| `cargo run -p arkret-schema --example spec_drift_report` | The `SUPPORTED_*` constants in `crates/schema/src/artifacts.rs` match the live registries in both directions. Needs `ARKRET_SPEC_ARTIFACTS`. |
+| `cargo run -p arkret-schema --example spec_drift_report` | Generated schema descriptors and the remaining `SUPPORTED_*` declarations match the live registries in both directions. Needs `ARKRET_SPEC_ARTIFACTS`. |
 | `cargo test -p arkret-schema --test id_kind_coverage` | `SUPPORTED_ID_KINDS` matches the typed ids `arkret-identifiers` actually declares. |
 | `cargo test -p arkret-http-client --test operation_path_coverage` | Every `/_arkret/...` path the client sends is a registered operation path. |
 

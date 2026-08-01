@@ -1397,6 +1397,231 @@ def generate_schema_ids(artifacts: Path) -> str:
     return "\n".join(lines) + "\n"
 
 
+def generate_closed_registry_types(artifacts: Path) -> str:
+    files = [
+        "track-name-registry.json",
+        "binding-kind-registry.json",
+        "authority-set-policy-registry.json",
+    ]
+    loaded = [
+        (f"registry/{name}", *load(artifacts / "registry" / name))
+        for name in files
+    ]
+    track_artifact, binding_artifact, authority_artifact = [
+        item[1] for item in loaded
+    ]
+    tracks = sorted(
+        (
+            row
+            for row in track_artifact["track_names"]
+            if row.get("status", "active") == "active"
+        ),
+        key=lambda row: row["track_name"],
+    )
+    bindings = sorted(
+        (
+            row
+            for row in binding_artifact["entries"]
+            if row.get("status") in {"active", "candidate"}
+        ),
+        key=lambda row: row["kind"],
+    )
+    policies = authority_artifact["policies"]
+    policy_kinds = sorted({row["policy_kind"] for row in policies})
+    source_kinds = sorted({row["source_kind"] for row in policies})
+    ensure_unique(tracks, "track_name")
+    ensure_unique(bindings, "kind")
+    lines = header(
+        loaded,
+        (
+            f"track_names={len(tracks)}, binding_kinds={len(bindings)}, "
+            f"authority_policy_kinds={len(policy_kinds)}, "
+            f"authority_source_kinds={len(source_kinds)}"
+        ),
+    )
+
+    def emit_string_enum(
+        type_name: str, values: list[str], *, copy: bool = True
+    ) -> list[str]:
+        derives = "Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash"
+        if copy:
+            derives = "Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash"
+        emitted = [
+            "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+            f"#[derive({derives}, Serialize, Deserialize)]",
+            "#[serde(rename_all = \"snake_case\")]",
+            f"pub enum {type_name} {{",
+        ]
+        emitted.extend(f"    {variant(value)}," for value in values)
+        emitted.extend(
+            [
+                "}",
+                "",
+                f"impl {type_name} {{",
+                "    pub const ALL: &'static [Self] = &[",
+            ]
+        )
+        emitted.extend(f"        Self::{variant(value)}," for value in values)
+        emitted.extend(
+            [
+                "    ];",
+                "",
+                "    pub const fn as_str(self) -> &'static str {",
+                "        match self {",
+            ]
+        )
+        emitted.extend(
+            f"            Self::{variant(value)} => {rust_string(value)},"
+            for value in values
+        )
+        emitted.extend(
+            [
+                "        }",
+                "    }",
+                "",
+                "    pub fn from_wire(value: &str) -> Option<Self> {",
+                "        match value {",
+            ]
+        )
+        emitted.extend(
+            f"            {rust_string(value)} => Some(Self::{variant(value)}),"
+            for value in values
+        )
+        emitted.extend(
+            [
+                "            _ => None,",
+                "        }",
+                "    }",
+                "}",
+                "",
+                f"impl std::fmt::Display for {type_name} {{",
+                "    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {",
+                "        f.write_str((*self).as_str())",
+                "    }",
+                "}",
+            ]
+        )
+        return emitted
+
+    lines.extend(["use serde::{Deserialize, Serialize};", ""])
+    lines.extend(emit_string_enum("TrackName", [row["track_name"] for row in tracks]))
+    lines.append("")
+    lines.extend(emit_string_enum("BindingKind", [row["kind"] for row in bindings]))
+    lines.append("")
+    lines.extend(emit_string_enum("AuthoritySetPolicyKind", policy_kinds))
+    lines.append("")
+    lines.extend(emit_string_enum("AuthoritySetSourceKind", source_kinds))
+    return "\n".join(lines) + "\n"
+
+
+def generate_operation_error_mappings(artifacts: Path) -> str:
+    files = [
+        "operation-registry.json",
+        "operations-error-mapping.json",
+        "error-code-registry.json",
+    ]
+    loaded = [
+        (f"registry/{name}", *load(artifacts / "registry" / name))
+        for name in files
+    ]
+    operation_artifact, mapping_artifact, error_artifact = [
+        item[1] for item in loaded
+    ]
+    operations = sorted(
+        operation_artifact["operations"], key=lambda row: row["operation_id"]
+    )
+    mappings = sorted(
+        mapping_artifact["operations"], key=lambda row: row["operation_id"]
+    )
+    ensure_unique(operations, "operation_id", ("ak.",))
+    ensure_unique(mappings, "operation_id", ("ak.",))
+    operation_by_id = {row["operation_id"]: row for row in operations}
+    mapping_by_id = {row["operation_id"]: row for row in mappings}
+    if operation_by_id.keys() != mapping_by_id.keys():
+        missing = sorted(operation_by_id.keys() - mapping_by_id.keys())
+        unknown = sorted(mapping_by_id.keys() - operation_by_id.keys())
+        raise ValueError(
+            "operations-error-mapping coverage mismatch: "
+            f"missing={missing}, unknown={unknown}"
+        )
+    error_codes = {row["code"] for row in error_artifact["codes"]}
+    reason_codes = {row["code"] for row in error_artifact["reason_codes"]}
+    for mapping in mappings:
+        operation = operation_by_id[mapping["operation_id"]]
+        if mapping["http_alias"] != operation["http"]:
+            raise ValueError(
+                f"{mapping['operation_id']} http_alias {mapping['http_alias']!r} "
+                f"does not match operation registry {operation['http']!r}"
+            )
+        unknown_errors = sorted(
+            set(mapping["operation_specific"]) - error_codes - reason_codes
+        )
+        if unknown_errors:
+            raise ValueError(
+                f"{mapping['operation_id']} references unknown errors {unknown_errors}"
+            )
+    lines = header(loaded, f"operations={len(mappings)}")
+    lines.extend(
+        [
+            "use crate::{ErrorCode, ReasonCode, ServiceOperationId};",
+            "",
+            "#[derive(Clone, Debug, PartialEq, Eq)]",
+            "pub enum OperationSpecificError {",
+            "    ErrorCode(ErrorCode),",
+            "    ReasonCode(ReasonCode),",
+            "}",
+            "",
+            "impl OperationSpecificError {",
+            "    pub fn as_str(&self) -> &str {",
+            "        match self {",
+            "            Self::ErrorCode(code) => code.as_str(),",
+            "            Self::ReasonCode(code) => code.as_str(),",
+            "        }",
+            "    }",
+            "}",
+            "",
+            "#[derive(Clone, Debug, PartialEq, Eq)]",
+            "pub struct OperationErrorMappingDescriptor {",
+            "    pub operation: ServiceOperationId,",
+            "    pub operation_specific: &'static [OperationSpecificError],",
+            "}",
+            "",
+            "pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[",
+        ]
+    )
+    for mapping in mappings:
+        lines.extend(
+            [
+                "    OperationErrorMappingDescriptor {",
+                "        operation: ServiceOperationId::"
+                f"{variant(mapping['operation_id'], ('ak.',))},",
+                "        operation_specific: &[",
+            ]
+        )
+        for code in mapping["operation_specific"]:
+            if code in error_codes:
+                lines.append(
+                    f"            OperationSpecificError::ErrorCode(ErrorCode::{variant(code)}),"
+                )
+            else:
+                lines.append(
+                    f"            OperationSpecificError::ReasonCode(ReasonCode::{variant(code)}),"
+                )
+        lines.extend(["        ],", "    },"])
+    lines.extend(
+        [
+            "];",
+            "",
+            "pub const fn operation_error_mapping(",
+            "    operation: ServiceOperationId,",
+            ") -> &'static OperationErrorMappingDescriptor {",
+            "    &OPERATION_ERROR_MAPPINGS[operation as usize]",
+            "}",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def account_data_key_namespace(pattern: str) -> str:
     """Literal head of an Account Data key pattern, stripped of separators."""
     head = pattern.split("<", 1)[0]
@@ -2037,7 +2262,13 @@ GENERATORS = {
     "crates/wire/src/error_codes/error_code.rs": generate_error_codes,
     "crates/wire/src/error_codes/reason_code.rs": generate_reason_codes,
     "crates/wire/src/generated/operation_ids.rs": generate_operations,
+    "crates/wire/src/generated/operation_error_mappings.rs": (
+        generate_operation_error_mappings
+    ),
     "crates/wire/src/generated/schema_ids.rs": generate_schema_ids,
+    "crates/wire/src/generated/closed_registry_types.rs": (
+        generate_closed_registry_types
+    ),
     "crates/wire/src/generated/profile_ids.rs": generate_profile_ids,
     "crates/wire/src/generated/account_data_keys.rs": (
         generate_account_data_keys

@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
-use arkret_wire::{Error, Result, StrandId};
+use arkret_wire::{Error, Result, StrandId, TrackName};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -14,12 +14,6 @@ use crate::objects::strand::MessageMetadata;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/content_kind`.
 pub type ContentKind = String;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MessageTrackName {
-    Discussion,
-}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_metadata_fields`.
@@ -39,7 +33,7 @@ pub struct MessageRedactPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub track_name: Option<MessageTrackName>,
+    pub track_name: Option<TrackName>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -58,7 +52,7 @@ struct MessageRedactPayloadWire {
     #[serde(default)]
     target_event_id: Option<EventId>,
     #[serde(default)]
-    track_name: Option<MessageTrackName>,
+    track_name: Option<TrackName>,
     #[serde(default)]
     reason: Option<String>,
     #[serde(default)]
@@ -104,7 +98,7 @@ pub struct MessageRevisePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revision_of: Option<MessageId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub track_name: Option<MessageTrackName>,
+    pub track_name: Option<TrackName>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content: Option<ContentBlock>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -127,7 +121,7 @@ struct MessageRevisePayloadWire {
     #[serde(default)]
     revision_of: Option<MessageId>,
     #[serde(default)]
-    track_name: Option<MessageTrackName>,
+    track_name: Option<TrackName>,
     #[serde(default)]
     content: Option<ContentBlock>,
     #[serde(default)]

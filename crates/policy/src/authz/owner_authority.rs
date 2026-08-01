@@ -18,9 +18,6 @@ use arkret_wire::{CapabilityActionId, Hash};
 
 use crate::{Error, Result};
 
-/// The Realm-wide owner aggregate. Held either by the current controller of the
-/// Realm authority-root cell or by an ordinary revocable co-owner grant.
-
 /// Resolve the registry basis an expansion is anchored to.
 ///
 /// A grant or authority-root cell names the snapshot it was signed against.

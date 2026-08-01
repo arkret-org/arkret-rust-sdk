@@ -93,7 +93,7 @@ pub fn blob_resumable_upload_base_url(description: &ServiceDescribe) -> Option<U
     let binding = description
         .supported_bindings
         .iter()
-        .find(|binding| binding.kind == "tus")?;
+        .find(|binding| binding.kind == arkret_wire::BindingKind::Tus)?;
     if let Some(operations) = binding
         .extra
         .get("operations")

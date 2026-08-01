@@ -297,11 +297,6 @@ impl<'de> Deserialize<'de> for RealmKeySharePayload {
     }
 }
 
-/// Canonical proof context for the sender-device transcript.
-///
-/// Registered in `artifacts/registry/proof-context-registry.json`; the
-/// normative transcript is `crypto-media/device-lifecycle.md` §13.0.
-
 impl RealmKeySharePayload {
     /// Canonical bytes the sender device MUST sign and place in
     /// `sender_device_signature`, per the transcript fixed in

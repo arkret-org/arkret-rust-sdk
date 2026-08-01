@@ -72,12 +72,38 @@
     {
       "generator": "registry-types",
       "outputs": [
+        "crates/wire/src/generated/operation_error_mappings.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "descriptor",
+      "artifacts": [
+        "registry/operation-registry.json",
+        "registry/operations-error-mapping.json",
+        "registry/error-code-registry.json"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
         "crates/wire/src/generated/schema_ids.rs"
       ],
       "owner": "arkret-wire",
       "mode": "enum+descriptor",
       "artifacts": [
         "registry/schema-registry.json"
+      ]
+    },
+    {
+      "generator": "registry-types",
+      "outputs": [
+        "crates/wire/src/generated/closed_registry_types.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum",
+      "artifacts": [
+        "registry/track-name-registry.json",
+        "registry/binding-kind-registry.json",
+        "registry/authority-set-policy-registry.json"
       ]
     },
     {

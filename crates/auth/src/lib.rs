@@ -223,13 +223,9 @@ pub struct SessionPrincipalBinding {
     pub expires_at: DateTime<Utc>,
 }
 
-/// Canonical event kinds for the principal control Realm
-/// (`key-management.md` §4.1). These events MUST be written into the
-/// principal's dedicated control Realm; resolvers and federation peers
-/// MUST refuse them in any other Realm.
-
 /// Returns `true` when `event_kind` MUST be pinned to a principal
-/// control Realm per `key-management.md` §4.1.
+/// control Realm per `key-management.md` §4.1. Resolvers and federation
+/// peers MUST refuse these events in any other Realm.
 pub fn is_principal_control_event(event_kind: &str) -> bool {
     matches!(
         event_kind,

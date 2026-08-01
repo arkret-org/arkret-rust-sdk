@@ -512,7 +512,11 @@ mod tests {
         let provider_service_id =
             Did::new("did:webvh:QmProvider:identity.example:webvh:service").unwrap();
         let mut receipt = ServiceRegistrationReceipt {
-            receipt_id: format!("ak:service_registration_receipt:{}", "a".repeat(64)),
+            registration_receipt_id: arkret_wire::ServiceRegistrationReceiptId::new(format!(
+                "ak:service_registration_receipt:{}",
+                "a".repeat(64)
+            ))
+            .unwrap(),
             registration_key: registration_key(),
             service_id: operation.state.id.clone(),
             version_id: operation.version_id.clone(),
@@ -529,7 +533,7 @@ mod tests {
                 proof_value: "zReceiptProof".to_owned(),
             },
         };
-        receipt.receipt_id = receipt.expected_receipt_id().unwrap();
+        receipt.registration_receipt_id = receipt.expected_registration_receipt_id().unwrap();
         receipt
     }
 

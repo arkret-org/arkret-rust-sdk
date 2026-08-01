@@ -405,16 +405,15 @@ fn validate_authority_chain(
             } else {
                 Some(child_max_depth.unwrap_or(0))
             };
-            if let Some(parent_max_depth) = parent_max_depth {
-                if parent_max_depth == 0
+            if let Some(parent_max_depth) = parent_max_depth
+                && (parent_max_depth == 0
                     || child_depth_for_parent
-                        .is_none_or(|depth| depth > parent_max_depth.saturating_sub(1))
-                {
-                    return Err(Error::Protocol(format!(
-                        "capability grant '{}' exceeds parent '{}' max_authority_depth",
-                        grant.id, parent.id
-                    )));
-                }
+                        .is_none_or(|depth| depth > parent_max_depth.saturating_sub(1)))
+            {
+                return Err(Error::Protocol(format!(
+                    "capability grant '{}' exceeds parent '{}' max_authority_depth",
+                    grant.id, parent.id
+                )));
             }
             if !parent_allows_further && child_max_depth.unwrap_or(0) != 0 {
                 return Err(Error::Protocol(format!(

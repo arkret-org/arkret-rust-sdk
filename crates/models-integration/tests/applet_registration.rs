@@ -8,8 +8,8 @@ use arkret_models_integration::{
     sign_registration,
 };
 use arkret_wire::{
-    AppletId, Did, DidUrl, Event, Hash, Hlc, PayloadSignature, PayloadSigner, Proof, RealmId,
-    Result as WireResult, ScopeRef,
+    AppletId, Did, DidUrl, Event, Hash, Hlc, PayloadSignature, PayloadSigner, PlanId, Proof,
+    RealmId, Result as WireResult, ScopeRef,
 };
 use chrono::Utc;
 use serde_json::{Value, json};
@@ -215,7 +215,7 @@ fn applet_package_rejects_invalid_extensions_and_missing_base_profile() {
 fn install_plan_digest_excludes_itself_and_scope_round_trips() {
     let mut plan = AppletInstallPlan {
         schema: "ak.schema.applet_install_plan.v1".to_owned(),
-        plan_id: "plan_1".to_owned(),
+        plan_id: PlanId::new("ak:plan:plan_1").unwrap(),
         applet_id: AppletInstallAppletId::AppletId(
             AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
         ),
@@ -246,8 +246,12 @@ fn install_plan_digest_excludes_itself_and_scope_round_trips() {
 
     let value = serde_json::to_value(&plan).unwrap();
     assert_eq!(value["effective_scope"]["kind"], "realm");
-    let round_trip: AppletInstallPlan = serde_json::from_value(value).unwrap();
+    let round_trip: AppletInstallPlan = serde_json::from_value(value.clone()).unwrap();
     assert_eq!(round_trip.effective_scope.realm_id(), &realm());
+
+    let mut invalid_id = value;
+    invalid_id["plan_id"] = json!("plan_1");
+    assert!(serde_json::from_value::<AppletInstallPlan>(invalid_id).is_err());
 }
 
 #[test]

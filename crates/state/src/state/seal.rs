@@ -382,8 +382,9 @@ pub fn verify_recovery_witness(
             return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
         }
 
-        let witness_covered = union_predecessor_covered_events(&[witness_id.clone()], seals)
-            .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
+        let witness_covered =
+            union_predecessor_covered_events(std::slice::from_ref(&witness_id), seals)
+                .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
         let witness_state =
             effective_state_for_covered_events(&witness_covered, realm_id, cells, registry)
                 .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
@@ -2065,7 +2066,7 @@ mod tests {
         );
         conflict_b.predecessor_refs = vec![witness_id.clone()];
         conflict_b.delta = vec![conflict_b_move.clone()];
-        conflict_b.state_root = witness.state_root.clone();
+        conflict_b.state_root = witness.state_root;
         conflict_b.sealed_at += chrono::Duration::seconds(1);
         seals.put(&conflict_b).unwrap();
 

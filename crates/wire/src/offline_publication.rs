@@ -18,6 +18,7 @@ use crate::cba::SealBasis;
 use crate::error::{Error, Result};
 use crate::event_envelope::ScopeRef;
 use crate::generated::ProofContextId;
+pub use crate::generated::{AuthoritySetPolicyKind, AuthoritySetSourceKind};
 use crate::primitives::{Audience, PayloadProof};
 use crate::{
     AuthorizationLeaseId, DeviceId, Did, DidUrl, Hash, RealmId, ReceiptId, SchemaId, SealId,
@@ -75,24 +76,6 @@ pub const RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID: &str =
     "ak.authority_set.recovery_identity_reanchor.v1";
 pub const RECOVERY_ACCOUNT_AUTHORITY_SET_ID: &str =
     "ak.authority_set.recovery_account_authority.v1";
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AuthoritySetPolicyKind {
-    PrincipalControl,
-    RealmAdmission,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AuthoritySetSourceKind {
-    CrossSigningPublish,
-    DidDocument,
-    RecoveryPolicy,
-    RealmControl,
-}
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

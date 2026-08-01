@@ -17,9 +17,6 @@ use arkret_wire::{CircleId, RealmId, StrandId};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
-/// Controller-owned account-data type carrying a per-scope participation
-/// selection (AKP-0010 §5.1).
-
 /// Stable grant id for the capability materialized from one Agent
 /// participation selection. Keeping this derivation shared lets the controller
 /// replace or revoke the same grant cell across repeated selection changes.

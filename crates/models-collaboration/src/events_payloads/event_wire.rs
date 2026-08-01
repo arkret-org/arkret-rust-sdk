@@ -1,6 +1,6 @@
 //! Event wire schema artifact counterparts.
 
-use arkret_wire::SchemaId;
+use arkret_wire::{SchemaId, TrackName};
 
 use crate::internal_prelude::*;
 
@@ -131,9 +131,6 @@ pub type ProfileRef = String;
 /// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/rank`.
 pub type Rank = String;
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/track_name`.
-pub type TrackName = String;
-
 /// Counterpart for `spec/v1/artifacts/schemas/message.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -142,7 +139,7 @@ pub struct Message {
     pub schema: String,
     pub realm_id: RealmId,
     pub strand_id: StrandId,
-    pub track_name: MessageTrackName,
+    pub track_name: TrackName,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effective_scope: Option<ScopeRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

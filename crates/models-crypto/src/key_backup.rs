@@ -102,15 +102,13 @@ pub struct KeysBackupsList {
     pub has_more: bool,
 }
 
-/// Signing context of the canonical delete-intent transcript
-/// (`key-management.md` §7.8.1).
 /// Conformance-vector id of the key-backup unlock-proof KAT
 /// (`zh/conformance/conformance-vectors.md`).
 pub const VECTOR_ID_KEY_BACKUP_UNLOCK_PROOF: &str = "ak.vector.key_backup.unlock_proof.v1";
 
+/// Signing context of the canonical delete-intent transcript
+/// (`key-management.md` §7.8.1).
 pub const KEY_BACKUP_DELETE_TRANSCRIPT_CONTEXT: &str = "ak.keys.backup_delete.v1";
-
-/// The operation every delete challenge and transcript is bound to.
 
 /// High-risk authority proof over the canonical delete-intent transcript
 /// (`high-risk-authority-proof.schema.json`).
@@ -829,11 +827,6 @@ pub enum KeyBackupRecipientMethod {
     RecoveryPublicKey,
     SecretStorageKey,
 }
-
-/// Default-MUST application-layer HPKE suite selector. An absent
-/// `encryption.hpke_suite` on a `recovery_public_key` envelope denotes this row
-/// (key-backup.schema.json `encryption.hpke_suite`; hpke-suite-registry.json
-/// `role=v1_default_must`).
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]

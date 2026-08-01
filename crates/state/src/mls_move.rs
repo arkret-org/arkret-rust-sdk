@@ -416,7 +416,7 @@ mod tests {
             // add anything of its own.
             assert_eq!(
                 required,
-                BTreeSet::from([governance_seal.id.clone()]),
+                BTreeSet::from([governance_seal.id]),
                 "only ak.component.capability.* / policy / membership writes define M"
             );
         }
@@ -471,7 +471,7 @@ mod tests {
                 &registry,
             )
             .unwrap();
-            assert_eq!(required, BTreeSet::from([governance_seal.id.clone()]));
+            assert_eq!(required, BTreeSet::from([governance_seal.id]));
             assert!(
                 !required.contains(&commit_seal.id),
                 "the resolution Seal must never require covering itself"
@@ -547,7 +547,7 @@ mod tests {
             .unwrap();
             assert_eq!(
                 required,
-                BTreeSet::from([old_seal.id.clone(), new_seal.id.clone()]),
+                BTreeSet::from([old_seal.id, new_seal.id]),
                 "the newly sealed grant must be required, so an epoch that only \
                  attested the old Seal stays blocked"
             );

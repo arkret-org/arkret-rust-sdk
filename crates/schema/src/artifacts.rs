@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
+use arkret_wire::ProfileId;
 use arkret_wire::generated::{EVENT_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS};
-use arkret_wire::{ProfileId, SchemaId};
 
 use super::*;
 use crate::generated::{
@@ -275,7 +275,7 @@ impl SpecArtifactBundle {
                 &self.schema_registry,
                 "schemas",
                 "schema_id",
-                SUPPORTED_SCHEMA_IDS,
+                &registered_schema_ids,
             ),
             unlisted_event_kinds: unlisted_active_registry_values(
                 &self.event_kind_registry,
@@ -639,12 +639,13 @@ impl ArtifactDriftReport {
     }
 }
 
-/// SDK-declared coverage of spec artifacts.
+/// SDK-declared coverage of non-schema spec artifacts.
 ///
-/// These constants enumerate the schemas, event kinds, service operations
-/// profile IDs and typed-ID kinds the SDK recognises from the v1 spec artifacts.
-/// [`SpecArtifactBundle::drift_report`] cross-checks them against the live
-/// registry and produces:
+/// Schema coverage is generated as [`REGISTERED_SCHEMA_IDS`] and is checked in
+/// both directions by [`SpecArtifactBundle::drift_report`]. The remaining
+/// constants enumerate event kinds, service operations, profile IDs and
+/// typed-ID kinds the SDK recognises from the v1 spec artifacts. The report
+/// produces:
 ///
 /// * `missing_*` (hard error) - the SDK declares coverage for an entry the spec no longer ships.
 ///   Surfaced by [`ArtifactDriftReport::validate`]; bring the constant in line with the spec when
@@ -652,140 +653,6 @@ impl ArtifactDriftReport {
 /// * `unlisted_*` (hard error) - the spec ships an active entry the SDK has not declared coverage
 ///   for.
 ///
-/// Update this constant whenever the SDK adds typed support for a new
-/// schema; the drift report will then enforce that the spec still ships it.
-pub const SUPPORTED_SCHEMA_IDS: &[&str] = &[
-    SchemaId::ACCOUNT_DATA_ENCRYPTED_VALUE_V1,
-    SchemaId::AGENT_REQUESTED_SCOPE_DISCLOSURE_V1,
-    SchemaId::DEVICE_REANCHOR_V1,
-    SchemaId::MLS_GOVERNANCE_PROOF_BUNDLE_V1,
-    // Realm/Space schemas: `ak.schema.realm.v1` is the security-boundary
-    // schema; `ak.schema.space.v1` is the product container schema.
-    SchemaId::REALM_V1,
-    SchemaId::REALM_JOIN_CANDIDATE_V1,
-    SchemaId::ACTOR_PROFILE_V1,
-    SchemaId::ACCOUNTABILITY_GRANT_V1,
-    SchemaId::MESSAGE_V1,
-    SchemaId::CONTENT_BLOCK_POLL_V1,
-    SchemaId::MORPH_V1,
-    SchemaId::MORPH_CUSTOMER_RISK_V1,
-    SchemaId::MORPH_CUSTOMER_RISK_EXT_V1,
-    SchemaId::RELATION_V1,
-    SchemaId::POLICY_V1,
-    SchemaId::INVITE_V1,
-    SchemaId::PRINCIPAL_LOCATOR_V1,
-    SchemaId::INVITE_DELIVERY_REQUEST_V1,
-    SchemaId::INVITE_RECEIVE_POLICY_V1,
-    SchemaId::AVAILABILITY_RECEIPT_V1,
-    SchemaId::EVENT_BATCH_RECEIPT_V1,
-    SchemaId::PATCH_V1,
-    SchemaId::RANGE_COMPLETENESS_ATTESTATION_V1,
-    SchemaId::ICE_CONFIG_RESPONSE_V1,
-    SchemaId::DEVICE_MESSAGE_V1,
-    SchemaId::BLOB_V1,
-    SchemaId::MEDIA_METADATA_V1,
-    SchemaId::KEY_BACKUP_V1,
-    SchemaId::NOTIFICATION_V1,
-    SchemaId::READ_CURSOR_V1,
-    SchemaId::READ_RECEIPT_V1,
-    SchemaId::DID_KEY_LOG_ENTRY_V1,
-    SchemaId::DID_CONTINUITY_PROOF_V1,
-    SchemaId::IDENTITY_RECEIPT_V1,
-    SchemaId::IDENTITY_LINK_V1,
-    SchemaId::HANDLE_CLAIM_V1,
-    SchemaId::MEMBER_DELIVERY_BINDING_CANDIDATE_V1,
-    // R3.1 spec-sync (arkret-spec @ 7157ee8, 2026-05-27).
-    SchemaId::MEMBER_IDENTITY_V1,
-    // R3.2 spec-sync (arkret-spec @ b56cab1, 2026-05-28).
-    SchemaId::LIST_HANDLES_FOR_SUBJECT_RESPONSE_V1,
-    SchemaId::GRANT_CONSTRAINT_V1,
-    SchemaId::RESOURCE_SELECTOR_V1,
-    SchemaId::MIMI_INTEROP_V1,
-    SchemaId::MODERATION_REPORT_V1,
-    SchemaId::MODERATION_QUEUE_ITEM_V1,
-    SchemaId::APPLET_V1,
-    SchemaId::AGENT_SELECTOR_CLAIM_V1,
-    SchemaId::AUDIT_RYW_RECEIPT_V1,
-    SchemaId::ERASURE_RECEIPT_V1,
-    SchemaId::ERASURE_VERIFICATION_STUB_V1,
-    SchemaId::PERSONAL_PRODUCTIVITY_V1,
-    SchemaId::DRAFT_SYNC_V1,
-    SchemaId::CALENDAR_EVENT_V1,
-    SchemaId::DISAPPEARING_MESSAGES_V1,
-    SchemaId::SEARCH_SERVICE_V1,
-    SchemaId::CROSS_SIGNING_PUBLISH_V1,
-    SchemaId::CROSS_SIGNING_RESET_V1,
-    SchemaId::INCLUSION_LIST_V1,
-    SchemaId::SEAL_TRANSPARENCY_V1,
-    // Moderation appeal payloads and structured attestation evidence.
-    SchemaId::MODERATION_APPEAL_V1,
-    SchemaId::AUDIT_RELEASE_ATTESTATION_V1,
-    // AKP-0007 (spec b7d35be) — Circle primitive schema.
-    SchemaId::CIRCLE_V1,
-    // Key-backup hardening (B-C, spec head 37ce729) — recovery policy and
-    // recovery receipt schemas.
-    SchemaId::RECOVERY_POLICY_V1,
-    SchemaId::RECOVERY_RECEIPT_V1,
-    SchemaId::RECOVERY_SESSION_V1,
-    SchemaId::SERVICE_DESCRIBE_V1,
-    SchemaId::EVENT_V1,
-    SchemaId::EVENT_PAYLOAD_V1,
-    SchemaId::STRAND_V1,
-    SchemaId::SPACE_V1,
-    SchemaId::SEAL_V1,
-    SchemaId::BOTTOM_V1,
-    SchemaId::SNAPSHOT_V1,
-    SchemaId::CAPABILITY_V1,
-    SchemaId::CURSOR_V1,
-    SchemaId::ENCRYPTED_ENVELOPE_V1,
-    SchemaId::ACCOUNT_SUBSCRIBE_FRAME_V1,
-    SchemaId::VIEW_V1,
-    // Spec-sync (schema-registry.json) — service-operation DTO schemas and
-    // newer feature schemas the registry ships that the SDK had not yet
-    // declared coverage for.
-    SchemaId::ACCOUNT_OPERATIONS_V1,
-    SchemaId::ACCOUNT_DATA_OPERATIONS_V1,
-    SchemaId::AGENT_PAIRING_BOOTSTRAP_V1,
-    SchemaId::AGENT_OPERATIONS_V1,
-    SchemaId::APPLET_EDGE_OPERATIONS_V1,
-    SchemaId::APPLET_GHOST_OPERATIONS_V1,
-    SchemaId::APPLET_INSTALL_OPERATIONS_V1,
-    SchemaId::APPLET_INSTALL_PLAN_V1,
-    SchemaId::APPLET_PACKAGE_V1,
-    SchemaId::APPLET_REGISTRATION_EPOCH_TRANSCRIPT_V1,
-    SchemaId::APPLET_WIDGET_DECLARATION_V1,
-    SchemaId::AUTHZ_OPERATIONS_V1,
-    SchemaId::BLOB_OPERATIONS_V1,
-    SchemaId::CALL_RECORDING_ARTIFACT_V1,
-    SchemaId::CIRCLE_OPERATIONS_V1,
-    SchemaId::COMMON_IDS_V1,
-    SchemaId::CONSENT_OPERATIONS_V1,
-    SchemaId::CONTACT_OPERATIONS_V1,
-    SchemaId::DELIVERY_BINDING_STALE_V1,
-    SchemaId::DIRECTORY_OPERATIONS_V1,
-    SchemaId::FILE_TRANSFER_V1,
-    SchemaId::KEY_BACKUP_ACTIVE_SERIES_V1,
-    SchemaId::KEY_BACKUP_PLAINTEXT_V1,
-    SchemaId::KEY_BACKUP_UNLOCK_PROOF_V1,
-    SchemaId::KEYPACKAGE_OPERATIONS_V1,
-    SchemaId::KEYS_OPERATIONS_V1,
-    SchemaId::MEDIA_OPERATIONS_V1,
-    SchemaId::MIMI_OPERATIONS_V1,
-    SchemaId::PEER_CONTACT_DELIVERY_REQUEST_V1,
-    SchemaId::PIN_V1,
-    SchemaId::PUSH_OPERATIONS_V1,
-    SchemaId::QUERY_V1,
-    SchemaId::READ_CURSOR_OPERATIONS_V1,
-    SchemaId::REALM_LINK_OPERATIONS_V1,
-    SchemaId::REALM_ORGANIZATION_OPERATIONS_V1,
-    SchemaId::REALM_POLICY_SERVER_OPERATIONS_V1,
-    SchemaId::REALM_READ_OPERATIONS_V1,
-    SchemaId::RSVP_V1,
-    SchemaId::SERVICE_OPERATION_DTOS_V1,
-    SchemaId::SDK_CONFORMANCE_CLAIM_V1,
-    SchemaId::KEY_TRANSPARENCY_V1,
-];
-
 /// Active event kinds the SDK recognises from the spec registry.
 /// Every registered event kind has a generated typed representation and
 /// descriptor-backed validation in this SDK.
@@ -1516,6 +1383,27 @@ mod tests {
     use arkret_wire::{ErrorCode, ErrorStatusContext, REASON_CODE_DESCRIPTORS};
 
     use super::*;
+
+    #[test]
+    fn active_registry_entries_missing_from_generated_coverage_fail_closed() {
+        let registry = serde_json::json!({
+            "schemas": [
+                {"schema_id": "ak.schema.covered.v1", "status": "active"},
+                {"schema_id": "ak.schema.injected.v1", "status": "active"},
+                {"schema_id": "ak.schema.future.v1", "status": "candidate"}
+            ]
+        });
+
+        assert_eq!(
+            unlisted_active_registry_values(
+                &registry,
+                "schemas",
+                "schema_id",
+                &["ak.schema.covered.v1"],
+            ),
+            vec!["ak.schema.injected.v1"]
+        );
+    }
 
     fn local_spec_artifacts_dir() -> Option<PathBuf> {
         if let Some(dir) = default_spec_artifacts_dir() {

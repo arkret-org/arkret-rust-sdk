@@ -441,7 +441,7 @@ fn managed_agent_genesis_authority_covers_the_whole_founding_notary() {
     )
     .unwrap();
     later_transition.executed_by = create.executed_by.clone();
-    later_transition.authorization_ref = create.authorization_ref.clone();
+    later_transition.authorization_ref = create.authorization_ref;
     assert!(
         ManagedAgentPcrGenesisAuthority::from_accepted_create(
             &later_transition,

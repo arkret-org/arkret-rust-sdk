@@ -1,5 +1,6 @@
 use arkret_models_identity::ActorProfile;
 use arkret_models_identity::identity_link_cache::compute_policy_frontier_digest;
+use arkret_models_identity::service_identity::ServiceRegistrationReceipt;
 use arkret_wire::{ActorKind, ActorStatus, SchemaId};
 use serde_json::json;
 
@@ -34,6 +35,49 @@ fn actor_profile_rejects_unknown_fields_and_accepts_schema_statuses() {
         "managed_by_applet": "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
     });
     assert!(serde_json::from_value::<ActorProfile>(bad).is_err());
+}
+
+#[test]
+fn service_registration_receipt_uses_the_spec_field_and_typed_id() {
+    let receipt = json!({
+        "registration_receipt_id": format!(
+            "ak:service_registration_receipt:{}",
+            "a".repeat(64)
+        ),
+        "registration_key": {
+            "service_kind": "auth_server",
+            "public_base": "https://auth.example/"
+        },
+        "service_id": "did:webvh:z6mkfixture:auth.example",
+        "version_id": "1-zVersion",
+        "log_head_digest": format!("sha256:{}", "b".repeat(64)),
+        "control_key_digest": format!("sha256:{}", "c".repeat(64)),
+        "issued_at": "2026-08-01T00:00:00.000Z",
+        "provider_service_id": "did:webvh:z6mkfixture:provider.example",
+        "proof": {
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "verificationMethod": "did:webvh:z6mkfixture:provider.example#key-1",
+            "proofPurpose": "assertionMethod",
+            "proofValue": "z1"
+        }
+    });
+
+    let parsed = serde_json::from_value::<ServiceRegistrationReceipt>(receipt.clone());
+    assert!(parsed.is_ok(), "{parsed:?}");
+
+    let mut old_field = receipt.clone();
+    let object = old_field.as_object_mut().unwrap();
+    let id = object.remove("registration_receipt_id").unwrap();
+    object.insert("receipt_id".to_owned(), id);
+    assert!(serde_json::from_value::<ServiceRegistrationReceipt>(old_field).is_err());
+
+    let mut invalid_id = receipt;
+    invalid_id["registration_receipt_id"] = json!(format!(
+        "ak:service_registration_receipt:{}",
+        "A".repeat(64)
+    ));
+    assert!(serde_json::from_value::<ServiceRegistrationReceipt>(invalid_id).is_err());
 }
 
 #[test]

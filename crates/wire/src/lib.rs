@@ -107,25 +107,25 @@ pub use extension_manifest::{
 };
 pub use extension_map::XExtensionMap;
 pub use generated::{
-    AccountDataKey, AlgorithmSuiteDescriptor, CapabilityActionId, DIGEST_SUITES,
-    DidFreshnessProfileDescriptor, DidFreshnessProfileId, DidFreshnessRiskTier, EVENT_KIND_COUNT,
-    EXPORTER_LABELS, EventKind, ExporterLabelDescriptor, ExporterLabelId, HPKE_SUITES,
-    MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsExtensionDescriptor, PROOF_CONTEXTS, ProfileId,
-    ProofContextDescriptor, ProofContextId, REGISTERED_DID_FRESHNESS_PROFILES,
-    RELATION_KIND_DESCRIPTORS, SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS,
-    SIGNATURE_ALGORITHMS, SchemaId, ServiceKindDescriptor, ServiceOperationDescriptor,
-    ServiceOperationId,
+    AccountDataKey, AlgorithmSuiteDescriptor, AuthoritySetPolicyKind, AuthoritySetSourceKind,
+    BindingKind, CapabilityActionId, DIGEST_SUITES, DidFreshnessProfileDescriptor,
+    DidFreshnessProfileId, DidFreshnessRiskTier, EVENT_KIND_COUNT, EXPORTER_LABELS, EventKind,
+    ExporterLabelDescriptor, ExporterLabelId, HPKE_SUITES, MLS_CIPHERSUITES, MLS_EXTENSIONS,
+    MlsExtensionDescriptor, OPERATION_ERROR_MAPPINGS, OperationErrorMappingDescriptor,
+    OperationSpecificError, PROOF_CONTEXTS, ProfileId, ProofContextDescriptor, ProofContextId,
+    REGISTERED_DID_FRESHNESS_PROFILES, RELATION_KIND_DESCRIPTORS, SERVICE_KIND_DESCRIPTORS,
+    SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId, ServiceKindDescriptor,
+    ServiceOperationDescriptor, ServiceOperationId, TrackName, operation_error_mapping,
 };
 pub use http_signature::HttpMessageSignature;
 pub use notary::{ForensicAttribution, NotaryValue};
 pub use object_address::*;
 pub use offline_publication::{
     AnchorUnitLeaseBasis, AnchorUnitLeaseBasisRef, AuthoritySetAuthorizationRule,
-    AuthoritySetIssuer, AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicyKind,
-    AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind, AuthorizationLease,
-    IngressReceipt, LeaseBasisRef, RECOVERY_ACCOUNT_AUTHORITY_SET_ID,
-    RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID, RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RiskTier,
-    distinct_issuer_count,
+    AuthoritySetIssuer, AuthoritySetIssuerRole, AuthoritySetPolicy, AuthoritySetPolicySource,
+    AuthoritySetRef, AuthorizationLease, IngressReceipt, LeaseBasisRef,
+    RECOVERY_ACCOUNT_AUTHORITY_SET_ID, RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID,
+    RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RiskTier, distinct_issuer_count,
 };
 pub use patch::*;
 pub use plaintext::PlaintextDataClassKind;

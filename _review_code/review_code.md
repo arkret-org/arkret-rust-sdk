@@ -1,5 +1,29 @@
 # Regression review log
 
+## 2026-08-01 — coverage promises were represented by hand-copied partial sets
+
+- Surface: active schema coverage, closed registry vocabularies, operation error mappings, and
+  typed protocol identifiers.
+- Regression: the restored spec-drift job exposed 57 active schemas missing from the manual
+  `SUPPORTED_SCHEMA_IDS`; the track enum omitted the active `synthesis` value; binding and
+  authority vocabularies were duplicated by hand; the 218-row operation-to-error registry had no
+  generated SDK surface; and two newly declared special-form ids remained plain strings in model
+  DTOs. `ServiceRegistrationReceipt` additionally serialized the off-spec member `receipt_id`.
+- Correction: schema coverage now means every active registry row has generated descriptors,
+  an embedded artifact, and runtime loading, with live/generated sets compared in both directions.
+  Closed track, binding, and authority values plus operation-error mappings are generated from the
+  spec. `AppletInstallPlan.plan_id` and `ServiceRegistrationReceipt.registration_receipt_id` now
+  use their typed ids; first-party consumers were migrated with no compatibility shim. The full
+  adjudication and all 57 schema ids are recorded in
+  `decisions/2026-08-01-sdk-spec-coverage-contract.md`.
+- Verified by injection: synthetic active schema rows fail the drift report; incomplete operation
+  mappings and unknown error codes fail generation; unknown closed-registry values fail parsing;
+  legacy/invalid receipt and plan ids fail wire decoding. The live drift report, generation check,
+  strict workspace clippy, full workspace tests, and required downstream compile gates all pass.
+- Prevention dimension: a coverage gate must derive its claimed set from the artifact or
+  declaration that creates the implementation surface. A second list maintained by memory is not
+  an independent check; it is a second source of drift.
+
 ## 2026-08-01 — special-form id coverage claimed four kinds with no type behind them
 
 - Surface: `arkret-schema::SUPPORTED_SPECIAL_FORM_ID_KINDS` and `arkret-identifiers`.
@@ -60,9 +84,9 @@
   is `-D warnings` in this workspace, so the documented lint gate does not pass on `main`.
   Two effects compound: the CI lint step cannot be green, and the surviving comments now document
   the wrong item (`patch.rs` told the reader a path-length constant was a schema id).
-- Correction: the two sites blocking `-p arkret-identifiers -p arkret-schema` from compiling under
-  clippy were removed here. The remaining sites are untouched — they belong to an unrelated
-  cleanup and one of them sits in an in-flight uncommitted crate.
+- Correction: every orphaned comment and remaining workspace warning was resolved without
+  suppressing the lint. `cargo clippy --workspace --all-features --all-targets -- -D warnings`
+  now exits 0.
 - Prevention dimension: same family as the CI entry below — a gate nobody has seen pass is not a
   gate. `-D warnings` in a config file proves nothing about the last time the command exited 0.
 
@@ -87,11 +111,10 @@
   and 2 event kinds with no payload validator (`ak.relation.tombstone`,
   `ak.moderation.franking_proof`), plus `ak.profile.candidate.join_policy.v1` requiring
   `ak.schema.join_policy_operations.v1`, which is absent from `REGISTERED_SCHEMA_IDS`. **The
-  schema and payload-validator findings are open** — they need a coverage-scope decision (19 of
-  the 55 are `ak.schema.websocket_*`, whose binding is `candidate` and gated behind
-  `ak.profile.binding.websocket.v1`, so declaring SDK coverage for them would be false), and
-  padding the constant to force the gate green would reproduce the exact failure this entry
-  records.
+  schema and payload-validator findings were subsequently closed**. The live count reached 57;
+  every active schema is now generated and embedded under the written artifact-layer coverage
+  contract, while payload carrier gaps were fixed in the spec. The manual schema list was deleted,
+  so the resolution did not pad a second list to force the gate green.
 - Prevention dimension: a CI step whose only observable behavior is its own exit code proves
   nothing about the gate it names. Any job asserting a hard gate must be shown failing on an
   injected violation at least once; a step that has never printed gate output is not evidence.

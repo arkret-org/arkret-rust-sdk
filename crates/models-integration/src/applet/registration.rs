@@ -1075,7 +1075,6 @@ pub struct AppletPackage {
 
 impl AppletPackage {
     pub const SCHEMA: &'static str = SchemaId::APPLET_PACKAGE_V1;
-    /// The base profile every Applet package MUST claim.
 
     /// Build an unsigned, unsealed package. Caller MUST
     /// [`seal`](Self::seal) then [`sign`](Self::sign) before publishing.

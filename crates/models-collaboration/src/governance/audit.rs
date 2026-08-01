@@ -49,12 +49,6 @@ pub enum AuditAssurance {
     DisclosedPolicy,
 }
 
-/// Round R2/R3 (2026-05-20) — `ak.profile.e2ee_relaxed.v1`.
-///
-/// Profile that permits temporarily widening the MLS send-pause window
-/// for advisory reasons. Round R2/R3 introduces an **absolute hard
-/// ceiling** of 5 minutes (300_000 ms) on the relaxed window.
-
 /// Compliance profiles that MUST NOT coexist with
 /// [`ProfileId::E2EE_RELAXED_V1`]. Round R2/R3 — declaring both is rejected as
 /// `e2ee_relaxed_disallowed_in_compliance_profile`.

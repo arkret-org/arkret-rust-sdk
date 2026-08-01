@@ -65,10 +65,6 @@ type HmacSha256 = Hmac<Sha256>;
 /// [`KeyBackupError`] (SDK-HYG-01) rather than `anyhow::Error`.
 type Result<T> = std::result::Result<T, KeyBackupError>;
 
-/// AEAD profile id for the XChaCha20-Poly1305 envelope produced by this
-/// module (key-management.md §7.2). Binds nonce length (24), tag length
-/// (16) and the AAD construction below.
-
 /// `ak.schema.key_backup.v1` schema id, bound into the AEAD AAD so a
 /// ciphertext cannot be replayed under a different schema (§7.1).
 pub const VAULT_SCHEMA_ID: &str = arkret_wire::SchemaId::KEY_BACKUP_V1;

@@ -17,11 +17,11 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, ErrorCode, Result};
+use crate::{BindingKind, Error, ErrorCode, Result};
 
 /// `supported_bindings[].kind` of this profile, as registered in
 /// `binding-kind-registry.json`. A media / SFU WebSocket MUST NOT reuse it.
-pub const WEBSOCKET_BINDING_KIND: &str = "websocket";
+pub const WEBSOCKET_BINDING_KIND: BindingKind = BindingKind::Websocket;
 
 /// WebSocket subprotocol the client MUST request and the server MUST select
 /// (§2). A connection whose negotiated subprotocol is anything else is not an

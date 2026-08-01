@@ -10,7 +10,7 @@
 use std::fmt;
 
 use arkret_canonical::canonical;
-use arkret_wire::{Did, DidUrl, Error, Result, ServiceKind};
+use arkret_wire::{Did, DidUrl, Error, Result, ServiceKind, ServiceRegistrationReceiptId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::{Digest, Sha256};
@@ -465,7 +465,7 @@ impl ServiceWebvhInceptionOperation {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceRegistrationReceipt {
-    pub receipt_id: String,
+    pub registration_receipt_id: ServiceRegistrationReceiptId,
     pub registration_key: ServiceRegistrationKey,
     pub service_id: Did,
     pub version_id: String,
@@ -479,8 +479,8 @@ pub struct ServiceRegistrationReceipt {
 
 impl ServiceRegistrationReceipt {
     /// Recompute the stable receipt identifier from the canonical claims that
-    /// exclude both `receipt_id` and `proof`.
-    pub fn expected_receipt_id(&self) -> Result<String> {
+    /// exclude both `registration_receipt_id` and `proof`.
+    pub fn expected_registration_receipt_id(&self) -> Result<ServiceRegistrationReceiptId> {
         let claims = serde_json::json!({
             "registration_key": &self.registration_key,
             "service_id": &self.service_id,
@@ -491,10 +491,10 @@ impl ServiceRegistrationReceipt {
             "provider_service_id": &self.provider_service_id,
         });
         let digest = sha256_canonical(&claims)?;
-        Ok(format!(
+        Ok(ServiceRegistrationReceiptId::new(format!(
             "ak:service_registration_receipt:{}",
             digest.strip_prefix("sha256:").unwrap_or(&digest)
-        ))
+        ))?)
     }
 
     /// Build the exact `eddsa-jcs-2022` signing input for this receipt.
@@ -529,9 +529,9 @@ impl ServiceRegistrationReceipt {
     /// Provider DID verification method.
     pub fn validate_proof_binding(&self) -> Result<()> {
         self.proof.validate_shape()?;
-        if self.receipt_id != self.expected_receipt_id()? {
+        if self.registration_receipt_id != self.expected_registration_receipt_id()? {
             return Err(Error::Protocol(
-                "service registration receipt_id does not match its canonical claims".to_owned(),
+                "service registration receipt id does not match its canonical claims".to_owned(),
             ));
         }
         let provider_prefix = format!("{}#", self.provider_service_id);
@@ -550,12 +550,7 @@ impl ServiceRegistrationReceipt {
                 "service registration receipt key or service DID mismatch".to_owned(),
             ));
         }
-        if !self
-            .receipt_id
-            .starts_with("ak:service_registration_receipt:")
-            || !is_sha256_digest(&self.log_head_digest)
-            || !is_sha256_digest(&self.control_key_digest)
-        {
+        if !is_sha256_digest(&self.log_head_digest) || !is_sha256_digest(&self.control_key_digest) {
             return Err(Error::Protocol(
                 "service registration receipt contains an invalid id or digest".to_owned(),
             ));

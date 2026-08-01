@@ -33,11 +33,6 @@ pub const SECRET_REQUEST_KIND: &str = arkret_wire::SECRET_REQUEST_KIND;
 /// Wire `kind` for the sealed secret response (`ak.secret.send`).
 pub const SECRET_SEND_KIND: &str = arkret_wire::SECRET_SEND_KIND;
 
-/// HPKE scheme label required on `ak.secret.send` content. Matches the
-/// v1 default-MUST device HPKE suite in `device-lifecycle.md` §4 / the
-/// `ak.hpke_x25519_aead_chacha20poly1305.v1` label used by
-/// file-transfer.schema.json (RFC 9180 base mode).
-
 /// `secret_id` for the inkson MLS account secret — the only secret class the
 /// D2D direct-share path ships in v1. Kept here so client and conformance code
 /// agree on the exact opaque token.

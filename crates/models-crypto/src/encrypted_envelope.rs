@@ -13,8 +13,6 @@ use serde_json::Value;
 /// AEAD purpose fixed by `encryption-and-audit.md` §2.10.2.
 pub const MLS_EXPORTER_AEAD_CONTENT_PURPOSE: &str = "mls_exporter_aead_content";
 
-/// Profile id whose Realms require the minimal-metadata MLS policy.
-
 /// Counterpart for `spec/v1/artifacts/schemas/encrypted-envelope.schema.json`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

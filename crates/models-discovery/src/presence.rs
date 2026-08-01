@@ -18,14 +18,6 @@ use arkret_wire::canonical::is_nfc;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Account Data key holding the principal-private manual presence
-/// preference (profiles-presence.md §3.6). Written through
-/// `ak.account_data.set`; enforced client-side at send time. Servers
-/// MUST NOT require plaintext or a projection of this key.
-
-/// Account Data key holding the principal-private presence visibility
-/// policy (profiles-presence.md §3.4).
-
 /// Protocol floor for `last_active_at` bucket granularity (§3.3):
 /// finer buckets degrade into a near-second activity timing side
 /// channel.

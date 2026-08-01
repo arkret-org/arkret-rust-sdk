@@ -342,12 +342,11 @@ mod tests {
     use super::*;
     use crate::offline_publication::{
         AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
-        AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
-        AuthoritySetSourceKind,
+        AuthoritySetPolicy, AuthoritySetPolicySource, AuthoritySetRef,
     };
     use crate::{
-        AuthorizationLeaseId, DeviceId, Did, DidUrl, Hash, PayloadProof, RealmId, SchemaId, SealId,
-        proof_kind,
+        AuthoritySetPolicyKind, AuthoritySetSourceKind, AuthorizationLeaseId, DeviceId, Did,
+        DidUrl, Hash, PayloadProof, RealmId, SchemaId, SealId, proof_kind,
     };
 
     fn instant(hour: u32) -> chrono::DateTime<Utc> {
