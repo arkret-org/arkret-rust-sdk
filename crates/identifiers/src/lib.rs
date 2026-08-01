@@ -191,6 +191,46 @@ macro_rules! declare_uuid_id_kinds {
     };
 }
 
+/// Declare every **special-form** id kind in one block, so the crate can also
+/// publish the set of `special_forms` kinds it actually implements.
+///
+/// Special forms are the spec `id-kind-registry.json` `special_forms` rows:
+/// `ak:<kind>:` identifiers whose payload is *not* a UUIDv7 — content digests,
+/// opaque base64url tokens, a cell family plus subject. Each therefore keeps
+/// its own validator instead of sharing one like [`declare_uuid_id_kinds!`].
+///
+/// What the two blocks share is the reason they exist. `arkret-schema`'s
+/// `SUPPORTED_SPECIAL_FORM_ID_KINDS` was a hand-written list with nothing behind
+/// it, and it claimed four kinds this crate shipped no type for (`mls`,
+/// `pseudonym`, `plan`, `service_registration_receipt`) — the mirror image of the
+/// uuid-side gap, where types existed the list had never picked up.
+/// [`DECLARED_SPECIAL_FORM_ID_KINDS`] is derived from the same declarations the
+/// types are generated from, so neither direction can drift unnoticed.
+///
+/// Identifiers that are not registry `special_forms` rows stay on plain
+/// [`id_type!`]: [`Did`], [`Hash`] (a bare `<algo>:<hex>` digest with no `ak:`
+/// prefix), [`OperationId`] (hybrid typed-uuid-or-digest) and
+/// [`DeviceMessageTransactionId`] (a payload field charset, not an id kind).
+macro_rules! declare_special_form_id_kinds {
+    ($($name:ident, $kind:literal, $expect:expr;)*) => {
+        $(
+            id_type!($name, $expect);
+
+            impl $name {
+                /// The `special_forms` registry `kind` this type implements.
+                pub const ID_KIND: &'static str = $kind;
+            }
+        )*
+
+        /// Every `special_forms` kind this crate ships a validated type for.
+        ///
+        /// Cross-checked against the spec `id-kind-registry.json` and
+        /// `arkret_schema::SUPPORTED_SPECIAL_FORM_ID_KINDS` by
+        /// `arkret-schema`'s `id_kind_coverage` test.
+        pub const DECLARED_SPECIAL_FORM_ID_KINDS: &[&str] = &[$($kind),*];
+    };
+}
+
 /// Validate a DID scalar against the Round 4 tightened pattern. Method name
 /// MUST be lowercase ASCII alpha + digits only (no `.`/`-`/`_`/`:`);
 /// method-specific-id MUST be non-empty and contain no whitespace, fragment,
@@ -313,6 +353,41 @@ fn is_cell_subject_segment(segment: &str) -> bool {
         index += 1;
     }
     true
+}
+
+/// Validate the `ak:plan:<base64url>` wire form. The suffix is an opaque,
+/// non-empty, unpadded base64url token. Spec: id-kind-registry.json
+/// `special_forms[plan]`; pattern matches applet-install-plan.schema.json
+/// `^ak:plan:[A-Za-z0-9_-]+$`.
+pub fn is_plan_id(value: &str) -> bool {
+    match value.strip_prefix("ak:plan:") {
+        Some(token) => {
+            !token.is_empty()
+                && token
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+        }
+        None => false,
+    }
+}
+
+/// Validate the `ak:service_registration_receipt:<sha256-hex>` wire form. The
+/// suffix is the lower-case hex SHA-256 over the canonical receipt claims, so
+/// it is exactly 64 hex digits — unlike [`is_hash`], which carries its own
+/// `<algo>:` prefix. Spec: id-kind-registry.json
+/// `special_forms[service_registration_receipt]`; pattern matches
+/// service-operation-dtos.schema.json
+/// `^ak:service_registration_receipt:[0-9a-f]{64}$`.
+pub fn is_service_registration_receipt_id(value: &str) -> bool {
+    match value.strip_prefix("ak:service_registration_receipt:") {
+        Some(digest) => {
+            digest.len() == 64
+                && digest
+                    .bytes()
+                    .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+        }
+        None => false,
+    }
 }
 
 /// Validate the `ak:trust_domain:<scope>` wire form. Scope MUST be lowercase
@@ -486,6 +561,30 @@ declare_uuid_id_kinds! {
     ViewId, "ak:view:";
 }
 
+// Special-form id kinds (`special_forms` in the spec id-kind-registry). Every
+// entry here MUST have an active `special_forms` row; `arkret-schema` fails
+// closed in both directions, exactly as it does for the uuid block above.
+//
+// `mls` and `pseudonym` are deliberately absent: the registry marks both
+// `profile_extension`, they are validated by the E2EE profile rather than by
+// this crate, and the SDK ships no type for either. Declaring them was a false
+// coverage claim, not a gap to fill.
+declare_special_form_id_kinds! {
+    // Hybrid: a bare `<algo>:<hex>` digest or the `ak:blob:` content-addressed
+    // form. Distinct from `BlobId`, which is the `ak:blob:<uuidv7>` metadata id.
+    BlobRef, "blob", is_blob_ref;
+    CellRef, "cell", is_cell_ref;
+    Cursor, "cursor", has_prefix("ak:cursor:");
+    PlanId, "plan", is_plan_id;
+    SealId, "seal", is_content_addressed("ak:seal:");
+    ServiceRegistrationReceiptId,
+        "service_registration_receipt",
+        is_service_registration_receipt_id;
+    // Round R2/R3 (2026-05-20) — deployment-scope trust domain identifier.
+    // Named `Typed…` because `TrustDomain` is the plain-string payload alias.
+    TypedTrustDomainId, "trust_domain", is_trust_domain;
+}
+
 /// Applet identity accepted by the v1 wire protocol: either a service DID or
 /// a typed `ak:applet:<uuidv7>` identifier.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -504,19 +603,12 @@ impl AppletIdentifier {
     }
 }
 
-// Round R2/R3 (2026-05-20) — deployment-scope trust domain identifier.
-// Wire form `ak:trust_domain:<scope>` where scope is lowercase
-// `[a-z0-9._:-]` max 128 chars. NOT a typed-UUIDv7 object id (stays text).
-id_type!(TypedTrustDomainId, is_trust_domain);
 // OperationId is hybrid: `ak:operation:<uuidv7>` OR a content hash. No bare
-// uuid form, so it stays a text `id_type!`.
+// uuid form and no `special_forms` row, so it stays a text `id_type!`.
 id_type!(OperationId, |value: &str| is_strict_typed_id(
     value,
     "ak:operation:"
 ) || is_hash(value));
-// BlobRef is hybrid (hash or `ak:blob:` typed) — stays text.
-id_type!(BlobRef, is_blob_ref);
-id_type!(Cursor, has_prefix("ak:cursor:"));
 id_type!(DeviceMessageTransactionId, is_device_message_transaction_id);
 
 impl MessageId {
@@ -562,10 +654,9 @@ fn is_device_message_transaction_id(value: &str) -> bool {
 
 // Bare `<algo>:<hex>` digest, e.g. an Event's `proof.event_digest`, a Seal
 // root, or a control-plane `Seal.delta[]` entry. `ak:seal:` prefixes the
-// content-addressed Seal identifier itself.
+// content-addressed Seal identifier itself, which is a special form and is
+// declared with the other `special_forms` kinds.
 id_type!(Hash, is_hash);
-id_type!(SealId, is_content_addressed("ak:seal:"));
-id_type!(CellRef, is_cell_ref);
 
 impl BlobRef {
     /// Create a content-addressed `sha256:...` blob reference from raw bytes.
@@ -767,6 +858,88 @@ mod tests {
         assert!(TypedTrustDomainId::new("ak:trust_domain:").is_err());
         let too_long = format!("ak:trust_domain:{}", "a".repeat(129));
         assert!(TypedTrustDomainId::new(too_long).is_err());
+    }
+
+    #[test]
+    fn plan_id_requires_a_non_empty_base64url_token() {
+        assert!(PlanId::new("ak:plan:AbC-012_xyz").is_ok());
+        assert!(PlanId::new("ak:plan:").is_err());
+        // base64url has no padding and no standard-alphabet `+` / `/`.
+        assert!(PlanId::new("ak:plan:AbC=").is_err());
+        assert!(PlanId::new("ak:plan:Ab+C").is_err());
+        assert!(PlanId::new("ak:plan:Ab/C").is_err());
+        assert!(PlanId::new("plan:AbC").is_err());
+    }
+
+    #[test]
+    fn service_registration_receipt_id_requires_lowercase_sha256_hex() {
+        let digest64 = "a".repeat(64);
+        assert!(
+            ServiceRegistrationReceiptId::new(format!(
+                "ak:service_registration_receipt:{digest64}"
+            ))
+            .is_ok()
+        );
+        assert!(
+            ServiceRegistrationReceiptId::new(format!(
+                "ak:service_registration_receipt:{}",
+                "A".repeat(64)
+            ))
+            .is_err()
+        );
+        assert!(
+            ServiceRegistrationReceiptId::new(format!(
+                "ak:service_registration_receipt:{}",
+                "a".repeat(63)
+            ))
+            .is_err()
+        );
+        // The suffix is a bare digest, not an algorithm-prefixed `Hash`.
+        assert!(
+            ServiceRegistrationReceiptId::new(format!(
+                "ak:service_registration_receipt:sha256:{digest64}"
+            ))
+            .is_err()
+        );
+    }
+
+    /// Each declared special form must be implemented by exactly one type, and
+    /// that type must accept its own registry wire form. Without this the
+    /// `ID_KIND` consts could be transposed between two types and the
+    /// `arkret-schema` set comparison would still pass.
+    #[test]
+    fn special_form_id_kinds_are_declared_once_by_their_own_type() {
+        let declared: std::collections::BTreeSet<&str> =
+            DECLARED_SPECIAL_FORM_ID_KINDS.iter().copied().collect();
+        assert_eq!(
+            declared.len(),
+            DECLARED_SPECIAL_FORM_ID_KINDS.len(),
+            "two special-form types claim the same registry kind"
+        );
+
+        let digest64 = "a".repeat(64);
+        assert_eq!(BlobRef::ID_KIND, "blob");
+        assert!(BlobRef::new(format!("ak:blob:sha256:{digest64}")).is_ok());
+        assert_eq!(CellRef::ID_KIND, "cell");
+        assert!(CellRef::new("ak:cell:ak.component.relation.lifecycle.v1:subject").is_ok());
+        assert_eq!(Cursor::ID_KIND, "cursor");
+        assert!(Cursor::new("ak:cursor:b3RoZXI").is_ok());
+        assert_eq!(PlanId::ID_KIND, "plan");
+        assert!(PlanId::new("ak:plan:b3RoZXI").is_ok());
+        assert_eq!(SealId::ID_KIND, "seal");
+        assert!(SealId::new(format!("ak:seal:sha256:{digest64}")).is_ok());
+        assert_eq!(
+            ServiceRegistrationReceiptId::ID_KIND,
+            "service_registration_receipt"
+        );
+        assert!(
+            ServiceRegistrationReceiptId::new(format!(
+                "ak:service_registration_receipt:{digest64}"
+            ))
+            .is_ok()
+        );
+        assert_eq!(TypedTrustDomainId::ID_KIND, "trust_domain");
+        assert!(TypedTrustDomainId::new("ak:trust_domain:example.net").is_ok());
     }
 
     #[test]

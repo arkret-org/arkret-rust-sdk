@@ -10,6 +10,9 @@ use crate::generated::{
 };
 
 const EMBEDDED_ARTIFACTS_SENTINEL: &str = "<embedded-spec-artifacts>";
+/// The registry `status` that marks an entry part of the v1 surface the SDK
+/// must cover. Registries that omit the field are read as active.
+const ACTIVE_STATUS: &str = "active";
 #[cfg(feature = "embedded-artifacts")]
 const EMBEDDED_SPEC_ARTIFACTS_JSON: &str = include_str!("embedded_artifacts.json");
 #[cfg(not(feature = "embedded-artifacts"))]
@@ -377,19 +380,58 @@ impl SpecArtifactBundle {
             .collect()
     }
 
+    /// Cross-check every profile requirement against the SDK's generated
+    /// constants, pairing the profile's own status with the status of the
+    /// registry entry it references.
+    ///
+    /// The generated constants track the **active** registry surface, so a flat
+    /// comparison mis-reports the one legitimate v1 case:
+    /// `ak.profile.candidate.join_policy.v1` is itself a `candidate` profile and
+    /// requires `ak.schema.join_policy_operations.v1`, the schema registry's only
+    /// `candidate` row. Nothing drifts there — the SDK is right not to generate a
+    /// candidate schema, and a candidate profile is right to require one.
+    ///
+    /// Pairing keeps every other case a hard error, and splits apart two the flat
+    /// comparison reported with one message:
+    ///
+    /// * the reference resolves to no registry entry at all — a dangling requirement;
+    /// * an **active** profile requires a non-active entry — a spec-side status inversion,
+    ///   previously indistinguishable from an SDK generation gap.
     fn profile_requirement_drift(&self) -> Vec<String> {
-        let operation_ids = SERVICE_OPERATION_DESCRIPTORS
-            .iter()
-            .map(|descriptor| descriptor.id.as_str())
-            .collect();
-        let event_kinds = EVENT_KIND_DESCRIPTORS
-            .iter()
-            .map(|descriptor| descriptor.kind)
-            .collect();
-        let schema_ids = REGISTERED_SCHEMA_IDS
-            .iter()
-            .map(|descriptor| descriptor.schema_id)
-            .collect();
+        let operations = RequirementSurface {
+            requirement_field: "required_endpoint",
+            declared: SERVICE_OPERATION_DESCRIPTORS
+                .iter()
+                .map(|descriptor| descriptor.id.as_str())
+                .collect(),
+            declared_label: "REGISTERED_OPERATION_IDS",
+            registry: &self.operation_registry,
+            array_field: "operations",
+            key_field: "operation_id",
+        };
+        let event_kinds = RequirementSurface {
+            requirement_field: "required_event_kind",
+            declared: EVENT_KIND_DESCRIPTORS
+                .iter()
+                .map(|descriptor| descriptor.kind)
+                .collect(),
+            declared_label: "REGISTERED_EVENT_KINDS",
+            registry: &self.event_kind_registry,
+            array_field: "event_kinds",
+            key_field: "event_kind",
+        };
+        let schemas = RequirementSurface {
+            requirement_field: "required_schema",
+            declared: REGISTERED_SCHEMA_IDS
+                .iter()
+                .map(|descriptor| descriptor.schema_id)
+                .collect(),
+            declared_label: "REGISTERED_SCHEMA_IDS",
+            registry: &self.schema_registry,
+            array_field: "schemas",
+            key_field: "schema_id",
+        };
+
         let mut issues = Vec::new();
         let Some(requirements) = self
             .conformance_profiles
@@ -398,7 +440,7 @@ impl SpecArtifactBundle {
         else {
             return issues;
         };
-        for profile_id in requirements.keys() {
+        for (profile_id, entry) in requirements {
             let requirement = match self.profile_requirement(profile_id) {
                 Ok(Some(requirement)) => requirement,
                 Ok(None) => continue,
@@ -409,29 +451,27 @@ impl SpecArtifactBundle {
                     continue;
                 }
             };
-            profile_requirement_missing_values(
+            let profile_status = entry
+                .get("status")
+                .and_then(Value::as_str)
+                .unwrap_or(ACTIVE_STATUS);
+            operations.check(
                 &mut issues,
                 profile_id,
-                "required_endpoint",
+                profile_status,
                 &requirement.required_endpoints,
-                &operation_ids,
-                "REGISTERED_OPERATION_IDS",
             );
-            profile_requirement_missing_values(
+            event_kinds.check(
                 &mut issues,
                 profile_id,
-                "required_event_kind",
+                profile_status,
                 &requirement.required_event_kinds,
-                &event_kinds,
-                "REGISTERED_EVENT_KINDS",
             );
-            profile_requirement_missing_values(
+            schemas.check(
                 &mut issues,
                 profile_id,
-                "required_schema",
+                profile_status,
                 &requirement.required_schemas,
-                &schema_ids,
-                "REGISTERED_SCHEMA_IDS",
             );
         }
         issues
@@ -837,19 +877,24 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "sidecar",
 ];
 
-/// Special-form id kinds (non-UUIDv7) the SDK declares coverage for from
-/// the spec id-kind-registry `special_forms` array. Round R2/R3 (2026-05-20)
-/// adds `trust_domain` (`ak:trust_domain:<scope>`). These are validated
-/// separately from `SUPPORTED_ID_KINDS` because the spec lists them
-/// under `special_forms`, not `id_kinds`.
+/// Special-form id kinds (non-UUIDv7) the SDK ships a Rust type for, from the
+/// spec id-kind-registry `special_forms` array. Validated separately from
+/// [`SUPPORTED_ID_KINDS`] because the spec lists them under `special_forms`,
+/// not `id_kinds`.
+///
+/// Like [`SUPPORTED_ID_KINDS`], this list is not free-form:
+/// `crates/schema/tests/id_kind_coverage.rs` pins it to
+/// [`arkret_identifiers::DECLARED_SPECIAL_FORM_ID_KINDS`] in both directions.
+/// Until that gate existed the list claimed four kinds with no type behind them
+/// — `mls` and `pseudonym` (both `profile_extension`, validated by the E2EE
+/// profile), `plan` and `service_registration_receipt` (both active, and now
+/// implemented by `PlanId` / `ServiceRegistrationReceiptId`).
 pub const SUPPORTED_SPECIAL_FORM_ID_KINDS: &[&str] = &[
-    "seal",
     "blob",
     "cell",
     "cursor",
-    "mls",
-    "pseudonym",
     "plan",
+    "seal",
     "service_registration_receipt",
     "trust_domain",
 ];
@@ -1202,21 +1247,79 @@ fn profile_required_constraint_kinds(value: &Value, profile_id: &str) -> Result<
     Ok(out)
 }
 
-fn profile_requirement_missing_values(
-    issues: &mut Vec<String>,
-    profile_id: &str,
-    requirement_field: &str,
-    required: &[String],
-    declared: &BTreeSet<&str>,
-    declared_label: &str,
-) {
-    for value in required {
-        if !declared.contains(value.as_str()) {
-            issues.push(format!(
-                "{profile_id}: {requirement_field} {value} missing from {declared_label}"
-            ));
+/// One SDK-declared surface a profile requirement can reference, paired with
+/// the spec registry that surface is generated from.
+///
+/// Carrying the registry alongside the generated constant is what lets
+/// [`SpecArtifactBundle::profile_requirement_drift`] tell a dangling reference
+/// apart from an entry the SDK correctly did not generate.
+struct RequirementSurface<'a> {
+    requirement_field: &'a str,
+    declared: BTreeSet<&'a str>,
+    declared_label: &'a str,
+    registry: &'a Value,
+    array_field: &'a str,
+    key_field: &'a str,
+}
+
+impl RequirementSurface<'_> {
+    fn check(
+        &self,
+        issues: &mut Vec<String>,
+        profile_id: &str,
+        profile_status: &str,
+        required: &[String],
+    ) {
+        let Self {
+            requirement_field,
+            declared_label,
+            array_field,
+            ..
+        } = self;
+        for value in required {
+            if self.declared.contains(value.as_str()) {
+                continue;
+            }
+            match registry_entry_status(self.registry, self.array_field, self.key_field, value) {
+                None => issues.push(format!(
+                    "{profile_id}: {requirement_field} {value} missing from {declared_label} and \
+                     absent from the spec {array_field} registry"
+                )),
+                Some(ACTIVE_STATUS) => issues.push(format!(
+                    "{profile_id}: {requirement_field} {value} is active in the spec registry but \
+                     missing from {declared_label}"
+                )),
+                Some(status) if profile_status == ACTIVE_STATUS => issues.push(format!(
+                    "{profile_id}: active profile requires {requirement_field} {value}, which the \
+                     spec registry marks {status}"
+                )),
+                // A non-active profile requiring a non-active registry entry:
+                // the SDK generates the active surface only, so the absence from
+                // `declared_label` is the correct outcome, not drift.
+                Some(_) => {}
+            }
         }
     }
+}
+
+/// The status of one registry entry, or `None` when the registry ships no such
+/// entry at all.
+///
+/// Registries that omit `status` — the operation registry does throughout, and
+/// so do a large minority of schema registry rows — read as active, matching
+/// [`unlisted_active_registry_values`].
+fn registry_entry_status<'a>(
+    registry: &'a Value,
+    array_field: &str,
+    key_field: &str,
+    expected_key: &str,
+) -> Option<&'a str> {
+    registry_entry(registry, array_field, key_field, expected_key).map(|entry| {
+        entry
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or(ACTIVE_STATUS)
+    })
 }
 
 fn read_json_artifact(path: &Path) -> Result<Value> {
@@ -1380,8 +1483,8 @@ fn unlisted_active_registry_values(
         if entry
             .get("status")
             .and_then(Value::as_str)
-            .unwrap_or("active")
-            != "active"
+            .unwrap_or(ACTIVE_STATUS)
+            != ACTIVE_STATUS
         {
             continue;
         }

@@ -413,8 +413,6 @@ fn require_lattice(
     ))
 }
 
-/// The only kind whose registered write target is resolved from the payload.
-
 /// Canonical dot for the write at `write_index` of this Event.
 fn dot_for(event: &Event, write_index: usize) -> String {
     or_set_dot(event.event_id.as_str(), write_index)

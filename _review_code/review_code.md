@@ -1,5 +1,71 @@
 # Regression review log
 
+## 2026-08-01 — special-form id coverage claimed four kinds with no type behind them
+
+- Surface: `arkret-schema::SUPPORTED_SPECIAL_FORM_ID_KINDS` and `arkret-identifiers`.
+- Regression: the same hand-copied-list defect as the `SUPPORTED_ID_KINDS` entry below, running
+  in the opposite direction. The constant declared 9 `special_forms` kinds; four of them —
+  `mls`, `pseudonym`, `plan`, `service_registration_receipt` — had **zero** occurrences of their
+  wire prefix anywhere in `arkret-identifiers`. The drift report was therefore asserting SDK
+  support that did not exist, which is worse than no gate: it actively supplied a false guarantee.
+  The uuid-side fix landed the same day covered only `id_kinds`, leaving `special_forms` as the
+  symmetric hole.
+- Detection: auditing what the just-added `id_kind_coverage` gate did *not* cover.
+- Correction: `declare_special_form_id_kinds!` now emits `DECLARED_SPECIAL_FORM_ID_KINDS` from
+  the same declarations the types are generated from, and `id_kind_coverage.rs` compares it with
+  `SUPPORTED_SPECIAL_FORM_ID_KINDS` in both directions plus a populated-both-sides guard. The
+  four claims were resolved by their registry status, not by editing the list to match:
+  `mls` / `pseudonym` are `profile_extension` (validated by the E2EE profile, never SDK core) and
+  were dropped; `plan` / `service_registration_receipt` are `active` and are now implemented by
+  `PlanId` and `ServiceRegistrationReceiptId`, validating the registry wire forms
+  `^ak:plan:[A-Za-z0-9_-]+$` and `^ak:service_registration_receipt:[0-9a-f]{64}$`.
+- Verified by injection: adding `pseudonym` back to the constant, removing `cursor` from it, and
+  transposing two types' `ID_KIND` each turn the gate red with a distinct message.
+- Prevention dimension: closing a defect class on one surface does not close it on the surface
+  next to it. When a fix is "derive the set from the declarations", the immediate follow-up
+  question is which *other* hand-written sets feed the same gate — here, the answer was one line
+  below the one that was fixed.
+
+## 2026-08-01 — the profile-requirement gate compared candidate profiles against the active surface
+
+- Surface: `SpecArtifactBundle::profile_requirement_drift`.
+- Regression: the check compared every profile requirement against `REGISTERED_SCHEMA_IDS` /
+  `REGISTERED_EVENT_KINDS` / `REGISTERED_OPERATION_IDS`, which the generator emits from the
+  **active** registry surface only. `ak.profile.candidate.join_policy.v1` is itself a `candidate`
+  profile requiring `ak.schema.join_policy_operations.v1`, the schema registry's only `candidate`
+  row, and was reported as drift although neither side had drifted. Worse, the single message
+  spelled three different conditions — dangling reference, SDK generation gap, spec status
+  inversion — identically, so the report could not say which one had occurred.
+- Detection: the first real run of `spec_drift_report`; the root cause was reachable only by
+  reading both the profile's own `status` and the referenced entry's, neither of which the check
+  looked at.
+- Correction: the comparison now pairs the two statuses. Absent from the registry entirely, or
+  active-but-ungenerated, stays a hard error whatever the profile's status; an **active** profile
+  requiring a non-active entry became a *new* hard error with its own message; only the
+  non-active-to-non-active pairing is exempt. A missing `status` field reads as active on both
+  sides, so nothing is exempted by omission.
+- Verified by injection: `crates/schema/tests/profile_requirement_pairing.rs` builds synthetic
+  bundles that differ from the exempt pairing in exactly one status and asserts the gate still
+  fires — including the case a careless fix would swallow (`candidate` profile, `active` schema).
+- Prevention dimension: a gate that exempts a false positive must be pinned by the cases adjacent
+  to it, not by the case it was written for. Only the neighbours distinguish "narrowed correctly"
+  from "stopped checking".
+
+## 2026-08-01 — `cargo clippy -D warnings` was already red at HEAD on orphaned doc comments
+
+- Surface: workspace-wide; ~15 sites, e.g. `crates/wire/src/patch.rs:30`,
+  `crates/schema/src/event_cell_contract.rs:416`, `crates/models-crypto/src/key_backup.rs:113`.
+- Regression: a prior cleanup deleted items but left their `///` blocks behind, which then
+  re-attached themselves to the next item with a blank line between. `clippy::empty_line_after_doc_comments`
+  is `-D warnings` in this workspace, so the documented lint gate does not pass on `main`.
+  Two effects compound: the CI lint step cannot be green, and the surviving comments now document
+  the wrong item (`patch.rs` told the reader a path-length constant was a schema id).
+- Correction: the two sites blocking `-p arkret-identifiers -p arkret-schema` from compiling under
+  clippy were removed here. The remaining sites are untouched — they belong to an unrelated
+  cleanup and one of them sits in an in-flight uncommitted crate.
+- Prevention dimension: same family as the CI entry below — a gate nobody has seen pass is not a
+  gate. `-D warnings` in a config file proves nothing about the last time the command exited 0.
+
 ## 2026-08-01 — two CI gates invoked examples that were never in the repository
 
 - Surface: `.github/workflows/ci.yml` jobs `rust` and `spec-drift`.
