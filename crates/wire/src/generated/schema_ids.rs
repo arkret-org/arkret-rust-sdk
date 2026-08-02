@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-02.7;
-//! sha256=91e760349d22b9f2e0d0a50629505bd03cdebc974fb11e4e0a4d6cf5f5a2d3e3 Entries: schema_ids=177,
+//! Input: registry/schema-registry.json; version=2026-08-02.8;
+//! sha256=6f974fa3a775588d3be23e753d9f430c07c2a77b884a43c057508b5ee1c0a992 Entries: schema_ids=177,
 //! active=176
 
 use serde::{Deserialize, Serialize};

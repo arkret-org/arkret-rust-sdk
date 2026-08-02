@@ -17,8 +17,9 @@ use arkret_models_identity::account::{
 use arkret_models_identity::actor_profile::ActorProfile;
 use arkret_wire::patch::Patch;
 use arkret_wire::{
-    AppletId, AppletRevokeMode, ConsentScope, DeviceId, Did, DidUrl, GrantId, Hash, ReasonCode,
-    Result, ScopeRef, ServiceOperationId, canonical,
+    AppletId, AppletRevokeMode, CbaProofBundle, ConsentScope, Cursor, DeviceId, Did, DidUrl, Event,
+    EventId, GrantId, Hash, NonEmptyString, PayloadProof, RealmId, ReasonCode, ReceiptId, Result,
+    ScopeRef, ServiceOperationId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
