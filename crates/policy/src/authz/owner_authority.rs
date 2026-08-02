@@ -31,13 +31,7 @@ pub fn require_registry_basis(basis: Option<&Hash>) -> Result<()> {
                 .to_owned(),
         ));
     };
-    let current = super::current_capability_action_registry_digest()?;
-    if basis != &current {
-        return Err(Error::Protocol(
-            "capability_registry_basis_unavailable: registry snapshot is unknown or unavailable"
-                .to_owned(),
-        ));
-    }
+    super::capability_action_registry_snapshot(basis)?;
     Ok(())
 }
 
@@ -88,15 +82,29 @@ pub fn owner_may_grant(
     registry_basis: Option<&Hash>,
     active_profiles: &[String],
 ) -> Result<bool> {
-    require_registry_basis(registry_basis)?;
-    let child = descriptor(child_action)?;
-    if child.root_control_only || child.subject_only || child.reducer_only {
+    let basis = registry_basis.ok_or_else(|| {
+        Error::Protocol(
+            "capability_registry_basis_unavailable: aggregate expansion requires a registry basis"
+                .to_owned(),
+        )
+    })?;
+    let registry = super::capability_action_registry_snapshot(basis)?;
+    let child = super::capability_action_descriptor_in(&registry, child_action)?;
+    if descriptor_flag(child, "root_control_only")
+        || descriptor_flag(child, "subject_only")
+        || descriptor_flag(child, "reducer_only")
+    {
         return Ok(false);
     }
-    if let Some(profile) = child.profile {
+    if let Some(profile) = child.get("profile").and_then(serde_json::Value::as_str) {
         return Ok(active_profiles.iter().any(|active| active == profile));
     }
-    action_grants_authority_for(CapabilityActionId::REALM_OWNER, child_action)
+    snapshot_action_contains(
+        &registry,
+        CapabilityActionId::REALM_OWNER,
+        "grant_authority_actions",
+        child_action,
+    )
 }
 
 /// True when the Realm owner aggregate directly authorizes authoring
@@ -105,10 +113,39 @@ pub fn owner_may_author_event_kind(
     event_kind: &str,
     registry_basis: Option<&Hash>,
 ) -> Result<bool> {
-    require_registry_basis(registry_basis)?;
-    Ok(descriptor(CapabilityActionId::REALM_OWNER)?
-        .target_event_kinds
-        .contains(&event_kind))
+    let basis = registry_basis.ok_or_else(|| {
+        Error::Protocol(
+            "capability_registry_basis_unavailable: aggregate expansion requires a registry basis"
+                .to_owned(),
+        )
+    })?;
+    let registry = super::capability_action_registry_snapshot(basis)?;
+    snapshot_action_contains(
+        &registry,
+        CapabilityActionId::REALM_OWNER,
+        "target_event_kinds",
+        event_kind,
+    )
+}
+
+fn descriptor_flag(descriptor: &serde_json::Value, field: &str) -> bool {
+    descriptor
+        .get(field)
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+}
+
+fn snapshot_action_contains(
+    registry: &serde_json::Value,
+    action: &str,
+    field: &str,
+    needle: &str,
+) -> Result<bool> {
+    let descriptor = super::capability_action_descriptor_in(registry, action)?;
+    Ok(descriptor
+        .get(field)
+        .and_then(serde_json::Value::as_array)
+        .is_some_and(|values| values.iter().any(|value| value.as_str() == Some(needle))))
 }
 
 fn descriptor(action: &str) -> Result<&'static arkret_schema::CapabilityActionDescriptor> {
@@ -125,6 +162,25 @@ mod tests {
 
     fn basis() -> Hash {
         super::super::current_capability_action_registry_digest().unwrap()
+    }
+
+    fn previous_released_basis() -> Hash {
+        Hash::new("sha256:bd357d88b489947556f7d5c7a456ab7dd79e52686525f779f9146bb9e0391e6b")
+            .unwrap()
+    }
+
+    #[test]
+    fn released_registry_snapshot_remains_exactly_resolvable() {
+        let basis = previous_released_basis();
+        require_registry_basis(Some(&basis)).unwrap();
+        assert!(owner_may_author_event_kind("ak.message.create", Some(&basis)).unwrap());
+        assert!(owner_may_grant("ak.message.create", Some(&basis), &[]).unwrap());
+    }
+
+    #[test]
+    fn unknown_registry_snapshot_still_fails_closed() {
+        let unknown = Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap();
+        assert!(require_registry_basis(Some(&unknown)).is_err());
     }
 
     #[test]

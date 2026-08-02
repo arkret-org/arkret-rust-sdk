@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use arkret_wire::{AppletId, Did, Error, Event, RealmId, Result, SchemaId};
+use arkret_wire::{AppletId, AuthorizationRef, Did, Event, RealmId, Result, SchemaId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -113,29 +113,20 @@ impl AppletGhostOperations {
 #[serde(deny_unknown_fields)]
 pub struct AppletDelegatedEventAuthorization {
     pub executed_by: Did,
-    pub authorization_ref: String,
+    pub authorization_ref: AuthorizationRef,
     pub applet_id: AppletId,
 }
 
 impl AppletDelegatedEventAuthorization {
-    pub fn new(
-        executed_by: Did,
-        authorization_ref: impl Into<String>,
-        applet_id: AppletId,
-    ) -> Self {
+    pub fn new(executed_by: Did, authorization_ref: AuthorizationRef, applet_id: AppletId) -> Self {
         Self {
             executed_by,
-            authorization_ref: authorization_ref.into(),
+            authorization_ref,
             applet_id,
         }
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.authorization_ref.trim().is_empty() {
-            return Err(Error::Protocol(
-                "authorization_ref must not be empty".to_owned(),
-            ));
-        }
         Ok(())
     }
 
@@ -202,7 +193,7 @@ mod tests {
         .unwrap();
         let authorization = AppletDelegatedEventAuthorization::new(
             Did::new("did:web:applet.example").unwrap(),
-            "ak:event:01904100-0000-7000-8000-000000000002",
+            AuthorizationRef::new("ak:event:01904100-0000-7000-8000-000000000002").unwrap(),
             AppletId::new("ak:applet:01904100-0000-7000-8000-000000000003").unwrap(),
         );
 

@@ -36,7 +36,7 @@ pub fn build_agent_key_authorize_event(
     )?;
     event.event_id = event_id;
     event.executed_by = Some(controller_id);
-    event.authorization_ref = Some(controller_authorization_ref.to_string());
+    event.authorization_ref = Some(controller_authorization_ref.into());
     Ok(event)
 }
 
@@ -62,7 +62,7 @@ pub fn build_agent_key_revoke_event(
     )?;
     event.event_id = event_id;
     event.executed_by = Some(controller_id);
-    event.authorization_ref = Some(controller_authorization_ref.to_string());
+    event.authorization_ref = Some(controller_authorization_ref.into());
     Ok(event)
 }
 
@@ -89,7 +89,7 @@ fn build_agent_lifecycle_event(input: AgentLifecycleEventInput) -> Result<Event>
         input.status_changed_at,
     )?;
     event.executed_by = Some(input.controller_id);
-    event.authorization_ref = Some(input.controller_authorization_ref.to_string());
+    event.authorization_ref = Some(input.controller_authorization_ref.into());
     Ok(event)
 }
 
@@ -363,7 +363,7 @@ mod tests {
     }
 
     #[test]
-    fn key_revoke_event_observe_removes_the_authorization_cell() {
+    fn key_revoke_projects_remove_and_revocation_fact() {
         let agent_id = did("agent");
         let controller_id = did("controller");
         let revoke_event_id =
@@ -386,14 +386,15 @@ mod tests {
         )
         .unwrap();
 
-        // The registry atomically removes the authorization dots visible at
-        // the frozen pre-state and adds the durable revocation marker under the
-        // Event's canonical write-index dot.
+        // The first write clears every active authorization dot observed in the
+        // frozen pre-state. The second records the revocation payload under the
+        // canonical write-index dot so the accepted reason and cutoff remain
+        // auditable without reviving the removed authorization.
         let cell = agent_key_cell(&agent_id, "runtime-key-1");
-        let mut marker = LatticeOp::empty();
-        marker.op_type = LatticeOpType::Add;
-        marker.tag = Some(or_set_dot(event.event_id.as_str(), 1));
-        marker.value = Some(payload_object(&event));
+        let mut add = LatticeOp::empty();
+        add.op_type = LatticeOpType::Add;
+        add.tag = Some(or_set_dot(event.event_id.as_str(), 1));
+        add.value = Some(payload_object(&event));
         assert_eq!(
             project(&event),
             vec![
@@ -405,7 +406,7 @@ mod tests {
                 },
                 ProjectedCellWrite {
                     cell,
-                    op: ProjectedOp::Direct(marker),
+                    op: ProjectedOp::Direct(add),
                 },
             ]
         );

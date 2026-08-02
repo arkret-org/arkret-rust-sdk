@@ -53,7 +53,7 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
             .is_err()
     );
 
-    let event_validator = registry.generated_validator(SchemaId::EVENT_V1).unwrap();
+    let event_shape = registry.generated_object_shape(SchemaId::EVENT_V1).unwrap();
     for field in [
         "event_id",
         "space_id",
@@ -68,7 +68,7 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
         "proofs",
     ] {
         assert!(
-            event_validator
+            event_shape
                 .fields
                 .iter()
                 .any(|candidate| candidate.name == field && candidate.required),
@@ -95,19 +95,14 @@ fn event_value() -> serde_json::Value {
 }
 
 #[test]
-fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
+fn schema_registry_exposes_object_shape_metadata_and_uses_full_runtime_for_admission() {
     let mut registry = ProtocolSchemaRegistry::default();
-    let validator = registry.generated_validator(SchemaId::EVENT_V1).unwrap();
-    assert!(validator.fields.iter().any(|field| {
+    let shape = registry.generated_object_shape(SchemaId::EVENT_V1).unwrap();
+    assert!(shape.fields.iter().any(|field| {
         field.name == "event_id"
             && field.required
-            && field.value_type == GeneratedSchemaValueType::String
+            && field.value_type == SchemaValueTypeSummary::String
     }));
-    validator.validate(&event_value()).unwrap();
-
-    let mut wrong_type = event_value();
-    wrong_type["prev_refs"] = json!({});
-    assert!(validator.validate(&wrong_type).is_err());
 
     registry.register(
         "ak.schema.strict.v1",
@@ -120,15 +115,18 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
             "additionalProperties": false
         }),
     );
-    let warnings = registry
-        .generated_validator("ak.schema.strict.v1")
-        .unwrap()
-        .validate_with_warnings(&json!({"id": "1", "extra": true}))
+    registry
+        .validate_value("ak.schema.strict.v1", &json!({"id": "1"}))
         .unwrap();
     assert!(
-        warnings
-            .iter()
-            .any(|warning| warning.contains("additional field") && warning.contains("extra"))
+        registry
+            .validate_value("ak.schema.strict.v1", &json!({"id": 1}))
+            .is_err()
+    );
+    assert!(
+        registry
+            .validate_value("ak.schema.strict.v1", &json!({"id": "1", "extra": true}),)
+            .is_err()
     );
 }
 

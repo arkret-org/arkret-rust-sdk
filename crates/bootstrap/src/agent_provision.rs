@@ -6,8 +6,8 @@ use arkret_models_collaboration::governance::accountability::{
 use arkret_models_identity::claim_presentation::AgentSelectorClaim;
 use arkret_models_identity::handle::{HandleBindingState, HandleVisibility};
 use arkret_wire::{
-    Did, Error, Event, EventKind, Hash, Hlc, PayloadProof, PayloadSigner, RealmId, Result,
-    SchemaId, ScopeRef, proof_kind,
+    Did, Error, Event, EventKind, Hash, Hlc, PayloadProof, PayloadSigner, ProfileRef, RealmId,
+    Result, SchemaId, ScopeRef, proof_kind,
 };
 use chrono::{DateTime, Utc};
 
@@ -102,7 +102,7 @@ pub fn build_agent_provision_event_drafts<S: PayloadSigner + ?Sized>(
         created_at,
     )?;
     accountability_grant.requirements.schema_profile_refs =
-        vec![SchemaId::ACCOUNTABILITY_GRANT_V1.to_owned()];
+        vec![ProfileRef::new(SchemaId::ACCOUNTABILITY_GRANT_V1).unwrap()];
 
     let mut selector_payload = AgentSelectorClaim {
         schema: SchemaId::AGENT_SELECTOR_CLAIM_V1.to_owned(),
@@ -159,7 +159,7 @@ pub fn build_agent_provision_event_drafts<S: PayloadSigner + ?Sized>(
         created_at,
     )?;
     selector_claim.requirements.schema_profile_refs =
-        vec![SchemaId::AGENT_SELECTOR_CLAIM_V1.to_owned()];
+        vec![ProfileRef::new(SchemaId::AGENT_SELECTOR_CLAIM_V1).unwrap()];
 
     Ok(AgentProvisionEventDrafts {
         accountability_grant,

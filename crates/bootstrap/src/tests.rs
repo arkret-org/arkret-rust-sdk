@@ -12,11 +12,11 @@ use arkret_models_identity::did_document::principal_control_realm_id;
 use arkret_wire::{
     AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole, AuthoritySetPolicy,
     AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef, AuthoritySetSourceKind,
-    AuthorizationLease, AuthorizationLeaseId, CellRef, DeviceId, Did, DidUrl, Event, EventId,
-    EventInitialSubmission, EventKind, EventRef, Hash, Hlc, LeaseBasisRef, NonEmptyString,
-    NotarySig, PayloadSignature, PayloadSigner, ProjectedCellWrite, Proof, RealmId, RiskTier,
-    SchemaId, ScopeRef, SealId, SemanticRefProof, SemanticRefProofKind, TypedTrustDomainId,
-    WireError, composite_subject, proof_kind,
+    AuthorizationLease, AuthorizationLeaseId, AuthorizationRef, CellRef, DeviceId, Did, DidUrl,
+    Event, EventId, EventInitialSubmission, EventKind, EventRef, Hash, Hlc, LeaseBasisRef,
+    NonEmptyString, NotarySig, PayloadSignature, PayloadSigner, ProjectedCellWrite, Proof, RealmId,
+    RiskTier, SchemaId, ScopeRef, SealId, SemanticRefProof, SemanticRefProofKind,
+    TypedTrustDomainId, WireError, composite_subject, proof_kind,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -25,8 +25,8 @@ use crate::projection::direct_projection;
 use crate::self_principal::validate_self_principal_pcr_create;
 use crate::{
     AgentProvisionEventDraftOptions, DID_INCEPTION_REF_ROLE, ManagedAgentPcrGenesisAuthority,
-    REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_METADATA_CELL, REALM_NOTARY_CELL,
-    SelfPrincipalPcrCreateInput, build_agent_provision_event_drafts,
+    PRINCIPAL_CONTROL_PURPOSE, REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_METADATA_CELL,
+    REALM_NOTARY_CELL, SelfPrincipalPcrCreateInput, build_agent_provision_event_drafts,
     build_managed_agent_pcr_event_seal, build_self_principal_bootstrap_seal,
     build_self_principal_pcr_create, materialize_managed_agent_pcr_control,
     self_principal_bootstrap_submit_request, validate_self_principal_bootstrap_unit,
@@ -130,7 +130,8 @@ fn bootstrap_unit() -> (Event, Event) {
     authorize.created_at = create.created_at;
     authorize.prev_refs = vec![create.event_id.clone()];
     authorize.executed_by = Some(authority.clone());
-    authorize.authorization_ref = Some(authorization_ref.to_string());
+    authorize.authorization_ref =
+        Some(AuthorizationRef::new(authorization_ref.to_string()).unwrap());
     attach_fixture_proof(
         &mut authorize,
         &DidUrl::new(format!(
@@ -362,7 +363,8 @@ fn managed_agent_pcr_create() -> Event {
     )
     .unwrap();
     create.event_id = EventId::new("ak:event:01904100-0000-7000-8000-0000000000a1").unwrap();
-    create.authorization_ref = Some(format!("{agent}#managed-controller"));
+    create.authorization_ref =
+        Some(AuthorizationRef::new(format!("{agent}#managed-controller")).unwrap());
     create.executed_by = Some(controller);
     create
 }
@@ -520,6 +522,69 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
         panic!("managed Agent PCR Seal must use one controller signature")
     };
     assert_eq!(signature.verification_method, signer.verification_method);
+}
+
+#[test]
+fn managed_agent_successor_resolves_registered_patch_from_frozen_predecessor() {
+    let create = managed_agent_pcr_create();
+    let controller = create.executed_by.clone().unwrap();
+    let signer = FixtureSigner {
+        did: controller.clone(),
+        verification_method: DidUrl::new(format!(
+            "{controller}#ak:device:01904100-0000-7000-8000-0000000000b1"
+        ))
+        .unwrap(),
+    };
+    let first = build_managed_agent_pcr_event_seal(
+        std::slice::from_ref(&create),
+        None,
+        Hlc::new("01970e589d21-000b-a13f9c2e").unwrap(),
+        &signer,
+        &registry_projection,
+    )
+    .unwrap();
+
+    let mut update = Event::new(
+        EventKind::REALM_UPDATE,
+        create.scope_ref.clone(),
+        create.actor_id.clone(),
+        1,
+        Hlc::new("01970e589d21-000c-a13f9c2e").unwrap(),
+        serde_json::json!({
+            "patch": {
+                "fields.name": "renamed managed Agent"
+            }
+        }),
+    )
+    .unwrap();
+    update.event_id = EventId::new("ak:event:01904100-0000-7000-8000-0000000000b2").unwrap();
+    update.executed_by = Some(controller);
+    update.authorization_ref = create.authorization_ref.clone();
+    update.seal_basis = Some(first.seal_basis());
+
+    let material = materialize_managed_agent_pcr_control(
+        &[create.clone(), update.clone()],
+        &registry_projection,
+    )
+    .unwrap();
+    let metadata = CellRef::new(REALM_METADATA_CELL).unwrap();
+    let arkret_state::CellState::Value(patched) = material.joined.get(&metadata).unwrap() else {
+        panic!("managed Agent metadata must remain a live register")
+    };
+    assert_eq!(patched["fields"]["name"], "renamed managed Agent");
+    assert_eq!(patched["fields"]["purpose"], PRINCIPAL_CONTROL_PURPOSE);
+
+    let successor = build_managed_agent_pcr_event_seal(
+        &[create, update.clone()],
+        Some(&first),
+        Hlc::new("01970e589d21-000d-a13f9c2e").unwrap(),
+        &signer,
+        &registry_projection,
+    )
+    .unwrap();
+    assert_eq!(successor.delta.len(), 1);
+    assert_eq!(successor.delta[0].as_str(), update.event_digest().unwrap());
+    assert_ne!(successor.state_root, first.state_root);
 }
 
 #[test]

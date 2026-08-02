@@ -2,8 +2,10 @@
 
 use std::collections::BTreeMap;
 
-use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
-use arkret_wire::{Error, Result, StrandId, TrackName};
+use arkret_models_crypto::{
+    EncryptedEnvelope, MlsEncryptedPayload, MlsPayloadType, PlainPayload, ProtectedPayload,
+};
+use arkret_wire::{Error, Result, StrandId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -14,6 +16,18 @@ use crate::objects::strand::MessageMetadata;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/content_kind`.
 pub type ContentKind = String;
+
+/// Canonical decrypted media type for an MLS-protected message ContentBlock.
+pub const MESSAGE_CONTENT_BLOCK_MLS_CONTENT_TYPE: &str = "application/vnd.arkret.message+json";
+
+/// Canonical decrypted media type for MLS-protected Message metadata.
+pub const MESSAGE_METADATA_MLS_CONTENT_TYPE: &str = "application/vnd.arkret.message-metadata+json";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MessageTrackName {
+    Discussion,
+}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_metadata_fields`.
@@ -33,7 +47,7 @@ pub struct MessageRedactPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub track_name: Option<TrackName>,
+    pub track_name: Option<MessageTrackName>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -52,7 +66,7 @@ struct MessageRedactPayloadWire {
     #[serde(default)]
     target_event_id: Option<EventId>,
     #[serde(default)]
-    track_name: Option<TrackName>,
+    track_name: Option<MessageTrackName>,
     #[serde(default)]
     reason: Option<String>,
     #[serde(default)]
@@ -98,7 +112,7 @@ pub struct MessageRevisePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revision_of: Option<MessageId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub track_name: Option<TrackName>,
+    pub track_name: Option<MessageTrackName>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content: Option<ContentBlock>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -121,7 +135,7 @@ struct MessageRevisePayloadWire {
     #[serde(default)]
     revision_of: Option<MessageId>,
     #[serde(default)]
-    track_name: Option<TrackName>,
+    track_name: Option<MessageTrackName>,
     #[serde(default)]
     content: Option<ContentBlock>,
     #[serde(default)]
@@ -200,6 +214,14 @@ pub struct ContentBlock {
     pub parts: Vec<ContentBlock>,
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
+}
+
+impl MlsPayloadType for ContentBlock {
+    const MLS_CONTENT_TYPE: &'static str = MESSAGE_CONTENT_BLOCK_MLS_CONTENT_TYPE;
+}
+
+impl MlsPayloadType for MessageMetadata {
+    const MLS_CONTENT_TYPE: &'static str = MESSAGE_METADATA_MLS_CONTENT_TYPE;
 }
 
 impl ContentBlock {
@@ -853,6 +875,23 @@ pub struct MessageCreatePayload {
 }
 
 impl MessageCreatePayload {
+    pub fn with_protected_content(
+        strand_id: StrandId,
+        track_name: impl Into<String>,
+        protected_content: ProtectedPayload<ContentBlock>,
+    ) -> Self {
+        match protected_content {
+            ProtectedPayload::Plain(content) => {
+                Self::with_content(strand_id, track_name, content.into_value())
+            }
+            ProtectedPayload::Mls(content) => Self::with_encrypted_content_envelope(
+                strand_id,
+                track_name,
+                content.into_envelope(),
+            ),
+        }
+    }
+
     pub fn with_content(
         strand_id: StrandId,
         track_name: impl Into<String>,
@@ -876,6 +915,18 @@ impl MessageCreatePayload {
     pub fn with_encrypted_content(
         strand_id: StrandId,
         track_name: impl Into<String>,
+        encrypted_content: MlsEncryptedPayload<ContentBlock>,
+    ) -> Self {
+        Self::with_encrypted_content_envelope(
+            strand_id,
+            track_name,
+            encrypted_content.into_envelope(),
+        )
+    }
+
+    fn with_encrypted_content_envelope(
+        strand_id: StrandId,
+        track_name: impl Into<String>,
         encrypted_content: EncryptedEnvelope,
     ) -> Self {
         Self {
@@ -890,6 +941,64 @@ impl MessageCreatePayload {
             reply_to: None,
             agent_context: None,
             expiry: None,
+        }
+    }
+
+    pub fn with_mls_encrypted_content(
+        strand_id: StrandId,
+        track_name: impl Into<String>,
+        encrypted_content: MlsEncryptedPayload<ContentBlock>,
+    ) -> Self {
+        Self::with_encrypted_content(strand_id, track_name, encrypted_content)
+    }
+
+    pub fn protected_content(&self) -> Result<ProtectedPayload<ContentBlock>> {
+        match (&self.content, &self.encrypted_content) {
+            (Some(content), None) => Ok(PlainPayload::new(content.clone()).into()),
+            (None, Some(content)) => Ok(MlsEncryptedPayload::new(content.clone())?.into()),
+            (None, None) => Err(Error::Protocol(
+                "message create payload requires content or encrypted_content".to_owned(),
+            )),
+            (Some(_), Some(_)) => Err(Error::Protocol(
+                "message create payload must not carry both content and encrypted_content"
+                    .to_owned(),
+            )),
+        }
+    }
+
+    pub fn with_protected_metadata(
+        mut self,
+        protected_metadata: ProtectedPayload<MessageMetadata>,
+    ) -> Self {
+        match protected_metadata {
+            ProtectedPayload::Plain(metadata) => {
+                self.metadata = Some(metadata.into_value());
+                self.encrypted_metadata = None;
+            }
+            ProtectedPayload::Mls(metadata) => {
+                self.metadata = None;
+                self.encrypted_metadata = Some(metadata.into_envelope());
+            }
+        }
+        self
+    }
+
+    pub fn with_mls_encrypted_metadata(
+        self,
+        encrypted_metadata: MlsEncryptedPayload<MessageMetadata>,
+    ) -> Self {
+        self.with_protected_metadata(encrypted_metadata.into())
+    }
+
+    pub fn protected_metadata(&self) -> Result<Option<ProtectedPayload<MessageMetadata>>> {
+        match (&self.metadata, &self.encrypted_metadata) {
+            (Some(metadata), None) => Ok(Some(PlainPayload::new(metadata.clone()).into())),
+            (None, Some(metadata)) => Ok(Some(MlsEncryptedPayload::new(metadata.clone())?.into())),
+            (None, None) => Ok(None),
+            (Some(_), Some(_)) => Err(Error::Protocol(
+                "message create payload must not carry both metadata and encrypted_metadata"
+                    .to_owned(),
+            )),
         }
     }
 

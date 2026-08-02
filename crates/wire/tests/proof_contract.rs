@@ -1,6 +1,6 @@
 use arkret_wire::{
-    Audience, CriticalExtension, Did, DidUrl, Event, Hash, Hlc, Proof, ProofBindingRequirements,
-    RealmId,
+    Audience, CriticalExtension, Did, DidUrl, Event, FeatureRef, Hash, Hlc, ProfileRef, Proof,
+    ProofBindingRequirements, RealmId,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -422,12 +422,13 @@ fn event_digest_includes_profile_refs_features_and_critical_extensions() {
     event
         .requirements
         .schema_profile_refs
-        .push("ak.schema.core_event.v1".to_owned());
-    event.requirements.reducer_profile_ref = Some("ak.reducer.core_event.v1".to_owned());
+        .push(ProfileRef::new("ak.schema.core_event.v1").unwrap());
+    event.requirements.reducer_profile_ref =
+        Some(ProfileRef::new("ak.reducer.core_event.v1").unwrap());
     event
         .requirements
         .required_features
-        .push("ak.feature.event_extensions.v1".to_owned());
+        .push(FeatureRef::new("ak.feature.event_extensions.v1").unwrap());
     event
         .requirements
         .critical_extensions

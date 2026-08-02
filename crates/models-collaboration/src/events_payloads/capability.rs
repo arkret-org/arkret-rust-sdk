@@ -7,15 +7,10 @@ use crate::internal_prelude::*;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CapabilityGrantPayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub grant: Option<CapabilityGrant>,
+    /// The one canonical v1 grant artifact. Flat subject/actions/resources
+    /// payloads cannot carry issuer proofs or authority refs and are not v1.
+    pub grant: CapabilityGrant,
     pub grant_id: GrantId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subject: Option<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actions: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub resources: Option<Vec<BTreeMap<String, Value>>>,
 }
 
 /// Counterpart for

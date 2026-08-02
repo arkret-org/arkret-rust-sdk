@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/proof-context-registry.json; version=2026-07-31;
-//! sha256=597455af6d749225da45307b1644c63b643d491f65e4eb5fd4e7edaf0ea081c2 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-08-02;
+//! sha256=df4bd5018d0d89eef0ec7c6363a298ab5bbfb7c8613444475e715b92a4b041b3 Input: registry/
 //! exporter-label-registry.json; version=2026-06-10;
 //! sha256=8ac4e357f9c8759ad0ee46582a045c1501665ac3c49b34262fecbbca8c7c28d9 Input: registry/
 //! digest-suite-registry.json; version=2026-06-10;
@@ -13,8 +13,8 @@
 //! mls-ciphersuite-registry.json; version=2026-07-29;
 //! sha256=2c73b41567acd7880abcb4f73a2b09f28805517f41531ef9bfa9a1d018d63ac3 Input: registry/
 //! mls-extension-registry.json; version=2026-06-03;
-//! sha256=0fbcc85e00b58715c360aa0ed37acf11d858fd6b1a7d0ceb9b0c82bda99f1614
-//! Entries: proof_contexts=38, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! sha256=4f759c4fe77917be80bb0b46b561daf1b7205288bc32f6b7a80d0d3be80242b8
+//! Entries: proof_contexts=37, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -29,7 +29,6 @@ pub enum ProofContextId {
     AuditReleaseAttestationProofV1,
     AuditRywReceiptProofV1,
     AuthorizationLeaseProofV1,
-    CapabilityGrantProofV1,
     ControlProposalDecisionProofV1,
     ControlProposalMemberReceiptProofV1,
     DidContinuityProofV1,
@@ -71,7 +70,6 @@ impl ProofContextId {
         Self::AuditReleaseAttestationProofV1,
         Self::AuditRywReceiptProofV1,
         Self::AuthorizationLeaseProofV1,
-        Self::CapabilityGrantProofV1,
         Self::ControlProposalDecisionProofV1,
         Self::ControlProposalMemberReceiptProofV1,
         Self::DidContinuityProofV1,
@@ -115,7 +113,6 @@ impl ProofContextId {
         "ak.audit-release-attestation-proof-v1";
     pub const AUDIT_RYW_RECEIPT_PROOF_V1: &'static str = "ak.audit-ryw-receipt-proof-v1";
     pub const AUTHORIZATION_LEASE_PROOF_V1: &'static str = "ak.authorization-lease-proof-v1";
-    pub const CAPABILITY_GRANT_PROOF_V1: &'static str = "ak.capability-grant-proof-v1";
     pub const CONTROL_PROPOSAL_DECISION_PROOF_V1: &'static str =
         "ak.control-proposal-decision-proof-v1";
     pub const CONTROL_PROPOSAL_MEMBER_RECEIPT_PROOF_V1: &'static str =
@@ -173,7 +170,6 @@ impl ProofContextId {
             Self::AuditReleaseAttestationProofV1 => Self::AUDIT_RELEASE_ATTESTATION_PROOF_V1,
             Self::AuditRywReceiptProofV1 => Self::AUDIT_RYW_RECEIPT_PROOF_V1,
             Self::AuthorizationLeaseProofV1 => Self::AUTHORIZATION_LEASE_PROOF_V1,
-            Self::CapabilityGrantProofV1 => Self::CAPABILITY_GRANT_PROOF_V1,
             Self::ControlProposalDecisionProofV1 => Self::CONTROL_PROPOSAL_DECISION_PROOF_V1,
             Self::ControlProposalMemberReceiptProofV1 => {
                 Self::CONTROL_PROPOSAL_MEMBER_RECEIPT_PROOF_V1
@@ -236,7 +232,6 @@ impl ProofContextId {
             Self::AUDIT_RELEASE_ATTESTATION_PROOF_V1 => Some(Self::AuditReleaseAttestationProofV1),
             Self::AUDIT_RYW_RECEIPT_PROOF_V1 => Some(Self::AuditRywReceiptProofV1),
             Self::AUTHORIZATION_LEASE_PROOF_V1 => Some(Self::AuthorizationLeaseProofV1),
-            Self::CAPABILITY_GRANT_PROOF_V1 => Some(Self::CapabilityGrantProofV1),
             Self::CONTROL_PROPOSAL_DECISION_PROOF_V1 => Some(Self::ControlProposalDecisionProofV1),
             Self::CONTROL_PROPOSAL_MEMBER_RECEIPT_PROOF_V1 => {
                 Some(Self::ControlProposalMemberReceiptProofV1)
@@ -524,21 +519,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/offline-publication.schema.json#/$defs/authorization_lease",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::CapabilityGrantProofV1,
-        context: "ak.capability-grant-proof-v1",
-        object_family: "capability_grant",
-        binding_fields: &[
-            "payload_digest",
-            "issuer",
-            "subject",
-            "verification_method",
-            "created_at",
-            "domain?",
-            "audience?",
-        ],
-        schema_ref: "schemas/capability-grant.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::ControlProposalDecisionProofV1,

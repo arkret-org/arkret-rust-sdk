@@ -224,6 +224,9 @@ pub use arkret_models_crypto::mls_envelopes::{
 };
 pub use arkret_models_crypto::mls_payloads::*;
 pub use arkret_models_crypto::mls_records::MlsKeyPackageRecord;
+pub use arkret_models_crypto::protected_payload::{
+    MlsEncryptedPayload, MlsPayloadType, PlainPayload, ProtectedPayload,
+};
 pub use arkret_models_discovery::directory::*;
 pub use arkret_models_discovery::directory_artifacts::*;
 pub use arkret_models_discovery::http_bodies::*;
@@ -293,8 +296,11 @@ pub use arkret_policy::realm_organization::*;
 pub use arkret_push_policy::blind_payload_sanitizer::*;
 pub use arkret_push_policy::{blind_payload_sanitizer, push_rule_core};
 pub use arkret_schema as schema;
-pub use arkret_schema::EventSchemaExt;
 pub use arkret_schema::protocol::*;
+pub use arkret_schema::{
+    EventSchemaExt, PreparedControlMove, PreparedDataEvent, PreparedEventPlane,
+    PreparedNonReducerEvent, PreparedStandardEvent,
+};
 #[cfg(feature = "server")]
 pub use arkret_server as server;
 pub use arkret_signatures as signatures;

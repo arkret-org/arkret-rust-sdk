@@ -116,17 +116,11 @@ pub enum MessageLifecycleState {
     Redacted,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/feature_ref`.
-pub type FeatureRef = String;
-
 /// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/grant_ref`.
 pub type GrantRef = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/list_space_id`.
 pub type ListSpaceId = SpaceId;
-
-/// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/profile_ref`.
-pub type ProfileRef = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/rank`.
 pub type Rank = String;

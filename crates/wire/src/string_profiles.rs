@@ -137,6 +137,38 @@ pub fn validate_canonical_idna_domain(input: &str) -> Result<()> {
     Ok(())
 }
 
+/// Validate the canonical `<prepared-localpart>:<lowercase-A-label-domain>` wire form.
+pub fn validate_canonical_handle(input: &str) -> Result<()> {
+    let (localpart, domain) = input
+        .split_once(':')
+        .ok_or_else(|| Error::Protocol("canonical handle must contain ':'".to_owned()))?;
+    if domain.contains(':') {
+        return Err(Error::Protocol(
+            "canonical handle contains more than one ':' separator".to_owned(),
+        ));
+    }
+    validate_canonical_handle_localpart(localpart)?;
+    validate_canonical_idna_domain(domain)
+}
+
+/// Validate the canonical RFC 7565 `acct:` spelling used for Arkret handle aliases.
+pub fn validate_canonical_acct_uri(input: &str) -> Result<()> {
+    let body = input
+        .strip_prefix("acct:")
+        .ok_or_else(|| Error::Protocol("acct URI must start with 'acct:'".to_owned()))?;
+    let (encoded_localpart, domain) = body
+        .rsplit_once('@')
+        .ok_or_else(|| Error::Protocol("acct URI must contain '@'".to_owned()))?;
+    if encoded_localpart.is_empty() || domain.contains('@') {
+        return Err(Error::Protocol(
+            "acct URI must contain one non-empty localpart and one host".to_owned(),
+        ));
+    }
+    let localpart = decode_acct_localpart(encoded_localpart)?;
+    validate_canonical_handle_localpart(&localpart)?;
+    validate_canonical_idna_domain(domain)
+}
+
 pub fn human_identifier_skeleton(value: &str) -> Result<String> {
     validate_canonical_handle_localpart(value)?;
     Ok(unicode_security::skeleton(value).collect())
@@ -187,6 +219,58 @@ pub fn validate_short_text(
         ));
     }
     Ok(())
+}
+
+/// Validate the unbounded portion of the Arkret content-text profile.
+///
+/// Field-specific schemas remain responsible for their own code-point and
+/// UTF-8 byte limits. Empty content is allowed by the shared schema profile.
+pub fn validate_content_text(value: &str) -> Result<()> {
+    if !is_nfc(value)
+        || value.chars().any(|character| {
+            (character.is_control() && !matches!(character, '\t' | '\n' | '\r'))
+                || character == '\u{FEFF}'
+        })
+    {
+        return Err(Error::Protocol(
+            "content text is non-NFC or contains a forbidden control character".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn decode_acct_localpart(value: &str) -> Result<String> {
+    let bytes = value.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] != b'%' {
+            decoded.push(bytes[index]);
+            index += 1;
+            continue;
+        }
+        if index + 2 >= bytes.len() {
+            return Err(Error::Protocol(
+                "acct URI contains a truncated percent escape".to_owned(),
+            ));
+        }
+        let high = decode_upper_hex(bytes[index + 1])?;
+        let low = decode_upper_hex(bytes[index + 2])?;
+        decoded.push((high << 4) | low);
+        index += 3;
+    }
+    String::from_utf8(decoded)
+        .map_err(|_| Error::Protocol("acct URI localpart is not valid UTF-8".to_owned()))
+}
+
+fn decode_upper_hex(value: u8) -> Result<u8> {
+    match value {
+        b'0'..=b'9' => Ok(value - b'0'),
+        b'A'..=b'F' => Ok(value - b'A' + 10),
+        _ => Err(Error::Protocol(
+            "acct URI percent escapes must use uppercase hexadecimal".to_owned(),
+        )),
+    }
 }
 
 fn validate_nfc_and_length(
@@ -255,6 +339,22 @@ mod tests {
         assert!(validate_single_line_display_text("   ", 256, 1024).is_err());
         assert!(validate_single_line_display_text("line\nbreak", 256, 1024).is_err());
         assert!(validate_single_line_display_text("x\u{202E}y", 256, 1024).is_err());
+    }
+
+    #[test]
+    fn canonical_handle_and_acct_profiles_share_identifier_validation() {
+        validate_canonical_handle("小明:domain.xn--fiqs8s").unwrap();
+        validate_canonical_acct_uri("acct:%E5%B0%8F%E6%98%8E@domain.xn--fiqs8s").unwrap();
+        assert!(validate_canonical_handle("ＡＬＩＣＥ:example.com").is_err());
+        assert!(validate_canonical_acct_uri("acct:Alice@example.com").is_err());
+        assert!(validate_canonical_acct_uri("acct:%e5%B0%8F@example.com").is_err());
+    }
+
+    #[test]
+    fn content_text_requires_nfc_and_rejects_unsafe_controls() {
+        validate_content_text("line one\nline two\tvalue").unwrap();
+        assert!(validate_content_text("e\u{301}").is_err());
+        assert!(validate_content_text("before\u{0000}after").is_err());
     }
 
     #[test]

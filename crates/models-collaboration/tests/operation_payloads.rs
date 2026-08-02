@@ -2,10 +2,30 @@ use arkret_canonical::canonical;
 use arkret_models_collaboration::events_payloads::{ObjectCreatePayload, *};
 use arkret_models_collaboration::objects::profiles::{Morph, MorphMetadata};
 use arkret_models_collaboration::objects::space::Space;
-use arkret_models_crypto::EncryptedEnvelope;
+use arkret_models_collaboration::objects::strand::MessageMetadata;
+use arkret_models_crypto::{
+    EncryptedEnvelope, MlsEncryptedPayload, PlainPayload, ProtectedPayload,
+};
 use arkret_schema::event_payload_validator_catalog;
 use arkret_wire::{Did, MorphId, RealmId, SpaceId, StrandId};
 use serde_json::json;
+
+#[test]
+fn agent_pair_activation_state_has_closed_two_phase_wire_values() {
+    use arkret_models_collaboration::agent_operations::AgentKeyPairActivationState;
+
+    assert_eq!(
+        serde_json::to_value(AgentKeyPairActivationState::AwaitingAcceptedFrontier).unwrap(),
+        json!("awaiting_accepted_frontier")
+    );
+    assert_eq!(
+        serde_json::from_value::<AgentKeyPairActivationState>(json!("active")).unwrap(),
+        AgentKeyPairActivationState::Active
+    );
+    assert!(
+        serde_json::from_value::<AgentKeyPairActivationState>(json!("durable_but_active")).is_err()
+    );
+}
 
 fn encrypted_envelope() -> EncryptedEnvelope {
     serde_json::from_value(json!({
@@ -72,6 +92,81 @@ fn message_create_payload_requires_exactly_one_content_carrier() {
             .unwrap();
     assert_eq!(payload["content"]["kind"], "ak.content.text");
     assert!(payload.get("encrypted_content").is_none());
+}
+
+#[test]
+fn message_payload_protection_axis_is_closed_and_typed() {
+    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let plain = MessageCreatePayload::with_protected_content(
+        strand_id.clone(),
+        "discussion",
+        ProtectedPayload::from(PlainPayload::new(ContentBlock::text("hello"))),
+    );
+    assert!(matches!(
+        plain.protected_content().unwrap(),
+        ProtectedPayload::Plain(_)
+    ));
+
+    let encrypted = MlsEncryptedPayload::<ContentBlock>::new(encrypted_envelope()).unwrap();
+    let protected =
+        MessageCreatePayload::with_mls_encrypted_content(strand_id, "discussion", encrypted);
+    assert!(matches!(
+        protected.protected_content().unwrap(),
+        ProtectedPayload::Mls(_)
+    ));
+}
+
+#[test]
+fn typed_mls_message_payload_rejects_a_different_content_schema() {
+    let mut envelope = encrypted_envelope();
+    envelope.content_type = "application/vnd.arkret.reaction+json".to_owned();
+
+    assert!(MlsEncryptedPayload::<ContentBlock>::new(envelope).is_err());
+}
+
+#[test]
+fn message_metadata_payload_has_an_independent_mls_schema() {
+    let mut envelope = encrypted_envelope();
+    envelope.content_type = MESSAGE_METADATA_MLS_CONTENT_TYPE.to_owned();
+    let encrypted_metadata = MlsEncryptedPayload::<MessageMetadata>::new(envelope.clone()).unwrap();
+    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let payload =
+        MessageCreatePayload::with_content(strand_id, "discussion", ContentBlock::text("hello"))
+            .with_mls_encrypted_metadata(encrypted_metadata);
+
+    assert!(matches!(
+        payload.protected_metadata().unwrap(),
+        Some(ProtectedPayload::Mls(_))
+    ));
+    assert!(MlsEncryptedPayload::<ContentBlock>::new(envelope).is_err());
+}
+
+#[test]
+fn typed_mls_message_metadata_rejects_content_block_media_type() {
+    assert!(MlsEncryptedPayload::<MessageMetadata>::new(encrypted_envelope()).is_err());
+}
+
+#[test]
+fn message_event_schema_rejects_metadata_labeled_as_content_block() {
+    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let mut payload =
+        MessageCreatePayload::with_content(strand_id, "discussion", ContentBlock::text("hello"))
+            .to_value()
+            .unwrap();
+    payload["encrypted_metadata"] = serde_json::to_value(encrypted_envelope()).unwrap();
+
+    assert!(
+        event_payload_validator_catalog()
+            .unwrap()
+            .validate_payload("ak.message.create", &payload)
+            .is_err()
+    );
+
+    payload["encrypted_metadata"]["content_type"] = json!(MESSAGE_METADATA_MLS_CONTENT_TYPE);
+    event_payload_validator_catalog()
+        .unwrap()
+        .validate_payload("ak.message.create", &payload)
+        .unwrap();
 }
 
 #[test]

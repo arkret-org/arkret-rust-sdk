@@ -214,6 +214,24 @@ pub fn agent_authorization_cell_ref(
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
 }
 
+/// Returns true when `dot` is the canonical OR-Set dot produced by one of the
+/// registered cell writes of `event_id`.
+///
+/// Agent authorization witnesses name the durable Event separately from the
+/// cell element. The element tag is never the bare Event id: it is the
+/// protocol-wide `<event_id>:<write_index>` dot, where `write_index` is a
+/// canonical base-10 registry `cell_writes[]` index.
+pub fn agent_authorization_dot_matches_event(dot: &str, event_id: &str) -> bool {
+    let Some((dot_event_id, write_index)) = dot.rsplit_once(':') else {
+        return false;
+    };
+    dot_event_id == event_id
+        && EventId::new(dot_event_id.to_owned()).is_ok()
+        && write_index
+            .parse::<usize>()
+            .is_ok_and(|parsed| parsed.to_string() == write_index)
+}
+
 pub fn agent_evidence_freshness_signing_bytes(
     attestation: &AgentEvidenceFreshnessAttestation,
 ) -> Result<Vec<u8>, AgentEvidenceRejectedReason> {
@@ -510,7 +528,7 @@ pub fn validate_agent_signer_evidence(
                 )
                 .ok()
                     != Some(transition_witness.cell_ref.clone())
-                || !value_contains_string(
+                || !value_contains_event_dot(
                     &transition_witness.cell_value,
                     transition_event_id.as_str(),
                 )
@@ -746,15 +764,15 @@ fn did_url_controller(method: &DidUrl) -> &str {
     method.as_str().split_once('#').map_or("", |(did, _)| did)
 }
 
-fn value_contains_string(value: &Value, expected: &str) -> bool {
+fn value_contains_event_dot(value: &Value, event_id: &str) -> bool {
     match value {
-        Value::String(value) => value == expected,
+        Value::String(value) => agent_authorization_dot_matches_event(value, event_id),
         Value::Array(values) => values
             .iter()
-            .any(|value| value_contains_string(value, expected)),
+            .any(|value| value_contains_event_dot(value, event_id)),
         Value::Object(values) => values
             .values()
-            .any(|value| value_contains_string(value, expected)),
+            .any(|value| value_contains_event_dot(value, event_id)),
         Value::Null | Value::Bool(_) | Value::Number(_) => false,
     }
 }
@@ -769,14 +787,16 @@ fn value_contains_authorization_record(
             let exact_record = values
                 .get("tag")
                 .and_then(Value::as_str)
-                .is_some_and(|event_id| {
-                    event_id == binding.agent_key_authorize_event_id.as_str()
-                        && values
-                            .get("value")
-                            .and_then(Value::as_object)
-                            .is_some_and(|record| {
-                                authorization_record_fields_match(record, binding, binding_digest)
-                            })
+                .is_some_and(|event_dot| {
+                    agent_authorization_dot_matches_event(
+                        event_dot,
+                        binding.agent_key_authorize_event_id.as_str(),
+                    ) && values
+                        .get("value")
+                        .and_then(Value::as_object)
+                        .is_some_and(|record| {
+                            authorization_record_fields_match(record, binding, binding_digest)
+                        })
                 });
             exact_record
                 || values.values().any(|nested| {
@@ -835,6 +855,24 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn agent_authorization_witness_requires_canonical_event_dot() {
+        let event_id = "ak:event:01964137-0000-7000-8000-000000000001";
+        assert!(agent_authorization_dot_matches_event(
+            &format!("{event_id}:1"),
+            event_id,
+        ));
+        assert!(!agent_authorization_dot_matches_event(event_id, event_id));
+        assert!(!agent_authorization_dot_matches_event(
+            &format!("{event_id}:01"),
+            event_id,
+        ));
+        assert!(!agent_authorization_dot_matches_event(
+            "ak:event:01964137-0000-7000-8000-000000000002:1",
+            event_id,
+        ));
+    }
+
     fn did(value: &str) -> Did {
         Did::new(value).unwrap()
     }
@@ -890,7 +928,7 @@ mod tests {
             agent_authorization_cell_ref(&binding.agent_id, &binding.agent_key_id).unwrap();
         let binding_digest = agent_signing_key_binding_digest(&binding).unwrap();
         let cell_value = serde_json::json!([{
-            "tag": binding.agent_key_authorize_event_id,
+            "tag": format!("{}:1", binding.agent_key_authorize_event_id.as_str()),
             "value": {
                 "agent_id": binding.agent_id,
                 "key_id": binding.agent_key_id,
@@ -971,7 +1009,7 @@ mod tests {
         )
         .unwrap();
         let cell_value = serde_json::json!([{
-            "tag": transition_event_id,
+            "tag": format!("{}:1", transition_event_id.as_str()),
             "value": {
                 "key_id": transition_key_id
             }

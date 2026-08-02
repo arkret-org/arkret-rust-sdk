@@ -6,7 +6,7 @@ use super::*;
 pub struct SchemaCatalogEntry {
     pub schema_id: String,
     pub current_version: String,
-    pub generated_validator: bool,
+    pub object_shape_summary: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -55,7 +55,7 @@ fn catalog_entry(registry: &ProtocolSchemaRegistry, schema_id: &str) -> SchemaCa
     SchemaCatalogEntry {
         schema_id: schema_id.to_owned(),
         current_version: "1".to_owned(),
-        generated_validator: registry.generated_validator(schema_id).is_ok(),
+        object_shape_summary: registry.generated_object_shape(schema_id).is_ok(),
     }
 }
 

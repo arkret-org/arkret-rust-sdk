@@ -58,6 +58,22 @@ pub fn to_nfc(s: &str) -> String {
 /// Egress ([`canonical_json_bytes`]) is not capped.
 pub const MAX_CANONICAL_JSON_INGRESS_BYTES: usize = 1_048_576;
 
+/// Ceiling for any v1 canonical-JSON body budget.
+///
+/// `scalability-constraints.md` §2.1.2 caps a non-streaming JSON operation body
+/// at 8 MiB and forbids registering a higher value, so no caller-supplied
+/// budget may exceed it. Callers that need more must page, stream, or use a
+/// Blob.
+pub const MAX_CANONICAL_JSON_BODY_INGRESS_BYTES: usize = 8_388_608;
+
+/// Ceiling for JSON message-content bytes before parsing.
+///
+/// This is deliberately distinct from the 8 MiB canonical-body ceiling: a
+/// non-canonical request can be as large as the 16 MiB HTTP wire bound and
+/// still canonicalize below 8 MiB. Callers must parse under the wire bound,
+/// then measure the canonical value and finally enforce canonical spelling.
+pub const MAX_JSON_WIRE_INGRESS_BYTES: usize = 16_777_216;
+
 /// Maximum container nesting depth accepted on canonical-JSON ingress
 /// (`scalability-constraints.md` §2: objects and arrays combined, the
 /// top-level container counts as depth 1, the limit is inclusive). Depth 64
@@ -152,7 +168,16 @@ fn validate_canonical_string(s: &str) -> Result<()> {
 /// the parsed value and compares the result to the original bytes. Any mismatch
 /// means the ingress bytes were not the unique Arkret canonical JSON form.
 pub fn parse_canonical_json(bytes: &[u8]) -> Result<Value> {
-    let value = parse_json_rejecting_duplicate_keys(bytes)?;
+    parse_canonical_json_within(bytes, MAX_CANONICAL_JSON_INGRESS_BYTES)
+}
+
+/// [`parse_canonical_json`] with an explicit byte budget for the body class.
+///
+/// See [`parse_json_rejecting_duplicate_keys_within`] for why the budget is a
+/// parameter rather than the Event Envelope constant.
+pub fn parse_canonical_json_within(bytes: &[u8], max_ingress_bytes: usize) -> Result<Value> {
+    let limit = max_ingress_bytes.min(MAX_CANONICAL_JSON_BODY_INGRESS_BYTES);
+    let value = parse_json_rejecting_duplicate_keys_within(bytes, limit)?;
     validate_canonical_bytes_match(bytes, &value)?;
     Ok(value)
 }
@@ -168,12 +193,27 @@ pub fn parse_canonical_json(bytes: &[u8]) -> Result<Value> {
 /// duplicate member") are the only such format in v1. Anything that is signed,
 /// digested or compared byte-for-byte MUST keep using [`parse_canonical_json`].
 pub fn parse_json_rejecting_duplicate_keys(bytes: &[u8]) -> Result<Value> {
-    // scalability-constraints.md §2: a single envelope over 1 MiB MUST be
-    // rejected. Enforce the cap before any BOM scan / parse work so an
-    // oversized input cannot be materialised into a `Value`.
-    if bytes.len() > MAX_CANONICAL_JSON_INGRESS_BYTES {
+    parse_json_rejecting_duplicate_keys_within(bytes, MAX_CANONICAL_JSON_INGRESS_BYTES)
+}
+
+/// [`parse_json_rejecting_duplicate_keys`] with an explicit byte budget.
+///
+/// The 1 MiB default is the Event Envelope bound. Callers that parse an HTTP
+/// operation before measuring its JCS form may pass the 16 MiB wire budget;
+/// the later canonical-body check remains a separate obligation. The parser
+/// budget is clamped to the v1 wire ceiling so an arbitrary caller value cannot
+/// create an unbounded allocation path.
+pub fn parse_json_rejecting_duplicate_keys_within(
+    bytes: &[u8],
+    max_ingress_bytes: usize,
+) -> Result<Value> {
+    let limit = max_ingress_bytes.min(MAX_JSON_WIRE_INGRESS_BYTES);
+    // scalability-constraints.md §2: enforce the caller's raw input budget
+    // before any BOM scan / parse work so oversized input cannot be
+    // materialised into a `Value`.
+    if bytes.len() > limit {
         return Err(Error::Protocol(format!(
-            "canonical JSON input is {} bytes, exceeding the v1 ingress maximum of {MAX_CANONICAL_JSON_INGRESS_BYTES} bytes (scalability-constraints.md §2)",
+            "canonical JSON input is {} bytes, exceeding the v1 ingress maximum of {limit} bytes (scalability-constraints.md §2)",
             bytes.len()
         )));
     }

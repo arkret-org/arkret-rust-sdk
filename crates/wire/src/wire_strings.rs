@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::ops::Deref;
 
+use arkret_identifiers::{EventId, GrantId};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use serde_json::Value;
 
@@ -168,6 +169,186 @@ impl<'de> Deserialize<'de> for ProtocolKind {
     {
         let value = String::deserialize(deserializer)?;
         Self::new(value).map_err(de::Error::custom)
+    }
+}
+
+fn split_versioned_ref(value: &str) -> Option<&str> {
+    let (prefix, version) = value.rsplit_once(".v")?;
+    if prefix.is_empty() || version.is_empty() || !version.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return None;
+    }
+    Some(prefix)
+}
+
+macro_rules! validated_wire_string {
+    ($(#[$meta:meta])* $name:ident, $validator:expr, $error:literal) => {
+        $(#[$meta])*
+        #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+        #[serde(transparent)]
+        #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+        pub struct $name(String);
+
+        impl $name {
+            pub fn new(value: impl Into<String>) -> Result<Self, &'static str> {
+                let value = value.into();
+                if !$validator(&value) {
+                    return Err($error);
+                }
+                Ok(Self(value))
+            }
+
+            pub fn as_str(&self) -> &str {
+                &self.0
+            }
+
+            pub fn into_string(self) -> String {
+                self.0
+            }
+        }
+
+        impl AsRef<str> for $name {
+            fn as_ref(&self) -> &str {
+                self.as_str()
+            }
+        }
+
+        impl Deref for $name {
+            type Target = str;
+
+            fn deref(&self) -> &Self::Target {
+                self.as_str()
+            }
+        }
+
+        impl fmt::Display for $name {
+            fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str(self.as_str())
+            }
+        }
+
+        impl TryFrom<String> for $name {
+            type Error = &'static str;
+
+            fn try_from(value: String) -> Result<Self, Self::Error> {
+                Self::new(value)
+            }
+        }
+
+        impl From<$name> for String {
+            fn from(value: $name) -> Self {
+                value.into_string()
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                let value = String::deserialize(deserializer)?;
+                Self::new(value).map_err(de::Error::custom)
+            }
+        }
+    };
+}
+
+fn is_profile_ref(value: &str) -> bool {
+    let Some(prefix) = split_versioned_ref(value) else {
+        return false;
+    };
+    prefix
+        .bytes()
+        .next()
+        .is_some_and(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+        && prefix.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'.' | b'-')
+        })
+}
+
+fn is_feature_ref(value: &str) -> bool {
+    let Some(prefix) = split_versioned_ref(value) else {
+        return false;
+    };
+    let segments = prefix.split('.').collect::<Vec<_>>();
+    let domain_segment = |segment: &&str| {
+        segment
+            .bytes()
+            .next()
+            .is_some_and(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+            && segment
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+    };
+    let feature_segment = |segment: &&str| {
+        !segment.is_empty()
+            && segment
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+    };
+
+    if segments.first() == Some(&"cx") {
+        return segments.len() >= 2 && segments[1..].iter().all(feature_segment);
+    }
+    (2..segments.len()).any(|feature_start| {
+        segments[..feature_start].iter().all(domain_segment)
+            && segments[feature_start..].iter().all(feature_segment)
+    })
+}
+
+validated_wire_string!(
+    /// Open profile identifier matching the Event Envelope `profile_ref` grammar.
+    ///
+    /// Unknown but well-formed profile IDs are preserved so registry evolution
+    /// remains forward compatible; admission decides whether they are supported.
+    ProfileRef,
+    is_profile_ref,
+    "profile reference must match ^[a-z0-9][a-z0-9_.-]*\\.v[0-9]+$"
+);
+
+validated_wire_string!(
+    /// Open feature identifier matching the Event Envelope `feature_ref` grammar.
+    ///
+    /// Unknown but well-formed feature IDs survive decoding. Event admission
+    /// still fails closed when a required feature is unsupported.
+    FeatureRef,
+    is_feature_ref,
+    "feature reference does not match the Event Envelope feature_ref grammar"
+);
+
+fn is_authorization_ref(value: &str) -> bool {
+    value == crate::REALM_AUTHORITY_ROOT_CELL
+        || value == "ak.authority.direct_conversation_participant.v1"
+        || GrantId::new(value).is_ok()
+        || EventId::new(value).is_ok()
+        || DidUrl::new(value).is_ok()
+}
+
+validated_wire_string!(
+    /// Closed Event Envelope authorization source reference.
+    ///
+    /// The schema admits a grant, an accepted authorization Event, a DID
+    /// delegation URL, or one of two exact authority-source constants.
+    AuthorizationRef,
+    is_authorization_ref,
+    "authorization reference must be a grant, event, DID delegation URL, or registered authority constant"
+);
+
+impl From<GrantId> for AuthorizationRef {
+    fn from(value: GrantId) -> Self {
+        Self(value.into_string())
+    }
+}
+
+impl From<EventId> for AuthorizationRef {
+    fn from(value: EventId) -> Self {
+        Self(value.into_string())
+    }
+}
+
+impl From<DidUrl> for AuthorizationRef {
+    fn from(value: DidUrl) -> Self {
+        Self(value.to_string())
     }
 }
 
@@ -660,6 +841,40 @@ impl<'de> Deserialize<'de> for DidKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn open_profile_and_feature_refs_validate_shape_without_closing_the_registry() {
+        let profile = ProfileRef::new("vendor.profile.future_mode.v42").unwrap();
+        assert_eq!(profile.as_str(), "vendor.profile.future_mode.v42");
+        assert!(ProfileRef::new("Vendor.profile.v1").is_err());
+        assert!(ProfileRef::new("ak.profile.missing_version").is_err());
+
+        let feature = FeatureRef::new("example.vendor.future_mode.v7").unwrap();
+        assert_eq!(feature.as_str(), "example.vendor.future_mode.v7");
+        assert!(FeatureRef::new("ak.feature.future_mode").is_err());
+        assert!(FeatureRef::new("single.future_mode.v1").is_err());
+    }
+
+    #[test]
+    fn authorization_ref_accepts_only_the_schema_union() {
+        for value in [
+            "ak:grant:01904100-0000-7000-8000-cccccccccccc",
+            "ak:event:01904100-0000-7000-8000-cccccccccccc",
+            "did:web:alice.example#managed-controller",
+            crate::REALM_AUTHORITY_ROOT_CELL,
+            "ak.authority.direct_conversation_participant.v1",
+        ] {
+            assert!(AuthorizationRef::new(value).is_ok(), "{value}");
+        }
+        for value in [
+            "ak:cell:ak.component.realm.metadata.v1:null",
+            "ak:grant:not-a-uuid",
+            "did:web:alice.example",
+            "future.authorization.source.v1",
+        ] {
+            assert!(AuthorizationRef::new(value).is_err(), "{value}");
+        }
+    }
 
     #[test]
     fn non_empty_wire_strings_reject_empty_input() {

@@ -12,10 +12,11 @@ mod error;
 mod event_cell_contract;
 mod event_validation;
 pub mod generated;
+mod prepared_event;
 pub mod protocol;
 
 pub use arkret_wire::{CORE_SCHEMA_PROFILE, events};
-pub use error::{Error, Result, SchemaError};
+pub use error::{Error, Result, SchemaError, SchemaValidationIssue, SchemaValidationReason};
 pub use event_cell_contract::{
     EventCellContractContext, EventCellContractError, FrozenPreState, batch_add_tag, or_set_dot,
     project_registered_cell_writes, project_registered_cell_writes_with_pre_state,
@@ -24,9 +25,13 @@ pub use event_cell_contract::{
 };
 pub use event_validation::{EventSchemaExt, validate_event_for_submit, validate_event_wire_schema};
 pub use generated::*;
+pub use prepared_event::{
+    PreparedControlMove, PreparedDataEvent, PreparedEventPlane, PreparedNonReducerEvent,
+    PreparedStandardEvent,
+};
 pub use protocol::{
-    GeneratedSchemaField, GeneratedSchemaValidator, GeneratedSchemaValueType,
-    ProtocolSchemaRegistry, ProtocolSchemaRegistry as Registry,
+    GeneratedObjectShape, ProtocolSchemaRegistry, ProtocolSchemaRegistry as Registry,
+    SchemaFieldSummary, SchemaValidatorStats, SchemaValueTypeSummary,
 };
 
 mod artifacts;

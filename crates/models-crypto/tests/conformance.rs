@@ -1,5 +1,7 @@
 use arkret_canonical::{base64url, canonical};
-use arkret_models_crypto::{EncryptedPayload, MlsCommitPayload, MlsGovernanceBindingPayload};
+use arkret_models_crypto::{
+    EncryptedPayload, MlsCommitEnvelope, MlsCommitPayload, MlsGovernanceBindingPayload,
+};
 use arkret_schema::{embedded_json_artifact, event_payload_validator_catalog};
 use arkret_wire::{EventId, Hash, ProfileId, RealmId, SealId};
 
@@ -91,20 +93,17 @@ fn mls_commit_payload_matches_registered_event_schema() {
         "ak.reducer.v1",
     )
     .unwrap();
-    let commit_bytes = b"fixture RFC 9420 MLS commit";
-    let commit_bytes_b64 = base64url::base64url_encode(commit_bytes);
-    let commit_digest = Hash::new(canonical::sha256_digest(commit_bytes)).unwrap();
-    let payload = MlsCommitPayload::new(
+    let commit_bytes = b"canonical-commit";
+    let commit = MlsCommitEnvelope {
         group_id,
-        0,
-        event(1).to_string(),
-        Vec::new(),
-        1,
-        commit_bytes_b64.clone(),
-        commit_digest,
-        binding,
-    )
-    .unwrap();
+        epoch: 1,
+        commit: base64url::base64url_encode(commit_bytes),
+        commit_digest: Hash::new(canonical::sha256_digest(commit_bytes)).unwrap(),
+        ratchet_tree: None,
+        app_state_ref: None,
+    };
+    let payload =
+        MlsCommitPayload::new(0, event(1).to_string(), Vec::new(), &commit, binding).unwrap();
     let value = serde_json::to_value(&payload).unwrap();
 
     event_payload_validator_catalog()
@@ -113,5 +112,16 @@ fn mls_commit_payload_matches_registered_event_schema() {
         .unwrap();
     assert!(value.get("group_id").is_none());
     assert!(value.get("expected_prev_epoch").is_none());
-    assert_eq!(value["commit_bytes_b64"], commit_bytes_b64);
+    assert_eq!(
+        value["commit_bytes_b64"],
+        base64url::base64url_encode(commit_bytes)
+    );
+    let mut tampered = value;
+    tampered["commit_digest"] = serde_json::json!(format!("sha256:{}", "f".repeat(64)));
+    let error = serde_json::from_value::<MlsCommitPayload>(tampered).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("commit_digest does not match commit_bytes_b64")
+    );
 }

@@ -511,7 +511,7 @@ impl SchemaEvolutionPlan {
     }
 }
 
-pub fn generated_validators() -> Result<BTreeMap<String, GeneratedSchemaValidator>> {
+pub fn generated_object_shapes() -> Result<BTreeMap<String, GeneratedObjectShape>> {
     let registry = schema_registry_from_default_spec_artifacts()?
         .unwrap_or_else(ProtocolSchemaRegistry::default);
     registry
@@ -519,7 +519,7 @@ pub fn generated_validators() -> Result<BTreeMap<String, GeneratedSchemaValidato
         .map(|schema_id| {
             Ok((
                 schema_id.to_owned(),
-                registry.generated_validator(schema_id)?,
+                registry.generated_object_shape(schema_id)?,
             ))
         })
         .collect()

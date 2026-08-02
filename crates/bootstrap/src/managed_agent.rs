@@ -6,10 +6,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
 use arkret_state::{
     CellRegistry, CellState, LatticeKind, SealedOp, compute_state_root, control_event_set_root,
+    join_cell_seal_batches, resolve_projected_write,
 };
 use arkret_wire::{
-    CellRef, Did, Error, Event, EventKind, Hash, Hlc, NotarySig, NotaryValue, PayloadSignature,
-    PayloadSigner, RealmId, Result, Seal, SealId, SealKind,
+    AuthorizationRef, CellRef, Did, Error, Event, EventKind, Hash, Hlc, NotarySig, NotaryValue,
+    PayloadSignature, PayloadSigner, RealmId, Result, Seal, SealId, SealKind,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -24,7 +25,7 @@ pub struct ManagedAgentPcrControlMaterial {
     pub realm_id: RealmId,
     pub agent_id: Did,
     pub controller_id: Did,
-    pub authorization_ref: String,
+    pub authorization_ref: AuthorizationRef,
     /// The founding notary profile, exactly as the accepted create declared it.
     pub notary: NotaryValue,
     pub covered_event_digests: Vec<Hash>,
@@ -121,94 +122,93 @@ pub fn materialize_managed_agent_pcr_control(
         ));
     }
 
-    let mut covered = BTreeSet::new();
-    let mut ops_by_cell = BTreeMap::<CellRef, Vec<SealedOp>>::new();
-    let mut event_ops = Vec::new();
-    for event in included {
-        let move_id = Hash::new(event.event_digest()?)?;
-        if !covered.insert(move_id.clone()) {
-            return Err(Error::Protocol(
-                "managed Agent PCR Event material contains duplicate digests".to_owned(),
-            ));
-        }
-        // Every covered Event -- the create included -- contributes exactly
-        // what its registered contract projects over the signed envelope and
-        // payload. That is what the receiver applies, so deriving anything else
-        // here would fork the root the Seal is compared against.
-        let effects = direct_projection(event, project)?;
-        // One Event may claim an ordered-log slot at most once: two writes on
-        // the same `(cell, issuer_seq)` would share this Event's digest, so the
-        // §4.2 tie-break could not disambiguate them and it is not a collision
-        // between two Events either. Reject before anything reaches a lattice.
-        if let Err(conflict) = ensure_unique_ordered_log_slots(&effects) {
-            return Err(Error::Protocol(format!(
-                "managed Agent PCR Event claims ordered-log slot {}#{} twice",
-                conflict.cell, conflict.issuer_seq
-            )));
-        }
-        let ops = effects
+    let mut ordered = included
+        .into_iter()
+        .map(|event| Ok((event, Hash::new(event.event_digest()?)?)))
+        .collect::<Result<Vec<_>>>()?;
+    ordered.sort_by(|(left, left_digest), (right, right_digest)| {
+        left.actor_seq
+            .cmp(&right.actor_seq)
+            .then_with(|| left_digest.as_str().cmp(right_digest.as_str()))
+    });
+    if ordered
+        .windows(2)
+        .any(|pair| pair[0].0.actor_seq == pair[1].0.actor_seq)
+    {
+        return Err(Error::Protocol(
+            "managed Agent PCR Event history contains duplicate actor_seq".to_owned(),
+        ));
+    }
+
+    // A first managed-PCR Seal is one closed anchor unit. Every later Event
+    // is an ordinary Control Move and therefore carries the accepted Seal view
+    // it was authored against. Keeping the batches explicit is load-bearing:
+    // all Moves in one successor batch read the same frozen pre-state, while
+    // the next batch reads the joined result of the preceding Seal.
+    let anchor_len = ordered
+        .iter()
+        .take_while(|(event, _)| event.seal_basis.is_none())
+        .count();
+    if anchor_len == 0
+        || ordered[anchor_len..]
             .iter()
-            .map(|effect| {
-                (
-                    effect.cell.clone(),
-                    SealedOp::from_projection(move_id.clone(), effect),
-                )
-            })
-            .collect::<Vec<_>>();
-        for (cell, op) in ops {
-            ops_by_cell
-                .entry(cell.clone())
-                .or_default()
-                .push(op.clone());
-            event_ops.push((
-                cell,
-                IssuedOp {
-                    issuer: create.actor_id.clone(),
-                    op,
-                },
-            ));
-        }
+            .any(|(event, _)| event.seal_basis.is_none())
+    {
+        return Err(Error::Protocol(
+            "managed Agent PCR basis-less Events must form one leading anchor unit".to_owned(),
+        ));
     }
 
     let registry = arkret_lattice_registry::build_sdk_cell_registry();
+    let mut covered = BTreeSet::new();
+    let mut batches_by_cell = BTreeMap::<CellRef, Vec<Vec<IssuedOp>>>::new();
+    let mut event_ops = Vec::new();
     let mut joined = BTreeMap::new();
-    for (cell, ops) in ops_by_cell {
-        // No pre-sort: every lattice join is commutative, and ordering by the
-        // typed `move_id` string would imply a tie-break `encoding.md` §4.2
-        // forbids (the suite prefix would outrank the digest content).
-        let binding = registry.resolve(&create.realm_id, &cell).map_err(|error| {
-            Error::Protocol(format!("managed Agent PCR cell registry: {error}"))
+
+    apply_managed_agent_batch(
+        &ordered[..anchor_len],
+        true,
+        create,
+        project,
+        &registry,
+        &mut covered,
+        &mut batches_by_cell,
+        &mut event_ops,
+        &mut joined,
+    )?;
+    let mut cursor = anchor_len;
+    while cursor < ordered.len() {
+        let basis = ordered[cursor].0.seal_basis.as_ref().ok_or_else(|| {
+            Error::Protocol("managed Agent PCR successor Event omits seal_basis".to_owned())
         })?;
-        // 9.3.1 keys the log by the envelope `actor_id`; every included Event
-        // is required to carry `create.actor_id`, so the issuer is known.
-        let issued: Vec<IssuedOp> = ops
-            .into_iter()
-            .map(|op| IssuedOp {
-                issuer: create.actor_id.clone(),
-                op,
-            })
-            .collect();
-        if binding.lattice.kind() == LatticeKind::OrderedLog {
-            let report = OrderedLog.join_with_issuer_report(&issued);
-            if !report.fail_closed.is_empty() {
-                return Err(Error::Protocol(format!(
-                    "managed Agent PCR cell {cell} ordered-log slot failed closed"
-                )));
-            }
-            if !report.equivocations.is_empty() {
-                return Err(Error::Protocol(format!(
-                    "managed Agent PCR cell {cell} contains issuer equivocation"
-                )));
-            }
+        let control_root = control_event_set_root(&covered)
+            .map_err(|error| Error::Protocol(format!("managed Agent PCR control root: {error}")))?;
+        let state_root = compute_state_root(&joined)
+            .map_err(|error| Error::Protocol(format!("managed Agent PCR state root: {error}")))?;
+        if basis.control_event_set_root != control_root || basis.state_root != state_root {
+            return Err(Error::Protocol(
+                "managed Agent PCR successor seal_basis does not match reconstructed predecessor"
+                    .to_owned(),
+            ));
         }
-        let state = arkret_state::join_cell(binding.lattice.as_ref(), &cell, &issued);
-        if matches!(state, CellState::Bottom(_)) {
-            return Err(Error::Protocol(format!(
-                "managed Agent PCR cell {cell} resolved to Bottom"
-            )));
+        let mut end = cursor + 1;
+        while end < ordered.len() && ordered[end].0.seal_basis.as_ref() == Some(basis) {
+            end += 1;
         }
-        joined.insert(cell, state);
+        apply_managed_agent_batch(
+            &ordered[cursor..end],
+            false,
+            create,
+            project,
+            &registry,
+            &mut covered,
+            &mut batches_by_cell,
+            &mut event_ops,
+            &mut joined,
+        )?;
+        cursor = end;
     }
+
     let state_root = compute_state_root(&joined)
         .map_err(|error| Error::Protocol(format!("managed Agent PCR state root: {error}")))?;
     Ok(ManagedAgentPcrControlMaterial {
@@ -222,6 +222,111 @@ pub fn materialize_managed_agent_pcr_control(
         joined,
         event_ops,
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn apply_managed_agent_batch(
+    batch: &[(&Event, Hash)],
+    anchor: bool,
+    create: &Event,
+    project: CellWriteProjector<'_>,
+    registry: &dyn CellRegistry,
+    covered: &mut BTreeSet<Hash>,
+    batches_by_cell: &mut BTreeMap<CellRef, Vec<Vec<IssuedOp>>>,
+    event_ops: &mut Vec<(CellRef, IssuedOp)>,
+    joined: &mut BTreeMap<CellRef, CellState>,
+) -> Result<()> {
+    let frozen_pre_state = joined.clone();
+    let mut batch_ops = BTreeMap::<CellRef, Vec<IssuedOp>>::new();
+    for (event, move_id) in batch {
+        if !covered.insert(move_id.clone()) {
+            return Err(Error::Protocol(
+                "managed Agent PCR Event material contains duplicate digests".to_owned(),
+            ));
+        }
+        // Anchor-unit writes are staged by their closed bootstrap contract.
+        // Ordinary writes resolve transition/apply-patch/remove-observed
+        // operands from this batch's frozen predecessor state, exactly as
+        // receiver admission does.
+        let effects = if anchor {
+            direct_projection(event, project)?
+        } else {
+            let projected = project(event).map_err(|error| {
+                Error::Protocol(format!(
+                    "managed Agent PCR cell write projection failed for {}: {error}",
+                    event.kind.as_str()
+                ))
+            })?;
+            let mut effects = Vec::new();
+            for write in &projected {
+                effects.extend(
+                    resolve_projected_write(write, &create.realm_id, &frozen_pre_state, registry)
+                        .map_err(|error| {
+                        Error::Protocol(format!(
+                            "managed Agent PCR frozen-pre-state projection failed for {}: {error}",
+                            event.kind.as_str()
+                        ))
+                    })?,
+                );
+            }
+            effects
+        };
+        // One Event may claim an ordered-log slot at most once: two writes on
+        // the same `(cell, issuer_seq)` would share this Event's digest, so the
+        // §4.2 tie-break could not disambiguate them and it is not a collision
+        // between two Events either. Reject before anything reaches a lattice.
+        if let Err(conflict) = ensure_unique_ordered_log_slots(&effects) {
+            return Err(Error::Protocol(format!(
+                "managed Agent PCR Event claims ordered-log slot {}#{} twice",
+                conflict.cell, conflict.issuer_seq
+            )));
+        }
+        for effect in effects {
+            let issued = IssuedOp {
+                issuer: create.actor_id.clone(),
+                op: SealedOp::new(move_id.clone(), effect.op),
+            };
+            batch_ops
+                .entry(effect.cell.clone())
+                .or_default()
+                .push(issued.clone());
+            event_ops.push((effect.cell, issued));
+        }
+    }
+
+    for (cell, issued) in batch_ops {
+        if let Ok(binding) = registry.resolve(&create.realm_id, &cell)
+            && binding.lattice.kind() == LatticeKind::OrderedLog
+        {
+            let report = OrderedLog.join_with_issuer_report(&issued);
+            if !report.fail_closed.is_empty() {
+                return Err(Error::Protocol(format!(
+                    "managed Agent PCR cell {cell} ordered-log slot failed closed"
+                )));
+            }
+            if !report.equivocations.is_empty() {
+                return Err(Error::Protocol(format!(
+                    "managed Agent PCR cell {cell} contains issuer equivocation"
+                )));
+            }
+        }
+        batches_by_cell.entry(cell).or_default().push(issued);
+    }
+
+    joined.clear();
+    for (cell, batches) in batches_by_cell {
+        let binding = registry.resolve(&create.realm_id, cell).map_err(|error| {
+            Error::Protocol(format!("managed Agent PCR cell registry: {error}"))
+        })?;
+        let state = join_cell_seal_batches(binding.lattice.as_ref(), cell, batches);
+        if matches!(state, CellState::Bottom(_)) {
+            return Err(Error::Protocol(format!(
+                "managed Agent PCR cell {cell} resolved to Bottom"
+            )));
+        }
+        joined.insert(cell.clone(), state);
+    }
+    Ok(())
 }
 
 /// The immutable proposal authority a managed Agent PCR was founded with.
@@ -238,7 +343,7 @@ pub struct ManagedAgentPcrGenesisAuthority {
     realm_id: RealmId,
     agent_id: Did,
     controller_id: Did,
-    authorization_ref: String,
+    authorization_ref: AuthorizationRef,
     notary: NotaryValue,
     authority_set_ref: Hash,
 }

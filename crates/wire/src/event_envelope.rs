@@ -44,7 +44,7 @@ use crate::events::kinds::EventKind;
 use crate::primitives::{
     Audience, CriticalExtension, Proof, ProofBindingRequirements, SignatureBindingPayload,
 };
-use crate::{DidKey, DidUrl, SchemaId, canonical};
+use crate::{AuthorizationRef, DidKey, DidUrl, FeatureRef, ProfileRef, SchemaId, canonical};
 
 /// Full canonical Event Envelope bound, measured over the reducer-accepted envelope including
 /// reducer-stamped top-level fields and every producer proof, excluding the read-view `unsigned`.
@@ -313,11 +313,11 @@ fn default_event_ref_critical() -> bool {
 #[serde(deny_unknown_fields)]
 pub struct EventRequirements {
     #[serde(default, rename = "schema", skip_serializing_if = "Vec::is_empty")]
-    pub schema_profile_refs: Vec<String>,
+    pub schema_profile_refs: Vec<ProfileRef>,
     #[serde(default, rename = "reducer", skip_serializing_if = "Option::is_none")]
-    pub reducer_profile_ref: Option<String>,
+    pub reducer_profile_ref: Option<ProfileRef>,
     #[serde(default, rename = "features", skip_serializing_if = "Vec::is_empty")]
-    pub required_features: Vec<String>,
+    pub required_features: Vec<FeatureRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub critical_extensions: Vec<CriticalExtension>,
 }
@@ -369,7 +369,7 @@ pub struct Event {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub executed_by: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorization_ref: Option<String>,
+    pub authorization_ref: Option<AuthorizationRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applet_id: Option<AppletId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -490,7 +490,7 @@ struct EventWire {
     #[serde(default)]
     pub executed_by: Option<Did>,
     #[serde(default)]
-    pub authorization_ref: Option<String>,
+    pub authorization_ref: Option<AuthorizationRef>,
     #[serde(default)]
     pub applet_id: Option<AppletId>,
     #[serde(default)]
@@ -1176,7 +1176,8 @@ mod event_wire_surface_tests {
         let mut event = base_event();
         event.applet_id =
             Some(AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap());
-        event.authorization_ref = Some("ak:grant:01904100-0000-7000-8000-cccccccccccc".to_owned());
+        event.authorization_ref =
+            Some(AuthorizationRef::new("ak:grant:01904100-0000-7000-8000-cccccccccccc").unwrap());
         event.external_ref = Some(BTreeMap::from([
             ("protocol".to_owned(), json!("slack")),
             ("external_id".to_owned(), json!("1234567890.0001")),

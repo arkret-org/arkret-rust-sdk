@@ -6,8 +6,8 @@ use arkret_models_crypto::mls_envelopes::{
 };
 use arkret_wire::{
     Audience, CriticalExtension, DeviceMessageId, Did, Event, EventId, EventRef, EventRequirements,
-    GrantId, Hash, Hlc, OperationId, OperationKind, Proof, ProofBindingRequirements, ProtocolKind,
-    RealmId, ScopeRef, SignatureBindingPayload, canonical,
+    FeatureRef, GrantId, Hash, Hlc, OperationId, OperationKind, ProfileRef, Proof,
+    ProofBindingRequirements, ProtocolKind, RealmId, ScopeRef, SignatureBindingPayload, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -241,11 +241,11 @@ pub struct OperationEventConversion {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub refs: Vec<EventRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub schema_profile_refs: Vec<String>,
+    pub schema_profile_refs: Vec<ProfileRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reducer_profile_ref: Option<String>,
+    pub reducer_profile_ref: Option<ProfileRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub required_features: Vec<String>,
+    pub required_features: Vec<FeatureRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub critical_extensions: Vec<CriticalExtension>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

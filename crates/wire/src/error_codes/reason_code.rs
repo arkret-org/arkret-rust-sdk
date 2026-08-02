@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-02.1;
-//! sha256=721de3aa00244fd62eb8365ec1a617b1a28e2c91cd5ded595f8232d37fd69268
-//! Entries: reason_codes=459
+//! Input: registry/error-code-registry.json; version=2026-08-02.2;
+//! sha256=e85804d165e448966844254b487c2130b8a0053251b7a2ff241f3f4f5f4f955b
+//! Entries: reason_codes=456
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -151,11 +151,8 @@ pub enum ReasonCode {
     DidProofReplayWindowExceeded,
     DirectConversationBindingInvalid,
     DirectConversationInviteForbidden,
-    DirectConversationLineageConflict,
     DirectConversationMemberCountInvalid,
     DirectConversationParticipantAuthorityDenied,
-    DirectConversationPredecessorRequired,
-    DirectConversationRetirementEvidenceRequired,
     DirectConversationRootMaskViolation,
     DirectConversationSpaceForbidden,
     DirectConversationThirdPartyMemberForbidden,
@@ -661,16 +658,10 @@ impl ReasonCode {
         "direct_conversation_binding_invalid";
     pub const DIRECT_CONVERSATION_INVITE_FORBIDDEN: &'static str =
         "direct_conversation_invite_forbidden";
-    pub const DIRECT_CONVERSATION_LINEAGE_CONFLICT: &'static str =
-        "direct_conversation_lineage_conflict";
     pub const DIRECT_CONVERSATION_MEMBER_COUNT_INVALID: &'static str =
         "direct_conversation_member_count_invalid";
     pub const DIRECT_CONVERSATION_PARTICIPANT_AUTHORITY_DENIED: &'static str =
         "direct_conversation_participant_authority_denied";
-    pub const DIRECT_CONVERSATION_PREDECESSOR_REQUIRED: &'static str =
-        "direct_conversation_predecessor_required";
-    pub const DIRECT_CONVERSATION_RETIREMENT_EVIDENCE_REQUIRED: &'static str =
-        "direct_conversation_retirement_evidence_required";
     pub const DIRECT_CONVERSATION_ROOT_MASK_VIOLATION: &'static str =
         "direct_conversation_root_mask_violation";
     pub const DIRECT_CONVERSATION_SPACE_FORBIDDEN: &'static str =
@@ -1205,18 +1196,11 @@ impl ReasonCode {
             Self::DidProofReplayWindowExceeded => "did_proof_replay_window_exceeded",
             Self::DirectConversationBindingInvalid => "direct_conversation_binding_invalid",
             Self::DirectConversationInviteForbidden => "direct_conversation_invite_forbidden",
-            Self::DirectConversationLineageConflict => "direct_conversation_lineage_conflict",
             Self::DirectConversationMemberCountInvalid => {
                 "direct_conversation_member_count_invalid"
             }
             Self::DirectConversationParticipantAuthorityDenied => {
                 "direct_conversation_participant_authority_denied"
-            }
-            Self::DirectConversationPredecessorRequired => {
-                "direct_conversation_predecessor_required"
-            }
-            Self::DirectConversationRetirementEvidenceRequired => {
-                "direct_conversation_retirement_evidence_required"
             }
             Self::DirectConversationRootMaskViolation => "direct_conversation_root_mask_violation",
             Self::DirectConversationSpaceForbidden => "direct_conversation_space_forbidden",
@@ -1748,18 +1732,11 @@ impl ReasonCode {
             "did_proof_replay_window_exceeded" => Self::DidProofReplayWindowExceeded,
             "direct_conversation_binding_invalid" => Self::DirectConversationBindingInvalid,
             "direct_conversation_invite_forbidden" => Self::DirectConversationInviteForbidden,
-            "direct_conversation_lineage_conflict" => Self::DirectConversationLineageConflict,
             "direct_conversation_member_count_invalid" => {
                 Self::DirectConversationMemberCountInvalid
             }
             "direct_conversation_participant_authority_denied" => {
                 Self::DirectConversationParticipantAuthorityDenied
-            }
-            "direct_conversation_predecessor_required" => {
-                Self::DirectConversationPredecessorRequired
-            }
-            "direct_conversation_retirement_evidence_required" => {
-                Self::DirectConversationRetirementEvidenceRequired
             }
             "direct_conversation_root_mask_violation" => Self::DirectConversationRootMaskViolation,
             "direct_conversation_space_forbidden" => Self::DirectConversationSpaceForbidden,
@@ -2852,7 +2829,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "direct_conversation_binding_invalid",
         applies_to: &["event_envelope", "auth_decision", "state_resolution"],
-        description: "An authored Direct Conversation binding fact has an invalid issuer, pair key, referenced contact facts, Realm role, membership set, main Strand, retirement target, or other canonical verification input.",
+        description: "An authored immutable Direct Conversation binding fact has an invalid issuer, pair key, authorization basis, Realm role, exact two-member set, main Strand, founding MLS references, or stable coordinator-operation cross-binding.",
     },
     ReasonCodeDescriptor {
         code: "direct_conversation_invite_forbidden",
@@ -2860,29 +2837,14 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "An invite operation targeted a Realm carrying ak.profile.direct_conversation_realm.v1. Direct Conversation membership is established only by the resolver's verified two-participant bootstrap; all invite flows fail closed.",
     },
     ReasonCodeDescriptor {
-        code: "direct_conversation_lineage_conflict",
-        applies_to: &["event_envelope", "state_resolution", "service_call"],
-        description: "The verified Direct Conversation predecessor graph does not yield one canonical retired anchor or one active tail. Projection and participant authority MUST fail closed; timestamps and local receive order MUST NOT repair the conflict.",
-    },
-    ReasonCodeDescriptor {
         code: "direct_conversation_member_count_invalid",
         applies_to: &["event_envelope", "auth_decision", "state_resolution"],
-        description: "A Direct Conversation binding or membership projection does not resolve to exactly two distinct active principal participants. The Realm cannot be returned as an active canonical DM and policy evaluation fails closed.",
+        description: "A Direct Conversation binding or membership projection does not resolve to exactly two distinct principal participants. New writes fail closed; an existing stable conversation is returned as suspended rather than replaced.",
     },
     ReasonCodeDescriptor {
         code: "direct_conversation_participant_authority_denied",
         applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "The ak.authority.direct_conversation_participant.v1 evaluator did not establish every profile, canonical binding, exact participant, active membership, Realm/Strand/MLS cross-binding, lifecycle, resource, consent, device or Agent gate required for the requested allowlisted action. The evaluator MUST NOT fall back to created_by, membership, a local projection row, Realm owner aggregation or an arbitrary Event/cell reference.",
-    },
-    ReasonCodeDescriptor {
-        code: "direct_conversation_predecessor_required",
-        applies_to: &["event_envelope", "state_resolution", "service_call"],
-        description: "A non-first active Direct Conversation binding omitted predecessor_binding_ref, referenced a non-canonical/non-retired fact, or did not target the canonical retired binding for the same pair_key and trust_domain. The candidate remains pending or is rejected; created_at is never a predecessor substitute.",
-    },
-    ReasonCodeDescriptor {
-        code: "direct_conversation_retirement_evidence_required",
-        applies_to: &["event_envelope", "state_resolution", "service_call"],
-        description: "A retired Direct Conversation fact lacks a participant signature, the superseded active binding reference, or an accepted structural terminal cause Event. Contact/consent changes and service-local projection mutations are not valid retirement evidence.",
+        description: "The ak.authority.direct_conversation_participant.v1 evaluator did not establish the immutable stable binding, exact participant, active membership, Realm/Strand/current-MLS-generation cross-binding, lifecycle, resource, consent, device or Agent gate required for the requested allowlisted action. The evaluator MUST NOT fall back to created_by, membership, a local projection row, Realm owner aggregation or an arbitrary Event/cell reference.",
     },
     ReasonCodeDescriptor {
         code: "direct_conversation_root_mask_violation",
@@ -2897,7 +2859,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "direct_conversation_third_party_member_forbidden",
         applies_to: &["event_envelope", "auth_decision"],
-        description: "An invite or join attempted to add a principal that is not one of the two stable subject DIDs in the active canonical Direct Conversation binding. Group-chat expansion requires a new ordinary Collaboration Realm.",
+        description: "An invite or join attempted to add a principal that is not one of the two stable subject DIDs in the immutable Direct Conversation binding. Group-chat expansion requires a new ordinary Collaboration Realm.",
     },
     ReasonCodeDescriptor {
         code: "direct_download_disallowed_presign_forbidden",
@@ -3021,7 +2983,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
             "state_resolution",
             "federation_transaction",
         ],
-        description: "An MLS commit's mls_governance_binding GroupContext extension does not match the governance state the group's epoch chain is bound to: a policy_root (or realm policy digest) differing from the genesis-bound policy root, or a covered_seal_refs entry outside the commit's seal_basis predecessor closure - including the Seal that admits the commit itself, which no Control Move can attest. The receiver MUST reject the commit - and, on a federation push, the batch - rather than advance an epoch under a forged or stale governance binding. See zh/crypto-media/encryption-and-audit.md §2.5.1.",
+        description: "An MLS Commit's mls_governance_binding GroupContext extension does not match the accepted key-access state or active epoch chain: group/epoch/profile fields disagree, security_frontier_digest is not the deterministic digest of the registered membership/leaf-key/MLS-membership/encryption-history frontier, or extension bytes differ from the Event payload. The receiver MUST reject the Commit - and, on a federation push, the batch - rather than advance an epoch under a forged or stale binding. See zh/crypto-media/encryption-and-audit.md §2.5.",
     },
     ReasonCodeDescriptor {
         code: "grant_exceeds_issuer_authority",
@@ -3311,7 +3273,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "media_plaintext_service_not_authorised",
         applies_to: &["auth_decision"],
-        description: "An SFU / MCU attempted to negotiate plaintext-decrypting media role without a matching Realm policy plaintext_visible_services[] entry whose data_classes[] contains media_plaintext, OR without policy_root covering media_service_decrypts=true. Free-text purposes do not grant authority. MUST be rejected; the SFU may still act as opaque RTP relay. See zh/crypto-media/media-service-binding.md §8.2.",
+        description: "An SFU / MCU attempted to negotiate plaintext-decrypting media role without a matching Realm policy plaintext_visible_services[] entry whose data_classes[] contains media_plaintext, OR without the active media security frontier covering media_service_decrypts=true. Free-text purposes do not grant authority. MUST be rejected; the SFU may still act as opaque RTP relay. See zh/crypto-media/media-service-binding.md §8.2.",
     },
     ReasonCodeDescriptor {
         code: "media_plaintext_warning_required",
@@ -3436,7 +3398,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "mls_governance_binding_stale",
         applies_to: &["state_resolution", "auth_decision"],
-        description: "Current MLS epoch's governance binding policy_root does not cover the Realm policy components the client wants to act on (e.g. media_service_decrypts toggle, plaintext_visible_services). Receivers MUST refuse to act until a fresh commit updates policy_root. See zh/crypto-media/media-service-binding.md §8.2 and zh/crypto-media/encryption-and-audit.md §3.2.",
+        description: "Current MLS epoch's security_frontier_digest does not cover key-access policy components the client wants to act on (for example media_service_decrypts and plaintext_visible_services for a decrypting media service). Receivers MUST refuse to act until a fresh Commit covers the rederived frontier. See zh/crypto-media/media-service-binding.md §8.2 and zh/crypto-media/encryption-and-audit.md §2.5.",
     },
     ReasonCodeDescriptor {
         code: "mls_send_pause_advisory_requires_e2ee_relaxed_profile",
@@ -3951,7 +3913,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: "reducer_profile_mismatch",
         applies_to: &["federation_transaction", "service_call"],
-        description: "Federation push / pull body's service_binding_ref.reducer_profile_digest differs from the receiver's reducer profile for the target Realm. Receiver MUST reject the entire batch (not partial-accept) because the same Event under different reducer profiles would produce divergent cell state, state_root and covered_seals_cell state — silently accepting would corrupt audit. Sender SHOULD reconcile reducer profile via Realm policy update or terminate federation for this Realm.",
+        description: "Federation push / pull body's service_binding_ref.reducer_profile_digest differs from the receiver's reducer profile for the target Realm. Receiver MUST reject the entire batch (not partial-accept) because the same Event under different reducer profiles would produce divergent cell state, state_root and security_frontier_digest — silently accepting would corrupt audit. Sender SHOULD reconcile reducer profile via Realm policy update or terminate federation for this Realm.",
     },
     ReasonCodeDescriptor {
         code: "reducer_projection_failed",

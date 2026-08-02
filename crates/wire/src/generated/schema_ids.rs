@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-02.3;
-//! sha256=98a041af2093ae380e749965b44cf41f1c8c9ab90e4dc10bf09df2a9750f1481 Entries: schema_ids=176,
-//! active=175
+//! Input: registry/schema-registry.json; version=2026-08-02.6;
+//! sha256=789a1deb02c0ae981e911cffdc8d66a0aec7432839e94dfa5b1bf2a881b83af9 Entries: schema_ids=177,
+//! active=176
 
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +20,7 @@ pub enum SchemaId {
     ActorProfileV1,
     AgentOperationsV1,
     AgentPairingBootstrapV1,
+    AgentProvisionV1,
     AgentRequestedScopeDisclosureV1,
     AgentSelectorClaimV1,
     AgentSidecarV1,
@@ -200,6 +201,7 @@ impl SchemaId {
         Self::ActorProfileV1,
         Self::AgentOperationsV1,
         Self::AgentPairingBootstrapV1,
+        Self::AgentProvisionV1,
         Self::AgentRequestedScopeDisclosureV1,
         Self::AgentSelectorClaimV1,
         Self::AgentSidecarV1,
@@ -380,6 +382,7 @@ impl SchemaId {
         Self::ActorProfileV1,
         Self::AgentOperationsV1,
         Self::AgentPairingBootstrapV1,
+        Self::AgentProvisionV1,
         Self::AgentRequestedScopeDisclosureV1,
         Self::AgentSelectorClaimV1,
         Self::AgentSidecarV1,
@@ -570,6 +573,9 @@ impl SchemaId {
     /// file + fragment (agent-operations.schema.json#/$defs/agent_pairing_bootstrap), not the
     /// top-level oneOf DTO bundle that ak.schema.agent_operations.v1 maps to.
     pub const AGENT_PAIRING_BOOTSTRAP_V1: &'static str = "ak.schema.agent_pairing_bootstrap.v1";
+    /// Single controller-authored native personal Agent provisioning payload with atomic
+    /// accountability and selector projections.
+    pub const AGENT_PROVISION_V1: &'static str = "ak.schema.agent_provision.v1";
     /// Controller-signed, verifier-bound private disclosure of a managed Agent's immutable
     /// requested_scope; the public Agent DID carries only its commitment digest.
     pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_V1: &'static str =
@@ -1028,6 +1034,7 @@ impl SchemaId {
             Self::ActorProfileV1 => Self::ACTOR_PROFILE_V1,
             Self::AgentOperationsV1 => Self::AGENT_OPERATIONS_V1,
             Self::AgentPairingBootstrapV1 => Self::AGENT_PAIRING_BOOTSTRAP_V1,
+            Self::AgentProvisionV1 => Self::AGENT_PROVISION_V1,
             Self::AgentRequestedScopeDisclosureV1 => Self::AGENT_REQUESTED_SCOPE_DISCLOSURE_V1,
             Self::AgentSelectorClaimV1 => Self::AGENT_SELECTOR_CLAIM_V1,
             Self::AgentSidecarV1 => Self::AGENT_SIDECAR_V1,
@@ -1217,6 +1224,7 @@ impl SchemaId {
             Self::ActorProfileV1 => "schemas/actor-profile.schema.json",
             Self::AgentOperationsV1 => "schemas/agent-operations.schema.json",
             Self::AgentPairingBootstrapV1 => "schemas/agent-operations.schema.json",
+            Self::AgentProvisionV1 => "schemas/agent-provision.schema.json",
             Self::AgentRequestedScopeDisclosureV1 => {
                 "schemas/agent-requested-scope-disclosure.schema.json"
             }
@@ -1428,6 +1436,7 @@ impl SchemaId {
             Self::ACTOR_PROFILE_V1 => Some(Self::ActorProfileV1),
             Self::AGENT_OPERATIONS_V1 => Some(Self::AgentOperationsV1),
             Self::AGENT_PAIRING_BOOTSTRAP_V1 => Some(Self::AgentPairingBootstrapV1),
+            Self::AGENT_PROVISION_V1 => Some(Self::AgentProvisionV1),
             Self::AGENT_REQUESTED_SCOPE_DISCLOSURE_V1 => {
                 Some(Self::AgentRequestedScopeDisclosureV1)
             }

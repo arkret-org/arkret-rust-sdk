@@ -19,6 +19,7 @@ use arkret_models_crypto::{
     MlsGovernanceProofRequestBodyBody, assemble_mls_governance_proof_chunks,
 };
 use arkret_models_discovery::ServiceDescribe;
+use arkret_schema::PreparedStandardEvent;
 use arkret_state::SnapshotManifest;
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
@@ -169,18 +170,8 @@ impl Client {
     where
         F: FnMut(&Event, &AuthorizationLease) -> Result<ControlProposalReceipt>,
     {
-        let has_anchor_event = events
-            .iter()
-            .any(|event| event.seal_ref.is_none() && event.seal_basis.is_none());
-        let anchor_unit = !events.is_empty()
-            && events
-                .iter()
-                .all(|event| event.seal_ref.is_none() && event.seal_basis.is_none());
-        if has_anchor_event && !anchor_unit {
-            return Err(Error::Protocol(
-                "anchor Events must be authorized as one complete ordered unit".to_owned(),
-            ));
-        }
+        let submit_context = initial_submission_context(events)?;
+        let anchor_unit = submit_context == EventSubmitContext::AnchorUnit;
         let request = AuthorizationLeaseIssueRequest {
             events: events.to_vec(),
             intents: Vec::new(),
@@ -203,11 +194,7 @@ impl Client {
                 cba_proof_bundles: Vec::new(),
                 control_proposal_receipt,
             };
-            submission.validate_structural_in_context(if anchor_unit {
-                EventSubmitContext::AnchorUnit
-            } else {
-                EventSubmitContext::Standard
-            })?;
+            submission.validate_structural_in_context(submit_context)?;
             submissions.push(submission);
         }
         Ok(submissions)
@@ -242,18 +229,8 @@ impl Client {
         events: &[Event],
         collector: Option<(&[Client], &NotaryValue, ControlProposalDecisionPolicy)>,
     ) -> Result<Vec<EventInitialSubmission>> {
-        let has_anchor_event = events
-            .iter()
-            .any(|event| event.seal_ref.is_none() && event.seal_basis.is_none());
-        let anchor_unit = !events.is_empty()
-            && events
-                .iter()
-                .all(|event| event.seal_ref.is_none() && event.seal_basis.is_none());
-        if has_anchor_event && !anchor_unit {
-            return Err(Error::Protocol(
-                "anchor Events must be authorized as one complete ordered unit".to_owned(),
-            ));
-        }
+        let submit_context = initial_submission_context(events)?;
+        let anchor_unit = submit_context == EventSubmitContext::AnchorUnit;
         let request = AuthorizationLeaseIssueRequest {
             events: events.to_vec(),
             intents: Vec::new(),
@@ -294,11 +271,7 @@ impl Client {
                     },
                 );
             }
-            submission.validate_structural_in_context(if anchor_unit {
-                EventSubmitContext::AnchorUnit
-            } else {
-                EventSubmitContext::Standard
-            })?;
+            submission.validate_structural_in_context(submit_context)?;
             submissions.push(submission);
         }
         Ok(submissions)
@@ -338,8 +311,22 @@ impl Client {
         &self,
         event: &Event,
     ) -> Result<EventInitialSubmission> {
+        let prepared = PreparedStandardEvent::try_from(event.clone())
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        self.prepare_initial_standard_submission(&prepared).await
+    }
+
+    /// Prepare one schema-validated, non-anchor Event for first publication.
+    ///
+    /// Callers that author Events should prefer this API: possession of the
+    /// wrapper proves the Event has one valid ordinary CBA plane and prevents
+    /// mutation between validation and publication-evidence issuance.
+    pub async fn prepare_initial_standard_submission(
+        &self,
+        prepared: &PreparedStandardEvent,
+    ) -> Result<EventInitialSubmission> {
         let submissions = self
-            .prepare_initial_submissions(std::slice::from_ref(event))
+            .prepare_initial_submissions(std::slice::from_ref(prepared.event()))
             .await?;
         submissions.into_iter().next().ok_or_else(|| {
             Error::Protocol("authorization issuer returned no initial submission".to_owned())
@@ -828,6 +815,45 @@ impl Client {
     }
 }
 
+/// Classify the publication unit before making any network request and run
+/// the wire-level submit gate in the matching CBA context.
+///
+/// A missing DataEvent basis must never be inferred to mean "anchor unit".
+/// The latter is a closed protocol exception and is recognizable by its first
+/// Event kind; treating every all-empty CBA tuple as an anchor lets malformed
+/// ordinary Events reach the authorization issuer.
+fn initial_submission_context(events: &[Event]) -> Result<EventSubmitContext> {
+    let basis_free = |event: &Event| {
+        event.seal_ref.is_none() && event.auth_context.is_none() && event.seal_basis.is_none()
+    };
+    let has_basis_free = events.iter().any(basis_free);
+    let all_basis_free = !events.is_empty() && events.iter().all(basis_free);
+    if has_basis_free && !all_basis_free {
+        return Err(Error::Protocol(
+            "anchor Events must be authorized as one complete ordered unit".to_owned(),
+        ));
+    }
+    let context = if all_basis_free {
+        let first_kind = events
+            .first()
+            .map(|event| event.kind.as_str())
+            .unwrap_or_default();
+        if !matches!(first_kind, "ak.realm.create" | "ak.device.reanchor") {
+            return Err(Error::Protocol(
+                "basis-free publication unit must be a registered Realm bootstrap or device re-anchor unit"
+                    .to_owned(),
+            ));
+        }
+        EventSubmitContext::AnchorUnit
+    } else {
+        EventSubmitContext::Standard
+    };
+    for event in events {
+        event.validate_for_submit_structural_in_context(context)?;
+    }
+    Ok(context)
+}
+
 fn merge_range_completeness(
     combined: &mut Option<EventsRangeCompleteness>,
     page: Option<EventsRangeCompleteness>,
@@ -879,6 +905,27 @@ mod tests {
 
     use super::*;
 
+    fn basis_free_message_event() -> Event {
+        Event::new(
+            "ak.message.create",
+            arkret_wire::ScopeRef::Realm {
+                realm_id: arkret_wire::RealmId::new(
+                    "ak:realm:01904100-0000-7000-8000-000000000001",
+                )
+                .unwrap(),
+            },
+            arkret_wire::Did::new("did:webvh:z6mkfixture:agent.example").unwrap(),
+            0,
+            arkret_wire::Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
+            serde_json::json!({
+                "strand_id": "ak:strand:01904100-0000-7000-8000-000000000001",
+                "track_name": "discussion",
+                "content": {"kind": "ak.content.text", "body": "hello"}
+            }),
+        )
+        .unwrap()
+    }
+
     fn client() -> Client {
         Client::new(Url::parse("https://alice.example/").unwrap()).unwrap()
     }
@@ -924,6 +971,14 @@ mod tests {
             .events_subscribe_request(&EventsSubscribeOptions::new())
             .unwrap_err();
         assert!(matches!(error, Error::Protocol(message) if message.contains("realm or actor")));
+    }
+
+    #[test]
+    fn initial_submission_rejects_basis_free_message_before_network() {
+        let error = initial_submission_context(&[basis_free_message_event()]).unwrap_err();
+        assert!(
+            matches!(error, Error::Protocol(message) if message.contains("basis-free publication unit"))
+        );
     }
 
     #[cfg(not(target_arch = "wasm32"))]

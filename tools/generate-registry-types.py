@@ -49,6 +49,10 @@ def rust_option(value: Any) -> str:
     return "None" if value is None else f"Some({rust_string(str(value))})"
 
 
+def rust_usize_option(value: Any) -> str:
+    return "None" if value is None else f"Some({int(value)})"
+
+
 def rust_slice(values: list[str] | None) -> str:
     return "&[" + ", ".join(rust_string(value) for value in (values or [])) + "]"
 
@@ -152,6 +156,8 @@ def generate_operations(artifacts: Path) -> str:
             "    pub http_path: &'static str,",
             "    pub grpc: Option<&'static str>,",
             "    pub mq: Option<&'static str>,",
+            "    pub body_class: Option<&'static str>,",
+            "    pub max_canonical_body_bytes: Option<usize>,",
             "    pub success_shape_kind: &'static str,",
             "    pub idempotency_mechanism: Option<&'static str>,",
             "    pub retry_safe: Option<bool>,",
@@ -329,6 +335,9 @@ def generate_operations(artifacts: Path) -> str:
                 f"        http_path: {rust_string(path)},",
                 f"        grpc: {rust_option(row.get('grpc'))},",
                 f"        mq: {rust_option(row.get('mq'))},",
+                f"        body_class: {rust_option(row.get('body_class'))},",
+                "        max_canonical_body_bytes: "
+                f"{rust_usize_option(row.get('max_canonical_body_bytes'))},",
                 f"        success_shape_kind: {rust_string(row['success_shape_kind'])},",
                 f"        idempotency_mechanism: {rust_option(row.get('idempotency_mechanism'))},",
                 f"        retry_safe: {retry_expr},",

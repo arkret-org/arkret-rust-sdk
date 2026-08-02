@@ -807,8 +807,13 @@ pub fn schema_registry_from_spec_artifacts(
             .ok_or_else(|| Error::Protocol(format!("schema artifact {schema_id} has no file")))?;
         let schema_path = artifacts_dir.join(file);
         let schema = read_json_artifact(&schema_path)?;
-        registry.register(schema_id, schema);
+        if let Some(fragment) = entry.get("fragment").and_then(Value::as_str) {
+            registry.register_fragment(schema_id, schema, fragment)?;
+        } else {
+            registry.register(schema_id, schema);
+        }
     }
+    register_schema_documents_from_dir(&mut registry, &artifacts_dir.join("schemas"))?;
     Ok(registry)
 }
 
@@ -830,9 +835,48 @@ pub fn schema_registry_from_embedded_spec_artifacts() -> Result<ProtocolSchemaRe
             .and_then(Value::as_str)
             .ok_or_else(|| Error::Protocol(format!("schema artifact {schema_id} has no file")))?;
         let schema = read_embedded_json_artifact(file)?;
-        registry.register(schema_id, schema);
+        if let Some(fragment) = entry.get("fragment").and_then(Value::as_str) {
+            registry.register_fragment(schema_id, schema, fragment)?;
+        } else {
+            registry.register(schema_id, schema);
+        }
+    }
+    for (path, schema) in embedded_spec_artifacts()? {
+        if path.starts_with("schemas/") && path.ends_with(".json") && schema.get("$id").is_some() {
+            registry.register_reference_document(schema.clone())?;
+        }
     }
     Ok(registry)
+}
+
+fn register_schema_documents_from_dir(
+    registry: &mut ProtocolSchemaRegistry,
+    directory: &Path,
+) -> Result<()> {
+    let entries = fs::read_dir(directory).map_err(|error| {
+        Error::Protocol(format!(
+            "failed to read schema artifact directory {}: {error}",
+            directory.display()
+        ))
+    })?;
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            Error::Protocol(format!(
+                "failed to read schema artifact entry in {}: {error}",
+                directory.display()
+            ))
+        })?;
+        let path = entry.path();
+        if path.is_dir() {
+            register_schema_documents_from_dir(registry, &path)?;
+        } else if path.extension().and_then(|extension| extension.to_str()) == Some("json") {
+            let schema = read_json_artifact(&path)?;
+            if schema.get("$id").is_some() {
+                registry.register_reference_document(schema)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 fn active_standard_durable_event_kinds(registry: &Value) -> Vec<&str> {

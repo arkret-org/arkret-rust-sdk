@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/error-code-registry.json; version=2026-08-02.1;
-//! sha256=721de3aa00244fd62eb8365ec1a617b1a28e2c91cd5ded595f8232d37fd69268 Entries: error_codes=269
+//! Input: registry/error-code-registry.json; version=2026-08-02.2;
+//! sha256=e85804d165e448966844254b487c2130b8a0053251b7a2ff241f3f4f5f4f955b Entries: error_codes=268
 
 use serde::{Deserialize, Serialize};
 
@@ -190,7 +190,6 @@ pub enum ErrorCode {
     OverbroadRequest,
     PayloadDigestMismatch,
     PayloadTooLarge,
-    PeerUnresolvable,
     PolicyCombinationInvalid,
     PolicyDenied,
     PolicyRevisionRollback,
@@ -473,7 +472,6 @@ impl ErrorCode {
         Self::OverbroadRequest,
         Self::PayloadDigestMismatch,
         Self::PayloadTooLarge,
-        Self::PeerUnresolvable,
         Self::PolicyCombinationInvalid,
         Self::PolicyDenied,
         Self::PolicyRevisionRollback,
@@ -760,7 +758,6 @@ impl ErrorCode {
     pub const OVERBROAD_REQUEST: &'static str = "overbroad_request";
     pub const PAYLOAD_DIGEST_MISMATCH: &'static str = "payload_digest_mismatch";
     pub const PAYLOAD_TOO_LARGE: &'static str = "payload_too_large";
-    pub const PEER_UNRESOLVABLE: &'static str = "peer_unresolvable";
     pub const POLICY_COMBINATION_INVALID: &'static str = "policy_combination_invalid";
     pub const POLICY_DENIED: &'static str = "policy_denied";
     pub const POLICY_REVISION_ROLLBACK: &'static str = "policy_revision_rollback";
@@ -1060,7 +1057,6 @@ impl ErrorCode {
             Self::OverbroadRequest => "overbroad_request",
             Self::PayloadDigestMismatch => "payload_digest_mismatch",
             Self::PayloadTooLarge => "payload_too_large",
-            Self::PeerUnresolvable => "peer_unresolvable",
             Self::PolicyCombinationInvalid => "policy_combination_invalid",
             Self::PolicyDenied => "policy_denied",
             Self::PolicyRevisionRollback => "policy_revision_rollback",
@@ -1358,7 +1354,6 @@ impl ErrorCode {
             "overbroad_request" => Some(Self::OverbroadRequest),
             "payload_digest_mismatch" => Some(Self::PayloadDigestMismatch),
             "payload_too_large" => Some(Self::PayloadTooLarge),
-            "peer_unresolvable" => Some(Self::PeerUnresolvable),
             "policy_combination_invalid" => Some(Self::PolicyCombinationInvalid),
             "policy_denied" => Some(Self::PolicyDenied),
             "policy_revision_rollback" => Some(Self::PolicyRevisionRollback),
@@ -2183,7 +2178,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "Opaque failed_precondition sub-reason for direct-conversation resolution when accepted contact or holder consent is unavailable. The requester-visible response MUST NOT distinguish those holder-private causes; detail is holder-private audit only.",
+        description: "Opaque failed_precondition sub-reason for direct-conversation resolution when the peer, accepted contact, holder consent, trust-domain binding, or no-create binding state cannot be disclosed. Requester-visible status, body and timing MUST NOT distinguish those causes; detail is holder-private audit only.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DirectoryNotAuthorized,
@@ -2776,14 +2771,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "The request or blob exceeds declared size limits.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::PeerUnresolvable,
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "Sub-reason for failed_precondition when ak.self.direct_conversation.command.resolve (create=true) cannot resolve the peer DID to a valid principal / control state, so no KeyPackage claim or Realm create is attempted. See zh/identity/contact-and-direct-conversation.md §6.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PolicyCombinationInvalid,

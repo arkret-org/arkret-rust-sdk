@@ -325,7 +325,10 @@ mod tests {
     fn sign_event_with_authorization_ref_signs_over_it() {
         let mut without = make_event();
         let mut with = make_event();
-        with.authorization_ref = Some("ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned());
+        with.authorization_ref = Some(
+            arkret_wire::AuthorizationRef::new("ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa")
+                .unwrap(),
+        );
 
         let signer = StubPayloadSigner::new(alice(), vm_alice());
         sign_event(&mut without, &signer, &vm_alice(), SignEventOptions::new()).unwrap();

@@ -17,6 +17,18 @@ pub enum WireError {
 
     #[error("wire JSON conversion failed: {0}")]
     Json(#[from] serde_json::Error),
+
+    #[error("HTTP message content is {actual} bytes, exceeding the v1 maximum of {limit} bytes")]
+    BodyWireBytesExceeded { actual: usize, limit: usize },
+
+    #[error(
+        "{body_class} canonical body is {actual} bytes, exceeding the v1 maximum of {limit} bytes"
+    )]
+    BodyCanonicalBytesExceeded {
+        body_class: &'static str,
+        actual: usize,
+        limit: usize,
+    },
 }
 
 pub type Error = WireError;

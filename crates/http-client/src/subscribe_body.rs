@@ -12,10 +12,11 @@
 //! whole response) may not expose; reqwest then hands back an *empty* stream
 //! rather than an error, which would silently look like a connection that
 //! delivered nothing. [`streaming_bodies_available`] turns that into an
-//! explicit, latched verdict: after two consecutive zero-byte streamed
-//! responses the process switches to reading the bounded response after close,
-//! which is slower but always works. The fallback direction is the safe one —
-//! a false positive costs latency, never correctness.
+//! explicit, latched verdict: after two consecutive unusable streamed
+//! responses (a zero-byte close or a body read failure before any byte) the
+//! process switches to reading the bounded response after close, which is
+//! slower but always works. The fallback direction is the safe one — a false
+//! positive costs latency, never correctness.
 
 #[cfg(any(target_arch = "wasm32", test))]
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -66,6 +67,14 @@ impl StreamingBodyProbe {
             self.latched.store(true, Ordering::Relaxed);
         }
     }
+
+    fn observe_failure(&self, total_bytes: usize) {
+        // A failure after at least one byte proves that streaming is available;
+        // it is a transport interruption, not the browser capability failure
+        // this latch diagnoses. A pre-byte decode/read failure is operationally
+        // identical to the empty stream reqwest returns on other browsers.
+        self.observe(total_bytes);
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -91,6 +100,17 @@ fn observe_streamed_response(total_bytes: usize) {
     #[cfg(target_arch = "wasm32")]
     {
         STREAMING_BODY_PROBE.observe(total_bytes);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = total_bytes;
+    }
+}
+
+fn observe_streamed_response_failure(total_bytes: usize) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        STREAMING_BODY_PROBE.observe_failure(total_bytes);
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -159,6 +179,7 @@ where
                         state.buffer.extend_from_slice(chunk.as_ref());
                     }
                     Some(Err(error)) => {
+                        observe_streamed_response_failure(state.total_bytes);
                         state.finished = true;
                         return Some((
                             Err(Error::Protocol(format!(
@@ -301,5 +322,23 @@ mod tests {
         // zero-frame connections the latch exists to stop.
         probe.observe(4096);
         assert!(!probe.available());
+    }
+
+    #[test]
+    fn consecutive_pre_byte_read_failures_latch_the_buffered_fallback() {
+        let probe = StreamingBodyProbe::new();
+        probe.observe_failure(0);
+        assert!(probe.available());
+        probe.observe_failure(0);
+        assert!(!probe.available());
+    }
+
+    #[test]
+    fn a_read_failure_after_bytes_does_not_poison_streaming_capability() {
+        let probe = StreamingBodyProbe::new();
+        probe.observe_failure(0);
+        probe.observe_failure(128);
+        probe.observe_failure(0);
+        assert!(probe.available());
     }
 }

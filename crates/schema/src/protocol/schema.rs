@@ -1,24 +1,152 @@
-use arkret_wire::SchemaId;
+use std::error::Error as StdError;
+use std::fmt;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, RwLock};
+use std::time::Instant;
+
+use arkret_wire::{
+    SchemaId, validate_canonical_acct_uri, validate_canonical_agent_slug,
+    validate_canonical_handle, validate_canonical_handle_localpart, validate_canonical_idna_domain,
+    validate_content_text, validate_short_text, validate_single_line_display_text,
+};
+use jsonschema::{Draft, Retrieve, Uri, Validator};
 use serde_json::{Value, json};
 
 use super::super::*;
-use super::validators::{
-    cached_json_schema_regex, is_security_sensitive_extension, validate_json_schema_array_sizes,
-    validate_json_schema_format, validate_json_schema_numbers, validate_json_schema_object_sizes,
-    validate_json_schema_pattern, validate_json_schema_string_lengths,
-    validate_json_schema_type_value,
-};
+use super::validators::is_security_sensitive_extension;
+
+#[derive(Default)]
+struct ValidatorCache {
+    validators: RwLock<BTreeMap<String, Arc<Validator>>>,
+    retriever_schemas: RwLock<Option<Arc<BTreeMap<String, Value>>>>,
+    cache_hits: AtomicU64,
+    cache_misses: AtomicU64,
+    compiled_validators: AtomicU64,
+    validator_compile_failures: AtomicU64,
+    validator_compile_micros: AtomicU64,
+    catalog_compile_failures: AtomicU64,
+    last_catalog_compile_micros: AtomicU64,
+    last_failure_schema_id: RwLock<Option<String>>,
+}
+
+impl Clone for ValidatorCache {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+impl fmt::Debug for ValidatorCache {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let len = self
+            .validators
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .len();
+        formatter
+            .debug_struct("ValidatorCache")
+            .field("compiled_validators", &len)
+            .field("stats", &self.stats())
+            .finish()
+    }
+}
+
+impl ValidatorCache {
+    fn stats(&self) -> SchemaValidatorStats {
+        SchemaValidatorStats {
+            cache_hits: self.cache_hits.load(Ordering::Relaxed),
+            cache_misses: self.cache_misses.load(Ordering::Relaxed),
+            compiled_validators: self.compiled_validators.load(Ordering::Relaxed),
+            validator_compile_failures: self.validator_compile_failures.load(Ordering::Relaxed),
+            validator_compile_micros: self.validator_compile_micros.load(Ordering::Relaxed),
+            catalog_compile_failures: self.catalog_compile_failures.load(Ordering::Relaxed),
+            last_catalog_compile_micros: self.last_catalog_compile_micros.load(Ordering::Relaxed),
+            last_failure_schema_id: self
+                .last_failure_schema_id
+                .read()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .clone(),
+        }
+    }
+
+    fn reset(&self) {
+        for counter in [
+            &self.cache_hits,
+            &self.cache_misses,
+            &self.compiled_validators,
+            &self.validator_compile_failures,
+            &self.validator_compile_micros,
+            &self.catalog_compile_failures,
+            &self.last_catalog_compile_micros,
+        ] {
+            counter.store(0, Ordering::Relaxed);
+        }
+        *self
+            .last_failure_schema_id
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
+    }
+}
+
+/// Snapshot of Draft 2020-12 validator cache and catalog compilation metrics.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SchemaValidatorStats {
+    pub cache_hits: u64,
+    pub cache_misses: u64,
+    pub compiled_validators: u64,
+    pub validator_compile_failures: u64,
+    pub validator_compile_micros: u64,
+    pub catalog_compile_failures: u64,
+    pub last_catalog_compile_micros: u64,
+    pub last_failure_schema_id: Option<String>,
+}
+
+impl SchemaValidatorStats {
+    #[must_use]
+    pub fn cache_hit_ratio(&self) -> Option<f64> {
+        let lookups = self.cache_hits + self.cache_misses;
+        (lookups != 0).then(|| self.cache_hits as f64 / lookups as f64)
+    }
+}
+
+impl PartialEq for ValidatorCache {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
+#[derive(Clone)]
+struct InMemorySchemaRetriever {
+    schemas: Arc<BTreeMap<String, Value>>,
+}
+
+impl Retrieve for InMemorySchemaRetriever {
+    fn retrieve(
+        &self,
+        uri: &Uri<String>,
+    ) -> std::result::Result<Value, Box<dyn StdError + Send + Sync>> {
+        self.schemas
+            .get(uri.as_str())
+            .cloned()
+            .ok_or_else(|| format!("schema reference is not registered: {uri}").into())
+    }
+}
 
 /// Protocol JSON Schema registry.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProtocolSchemaRegistry {
     schemas: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    documents: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    fragments: BTreeMap<String, String>,
     trusted_extension_prefixes: Vec<String>,
+    #[serde(skip, default)]
+    validator_cache: ValidatorCache,
 }
 
 /// JSON value type rule extracted from a supported JSON Schema document.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum GeneratedSchemaValueType {
+pub enum SchemaValueTypeSummary {
     Any,
     Array,
     Boolean,
@@ -29,7 +157,7 @@ pub enum GeneratedSchemaValueType {
     String,
 }
 
-impl GeneratedSchemaValueType {
+impl SchemaValueTypeSummary {
     fn from_schema(value: &Value) -> Self {
         match value.get("type").and_then(Value::as_str) {
             Some("array") => Self::Array,
@@ -42,124 +170,26 @@ impl GeneratedSchemaValueType {
             _ => Self::Any,
         }
     }
-
-    fn matches(&self, value: &Value) -> bool {
-        match self {
-            Self::Any => true,
-            Self::Array => value.is_array(),
-            Self::Boolean => value.is_boolean(),
-            Self::Integer => value.as_i64().is_some() || value.as_u64().is_some(),
-            Self::Null => value.is_null(),
-            Self::Number => value.is_number(),
-            Self::Object => value.is_object(),
-            Self::String => value.is_string(),
-        }
-    }
-
-    fn as_schema_type(&self) -> &'static str {
-        match self {
-            Self::Any => "any",
-            Self::Array => "array",
-            Self::Boolean => "boolean",
-            Self::Integer => "integer",
-            Self::Null => "null",
-            Self::Number => "number",
-            Self::Object => "object",
-            Self::String => "string",
-        }
-    }
 }
 
-/// One field rule in a generated schema validator.
+/// One field in a metadata-only JSON object-shape summary.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct GeneratedSchemaField {
+pub struct SchemaFieldSummary {
     pub name: String,
-    pub value_type: GeneratedSchemaValueType,
+    pub value_type: SchemaValueTypeSummary,
     pub required: bool,
 }
 
-/// Runtime validator generated from the JSON Schema subset supported by the SDK.
+/// Metadata-only object-shape summary extracted from a small JSON Schema subset.
+///
+/// This type is not an admission validator. Security, write and
+/// signature boundaries must call [`ProtocolSchemaRegistry::validate_value`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct GeneratedSchemaValidator {
+pub struct GeneratedObjectShape {
     pub schema_id: String,
-    pub fields: Vec<GeneratedSchemaField>,
+    pub fields: Vec<SchemaFieldSummary>,
     pub additional_properties: bool,
     pub trusted_extension_prefixes: Vec<String>,
-}
-
-impl GeneratedSchemaValidator {
-    /// Validate one JSON object using the generated field rules.
-    pub fn validate(&self, value: &Value) -> Result<()> {
-        let warnings = self.validate_with_warnings(value)?;
-        for warning in warnings {
-            tracing::warn!(
-                schema_id = %self.schema_id,
-                warning = %warning,
-                "schema validation warning"
-            );
-        }
-        Ok(())
-    }
-
-    /// Validate one JSON object and return non-fatal schema warnings.
-    pub fn validate_with_warnings(&self, value: &Value) -> Result<Vec<String>> {
-        let object = value
-            .as_object()
-            .ok_or_else(|| Error::Protocol("schema target must be a JSON object".to_owned()))?;
-        let mut warnings = Vec::new();
-        for field in &self.fields {
-            match object.get(&field.name) {
-                Some(field_value) if field.value_type.matches(field_value) => {}
-                Some(_) => {
-                    return Err(Error::Protocol(format!(
-                        "schema '{}' field '{}' must be JSON type '{}'",
-                        self.schema_id,
-                        field.name,
-                        field.value_type.as_schema_type()
-                    )));
-                }
-                None if field.required => {
-                    return Err(Error::Protocol(format!(
-                        "schema '{}' requires field '{}'",
-                        self.schema_id, field.name
-                    )));
-                }
-                None => {}
-            }
-        }
-
-        if !self.additional_properties {
-            for field in object.keys() {
-                if self
-                    .fields
-                    .binary_search_by(|known| known.name.as_str().cmp(field.as_str()))
-                    .is_err()
-                {
-                    warnings.push(format!(
-                        "schema '{}' has additional field '{}'",
-                        self.schema_id, field
-                    ));
-                }
-            }
-        }
-
-        for field in object.keys() {
-            if !is_security_sensitive_extension(field) {
-                continue;
-            }
-            let trusted = self
-                .trusted_extension_prefixes
-                .iter()
-                .any(|prefix| field.starts_with(prefix));
-            if !trusted {
-                return Err(Error::Protocol(format!(
-                    "schema '{}' rejects unknown security-sensitive extension '{}'",
-                    self.schema_id, field
-                )));
-            }
-        }
-        Ok(warnings)
-    }
 }
 
 impl ProtocolSchemaRegistry {
@@ -167,22 +197,78 @@ impl ProtocolSchemaRegistry {
     pub fn new() -> Self {
         Self {
             schemas: BTreeMap::new(),
+            documents: BTreeMap::new(),
+            fragments: BTreeMap::new(),
             trusted_extension_prefixes: Vec::new(),
+            validator_cache: ValidatorCache::default(),
         }
     }
 
     /// Register a schema document by `$id`.
     pub fn register(&mut self, schema_id: impl Into<String>, schema: Value) {
-        self.schemas.insert(schema_id.into(), schema);
+        let schema_id = schema_id.into();
+        self.fragments.remove(&schema_id);
+        self.schemas.insert(schema_id, schema);
+        self.clear_validator_cache();
+    }
+
+    /// Register a logical schema ID that targets a JSON Pointer fragment in a document.
+    pub fn register_fragment(
+        &mut self,
+        schema_id: impl Into<String>,
+        schema: Value,
+        fragment: impl Into<String>,
+    ) -> Result<()> {
+        let schema_id = schema_id.into();
+        let fragment = fragment.into();
+        let pointer = fragment.strip_prefix('#').ok_or_else(|| {
+            Error::Protocol(format!(
+                "schema '{schema_id}' fragment must start with '#': {fragment}"
+            ))
+        })?;
+        if !pointer.is_empty() && schema.pointer(pointer).is_none() {
+            return Err(Error::Protocol(format!(
+                "schema '{schema_id}' has unresolved fragment '{fragment}'"
+            )));
+        }
+        self.schemas.insert(schema_id.clone(), schema);
+        self.fragments.insert(schema_id, fragment);
+        self.clear_validator_cache();
+        Ok(())
+    }
+
+    /// Register a schema document that exists only to satisfy `$ref` targets.
+    pub fn register_reference_document(&mut self, schema: Value) -> Result<()> {
+        let document_id = schema
+            .get("$id")
+            .and_then(Value::as_str)
+            .filter(|document_id| document_id.contains(':'))
+            .ok_or_else(|| {
+                Error::Protocol("reference schema document must declare an absolute $id".to_owned())
+            })?
+            .to_owned();
+        if let Some(previous) = self.documents.get(&document_id)
+            && previous != &schema
+        {
+            return Err(Error::Protocol(format!(
+                "conflicting schema documents declare $id '{document_id}'"
+            )));
+        }
+        self.documents.insert(document_id, schema);
+        self.clear_validator_cache();
+        Ok(())
     }
 
     /// Return one schema by ID.
     pub fn schema(&self, schema_id: &str) -> Option<&Value> {
-        if let Some(schema) = self.schemas.get(schema_id) {
-            return Some(schema);
-        }
-        let (base, fragment) = schema_id.split_once('#')?;
+        let (base, requested_fragment) = schema_id.split_once('#').unwrap_or((schema_id, ""));
         let root = self.schemas.get(base)?;
+        let registered_fragment = self.fragments.get(base).map(String::as_str);
+        let fragment = match (registered_fragment, requested_fragment.is_empty()) {
+            (Some(fragment), true) => fragment.strip_prefix('#')?,
+            (Some(_), false) => return None,
+            (None, _) => requested_fragment,
+        };
         if fragment.is_empty() {
             return Some(root);
         }
@@ -194,13 +280,59 @@ impl ProtocolSchemaRegistry {
         self.schemas.keys().map(String::as_str)
     }
 
+    /// Compile every registered logical schema with the Draft 2020-12 engine.
+    ///
+    /// Services can call this once during startup to reject an invalid or
+    /// incomplete schema catalog before accepting protocol traffic.
+    pub fn ensure_all_schemas_compile(&self) -> Result<()> {
+        let started = Instant::now();
+        for schema_id in self.schema_ids() {
+            if let Err(error) = self.compiled_validator(schema_id) {
+                let elapsed = duration_micros(started);
+                self.validator_cache
+                    .last_catalog_compile_micros
+                    .store(elapsed, Ordering::Relaxed);
+                self.validator_cache
+                    .catalog_compile_failures
+                    .fetch_add(1, Ordering::Relaxed);
+                *self
+                    .validator_cache
+                    .last_failure_schema_id
+                    .write()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(schema_id.to_owned());
+                tracing::error!(
+                    failed_schema_id = schema_id,
+                    catalog_compile_micros = elapsed,
+                    "Draft 2020-12 schema catalog compilation failed"
+                );
+                return Err(error);
+            }
+        }
+        let elapsed = duration_micros(started);
+        self.validator_cache
+            .last_catalog_compile_micros
+            .store(elapsed, Ordering::Relaxed);
+        tracing::info!(
+            schema_count = self.schemas.len(),
+            catalog_compile_micros = elapsed,
+            "Draft 2020-12 schema catalog compiled"
+        );
+        Ok(())
+    }
+
+    /// Return a lock-free snapshot of cache and catalog compilation metrics.
+    #[must_use]
+    pub fn validator_stats(&self) -> SchemaValidatorStats {
+        self.validator_cache.stats()
+    }
+
     /// Trust a security-sensitive extension prefix for fail-closed validation.
     pub fn trust_extension_prefix(&mut self, prefix: impl Into<String>) {
         self.trusted_extension_prefixes.push(prefix.into());
     }
 
-    /// Generate a runtime Rust validator from the supported JSON Schema subset.
-    pub fn generated_validator(&self, schema_id: &str) -> Result<GeneratedSchemaValidator> {
+    /// Summarize the root object's fields without performing admission validation.
+    pub fn generated_object_shape(&self, schema_id: &str) -> Result<GeneratedObjectShape> {
         let schema = self
             .schema(schema_id)
             .ok_or_else(|| Error::Protocol(format!("unknown schema '{schema_id}'")))?;
@@ -216,24 +348,24 @@ impl ProtocolSchemaRegistry {
         let mut fields = Vec::new();
         if let Some(properties) = schema.get("properties").and_then(Value::as_object) {
             for (name, property_schema) in properties {
-                fields.push(GeneratedSchemaField {
+                fields.push(SchemaFieldSummary {
                     name: name.clone(),
-                    value_type: GeneratedSchemaValueType::from_schema(property_schema),
+                    value_type: SchemaValueTypeSummary::from_schema(property_schema),
                     required: required.contains(name),
                 });
             }
         }
         for name in required {
             if !fields.iter().any(|field| field.name == name) {
-                fields.push(GeneratedSchemaField {
+                fields.push(SchemaFieldSummary {
                     name,
-                    value_type: GeneratedSchemaValueType::Any,
+                    value_type: SchemaValueTypeSummary::Any,
                     required: true,
                 });
             }
         }
         fields.sort_by(|left, right| left.name.cmp(&right.name));
-        Ok(GeneratedSchemaValidator {
+        Ok(GeneratedObjectShape {
             schema_id: schema_id.to_owned(),
             fields,
             additional_properties: schema
@@ -257,413 +389,200 @@ impl ProtocolSchemaRegistry {
         Ok(())
     }
 
-    /// Validate one value and return non-fatal schema warnings.
+    /// Validate one value with the complete JSON Schema Draft 2020-12 runtime.
     pub fn validate_value_with_warnings(
         &self,
         schema_id: &str,
         value: &Value,
     ) -> Result<Vec<String>> {
-        let root_id = schema_id
-            .split_once('#')
-            .map(|(base, _)| base)
-            .unwrap_or(schema_id);
-        let root = self
-            .schemas
-            .get(root_id)
-            .ok_or_else(|| Error::Protocol(format!("unknown schema '{root_id}'")))?;
-        let schema = self
-            .schema(schema_id)
-            .ok_or_else(|| Error::Protocol(format!("unknown schema '{schema_id}'")))?;
-        let mut warnings = Vec::new();
-        self.validate_schema(root_id, root, schema, value, "$", 0, &mut warnings)?;
+        let validator = self.compiled_validator(schema_id)?;
+        if let Some(error) = validator.iter_errors(value).next() {
+            let instance_path = error.instance_path().to_string();
+            let schema_path = error.schema_path().to_string();
+            return Err(Error::Validation(SchemaValidationIssue {
+                schema_id: schema_id.to_owned(),
+                instance_pointer: instance_path,
+                keyword: json_pointer_last_segment(&schema_path),
+                schema_pointer: schema_path,
+                reason: SchemaValidationReason::InstanceInvalid,
+                message: error.masked().to_string(),
+            }));
+        }
         if let Some(object) = value.as_object() {
             self.validate_security_extensions(schema_id, object)?;
         }
-        Ok(warnings)
+        Ok(Vec::new())
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn validate_schema(
-        &self,
-        root_id: &str,
-        root: &Value,
-        schema: &Value,
-        value: &Value,
-        path: &str,
-        depth: usize,
-        warnings: &mut Vec<String>,
-    ) -> Result<()> {
-        if depth > 128 {
-            return Err(Error::Protocol(format!(
-                "schema '{root_id}' exceeded recursive validation depth at {path}"
-            )));
+    fn compiled_validator(&self, schema_id: &str) -> Result<Arc<Validator>> {
+        if let Some(validator) = self
+            .validator_cache
+            .validators
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .get(schema_id)
+            .cloned()
+        {
+            self.validator_cache
+                .cache_hits
+                .fetch_add(1, Ordering::Relaxed);
+            return Ok(validator);
         }
-        let Some(schema_object) = schema.as_object() else {
-            return Ok(());
+        self.validator_cache
+            .cache_misses
+            .fetch_add(1, Ordering::Relaxed);
+
+        let (base_id, requested_fragment) = schema_id.split_once('#').unwrap_or((schema_id, ""));
+        let root = self
+            .schemas
+            .get(base_id)
+            .ok_or_else(|| Error::Protocol(format!("unknown schema '{base_id}'")))?;
+        let registered_fragment = self.fragments.get(base_id).map(String::as_str);
+        let fragment = match (registered_fragment, requested_fragment.is_empty()) {
+            (Some(fragment), true) => Some(fragment),
+            (Some(_), false) => {
+                return Err(Error::Protocol(format!(
+                    "schema '{base_id}' already targets a registered fragment"
+                )));
+            }
+            (None, false) => Some(requested_fragment),
+            (None, true) => None,
         };
 
-        if let Some(reference) = schema_object.get("$ref").and_then(Value::as_str) {
-            let (resolved_root_id, resolved_root, resolved_schema) =
-                self.resolve_schema_ref(root_id, root, reference)?;
-            return self.validate_schema(
-                resolved_root_id,
-                resolved_root,
-                resolved_schema,
-                value,
-                path,
-                depth + 1,
-                warnings,
-            );
-        }
-
-        if let Some(constant) = schema_object.get("const")
-            && value != constant
-        {
-            return Err(Error::Protocol(format!(
-                "schema '{root_id}' const mismatch at {path}"
-            )));
-        }
-
-        if let Some(enum_values) = schema_object.get("enum").and_then(Value::as_array)
-            && !enum_values.iter().any(|candidate| candidate == value)
-        {
-            return Err(Error::Protocol(format!(
-                "schema '{root_id}' enum mismatch at {path}"
-            )));
-        }
-
-        if let Some(schema_type) = schema_object.get("type") {
-            validate_json_schema_type_value(root_id, path, schema_type, value)?;
-        }
-
-        for keyword in ["allOf"] {
-            if let Some(items) = schema_object.get(keyword).and_then(Value::as_array) {
-                for item in items {
-                    self.validate_schema(root_id, root, item, value, path, depth + 1, warnings)?;
-                }
+        let schema = if let Some(fragment) = fragment {
+            let fragment = fragment.strip_prefix('#').unwrap_or(fragment);
+            let document_id = root.get("$id").and_then(Value::as_str).ok_or_else(|| {
+                Error::Protocol(format!(
+                    "schema '{base_id}' needs an absolute $id to validate fragment '#{fragment}'"
+                ))
+            })?;
+            if !document_id.contains(':') {
+                return Err(Error::Protocol(format!(
+                    "schema '{base_id}' needs an absolute $id to validate fragment '#{fragment}'"
+                )));
             }
-        }
-
-        for keyword in ["oneOf", "anyOf"] {
-            if let Some(items) = schema_object.get(keyword).and_then(Value::as_array) {
-                let mut matches = 0;
-                let mut matching_warnings = Vec::new();
-                for item in items {
-                    let mut branch_warnings = Vec::new();
-                    if self
-                        .validate_schema(
-                            root_id,
-                            root,
-                            item,
-                            value,
-                            path,
-                            depth + 1,
-                            &mut branch_warnings,
-                        )
-                        .is_ok()
-                    {
-                        matches += 1;
-                        matching_warnings.extend(branch_warnings);
-                    }
-                }
-                let valid = if keyword == "oneOf" {
-                    matches == 1
-                } else {
-                    matches >= 1
-                };
-                if !valid {
-                    return Err(Error::Protocol(format!(
-                        "schema '{root_id}' {keyword} matched {matches} branches at {path}"
-                    )));
-                }
-                warnings.extend(matching_warnings);
-            }
-        }
-
-        if let Some(not_schema) = schema_object.get("not")
-            && {
-                let mut branch_warnings = Vec::new();
-                self.validate_schema(
-                    root_id,
-                    root,
-                    not_schema,
-                    value,
-                    path,
-                    depth + 1,
-                    &mut branch_warnings,
-                )
-                .is_ok()
-            }
-        {
-            return Err(Error::Protocol(format!(
-                "schema '{root_id}' not schema matched at {path}"
-            )));
-        }
-
-        if let Some(if_schema) = schema_object.get("if") {
-            let if_matches = {
-                let mut branch_warnings = Vec::new();
-                self.validate_schema(
-                    root_id,
-                    root,
-                    if_schema,
-                    value,
-                    path,
-                    depth + 1,
-                    &mut branch_warnings,
-                )
-                .is_ok()
-            };
-            let branch = if if_matches {
-                schema_object.get("then")
-            } else {
-                schema_object.get("else")
-            };
-            if let Some(branch_schema) = branch {
-                self.validate_schema(
-                    root_id,
-                    root,
-                    branch_schema,
-                    value,
-                    path,
-                    depth + 1,
-                    warnings,
-                )?;
-            }
-        }
-
-        if let Some(format) = schema_object.get("format").and_then(Value::as_str) {
-            validate_json_schema_format(root_id, path, format, value)?;
-        }
-        if let Some(pattern) = schema_object.get("pattern").and_then(Value::as_str) {
-            validate_json_schema_pattern(root_id, path, pattern, value)?;
-        }
-        validate_json_schema_string_lengths(root_id, path, schema, value)?;
-        validate_json_schema_numbers(root_id, path, schema, value)?;
-
-        if let Some(object) = value.as_object() {
-            validate_json_schema_object_sizes(root_id, path, schema, object)?;
-            if let Some(required) = schema_object.get("required").and_then(Value::as_array) {
-                for field in required.iter().filter_map(Value::as_str) {
-                    if !object.contains_key(field) {
-                        return Err(Error::Protocol(format!(
-                            "schema '{root_id}' requires field '{field}' at {path}"
-                        )));
-                    }
-                }
-            }
-            if let Some(properties) = schema_object.get("properties").and_then(Value::as_object) {
-                for (field, property_schema) in properties {
-                    if let Some(field_value) = object.get(field) {
-                        self.validate_schema(
-                            root_id,
-                            root,
-                            property_schema,
-                            field_value,
-                            &format!("{path}.{field}"),
-                            depth + 1,
-                            warnings,
-                        )?;
-                    }
-                }
-            }
-            if let Some(property_names) = schema_object.get("propertyNames") {
-                for field in object.keys() {
-                    self.validate_schema(
-                        root_id,
-                        root,
-                        property_names,
-                        &Value::String(field.clone()),
-                        &format!("{path} property name"),
-                        depth + 1,
-                        warnings,
-                    )?;
-                }
-            }
-            let mut pattern_matches = BTreeSet::new();
-            if let Some(pattern_properties) = schema_object
-                .get("patternProperties")
-                .and_then(Value::as_object)
-            {
-                for (pattern, pattern_schema) in pattern_properties {
-                    let regex = cached_json_schema_regex(pattern).map_err(|error| {
-                        Error::Protocol(format!(
-                            "schema '{root_id}' has invalid patternProperties regex at {path}: {error}"
-                        ))
-                    })?;
-                    for (field, field_value) in object {
-                        if regex.is_match(field) {
-                            pattern_matches.insert(field.clone());
-                            self.validate_schema(
-                                root_id,
-                                root,
-                                pattern_schema,
-                                field_value,
-                                &format!("{path}.{field}"),
-                                depth + 1,
-                                warnings,
-                            )?;
-                        }
-                    }
-                }
-            }
-            if let Some(additional) = schema_object.get("additionalProperties") {
-                let known = schema_object
-                    .get("properties")
-                    .and_then(Value::as_object)
-                    .map(|properties| properties.keys().collect::<BTreeSet<_>>())
-                    .unwrap_or_default();
-                for (field, field_value) in object {
-                    if known.contains(field) || pattern_matches.contains(field) {
-                        continue;
-                    }
-                    match additional {
-                        Value::Bool(true) => {}
-                        Value::Bool(false) => {
-                            return Err(Error::Protocol(format!(
-                                "schema '{root_id}' rejects additional field '{field}' at {path}"
-                            )));
-                        }
-                        schema => {
-                            self.validate_schema(
-                                root_id,
-                                root,
-                                schema,
-                                field_value,
-                                &format!("{path}.{field}"),
-                                depth + 1,
-                                warnings,
-                            )?;
-                        }
-                    }
-                }
-            }
-        }
-
-        if let Some(array) = value.as_array() {
-            validate_json_schema_array_sizes(root_id, path, schema, array)?;
-            if schema_object.get("uniqueItems").and_then(Value::as_bool) == Some(true) {
-                let mut seen = BTreeSet::new();
-                for item in array {
-                    let encoded = serde_json::to_string(item).map_err(|error| {
-                        Error::Protocol(format!(
-                            "schema '{root_id}' failed to compare uniqueItems at {path}: {error}"
-                        ))
-                    })?;
-                    if !seen.insert(encoded) {
-                        return Err(Error::Protocol(format!(
-                            "schema '{root_id}' requires unique array items at {path}"
-                        )));
-                    }
-                }
-            }
-            if let Some(item_schema) = schema_object.get("items") {
-                for (index, item) in array.iter().enumerate() {
-                    self.validate_schema(
-                        root_id,
-                        root,
-                        item_schema,
-                        item,
-                        &format!("{path}[{index}]"),
-                        depth + 1,
-                        warnings,
-                    )?;
-                }
-            }
-            // Per JSON Schema 2020-12: `contains` requires at least one
-            // array item to validate against the subschema. Optional
-            // `minContains` / `maxContains` further constrain the count.
-            // Before this branch existed the validator silently treated
-            // `contains` as a no-op, which made every `if: { array:
-            // { contains: ... } }` block trivially pass and forced the
-            // THEN branch to fire regardless of the array's content —
-            // including the principal_control_realm guard on
-            // realm.schema.json that requires `fields` only for that
-            // very specific profile.
-            if let Some(contains_schema) = schema_object.get("contains") {
-                let matches: usize = array
-                    .iter()
-                    .enumerate()
-                    .filter(|(index, item)| {
-                        let mut branch_warnings = Vec::new();
-                        self.validate_schema(
-                            root_id,
-                            root,
-                            contains_schema,
-                            item,
-                            &format!("{path}[{index}]"),
-                            depth + 1,
-                            &mut branch_warnings,
-                        )
-                        .is_ok()
-                    })
-                    .count();
-                let min = schema_object
-                    .get("minContains")
-                    .and_then(Value::as_u64)
-                    .unwrap_or(1) as usize;
-                let max = schema_object
-                    .get("maxContains")
-                    .and_then(Value::as_u64)
-                    .map(|value| value as usize);
-                if matches < min {
-                    return Err(Error::Protocol(format!(
-                        "schema '{root_id}' contains requires >= {min} matching items at {path} (got {matches})"
-                    )));
-                }
-                if let Some(max) = max
-                    && matches > max
-                {
-                    return Err(Error::Protocol(format!(
-                        "schema '{root_id}' contains allows <= {max} matching items at {path} (got {matches})"
-                    )));
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn resolve_schema_ref<'a>(
-        &'a self,
-        root_id: &'a str,
-        root: &'a Value,
-        reference: &str,
-    ) -> Result<(&'a str, &'a Value, &'a Value)> {
-        let (document_ref, fragment) = reference.split_once('#').unwrap_or((reference, ""));
-        let (resolved_root_id, resolved_root) = if document_ref.is_empty() {
-            (root_id, root)
+            json!({
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$ref": format!("{document_id}#{fragment}")
+            })
         } else {
-            self.resolve_external_schema(document_ref).ok_or_else(|| {
-                Error::Protocol(format!("schema '{root_id}' has unresolved ref {reference}"))
-            })?
+            root.clone()
         };
-        let resolved_schema = if fragment.is_empty() {
-            resolved_root
-        } else {
-            resolved_root.pointer(fragment).ok_or_else(|| {
-                Error::Protocol(format!("schema '{root_id}' has unresolved ref {reference}"))
-            })?
+
+        let retriever = InMemorySchemaRetriever {
+            schemas: self.retriever_schemas()?,
         };
-        Ok((resolved_root_id, resolved_root, resolved_schema))
+        let started = Instant::now();
+        let validator = jsonschema::options()
+            .with_draft(Draft::Draft202012)
+            .with_format("arkret-human-identifier", |value: &str| {
+                validate_canonical_handle_localpart(value).is_ok()
+            })
+            .with_format("arkret-agent-slug", |value: &str| {
+                validate_canonical_agent_slug(value).is_ok()
+            })
+            .with_format("arkret-idna-a-label-domain", |value: &str| {
+                validate_canonical_idna_domain(value).is_ok()
+            })
+            .with_format("arkret-canonical-handle", |value: &str| {
+                validate_canonical_handle(value).is_ok()
+            })
+            .with_format("arkret-acct-uri", |value: &str| {
+                validate_canonical_acct_uri(value).is_ok()
+            })
+            .with_format("arkret-single-line-display-text", |value: &str| {
+                validate_single_line_display_text(value, usize::MAX, usize::MAX).is_ok()
+            })
+            .with_format("arkret-short-text", |value: &str| {
+                validate_short_text(value, usize::MAX, usize::MAX).is_ok()
+            })
+            .with_format("arkret-content-text", |value: &str| {
+                validate_content_text(value).is_ok()
+            })
+            .should_validate_formats(true)
+            .with_retriever(retriever)
+            .build(&schema)
+            .map_err(|error| {
+                self.validator_cache
+                    .validator_compile_failures
+                    .fetch_add(1, Ordering::Relaxed);
+                self.validator_cache
+                    .validator_compile_micros
+                    .fetch_add(duration_micros(started), Ordering::Relaxed);
+                *self
+                    .validator_cache
+                    .last_failure_schema_id
+                    .write()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(schema_id.to_owned());
+                Error::Protocol(format!(
+                    "schema '{schema_id}' could not compile as Draft 2020-12: {error}"
+                ))
+            })?;
+        self.validator_cache
+            .compiled_validators
+            .fetch_add(1, Ordering::Relaxed);
+        self.validator_cache
+            .validator_compile_micros
+            .fetch_add(duration_micros(started), Ordering::Relaxed);
+        let validator = Arc::new(validator);
+        self.validator_cache
+            .validators
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .insert(schema_id.to_owned(), Arc::clone(&validator));
+        Ok(validator)
     }
 
-    fn resolve_external_schema<'a>(&'a self, document_ref: &str) -> Option<(&'a str, &'a Value)> {
-        let normalized = document_ref.trim_start_matches("./");
-        self.schemas.iter().find_map(|(schema_id, schema)| {
-            let json_id = schema
-                .get("$id")
-                .and_then(Value::as_str)
-                .unwrap_or_default();
-            if schema_id == document_ref
-                || schema_id == normalized
-                || json_id == document_ref
-                || json_id.ends_with(normalized)
+    fn clear_validator_cache(&self) {
+        self.validator_cache
+            .validators
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clear();
+        *self
+            .validator_cache
+            .retriever_schemas
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
+        self.validator_cache.reset();
+    }
+
+    fn retriever_schemas(&self) -> Result<Arc<BTreeMap<String, Value>>> {
+        if let Some(schemas) = self
+            .validator_cache
+            .retriever_schemas
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+        {
+            return Ok(schemas);
+        }
+
+        let mut retriever_schemas = BTreeMap::new();
+        retriever_schemas.extend(self.documents.clone());
+        for (logical_id, document) in &self.schemas {
+            if let Some(document_id) = document.get("$id").and_then(Value::as_str)
+                && document_id.contains(':')
+                && let Some(previous) =
+                    retriever_schemas.insert(document_id.to_owned(), document.clone())
+                && previous != *document
             {
-                Some((schema_id.as_str(), schema))
-            } else {
-                None
+                return Err(Error::Protocol(format!(
+                    "conflicting schema documents declare $id '{document_id}'"
+                )));
             }
-        })
+            if logical_id.contains(':') {
+                retriever_schemas.insert(logical_id.clone(), document.clone());
+            }
+        }
+        let retriever_schemas = Arc::new(retriever_schemas);
+        *self
+            .validator_cache
+            .retriever_schemas
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) =
+            Some(Arc::clone(&retriever_schemas));
+        Ok(retriever_schemas)
     }
 
     fn validate_security_extensions(
@@ -687,6 +606,19 @@ impl ProtocolSchemaRegistry {
         }
         Ok(())
     }
+}
+
+fn duration_micros(started: Instant) -> u64 {
+    u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX)
+}
+
+fn json_pointer_last_segment(pointer: &str) -> String {
+    pointer
+        .rsplit('/')
+        .next()
+        .unwrap_or_default()
+        .replace("~1", "/")
+        .replace("~0", "~")
 }
 
 impl Default for ProtocolSchemaRegistry {

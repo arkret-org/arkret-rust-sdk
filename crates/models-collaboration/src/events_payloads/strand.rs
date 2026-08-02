@@ -33,6 +33,43 @@ pub struct StrandStageSetPayload {
     pub expected_stage: Option<String>,
 }
 
+/// Strong payload for `ak.realm.set_default_strand`.
+///
+/// The CAS guard is intentionally tri-state: omission carries no explicit
+/// expected value, null asserts that the current cell is null, and a concrete
+/// strand ID asserts that exact current value.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmSetDefaultStrandPayload {
+    pub realm_id: RealmId,
+    pub strand_id: StrandId,
+    #[serde(default, skip_serializing_if = "WirePresence::is_missing")]
+    pub expected_default_strand_id: WirePresence<StrandId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+impl RealmSetDefaultStrandPayload {
+    pub fn new(realm_id: RealmId, strand_id: StrandId) -> Self {
+        Self {
+            realm_id,
+            strand_id,
+            expected_default_strand_id: WirePresence::Missing,
+            reason: None,
+        }
+    }
+
+    pub fn expecting_no_default(mut self) -> Self {
+        self.expected_default_strand_id = WirePresence::Null;
+        self
+    }
+
+    pub fn expecting(mut self, strand_id: StrandId) -> Self {
+        self.expected_default_strand_id = WirePresence::Value(strand_id);
+        self
+    }
+}
+
 // `strand_watch_set_payload` now has a strong type:
 // `models::operation_payloads::StrandWatchSetPayload` (carries the
 // `StrandWatchLevel` enum / nullable `level` clear path and the
@@ -238,8 +275,8 @@ pub struct StrandWatchSetPayload {
     pub level: Option<StrandWatchLevel>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub level_public: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_value: Option<Option<StrandWatchExpectedValue>>,
+    #[serde(default, skip_serializing_if = "WirePresence::is_missing")]
+    pub expected_value: WirePresence<StrandWatchExpectedValue>,
 }
 
 impl StrandWatchSetPayload {
@@ -256,7 +293,7 @@ impl StrandWatchSetPayload {
             watcher_actor_id,
             level: Some(level),
             level_public,
-            expected_value: None,
+            expected_value: WirePresence::Missing,
         }
     }
 
@@ -268,17 +305,79 @@ impl StrandWatchSetPayload {
             watcher_actor_id,
             level: None,
             level_public: None,
-            expected_value: None,
+            expected_value: WirePresence::Missing,
         }
     }
 
     pub fn with_expected_value(mut self, expected: Option<StrandWatchExpectedValue>) -> Self {
-        self.expected_value = Some(expected);
+        self.expected_value = match expected {
+            Some(expected) => WirePresence::Value(expected),
+            None => WirePresence::Null,
+        };
         self
     }
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
             .map_err(|err| Error::Protocol(format!("strand watch set payload serialize: {err}")))
+    }
+}
+
+#[cfg(test)]
+mod presence_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn realm_id() -> RealmId {
+        RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000000").unwrap()
+    }
+
+    fn strand_id(suffix: &str) -> StrandId {
+        StrandId::new(format!("ak:strand:0196419b-0000-7000-8000-{suffix}")).unwrap()
+    }
+
+    #[test]
+    fn default_strand_cas_preserves_missing_null_and_value() {
+        let base = json!({
+            "realm_id": realm_id(),
+            "strand_id": strand_id("000000000001")
+        });
+        let missing: RealmSetDefaultStrandPayload = serde_json::from_value(base.clone()).unwrap();
+        let mut explicit_null = base.clone();
+        explicit_null["expected_default_strand_id"] = Value::Null;
+        let null: RealmSetDefaultStrandPayload = serde_json::from_value(explicit_null).unwrap();
+        let mut explicit_value = base;
+        explicit_value["expected_default_strand_id"] = json!(strand_id("000000000002"));
+        let value: RealmSetDefaultStrandPayload = serde_json::from_value(explicit_value).unwrap();
+
+        assert_eq!(missing.expected_default_strand_id, WirePresence::Missing);
+        assert_eq!(null.expected_default_strand_id, WirePresence::Null);
+        assert!(matches!(
+            value.expected_default_strand_id,
+            WirePresence::Value(_)
+        ));
+        assert!(
+            serde_json::to_value(missing)
+                .unwrap()
+                .get("expected_default_strand_id")
+                .is_none()
+        );
+        assert_eq!(
+            serde_json::to_value(null).unwrap()["expected_default_strand_id"],
+            Value::Null
+        );
+    }
+
+    #[test]
+    fn watch_cas_deserialization_no_longer_collapses_null_into_missing() {
+        let payload: StrandWatchSetPayload = serde_json::from_value(json!({
+            "strand_id": strand_id("000000000001"),
+            "watcher_actor_id": "did:web:alice.example",
+            "level": null,
+            "expected_value": null
+        }))
+        .unwrap();
+        assert_eq!(payload.expected_value, WirePresence::Null);
     }
 }

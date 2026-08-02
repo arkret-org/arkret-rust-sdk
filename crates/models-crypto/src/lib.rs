@@ -20,6 +20,7 @@ pub mod mls_governance_proof;
 pub mod mls_payloads;
 pub mod mls_records;
 pub mod mls_store_ports;
+pub mod protected_payload;
 pub mod security_transaction;
 pub mod security_transaction_resilience;
 
@@ -35,6 +36,7 @@ pub use mls_governance_proof::*;
 pub use mls_payloads::*;
 pub use mls_records::*;
 pub use mls_store_ports::*;
+pub use protected_payload::*;
 pub use security_transaction::*;
 pub use security_transaction_resilience::{
     SecurityTransactionResilienceProjection, run_security_transaction_resilience_fixture,

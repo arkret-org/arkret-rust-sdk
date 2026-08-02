@@ -60,15 +60,22 @@ pub enum NotarySig {
     Threshold(ThresholdSignature),
 }
 
+/// `seal.schema.json#/$defs/multi_signature` is a closed object; `kind` is the
+/// discriminator that keeps this branch disjoint from the other two.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MultiSignature {
     pub kind: MultiSigKind,
     pub signatures: Vec<PayloadSignature>,
 }
 
+/// `seal.schema.json#/$defs/threshold_signature` is a closed object. Closing it
+/// is what makes the `notary_signature` union decidable: an instance that also
+/// carries the single-signature members no longer matches this branch.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ThresholdSignature {
     pub kind: ThresholdSigKind,
     pub threshold: u32,
@@ -426,6 +433,45 @@ mod tests {
         });
         let decoded: NotarySig = serde_json::from_value(value).unwrap();
         assert!(matches!(decoded, NotarySig::Single(_)));
+    }
+
+    /// The `notary_signature` union is untagged, so its branches must stay
+    /// mutually exclusive on the wire. `kind` discriminates the two aggregate
+    /// forms, and both are closed, so an instance that also carries the
+    /// single-signature members can only be the single-signature branch.
+    #[test]
+    fn notary_signature_branches_stay_mutually_exclusive() {
+        let multi = json!({
+            "kind": "multi_sig",
+            "signatures": [{
+                "alg": "EdDSA",
+                "verification_method": "did:webvh:z6mkfixture:notary.example#k1",
+                "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "created_at": "2026-06-11T00:00:00.000Z",
+                "jws": "AAAA.BBBB.CCCC"
+            }]
+        });
+        let threshold = json!({
+            "kind": "threshold_sig",
+            "threshold": 2,
+            "signers": ["did:webvh:z6mkfixture:a.example", "did:webvh:z6mkfixture:b.example"],
+            "proof": "AAAA"
+        });
+        assert!(matches!(
+            serde_json::from_value::<NotarySig>(multi).unwrap(),
+            NotarySig::Multi(_)
+        ));
+        assert!(matches!(
+            serde_json::from_value::<NotarySig>(threshold.clone()).unwrap(),
+            NotarySig::Threshold(_)
+        ));
+
+        // A future member added to either aggregate form must fail its own
+        // branch rather than silently widening the union.
+        let mut widened = threshold;
+        widened["future_member"] = json!(true);
+        assert!(serde_json::from_value::<ThresholdSignature>(widened.clone()).is_err());
+        assert!(serde_json::from_value::<NotarySig>(widened).is_err());
     }
 
     #[test]

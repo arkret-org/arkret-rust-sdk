@@ -13,6 +13,8 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+use crate::mls_envelopes::MlsCommitEnvelope;
+
 pub const MLS_GOVERNANCE_BINDING_VERSION: u8 = 1;
 pub const MLS_GOVERNANCE_BINDING_ENCODING_PROFILE: &str = "cbor-deterministic-rfc8949-v1";
 pub const MLS_GOVERNANCE_BINDING_EXTENSION_TYPE: u16 = 0xF1C0;
@@ -799,17 +801,14 @@ impl<'de> Deserialize<'de> for MlsCommitPayload {
 
 impl MlsCommitPayload {
     pub fn new(
-        mls_group_id: impl Into<String>,
         base_epoch: u64,
         base_epoch_ref: impl Into<String>,
         proposal_refs: Vec<EventId>,
-        next_epoch: u64,
-        commit_bytes_b64: impl Into<String>,
-        commit_digest: Hash,
+        commit: &MlsCommitEnvelope,
         governance_binding: MlsGovernanceBindingPayload,
     ) -> Result<Self> {
         let payload = Self {
-            mls_group_id: MlsGroupId::new(mls_group_id.into()).map_err(|err| {
+            mls_group_id: MlsGroupId::new(commit.group_id.clone()).map_err(|err| {
                 Error::Protocol(format!(
                     "mls_commit_payload.mls_group_id is invalid: {err} (schema_violation)"
                 ))
@@ -817,10 +816,10 @@ impl MlsCommitPayload {
             base_epoch,
             base_epoch_ref: base_epoch_ref.into(),
             proposal_refs,
-            next_epoch,
-            commit_bytes_b64: commit_bytes_b64.into(),
+            next_epoch: commit.epoch,
+            commit_bytes_b64: commit.commit.clone(),
             commit_message_ref: None,
-            commit_digest,
+            commit_digest: commit.commit_digest.clone(),
             governance_binding,
         };
         payload.validate()?;
@@ -843,19 +842,13 @@ impl MlsCommitPayload {
                     .to_owned(),
             ));
         }
-        if self.commit_bytes_b64.is_empty() {
-            return Err(Error::Protocol(
-                "mls_commit_payload.commit_bytes_b64 must not be empty (schema_violation)"
-                    .to_owned(),
-            ));
-        }
         let commit_bytes = base64url_decode(&self.commit_bytes_b64).map_err(|error| {
             Error::Protocol(format!(
                 "mls_commit_payload.commit_bytes_b64 is invalid base64url: {error} (schema_violation)"
             ))
         })?;
-        let actual_commit_digest = canonical::sha256_digest(&commit_bytes);
-        if self.commit_digest.as_str() != actual_commit_digest {
+        let actual_digest = canonical::sha256_digest(&commit_bytes);
+        if actual_digest != self.commit_digest.as_str() {
             return Err(Error::Protocol(
                 "mls_commit_payload.commit_digest does not match commit_bytes_b64 (schema_violation)"
                     .to_owned(),
@@ -917,6 +910,21 @@ impl MlsCommitPayload {
 
     pub fn commit_bytes_b64(&self) -> &str {
         &self.commit_bytes_b64
+    }
+
+    /// Rebuild the typed MLS transport envelope consumed by the MLS runtime.
+    /// The Event payload deliberately keeps only fields required to apply and
+    /// authenticate the Commit; ratchet-tree and app-state material remain in
+    /// their protocol-owned delivery surfaces.
+    pub fn commit_envelope(&self) -> MlsCommitEnvelope {
+        MlsCommitEnvelope {
+            group_id: self.mls_group_id.to_string(),
+            epoch: self.next_epoch,
+            commit: self.commit_bytes_b64.clone(),
+            commit_digest: self.commit_digest.clone(),
+            ratchet_tree: None,
+            app_state_ref: None,
+        }
     }
 
     pub fn commit_message_ref(&self) -> Option<&str> {

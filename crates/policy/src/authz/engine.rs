@@ -23,9 +23,9 @@ pub struct AuthzContext {
     /// Fields being written
     #[serde(default)]
     pub write_fields: Vec<String>,
-    /// Current authority depth of the grant being evaluated. Root grants are depth 0.
+    /// Current delegation depth of the grant being evaluated. Root grants are depth 0.
     #[serde(default)]
-    pub authority_depth: u32,
+    pub delegation_depth: u32,
     /// Operation count already observed in the current rate-limit window.
     #[serde(default)]
     pub rate_limit_count: Option<u64>,
@@ -133,7 +133,7 @@ impl AuthzContext {
             facets: Vec::new(),
             read_fields: Vec::new(),
             write_fields: Vec::new(),
-            authority_depth: 0,
+            delegation_depth: 0,
             rate_limit_count: None,
             verified_claims: Vec::new(),
             revoked_claim_ids: Vec::new(),
@@ -190,9 +190,9 @@ impl AuthzContext {
         self
     }
 
-    /// Set current authority depth for authority-control constraints.
-    pub fn with_authority_depth(mut self, depth: u32) -> Self {
-        self.authority_depth = depth;
+    /// Set current delegation depth for delegation-control constraints.
+    pub fn with_delegation_depth(mut self, depth: u32) -> Self {
+        self.delegation_depth = depth;
         self
     }
 
@@ -741,9 +741,28 @@ impl AuthzEngine {
                 }
                 EngineDecision::Allow
             }
-            // Authority control constrains issuance of child grants. It does
-            // not narrow use of the current grant's business actions.
-            Constraint::AuthorityControl { .. } => EngineDecision::Allow,
+            Constraint::AuthorityControl {
+                max_authority_depth,
+                authority_regrant_allowed,
+                ..
+            } => {
+                if !*authority_regrant_allowed && ctx.delegation_depth > 0 {
+                    return EngineDecision::Deny {
+                        reason: "authority re-grant is not allowed".to_owned(),
+                    };
+                }
+                if let Some(max_depth) = max_authority_depth
+                    && ctx.delegation_depth > *max_depth
+                {
+                    return EngineDecision::Deny {
+                        reason: format!(
+                            "delegation depth {} exceeds max {}",
+                            ctx.delegation_depth, max_depth
+                        ),
+                    };
+                }
+                EngineDecision::Allow
+            }
             Constraint::RateLimiting {
                 max_operations,
                 period,
@@ -1275,7 +1294,7 @@ impl AuthzEngine {
             frontier_digest,
             field_digest,
             request_digest,
-            ctx.authority_depth,
+            ctx.delegation_depth,
             ctx.rate_limit_count,
             ctx.encryption_level,
             claims_digest,
@@ -1484,7 +1503,7 @@ pub fn moderation_report_for_policy_outcome(
 #[cfg(test)]
 mod engine_wire_tests {
     use arkret_models_collaboration::governance::grant_constraint::CapabilitySubject;
-    use arkret_wire::{DidUrl, GrantId, SchemaId};
+    use arkret_wire::{GrantId, SchemaId};
     use serde_json::json;
 
     use super::*;
@@ -1495,20 +1514,6 @@ mod engine_wire_tests {
 
     fn bob() -> Did {
         Did::new("did:webvh:z6mkfixture:bob.example").unwrap()
-    }
-
-    fn proof(issuer: &Did) -> arkret_wire::PayloadProof {
-        arkret_wire::PayloadProof {
-            kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
-            alg: "EdDSA".to_owned(),
-            verification_method: DidUrl::new(format!("{issuer}#device-1")).unwrap(),
-            payload_digest: arkret_wire::Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-            created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
-            domain: None,
-            audience: None,
-            proof_purpose: Some(arkret_wire::PayloadProofPurpose::IssuerAttestation),
-            jws: "eyJhbGciOiJFZERTQSJ9..signature".to_owned(),
-        }
     }
 
     fn constraint(
@@ -1538,13 +1543,11 @@ mod engine_wire_tests {
                         "ak:realm:01904100-0000-7000-8000-65c7feb295d7",
                     )
                     .unwrap(),
-                    cell_ref: "ak:cell:ak.component.realm.authority_root.v1:null".to_owned(),
+                    cell_ref: arkret_wire::REALM_AUTHORITY_ROOT_CELL.to_owned(),
                     controller_epoch_at_issuance: 0,
                     authority_generation: 0,
                 },
             ],
-            authority_depth: None,
-            authority_root_refs: Vec::new(),
             issued_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             not_before: None,
             expires_at: None,
@@ -1552,7 +1555,6 @@ mod engine_wire_tests {
             updated_at: None,
             revoked_by: None,
             revoked_at: None,
-            proofs: vec![proof(&alice())],
         }
     }
 

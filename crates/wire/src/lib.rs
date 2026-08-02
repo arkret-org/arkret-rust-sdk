@@ -41,6 +41,7 @@ pub mod events;
 pub mod extension_manifest;
 pub mod generated;
 pub mod http_signature;
+pub mod ingress_budget;
 pub mod notary;
 pub mod object_address;
 pub mod offline_publication;
@@ -61,6 +62,7 @@ pub mod signal;
 pub mod signer;
 pub mod string_profiles;
 pub mod websocket_binding;
+pub mod wire_presence;
 pub mod wire_strings;
 
 pub use applet_revoke_mode::AppletRevokeMode;
@@ -118,6 +120,7 @@ pub use generated::{
     ServiceOperationDescriptor, ServiceOperationId, TrackName, operation_error_mapping,
 };
 pub use http_signature::HttpMessageSignature;
+pub use ingress_budget::WireBodyClass;
 pub use notary::{ForensicAttribution, NotaryValue};
 pub use object_address::*;
 pub use offline_publication::{
@@ -187,4 +190,5 @@ pub use websocket_binding::{
     WebSocketDpopPublicJwk, WebSocketOperationId, WebSocketReplayLedgerKey,
     WebSocketTransportError, canonical_http_origin, validate_websocket_base_url,
 };
+pub use wire_presence::WirePresence;
 pub use wire_strings::*;

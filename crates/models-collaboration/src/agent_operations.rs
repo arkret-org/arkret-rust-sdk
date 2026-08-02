@@ -333,12 +333,35 @@ pub struct AgentKeyPairRequestBody {
     pub authorize_event: EventInitialSubmission,
 }
 
+/// Whether a submitted runtime-key authorization has merely been stored or is
+/// already covered by the accepted, controller-signed Agent-PCR frontier.
+///
+/// A durable Event is not yet an authorization witness. Callers MUST close the
+/// Event into a managed-PCR Seal and retry the same idempotent pairing request
+/// before treating the runtime as active.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum AgentKeyPairActivationState {
+    AwaitingAcceptedFrontier,
+    Active,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentKeyPairOutcome {
     pub ok: bool,
-    pub authorized_event_ref: EventId,
+    pub activation_state: AgentKeyPairActivationState,
+    pub authorize_event_ref: EventId,
     pub signing_key_binding: AgentSigningKeyBinding,
+}
+
+impl AgentKeyPairOutcome {
+    #[must_use]
+    pub fn is_active(&self) -> bool {
+        self.activation_state == AgentKeyPairActivationState::Active
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

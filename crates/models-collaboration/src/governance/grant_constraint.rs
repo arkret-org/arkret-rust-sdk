@@ -7,8 +7,7 @@ use std::collections::BTreeMap;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
     AppletId, CircleId, Did, EncryptionProfile, Error, EvaluationClass, Facet, GrantId, Hash,
-    HistoryVisibility, PayloadProof, ProofContextId, RealmId, Result, SchemaId, WireError,
-    XExtensionMap, canonical,
+    HistoryVisibility, RealmId, Result, SchemaId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -396,6 +395,8 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope_expansion_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_reference_required: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applet_id: Option<AppletId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub executed_by: Option<Did>,
@@ -539,6 +540,7 @@ impl GrantConstraint {
             authority_regrant_allowed: None,
             authority_scope: None,
             scope_expansion_allowed: None,
+            parent_reference_required: None,
             applet_id: None,
             executed_by: None,
             registration_epoch: None,
@@ -704,19 +706,8 @@ pub enum IssuerAuthorityRef {
     },
 }
 
-/// Reducer-derived identity of one authority root reached by a grant.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum AuthorityRootRef {
-    RealmRoot {
-        realm_id: RealmId,
-        cell_ref: String,
-        authority_generation: u64,
-    },
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CapabilityGrant {
     pub id: GrantId,
     pub schema: String,
@@ -730,6 +721,14 @@ pub struct CapabilityGrant {
     pub capability_action_registry_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub constraints: Vec<GrantConstraint>,
+    /// The authority this grant was issued under (`capabilities.md` §10).
+    /// A `realm_root` entry is a rooted terminal; a `grant` entry is an edge.
+    /// v1 has one grant shape, so this is the only thing that distinguishes a
+    /// root controller's grant from a member re-granting what it holds.
+    // Required by capability-grant.schema.json.  Do not add `default` or
+    // `skip_serializing_if`: doing so lets a strongly typed grant silently
+    // deserialize or serialize without its authority root/parent edge.
+    pub issuer_authority_refs: Vec<IssuerAuthorityRef>,
     #[serde(with = "canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(
@@ -760,80 +759,10 @@ pub struct CapabilityGrant {
         with = "optional_canonical_timestamp"
     )]
     pub revoked_at: Option<DateTime<Utc>>,
-    pub proofs: Vec<PayloadProof>,
-    /// The authority this grant was issued under (`capabilities.md` §10).
-    /// A `realm_root` entry is a rooted terminal; a `grant` entry is an edge.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub issuer_authority_refs: Vec<IssuerAuthorityRef>,
-    /// Reducer-derived absolute distance from an authority root.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authority_depth: Option<u64>,
-    /// Reducer-derived, canonically sorted root identities reached by the refs.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub authority_root_refs: Vec<AuthorityRootRef>,
-}
-
-impl CapabilityGrant {
-    /// RFC 8785 canonical bytes of the grant body covered by
-    /// `proof.payload_digest`. The `proofs` carrier is excluded so adding the
-    /// detached proof cannot recursively change the signed digest.
-    pub fn canonical_payload_without_proofs(&self) -> Result<Vec<u8>> {
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("CapabilityGrant serializes as an object")
-            .remove("proofs");
-        Ok(canonical::canonical_json_bytes(&value)?)
-    }
-
-    /// `sha256:` digest committed by every capability-grant payload proof.
-    pub fn payload_digest(&self) -> Result<Hash> {
-        Ok(Hash::new(canonical::sha256_digest(
-            &self.canonical_payload_without_proofs()?,
-        ))?)
-    }
-
-    /// Canonical `ak.capability-grant-proof-v1` transcript for one proof.
-    pub fn canonical_proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
-        let payload_digest = self.payload_digest()?;
-        if proof.payload_digest != payload_digest {
-            return Err(WireError::Protocol(
-                "capability grant proof payload_digest mismatch".to_owned(),
-            ));
-        }
-        let mut binding = serde_json::Map::from_iter([
-            (
-                "context".to_owned(),
-                Value::String(ProofContextId::CAPABILITY_GRANT_PROOF_V1.to_owned()),
-            ),
-            (
-                "payload_digest".to_owned(),
-                serde_json::to_value(&payload_digest)?,
-            ),
-            ("issuer".to_owned(), serde_json::to_value(&self.issuer)?),
-            ("subject".to_owned(), serde_json::to_value(&self.subject)?),
-            (
-                "verification_method".to_owned(),
-                Value::String(proof.verification_method.as_str().to_owned()),
-            ),
-            (
-                "created_at".to_owned(),
-                Value::String(canonical::format_timestamp_canonical(proof.created_at)),
-            ),
-        ]);
-        if let Some(domain) = &proof.domain {
-            binding.insert("domain".to_owned(), Value::String(domain.clone()));
-        }
-        if let Some(audience) = &proof.audience {
-            binding.insert("audience".to_owned(), serde_json::to_value(audience)?);
-        }
-        Ok(canonical::canonical_json_bytes(&Value::Object(binding))?)
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{DidUrl, PayloadProofPurpose};
     use serde_json::json;
 
     use super::*;
@@ -848,15 +777,14 @@ mod tests {
             "subject": "did:web:subject.example",
             "actions": ["ak.event.read"],
             "resources": [{"kind": "realm"}],
-            "issued_at": "2026-07-14T12:34:56.789Z",
-            "proofs": [],
             "issuer_authority_refs": [{
                 "kind": "realm_root",
                 "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
                 "cell_ref": "ak:cell:ak.component.realm.authority_root.v1:null",
                 "controller_epoch_at_issuance": 0,
                 "authority_generation": 0
-            }]
+            }],
+            "issued_at": "2026-07-14T12:34:56.789Z"
         }))
         .expect("constraints are optional in capability-grant.schema.json");
 
@@ -864,25 +792,7 @@ mod tests {
     }
 
     #[test]
-    fn capability_grant_rejects_missing_issuer_authority_refs() {
-        let error = serde_json::from_value::<CapabilityGrant>(json!({
-            "id": "ak:grant:01904100-0000-7000-8000-000000000001",
-            "schema": "ak.schema.capability.v1",
-            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
-            "issuer": "did:web:issuer.example",
-            "subject": "did:web:subject.example",
-            "actions": ["ak.event.read"],
-            "resources": [{"kind": "realm"}],
-            "issued_at": "2026-07-14T12:34:56.789Z",
-            "proofs": []
-        }))
-        .expect_err("issuer_authority_refs is required by capability-grant.schema.json");
-
-        assert!(error.to_string().contains("issuer_authority_refs"));
-    }
-
-    #[test]
-    fn applet_authority_uses_registered_authority_control_shape() {
+    fn applet_delegation_uses_registered_delegation_control_shape() {
         let constraint = GrantConstraint::applet_authority(
             AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
             Did::new("did:web:calendar.example").unwrap(),
@@ -902,7 +812,7 @@ mod tests {
         let fractional = DateTime::parse_from_rfc3339("2026-07-14T12:34:56.789Z")
             .unwrap()
             .with_timezone(&Utc);
-        let mut grant = CapabilityGrant {
+        let grant = CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000001").unwrap(),
             schema: "ak.schema.capability.v1".to_owned(),
             realm_id: Some(RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap()),
@@ -912,14 +822,7 @@ mod tests {
             resources: vec![serde_json::from_value(json!({"kind": "realm"})).unwrap()],
             capability_action_registry_digest: None,
             constraints: Vec::new(),
-            issuer_authority_refs: vec![IssuerAuthorityRef::RealmRoot {
-                realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
-                cell_ref: "ak:cell:ak.component.realm.authority_root.v1:null".to_owned(),
-                controller_epoch_at_issuance: 0,
-                authority_generation: 0,
-            }],
-            authority_depth: None,
-            authority_root_refs: Vec::new(),
+            issuer_authority_refs: Vec::new(),
             issued_at: fractional,
             not_before: Some(fractional),
             expires_at: Some(fractional),
@@ -927,17 +830,6 @@ mod tests {
             updated_at: Some(fractional),
             revoked_by: None,
             revoked_at: Some(fractional),
-            proofs: vec![PayloadProof {
-                kind: "detached_jws".to_owned(),
-                alg: "EdDSA".to_owned(),
-                verification_method: DidUrl::new("did:web:issuer.example#key-1").unwrap(),
-                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-                created_at: fractional,
-                domain: None,
-                audience: None,
-                proof_purpose: Some(PayloadProofPurpose::IssuerAttestation),
-                jws: "header..signature".to_owned(),
-            }],
         };
 
         let wire = serde_json::to_value(&grant).unwrap();
@@ -947,7 +839,6 @@ mod tests {
             "/expires_at",
             "/updated_at",
             "/revoked_at",
-            "/proofs/0/created_at",
         ] {
             assert_eq!(
                 wire.pointer(pointer).and_then(Value::as_str),
@@ -955,16 +846,6 @@ mod tests {
             );
         }
 
-        grant.proofs[0].created_at = DateTime::parse_from_rfc3339("2026-07-14T12:34:56.000Z")
-            .unwrap()
-            .with_timezone(&Utc);
-        grant.proofs[0].payload_digest = grant.payload_digest().unwrap();
-        let binding: Value = serde_json::from_slice(
-            &grant
-                .canonical_proof_binding_bytes(&grant.proofs[0])
-                .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(binding["created_at"], "2026-07-14T12:34:56.000Z");
+        assert!(wire.get("proofs").is_none());
     }
 }
