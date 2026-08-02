@@ -127,13 +127,17 @@ impl DidKeyLogEntry {
         Ok(Hash::new(canonical::sha256_digest(&bytes))?)
     }
 
-    /// Canonical proof binding object bytes per §3.1.3:
-    /// `{payload_digest, did, verification_method, created_at, domain?,
-    /// audience?}` in canonical JSON (JCS key order). This is the exact
+    /// Canonical proof binding object bytes per `identity-did.md` §4.4:
+    /// `{context, payload_digest, did, seq, verification_method, created_at,
+    /// domain?, audience?}` in canonical JSON (JCS key order). This is the exact
     /// detached-JWS payload — field-concatenation strings or bare hex
     /// MUST NOT replace this transcript.
     pub fn proof_binding_bytes(&self, proof: &DetachedPayloadProof) -> Result<Vec<u8>> {
         let mut object = serde_json::Map::new();
+        object.insert(
+            "context".to_owned(),
+            Value::String(arkret_wire::ProofContextId::DID_KEY_LOG_ENTRY_PROOF_V1.to_owned()),
+        );
         object.insert(
             "payload_digest".to_owned(),
             Value::String(proof.payload_digest.as_str().to_owned()),
@@ -142,6 +146,7 @@ impl DidKeyLogEntry {
             "did".to_owned(),
             Value::String(self.did.as_str().to_owned()),
         );
+        object.insert("seq".to_owned(), Value::Number(self.seq.into()));
         object.insert(
             "verification_method".to_owned(),
             Value::String(proof.verification_method.as_str().to_owned()),

@@ -101,6 +101,32 @@ pub enum BindingVerifyError {
         verification_method: String,
         issuer: Did,
     },
+    /// The authority document does not declare the required verification
+    /// relationship.
+    #[error("DID document for `{did}` has no `{relationship}` relationship")]
+    VerificationRelationshipMissing {
+        did: Did,
+        relationship: &'static str,
+    },
+    /// The presented method is not active in the required relationship.
+    #[error(
+        "verification_method `{verification_method}` is not authorized by `{relationship}` for `{did}`"
+    )]
+    VerificationMethodRelationshipMismatch {
+        verification_method: String,
+        did: Did,
+        relationship: &'static str,
+    },
+    /// An externally-named verification method did not carry an explicit
+    /// controller binding back to the authority document.
+    #[error(
+        "verification_method `{verification_method}` is controlled by `{actual_controller}`, not authority `{authority}`"
+    )]
+    VerificationMethodControllerMismatch {
+        verification_method: String,
+        authority: Did,
+        actual_controller: String,
+    },
     /// The DID document has no matching verification-method entry.
     #[error(
         "verification_method `{verification_method}` not found in DID document for `{did}` (have {available:?})"
@@ -136,6 +162,24 @@ pub enum BindingVerifyError {
     /// The Event envelope could not be canonicalized into signing bytes.
     #[error("event envelope canonicalization failed: {0}")]
     EventCanonicalization(String),
+}
+
+/// DID Core verification relationship required by a signed object family.
+///
+/// This is intentionally typed instead of accepting an arbitrary document
+/// property name. New relationships must be added here together with their
+/// protocol object-family review and tests.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DidVerificationRelationship {
+    AssertionMethod,
+}
+
+impl DidVerificationRelationship {
+    fn property_name(self) -> &'static str {
+        match self {
+            Self::AssertionMethod => "assertionMethod",
+        }
+    }
 }
 
 /// Verify a detached Ed25519 JWS against an **already-pinned** DID document.
@@ -186,6 +230,45 @@ pub fn verify_jws_with_document(
         });
     }
 
+    verify_jws_against_document_key(canonical_bytes, jws, verification_method, document)
+}
+
+/// Verify a detached JWS against a key that is active in a specific DID Core
+/// relationship of an already-pinned authority document.
+///
+/// Unlike [`verify_jws_with_document`], the verification method id may be
+/// externally named when the document explicitly declares that method's
+/// `controller` as `authority`. The relationship and controller checks happen
+/// before any signature work. This supports explicit controller delegation
+/// without treating every key that merely appears in a document as an
+/// assertion authority.
+pub fn verify_jws_with_document_relationship(
+    canonical_bytes: &[u8],
+    jws: &str,
+    verification_method: &DidUrl,
+    authority: &Did,
+    document: &DidDocument,
+    relationship: DidVerificationRelationship,
+) -> Result<(), BindingVerifyError> {
+    if canonical_bytes.is_empty() {
+        return Err(BindingVerifyError::EmptyCanonicalBytes);
+    }
+    if &document.id != authority {
+        return Err(BindingVerifyError::DocumentIssuerMismatch {
+            document_id: document.id.clone(),
+            issuer: authority.clone(),
+        });
+    }
+    require_verification_relationship(document, verification_method, authority, relationship)?;
+    verify_jws_against_document_key(canonical_bytes, jws, verification_method, document)
+}
+
+fn verify_jws_against_document_key(
+    canonical_bytes: &[u8],
+    jws: &str,
+    verification_method: &DidUrl,
+    document: &DidDocument,
+) -> Result<(), BindingVerifyError> {
     let material = lookup_verification_method_material(document, verification_method.as_str())?;
     let verifying_key =
         crate::jws::decode_ed25519_public_key_material(material).map_err(|error| {
@@ -199,6 +282,89 @@ pub fn verify_jws_with_document(
     Ed25519DetachedJwsVerifier::new()
         .verify_detached_jws(jws, canonical_bytes, &public_key)
         .map_err(|source| BindingVerifyError::Proof { source })
+}
+
+fn require_verification_relationship(
+    document: &DidDocument,
+    verification_method: &DidUrl,
+    authority: &Did,
+    relationship: DidVerificationRelationship,
+) -> Result<(), BindingVerifyError> {
+    let property = relationship.property_name();
+    let relationship_value = document.raw_properties.get(property).ok_or_else(|| {
+        BindingVerifyError::VerificationRelationshipMissing {
+            did: document.id.clone(),
+            relationship: property,
+        }
+    })?;
+    let entries = match relationship_value {
+        serde_json::Value::Array(entries) => entries.as_slice(),
+        entry => std::slice::from_ref(entry),
+    };
+    let presented = verification_method.as_str();
+    let authorized = entries.iter().any(|entry| {
+        let reference = entry
+            .as_str()
+            .or_else(|| entry.as_object()?.get("id")?.as_str());
+        reference.is_some_and(|reference| {
+            absolutize_document_reference(&document.id, reference) == presented
+        })
+    });
+    if !authorized {
+        return Err(BindingVerifyError::VerificationMethodRelationshipMismatch {
+            verification_method: presented.to_owned(),
+            did: document.id.clone(),
+            relationship: property,
+        });
+    }
+
+    let method_did = verification_method
+        .as_str()
+        .split_once('#')
+        .map(|(did, _)| did)
+        .unwrap_or(verification_method.as_str());
+    let declared_controller = verification_method_controller(document, presented);
+    match declared_controller {
+        Some(controller) if controller != authority.as_str() => {
+            return Err(BindingVerifyError::VerificationMethodControllerMismatch {
+                verification_method: presented.to_owned(),
+                authority: authority.clone(),
+                actual_controller: controller.to_owned(),
+            });
+        }
+        None if method_did != authority.as_str() => {
+            return Err(BindingVerifyError::VerificationMethodControllerMismatch {
+                verification_method: presented.to_owned(),
+                authority: authority.clone(),
+                actual_controller: method_did.to_owned(),
+            });
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn absolutize_document_reference<'a>(did: &Did, reference: &'a str) -> std::borrow::Cow<'a, str> {
+    if reference.starts_with('#') {
+        std::borrow::Cow::Owned(format!("{}{}", did.as_str(), reference))
+    } else {
+        std::borrow::Cow::Borrowed(reference)
+    }
+}
+
+fn verification_method_controller<'a>(
+    document: &'a DidDocument,
+    verification_method: &str,
+) -> Option<&'a str> {
+    let methods = document.raw_properties.get("verificationMethod")?;
+    let entries = methods.as_array()?;
+    entries.iter().find_map(|entry| {
+        let object = entry.as_object()?;
+        let id = object.get("id")?.as_str()?;
+        (absolutize_document_reference(&document.id, id) == verification_method)
+            .then(|| object.get("controller")?.as_str())
+            .flatten()
+    })
 }
 
 /// Verify a detached Ed25519 JWS against an accepted binding and the DID

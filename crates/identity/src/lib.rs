@@ -77,7 +77,8 @@ pub use resolvers::*;
 pub(crate) use serde::{Deserialize, Serialize};
 pub(crate) use serde_json::Value;
 pub use verifier::{
-    BindingResolveError, BindingResolveRequest, BindingVerifyError,
+    BindingResolveError, BindingResolveRequest, BindingVerifyError, DidVerificationRelationship,
     public_key_material_from_binding, resolve_and_verify_binding, verify_event_proof_with_binding,
     verify_event_proof_with_binding_for_event, verify_jws_with_binding, verify_jws_with_document,
+    verify_jws_with_document_relationship,
 };

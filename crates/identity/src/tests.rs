@@ -25,6 +25,74 @@ fn hlc() -> Hlc {
     Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()
 }
 
+struct FixtureKeyLogAuthority {
+    expected: BTreeMap<u64, (DidUrl, ed25519_dalek::VerifyingKey)>,
+    next_seq: u64,
+}
+
+impl DidKeyLogAuthorityVerifier for FixtureKeyLogAuthority {
+    fn verify_entry_authority(
+        &mut self,
+        entry: &DidKeyLogEntry,
+        previous_accepted: Option<&DidKeyLogEntry>,
+    ) -> Result<()> {
+        if entry.seq != self.next_seq
+            || previous_accepted.map(|previous| previous.seq) != entry.seq.checked_sub(1)
+        {
+            return Err(Error::Protocol(
+                "fixture authority state was not advanced atomically".to_owned(),
+            ));
+        }
+        let (expected_method, verifying_key) = self
+            .expected
+            .get(&entry.seq)
+            .ok_or_else(|| Error::Protocol("no controller authorized for entry".to_owned()))?;
+        for proof in &entry.proofs {
+            if &proof.verification_method != expected_method {
+                return Err(Error::Protocol(
+                    "key-log proof method is not authorized for this entry state".to_owned(),
+                ));
+            }
+            let material = arkret_signatures::PublicKeyMaterial::Ed25519Raw {
+                bytes: verifying_key.to_bytes().to_vec(),
+            };
+            arkret_signatures::Ed25519DetachedJwsVerifier::new()
+                .verify_detached_jws(&proof.jws, &entry.proof_binding_bytes(proof)?, &material)
+                .map_err(|error| Error::Protocol(error.to_string()))?;
+        }
+        self.next_seq += 1;
+        Ok(())
+    }
+}
+
+fn fixture_key_log_authority(entries: &[(u64, &DidUrl, &SigningKey)]) -> FixtureKeyLogAuthority {
+    FixtureKeyLogAuthority {
+        expected: entries
+            .iter()
+            .map(|(seq, method, key)| (*seq, ((*method).clone(), key.verifying_key())))
+            .collect(),
+        next_seq: 0,
+    }
+}
+
+fn assertion_document(
+    authority: &Did,
+    verification_method: &DidUrl,
+    signing_key: &SigningKey,
+) -> DidDocument {
+    serde_json::from_value(json!({
+        "id": authority,
+        "verificationMethod": [{
+            "id": verification_method,
+            "type": "Multikey",
+            "controller": authority,
+            "publicKeyMultibase": vector_update_key(signing_key)
+        }],
+        "assertionMethod": [verification_method]
+    }))
+    .unwrap()
+}
+
 // ---------------------------------------------------------------------------
 // did:webvh cryptographic test-vector builder.
 //
@@ -928,14 +996,6 @@ fn did_key_log_verifies_schema_shaped_chain() {
     let signing_key = SigningKey::from_bytes(&[21u8; 32]);
     let alice = did_web("alice");
     let verification_method = DidUrl::new(format!("{alice}#key-1")).unwrap();
-    let mut resolver = DidWebResolver::new();
-    resolver
-        .insert(DidDocument::new(
-            alice.clone(),
-            verification_method.as_str(),
-            vector_update_key(&signing_key),
-        ))
-        .unwrap();
 
     let mut body = serde_json::Map::new();
     body.insert(
@@ -978,13 +1038,23 @@ fn did_key_log_verifies_schema_shaped_chain() {
     attach_did_key_log_controller_proof(&mut deactivate, &signing_key, &verification_method)
         .unwrap();
 
-    let active = verify_did_key_log(&[inception.clone(), rotate.clone()], &resolver).unwrap();
+    let mut active_authority = fixture_key_log_authority(&[
+        (0, &verification_method, &signing_key),
+        (1, &verification_method, &signing_key),
+    ]);
+    let active =
+        verify_did_key_log(&[inception.clone(), rotate.clone()], &mut active_authority).unwrap();
     assert_eq!(active.did, alice);
     assert_eq!(active.seq, 1);
     assert_eq!(active.head, rotate.head_event_digest);
     assert!(!active.deactivated);
 
-    let state = verify_did_key_log(&[inception, rotate, deactivate], &resolver).unwrap();
+    let mut full_authority = fixture_key_log_authority(&[
+        (0, &verification_method, &signing_key),
+        (1, &verification_method, &signing_key),
+        (2, &verification_method, &signing_key),
+    ]);
+    let state = verify_did_key_log(&[inception, rotate, deactivate], &mut full_authority).unwrap();
     assert!(state.deactivated);
     assert_eq!(state.seq, 2);
 }
@@ -995,14 +1065,6 @@ fn did_key_log_rejects_drift_tampering_and_schema_violations() {
     let alice = did_web("alice");
     let bob = did_web("bob");
     let verification_method = DidUrl::new(format!("{alice}#key-1")).unwrap();
-    let mut resolver = DidWebResolver::new();
-    resolver
-        .insert(DidDocument::new(
-            alice.clone(),
-            verification_method.as_str(),
-            vector_update_key(&signing_key),
-        ))
-        .unwrap();
 
     let mut body = serde_json::Map::new();
     body.insert(
@@ -1034,14 +1096,20 @@ fn did_key_log_rejects_drift_tampering_and_schema_violations() {
     .unwrap();
     attach_did_key_log_controller_proof(&mut rotate_other_did, &signing_key, &verification_method)
         .unwrap();
-    assert!(verify_did_key_log(&[inception.clone(), rotate_other_did], &resolver).is_err());
+    let authority = || {
+        fixture_key_log_authority(&[
+            (0, &verification_method, &signing_key),
+            (1, &verification_method, &signing_key),
+        ])
+    };
+    assert!(verify_did_key_log(&[inception.clone(), rotate_other_did], &mut authority()).is_err());
 
     // Tampering with the body after signing breaks the self digest.
     let mut tampered = inception.clone();
     tampered
         .operation_body
         .insert("evil".to_owned(), json!(true));
-    assert!(verify_did_key_log(&[tampered], &resolver).is_err());
+    assert!(verify_did_key_log(&[tampered], &mut authority()).is_err());
 
     // Tampering with the JWS itself fails Ed25519 verification.
     let mut bad_jws = inception.clone();
@@ -1053,7 +1121,7 @@ fn did_key_log_rejects_drift_tampering_and_schema_violations() {
     let replacement = if parts[2].starts_with('A') { "B" } else { "A" };
     parts[2].replace_range(0..1, replacement);
     bad_jws.proofs[0].jws = parts.join(".");
-    assert!(verify_did_key_log(&[bad_jws], &resolver).is_err());
+    assert!(verify_did_key_log(&[bad_jws], &mut authority()).is_err());
 
     // seq=0 must not carry prev_event_digest (schema allOf rule).
     let mut bad_inception = inception.clone();
@@ -1071,7 +1139,69 @@ fn did_key_log_rejects_drift_tampering_and_schema_violations() {
     )
     .unwrap();
     attach_did_key_log_controller_proof(&mut rotate, &signing_key, &verification_method).unwrap();
-    assert!(verify_did_key_log(&[inception, rotate], &resolver).is_err());
+    assert!(verify_did_key_log(&[inception, rotate], &mut authority()).is_err());
+}
+
+#[test]
+fn did_key_log_authority_adapter_accepts_historical_third_party_controller_only() {
+    let subject = did_web("subject");
+    let controller_one = did_web("controller-one");
+    let controller_two = did_web("controller-two");
+    let key_one = SigningKey::from_bytes(&[31u8; 32]);
+    let key_two = SigningKey::from_bytes(&[32u8; 32]);
+    let subject_key = SigningKey::from_bytes(&[33u8; 32]);
+    let host_key = SigningKey::from_bytes(&[34u8; 32]);
+    let method_one = DidUrl::new(format!("{controller_one}#key-1")).unwrap();
+    let method_two = DidUrl::new(format!("{controller_two}#key-2")).unwrap();
+    let subject_method = DidUrl::new(format!("{subject}#subject-key")).unwrap();
+    let host_method = DidUrl::new(format!("{}#host-key", did_web("registry-host"))).unwrap();
+    let body = serde_json::Map::from_iter([("method_state".to_owned(), json!("fixture"))]);
+
+    let mut inception = DidKeyLogEntry::build(
+        subject.clone(),
+        0,
+        DidKeyLogOperation::Inception,
+        None,
+        body.clone(),
+        Utc::now(),
+    )
+    .unwrap();
+    attach_did_key_log_controller_proof(&mut inception, &key_one, &method_one).unwrap();
+    let mut rotate = DidKeyLogEntry::build(
+        subject.clone(),
+        1,
+        DidKeyLogOperation::Rotate,
+        Some(inception.head_event_digest.clone()),
+        body.clone(),
+        Utc::now(),
+    )
+    .unwrap();
+    attach_did_key_log_controller_proof(&mut rotate, &key_two, &method_two).unwrap();
+
+    let mut historical =
+        fixture_key_log_authority(&[(0, &method_one, &key_one), (1, &method_two, &key_two)]);
+    verify_did_key_log(&[inception, rotate], &mut historical)
+        .expect("an explicitly authorized third-party controller transition is valid");
+
+    for (method, key, label) in [
+        (&subject_method, &subject_key, "subject key"),
+        (&method_two, &key_two, "future controller"),
+        (&host_method, &host_key, "registry host key"),
+    ] {
+        let mut candidate = DidKeyLogEntry::build(
+            subject.clone(),
+            0,
+            DidKeyLogOperation::Inception,
+            None,
+            body.clone(),
+            Utc::now(),
+        )
+        .unwrap();
+        attach_did_key_log_controller_proof(&mut candidate, key, method).unwrap();
+        let mut authority = fixture_key_log_authority(&[(0, &method_one, &key_one)]);
+        verify_did_key_log(&[candidate], &mut authority)
+            .expect_err(&format!("an unauthorized {label} must fail closed"));
+    }
 }
 
 #[test]
@@ -1081,10 +1211,10 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
     let verification_method = DidUrl::new(format!("{registry}#key-1")).unwrap();
     let mut resolver = DidWebResolver::new();
     resolver
-        .insert(DidDocument::new(
-            registry.clone(),
-            verification_method.as_str(),
-            vector_update_key(&registry_key),
+        .insert(assertion_document(
+            &registry,
+            &verification_method,
+            &registry_key,
         ))
         .unwrap();
 
@@ -1111,13 +1241,82 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
     // A wrong registry key fails Ed25519 verification.
     let mut wrong_resolver = DidWebResolver::new();
     wrong_resolver
-        .insert(DidDocument::new(
-            did_web("registry"),
-            format!("{}#key-1", did_web("registry")),
-            vector_update_key(&SigningKey::from_bytes(&[25u8; 32])),
+        .insert(assertion_document(
+            &did_web("registry"),
+            &DidUrl::new(format!("{}#key-1", did_web("registry"))).unwrap(),
+            &SigningKey::from_bytes(&[25u8; 32]),
         ))
         .unwrap();
     assert!(receipt.verify(&wrong_resolver).is_err());
+}
+
+#[test]
+fn did_registry_receipt_binds_current_assertion_authority_and_explicit_controller() {
+    let registry = did_web("registry-authority");
+    let delegate = did_web("registry-delegate");
+    let host = did_web("registry-host");
+    let delegate_key = SigningKey::from_bytes(&[35u8; 32]);
+    let delegate_method = DidUrl::new(format!("{delegate}#receipt-key")).unwrap();
+    let host_method = DidUrl::new(format!("{host}#replacement-key")).unwrap();
+    let receipt = DidRegistryReceipt::signed(
+        arkret_wire::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000002").unwrap(),
+        did("alice"),
+        8,
+        Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap(),
+        registry.clone(),
+        IdentityReceiptWitnessRole::Witness,
+        &delegate_key,
+        &delegate_method,
+    )
+    .unwrap();
+    let delegated_document: DidDocument = serde_json::from_value(json!({
+        "id": registry,
+        "verificationMethod": [{
+            "id": delegate_method,
+            "type": "Multikey",
+            "controller": registry,
+            "publicKeyMultibase": vector_update_key(&delegate_key)
+        }],
+        "assertionMethod": [delegate_method]
+    }))
+    .unwrap();
+    receipt
+        .verify_with_document(&delegated_document)
+        .expect("an assertion method explicitly controlled by the registry is valid");
+
+    let replacement_receipt = DidRegistryReceipt::signed(
+        arkret_wire::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000003").unwrap(),
+        did("alice"),
+        9,
+        Hash::new(format!("sha256:{}", "ef".repeat(32))).unwrap(),
+        registry.clone(),
+        IdentityReceiptWitnessRole::Writer,
+        &delegate_key,
+        &host_method,
+    )
+    .unwrap();
+    let host_controlled_document: DidDocument = serde_json::from_value(json!({
+        "id": registry,
+        "verificationMethod": [{
+            "id": host_method,
+            "type": "Multikey",
+            "controller": host,
+            "publicKeyMultibase": vector_update_key(&delegate_key)
+        }],
+        "assertionMethod": [host_method]
+    }))
+    .unwrap();
+    replacement_receipt
+        .verify_with_document(&host_controlled_document)
+        .expect_err("a registry host replacement key is not registry authority");
+
+    let mut removed = delegated_document;
+    removed
+        .raw_properties
+        .insert("assertionMethod".to_owned(), json!([]));
+    receipt
+        .verify_with_document(&removed)
+        .expect_err("a removed assertion method must fail closed");
 }
 
 #[test]

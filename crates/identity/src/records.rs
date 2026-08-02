@@ -60,22 +60,36 @@ pub struct VerifiedDidKeyLog {
     pub deactivated: bool,
 }
 
+/// Method-specific authority verifier for normalized DID key-log entries.
+///
+/// The generic log envelope deliberately does not define one universal
+/// controller transition. For example, did:webvh verifies the current entry's
+/// explicit `updateKeys` and the previous entry's `nextKeyHashes` commitment,
+/// while another registered method may have recovery or threshold semantics.
+/// Implementations MUST verify every proof and advance their method state only
+/// after the entire entry is accepted by this call.
+pub trait DidKeyLogAuthorityVerifier {
+    fn verify_entry_authority(
+        &mut self,
+        entry: &DidKeyLogEntry,
+        previous_accepted: Option<&DidKeyLogEntry>,
+    ) -> Result<()>;
+}
+
 /// Verify a DID key-log per `did-key-log-entry.schema.json` and the
 /// §3.1.3 verifier order: for each entry, first recompute and
 /// constant-time-compare `head_event_digest` / `proof.payload_digest`,
-/// then rebuild the canonical binding object and verify the Ed25519
-/// detached JWS via `resolver`. Any failure rejects the entry and the
-/// remainder of the chain.
+/// then rebuild the canonical binding object and dispatch controller
+/// authorization to the registered DID-method adapter. Any failure rejects the
+/// entry and the remainder of the chain.
 ///
-/// Method-specific signer authorization (the proof
-/// `verification_method` being a controller key valid for the
-/// operation at the *previous* accepted entry's state) is dispatched
-/// by DID method and `operation_body`; callers MUST enforce it in the
-/// supplied resolver / method layer — this generic verifier checks
-/// chain shape and proof cryptography only.
+/// The authority adapter receives the previous accepted entry but owns the
+/// method-native transition rules. The generic layer MUST NOT infer a
+/// controller from the verification-method DID or use a resolver as proof of
+/// authorization.
 pub fn verify_did_key_log(
     entries: &[DidKeyLogEntry],
-    resolver: &dyn DidResolver,
+    authority: &mut dyn DidKeyLogAuthorityVerifier,
 ) -> Result<VerifiedDidKeyLog> {
     let first = entries
         .first()
@@ -140,22 +154,12 @@ pub fn verify_did_key_log(
                         .to_owned(),
                 ));
             }
-            let binding_bytes = entry.proof_binding_bytes(proof)?;
-            // Authority path, not an ordinary path: verifying a DID key log IS
-            // the "DID rotation / recovery / deactivation / method continuity"
-            // trigger of did-usage-and-verification.md §4, so there is by
-            // construction no accepted binding to verify against yet. The
-            // resolver-free `crate::verifier` APIs are not applicable here.
-            #[allow(deprecated)]
-            jws::verify_jws_ed25519(
-                &binding_bytes,
-                &proof.jws,
-                &proof.verification_method,
-                entry.did.as_str(),
-                resolver,
-            )
-            .map_err(|err| Error::Protocol(err.to_string()))?;
+            // Rebuild now so malformed transcript material fails before the
+            // method adapter is allowed to advance its authority state.
+            entry.proof_binding_bytes(proof)?;
         }
+
+        authority.verify_entry_authority(entry, index.checked_sub(1).map(|i| &entries[i]))?;
 
         if entry.operation == DidKeyLogOperation::Deactivate {
             deactivated = true;
@@ -311,10 +315,19 @@ impl DidRegistryReceipt {
         )?)
     }
 
-    /// Verify the receipt: digest recompute (constant-time compare) then
-    /// detached-JWS verification with the registry key resolved via
-    /// `resolver`.
+    /// Resolve the registry authority document, then verify the receipt against
+    /// its current `assertionMethod` relationship.
     pub fn verify(&self, resolver: &dyn DidResolver) -> Result<()> {
+        let document = resolver.resolve_did_document(&self.registry_service_id)?;
+        self.verify_with_document(&document)
+    }
+
+    /// Verify against an already-pinned current registry authority document.
+    ///
+    /// The method must be active in `assertionMethod`. An externally-named
+    /// method is accepted only when its verification-method object explicitly
+    /// declares `controller == registry_service_id`.
+    pub fn verify_with_document(&self, document: &DidDocument) -> Result<()> {
         if self.schema != arkret_wire::SchemaId::IDENTITY_RECEIPT_V1 {
             return Err(Error::Protocol(format!(
                 "identity receipt schema '{}' is not {}",
@@ -350,19 +363,13 @@ impl DidRegistryReceipt {
             ));
         }
         let binding_bytes = self.binding_bytes()?;
-        // Authority path, not an ordinary path: this is the
-        // did-usage-and-verification.md §4 trigger "verifying a third-party
-        // claim / receipt / attestation when no accepted binding for its issuer
-        // key exists locally". A caller that already holds an accepted binding
-        // for the registry service should use `crate::verify_jws_with_binding`
-        // instead of calling this.
-        #[allow(deprecated)]
-        jws::verify_jws_ed25519(
+        verify_jws_with_document_relationship(
             &binding_bytes,
             &self.signature.jws,
             &self.signature.verification_method,
-            self.registry_service_id.as_str(),
-            resolver,
+            &self.registry_service_id,
+            document,
+            DidVerificationRelationship::AssertionMethod,
         )
         .map_err(|err| Error::Protocol(err.to_string()))
     }

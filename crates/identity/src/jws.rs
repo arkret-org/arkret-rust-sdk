@@ -30,7 +30,7 @@ use arkret_wire::{CellId, Hlc, ProjectedCellWrite};
 use chrono::{DateTime, Duration, Utc};
 use ed25519_dalek::VerifyingKey;
 
-use crate::{Did, DidResolver};
+use crate::{Did, DidDocument, DidResolver};
 
 /// Typed failure reasons for the detached-JWS verify pipeline
 /// ([`verify_jws_ed25519`] / [`resolve_ed25519_pubkey`]).
@@ -176,10 +176,10 @@ pub fn resolve_ed25519_pubkey(
     resolver: &dyn DidResolver,
     verification_method: &str,
 ) -> Result<VerifyingKey, JwsVerifyError> {
-    let (did_str, fragment) = verification_method
+    let did_str = verification_method
         .split_once('#')
-        .map(|(d, f)| (d.to_owned(), Some(f.to_owned())))
-        .unwrap_or_else(|| (verification_method.to_owned(), None));
+        .map(|(did, _)| did.to_owned())
+        .unwrap_or_else(|| verification_method.to_owned());
     let did = Did::new(did_str.clone()).map_err(|e| JwsVerifyError::InvalidDid {
         did: did_str.clone(),
         reason: e.to_string(),
@@ -193,16 +193,32 @@ pub fn resolve_ed25519_pubkey(
                 source: Box::new(e),
             })?;
 
+    resolve_ed25519_pubkey_from_document(&document, verification_method)
+}
+
+/// Resolve an Ed25519 verification method from an already-pinned DID document.
+///
+/// This is the document-only counterpart of [`resolve_ed25519_pubkey`]. It
+/// exists so downstream services do not need to wrap a pinned document in a
+/// private one-shot [`DidResolver`] merely to reuse canonical key lookup.
+pub fn resolve_ed25519_pubkey_from_document(
+    document: &DidDocument,
+    verification_method: &str,
+) -> Result<VerifyingKey, JwsVerifyError> {
+    let fragment = verification_method
+        .split_once('#')
+        .map(|(_, fragment)| fragment);
+    let did_str = document.id.as_str();
+
     // Try full URL first, then fragment-only id, then any single-key
     // shortcut (`did:key:` documents typically have one key whose id
     // matches the full URL).
     let material = document
         .verification_methods
         .get(verification_method)
+        .or_else(|| fragment.and_then(|fragment| document.verification_methods.get(fragment)))
         .or_else(|| {
-            fragment
-                .as_ref()
-                .and_then(|f| document.verification_methods.get(f))
+            fragment.and_then(|fragment| document.verification_methods.get(&format!("#{fragment}")))
         })
         .or_else(|| {
             // Single-key fallback: only for `did:key` documents, where the
@@ -212,7 +228,7 @@ pub fn resolve_ed25519_pubkey(
             // binding strict for `did:webvh` (and any multi-key-capable
             // method) so a JWS referencing a wrong/absent fragment is not
             // silently verified against an unrelated key.
-            if did.method() == "key" && document.verification_methods.len() == 1 {
+            if document.id.method() == "key" && document.verification_methods.len() == 1 {
                 document.verification_methods.values().next()
             } else {
                 None
@@ -220,7 +236,7 @@ pub fn resolve_ed25519_pubkey(
         })
         .ok_or_else(|| JwsVerifyError::VerificationMethodNotFound {
             verification_method: verification_method.to_owned(),
-            did: did_str.clone(),
+            did: did_str.to_owned(),
             available: document.verification_methods.keys().cloned().collect(),
         })?;
 

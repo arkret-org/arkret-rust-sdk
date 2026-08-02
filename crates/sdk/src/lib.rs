@@ -471,16 +471,16 @@ pub use http_did_resolver::{
 };
 pub use identity::{
     CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument,
-    DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyResolver, DidMigration,
-    DidRegistryReceipt, DidResolver, DidVisibility, DidWebDocumentOutcome, DidWebResolver,
-    ExternalHandleProof, HandleAttestation, HandleClaimChallenge, HandleProofProfile,
-    IdentityManager, IdentityReceiptWitnessRole, PairwiseDidBinding, PairwiseDidResolutionProof,
-    PairwiseDidStore, ResolvedDid, ResolvedVerificationMethodKey, VerifiedDidKeyLog,
-    attach_did_key_log_controller_proof, event_proof_verification_context,
-    event_proof_verification_context_with_digest_suite, handle_claim_proof, handle_dns_txt_name,
-    handle_well_known_url, pairwise_resolution_proof, resolve_verification_method_key,
-    resolve_verification_method_key_from_document, verification_method_did,
-    verify_canonical_proof_with_did_resolver, verify_did_key_log,
+    DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyLogAuthorityVerifier,
+    DidKeyResolver, DidMigration, DidRegistryReceipt, DidResolver, DidVisibility,
+    DidWebDocumentOutcome, DidWebResolver, ExternalHandleProof, HandleAttestation,
+    HandleClaimChallenge, HandleProofProfile, IdentityManager, IdentityReceiptWitnessRole,
+    PairwiseDidBinding, PairwiseDidResolutionProof, PairwiseDidStore, ResolvedDid,
+    ResolvedVerificationMethodKey, VerifiedDidKeyLog, attach_did_key_log_controller_proof,
+    event_proof_verification_context, event_proof_verification_context_with_digest_suite,
+    handle_claim_proof, handle_dns_txt_name, handle_well_known_url, pairwise_resolution_proof,
+    resolve_verification_method_key, resolve_verification_method_key_from_document,
+    verification_method_did, verify_canonical_proof_with_did_resolver, verify_did_key_log,
     verify_event_proof_with_did_resolver, verify_event_proof_with_did_resolver_context,
 };
 #[cfg(feature = "client")]
