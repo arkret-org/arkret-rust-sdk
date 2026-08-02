@@ -1,6 +1,9 @@
 //! Event stream / query / submit, snapshot, and authz endpoint methods
 //! on [`Client`].
 
+use arkret_models_collaboration::event_sync::{
+    EventsFrontierAccountClientState, EventsFrontierSelector,
+};
 use arkret_models_collaboration::governance::authorization::{
     AuthzCheckOutcome, AuthzCheckRequestBody, AuthzInviteList, GrantList,
 };
@@ -134,6 +137,20 @@ impl EventsSubscribeFrameStream {
 }
 
 impl Client {
+    /// Fetch a selector-bound Event frontier and fail closed when the service
+    /// returns a different union variant or scope.
+    pub async fn events_frontier(
+        &self,
+        selector: &EventsFrontierSelector,
+    ) -> Result<EventsFrontierAccountClientState> {
+        let builder = self
+            .request(Method::GET, "/_arkret/self/events/frontier")?
+            .query(&selector.query_pairs());
+        let state: EventsFrontierAccountClientState = self.send_json(builder).await?;
+        selector.validate_response(&state.frontier)?;
+        Ok(state)
+    }
+
     pub async fn issue_authorization_leases(
         &self,
         request: &AuthorizationLeaseIssueRequest,

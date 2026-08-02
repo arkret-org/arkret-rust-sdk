@@ -32,17 +32,9 @@ use url::Url;
 pub mod account_subscribe;
 mod builder;
 mod client_internals;
-mod endpoints_account;
-mod endpoints_agent;
-mod endpoints_data;
-mod endpoints_events;
-mod endpoints_identity;
-mod endpoints_join_policy;
-mod endpoints_misc;
-mod endpoints_peer;
-mod endpoints_security;
-mod endpoints_signal;
+mod endpoints;
 mod error;
+mod request;
 mod subscribe_body;
 // Production reqwest + Tokio DID resolver. Leans on a live Tokio runtime,
 // blocking off-thread scheduling, and reqwest's native transport, none of
@@ -62,16 +54,13 @@ pub use builder::RedirectPolicy;
 pub(crate) use client_internals::reject_path_segment;
 #[cfg(test)]
 pub(crate) use client_internals::validate_request_builder;
-pub use endpoints_account::{AccountSubscribeFrameStream, login_did_proof};
-pub use endpoints_agent::AgentRuntimeApprovalStatusResponse;
-pub use endpoints_data::{
-    BlobDownloadOptions, BlobResumableUploadOptions, RESUMABLE_UPLOAD_FEATURE,
-    RESUMABLE_UPLOAD_THRESHOLD_BYTES, blob_resumable_upload_base_url,
+pub use endpoints::{
+    AccountSubscribeFrameStream, AgentRuntimeApprovalStatusResponse, BlobDownloadOptions,
+    BlobResumableUploadOptions, EventsSubscribeFrameStream, EventsSubscribeOptions,
+    JoinApplicationListOptions, RESUMABLE_UPLOAD_FEATURE, RESUMABLE_UPLOAD_THRESHOLD_BYTES,
+    SignalSubscribeFrameStream, SignedAppletTransactionOptions, blob_resumable_upload_base_url,
+    login_did_proof,
 };
-pub use endpoints_events::{EventsSubscribeFrameStream, EventsSubscribeOptions};
-pub use endpoints_join_policy::JoinApplicationListOptions;
-pub use endpoints_misc::SignedAppletTransactionOptions;
-pub use endpoints_signal::SignalSubscribeFrameStream;
 pub use error::{Error, Result};
 
 pub const HEADER_REQUEST_ID: &str = "X-Arkret-Request-Id";

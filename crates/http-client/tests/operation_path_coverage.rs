@@ -30,45 +30,70 @@ const SOURCES: &[(&str, &str)] = &[
         "client_internals.rs",
         include_str!("../src/client_internals.rs"),
     ),
+    ("endpoints.rs", include_str!("../src/endpoints.rs")),
     (
-        "endpoints_account.rs",
-        include_str!("../src/endpoints_account.rs"),
+        "endpoints/account.rs",
+        include_str!("../src/endpoints/account.rs"),
     ),
     (
-        "endpoints_agent.rs",
-        include_str!("../src/endpoints_agent.rs"),
+        "endpoints/agent.rs",
+        include_str!("../src/endpoints/agent.rs"),
     ),
     (
-        "endpoints_data.rs",
-        include_str!("../src/endpoints_data.rs"),
+        "endpoints/applet.rs",
+        include_str!("../src/endpoints/applet.rs"),
     ),
     (
-        "endpoints_events.rs",
-        include_str!("../src/endpoints_events.rs"),
+        "endpoints/circle.rs",
+        include_str!("../src/endpoints/circle.rs"),
     ),
     (
-        "endpoints_identity.rs",
-        include_str!("../src/endpoints_identity.rs"),
+        "endpoints/data.rs",
+        include_str!("../src/endpoints/data.rs"),
     ),
     (
-        "endpoints_join_policy.rs",
-        include_str!("../src/endpoints_join_policy.rs"),
+        "endpoints/events.rs",
+        include_str!("../src/endpoints/events.rs"),
     ),
     (
-        "endpoints_misc.rs",
-        include_str!("../src/endpoints_misc.rs"),
+        "endpoints/identity.rs",
+        include_str!("../src/endpoints/identity.rs"),
     ),
     (
-        "endpoints_peer.rs",
-        include_str!("../src/endpoints_peer.rs"),
+        "endpoints/join_policy.rs",
+        include_str!("../src/endpoints/join_policy.rs"),
     ),
     (
-        "endpoints_security.rs",
-        include_str!("../src/endpoints_security.rs"),
+        "endpoints/media.rs",
+        include_str!("../src/endpoints/media.rs"),
     ),
     (
-        "endpoints_signal.rs",
-        include_str!("../src/endpoints_signal.rs"),
+        "endpoints/mimi.rs",
+        include_str!("../src/endpoints/mimi.rs"),
+    ),
+    (
+        "endpoints/moderation.rs",
+        include_str!("../src/endpoints/moderation.rs"),
+    ),
+    (
+        "endpoints/peer.rs",
+        include_str!("../src/endpoints/peer.rs"),
+    ),
+    (
+        "endpoints/policy.rs",
+        include_str!("../src/endpoints/policy.rs"),
+    ),
+    (
+        "endpoints/push.rs",
+        include_str!("../src/endpoints/push.rs"),
+    ),
+    (
+        "endpoints/security.rs",
+        include_str!("../src/endpoints/security.rs"),
+    ),
+    (
+        "endpoints/signal.rs",
+        include_str!("../src/endpoints/signal.rs"),
     ),
     ("error.rs", include_str!("../src/error.rs")),
     (
@@ -80,6 +105,7 @@ const SOURCES: &[(&str, &str)] = &[
         include_str!("../src/key_backup_client.rs"),
     ),
     ("lib.rs", include_str!("../src/lib.rs")),
+    ("request.rs", include_str!("../src/request.rs")),
     (
         "subscribe_body.rs",
         include_str!("../src/subscribe_body.rs"),
@@ -100,12 +126,12 @@ const NON_OPERATION_LITERALS: &[(&str, &str)] = &[
     ),
     (
         "/_arkret/self/circles/{}/{}",
-        "endpoints_misc.rs builds the trailing segment from a runtime action \
+        "endpoints/circle.rs builds the trailing segment from a runtime action \
          (`join`/`leave`/...); each expansion is a registered path, the template is not",
     ),
     (
         "/_arkret/self/realms/!realm:example.test/join-applications/sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-        "endpoints_join_policy.rs in-file unit test expectation with substituted sample values",
+        "endpoints/join_policy.rs in-file unit test expectation with substituted sample values",
     ),
 ];
 
@@ -152,6 +178,27 @@ fn registry_paths() -> BTreeSet<String> {
         .iter()
         .map(|descriptor| normalise(descriptor.http_path))
         .collect()
+}
+
+fn rust_sources_under(
+    directory: &std::path::Path,
+    source_root: &std::path::Path,
+    sources: &mut BTreeSet<String>,
+) {
+    for entry in std::fs::read_dir(directory).expect("client source directory is readable") {
+        let entry = entry.expect("client source directory entry is readable");
+        let path = entry.path();
+        if path.is_dir() {
+            rust_sources_under(&path, source_root, sources);
+        } else if path.extension().is_some_and(|extension| extension == "rs") {
+            let relative = path
+                .strip_prefix(source_root)
+                .expect("source file is below client source root")
+                .to_string_lossy()
+                .replace('\\', "/");
+            sources.insert(relative);
+        }
+    }
 }
 
 #[test]
@@ -236,12 +283,9 @@ fn both_sides_of_the_comparison_are_populated() {
 #[test]
 fn sources_cover_the_crate() {
     let listed: BTreeSet<&str> = SOURCES.iter().map(|(name, _)| *name).collect();
-    let on_disk: BTreeSet<String> = std::fs::read_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/src"))
-        .expect("client src directory is readable")
-        .filter_map(|entry| entry.ok())
-        .map(|entry| entry.file_name().to_string_lossy().into_owned())
-        .filter(|name| name.ends_with(".rs"))
-        .collect();
+    let source_root = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/src"));
+    let mut on_disk = BTreeSet::new();
+    rust_sources_under(source_root, source_root, &mut on_disk);
 
     let unscanned: Vec<&String> = on_disk
         .iter()
