@@ -3,6 +3,8 @@ param(
     [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\schema\src\generated\profile_requirements.rs")
 )
 
+. (Join-Path $PSScriptRoot 'utf8-byte-order.ps1')
+
 # Emits crates/schema/src/generated/profile_requirements.rs from
 # arkret-spec/spec/v1/artifacts/profiles/conformance-profiles.json.
 #
@@ -28,9 +30,6 @@ if ($null -eq $artifact.profile_requirements) {
     throw "conformance profile artifact missing top-level 'profile_requirements' object"
 }
 
-# PSCustomObject → ordered map of profile_id → requirement object.
-$profileIds = @($artifact.profile_requirements.PSObject.Properties.Name | Sort-Object)
-
 function Get-StringArray {
     param($Source, [string]$Field)
     if ($null -eq $Source) { return ,@() }
@@ -40,27 +39,10 @@ function Get-StringArray {
     return ,$arr
 }
 
-function Sort-Ordinal {
-    # PowerShell's `Sort-Object -Unique` uses culture-sensitive comparison and
-    # treats `.` and `_` in ways that disagree with Rust's byte-ordering str
-    # sort. Use .NET's StringComparer.Ordinal so the generated arrays stay
-    # sorted under Rust's `str::cmp`.
-    param([string[]]$Values)
-    if ($null -eq $Values -or $Values.Count -eq 0) { return ,@() }
-    $list = [System.Collections.Generic.List[string]]::new()
-    foreach ($v in $Values) {
-        [void]$list.Add([string]$v)
-    }
-    $arr = $list.ToArray()
-    [System.Array]::Sort($arr, [System.StringComparer]::Ordinal)
-    $deduped = [System.Collections.Generic.List[string]]::new()
-    foreach ($v in $arr) {
-        if ($deduped.Count -eq 0 -or $deduped[$deduped.Count - 1] -cne $v) {
-            [void]$deduped.Add($v)
-        }
-    }
-    return ,$deduped.ToArray()
-}
+# PSCustomObject -> UTF-8-byte-sorted profile_id list.
+$profileIds = Sort-Utf8ByteLexicographic -Values @(
+    $artifact.profile_requirements.PSObject.Properties.Name
+)
 
 function Format-RustStrSlice {
     param([string[]]$Values, [int]$Indent)
@@ -202,16 +184,16 @@ $lines.Add("        let mut map: BTreeMap<&'static str, ProfileRequirements> = B
 
 foreach ($profileId in $profileIds) {
     $entry = $artifact.profile_requirements.$profileId
-    $inherits = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'inherits')
-    $required_operations = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_endpoints')
-    $required_event_kinds = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_event_kinds')
-    $required_schemas = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_schemas')
-    $rejected_event_kinds = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'rejected_event_kinds')
-    $required_fixtures = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_fixtures')
-    $required_capability_actions = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_capability_actions')
-    $required_features = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_features')
-    $required_cell_namespaces = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_cell_namespaces')
-    $required_cells = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_cells')
+    $inherits = Sort-Utf8ByteLexicographic -Values (Get-StringArray -Source $entry -Field 'inherits')
+    $required_operations = Sort-Utf8ByteLexicographic -Values (Get-StringArray -Source $entry -Field 'required_endpoints')
+    $required_event_kinds = Sort-Utf8ByteLexicographic -Values (Get-StringArray -Source $entry -Field 'required_event_kinds')
+    $required_schemas = Sort-Utf8ByteLexicographic -Values (Get-StringArray -Source $entry -Field 'required_schemas')
+    $rejected_event_kinds = Sort-Utf8ByteLexicographic -Values (Get-StringArray -Source $entry -Field 'rejected_event_kinds')
+    $required_fixtures = Sort-Utf8ByteLexicographic -Values (Get-StringArray -Source $entry -Field 'required_fixtures')
+    $required_capability_actions = Sort-Utf8ByteLexicographic -Values (Get-StringArray -Source $entry -Field 'required_capability_actions')
+    $required_features = Sort-Utf8ByteLexicographic -Values (Get-StringArray -Source $entry -Field 'required_features')
+    $required_cell_namespaces = Sort-Utf8ByteLexicographic -Values (Get-StringArray -Source $entry -Field 'required_cell_namespaces')
+    $required_cells = Sort-Utf8ByteLexicographic -Values (Get-StringArray -Source $entry -Field 'required_cells')
     $constraint_kinds = Get-StringArray -Source $entry -Field 'required_constraint_kinds'
     $constraint_subkinds = Get-StringArray -Source $entry -Field 'required_constraint_subkinds'
     $constraint_kinds_field = Get-StringArray -Source $entry -Field 'required_constraint_kinds'
@@ -219,7 +201,7 @@ foreach ($profileId in $profileIds) {
     $combined += $constraint_kinds
     $combined += $constraint_subkinds
     $combined += $constraint_kinds_field
-    $required_constraint_kinds = Sort-Ordinal -Values $combined
+    $required_constraint_kinds = Sort-Utf8ByteLexicographic -Values $combined
     $non_event_grant_authority_rules = $entry.non_event_grant_authority_rules
 
     $escapedId = $profileId.Replace('\', '\\').Replace('"', '\"')

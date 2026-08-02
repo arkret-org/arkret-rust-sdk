@@ -3,6 +3,8 @@ param(
     [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\wire\src\generated\event_kinds.rs")
 )
 
+. (Join-Path $PSScriptRoot 'utf8-byte-order.ps1')
+
 # Emits crates/wire/src/generated/event_kinds.rs from
 # arkret-spec/spec/v1/artifacts/registry/event-kind-registry.json.
 #
@@ -46,11 +48,10 @@ function ConvertTo-AssociatedName {
     (($Kind -replace '^ak\.', '') -replace '[^A-Za-z0-9]+', '_').ToUpperInvariant()
 }
 
-# Active kinds only, sorted by wire string in .NET Ordinal order so match arms
-# and the variant list are deterministic and byte-ordered.
+# Active kinds only, sorted by their encoded UTF-8 bytes so match arms and the
+# variant list are deterministic across PowerShell cultures and .NET runtimes.
 $kinds = @($artifact.event_kinds | Where-Object { $_.status -eq 'active' } | ForEach-Object { [string]$_.event_kind })
-$arr = $kinds
-[System.Array]::Sort($arr, [System.StringComparer]::Ordinal)
+$arr = Sort-Utf8ByteLexicographic -Values $kinds
 
 $entries = New-Object System.Collections.Generic.List[object]
 $seenVariants = @{}
@@ -126,11 +127,10 @@ foreach ($entry in $entries) {
     }
 }
 # `cba_cell_family_plane` binary-searches this table, so it MUST be sorted in
-# .NET Ordinal order. `Sort-Object Family` is culture-aware and reorders
-# punctuation (it puts `moderation_state` before `moderation.appeal`), which
-# silently breaks the lookup for the families that land on the wrong side.
+# encoded UTF-8 byte order. Culture-aware sorting can reorder punctuation and
+# silently break the lookup for families that land on the wrong side.
 $cellFamilyNames = @($cellFamilyPlaneByFamily.Keys | ForEach-Object { [string]$_ })
-[System.Array]::Sort($cellFamilyNames, [System.StringComparer]::Ordinal)
+$cellFamilyNames = Sort-Utf8ByteLexicographic -Values $cellFamilyNames
 $cellFamilyPlanes = @($cellFamilyNames | ForEach-Object {
     $plane = [string]$cellFamilyPlaneByFamily[$_]
     $body = $_ -replace '^ak\.component\.', ''
@@ -143,8 +143,7 @@ $cellFamilyPlanes = @($cellFamilyNames | ForEach-Object {
     }
 })
 
-$categories = @($entries | ForEach-Object { $_.Category } | Select-Object -Unique)
-[System.Array]::Sort($categories, [System.StringComparer]::Ordinal)
+$categories = Sort-Utf8ByteLexicographic -Values @($entries | ForEach-Object { $_.Category })
 
 $lines = New-Object System.Collections.Generic.List[string]
 $add = { param($s) $lines.Add($s) | Out-Null }

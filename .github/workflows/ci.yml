@@ -237,6 +237,8 @@ jobs:
         shell: pwsh
         run: |
           $artifacts = "${{ github.workspace }}/arkret-spec/spec/v1/artifacts"
+          ./tools/test-utf8-byte-order.ps1
+          ./tools/sync-spec-generated.ps1 -ArtifactsDir $artifacts -Check
           ./tools/sync-spec-generated.ps1 -ArtifactsDir $artifacts -Check
       - name: Verify claimable-profile operation coverage matrix
         working-directory: arkret-rust-sdk

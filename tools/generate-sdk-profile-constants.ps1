@@ -3,6 +3,8 @@ param(
     [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\policy\src\generated\profiles.rs")
 )
 
+. (Join-Path $PSScriptRoot 'utf8-byte-order.ps1')
+
 # Emits crates/policy/src/generated/profiles.rs from
 # arkret-spec/spec/v1/artifacts/profiles/conformance-profiles.json and
 # arkret-spec/spec/v1/artifacts/registry/reducer-profile-registry.json.
@@ -54,27 +56,6 @@ foreach ($profile in $activeReducerProfiles) {
     }
 }
 
-function Sort-Ordinal {
-    # Use .NET StringComparer.Ordinal so the generated arrays sort by raw
-    # byte order — matching Rust's `str::cmp` (which `binary_search_by` over
-    # `PROFILE_ROLES` relies on). PowerShell's default `Sort-Object` uses
-    # culture-sensitive comparison and treats `_` < `.`, which is the
-    # opposite of byte order.
-    param([string[]]$Values)
-    if ($null -eq $Values -or $Values.Count -eq 0) { return ,@() }
-    $list = [System.Collections.Generic.List[string]]::new()
-    foreach ($v in $Values) { [void]$list.Add([string]$v) }
-    $arr = $list.ToArray()
-    [System.Array]::Sort($arr, [System.StringComparer]::Ordinal)
-    $deduped = [System.Collections.Generic.List[string]]::new()
-    foreach ($v in $arr) {
-        if ($deduped.Count -eq 0 -or $deduped[$deduped.Count - 1] -cne $v) {
-            [void]$deduped.Add($v)
-        }
-    }
-    return ,$deduped.ToArray()
-}
-
 $reducerDigestByProfileId = @{}
 foreach ($profile in $activeReducerProfiles) {
     $profileId = [string]$profile.profile_id
@@ -83,11 +64,11 @@ foreach ($profile in $activeReducerProfiles) {
     }
     $reducerDigestByProfileId[$profileId] = [string]$profile.reducer_profile_digest
 }
-$activeReducerProfileIds = Sort-Ordinal -Values @($reducerDigestByProfileId.Keys)
+$activeReducerProfileIds = Sort-Utf8ByteLexicographic -Values @($reducerDigestByProfileId.Keys)
 
 # Collect ids from a regex pass first, so we still notice ids that are
 # referenced without a profile_roles entry (e.g. transitional candidates).
-$idsFromRegex = Sort-Ordinal -Values @([regex]::Matches($raw, 'ak\.profile\.[A-Za-z0-9_.-]+\.v[0-9]+') |
+$idsFromRegex = Sort-Utf8ByteLexicographic -Values @([regex]::Matches($raw, 'ak\.profile\.[A-Za-z0-9_.-]+\.v[0-9]+') |
     ForEach-Object { $_.Value })
 
 if ($null -eq $artifact.profile_roles) {
@@ -99,7 +80,7 @@ $roleById = @{}
 foreach ($prop in $rolesObject.PSObject.Properties) {
     $roleById[$prop.Name] = [string]$prop.Value
 }
-$sortedRoleIds = Sort-Ordinal -Values @($roleById.Keys)
+$sortedRoleIds = Sort-Utf8ByteLexicographic -Values @($roleById.Keys)
 $rolesEntries = @($sortedRoleIds | ForEach-Object {
     [PSCustomObject]@{ Id = $_; Role = $roleById[$_] }
 })
