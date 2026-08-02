@@ -16,18 +16,15 @@ use std::collections::{BTreeMap, BTreeSet};
 pub use arkret_models_crypto::mls_governance_proof::*;
 use arkret_models_crypto::mls_payloads::MlsGovernanceBindingPayload;
 use arkret_wire::cell::CellId;
-use arkret_wire::event_envelope::Event;
-use arkret_wire::{CellRef, Error, EventId, Hash, NotarySig, Result, Seal, SealId, canonical};
+use arkret_wire::event_envelope::{Event, ScopeRef};
+use arkret_wire::{CellRef, Error, Hash, NotarySig, Result, Seal, SealId, canonical};
 
 use crate::{CellState, compute_state_root, control_event_set_root};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedMlsGovernanceProof {
     pub accepted_seal_id: SealId,
-    pub membership_frontier: Vec<EventId>,
-    pub policy_root: Hash,
-    pub capability_root: Hash,
-    pub discussion_metadata_digest: Hash,
+    pub security_frontier_digest: Hash,
 }
 
 /// Verify a complete-materialization proof bundle.
@@ -41,51 +38,47 @@ pub struct VerifiedMlsGovernanceProof {
 /// both callbacks return `Result<(), E>` and the function returns
 /// `Result<_, E>`. `E: From<WireError>` lets the internal fail-closed checks
 /// raise `WireError` and surface it as the caller's `E`.
-pub fn verify_mls_governance_proof_bundle<E, VerifySeal, VerifyEvent, ProjectCells>(
+pub fn verify_mls_governance_proof_bundle<
+    E,
+    VerifySeal,
+    VerifyEvent,
+    ProjectCells,
+    DeriveSecurityFrontier,
+>(
     bundle: &MaterializedMlsGovernanceProofBundle,
     expected_binding: &MlsGovernanceBindingPayload,
     trusted_anchor: &SealId,
     verify_seal_signature: VerifySeal,
     verify_event_signature: VerifyEvent,
     project_cells: ProjectCells,
+    derive_security_frontier: DeriveSecurityFrontier,
 ) -> std::result::Result<VerifiedMlsGovernanceProof, E>
 where
     E: From<Error>,
     VerifySeal: Fn(&Seal) -> std::result::Result<(), E>,
     VerifyEvent: Fn(&Event) -> std::result::Result<(), E>,
     ProjectCells: Fn(&Event) -> std::result::Result<Vec<CellRef>, E>,
+    DeriveSecurityFrontier:
+        Fn(&BTreeMap<CellRef, CellState>, &[Event], &ScopeRef) -> std::result::Result<Hash, E>,
 {
     verify_bundle_header(bundle, expected_binding, trusted_anchor)?;
     let accepted_seal = verify_seal_path(bundle, verify_seal_signature)?;
     let covered = verify_covered_event_materialization(bundle, accepted_seal)?;
     let control_state = verify_control_state_materialization(bundle, accepted_seal)?;
-    verify_frontier_events(
-        bundle,
-        expected_binding,
-        &covered,
-        verify_event_signature,
-        project_cells,
-    )?;
+    verify_frontier_events(bundle, &covered, verify_event_signature, project_cells)?;
 
-    let policy_root = derive_mls_policy_root(&control_state)?;
-    if &policy_root != expected_binding.policy_root() {
-        return stale("policy_root does not match the complete control state");
-    }
-    let capability_root = derive_mls_capability_root(&control_state)?;
-    if expected_binding.capability_root() != Some(&capability_root) {
-        return stale("capability_root does not match the complete control state");
-    }
-    let discussion_metadata_digest = derive_mls_discussion_metadata_digest(&bundle.control_state)?;
-    if expected_binding.discussion_metadata_digest() != Some(&discussion_metadata_digest) {
-        return stale("discussion_metadata_digest does not match the complete control state");
+    let security_frontier_digest = derive_security_frontier(
+        &control_state,
+        &bundle.frontier_events,
+        &bundle.effective_scope,
+    )?;
+    if &security_frontier_digest != expected_binding.security_frontier_digest() {
+        return stale("security_frontier_digest does not match the accepted key-access state");
     }
 
     Ok(VerifiedMlsGovernanceProof {
         accepted_seal_id: bundle.accepted_seal_id.clone(),
-        membership_frontier: expected_binding.membership_frontier().to_vec(),
-        policy_root,
-        capability_root,
-        discussion_metadata_digest,
+        security_frontier_digest,
     })
 }
 
@@ -103,8 +96,23 @@ fn verify_bundle_header(
     if &bundle.trusted_anchor_seal_id != trusted_anchor {
         return state_mismatch("bundle trust anchor does not match the locally trusted anchor");
     }
-    if &bundle.governance_binding != expected {
-        return state_mismatch("bundle governance_binding differs from the MLS transcript binding");
+    let expected_request_digest = MlsGovernanceProofRequestBodyBody {
+        realm_id: expected.realm_id().clone(),
+        effective_scope: expected.effective_scope().clone(),
+        mls_group_id: expected.mls_group_id().to_owned(),
+        previous_epoch: expected.previous_epoch(),
+        next_epoch: expected.next_epoch(),
+        binding_profile: expected.binding_profile().to_owned(),
+        reducer_profile: expected.reducer_profile().to_owned(),
+        trusted_anchor_seal_id: trusted_anchor.clone(),
+        chunk_index: 0,
+        expected_bundle_digest: None,
+    }
+    .proof_request_digest()?;
+    if bundle.proof_request_digest != expected_request_digest {
+        return state_mismatch(
+            "bundle proof_request_digest does not match the MLS transcript binding identity",
+        );
     }
     if &bundle.realm_id != expected.realm_id()
         || &bundle.effective_scope != expected.effective_scope()
@@ -264,7 +272,6 @@ fn verify_control_state_materialization(
 
 fn verify_frontier_events<E, VerifyEvent, ProjectCells>(
     bundle: &MaterializedMlsGovernanceProofBundle,
-    expected: &MlsGovernanceBindingPayload,
     covered: &BTreeSet<Hash>,
     verify_event_signature: VerifyEvent,
     project_cells: ProjectCells,
@@ -275,30 +282,22 @@ where
     ProjectCells: Fn(&Event) -> std::result::Result<Vec<CellRef>, E>,
 {
     ensure_canonical_order(
-        "membership_frontier",
-        expected.membership_frontier().iter().map(EventId::as_str),
-    )?;
-    ensure_canonical_order(
         "frontier_events",
         bundle
             .frontier_events
             .iter()
             .map(|event| event.event_id.as_str()),
     )?;
-    let expected_ids = expected
-        .membership_frontier()
-        .iter()
-        .cloned()
-        .collect::<BTreeSet<_>>();
+    if bundle.frontier_events.is_empty() {
+        return schema("frontier_events must not be empty");
+    }
     let actual_ids = bundle
         .frontier_events
         .iter()
         .map(|event| event.event_id.clone())
         .collect::<BTreeSet<_>>();
-    if expected_ids != actual_ids || actual_ids.len() != bundle.frontier_events.len() {
-        return state_mismatch(
-            "frontier_events do not exactly match governance_binding.membership_frontier",
-        );
+    if actual_ids.len() != bundle.frontier_events.len() {
+        return schema("frontier_events contains duplicate Event ids");
     }
 
     for event in &bundle.frontier_events {
@@ -451,6 +450,7 @@ mod tests {
     struct Fixture {
         bundle: MaterializedMlsGovernanceProofBundle,
         binding: MlsGovernanceBindingPayload,
+        security_frontier_digest: Hash,
     }
 
     fn realm() -> RealmId {
@@ -631,20 +631,13 @@ mod tests {
         let covered = BTreeSet::from([frontier_digest]);
         let control_state = control_state();
         let states = state_map(&control_state);
-        let policy_root = derive_mls_policy_root(&states).unwrap();
-        let capability_root = derive_mls_capability_root(&states).unwrap();
-        let discussion_metadata_digest =
-            derive_mls_discussion_metadata_digest(&control_state).unwrap();
+        let security_frontier_digest = hash(0xaf);
         let binding = MlsGovernanceBindingPayload::realm(
             realm(),
             "YXJrcmV0LW1scy1maXh0dXJl",
             0,
             1,
-            vec![event_id()],
-            vec![SealId::new(format!("ak:seal:{}", hash(0xa1).as_str())).unwrap()],
-            policy_root,
-            capability_root,
-            discussion_metadata_digest,
+            security_frontier_digest.clone(),
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             "ak.reducer.v1",
         )
@@ -655,16 +648,29 @@ mod tests {
             control_event_set_root(&covered).unwrap(),
         );
         let seal_id = seal.id.clone();
+        let proof_request_digest = MlsGovernanceProofRequestBodyBody {
+            realm_id: realm(),
+            effective_scope: effective_scope.clone(),
+            mls_group_id: binding.mls_group_id().to_owned(),
+            previous_epoch: binding.previous_epoch(),
+            next_epoch: binding.next_epoch(),
+            binding_profile: binding.binding_profile().to_owned(),
+            reducer_profile: binding.reducer_profile().to_owned(),
+            trusted_anchor_seal_id: seal_id.clone(),
+            chunk_index: 0,
+            expected_bundle_digest: None,
+        }
+        .proof_request_digest()
+        .unwrap();
         Fixture {
             bundle: MaterializedMlsGovernanceProofBundle {
                 bundle_version: MLS_GOVERNANCE_PROOF_BUNDLE_VERSION,
-                proof_request_digest: hash(0),
+                proof_request_digest,
                 bundle_digest: hash(0),
                 materialization_profile: MLS_GOVERNANCE_COMPLETE_MATERIALIZATION_PROFILE.to_owned(),
                 realm_id: realm(),
                 effective_scope,
                 reducer_profile: "ak.reducer.v1".to_owned(),
-                governance_binding: binding.clone(),
                 trusted_anchor_seal_id: seal_id.clone(),
                 accepted_seal_id: seal_id,
                 seal_path: vec![seal],
@@ -676,6 +682,7 @@ mod tests {
                 frontier_events: vec![frontier_event],
             },
             binding,
+            security_frontier_digest,
         }
     }
 
@@ -697,6 +704,7 @@ mod tests {
             |_| Ok(()),
             |_| Ok(()),
             project_member_cell,
+            |_, _, _| Ok(fixture.security_frontier_digest.clone()),
         )
     }
 
@@ -720,7 +728,10 @@ mod tests {
         let fixture = fixture();
         let verified = verify(&fixture).unwrap();
         assert_eq!(verified.accepted_seal_id, fixture.bundle.accepted_seal_id);
-        assert_eq!(verified.membership_frontier, vec![event_id()]);
+        assert_eq!(
+            verified.security_frontier_digest,
+            fixture.security_frontier_digest
+        );
     }
 
     #[test]
@@ -732,13 +743,14 @@ mod tests {
         let assembled = assemble_mls_governance_proof_chunks(&request, &chunks).unwrap();
         assert_eq!(assembled.seal_path, fixture.bundle.seal_path);
         assert_eq!(assembled.control_state, fixture.bundle.control_state);
-        verify_mls_governance_proof_bundle::<Error, _, _, _>(
+        verify_mls_governance_proof_bundle::<Error, _, _, _, _>(
             &assembled,
             &fixture.binding,
             &request.trusted_anchor_seal_id,
             |_| Ok(()),
             |_| Ok(()),
             project_member_cell,
+            |_, _, _| Ok(fixture.security_frontier_digest.clone()),
         )
         .unwrap();
     }
@@ -830,6 +842,7 @@ mod tests {
             },
             |_| Ok(()),
             project_member_cell,
+            |_, _, _| Ok(fixture.security_frontier_digest.clone()),
         )
         .unwrap_err();
         assert!(
@@ -853,6 +866,7 @@ mod tests {
                 ))
             },
             project_member_cell,
+            |_, _, _| Ok(fixture.security_frontier_digest.clone()),
         )
         .unwrap_err();
         assert!(
@@ -911,20 +925,12 @@ mod tests {
     #[test]
     fn bundle_epoch_tampering_is_rejected() {
         let mut fixture = fixture();
-        fixture.bundle.governance_binding = MlsGovernanceBindingPayload::realm(
+        fixture.binding = MlsGovernanceBindingPayload::realm(
             realm(),
             "YXJrcmV0LW1scy1maXh0dXJl",
             1,
             2,
-            vec![event_id()],
-            vec![SealId::new(format!("ak:seal:{}", hash(0xa1).as_str())).unwrap()],
-            fixture.binding.policy_root().clone(),
-            fixture.binding.capability_root().unwrap().clone(),
-            fixture
-                .binding
-                .discussion_metadata_digest()
-                .unwrap()
-                .clone(),
+            fixture.security_frontier_digest.clone(),
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             "ak.reducer.v1",
         )
@@ -972,7 +978,7 @@ mod tests {
         let mut fixture = fixture();
         fixture.bundle.frontier_events.clear();
         let error = verify(&fixture).unwrap_err();
-        assert!(error.to_string().contains(ErrorCode::STATE_MISMATCH));
+        assert!(error.to_string().contains(ErrorCode::SCHEMA_VIOLATION));
     }
 
     #[test]
@@ -1031,98 +1037,32 @@ mod tests {
         // The Event carries no cell list, so "does this Move affect membership"
         // is decided purely by the injected projector's answer.
         let fixture = fixture();
-        let error = verify_mls_governance_proof_bundle::<Error, _, _, _>(
+        let error = verify_mls_governance_proof_bundle::<Error, _, _, _, _>(
             &fixture.bundle,
             &fixture.binding,
             &fixture.bundle.trusted_anchor_seal_id,
             |_| Ok(()),
             |_| Ok(()),
             |_| Ok(vec![cell("ak.component.realm.title.v1", realm().as_str())]),
+            |_, _, _| Ok(fixture.security_frontier_digest.clone()),
         )
         .unwrap_err();
         assert!(error.to_string().contains(ErrorCode::SCHEMA_VIOLATION));
     }
 
     #[test]
-    fn discussion_metadata_tampering_is_rejected() {
+    fn security_frontier_digest_tampering_is_rejected() {
         let mut fixture = fixture();
         let bad_binding = MlsGovernanceBindingPayload::realm(
             realm(),
             "YXJrcmV0LW1scy1maXh0dXJl",
             0,
             1,
-            vec![event_id()],
-            vec![SealId::new(format!("ak:seal:{}", hash(0xa1).as_str())).unwrap()],
-            fixture.binding.policy_root().clone(),
-            fixture.binding.capability_root().unwrap().clone(),
             hash(0xee),
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             "ak.reducer.v1",
         )
         .unwrap();
-        fixture.bundle.governance_binding = bad_binding.clone();
-        fixture.binding = bad_binding;
-        let error = verify(&fixture).unwrap_err();
-        assert!(
-            error
-                .to_string()
-                .contains(ReasonCode::MLS_GOVERNANCE_BINDING_STALE)
-        );
-    }
-
-    #[test]
-    fn policy_root_tampering_is_rejected() {
-        let mut fixture = fixture();
-        let bad_binding = MlsGovernanceBindingPayload::realm(
-            realm(),
-            "YXJrcmV0LW1scy1maXh0dXJl",
-            0,
-            1,
-            vec![event_id()],
-            vec![SealId::new(format!("ak:seal:{}", hash(0xa1).as_str())).unwrap()],
-            hash(0xed),
-            fixture.binding.capability_root().unwrap().clone(),
-            fixture
-                .binding
-                .discussion_metadata_digest()
-                .unwrap()
-                .clone(),
-            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-            "ak.reducer.v1",
-        )
-        .unwrap();
-        fixture.bundle.governance_binding = bad_binding.clone();
-        fixture.binding = bad_binding;
-        let error = verify(&fixture).unwrap_err();
-        assert!(
-            error
-                .to_string()
-                .contains(ReasonCode::MLS_GOVERNANCE_BINDING_STALE)
-        );
-    }
-
-    #[test]
-    fn capability_root_tampering_is_rejected() {
-        let mut fixture = fixture();
-        let bad_binding = MlsGovernanceBindingPayload::realm(
-            realm(),
-            "YXJrcmV0LW1scy1maXh0dXJl",
-            0,
-            1,
-            vec![event_id()],
-            vec![SealId::new(format!("ak:seal:{}", hash(0xa1).as_str())).unwrap()],
-            fixture.binding.policy_root().clone(),
-            hash(0xec),
-            fixture
-                .binding
-                .discussion_metadata_digest()
-                .unwrap()
-                .clone(),
-            ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-            "ak.reducer.v1",
-        )
-        .unwrap();
-        fixture.bundle.governance_binding = bad_binding.clone();
         fixture.binding = bad_binding;
         let error = verify(&fixture).unwrap_err();
         assert!(

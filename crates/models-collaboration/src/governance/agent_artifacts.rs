@@ -18,7 +18,7 @@ pub struct GrantSnapshot {
     pub grant_id: GrantId,
     pub realm_id: RealmId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status: Option<String>,
+    pub status: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grant_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

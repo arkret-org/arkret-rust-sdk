@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 
 pub use arkret_wire::AppletIdentifier;
-use arkret_wire::{BlobRef, Did, Event, EventId, GrantId, Hash, RealmId, ScopeRef};
+use arkret_wire::{BlobRef, Did, Event, EventId, GrantId, Hash, RealmId, ReasonCode, ScopeRef};
 use serde::{Deserialize, Serialize};
 
 use crate::applet::AppletPackage;
@@ -88,7 +88,7 @@ pub struct AppletWidgetPolicy {
 pub struct AppletRejectedItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requested_scope: Option<String>,
-    pub reason_code: String,
+    pub reason_code: ReasonCode,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

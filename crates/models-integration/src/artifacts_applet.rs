@@ -9,8 +9,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    CircleId, Did, DidUrl, EventId, EventProofAudience, Hash, NonEmptyString, RealmId, SchemaId,
-    WireResourceSelector, XExtensionMap,
+    CircleId, Did, DidUrl, EventId, EventProofAudience, Hash, NonEmptyString, RealmId, ReasonCode,
+    SchemaId, WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -72,7 +72,7 @@ pub struct ProtocolInstance {
 pub struct RejectedItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_id: Option<EventId>,
-    pub reason_code: String,
+    pub reason_code: ReasonCode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
 }
@@ -133,7 +133,7 @@ pub struct CapabilityConstraint {
 #[serde(deny_unknown_fields)]
 pub struct DeniedScope {
     pub requested_scope: String,
-    pub reason_code: String,
+    pub reason_code: ReasonCode,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/e2ee_effect`.

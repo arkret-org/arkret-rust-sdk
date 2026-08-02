@@ -2,7 +2,9 @@
 
 use std::num::NonZeroU64;
 
-use arkret_wire::{Base64UrlString, DeviceId, Did, Hash, MimiRoomUri, MlsGroupId, NonEmptyString};
+use arkret_wire::{
+    Base64UrlString, DeviceId, Did, Hash, MimiRoomUri, MlsGroupId, NonEmptyString, ReasonCode,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -28,7 +30,7 @@ pub struct MimiGroupInfo {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiFailure {
-    pub reason_code: NonEmptyString,
+    pub reason_code: ReasonCode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_ref: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

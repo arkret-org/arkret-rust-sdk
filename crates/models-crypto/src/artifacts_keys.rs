@@ -6,8 +6,8 @@ use arkret_wire::{
     AuthoritySetPolicy, AuthoritySetRef, BackupId, BackupSeriesId, Base64UrlString, DeviceId, Did,
     DidUrl, Error, EventId, Hash, LeaseBasisRef, NonEmptyString, PolicyId,
     RECOVERY_CROSS_SIGNING_AUTHORITY_SET_ID, RECOVERY_IDENTITY_REANCHOR_AUTHORITY_SET_ID, RealmId,
-    RecoverySessionId, Result, SchemaId, ScopeRef, SealBasis, TransactionId, TypedTrustDomainId,
-    XExtensionMap,
+    ReasonCode, RecoverySessionId, Result, SchemaId, ScopeRef, SealBasis, TransactionId,
+    TypedTrustDomainId, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -145,7 +145,7 @@ pub struct Failure {
     pub keypackage_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<String>,
-    pub reason_code: String,
+    pub reason_code: ReasonCode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
 }

@@ -3,7 +3,7 @@ use arkret_models_crypto::{
     EncryptedPayload, MlsCommitEnvelope, MlsCommitPayload, MlsGovernanceBindingPayload,
 };
 use arkret_schema::{embedded_json_artifact, event_payload_validator_catalog};
-use arkret_wire::{EventId, Hash, ProfileId, RealmId, SealId};
+use arkret_wire::{EventId, Hash, ProfileId, RealmId};
 
 fn encoding_vector(vector_id: &str) -> serde_json::Value {
     let fixture = embedded_json_artifact("fixtures/encoding-fixture.json").unwrap();
@@ -74,21 +74,13 @@ fn mls_commit_payload_matches_registered_event_schema() {
         Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
     }
 
-    fn seal(byte: char) -> SealId {
-        SealId::new(format!("ak:seal:sha256:{}", byte.to_string().repeat(64))).unwrap()
-    }
-
     let group_id = base64url::base64url_encode(b"arkret-mls-test-group");
     let binding = MlsGovernanceBindingPayload::realm(
         RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000001").unwrap(),
         group_id.clone(),
         0,
         1,
-        vec![event(2)],
-        vec![seal('a'), seal('b')],
         hash('2'),
-        hash('3'),
-        hash('4'),
         ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
         "ak.reducer.v1",
     )

@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{AuthzDecision, Did, FreshnessState, Hash, NotaryStatus};
+use arkret_wire::{AuthzDecision, Did, FreshnessState, Hash, NotaryStatus, ReasonCode};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -49,7 +49,7 @@ pub struct AuthzCheckOutcome {
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub cache_expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason_code: Option<String>,
+    pub reason_code: Option<ReasonCode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
     #[serde(default)]

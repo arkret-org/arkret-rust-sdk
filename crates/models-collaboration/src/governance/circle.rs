@@ -20,7 +20,9 @@ pub use arkret_wire::CircleId;
 /// Re-export of [`arkret_wire::SchemaId::CIRCLE_V1`] for code that imports
 /// types from this module.
 use arkret_wire::event_envelope::Event;
-use arkret_wire::{Did, EncryptionProfile, EventId, HistoryVisibility, RealmId, SchemaId};
+use arkret_wire::{
+    Did, EncryptionProfile, EventId, HistoryVisibility, RealmId, ReasonCode, SchemaId,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -380,7 +382,7 @@ pub struct CircleScopeRotateOutcome {
 #[serde(deny_unknown_fields)]
 pub struct CircleLifecycleRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason_code: Option<String>,
+    pub reason_code: Option<ReasonCode>,
 }
 
 /// Circle lifecycle state. Mirrors spec circle.schema.json `state` enum.

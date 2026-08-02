@@ -20,8 +20,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::mls_payloads::{
-    MediaDecryptPolicyValue, MediaPlaintextService, MlsGovernanceBindingPayload,
-    derive_media_decrypt_metadata_digest,
+    MediaDecryptPolicyValue, MediaPlaintextService, derive_media_decrypt_metadata_digest,
 };
 
 pub const MLS_GOVERNANCE_PROOF_BUNDLE_VERSION: u8 = 1;
@@ -338,7 +337,6 @@ pub struct MlsGovernanceProofBundle {
     pub realm_id: RealmId,
     pub effective_scope: ScopeRef,
     pub reducer_profile: String,
-    pub governance_binding: MlsGovernanceBindingPayload,
     pub trusted_anchor_seal_id: SealId,
     pub accepted_seal_id: SealId,
     pub chunk_manifest: MlsGovernanceProofChunkManifest,
@@ -355,7 +353,6 @@ pub struct MaterializedMlsGovernanceProofBundle {
     pub realm_id: RealmId,
     pub effective_scope: ScopeRef,
     pub reducer_profile: String,
-    pub governance_binding: MlsGovernanceBindingPayload,
     pub trusted_anchor_seal_id: SealId,
     pub accepted_seal_id: SealId,
     #[cfg_attr(
@@ -398,7 +395,6 @@ impl MlsGovernanceProofBundle {
             realm_id: &'a RealmId,
             effective_scope: &'a ScopeRef,
             reducer_profile: &'a str,
-            governance_binding: &'a MlsGovernanceBindingPayload,
             trusted_anchor_seal_id: &'a SealId,
             accepted_seal_id: &'a SealId,
             chunk_manifest: &'a MlsGovernanceProofChunkManifest,
@@ -412,7 +408,6 @@ impl MlsGovernanceProofBundle {
                 realm_id: &self.realm_id,
                 effective_scope: &self.effective_scope,
                 reducer_profile: &self.reducer_profile,
-                governance_binding: &self.governance_binding,
                 trusted_anchor_seal_id: &self.trusted_anchor_seal_id,
                 accepted_seal_id: &self.accepted_seal_id,
                 chunk_manifest: &self.chunk_manifest,
@@ -527,7 +522,6 @@ pub fn build_mls_governance_proof_chunks(
             realm_id: materialized.realm_id.clone(),
             effective_scope: materialized.effective_scope.clone(),
             reducer_profile: materialized.reducer_profile.clone(),
-            governance_binding: materialized.governance_binding.clone(),
             trusted_anchor_seal_id: materialized.trusted_anchor_seal_id.clone(),
             accepted_seal_id: materialized.accepted_seal_id.clone(),
             chunk_manifest: manifest.clone(),
@@ -703,7 +697,6 @@ pub fn assemble_mls_governance_proof_chunks(
         realm_id: first.realm_id.clone(),
         effective_scope: first.effective_scope.clone(),
         reducer_profile: first.reducer_profile.clone(),
-        governance_binding: first.governance_binding.clone(),
         trusted_anchor_seal_id: first.trusted_anchor_seal_id.clone(),
         accepted_seal_id: first.accepted_seal_id.clone(),
         seal_path,
@@ -1018,7 +1011,6 @@ fn same_bundle_header(
         && first.realm_id == candidate.realm_id
         && first.effective_scope == candidate.effective_scope
         && first.reducer_profile == candidate.reducer_profile
-        && first.governance_binding == candidate.governance_binding
         && first.trusted_anchor_seal_id == candidate.trusted_anchor_seal_id
         && first.accepted_seal_id == candidate.accepted_seal_id
         && first.chunk_manifest == candidate.chunk_manifest

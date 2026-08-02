@@ -55,7 +55,7 @@ mod tests {
     };
     use arkret_wire::{
         CORE_REDUCER_PROFILE, DeviceId, Did, EncryptedPayloadScheme, EventId, Hash, ProfileId,
-        RealmId, SealId,
+        RealmId,
     };
     use chrono::Utc;
 
@@ -109,14 +109,6 @@ mod tests {
         RealmId::new("ak:realm:01904100-0000-7000-8000-00000000f1c0").unwrap()
     }
 
-    fn governance_event(n: u8) -> EventId {
-        EventId::new(format!("ak:event:01904100-0000-7000-8000-00000000f1c{n}")).unwrap()
-    }
-
-    fn governance_seal(n: u8) -> SealId {
-        SealId::new(format!("ak:seal:sha256:{}", format!("{n:02x}").repeat(32))).unwrap()
-    }
-
     fn governance_hash(byte: char) -> Hash {
         Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
     }
@@ -125,18 +117,14 @@ mod tests {
         group_id: &str,
         previous_epoch: u64,
         next_epoch: u64,
-        policy_root: Hash,
+        security_frontier_digest: Hash,
     ) -> MlsGovernanceBindingPayload {
         MlsGovernanceBindingPayload::realm(
             governance_realm(),
             group_id.to_owned(),
             previous_epoch,
             next_epoch,
-            vec![governance_event(1)],
-            vec![governance_seal(1)],
-            policy_root,
-            governance_hash('c'),
-            governance_hash('d'),
+            security_frontier_digest,
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             CORE_REDUCER_PROFILE,
         )
@@ -216,7 +204,7 @@ mod tests {
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             CORE_REDUCER_PROFILE,
         );
-        expected.policy_root = Some(binding.policy_root());
+        expected.security_frontier_digest = Some(binding.security_frontier_digest());
 
         assert_eq!(current, binding);
         group.verify_current_governance_binding(&expected).unwrap();
@@ -248,7 +236,7 @@ mod tests {
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             CORE_REDUCER_PROFILE,
         );
-        expected.policy_root = Some(binding.policy_root());
+        expected.security_frontier_digest = Some(binding.security_frontier_digest());
 
         assert_eq!(commit.group_id, group_id);
         assert_eq!(commit.epoch, 1);
@@ -419,7 +407,7 @@ mod tests {
     }
 
     #[test]
-    fn governance_binding_verification_rejects_stale_policy_root() {
+    fn governance_binding_verification_rejects_stale_security_frontier_digest() {
         let alice = ArkretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1c5").unwrap(),
@@ -431,7 +419,7 @@ mod tests {
         let group_id = group.group_id();
         let binding = governance_binding(&group_id, 0, 1, governance_hash('4'));
         group.update_governance_binding(&binding).unwrap();
-        let stale_policy_root = governance_hash('9');
+        let stale_security_frontier_digest = governance_hash('9');
         let mut expected = MlsGovernanceBindingValidationContext::for_commit(
             &group_id,
             0,
@@ -439,7 +427,7 @@ mod tests {
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             CORE_REDUCER_PROFILE,
         );
-        expected.policy_root = Some(&stale_policy_root);
+        expected.security_frontier_digest = Some(&stale_security_frontier_digest);
 
         let err = group
             .verify_current_governance_binding(&expected)

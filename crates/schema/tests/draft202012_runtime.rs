@@ -6,6 +6,7 @@ use serde_json::{Value, json};
 
 const STRING_PROFILE_FIXTURE: &str = "fixtures/string-profile-fixture.json";
 const STRING_PROFILE_SCHEMA: &str = "schemas/string-profiles.schema.json";
+const PROPERTY_PRESENCE_MANIFEST: &str = "reports/property-presence-manifest.json";
 
 /// Load one spec artifact from the live checkout, falling back to the embedded snapshot.
 fn spec_artifact(relative_path: &str) -> Option<Value> {
@@ -15,6 +16,30 @@ fn spec_artifact(relative_path: &str) -> Option<Value> {
         return Some(serde_json::from_str(&raw).expect("live spec artifact must be JSON"));
     }
     embedded_json_artifact(relative_path).ok()
+}
+
+#[test]
+fn presence_manifest_has_one_explicit_distinct_sdk_target() {
+    let manifest = spec_artifact(PROPERTY_PRESENCE_MANIFEST)
+        .expect("property-presence manifest must be embedded or available live");
+    assert_eq!(
+        manifest["summary"]["tristate_sdk_dispositions"],
+        json!({
+            "absent_null_equivalent": 149,
+            "condition_guarded": 9,
+            "distinct": 1
+        })
+    );
+    let distinct = manifest["tristate_audit_targets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|target| target["sdk_disposition"] == "distinct")
+        .collect::<Vec<_>>();
+    assert_eq!(distinct.len(), 1);
+    assert_eq!(distinct[0]["schema_file"], "event-payload.schema.json");
+    assert_eq!(distinct[0]["shape"], "/$defs/circle_member_state_payload");
+    assert_eq!(distinct[0]["instance_path"], "/expected_membership");
 }
 
 #[test]

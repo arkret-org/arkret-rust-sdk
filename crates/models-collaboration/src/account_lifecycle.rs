@@ -17,8 +17,8 @@ use arkret_models_identity::account::{
 use arkret_models_identity::actor_profile::ActorProfile;
 use arkret_wire::patch::Patch;
 use arkret_wire::{
-    AppletId, AppletRevokeMode, ConsentScope, DeviceId, Did, DidUrl, GrantId, Hash, Result,
-    ScopeRef, ServiceOperationId, canonical,
+    AppletId, AppletRevokeMode, ConsentScope, DeviceId, Did, DidUrl, GrantId, Hash, ReasonCode,
+    Result, ScopeRef, ServiceOperationId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -288,7 +288,7 @@ pub struct SessionRevokeOutcome {
 #[serde(deny_unknown_fields)]
 pub struct AppletRevokeRequestBody {
     pub effective_scope: ScopeRef,
-    pub reason_code: String,
+    pub reason_code: ReasonCode,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub revoke_mode: AppletRevokeMode,
     #[serde(default, skip_serializing_if = "Option::is_none")]

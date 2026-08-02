@@ -1,11 +1,13 @@
 use arkret_wire::{
-    DeviceId, Did, Error, EventId, Hash, RequestId, Result, TypedTrustDomainId, canonical,
+    DeviceId, Did, Error, EventId, Hash, ReasonCode, RequestId, Result, TypedTrustDomainId,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::actor_profile::ActorProfile;
+use crate::artifacts_account::DeviceSummaryStatus;
 use crate::handle::Handle;
 use crate::identity::DidOperationSubmitRequestBody;
 
@@ -209,7 +211,7 @@ pub struct AccountDataDeleteOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AccountDeviceSummary {
     pub device_id: DeviceId,
-    pub status: String,
+    pub status: DeviceSummaryStatus,
     /// device-lifecycle.md §6 trust dimension: `unverified` / `cross_signed`
     /// / `needs_reverification` / `verified`. Distinct from `status`, which is
     /// the lifecycle rollup (`active` / `revoked` / `unknown`). Clients render
@@ -546,7 +548,7 @@ pub enum CursorRevokeScope {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountCursorRevokeRequestBody {
     pub cursor: String,
-    pub reason_code: String,
+    pub reason_code: ReasonCode,
     #[serde(default = "default_cursor_revoke_scope")]
     pub revoke_scope: CursorRevokeScope,
 }

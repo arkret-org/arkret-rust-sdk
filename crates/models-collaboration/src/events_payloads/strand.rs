@@ -35,16 +35,15 @@ pub struct StrandStageSetPayload {
 
 /// Strong payload for `ak.realm.set_default_strand`.
 ///
-/// The CAS guard is intentionally tri-state: omission carries no explicit
-/// expected value, null asserts that the current cell is null, and a concrete
-/// strand ID asserts that exact current value.
+/// Omission and explicit null both assert that the current cell is null; a
+/// concrete strand ID asserts that exact current value.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmSetDefaultStrandPayload {
     pub realm_id: RealmId,
     pub strand_id: StrandId,
-    #[serde(default, skip_serializing_if = "WirePresence::is_missing")]
-    pub expected_default_strand_id: WirePresence<StrandId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_default_strand_id: Option<StrandId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }
@@ -54,18 +53,13 @@ impl RealmSetDefaultStrandPayload {
         Self {
             realm_id,
             strand_id,
-            expected_default_strand_id: WirePresence::Missing,
+            expected_default_strand_id: None,
             reason: None,
         }
     }
 
-    pub fn expecting_no_default(mut self) -> Self {
-        self.expected_default_strand_id = WirePresence::Null;
-        self
-    }
-
     pub fn expecting(mut self, strand_id: StrandId) -> Self {
-        self.expected_default_strand_id = WirePresence::Value(strand_id);
+        self.expected_default_strand_id = Some(strand_id);
         self
     }
 }
@@ -275,8 +269,8 @@ pub struct StrandWatchSetPayload {
     pub level: Option<StrandWatchLevel>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub level_public: Option<bool>,
-    #[serde(default, skip_serializing_if = "WirePresence::is_missing")]
-    pub expected_value: WirePresence<StrandWatchExpectedValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_value: Option<StrandWatchExpectedValue>,
 }
 
 impl StrandWatchSetPayload {
@@ -293,7 +287,7 @@ impl StrandWatchSetPayload {
             watcher_actor_id,
             level: Some(level),
             level_public,
-            expected_value: WirePresence::Missing,
+            expected_value: None,
         }
     }
 
@@ -305,15 +299,12 @@ impl StrandWatchSetPayload {
             watcher_actor_id,
             level: None,
             level_public: None,
-            expected_value: WirePresence::Missing,
+            expected_value: None,
         }
     }
 
     pub fn with_expected_value(mut self, expected: Option<StrandWatchExpectedValue>) -> Self {
-        self.expected_value = match expected {
-            Some(expected) => WirePresence::Value(expected),
-            None => WirePresence::Null,
-        };
+        self.expected_value = expected;
         self
     }
 
@@ -338,7 +329,7 @@ mod presence_tests {
     }
 
     #[test]
-    fn default_strand_cas_preserves_missing_null_and_value() {
+    fn default_strand_cas_normalizes_missing_and_null() {
         let base = json!({
             "realm_id": realm_id(),
             "strand_id": strand_id("000000000001")
@@ -351,26 +342,25 @@ mod presence_tests {
         explicit_value["expected_default_strand_id"] = json!(strand_id("000000000002"));
         let value: RealmSetDefaultStrandPayload = serde_json::from_value(explicit_value).unwrap();
 
-        assert_eq!(missing.expected_default_strand_id, WirePresence::Missing);
-        assert_eq!(null.expected_default_strand_id, WirePresence::Null);
-        assert!(matches!(
-            value.expected_default_strand_id,
-            WirePresence::Value(_)
-        ));
+        assert_eq!(missing.expected_default_strand_id, None);
+        assert_eq!(null.expected_default_strand_id, None);
+        assert!(value.expected_default_strand_id.is_some());
         assert!(
             serde_json::to_value(missing)
                 .unwrap()
                 .get("expected_default_strand_id")
                 .is_none()
         );
-        assert_eq!(
-            serde_json::to_value(null).unwrap()["expected_default_strand_id"],
-            Value::Null
+        assert!(
+            serde_json::to_value(null)
+                .unwrap()
+                .get("expected_default_strand_id")
+                .is_none()
         );
     }
 
     #[test]
-    fn watch_cas_deserialization_no_longer_collapses_null_into_missing() {
+    fn watch_cas_normalizes_null_to_the_omitted_empty_value() {
         let payload: StrandWatchSetPayload = serde_json::from_value(json!({
             "strand_id": strand_id("000000000001"),
             "watcher_actor_id": "did:web:alice.example",
@@ -378,6 +368,12 @@ mod presence_tests {
             "expected_value": null
         }))
         .unwrap();
-        assert_eq!(payload.expected_value, WirePresence::Null);
+        assert_eq!(payload.expected_value, None);
+        assert!(
+            serde_json::to_value(payload)
+                .unwrap()
+                .get("expected_value")
+                .is_none()
+        );
     }
 }

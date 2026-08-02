@@ -37,7 +37,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
     assert_eq!(parsed.claims[0].principal_id, did("alice"));
     assert_eq!(parsed.claims[0].ssk_generation, Some(3));
     assert_eq!(parsed.claims[0].device_authorize_event_id, None);
-    assert_eq!(parsed.failures[0].reason_code, "not_found");
+    assert_eq!(parsed.failures[0].reason_code.as_str(), "not_found");
 
     let malformed_claim = json!({
         "claims": [{

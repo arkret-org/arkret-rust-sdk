@@ -985,7 +985,7 @@ mod tests {
     }
 
     #[test]
-    fn mls_governance_binding_frontier_uses_event_id_strings() {
+    fn mls_governance_binding_uses_single_security_frontier_digest() {
         let value = serde_json::json!({
             "binding_version": 1,
             "encoding_profile": "cbor-deterministic-rfc8949-v1",
@@ -997,18 +997,8 @@ mod tests {
             "mls_group_id": "Z3JvdXA",
             "previous_epoch": 0,
             "next_epoch": 1,
-            "membership_frontier": [
-                "ak:event:01904100-0000-7000-8000-000000000001"
-            ],
-            "covered_seal_refs": [
-                "ak:seal:sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
-            ],
-            "policy_root":
+            "security_frontier_digest":
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "capability_root":
-                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "discussion_metadata_digest":
-                "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             "binding_profile": "ak.profile.mls_governance_binding.full.v1",
             "reducer_profile": "ak.reducer.control_state.v1"
         });
@@ -1016,8 +1006,8 @@ mod tests {
         let binding = serde_json::from_value::<MlsGovernanceBindingPayload>(value).unwrap();
 
         assert_eq!(
-            binding.membership_frontier()[0].as_str(),
-            "ak:event:01904100-0000-7000-8000-000000000001"
+            binding.security_frontier_digest().as_str(),
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         );
     }
 }

@@ -6,6 +6,13 @@ use serde_json::Value;
 
 use crate::artifacts_applet::ExternalRef;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum GhostActorProvisionRequestSchema {
+    #[serde(rename = "ak.applet.ghost_actor.provision_request.v1")]
+    V1,
+}
+
 /// `POST /_arkret/self/applets/{applet_id}/ghosts/provision` request body.
 ///
 /// An Applet service / bridge asks the Principal Server to provision (or
@@ -17,7 +24,7 @@ use crate::artifacts_applet::ExternalRef;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GhostActorProvisionRequestBody {
     /// Always [`GhostActorProvisionRequestBody::SCHEMA`].
-    pub schema: String,
+    pub schema: GhostActorProvisionRequestSchema,
     pub applet_id: AppletId,
     pub service_id: Did,
     pub ghost_actor_id: Did,
@@ -38,7 +45,7 @@ impl GhostActorProvisionRequestBody {
     /// `schema` const of `applet-ghost-operations.schema.json`
     /// `#/$defs/ghost_actor_provision_request_body`. Fixed by the DTO schema rather than registered
     /// as a `schema-registry.json` row.
-    pub const SCHEMA: &'static str = "ak.applet.ghost_actor.provision_request.v1";
+    pub const SCHEMA: GhostActorProvisionRequestSchema = GhostActorProvisionRequestSchema::V1;
     /// Build a request body with `schema` stamped and no `display_name`.
     /// Add a display name with [`with_display_name`](Self::with_display_name).
     #[allow(clippy::too_many_arguments)]
@@ -55,7 +62,7 @@ impl GhostActorProvisionRequestBody {
         profile_event: Event,
     ) -> Self {
         Self {
-            schema: GhostActorProvisionRequestBody::SCHEMA.to_owned(),
+            schema: GhostActorProvisionRequestBody::SCHEMA,
             applet_id,
             service_id,
             ghost_actor_id,

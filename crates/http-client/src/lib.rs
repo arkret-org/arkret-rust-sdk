@@ -1751,7 +1751,7 @@ mod tests {
             };
 
             let response = client.mimi_report_abuse(&request).await.unwrap();
-            assert_eq!(response.status, "queued");
+            assert_eq!(response.status.as_str(), "queued");
 
             let raw = capture.await.unwrap();
             let (request_line, _headers, body) = split_request(&raw);
@@ -1790,7 +1790,10 @@ mod tests {
             );
             assert_eq!(response.accepted.len(), 1);
             assert_eq!(response.rejected.len(), 1);
-            assert_eq!(response.rejected[0].reason_code, "schema_violation");
+            assert_eq!(
+                response.rejected[0].reason_code.as_str(),
+                "schema_violation"
+            );
         }
 
         /// S-6 (savfox SDK gap): the streaming API yields one

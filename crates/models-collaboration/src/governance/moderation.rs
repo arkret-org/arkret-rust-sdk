@@ -31,7 +31,7 @@ pub struct ModerationEvidencePackage {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ModerationReportOutcome {
     pub report_id: String,
-    pub status: String,
+    pub status: ModerationReportStatus,
     /// DIDs the report was routed to. Per
     /// `service-operation-dtos.schema.json#/$defs/ModerationReportOutcome`
     /// this is an array of DID strings (the schema is closed), matching the
@@ -39,6 +39,14 @@ pub struct ModerationReportOutcome {
     /// `service-http-binding.md`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub routed_to: Vec<Did>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ModerationReportStatus {
+    Submitted,
+    Resolved,
 }
 
 /// Moderation action (moderation.md §5.3).

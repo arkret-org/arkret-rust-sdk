@@ -447,12 +447,20 @@ pub struct RealmLifecycleView {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmExport {
-    pub schema: String,
+    pub schema: RealmExportSchema,
     pub realm_id: RealmId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub generated_at: DateTime<Utc>,
     pub operations: Vec<BTreeMap<String, Value>>,
     pub events: Vec<BTreeMap<String, Value>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum RealmExportSchema {
+    #[serde(rename = "ak.export.realm.v1")]
+    V1,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

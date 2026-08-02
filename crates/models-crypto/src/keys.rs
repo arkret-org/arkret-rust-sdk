@@ -6,7 +6,9 @@ use std::num::NonZeroU64;
 use arkret_models_identity::artifacts_device_identity::{
     CrossSigningPublish, DeviceEnrollmentAuthorityBinding,
 };
-use arkret_wire::{Base64UrlString, DeviceId, Did, DidKey, DidUrl, EventId, NonEmptyString};
+use arkret_wire::{
+    Base64UrlString, DeviceId, Did, DidKey, DidUrl, EventId, NonEmptyString, ReasonCode,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::artifacts_keys::{
@@ -234,7 +236,7 @@ pub struct KeysOperationFailure {
     pub device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub algorithm: Option<NonEmptyString>,
-    pub reason_code: NonEmptyString,
+    pub reason_code: ReasonCode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<u64>)))]
     pub retry_after_ms: Option<NonZeroU64>,

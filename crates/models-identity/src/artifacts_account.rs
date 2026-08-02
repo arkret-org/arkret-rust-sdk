@@ -11,6 +11,15 @@ use serde::{Deserialize, Serialize};
 /// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/device_summaries`.
 pub type DeviceSummaries = Vec<DeviceSummary>;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum DeviceSummaryStatus {
+    Active,
+    Revoked,
+    Unknown,
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/device_summary`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -19,7 +28,7 @@ pub struct DeviceSummary {
     pub device_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<DisplayName>,
-    pub status: String,
+    pub status: DeviceSummaryStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

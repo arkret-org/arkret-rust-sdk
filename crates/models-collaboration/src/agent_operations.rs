@@ -214,7 +214,7 @@ pub fn agent_key_pairing_request_binding_digest(
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRequestedScopeDisclosure {
-    pub schema: String,
+    pub schema: SchemaId,
     pub request_id: RequestId,
     pub agent_id: Did,
     pub controller_id: Did,
@@ -231,7 +231,7 @@ pub struct AgentRequestedScopeDisclosure {
 }
 
 impl AgentRequestedScopeDisclosure {
-    pub const SCHEMA: &'static str = SchemaId::AGENT_REQUESTED_SCOPE_DISCLOSURE_V1;
+    pub const SCHEMA: SchemaId = SchemaId::AgentRequestedScopeDisclosureV1;
     pub fn canonical_bytes_without_proofs(&self) -> Result<Vec<u8>> {
         let mut value = serde_json::to_value(self)?;
         value
@@ -269,7 +269,7 @@ impl AgentRequestedScopeDisclosure {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.schema != SchemaId::AGENT_REQUESTED_SCOPE_DISCLOSURE_V1 {
+        if self.schema != SchemaId::AgentRequestedScopeDisclosureV1 {
             return Err(Error::Protocol(
                 "agent requested-scope disclosure schema is invalid".to_owned(),
             ));
@@ -799,7 +799,7 @@ pub struct AgentView {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentPauseRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+    pub reason: Option<NonEmptyString>,
     /// Initial publication of the closed Agent-PCR lifecycle Event authored by
     /// the Agent principal and executed/signed by its controller delegation.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -821,7 +821,7 @@ pub struct AgentResumeRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentDeactivateRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+    pub reason: Option<NonEmptyString>,
     /// Closed Agent-PCR terminal lifecycle Event authored by the Agent
     /// principal and executed/signed by its controller delegation.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]

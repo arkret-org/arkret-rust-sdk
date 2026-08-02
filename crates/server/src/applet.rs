@@ -308,7 +308,7 @@ mod tests {
                 // prove the cached outcome (not a re-execution) is returned.
                 rejected: vec![arkret_models_integration::artifacts_applet::RejectedItem {
                     event_id: None,
-                    reason_code: format!("call_{call}"),
+                    reason_code: arkret_wire::ReasonCode::from_wire(&format!("call_{call}")),
                     retry_after_ms: None,
                 }],
                 retry_after_ms: None,

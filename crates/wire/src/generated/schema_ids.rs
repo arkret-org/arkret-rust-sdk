@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-registry-types.py
-//! Input: registry/schema-registry.json; version=2026-08-02.6;
-//! sha256=789a1deb02c0ae981e911cffdc8d66a0aec7432839e94dfa5b1bf2a881b83af9 Entries: schema_ids=177,
+//! Input: registry/schema-registry.json; version=2026-08-02.7;
+//! sha256=91e760349d22b9f2e0d0a50629505bd03cdebc974fb11e4e0a4d6cf5f5a2d3e3 Entries: schema_ids=177,
 //! active=176
 
 use serde::{Deserialize, Serialize};
@@ -1647,5 +1647,28 @@ impl<'de> Deserialize<'de> for SchemaId {
         let raw = String::deserialize(deserializer)?;
         Self::from_wire(&raw)
             .ok_or_else(|| serde::de::Error::custom(format!("unknown schema id: {raw}")))
+    }
+}
+
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ToSchema for SchemaId {
+    fn to_schema(
+        _components: &mut salvo_oapi::Components,
+    ) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        salvo_oapi::schema::Object::new()
+            .schema_type(salvo_oapi::schema::BasicType::String)
+            .enum_values(Self::ALL.iter().map(|value| value.as_str()))
+            .into()
+    }
+}
+
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ComposeSchema for SchemaId {
+    fn compose(
+        components: &mut salvo_oapi::Components,
+        generics: Vec<salvo_oapi::RefOr<salvo_oapi::schema::Schema>>,
+    ) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        let _ = generics;
+        <Self as salvo_oapi::ToSchema>::to_schema(components)
     }
 }

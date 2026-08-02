@@ -2097,6 +2097,15 @@ impl ReasonCode {
         }
     }
 
+    pub fn is_valid_wire(value: &str) -> bool {
+        let mut characters = value.chars();
+        matches!(characters.next(), Some('a'..='z'))
+            && value.len() <= 64
+            && characters.all(|character| {
+                character.is_ascii_lowercase() || character.is_ascii_digit() || character == '_'
+            })
+    }
+
     pub fn descriptor(&self) -> Option<&'static ReasonCodeDescriptor> {
         REASON_CODE_DESCRIPTORS
             .iter()
@@ -2106,13 +2115,44 @@ impl ReasonCode {
 
 impl Serialize for ReasonCode {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        if !Self::is_valid_wire(self.as_str()) {
+            return Err(serde::ser::Error::custom("invalid reason code"));
+        }
         serializer.serialize_str(self.as_str())
     }
 }
 
 impl<'de> Deserialize<'de> for ReasonCode {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        Ok(Self::from_wire(&String::deserialize(deserializer)?))
+        let value = String::deserialize(deserializer)?;
+        if !Self::is_valid_wire(&value) {
+            return Err(serde::de::Error::custom("invalid reason code"));
+        }
+        Ok(Self::from_wire(&value))
+    }
+}
+
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ToSchema for ReasonCode {
+    fn to_schema(
+        _components: &mut salvo_oapi::Components,
+    ) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        salvo_oapi::schema::Object::new()
+            .schema_type(salvo_oapi::schema::BasicType::String)
+            .pattern("^[a-z][a-z0-9_]{0,63}$")
+            .max_length(64)
+            .into()
+    }
+}
+
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ComposeSchema for ReasonCode {
+    fn compose(
+        components: &mut salvo_oapi::Components,
+        generics: Vec<salvo_oapi::RefOr<salvo_oapi::schema::Schema>>,
+    ) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        let _ = generics;
+        <Self as salvo_oapi::ToSchema>::to_schema(components)
     }
 }
 

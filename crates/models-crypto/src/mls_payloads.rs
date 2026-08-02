@@ -6,8 +6,8 @@ use std::sync::OnceLock;
 use arkret_wire::base64url::{base64url_decode, base64url_encode};
 use arkret_wire::event_envelope::ScopeRef;
 use arkret_wire::{
-    CircleId, Did, Error, EventId, EventKind, Hash, MlsGroupId, NonEmptyString, ProfileId, RealmId,
-    Result, SealId, SidecarId, canonical,
+    CircleId, Did, Error, EventId, EventKind, Hash, MlsGroupId, NonEmptyString, RealmId, Result,
+    SidecarId, canonical,
 };
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -69,13 +69,7 @@ pub struct MlsGovernanceBindingPayload {
     mls_group_id: MlsGroupId,
     previous_epoch: u64,
     next_epoch: u64,
-    membership_frontier: Vec<EventId>,
-    covered_seal_refs: Vec<SealId>,
-    policy_root: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    capability_root: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    discussion_metadata_digest: Option<Hash>,
+    security_frontier_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     sidecar_binding: Option<SidecarMlsBinding>,
     binding_profile: String,
@@ -89,11 +83,7 @@ impl MlsGovernanceBindingPayload {
         mls_group_id: impl Into<String>,
         previous_epoch: u64,
         next_epoch: u64,
-        membership_frontier: Vec<EventId>,
-        covered_seal_refs: Vec<SealId>,
-        policy_root: Hash,
-        capability_root: Hash,
-        discussion_metadata_digest: Hash,
+        security_frontier_digest: Hash,
         binding_profile: impl Into<String>,
         reducer_profile: impl Into<String>,
     ) -> Result<Self> {
@@ -110,11 +100,7 @@ impl MlsGovernanceBindingPayload {
             })?,
             previous_epoch,
             next_epoch,
-            membership_frontier,
-            covered_seal_refs,
-            policy_root,
-            capability_root: Some(capability_root),
-            discussion_metadata_digest: Some(discussion_metadata_digest),
+            security_frontier_digest,
             sidecar_binding: None,
             binding_profile: binding_profile.into(),
             reducer_profile: reducer_profile.into(),
@@ -130,11 +116,7 @@ impl MlsGovernanceBindingPayload {
         mls_group_id: impl Into<String>,
         previous_epoch: u64,
         next_epoch: u64,
-        membership_frontier: Vec<EventId>,
-        covered_seal_refs: Vec<SealId>,
-        policy_root: Hash,
-        capability_root: Hash,
-        discussion_metadata_digest: Hash,
+        security_frontier_digest: Hash,
         binding_profile: impl Into<String>,
         reducer_profile: impl Into<String>,
     ) -> Result<Self> {
@@ -154,27 +136,13 @@ impl MlsGovernanceBindingPayload {
             })?,
             previous_epoch,
             next_epoch,
-            membership_frontier,
-            covered_seal_refs,
-            policy_root,
-            capability_root: Some(capability_root),
-            discussion_metadata_digest: Some(discussion_metadata_digest),
+            security_frontier_digest,
             sidecar_binding: None,
             binding_profile: binding_profile.into(),
             reducer_profile: reducer_profile.into(),
         };
         payload.validate()?;
         Ok(payload)
-    }
-
-    pub fn with_capability_root(mut self, capability_root: Hash) -> Self {
-        self.capability_root = Some(capability_root);
-        self
-    }
-
-    pub fn with_discussion_metadata_digest(mut self, digest: Hash) -> Self {
-        self.discussion_metadata_digest = Some(digest);
-        self
     }
 
     pub fn with_sidecar_binding(mut self, binding: SidecarMlsBinding) -> Result<Self> {
@@ -211,45 +179,10 @@ impl MlsGovernanceBindingPayload {
                 "mls_governance_binding.encoding_profile must be {MLS_GOVERNANCE_BINDING_ENCODING_PROFILE} (schema_violation)"
             )));
         }
-        if self.membership_frontier.is_empty() {
-            return Err(Error::Protocol(
-                "mls_governance_binding.membership_frontier must be non-empty (schema_violation)"
-                    .to_owned(),
-            ));
-        }
-        if self.covered_seal_refs.is_empty() {
-            return Err(Error::Protocol(
-                "mls_governance_binding.covered_seal_refs must be non-empty (schema_violation)"
-                    .to_owned(),
-            ));
-        }
-        // `uniqueItems` only: the reducer sorts by canonical value before it
-        // numbers the `or_set_batch_add` tags, so producers MUST NOT be
-        // required to pre-sort the array.
-        let mut seen = BTreeSet::new();
-        for seal_ref in &self.covered_seal_refs {
-            if !seen.insert(seal_ref.as_str()) {
-                return Err(Error::Protocol(
-                    "mls_governance_binding.covered_seal_refs must be unique (schema_violation)"
-                        .to_owned(),
-                ));
-            }
-        }
         validate_profile_id(
             "mls_governance_binding.binding_profile",
             &self.binding_profile,
         )?;
-        if self.binding_profile == ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1 {
-            if self.capability_root.is_none() {
-                return Err(Error::Protocol(
-                    "full mls_governance_binding requires capability_root (schema_violation)"
-                        .to_owned(),
-                ));
-            }
-            if self.discussion_metadata_digest.is_none() {
-                return Err(Error::Protocol("full mls_governance_binding requires discussion_metadata_digest (schema_violation)".to_owned()));
-            }
-        }
         if self.reducer_profile.is_empty() {
             return Err(Error::Protocol(
                 "mls_governance_binding.reducer_profile must be non-empty (schema_violation)"
@@ -324,31 +257,10 @@ impl MlsGovernanceBindingPayload {
                 "mls_governance_binding.effective_scope mismatch (state_mismatch)".to_owned(),
             ));
         }
-        if let Some(frontier) = expected.membership_frontier
-            && self.membership_frontier.as_slice() != frontier
+        if let Some(digest) = expected.security_frontier_digest
+            && &self.security_frontier_digest != digest
         {
-            return Err(Error::Protocol("mls_governance_binding.membership_frontier is stale (mls_governance_binding_stale)".to_owned()));
-        }
-        if let Some(policy_root) = expected.policy_root
-            && &self.policy_root != policy_root
-        {
-            return Err(Error::Protocol(
-                "mls_governance_binding.policy_root is stale (mls_governance_binding_stale)"
-                    .to_owned(),
-            ));
-        }
-        if let Some(capability_root) = expected.capability_root
-            && self.capability_root.as_ref() != Some(capability_root)
-        {
-            return Err(Error::Protocol(
-                "mls_governance_binding.capability_root is stale (mls_governance_binding_stale)"
-                    .to_owned(),
-            ));
-        }
-        if let Some(digest) = expected.discussion_metadata_digest
-            && self.discussion_metadata_digest.as_ref() != Some(digest)
-        {
-            return Err(Error::Protocol("mls_governance_binding.discussion_metadata_digest is stale (mls_governance_binding_stale)".to_owned()));
+            return Err(Error::Protocol("mls_governance_binding.security_frontier_digest is stale (mls_governance_binding_stale)".to_owned()));
         }
         if let Some(sidecar_binding) = expected.sidecar_binding
             && self.sidecar_binding.as_ref() != Some(sidecar_binding)
@@ -385,11 +297,6 @@ impl MlsGovernanceBindingPayload {
         }
         cbor_put_tstr(&mut out, "next_epoch");
         cbor_put_uint(&mut out, self.next_epoch);
-        cbor_put_tstr(&mut out, "policy_root");
-        cbor_put_bstr(
-            &mut out,
-            &hash_digest_bytes("policy_root", &self.policy_root)?,
-        );
         cbor_put_tstr(&mut out, "mls_group_id");
         cbor_put_bstr(&mut out, &base64url_decode(self.mls_group_id.as_str()).map_err(|err| {
             Error::Protocol(format!(
@@ -402,13 +309,6 @@ impl MlsGovernanceBindingPayload {
         cbor_put_tstr(&mut out, &self.binding_profile);
         cbor_put_tstr(&mut out, "binding_version");
         cbor_put_uint(&mut out, u64::from(self.binding_version));
-        if let Some(capability_root) = &self.capability_root {
-            cbor_put_tstr(&mut out, "capability_root");
-            cbor_put_bstr(
-                &mut out,
-                &hash_digest_bytes("capability_root", capability_root)?,
-            );
-        }
         cbor_put_tstr(&mut out, "effective_scope");
         encode_effective_scope(&mut out, &self.effective_scope)?;
         cbor_put_tstr(&mut out, "reducer_profile");
@@ -419,26 +319,13 @@ impl MlsGovernanceBindingPayload {
         }
         cbor_put_tstr(&mut out, "encoding_profile");
         cbor_put_tstr(&mut out, &self.encoding_profile);
-        // `ak:` refs are text identifiers, so they are tstr like realm_id and
-        // sidecar_id. bstr in this map means a binary value and nothing else:
-        // the decoded digest bytes and the decoded base64url group id.
-        cbor_put_tstr(&mut out, "covered_seal_refs");
-        cbor_put_array_len(&mut out, self.covered_seal_refs.len() as u64);
-        for seal_ref in &self.covered_seal_refs {
-            cbor_put_tstr(&mut out, seal_ref.as_str());
-        }
-        cbor_put_tstr(&mut out, "membership_frontier");
-        cbor_put_array_len(&mut out, self.membership_frontier.len() as u64);
-        for event_id in &self.membership_frontier {
-            cbor_put_tstr(&mut out, event_id.as_str());
-        }
-        if let Some(digest) = &self.discussion_metadata_digest {
-            cbor_put_tstr(&mut out, "discussion_metadata_digest");
-            cbor_put_bstr(
-                &mut out,
-                &hash_digest_bytes("discussion_metadata_digest", digest)?,
-            );
-        }
+        // Digest values and the decoded base64url group id are CBOR bstr;
+        // protocol identifiers such as Realm and Sidecar ids remain tstr.
+        cbor_put_tstr(&mut out, "security_frontier_digest");
+        cbor_put_bstr(
+            &mut out,
+            &hash_digest_bytes("security_frontier_digest", &self.security_frontier_digest)?,
+        );
         Ok(out)
     }
 
@@ -485,24 +372,8 @@ impl MlsGovernanceBindingPayload {
         self.next_epoch
     }
 
-    pub fn membership_frontier(&self) -> &[EventId] {
-        &self.membership_frontier
-    }
-
-    pub fn covered_seal_refs(&self) -> &[SealId] {
-        &self.covered_seal_refs
-    }
-
-    pub fn policy_root(&self) -> &Hash {
-        &self.policy_root
-    }
-
-    pub fn capability_root(&self) -> Option<&Hash> {
-        self.capability_root.as_ref()
-    }
-
-    pub fn discussion_metadata_digest(&self) -> Option<&Hash> {
-        self.discussion_metadata_digest.as_ref()
+    pub fn security_frontier_digest(&self) -> &Hash {
+        &self.security_frontier_digest
     }
 
     pub fn sidecar_binding(&self) -> Option<&SidecarMlsBinding> {
@@ -518,10 +389,7 @@ impl MlsGovernanceBindingPayload {
     }
 
     fn cbor_field_count(&self) -> u64 {
-        12 + self.capability_root.is_some() as u64
-            + self.circle_id.is_some() as u64
-            + self.discussion_metadata_digest.is_some() as u64
-            + self.sidecar_binding.is_some() as u64
+        10 + self.circle_id.is_some() as u64 + self.sidecar_binding.is_some() as u64
     }
 
     fn from_cbor_fields(mut fields: BTreeMap<String, CborValue>) -> Result<Self> {
@@ -530,40 +398,21 @@ impl MlsGovernanceBindingPayload {
         if binding_version > u64::from(u8::MAX) {
             return Err(cbor_error("binding_version is out of range"));
         }
-        let capability_root = take_optional_hash(&mut fields, "capability_root")?;
         let circle_id = take_optional_tstr(&mut fields, "circle_id")?
             .map(CircleId::new)
             .transpose()
             .map_err(|err| cbor_error_message(format!("circle_id is invalid: {err}")))?;
-        let covered_seal_refs = take_tstr_array(&mut fields, "covered_seal_refs")?
-            .into_iter()
-            .map(|value| {
-                SealId::new(value).map_err(|err| {
-                    cbor_error_message(format!("covered_seal_refs item is invalid: {err}"))
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-        let discussion_metadata_digest =
-            take_optional_hash(&mut fields, "discussion_metadata_digest")?;
         let effective_scope = take_effective_scope(&mut fields)?;
         let encoding_profile = take_tstr(&mut fields, "encoding_profile")?;
-        let membership_frontier = take_tstr_array(&mut fields, "membership_frontier")?
-            .into_iter()
-            .map(|value| {
-                EventId::new(value).map_err(|err| {
-                    cbor_error_message(format!("membership_frontier item is invalid: {err}"))
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
         let mls_group_id =
             MlsGroupId::new(base64url_encode(&take_bstr(&mut fields, "mls_group_id")?))
                 .map_err(|err| cbor_error_message(format!("mls_group_id is invalid: {err}")))?;
         let next_epoch = take_uint(&mut fields, "next_epoch")?;
-        let policy_root = take_hash(&mut fields, "policy_root")?;
         let previous_epoch = take_uint(&mut fields, "previous_epoch")?;
         let realm_id = RealmId::new(take_tstr(&mut fields, "realm_id")?)
             .map_err(|err| cbor_error_message(format!("realm_id is invalid: {err}")))?;
         let reducer_profile = take_tstr(&mut fields, "reducer_profile")?;
+        let security_frontier_digest = take_hash(&mut fields, "security_frontier_digest")?;
         let sidecar_binding = take_optional_sidecar_binding(&mut fields)?;
         if let Some(extra) = fields.keys().next() {
             return Err(cbor_error_message(format!(
@@ -579,11 +428,7 @@ impl MlsGovernanceBindingPayload {
             mls_group_id,
             previous_epoch,
             next_epoch,
-            membership_frontier,
-            covered_seal_refs,
-            policy_root,
-            capability_root,
-            discussion_metadata_digest,
+            security_frontier_digest,
             sidecar_binding,
             binding_profile,
             reducer_profile,
@@ -605,13 +450,7 @@ struct MlsGovernanceBindingPayloadWire {
     mls_group_id: MlsGroupId,
     previous_epoch: u64,
     next_epoch: u64,
-    membership_frontier: Vec<EventId>,
-    covered_seal_refs: Vec<SealId>,
-    policy_root: Hash,
-    #[serde(default)]
-    capability_root: Option<Hash>,
-    #[serde(default)]
-    discussion_metadata_digest: Option<Hash>,
+    security_frontier_digest: Hash,
     #[serde(default)]
     sidecar_binding: Option<SidecarMlsBinding>,
     binding_profile: String,
@@ -631,11 +470,7 @@ impl TryFrom<MlsGovernanceBindingPayloadWire> for MlsGovernanceBindingPayload {
             mls_group_id: wire.mls_group_id,
             previous_epoch: wire.previous_epoch,
             next_epoch: wire.next_epoch,
-            membership_frontier: wire.membership_frontier,
-            covered_seal_refs: wire.covered_seal_refs,
-            policy_root: wire.policy_root,
-            capability_root: wire.capability_root,
-            discussion_metadata_digest: wire.discussion_metadata_digest,
+            security_frontier_digest: wire.security_frontier_digest,
             sidecar_binding: wire.sidecar_binding,
             binding_profile: wire.binding_profile,
             reducer_profile: wire.reducer_profile,
@@ -675,10 +510,7 @@ pub struct MlsGovernanceBindingValidationContext<'a> {
     pub binding_profile: &'a str,
     pub reducer_profile: &'a str,
     pub effective_scope: Option<&'a ScopeRef>,
-    pub membership_frontier: Option<&'a [EventId]>,
-    pub policy_root: Option<&'a Hash>,
-    pub capability_root: Option<&'a Hash>,
-    pub discussion_metadata_digest: Option<&'a Hash>,
+    pub security_frontier_digest: Option<&'a Hash>,
     pub sidecar_binding: Option<&'a SidecarMlsBinding>,
     pub forbid_sidecar_binding: bool,
 }
@@ -698,10 +530,7 @@ impl<'a> MlsGovernanceBindingValidationContext<'a> {
             binding_profile,
             reducer_profile,
             effective_scope: None,
-            membership_frontier: None,
-            policy_root: None,
-            capability_root: None,
-            discussion_metadata_digest: None,
+            security_frontier_digest: None,
             sidecar_binding: None,
             forbid_sidecar_binding: false,
         }
@@ -1402,14 +1231,6 @@ fn take_hash(fields: &mut BTreeMap<String, CborValue>, key: &str) -> Result<Hash
     hash_from_digest_bytes(key, &take_bstr(fields, key)?)
 }
 
-fn take_optional_hash(fields: &mut BTreeMap<String, CborValue>, key: &str) -> Result<Option<Hash>> {
-    match fields.remove(key) {
-        Some(CborValue::Bstr(bytes)) => Ok(Some(hash_from_digest_bytes(key, &bytes)?)),
-        Some(_) => Err(cbor_error_message(format!("CBOR key `{key}` must be bstr"))),
-        None => Ok(None),
-    }
-}
-
 fn take_effective_scope(fields: &mut BTreeMap<String, CborValue>) -> Result<ScopeRef> {
     let Some(CborValue::Map(mut map)) = fields.remove("effective_scope") else {
         return Err(cbor_error("missing or invalid CBOR key `effective_scope`"));
@@ -1524,6 +1345,7 @@ fn cbor_error_message(message: String) -> Error {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::ProfileId;
     use serde_json::json;
 
     use super::*;
@@ -1540,10 +1362,6 @@ mod tests {
         Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
     }
 
-    fn seal(byte: char) -> SealId {
-        SealId::new(format!("ak:seal:sha256:{}", byte.to_string().repeat(64))).unwrap()
-    }
-
     fn group_id() -> String {
         base64url_encode(b"arkret-mls-test-group")
     }
@@ -1558,11 +1376,7 @@ mod tests {
             group_id(),
             0,
             1,
-            vec![event(2)],
-            vec![seal('a')],
             hash('2'),
-            hash('3'),
-            hash('4'),
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         )
@@ -1579,29 +1393,23 @@ mod tests {
             "mls_group_id": "ak:mls_group:test",
             "previous_epoch": 0,
             "next_epoch": 1,
+            "security_frontier_digest": hash('2'),
             "membership_frontier": [event(2)],
-            "covered_seal_refs": [seal('a')],
-            "policy_root": hash('2'),
             "binding_profile": ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-            "reducer_profile": reducer_profile(),
-            "unexpected_field": true
+            "reducer_profile": reducer_profile()
         }))
         .unwrap_err();
         assert!(err.to_string().contains("unknown field"));
     }
 
     #[test]
-    fn mls_governance_binding_full_profile_requires_all_roots() {
+    fn mls_governance_binding_has_one_frontier_commitment() {
         let binding = MlsGovernanceBindingPayload::realm(
             realm(),
             group_id(),
             0,
             1,
-            vec![event(2)],
-            vec![seal('a')],
             hash('2'),
-            hash('3'),
-            hash('4'),
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         )
@@ -1612,7 +1420,22 @@ mod tests {
             .with_binding_profile("ak.profile.mls_governance_binding.full.v1")
             .unwrap();
         assert!(binding.clone().with_binding_profile("mls.full").is_err());
-        assert!(binding.with_reducer_profile("").is_err());
+        assert!(binding.clone().with_reducer_profile("").is_err());
+
+        let value = serde_json::to_value(&binding).unwrap();
+        assert_eq!(value["security_frontier_digest"], hash('2').as_str());
+        for retired in [
+            "membership_frontier",
+            "covered_seal_refs",
+            "policy_root",
+            "capability_root",
+            "discussion_metadata_digest",
+        ] {
+            assert!(
+                value.get(retired).is_none(),
+                "retired field {retired} leaked"
+            );
+        }
 
         let error = serde_json::from_value::<MlsGovernanceBindingPayload>(json!({
             "binding_version": MLS_GOVERNANCE_BINDING_VERSION,
@@ -1622,14 +1445,11 @@ mod tests {
             "mls_group_id": group_id(),
             "previous_epoch": 0,
             "next_epoch": 1,
-            "membership_frontier": [event(2)],
-            "covered_seal_refs": [seal('a')],
-            "policy_root": hash('2'),
             "binding_profile": ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             "reducer_profile": reducer_profile(),
         }))
         .unwrap_err();
-        assert!(error.to_string().contains("requires capability_root"));
+        assert!(error.to_string().contains("security_frontier_digest"));
     }
 
     #[test]
@@ -1656,11 +1476,7 @@ mod tests {
             group_id(),
             7,
             8,
-            vec![event(2), event(3)],
-            vec![seal('a'), seal('b')],
             hash('5'),
-            hash('6'),
-            hash('7'),
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         )
@@ -1760,11 +1576,7 @@ mod tests {
             group_id(),
             7,
             8,
-            vec![event(2), event(3)],
-            vec![seal('a'), seal('b')],
             hash('5'),
-            hash('6'),
-            hash('7'),
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         )
@@ -1776,7 +1588,7 @@ mod tests {
         assert_rfc8949_key_order(&bytes);
         assert_eq!(
             canonical::sha256_digest(&bytes),
-            "sha256:9d55a4674dc165de7000dd548d8a26607bfd47c9b5bec57faac513843a06d1b1"
+            "sha256:6d8fe9cbeac00fabd573ccc06b0f3ede3b7203f4ea888bb95122bd51f30f3282"
         );
         let decoded = MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes).unwrap();
         assert_eq!(decoded.sidecar_binding(), Some(&sidecar_binding));
@@ -1845,7 +1657,7 @@ mod tests {
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         );
-        expected.policy_root = Some(binding.policy_root());
+        expected.security_frontier_digest = Some(binding.security_frontier_digest());
 
         let missing = verify_mls_governance_binding_extension(None, &expected).unwrap_err();
         assert!(
@@ -1887,7 +1699,7 @@ mod tests {
     }
 
     #[test]
-    fn mls_governance_binding_rejects_stale_policy_root() {
+    fn mls_governance_binding_rejects_stale_security_frontier_digest() {
         let binding = full_binding();
         let mut expected = MlsGovernanceBindingValidationContext::for_commit(
             binding.mls_group_id(),
@@ -1896,8 +1708,8 @@ mod tests {
             ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
             reducer_profile(),
         );
-        let stale_policy_root = hash('9');
-        expected.policy_root = Some(&stale_policy_root);
+        let stale_security_frontier_digest = hash('9');
+        expected.security_frontier_digest = Some(&stale_security_frontier_digest);
         let extension = binding.to_group_context_extension().unwrap();
         let err = verify_mls_governance_binding_extension(Some(&extension), &expected).unwrap_err();
 
@@ -1922,11 +1734,6 @@ mod tests {
         cbor_put_tstr(&mut bytes, binding.realm_id().as_str());
         cbor_put_tstr(&mut bytes, "next_epoch");
         cbor_put_uint(&mut bytes, binding.next_epoch());
-        cbor_put_tstr(&mut bytes, "policy_root");
-        cbor_put_bstr(
-            &mut bytes,
-            &hash_digest_bytes("policy_root", binding.policy_root()).unwrap(),
-        );
         cbor_put_tstr(&mut bytes, "mls_group_id");
         cbor_put_bstr(
             &mut bytes,
@@ -1940,33 +1747,18 @@ mod tests {
         // --- back to canonical order ---
         cbor_put_tstr(&mut bytes, "binding_version");
         cbor_put_uint(&mut bytes, u64::from(binding.binding_version));
-        cbor_put_tstr(&mut bytes, "capability_root");
-        cbor_put_bstr(
-            &mut bytes,
-            &hash_digest_bytes("capability_root", binding.capability_root().unwrap()).unwrap(),
-        );
         cbor_put_tstr(&mut bytes, "effective_scope");
         encode_effective_scope(&mut bytes, binding.effective_scope()).unwrap();
         cbor_put_tstr(&mut bytes, "reducer_profile");
         cbor_put_tstr(&mut bytes, binding.reducer_profile());
         cbor_put_tstr(&mut bytes, "encoding_profile");
         cbor_put_tstr(&mut bytes, &binding.encoding_profile);
-        cbor_put_tstr(&mut bytes, "covered_seal_refs");
-        cbor_put_array_len(&mut bytes, binding.covered_seal_refs().len() as u64);
-        for seal_ref in binding.covered_seal_refs() {
-            cbor_put_tstr(&mut bytes, seal_ref.as_str());
-        }
-        cbor_put_tstr(&mut bytes, "membership_frontier");
-        cbor_put_array_len(&mut bytes, binding.membership_frontier().len() as u64);
-        for event_id in binding.membership_frontier() {
-            cbor_put_tstr(&mut bytes, event_id.as_str());
-        }
-        cbor_put_tstr(&mut bytes, "discussion_metadata_digest");
+        cbor_put_tstr(&mut bytes, "security_frontier_digest");
         cbor_put_bstr(
             &mut bytes,
             &hash_digest_bytes(
-                "discussion_metadata_digest",
-                binding.discussion_metadata_digest().unwrap(),
+                "security_frontier_digest",
+                binding.security_frontier_digest(),
             )
             .unwrap(),
         );

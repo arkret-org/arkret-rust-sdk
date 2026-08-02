@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    AuthzDecision, DeviceId, Did, FreshnessState, Hash, RealmId, Result, TypedTrustDomainId,
-    canonical,
+    AuthzDecision, DeviceId, Did, FreshnessState, Hash, RealmId, ReasonCode, Result,
+    TypedTrustDomainId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -105,7 +105,7 @@ pub struct PolicyCheckOutcome {
     pub request_id: String,
     pub decision: AuthzDecision,
     pub bound_to: PolicyCheckBoundTo,
-    pub reason_code: String,
+    pub reason_code: ReasonCode,
     pub freshness_state: FreshnessState,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -149,7 +149,7 @@ pub fn policy_decision_transcript_bytes(outcome: &PolicyCheckOutcome) -> Result<
         auth_state_digest: &outcome.auth_state_digest,
         policy_frontier_digest: &outcome.policy_frontier_digest,
         membership_frontier_digest: &outcome.membership_frontier_digest,
-        reason_code: &outcome.reason_code,
+        reason_code: outcome.reason_code.as_str(),
         expires_at: arkret_canonical::format_timestamp_canonical(outcome.expires_at),
         next_retry_at: outcome
             .next_retry_at

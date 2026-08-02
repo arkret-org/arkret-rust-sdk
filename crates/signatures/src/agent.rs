@@ -552,7 +552,7 @@ mod tests {
             constraints: vec![],
         };
         let mut disclosure = AgentRequestedScopeDisclosure {
-            schema: SchemaId::AGENT_REQUESTED_SCOPE_DISCLOSURE_V1.to_owned(),
+            schema: SchemaId::AgentRequestedScopeDisclosureV1,
             request_id: RequestId::new("ak:request:01970000-0000-7000-8000-000000000021").unwrap(),
             agent_id: agent_id.clone(),
             controller_id: controller_id.clone(),

@@ -6,7 +6,7 @@
 //! `agent-signer-evidence-operations.schema.json`.
 
 use arkret_wire::{
-    Base64UrlString, Did, DidUrl, EventId, Hash, NonEmptyString, RealmId, Seal, SealId,
+    Base64UrlString, Did, DidUrl, EventId, Hash, NonEmptyString, RealmId, SchemaId, Seal, SealId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -248,6 +248,10 @@ pub struct AgentSignerEvidenceQueryOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSignerEvidenceBundle {
-    pub schema: NonEmptyString,
+    pub schema: SchemaId,
     pub evidence: Vec<AgentSignerEvidence>,
+}
+
+impl AgentSignerEvidenceBundle {
+    pub const SCHEMA: SchemaId = SchemaId::AgentSignerEvidenceBundleV1;
 }

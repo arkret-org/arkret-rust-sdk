@@ -15,8 +15,8 @@ use arkret_wire::{
     Base64UrlString, BlobRef, CbaProofBundle, ConsentId, ControlProposalReceipt, Cursor, DeviceId,
     Did, Error, Event, EventId, EventInitialSubmission, EventKind, Hash, IngressReceipt,
     MimiRoomUri, MlsGroupId, MorphId, NonEmptyString, PayloadProof, Proof, ProofContextId, RealmId,
-    RelationId, ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId,
-    StrandId, canonical,
+    ReasonCode, RelationId, ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope,
+    SpaceId, StrandId, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -163,7 +163,7 @@ pub use arkret_wire::EventsSubmitBatchRequestBody;
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitRejectedItem`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EventsSubmitRejectedItem {
     /// 0-based position in the request `events[]`. It is the only way to report
     /// an item whose `id` failed to parse, so it is present whenever the item
@@ -171,7 +171,7 @@ pub struct EventsSubmitRejectedItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub index: Option<u32>,
     pub id: String,
-    pub reason_code: String,
+    pub reason_code: ReasonCode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
     /// Exact CBA shortfall, so the sender extends one bundle instead of
@@ -190,7 +190,7 @@ impl EventsSubmitRejectedItem {
         let has_missing = !self.missing_event_ids.is_empty()
             || !self.missing_event_digests.is_empty()
             || !self.missing_seal_refs.is_empty();
-        if (self.reason_code == "dependency_missing") != has_missing {
+        if (self.reason_code == ReasonCode::DependencyMissing) != has_missing {
             return Err(Error::Protocol(
                 "dependency_missing requires typed missing details and other reasons forbid them"
                     .to_owned(),
@@ -208,7 +208,7 @@ impl EventsSubmitRejectedItem {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EventsDependencyMissingProblem {
-    pub reason_code: String,
+    pub reason_code: EventsDependencyMissingReasonCode,
     #[serde(default)]
     pub missing_event_ids: Vec<EventId>,
     #[serde(default)]
@@ -219,10 +219,9 @@ pub struct EventsDependencyMissingProblem {
 
 impl EventsDependencyMissingProblem {
     pub fn validate(&self) -> Result<()> {
-        if self.reason_code != "dependency_missing"
-            || (self.missing_event_ids.is_empty()
-                && self.missing_event_digests.is_empty()
-                && self.missing_seal_refs.is_empty())
+        if self.missing_event_ids.is_empty()
+            && self.missing_event_digests.is_empty()
+            && self.missing_seal_refs.is_empty()
         {
             return Err(Error::Protocol(
                 "EventsDependencyMissingProblem requires dependency_missing and a non-empty typed missing set"
@@ -235,6 +234,13 @@ impl EventsDependencyMissingProblem {
             &self.missing_seal_refs,
         )
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum EventsDependencyMissingReasonCode {
+    #[serde(rename = "dependency_missing")]
+    DependencyMissing,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -929,7 +935,7 @@ pub struct MimiRequestConsentRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiRequestConsentOutcome {
     pub consent_id: ConsentId,
-    pub status: String,
+    pub status: NonEmptyString,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub challenge: Option<String>,
 }
@@ -952,7 +958,7 @@ pub struct MimiUpdateConsentRequestBody {
     pub actor_id: Did,
     pub signature: PayloadProof,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+    pub reason: Option<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
@@ -1020,7 +1026,7 @@ impl MimiUpdateConsentRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiUpdateConsentOutcome {
-    pub status: String,
+    pub status: NonEmptyString,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub updated_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1073,7 +1079,7 @@ pub struct MimiReportAbuseRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiReportAbuseOutcome {
     pub report_id: ReportId,
-    pub status: String,
+    pub status: NonEmptyString,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub routed_to: Vec<Did>,
 }
@@ -1139,7 +1145,7 @@ mod mimi_consent_tests {
                 proof_purpose: None,
                 jws: "e30..c2ln".to_owned(),
             },
-            reason: Some("accepted after review".to_owned()),
+            reason: Some(NonEmptyString::new("accepted after review").unwrap()),
             expires_at: None,
         };
         request.signature.payload_digest = request.payload_digest().unwrap();
@@ -1931,15 +1937,18 @@ mod federation_dependency_tests {
     #[test]
     fn dependency_missing_details_are_closed_and_non_empty() {
         let mut rejected = EventsSubmitRejectedItem {
+            index: None,
             id: event_id("1").to_string(),
-            reason_code: "dependency_missing".to_owned(),
+            reason_code: ReasonCode::DependencyMissing,
+            detail: None,
             missing_event_ids: vec![event_id("2")],
-            ..Default::default()
+            missing_seal_refs: Vec::new(),
+            missing_event_digests: Vec::new(),
         };
         assert!(rejected.validate_dependency_details().is_ok());
         rejected.missing_event_ids.clear();
         assert!(rejected.validate_dependency_details().is_err());
-        rejected.reason_code = "signature_invalid".to_owned();
+        rejected.reason_code = ReasonCode::UnknownField;
         rejected.missing_event_ids.push(event_id("2"));
         assert!(rejected.validate_dependency_details().is_err());
     }

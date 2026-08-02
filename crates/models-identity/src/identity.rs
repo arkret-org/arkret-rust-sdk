@@ -89,9 +89,18 @@ impl DidOperationSubmitRequestBody {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DidOperationSubmitStatus {
+    Accepted,
+    Duplicate,
+    Pending,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DidOperationSubmitOutcome {
-    pub status: String,
+    pub status: DidOperationSubmitStatus,
     pub did: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq: Option<u64>,

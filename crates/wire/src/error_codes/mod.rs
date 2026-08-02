@@ -26,4 +26,18 @@ mod tests {
         assert_eq!(unknown.as_str(), "vendor_custom_reason");
         assert!(unknown.descriptor().is_none());
     }
+
+    #[test]
+    fn unknown_reason_code_rejects_invalid_wire_syntax() {
+        for invalid in ["", "Uppercase", "contains-hyphen", " leading_space"] {
+            let wire = serde_json::to_string(invalid).expect("serialize fixture");
+            assert!(
+                serde_json::from_str::<ReasonCode>(&wire).is_err(),
+                "{invalid:?}"
+            );
+        }
+        let overlong = format!("a{}", "b".repeat(64));
+        let wire = serde_json::to_string(&overlong).expect("serialize fixture");
+        assert!(serde_json::from_str::<ReasonCode>(&wire).is_err());
+    }
 }

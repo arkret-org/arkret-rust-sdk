@@ -868,7 +868,7 @@ pub struct KeyPackagesRevokeRequestBody {
     pub device_id: DeviceId,
     pub signature: KeyOperationSignature,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+    pub reason: Option<NonEmptyString>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -879,7 +879,7 @@ pub struct KeyPackagesRevokeUnsignedRequest {
     pub key_package_refs: Vec<String>,
     pub device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+    pub reason: Option<NonEmptyString>,
 }
 
 impl KeyPackagesRevokeRequestBody {

@@ -1,7 +1,8 @@
 use std::collections::HashSet;
 
 use arkret_wire::{
-    DeviceId, Did, EventId, MessageId, NonEmptyString, ProfileId, RealmId, SchemaId, StrandId,
+    DeviceId, Did, EventId, MessageId, NonEmptyString, ProfileId, RealmId, ReasonCode, SchemaId,
+    StrandId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -366,7 +367,7 @@ pub struct PushNotifyRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_kind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason_code: Option<String>,
+    pub reason_code: Option<ReasonCode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audit_envelope: Option<PushAuditEnvelopeMetadata>,
 }

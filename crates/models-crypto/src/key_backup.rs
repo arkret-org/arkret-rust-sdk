@@ -11,7 +11,7 @@ use arkret_wire::{
     BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupSeriesId, Base64UrlString,
     CbaProofBundle, ControlProposalReceipt, Cursor, DeviceId, Did, DidUrl, Error, Event, EventId,
     EventInitialSubmission, EventKind, HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash,
-    LeaseBasisRef, NonEmptyString, PayloadProof, PolicyId, RealmId, ReceiptId,
+    LeaseBasisRef, NonEmptyString, PayloadProof, PolicyId, RealmId, ReasonCode, ReceiptId,
     RecoveryAuthorityTicketId, RecoverySessionId, Result, SchemaId, ServiceOperationId,
     TransactionId, TypedTrustDomainId, XExtensionMap,
 };
@@ -248,7 +248,7 @@ pub struct KeysBackupsDeleteRequestBody {
     pub challenge_id: Base64UrlString,
     pub proof: KeyBackupDeleteProof,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+    pub reason: Option<NonEmptyString>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -301,14 +301,14 @@ pub struct BackupSeriesEraseResult {
     pub erased_backups: Vec<BackupObjectRef>,
     pub remaining_backups: Vec<BackupObjectRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason_code: Option<String>,
+    pub reason_code: Option<ReasonCode>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BackupSeriesEraseConfirmation {
-    pub schema: String,
+    pub schema: SchemaId,
     pub transaction_id: TransactionId,
     pub transaction_request_digest: Hash,
     pub prepared_plan_digest: Hash,
@@ -422,7 +422,7 @@ impl BackupSeriesEraseRequestBody {
 
 impl BackupSeriesEraseConfirmation {
     pub fn validate_structural(&self) -> Result<()> {
-        if self.schema != SchemaId::BACKUP_SERIES_ERASE_CONFIRMATION_V1 {
+        if self.schema != SchemaId::BackupSeriesEraseConfirmationV1 {
             return Err(Error::Protocol(
                 "backup-series erase confirmation schema is invalid".to_owned(),
             ));
