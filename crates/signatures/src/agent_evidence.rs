@@ -395,10 +395,12 @@ pub fn verify_agent_signing_key_binding(
     let key: [u8; 32] = raw
         .try_into()
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    let public_key_digest =
+    let binding_public_key_digest =
         agent_signing_public_key_digest(&binding.verification_method, &binding.public_key)?;
-    if public_key_digest != binding.public_key_digest
-        || &public_key_digest != expected_public_key_digest
+    let runtime_public_key_digest =
+        agent_signing_public_key_runtime_digest(&binding.verification_method, &binding.public_key)?;
+    if binding_public_key_digest != binding.public_key_digest
+        || &runtime_public_key_digest != expected_public_key_digest
         || agent_signing_key_binding_digest(binding)? != *expected_binding_digest
     {
         return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
@@ -467,6 +469,7 @@ pub fn validate_agent_signer_evidence(
         || !value_contains_authorization_record(
             &witness.cell_value,
             binding,
+            context.authorize_public_key_digest,
             context.authorize_signing_key_binding_digest,
         )
         || witness.leaf_count == 0
@@ -780,6 +783,7 @@ fn value_contains_event_dot(value: &Value, event_id: &str) -> bool {
 fn value_contains_authorization_record(
     value: &Value,
     binding: &AgentSigningKeyBinding,
+    authorize_public_key_digest: &Hash,
     binding_digest: &Hash,
 ) -> bool {
     match value {
@@ -795,17 +799,32 @@ fn value_contains_authorization_record(
                         .get("value")
                         .and_then(Value::as_object)
                         .is_some_and(|record| {
-                            authorization_record_fields_match(record, binding, binding_digest)
+                            authorization_record_fields_match(
+                                record,
+                                binding,
+                                authorize_public_key_digest,
+                                binding_digest,
+                            )
                         })
                 });
             exact_record
                 || values.values().any(|nested| {
-                    value_contains_authorization_record(nested, binding, binding_digest)
+                    value_contains_authorization_record(
+                        nested,
+                        binding,
+                        authorize_public_key_digest,
+                        binding_digest,
+                    )
                 })
         }
-        Value::Array(values) => values
-            .iter()
-            .any(|nested| value_contains_authorization_record(nested, binding, binding_digest)),
+        Value::Array(values) => values.iter().any(|nested| {
+            value_contains_authorization_record(
+                nested,
+                binding,
+                authorize_public_key_digest,
+                binding_digest,
+            )
+        }),
         Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => false,
     }
 }
@@ -813,6 +832,7 @@ fn value_contains_authorization_record(
 fn authorization_record_fields_match(
     record: &serde_json::Map<String, Value>,
     binding: &AgentSigningKeyBinding,
+    authorize_public_key_digest: &Hash,
     binding_digest: &Hash,
 ) -> bool {
     record.get("agent_id").and_then(Value::as_str) == Some(binding.agent_id.as_str())
@@ -820,7 +840,7 @@ fn authorization_record_fields_match(
         && record.get("verification_method").and_then(Value::as_str)
             == Some(binding.verification_method.as_str())
         && record.get("public_key_digest").and_then(Value::as_str)
-            == Some(binding.public_key_digest.as_str())
+            == Some(authorize_public_key_digest.as_str())
         && record
             .get("signing_key_binding_digest")
             .and_then(Value::as_str)
@@ -927,13 +947,18 @@ mod tests {
         let cell_ref =
             agent_authorization_cell_ref(&binding.agent_id, &binding.agent_key_id).unwrap();
         let binding_digest = agent_signing_key_binding_digest(&binding).unwrap();
+        let authorize_public_key_digest = agent_signing_public_key_runtime_digest(
+            &binding.verification_method,
+            &binding.public_key,
+        )
+        .unwrap();
         let cell_value = serde_json::json!([{
             "tag": format!("{}:1", binding.agent_key_authorize_event_id.as_str()),
             "value": {
                 "agent_id": binding.agent_id,
                 "key_id": binding.agent_key_id,
                 "verification_method": binding.verification_method,
-                "public_key_digest": binding.public_key_digest,
+                "public_key_digest": authorize_public_key_digest,
                 "signing_key_binding_digest": binding_digest
             }
         }]);
@@ -1084,7 +1109,11 @@ mod tests {
                 controller_id: binding.controller_id.clone(),
                 verification_method: binding.verification_method.clone(),
                 authorization_event_id: binding.agent_key_authorize_event_id.clone(),
-                public_key_digest: binding.public_key_digest.clone(),
+                public_key_digest: agent_signing_public_key_runtime_digest(
+                    &binding.verification_method,
+                    &binding.public_key,
+                )
+                .unwrap(),
                 binding_digest: agent_signing_key_binding_digest(binding).unwrap(),
                 event_accepted_frontier: evidence.state_witness.accepted_frontier.clone(),
                 event_accepted_at: Utc.with_ymd_and_hms(2026, 7, 25, 0, 1, 0).unwrap(),
@@ -1148,7 +1177,11 @@ mod tests {
             &binding.controller_id,
             &binding.verification_method,
             &binding.agent_key_authorize_event_id,
-            &binding.public_key_digest,
+            &agent_signing_public_key_runtime_digest(
+                &binding.verification_method,
+                &binding.public_key,
+            )
+            .unwrap(),
             &agent_signing_key_binding_digest(&binding).unwrap(),
             &PublicKeyMaterial::Ed25519Raw {
                 bytes: controller_key.to_vec(),

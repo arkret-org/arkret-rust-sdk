@@ -1096,9 +1096,12 @@ impl ArkretMlsGroup {
             .group
             .members()
             .filter_map(|member| {
+                let principal_id = decode_leaf_credential(member.credential.serialized_content())
+                    .ok()
+                    .map(|(principal_id, _)| principal_id)?;
                 if canonical_targets
                     .iter()
-                    .any(|target| member.credential.serialized_content() == target.as_bytes())
+                    .any(|target| principal_id.as_str() == *target)
                 {
                     Some(member.index)
                 } else {
@@ -1111,7 +1114,12 @@ impl ArkretMlsGroup {
             if !self
                 .group
                 .members()
-                .any(|member| member.credential.serialized_content() == target.as_bytes())
+                .filter_map(|member| {
+                    decode_leaf_credential(member.credential.serialized_content())
+                        .ok()
+                        .map(|(principal_id, _)| principal_id)
+                })
+                .any(|principal_id| principal_id.as_str() == target)
             {
                 return Err(Error::Protocol(format!(
                     "principal {target} has no leaf in group {}",
@@ -1144,23 +1152,19 @@ impl ArkretMlsGroup {
         leaves: &[LeafNodeIndex],
         governance_binding: Option<&MlsGovernanceBindingPayload>,
     ) -> Result<MlsRemoveMemberResult> {
-        // Capture credential identity bytes before commit so we can report
+        // Capture the decoded principal before commit so we can report
         // which principal each removed leaf belonged to even after the leaf
         // is gone from the post-commit group state.
-        let pre_commit: Vec<(LeafNodeIndex, Vec<u8>)> = self
+        let pre_commit: Vec<(LeafNodeIndex, Did)> = self
             .group
             .members()
-            .filter_map(|member| {
-                if leaves.contains(&member.index) {
-                    Some((
-                        member.index,
-                        member.credential.serialized_content().to_vec(),
-                    ))
-                } else {
-                    None
-                }
+            .filter(|member| leaves.contains(&member.index))
+            .map(|member| {
+                let (principal_id, _) =
+                    decode_leaf_credential(member.credential.serialized_content())?;
+                Ok((member.index, principal_id))
             })
-            .collect();
+            .collect::<Result<Vec<_>>>()?;
 
         if pre_commit.len() != leaves.len() {
             return Err(Error::Protocol(format!(
@@ -1222,20 +1226,8 @@ impl ArkretMlsGroup {
 
         let mut removed_leaves: Vec<u32> = Vec::with_capacity(pre_commit.len());
         let mut removed_principals: Vec<Did> = Vec::with_capacity(pre_commit.len());
-        for (idx, identity_bytes) in pre_commit {
+        for (idx, principal) in pre_commit {
             removed_leaves.push(idx.u32());
-            // Reconstruct the principal Did from identity bytes. If the
-            // bytes are not valid UTF-8 / not a parseable Did we fall back
-            // to a placeholder so the audit trail still records the leaf
-            // index; this should never happen in practice because all
-            // ArkretMlsIdentity leaves carry UTF-8 DID strings.
-            let principal = std::str::from_utf8(&identity_bytes)
-                .ok()
-                .and_then(|s| Did::new(s.to_owned()).ok())
-                .unwrap_or_else(|| {
-                    Did::new(format!("did:arkret:unknown-leaf-{}", idx.u32()))
-                        .expect("placeholder DID is well-formed")
-                });
             removed_principals.push(principal);
         }
 
