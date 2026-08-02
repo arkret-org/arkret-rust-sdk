@@ -290,6 +290,8 @@ pub struct RealmPolicyBundlePayload {
     pub audit_policy: Option<RealmAuditPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preauth: Option<RealmPreauthPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed_third_party_invite_verification_service_ids: Option<Vec<Did>>,
 }
 
 impl RealmPolicyBundlePayload {
@@ -317,6 +319,7 @@ impl RealmPolicyBundlePayload {
             availability_policy: None,
             audit_policy: None,
             preauth: None,
+            allowed_third_party_invite_verification_service_ids: None,
         }
     }
 
@@ -382,6 +385,20 @@ impl RealmPolicyBundlePayload {
                  policy_revision (schema_violation)"
                     .to_owned(),
             ));
+        }
+        if let Some(service_ids) = &self.allowed_third_party_invite_verification_service_ids {
+            if service_ids.len() > 256 {
+                return Err(Error::Protocol(
+                    "realm policy third-party invite verification allowset exceeds 256 services"
+                        .to_owned(),
+                ));
+            }
+            if service_ids.iter().collect::<BTreeSet<_>>().len() != service_ids.len() {
+                return Err(Error::Protocol(
+                    "realm policy third-party invite verification allowset must be unique"
+                        .to_owned(),
+                ));
+            }
         }
         Ok(())
     }

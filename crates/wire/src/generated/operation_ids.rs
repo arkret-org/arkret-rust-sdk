@@ -68,6 +68,7 @@ pub enum ServiceOperationId {
     OpenMimiQueryGroupInfo,
     OpenMimiQueryIdentifiers,
     OpenMimiQueryProviderDirectory,
+    PeerAccountStatusCommandSubmit,
     PeerContactsCommandSubmit,
     PeerEventsCommandSubmit,
     PeerEventsQueryDescribe,
@@ -289,6 +290,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_MIMI_QUERY_GROUP_INFO,
     ServiceOperationId::OPEN_MIMI_QUERY_IDENTIFIERS,
     ServiceOperationId::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY,
+    ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT,
     ServiceOperationId::PEER_EVENTS_QUERY_DESCRIBE,
@@ -550,6 +552,7 @@ impl ServiceOperationId {
         Self::OpenMimiQueryGroupInfo,
         Self::OpenMimiQueryIdentifiers,
         Self::OpenMimiQueryProviderDirectory,
+        Self::PeerAccountStatusCommandSubmit,
         Self::PeerContactsCommandSubmit,
         Self::PeerEventsCommandSubmit,
         Self::PeerEventsQueryDescribe,
@@ -814,6 +817,8 @@ impl ServiceOperationId {
     pub const OPEN_MIMI_QUERY_IDENTIFIERS: &'static str = "ak.open.mimi.query.identifiers";
     pub const OPEN_MIMI_QUERY_PROVIDER_DIRECTORY: &'static str =
         "ak.open.mimi.query.provider_directory";
+    pub const PEER_ACCOUNT_STATUS_COMMAND_SUBMIT: &'static str =
+        "ak.peer.account_status.command.submit";
     pub const PEER_CONTACTS_COMMAND_SUBMIT: &'static str = "ak.peer.contacts.command.submit";
     pub const PEER_EVENTS_COMMAND_SUBMIT: &'static str = "ak.peer.events.command.submit";
     pub const PEER_EVENTS_QUERY_DESCRIBE: &'static str = "ak.peer.events.query.describe";
@@ -1146,6 +1151,7 @@ impl ServiceOperationId {
             Self::OpenMimiQueryGroupInfo => Self::OPEN_MIMI_QUERY_GROUP_INFO,
             Self::OpenMimiQueryIdentifiers => Self::OPEN_MIMI_QUERY_IDENTIFIERS,
             Self::OpenMimiQueryProviderDirectory => Self::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY,
+            Self::PeerAccountStatusCommandSubmit => Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT,
             Self::PeerContactsCommandSubmit => Self::PEER_CONTACTS_COMMAND_SUBMIT,
             Self::PeerEventsCommandSubmit => Self::PEER_EVENTS_COMMAND_SUBMIT,
             Self::PeerEventsQueryDescribe => Self::PEER_EVENTS_QUERY_DESCRIBE,
@@ -1491,6 +1497,7 @@ impl ServiceOperationId {
             Self::OPEN_MIMI_QUERY_GROUP_INFO => Some(Self::OpenMimiQueryGroupInfo),
             Self::OPEN_MIMI_QUERY_IDENTIFIERS => Some(Self::OpenMimiQueryIdentifiers),
             Self::OPEN_MIMI_QUERY_PROVIDER_DIRECTORY => Some(Self::OpenMimiQueryProviderDirectory),
+            Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT => Some(Self::PeerAccountStatusCommandSubmit),
             Self::PEER_CONTACTS_COMMAND_SUBMIT => Some(Self::PeerContactsCommandSubmit),
             Self::PEER_EVENTS_COMMAND_SUBMIT => Some(Self::PeerEventsCommandSubmit),
             Self::PEER_EVENTS_QUERY_DESCRIBE => Some(Self::PeerEventsQueryDescribe),
@@ -3110,6 +3117,30 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         response_schema_ref: Some("schemas/mimi-interop.schema.json"),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerAccountStatusCommandSubmit,
+        http_method: "POST",
+        http_path: "/_arkret/peer/account-status",
+        grpc: Some("PeerAccountStatus/Submit"),
+        mq: Some("peer.account_status.command.submit"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/account-operations.schema.json#/$defs/account_status_publication_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/account-operations.schema.json#/$defs/account_status_publication_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.account.status"])),
+            rationale: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerContactsCommandSubmit,

@@ -5,7 +5,7 @@
 //! operations-error-mapping.json; version=2026-08-02.2;
 //! sha256=154bead3737cdeef07616f2dd1d64fc2f21b52449ea29f5aebbc5d7dc3a9d9be Input: registry/
 //! error-code-registry.json; version=2026-08-02.2;
-//! sha256=e85804d165e448966844254b487c2130b8a0053251b7a2ff241f3f4f5f4f955b Entries: operations=218
+//! sha256=e85804d165e448966844254b487c2130b8a0053251b7a2ff241f3f4f5f4f955b Entries: operations=219
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -383,6 +383,16 @@ pub const OPERATION_ERROR_MAPPINGS: &[OperationErrorMappingDescriptor] = &[
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::OpenMimiQueryProviderDirectory,
         operation_specific: &[],
+    },
+    OperationErrorMappingDescriptor {
+        operation: ServiceOperationId::PeerAccountStatusCommandSubmit,
+        operation_specific: &[
+            OperationSpecificError::ErrorCode(ErrorCode::DuplicateConflict),
+            OperationSpecificError::ErrorCode(ErrorCode::FailedPrecondition),
+            OperationSpecificError::ReasonCode(ReasonCode::AccountStatusTransitionInvalid),
+            OperationSpecificError::ReasonCode(ReasonCode::ErasurePendingIsTerminal),
+            OperationSpecificError::ErrorCode(ErrorCode::StalePeer),
+        ],
     },
     OperationErrorMappingDescriptor {
         operation: ServiceOperationId::PeerContactsCommandSubmit,
