@@ -26,7 +26,6 @@ fn commit_envelope() -> MlsCommitEnvelope {
         commit: "AQIDBA".to_owned(),
         commit_digest: hash('c'),
         ratchet_tree: None,
-        app_state_ref: None,
     }
 }
 

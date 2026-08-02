@@ -701,64 +701,6 @@ where
     Ok(())
 }
 
-/// `encryption-and-audit.md` §2.5.1 — the `policy_root` leaf filter.
-///
-/// Exposed because §2.5.2's `M` reconstruction enumerates the *same* leaf set
-/// ([`crate::mls_move::required_governance_seals_at`]). Two copies of this
-/// predicate would let the root a commit attests and the coverage a DataEvent
-/// is gated on drift apart silently.
-#[must_use]
-pub fn is_mls_policy_root_component(component: &str) -> bool {
-    (component.starts_with("ak.component.realm.")
-        && (component.contains("policy")
-            || matches!(
-                component,
-                arkret_wire::CellFamilyId::REALM_JOIN_RULE_V1
-                    | arkret_wire::CellFamilyId::REALM_HISTORY_VISIBILITY_V1
-                    | arkret_wire::CellFamilyId::REALM_MEDIA_SERVICE_V1
-                    | arkret_wire::CellFamilyId::REALM_POLICY_BUNDLE_V1
-                    | arkret_wire::CellFamilyId::REALM_PLAINTEXT_VISIBLE_SERVICES_V1
-            )))
-        || (component.starts_with("ak.component.circle.")
-            && ["policy", "history", "encryption", "lifecycle"]
-                .iter()
-                .any(|marker| component.contains(marker)))
-}
-
-/// `encryption-and-audit.md` §2.5.1 — the `capability_root` leaf filter.
-/// Shared with §2.5.2's `M` reconstruction; see
-/// [`is_mls_policy_root_component`].
-#[must_use]
-pub fn is_mls_capability_root_component(component: &str) -> bool {
-    component.starts_with("ak.component.capability.")
-}
-
-pub fn derive_mls_policy_root(control_state: &BTreeMap<CellRef, CellState>) -> Result<Hash> {
-    filtered_control_state_root(control_state, |cell| {
-        is_mls_policy_root_component(cell.component())
-    })
-}
-
-pub fn derive_mls_capability_root(control_state: &BTreeMap<CellRef, CellState>) -> Result<Hash> {
-    filtered_control_state_root(control_state, |cell| {
-        is_mls_capability_root_component(cell.component())
-    })
-}
-
-fn filtered_control_state_root(
-    control_state: &BTreeMap<CellRef, CellState>,
-    include: impl Fn(&CellId) -> bool,
-) -> Result<Hash> {
-    let mut filtered = BTreeMap::new();
-    for (cell_ref, state) in control_state {
-        let cell = CellId::from_ref(cell_ref)?;
-        if include(&cell) {
-            filtered.insert(cell_ref.clone(), state.clone());
-        }
-    }
-    compute_state_root(&filtered)
-}
-
 fn ensure_canonical_order<'a>(
     field: &str,
     values: impl IntoIterator<Item = &'a str>,

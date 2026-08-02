@@ -6,12 +6,11 @@ use std::sync::OnceLock;
 use arkret_wire::base64url::{base64url_decode, base64url_encode};
 use arkret_wire::event_envelope::ScopeRef;
 use arkret_wire::{
-    CircleId, Did, Error, EventId, EventKind, Hash, MlsGroupId, NonEmptyString, RealmId, Result,
+    CircleId, Error, EventId, EventKind, Hash, MlsGroupId, NonEmptyString, RealmId, Result,
     SidecarId, canonical,
 };
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
 
 use crate::mls_envelopes::MlsCommitEnvelope;
 
@@ -752,7 +751,6 @@ impl MlsCommitPayload {
             commit: self.commit_bytes_b64.clone(),
             commit_digest: self.commit_digest.clone(),
             ratchet_tree: None,
-            app_state_ref: None,
         }
     }
 
@@ -766,105 +764,6 @@ impl MlsCommitPayload {
 
     pub fn governance_binding(&self) -> &MlsGovernanceBindingPayload {
         &self.governance_binding
-    }
-}
-
-/// SEC-03 — one service entry whose `data_classes[]` contains
-/// `media_plaintext`, covered by the
-/// governance-binding `discussion_metadata_digest`.
-///
-/// Carries the SFU / MCU service DID that media-service-binding.md §8.2 rule 2
-/// requires to be listed in `plaintext_visible_services[]`. Only the fields a
-/// member can independently recompute from the MLS transcript are bound into
-/// the digest; transport-only metadata MUST NOT leak in here.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MediaPlaintextService {
-    /// Service DID authorised to decrypt media (`data_classes=media_plaintext`).
-    pub service_id: Did,
-}
-
-/// SEC-03 — the member-visible policy cell value covered by the governance
-/// binding `discussion_metadata_digest`, per
-/// `crypto-media/media-service-binding.md` §8.2 rules 1–3 and
-/// `crypto-media/encryption-and-audit.md` §2.5 / §2.5.3.
-///
-/// `media_service_decrypts=true` is **not** an SFU-self-reported toggle: the
-/// fact MUST be derivable from the MLS transcript so any member can recompute
-/// it without trusting client UI. This struct is the canonical input to
-/// [`derive_media_decrypt_metadata_digest`]; it mirrors the policy cell value
-/// that §10.5.1 rules 1–3 already place under `policy_root` coverage.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MediaDecryptPolicyValue {
-    /// `ak.realm.policy_bundle.media_service_decrypts` (§10.5.1 rule 1).
-    pub media_service_decrypts: bool,
-    /// `plaintext_visible_services[]` whose `data_classes[]` contains
-    /// `media_plaintext`
-    /// (§10.5.1 rule 2). Order is normalised before hashing so two members
-    /// holding the same set derive an identical digest.
-    pub plaintext_visible_services: Vec<MediaPlaintextService>,
-}
-
-impl MediaDecryptPolicyValue {
-    /// Canonical (deterministic) value used for digest derivation: the
-    /// `plaintext_visible_services` are sorted by DID so set-equal inputs
-    /// hash identically regardless of source ordering.
-    fn canonical_value(&self) -> Value {
-        let mut services: Vec<String> = self
-            .plaintext_visible_services
-            .iter()
-            .map(|s| s.service_id.to_string())
-            .collect();
-        services.sort_unstable();
-        services.dedup();
-        json!({
-            "media_service_decrypts": self.media_service_decrypts,
-            "plaintext_visible_services": services,
-        })
-    }
-}
-
-/// SEC-03: deterministically derive the governance-binding
-/// `discussion_metadata_digest` from the section 10.5.1 rule 1-3 policy cell value.
-///
-/// The digest is `sha256(canonical_json(value))` using the same canonical /
-/// hash primitives as every other Arkret digest:
-/// [`canonical::canonical_json_bytes`] and [`canonical::sha256_digest`].
-/// The result is byte-identical across every member and service. The fact
-/// `media_service_decrypts=true` is bound into the member-visible metadata covered
-/// by the MLS governance binding, satisfying `media-service-binding.md` section 8.2
-/// rule 5.
-///
-/// The returned [`Hash`](struct@Hash) is wire-form (`sha256:<hex>`) and can be passed
-/// straight to [`MlsGovernanceBindingPayload::with_discussion_metadata_digest`].
-pub fn derive_media_decrypt_metadata_digest(value: &MediaDecryptPolicyValue) -> Result<Hash> {
-    let canonical_bytes = canonical::canonical_json_bytes(&value.canonical_value())?;
-    Ok(Hash::new(canonical::sha256_digest(canonical_bytes))?)
-}
-
-/// SEC-03: member-side recomputation check for the media-decrypt fact.
-///
-/// `binding_covered_digest` is the `discussion_metadata_digest` carried by the
-/// accepted governance binding for the current epoch; `recomputed` is the
-/// member's local [`derive_media_decrypt_metadata_digest`] over its own view
-/// of the section 10.5.1 rule 1-3 policy cell value. A mismatch means the member's
-/// local policy view disagrees with what the binding attests, so per
-/// §10.5.1 rule 5 the member MUST treat the binding as stale and refuse media
-/// negotiation. The mismatch returns [`Error::Protocol`] tagged with
-/// [`arkret_wire::ReasonCode::MLS_GOVERNANCE_BINDING_STALE`].
-pub fn verify_media_decrypt_metadata(
-    binding_covered_digest: &Hash,
-    recomputed: &Hash,
-) -> Result<()> {
-    if binding_covered_digest == recomputed {
-        Ok(())
-    } else {
-        Err(Error::Protocol(
-            "media_service_decrypts metadata digest does not match governance binding; \
-             refusing media negotiation (mls_governance_binding_stale)"
-                .to_owned(),
-        ))
     }
 }
 
@@ -1804,59 +1703,5 @@ mod tests {
         bytes.push(0x00);
         let err = MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes).unwrap_err();
         assert!(err.to_string().contains("nesting exceeds maximum depth"));
-    }
-
-    fn media_service(host: &str) -> MediaPlaintextService {
-        MediaPlaintextService {
-            service_id: Did::new(format!("did:webvh:z6mkfixture:{host}")).unwrap(),
-        }
-    }
-
-    fn media_value(decrypts: bool, hosts: &[&str]) -> MediaDecryptPolicyValue {
-        MediaDecryptPolicyValue {
-            media_service_decrypts: decrypts,
-            plaintext_visible_services: hosts.iter().map(|h| media_service(h)).collect(),
-        }
-    }
-
-    #[test]
-    fn media_decrypt_metadata_digest_is_deterministic() {
-        let value = media_value(true, &["sfu-a.example", "sfu-b.example"]);
-        let h1 = derive_media_decrypt_metadata_digest(&value).unwrap();
-        let h2 = derive_media_decrypt_metadata_digest(&value).unwrap();
-        assert_eq!(h1, h2);
-        // Set order MUST NOT change the digest (canonical sorting).
-        let reordered = media_value(true, &["sfu-b.example", "sfu-a.example"]);
-        assert_eq!(
-            h1,
-            derive_media_decrypt_metadata_digest(&reordered).unwrap()
-        );
-    }
-
-    #[test]
-    fn media_decrypt_metadata_digest_separates_on_toggle_and_services() {
-        let on =
-            derive_media_decrypt_metadata_digest(&media_value(true, &["sfu-a.example"])).unwrap();
-        let off =
-            derive_media_decrypt_metadata_digest(&media_value(false, &["sfu-a.example"])).unwrap();
-        assert_ne!(on, off, "media_service_decrypts toggle MUST change digest");
-        let other_service =
-            derive_media_decrypt_metadata_digest(&media_value(true, &["sfu-b.example"])).unwrap();
-        assert_ne!(on, other_service, "service set MUST change digest");
-    }
-
-    #[test]
-    fn verify_media_decrypt_metadata_accepts_match_rejects_stale() {
-        let value = media_value(true, &["sfu-a.example"]);
-        let digest = derive_media_decrypt_metadata_digest(&value).unwrap();
-        assert!(verify_media_decrypt_metadata(&digest, &digest).is_ok());
-
-        let recomputed =
-            derive_media_decrypt_metadata_digest(&media_value(false, &["sfu-a.example"])).unwrap();
-        let err = verify_media_decrypt_metadata(&digest, &recomputed).unwrap_err();
-        assert!(
-            err.to_string()
-                .contains(arkret_wire::ReasonCode::MLS_GOVERNANCE_BINDING_STALE)
-        );
     }
 }

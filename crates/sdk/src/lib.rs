@@ -220,7 +220,7 @@ pub use arkret_models_crypto::key_transparency::{
 };
 pub use arkret_models_crypto::keys::*;
 pub use arkret_models_crypto::mls_envelopes::{
-    MlsAppStateRef, MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
+    MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
 };
 pub use arkret_models_crypto::mls_payloads::*;
 pub use arkret_models_crypto::mls_records::MlsKeyPackageRecord;
@@ -407,7 +407,7 @@ pub use arkret_http_client::key_backup_client;
 // registry independently of the HTTP and MLS runtime integrations.
 pub use arkret_lattice_registry as lattice_registry;
 pub use arkret_signatures::{dpop, http_signature};
-pub use arkret_state::{consent, mls_move, resolver};
+pub use arkret_state::{consent, mls_cells, resolver};
 // The MLS (RFC 9420) behavior layer lives in the standalone `arkret-mls` crate
 // (the sole OpenMLS boundary). Keep the `arkret::mls::*` path stable by
 // re-exporting it here under the same feature gate it always carried.

@@ -377,7 +377,6 @@ impl ArkretMlsGroup {
             commit: encode(&commit_bytes),
             commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
             ratchet_tree,
-            app_state_ref: None,
         })
     }
 
@@ -882,7 +881,6 @@ impl ArkretMlsGroup {
             commit: encode(&commit_bytes),
             commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
             ratchet_tree,
-            app_state_ref: None,
         })
     }
 
@@ -1021,7 +1019,6 @@ impl ArkretMlsGroup {
                 commit: encode(&commit_bytes),
                 commit_digest,
                 ratchet_tree,
-                app_state_ref: None,
             },
             welcomes,
         })
@@ -1250,7 +1247,6 @@ impl ArkretMlsGroup {
                 commit: encode(&commit_bytes),
                 commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
                 ratchet_tree,
-                app_state_ref: None,
             },
             removed_leaves,
             removed_principals,

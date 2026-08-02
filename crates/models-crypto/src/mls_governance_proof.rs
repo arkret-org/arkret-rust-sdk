@@ -10,7 +10,6 @@
 //! root derivation are owned by `arkret-state::mls_governance_proof`.
 
 use arkret_wire::base64url::base64url_decode;
-use arkret_wire::cell::CellId;
 use arkret_wire::event_envelope::{Event, ScopeRef};
 use arkret_wire::{
     CellRef, Did, Error, Hash, NonEmptyString, ProfileId, RealmId, Result, SchemaId, Seal, SealId,
@@ -19,10 +18,6 @@ use arkret_wire::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-
-use crate::mls_payloads::{
-    MediaDecryptPolicyValue, MediaPlaintextService, derive_media_decrypt_metadata_digest,
-};
 
 pub const MLS_GOVERNANCE_PROOF_BUNDLE_VERSION: u8 = 1;
 pub const MLS_GOVERNANCE_PROOF_MANIFEST_VERSION: u8 = 1;
@@ -58,10 +53,6 @@ const MLS_GOVERNANCE_BUNDLE_DOMAIN: &[u8] = b"arkret-mls-governance-proof-bundle
 const MLS_GOVERNANCE_CHUNK_DOMAIN: &[u8] = b"arkret-mls-governance-proof-chunk-v1\n";
 // Leaves enough headroom for the repeated response header and JSON delimiters.
 const MLS_GOVERNANCE_MAX_CHUNK_ITEM_BYTES: usize = 3_500_000;
-
-const POLICY_BUNDLE_CELL: &str = arkret_wire::CellFamilyId::REALM_POLICY_BUNDLE_V1;
-const PLAINTEXT_VISIBLE_SERVICES_CELL: &str =
-    arkret_wire::CellFamilyId::REALM_PLAINTEXT_VISIBLE_SERVICES_V1;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -734,57 +725,6 @@ pub fn is_mls_membership_frontier_component(component: &str) -> bool {
             | arkret_wire::CellFamilyId::REALM_TOMBSTONE_V1
             | arkret_wire::CellFamilyId::REALM_DESTROY_V1
     )
-}
-
-pub fn derive_mls_discussion_metadata_digest(
-    control_state: &[MlsGovernanceControlStateLeaf],
-) -> Result<Hash> {
-    let mut media_service_decrypts = false;
-    let mut plaintext_visible_services = Vec::new();
-    for leaf in control_state {
-        let cell = CellId::from_ref(&leaf.cell)?;
-        match cell.component() {
-            POLICY_BUNDLE_CELL => {
-                media_service_decrypts = leaf
-                    .state
-                    .value
-                    .get("media_service_decrypts")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(false);
-            }
-            PLAINTEXT_VISIBLE_SERVICES_CELL => {
-                if let Some(services) = leaf.state.value.get("services").and_then(Value::as_array) {
-                    for service in services {
-                        let exposes_media = service
-                            .get("data_classes")
-                            .and_then(Value::as_array)
-                            .is_some_and(|classes| {
-                                classes.iter().any(|class| class == "media_plaintext")
-                            });
-                        if !exposes_media {
-                            continue;
-                        }
-                        let service_id = service
-                            .get("service_id")
-                            .and_then(Value::as_str)
-                            .ok_or_else(|| {
-                                Error::Protocol(
-                                    "media_plaintext service is missing service_id".to_owned(),
-                                )
-                            })?;
-                        plaintext_visible_services.push(MediaPlaintextService {
-                            service_id: Did::new(service_id.to_owned())?,
-                        });
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-    derive_media_decrypt_metadata_digest(&MediaDecryptPolicyValue {
-        media_service_decrypts,
-        plaintext_visible_services,
-    })
 }
 
 fn domain_hash(domain: &[u8], value: &impl Serialize) -> Result<Hash> {

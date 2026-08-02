@@ -92,7 +92,6 @@ fn mls_commit_payload_matches_registered_event_schema() {
         commit: base64url::base64url_encode(commit_bytes),
         commit_digest: Hash::new(canonical::sha256_digest(commit_bytes)).unwrap(),
         ratchet_tree: None,
-        app_state_ref: None,
     };
     let payload =
         MlsCommitPayload::new(0, event(1).to_string(), Vec::new(), &commit, binding).unwrap();

@@ -38,8 +38,8 @@ mod models {
 
 pub mod consent;
 pub mod lattice;
+pub mod mls_cells;
 pub mod mls_governance_proof;
-pub mod mls_move;
 pub mod resolver;
 pub mod snapshot;
 pub mod state;
